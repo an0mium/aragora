@@ -30,7 +30,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from types import ModuleType
 
-from .state import MissionState, Status, from_known_fields
+from .state import MissionState, Status, from_known_fields, preconditions_met
 
 # POSIX-only; the package imports fine without it (locking raises a clear error).
 fcntl: ModuleType | None
@@ -420,8 +420,7 @@ def select_for(
         # That lets swarm-only recovery reclaim crash-orphaned checkpointed units.
         if feat.status not in {Status.PENDING, Status.IN_PROGRESS} or feat.id in done:
             continue
-        unmet = [p for p in feat.preconditions if not (p.startswith("feature:") and p[8:] in done)]
-        if unmet:
+        if not preconditions_met(feat.preconditions, done):
             continue
         # Atomic claim: not-done / not-parked / not-claimed is re-checked under the
         # lock, so a concurrent done/park can't race past the selection.

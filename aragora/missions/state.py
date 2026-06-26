@@ -112,6 +112,16 @@ class Status:
     ALL = frozenset({PENDING, IN_PROGRESS, COMPLETED, BLOCKED})
 
 
+def preconditions_met(preconditions: list[str], completed: set[str]) -> bool:
+    """Return True iff every precondition is explicitly satisfied.
+
+    Phase A only supports ``feature:<id>`` dependencies. Any other precondition
+    token is intentionally fail-closed/unmet until a later validator teaches the
+    mission spine how to prove it.
+    """
+    return all(p.startswith("feature:") and p[8:] in completed for p in preconditions)
+
+
 @dataclass
 class Feature:
     """One unit of mission work — the atom the orchestrator dispatches."""
@@ -155,12 +165,7 @@ class MissionState:
         for feat in self.features:
             if feat.status != Status.PENDING:
                 continue
-            unmet = [
-                p
-                for p in feat.preconditions
-                if not (p.startswith("feature:") and p[8:] in completed)
-            ]
-            if unmet:
+            if not preconditions_met(feat.preconditions, completed):
                 continue
             return feat
         return None

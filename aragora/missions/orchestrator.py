@@ -27,17 +27,21 @@ logger = logging.getLogger(__name__)
 class Handoff:
     """What a worker returns. The orchestrator must dispose of every field.
 
-    ``success`` advances the feature; ``follow_ups`` extend the queue (handoff
-    triage); ``blocked_reason`` records why it failed. ``terminal`` distinguishes a
-    block that **cannot self-heal by retrying** (operator-gated, Tier-3, a
-    contaminated branch needing re-derive) from a transient one — a structured flag
-    instead of sniffing the reason string, so the orchestrator and swarm agree.
+    ``success`` advances the feature; ``follow_ups`` are worker-proposed queue
+    extensions; ``blocked_reason`` records why it failed. Proposed follow-ups are
+    advisory by default. A dispatch must set ``accept_follow_ups=True`` to make them
+    executable, so a buggy worker cannot silently widen mission scope. ``terminal``
+    distinguishes a block that **cannot self-heal by retrying** (operator-gated,
+    Tier-3, a contaminated branch needing re-derive) from a transient one — a
+    structured flag instead of sniffing the reason string, so the orchestrator and
+    swarm agree.
     """
 
     success: bool = True
     terminal: bool = False  # True = do not retry; park/block immediately
     blocked_reason: str | None = None
     follow_ups: list[Feature] = field(default_factory=list)
+    accept_follow_ups: bool = False
     discovered: list[str] = field(default_factory=list)  # tracked into notes/library
     session_id: str | None = None
 
@@ -184,9 +188,13 @@ class MissionOrchestrator:
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + stamp
 
         for follow in handoff.follow_ups:
-            if not any(f.id == follow.id for f in state.features):
+            proposal = f"follow-up proposed: {follow.id} — {follow.description}"
+            stamp = f"discovered: {proposal}"
+            if stamp not in feat.notes:
+                feat.notes = (feat.notes + "\n" if feat.notes else "") + stamp
+            if handoff.accept_follow_ups and not any(f.id == follow.id for f in state.features):
                 state.insert_feature(follow)
-                logger.info("handoff inserted follow-up feature %s", follow.id)
+                logger.info("handoff inserted accepted follow-up feature %s", follow.id)
 
         if handoff.success:
             state.mark_completed(feature_id)

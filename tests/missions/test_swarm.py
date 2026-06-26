@@ -304,3 +304,18 @@ def test_reconcile_folds_parks_to_blocked(tmp_path):
     assert final.get("f1").status == Status.COMPLETED
     assert final.get("f2").status == Status.BLOCKED  # parked -> BLOCKED, won't be re-dispatched
     assert final.get("f3").status == Status.COMPLETED
+
+
+def test_reconcile_folds_parked_in_progress_to_blocked(tmp_path):
+    """A parked IN_PROGRESS checkpoint must not be reclaimed by the orchestrator."""
+    sp, lp = _mission(tmp_path, 2)
+    state = MissionState.load(sp)
+    state.mark_in_progress("f1", session_id="stale-worker")
+    state.save(sp)
+    Ledger(lp).record_constraint("feature:f1", "parked: repeated blocker")
+
+    reconcile_from_ledger(sp, lp)
+
+    final = MissionState.load(sp)
+    assert final.get("f1").status == Status.BLOCKED
+    assert "parked: repeated blocker" in final.get("f1").notes

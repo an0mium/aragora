@@ -77,6 +77,19 @@ def test_owner_fence_refuses_second_writer(tmp_path):
         pass
 
 
+def test_owner_fence_fails_closed_when_fcntl_unavailable(tmp_path, monkeypatch):
+    """Without POSIX fcntl, the mission must not silently drive unfenced."""
+    import aragora.missions.state as state_mod
+    from aragora.missions.state import MissionOwnershipError, mission_owner_lock
+
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+    monkeypatch.setattr(state_mod, "fcntl", None)
+    with pytest.raises(MissionOwnershipError, match="requires POSIX fcntl"):
+        with mission_owner_lock(p):
+            pass
+
+
 def test_run_holds_owner_fence_against_concurrent_orchestrator(tmp_path):
     """run() holds the fence for its whole duration: a second orchestrator that
     tries to start mid-run is refused, not allowed to race next_pending."""
@@ -255,7 +268,7 @@ def test_run_drains_queue(tmp_path):
     assert all(f.status == Status.COMPLETED for f in MissionState.load(p).features)
 
 
-def test_handoff_followups_and_discoveries(tmp_path):
+def test_handoff_followups_are_advisory_by_default(tmp_path):
     p = tmp_path / "state.json"
     _mission(1).save(p)
 
@@ -268,8 +281,26 @@ def test_handoff_followups_and_discoveries(tmp_path):
 
     MissionOrchestrator(p).run(dispatch)
     final = MissionState.load(p)
+    assert {f.id for f in final.features} == {"f1"}
+    notes = final.get("f1").notes
+    assert "found a stale assertion" in notes
+    assert "follow-up proposed: f1-followup" in notes
+
+
+def test_accepted_handoff_followups_extend_queue(tmp_path):
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+
+    def dispatch(feat: Feature) -> Handoff:
+        return Handoff(
+            success=True,
+            accept_follow_ups=True,
+            follow_ups=[Feature(id="f1-followup", description="fix it", milestone="m1")],
+        )
+
+    MissionOrchestrator(p).run(dispatch)
+    final = MissionState.load(p)
     assert {f.id for f in final.features} == {"f1", "f1-followup"}
-    assert "found a stale assertion" in final.get("f1").notes
 
 
 def test_crash_mid_feature_resumes_no_loss(tmp_path):

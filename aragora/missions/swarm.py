@@ -229,13 +229,14 @@ def reconcile_from_ledger(state_path: str | Path, ledger_path: str | Path) -> in
     In swarm mode the ledger is the source of truth (so no locked MissionState is
     needed across workers); call this once afterward — from a single writer — to
     make ``MissionState`` consistent with what the swarm did: ledger ``done`` →
-    COMPLETED, active **parks** → BLOCKED (so a parked feature is not later
-    re-dispatched by the orchestrator path, preserving the anti-treadmill
-    guarantee), and worker-recorded **discovered notes** folded into the matching
-    feature's notes (so swarm mode never silently drops what it found). Discovered
-    work stays advisory — reconcile never *creates* a feature from ledger data, so
-    there is no path to inject gate-bypassing work. Returns the number of features
-    whose status or notes changed.
+    COMPLETED, active **parks** → BLOCKED for any not-completed feature (so a
+    parked IN_PROGRESS checkpoint is not reclaimed by the orchestrator path,
+    preserving the anti-treadmill guarantee), and worker-recorded **discovered
+    notes** folded into the matching feature's notes (so swarm mode never silently
+    drops what it found). Discovered work stays advisory — reconcile never
+    *creates* a feature from ledger data, so there is no path to inject
+    gate-bypassing work. Returns the number of features whose status or notes
+    changed.
 
     Holds the exclusive side of :func:`mission_owner_lock`, so it cannot run while
     an orchestrator or live swarm worker is driving the same mission. Workers touch
@@ -255,14 +256,16 @@ def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
         if feat.id in done and feat.status != Status.COMPLETED:
             feat.status = Status.COMPLETED
             n += 1
-        elif feat.status == Status.PENDING and ledger.is_excluded(f"feature:{feat.id}"):
-            # Only PENDING → BLOCKED: never downgrade a COMPLETED/IN_PROGRESS feature
-            # on a stale park (the COMPLETED→BLOCKED revert claude flagged).
-            feat.status = Status.BLOCKED
+        elif feat.status != Status.COMPLETED and ledger.is_excluded(f"feature:{feat.id}"):
+            # Never downgrade COMPLETED on a stale park, but do fold active parks over
+            # PENDING or IN_PROGRESS so the orchestrator cannot reclaim a parked unit.
             reason = ledger.constraint_reason(f"feature:{feat.id}")
-            if reason:  # keep the operator context for handoff/debugging
+            if feat.status != Status.BLOCKED:
+                feat.status = Status.BLOCKED
+                n += 1
+            if reason and reason not in feat.notes:  # keep operator context for handoff/debugging
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + f"BLOCKED (park): {reason}"
-            n += 1
+                n += 1
 
     # Fold discovered notes (advisory) into the matching feature. Never insert a
     # feature from ledger data — that stays the orchestrator+gate's job.

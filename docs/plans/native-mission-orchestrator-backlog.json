@@ -33,7 +33,7 @@
       "milestone": "phase-a-spine",
       "skill": "worker",
       "status": "completed",
-      "description": "Handoff schema {success, blocked_reason, follow_ups, discovered, session_id} + triage/dismiss loop (follow-ups extend queue, discoveries -> notes). DONE in orchestrator.py. PENDING: wire discoveries/receipts into nomic/dev_coordination.",
+      "description": "Handoff schema {success, blocked_reason, follow_ups, accept_follow_ups, discovered, session_id} + triage/dismiss loop (follow-ups default to advisory notes; only explicitly accepted follow-ups extend queue; discoveries -> notes). DONE in orchestrator.py. PENDING: wire discoveries/receipts into nomic/dev_coordination.",
       "fulfills": ["VAL-NMO-004"]
     },
     {
