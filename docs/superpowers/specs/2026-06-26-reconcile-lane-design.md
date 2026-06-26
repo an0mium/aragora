@@ -42,10 +42,10 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 - **Goal:** delete branches/worktrees that are provably valueless, with a recovery net.
 - **Input:** repo root, `--base origin/main`, `--ttl-hours` (default 24).
 - **Eligible (delete):** merged-into-`origin/main` (incl. squash-merge proven by `codex_worktree_autopilot._branch_effectively_merged` / `is_patch_equivalent`) or empty-diff (`harvest_salvage_branches._is_trivial_diff` → "no files changed"/"zero net LOC"). `[gone]` upstream is only a candidate signal; it is never deletion authority unless fresh merged/equivalent/zero-diff proof also exists.
-- **Guardrails (NEVER delete):** a **dirty** worktree (`_safe_worktree_dirty`), a worktree with a **live process** (`_has_active_session` via lock files + `lsof` cwd), or a **PR-backing branch** (open PR head; cross-checked against `gh pr list` and the handoff-state evidence). These are the existing autopilot guardrails — the lane only *invokes* them.
+- **Guardrails (NEVER delete):** a **dirty** worktree (`_safe_worktree_dirty`), a worktree with a **live process** (`_has_active_session` via lock files + `lsof` cwd), a **PR-backing branch** (open PR head; cross-checked against `gh pr list` and the handoff-state evidence), or a branch whose current ref no longer equals the manifest `head_sha`. These are the existing autopilot guardrails plus exact-head binding — the lane only *invokes* them.
 - **Recovery net:** deletion never relies on a branch reflog, because `git branch -D` can remove the branch reflog and later garbage collection can prune otherwise-unreferenced commits. Before deletion, the lane writes a durable manifest receipt with `{branch, head_sha, reason}` and protects the SHA with the existing archive/keep-ref mechanism (`.git/worktree-archive/` or an equivalent `refs/archive/reconcile/...` ref) until the retention window expires. Recovery is `git branch <name> <head_sha>` from the receipt while the protected SHA is retained.
-- **Output:** `pruned[]` (branch, sha, reason), `skipped[]` (branch, guardrail). **Idempotency:** already-deleted → no-op; a re-appearing dirty/live worktree is skipped, never force-removed.
-- **Calls:** dry-run never calls `codex_worktree_autopilot.py cleanup`, because that helper archives/removes worktrees even when branch deletion is disabled. Dry-run uses the read-only inventory/inspect path (`codex_worktree_value_inventory.py --base origin/main --dry-run --json` plus `safe_worktree_cleanup.py inspect` for candidate worktrees) after a fresh `git fetch origin main`. Apply mode re-runs fresh inspect evidence and then removes only the manifest-listed candidates via `safe_worktree_cleanup.py remove`; the bulk autopilot `cleanup` helper may be used only behind a conductor adapter that proves its entire live result set equals the already-inspected manifest. The eligibility base and execution base must match the remote-tracking branch; local `main` is never delete authority.
+- **Output:** `pruned[]` (branch, sha, reason), `skipped[]` (branch, guardrail or `head_moved`). **Idempotency:** already-deleted → no-op; a re-appearing dirty/live/head-moved worktree is skipped, never force-removed.
+- **Calls:** dry-run never calls `codex_worktree_autopilot.py cleanup`, because that helper archives/removes worktrees even when branch deletion is disabled. Dry-run uses the read-only inventory/inspect path (`codex_worktree_value_inventory.py --base origin/main --dry-run --json` plus `safe_worktree_cleanup.py inspect` for candidate worktrees) after a fresh `git fetch origin main`. Apply mode re-runs fresh inspect evidence, resolves each branch ref immediately before deletion, requires `current_head == manifest.head_sha`, and then removes only the manifest-listed candidates via `safe_worktree_cleanup.py remove`; the bulk autopilot `cleanup` helper may be used only behind a conductor adapter that proves its entire live result set equals the already-inspected manifest and exact heads. The eligibility base and execution base must match the remote-tracking branch; local `main` is never delete authority.
 
 ### Stage 2 — Triage (fingerprint + classify stale branches)
 
@@ -62,18 +62,18 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 
 - **Goal:** for each **tiny** or **substantive** branch, decide preserve-vs-cut by **reading the real diff** — not by a heuristic. This is the only stage that spends model tokens, and §10 shows it is cheap relative to the value it protects.
 - **Input:** the `tiny` and `substantive` subsets of the Triage worklist, batched (default batch size 16). `tiny` exists specifically to avoid an orphan class: it is too non-empty to auto-cut by heuristic, so it must either get a preserve/cut inspection receipt or escalate.
-- **Process:** adversarial fan-out reads each branch's actual diff + commit log, and votes **preserve | cut** with a one-line **reason** per branch. Quorum disagreement defaults to **preserve** (fail-safe: never auto-cut on split inspection — those go to the manual queue, §11).
+- **Process:** adversarial fan-out reads each branch's actual diff + commit log, and votes **preserve | cut | needs-human** with a one-line **reason** per branch. Only a clean preserve majority becomes a Stage-4 preserve verdict. Quorum disagreement emits `needs-human-at-<sha>` and preserves the branch in place for the manual queue (§11); it must not be converted into an automatic draft PR.
 - **Pluggable runner** (the key seam; mirrors the parent's pluggable `Dispatch`):
   - **interactive** = a `aragora/workflow/` fan-out (debate nodes over the diffs);
   - **headless** = `aragora/agents/api_agents/*` as a **heterogeneous model quorum** (e.g. `claude + grok`/`claude + deepseek` via OpenRouter — the codex-free reliable pair), so the lane runs on EC2 with no subscription-CLI 402 ceiling (parent Phase D).
   The runner is selected by config/env; both implement one `InspectRunner` protocol returning `[{branch, verdict, reason}]`.
-- **Output:** a signed **`DecisionReceipt`** (`aragora/gauntlet/receipt_models.DecisionReceipt`, signed via `gauntlet/signing.SignedReceipt`) **per batch**, recording the diffs inspected, the quorum, and every preserve/cut verdict with reason. Receipts persist via `gauntlet/receipt_store`.
+- **Output:** a signed **`DecisionReceipt`** (`aragora/gauntlet/receipt_models.DecisionReceipt`, signed via `gauntlet/signing.SignedReceipt`) **per batch**, recording the diffs inspected, the quorum, and every preserve/cut/needs-human verdict with reason. Receipts persist via `gauntlet/receipt_store`.
 - **Idempotency:** keyed on `(branch, head_sha)`; a re-run with an unchanged head reuses the prior receipt rather than re-spending the quorum (receipt-cache lookup first).
 
 ### Stage 4 — Harvest (preserve verdicts → draft PRs)
 
-- **Goal:** every `preserve` verdict becomes a **DRAFT PR** carrying the inspection rationale, deduped against existing open PRs.
-- **Input:** Stage-3 `preserve` verdicts + their receipts.
+- **Goal:** every clean Stage-3 `preserve` verdict becomes a **DRAFT PR** carrying the inspection rationale, deduped against existing open PRs.
+- **Input:** Stage-3 clean `preserve` verdicts + their receipts. `needs-human` / split-inspection receipts are excluded and stay in the manual queue.
 - **Process:** for each preserved branch, open a draft PR (rationale = the receipt's verdict reason; body links the `DecisionReceipt` id). Dedup against `gh pr list` and the handoff-state `represented_by_exact_open_pr` evidence so a re-run never opens a second PR for an already-represented branch.
 - **Why draft:** admission rule (§3a) — a preserved branch now has a **declared path to merge** (the draft PR enters the normal review-queue/quorum gate) instead of lingering as orphaned value.
 - **Calls:** the existing auto-PR archetype path in `harvest_salvage_branches.py` for self-contained changes; larger preserves get a draft PR + an operator-review note.
@@ -82,7 +82,7 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 ### Stage 5 — Cut/Park (retire only what policy allows)
 
 - **Goal:** retire everything classified for removal: Triage `empty`/`trivial`/`superseded` + Stage-3 `cut` verdicts. Autonomous deletion is limited to branches with no approval-required risk: already merged/equivalent to `origin/main`, gone upstream with no unique commits, or empty/trivial with fresh zero-diff proof. Any branch with unmerged commits is parked with a `needs-human-at-<sha>` receipt instead of `git branch -D`.
-- **Guardrails (subtract before deleting):** never cut a branch that is **preserved** (Stage 3/4), **PR-backing** (open-PR head), backed by a **dirty or live worktree/session**, has **unmerged commits requiring approval**, or touches a **protected surface** from §11. Re-checks live PR state, dirty/live worktree state, active-session locks/processes, merge/equivalence proof, and protected-path classification at cut time (heads move); protected-surface, active/dirty, and unmerged branches route to `needs-human-at-<sha>` instead of deletion.
+- **Guardrails (subtract before deleting):** never cut a branch that is **preserved** (Stage 3/4), **PR-backing** (open-PR head), backed by a **dirty or live worktree/session**, has **unmerged commits requiring approval**, has moved since its receipt/manifest `head_sha`, or touches a **protected surface** from §11. Re-checks live PR state, dirty/live worktree state, active-session locks/processes, merge/equivalence proof, exact branch head, and protected-path classification at cut time (heads move); protected-surface, active/dirty, unmerged, and head-moved branches route to `needs-human-at-<sha>` instead of deletion.
 - **Recovery net:** same as Prune — a durable protected SHA plus a **manifest receipt** listing every cut `{branch, sha, class, reason, receipt_id?}`. Recovery must use the receipt SHA; branch reflog is not treated as durable evidence after deletion.
 - **Output:** `cut_manifest` receipt for policy-allowed deletions plus `needs-human-at-<sha>` receipts for unmerged/protected/active cut candidates. **Idempotency:** already-deleted → no-op; a branch that gained a PR since Triage is skipped (guardrail re-check).
 
@@ -164,11 +164,11 @@ The reconcile lane is **a mission**, expressed in the parent's existing types (`
    ▼
 Prune ──▶ surviving branches ──▶ Triage ──▶ triage.jsonl
                                               │   ├─ empty/trivial/superseded ─────────────┐
-                                              │   └─ substantive ─▶ Inspect (quorum)        │
-                                              │                      │ preserve  │ cut       │
-                                              │                      ▼           ▼           ▼
-                                              │                   Harvest      ───────▶  Cut (manifest receipt)
-                                              │                  (draft PRs)
+                                              │   └─ tiny/substantive ─▶ Inspect (quorum)   │
+                                              │                         │ preserve │ cut     │ needs-human
+                                              │                         ▼          ▼        ▼
+                                              │                      Harvest     ───▶ Cut/Park ─▶ human queue
+                                              │                     (draft PRs)     (receipt)
                                               ▼
                                           Settle (Tier 0-2 green) ──▶ merges ; Tier 3-4 ──▶ human queue
                                               ▼
@@ -213,6 +213,8 @@ Crash safety is inherited from the spine: `MissionState.save` is atomic (`os.rep
 - **Temp-repo fixtures with synthetic sprawl.** A fixture builds a throwaway git repo and fabricates the full taxonomy: merged-into-main, `[gone]`, empty-diff, dirty worktree, live-process worktree (sentinel lock file), PR-backing branch, retry-series duplicates, `trivial`/`tiny`/`substantive` branches, and a Tier-0..4 spread of open PRs. No network: `gh` and the model quorum are injected (the primitives already take injectable list/merge fns — `apply_merges(merge_fn=…)`, `backlog_gate.run_gate(list_prs=…)`, `classify_handoffs(github_client=…, owner_probe=…)`).
 - **Dry-run vs apply parity.** For each stage, assert the dry-run **plan** exactly equals the set the `--apply` run mutates (same branches pruned/cut, same PRs merged) — the core safety property. A divergence is a bug.
 - **Guardrail tests.** Assert Prune/Cut **never** touch a dirty / live-process / active-session / PR-backing / preserved / protected-surface / unmerged-commit branch even when it otherwise classifies for removal.
+- **Exact-head deletion tests.** Advance a branch after dry-run/inspection but before apply; assert Prune/Cut skip deletion and emit `needs-human-at-<sha>` or `head_moved`, preserving both the old protected SHA and the new branch tip.
+- **Split-inspection routing.** Assert a split inspection emits `needs-human-at-<sha>` and does not feed Stage 4's draft-PR creation path.
 - **Receipt emission.** Assert every artifact that exits any apply stage has exactly one terminal receipt in one of the five terminal states, signature-valid (`SignedReceipt`), and recoverable (deleted-receipt SHA re-creates the branch). Dry-run preview receipts are explicitly non-terminal and must not consume the artifact's terminal receipt slot.
 - **WIP accounting.** Assert Stage 7 counts open draft PRs and harvested-but-unsettled preserved branches, not only non-draft PRs, before it allows generators to produce more work.
 - **Idempotency.** Run each stage twice on the same fixture; second run mutates nothing and re-emits identical receipts; the inspection quorum is **not** re-invoked (receipt-cache hit).
@@ -254,7 +256,7 @@ Two design conclusions follow directly:
 ## 11. What stays manual (never auto-mutated)
 
 - **Tier 3-4 settlement** — server / persistence / security / public-API surfaces. Routed to the operator fork as `needs-human-at-<sha>`. Identical boundary to `dispatch.BossLoopDispatch.operator_tier=3`.
-- **Agent-split ambiguous branches** — when inspection quorum is *split* (no clean preserve/cut majority), the branch is **preserved into the manual queue**, not auto-cut. §10 says these are rare.
+- **Agent-split ambiguous branches** — when inspection quorum is *split* (no clean preserve/cut majority), the branch is **preserved into the manual queue**, not auto-cut and not auto-PR'd. §10 says these are rare.
 - **Protected files / workflows / public API / control-plane surfaces** — per the Agent Operating Contract and repo-local agent rules: a branch touching `AGENTS.md`, `CLAUDE.md`, `docs/AGENT_OPERATING_CONTRACT.md`, `docs/governance/**`, `aragora/__init__.py`, `scripts/nomic_loop.py`, `.github/workflows/*`, `.env*`, `secrets/**`, or a public API surface is never auto-cut or auto-merged here; it escalates.
 - **`--apply` itself** — the lane is dry-run by default; a human (or a Phase-2 scheduled job with an explicit `--apply` and an honored pause manifest) authorizes mutation.
 
