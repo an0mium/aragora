@@ -36,11 +36,43 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, cast
 
 logger = logging.getLogger(__name__)
+
+
+def _mfa_prompt_allowed(*, isatty: bool, env: Mapping[str, str] | None = None) -> bool:
+    """Whether an interactive AWS MFA prompt is permissible in this process.
+
+    A non-interactive process (cron automation, headless conductor, a background
+    evidence pass) must NEVER block on ``getpass`` for an MFA code — it hangs
+    forever with no TTY to answer it. This is the silent failure that wedged every
+    automated Secrets Manager load: the process appears to "run" but is stuck on an
+    invisible prompt. Allowed only when attached to a TTY, or when explicitly
+    overridden via ``ARAGORA_AWS_ALLOW_MFA_PROMPT`` (escape hatch for odd setups).
+    """
+    resolved: Mapping[str, str] = os.environ if env is None else env
+    override = str(resolved.get("ARAGORA_AWS_ALLOW_MFA_PROMPT", "")).strip().lower()
+    if override in ("1", "true", "yes"):
+        return True
+    return isatty
+
+
+def _fail_fast_mfa_prompter(prompt: str = "") -> str:
+    """Replaces botocore's interactive ``getpass`` MFA prompter in non-interactive
+    processes so AWS assume-role-with-MFA *fails fast* (caught → fall back to env /
+    .env secrets) instead of blocking forever on a TTY that isn't there."""
+    raise RuntimeError(
+        "AWS assume-role needs an interactive MFA code but this process has no TTY; "
+        "skipping Secrets Manager and falling back to environment/.env secrets. "
+        "Run interactively, pre-export an AWS session, or set "
+        "ARAGORA_USE_SECRETS_MANAGER=false to silence."
+    )
+
 
 # Import botocore exceptions for proper error handling
 # These are optional - if not installed, we use Exception as fallback
@@ -388,7 +420,7 @@ class SecretManager:
                     "mode": "standard",
                 },
             )
-            client = boto3.client("secretsmanager", region_name=region, config=config)
+            client = self._build_client(boto3, region, config)
             self._aws_clients[region] = client
             return client
         except ImportError:
@@ -406,6 +438,36 @@ class SecretManager:
                 "Failed to initialize AWS client (%s): %s: %s", region, type(e).__name__, e
             )
             return None
+
+    def _build_client(self, boto3: Any, region: str, config: Any) -> Any:
+        """Build the Secrets Manager client, neutering the interactive MFA prompt in
+        non-interactive processes.
+
+        A profile that requires assume-role-with-MFA (``AWS_PROFILE=aragora-secrets``)
+        otherwise blocks on ``getpass`` with no TTY to answer — the silent hang that
+        wedged every headless Secrets Manager load. Here, a non-interactive process
+        installs :func:`_fail_fast_mfa_prompter` so resolution fails fast and the
+        caller falls back to env/.env secrets. Interactive TTYs and MFA-free
+        credential paths (instance roles, OIDC) are unaffected.
+        """
+        try:
+            interactive = sys.stdin.isatty()
+        except (ValueError, OSError, AttributeError):
+            interactive = False
+        if _mfa_prompt_allowed(isatty=interactive):
+            return boto3.client("secretsmanager", region_name=region, config=config)
+        try:
+            import botocore.session  # type: ignore[import-untyped, import-not-found]
+
+            bsession = botocore.session.get_session()
+            provider = bsession.get_component("credential_provider").get_provider("assume-role")
+            provider._prompter = _fail_fast_mfa_prompter
+            return boto3.Session(botocore_session=bsession).client(
+                "secretsmanager", region_name=region, config=config
+            )
+        except Exception:  # noqa: BLE001 - botocore internals vary by version; degrade safely
+            logger.debug("non-interactive MFA guard unavailable; using default client")
+            return boto3.client("secretsmanager", region_name=region, config=config)
 
     def _load_from_aws(self) -> dict[str, str]:
         """Load secrets from AWS Secrets Manager."""

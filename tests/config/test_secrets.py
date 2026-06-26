@@ -28,6 +28,8 @@ from aragora.config.secrets import (
     SecretPresence,
     SecretManager,
     SecretsConfig,
+    _fail_fast_mfa_prompter,
+    _mfa_prompt_allowed,
     SecretNotFoundError,
     clear_secret_cache,
     get_required_secret,
@@ -322,7 +324,12 @@ class TestSecretManagerAWS:
 
         assert manager._aws_clients == {}
 
-        with patch("boto3.client") as mock_boto:
+        # Force the interactive path so this exercises default-client config plumbing
+        # (the non-interactive MFA guard has its own dedicated tests).
+        with (
+            patch("boto3.client") as mock_boto,
+            patch("aragora.config.secrets.sys.stdin.isatty", return_value=True),
+        ):
             mock_boto.return_value = MagicMock()
             client = manager._get_aws_client(manager.config.aws_region)
             assert client is not None
@@ -829,3 +836,68 @@ class TestStrictMode:
         """Module-level usability helper does not count placeholders."""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "short"}, clear=True):
             assert is_secret_usable("OPENROUTER_API_KEY", strict=False) is False
+
+
+class TestNonInteractiveMfaGuard:
+    """The headless-hang fix: a non-interactive process must never block on an AWS
+    MFA getpass prompt — it must fail fast and fall back to env/.env secrets."""
+
+    def test_prompt_allowed_only_when_interactive(self):
+        assert _mfa_prompt_allowed(isatty=True, env={}) is True
+        assert _mfa_prompt_allowed(isatty=False, env={}) is False
+
+    def test_explicit_override_allows_prompt_even_headless(self):
+        for val in ("1", "true", "YES"):
+            assert (
+                _mfa_prompt_allowed(isatty=False, env={"ARAGORA_AWS_ALLOW_MFA_PROMPT": val}) is True
+            )
+
+    def test_fail_fast_prompter_raises_instead_of_blocking(self):
+        with pytest.raises(RuntimeError, match="no TTY"):
+            _fail_fast_mfa_prompter("Enter MFA code: ")
+
+    def test_build_client_uses_guarded_session_when_headless(self):
+        """Non-interactive => the assume-role MFA prompter is neutered via a custom
+        botocore session, never the default (hang-prone) client."""
+        manager = SecretManager(SecretsConfig())
+        fake_boto3 = MagicMock()
+        with (
+            patch("aragora.config.secrets.sys.stdin.isatty", return_value=False),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            manager._build_client(fake_boto3, "us-east-1", MagicMock())
+        fake_boto3.Session.assert_called_once()  # guarded session path
+        fake_boto3.client.assert_not_called()  # never the unguarded default
+
+    def test_build_client_uses_default_when_interactive(self):
+        manager = SecretManager(SecretsConfig())
+        fake_boto3 = MagicMock()
+        with patch("aragora.config.secrets.sys.stdin.isatty", return_value=True):
+            manager._build_client(fake_boto3, "us-east-1", MagicMock())
+        fake_boto3.client.assert_called_once()  # normal interactive path
+        fake_boto3.Session.assert_not_called()
+
+    def test_real_botocore_prompter_is_failfast_when_headless(self):
+        """End-to-end against real botocore: the assume-role provider's prompter is
+        replaced with the fail-fast one (so it can't getpass-hang)."""
+        manager = SecretManager(SecretsConfig())
+        captured: dict[str, object] = {}
+
+        class _CapturingSession:
+            def __init__(self, *, botocore_session):
+                captured["botocore_session"] = botocore_session
+
+            def client(self, **_kw):
+                return MagicMock()
+
+        fake_boto3 = MagicMock()
+        fake_boto3.Session = _CapturingSession
+        with (
+            patch("aragora.config.secrets.sys.stdin.isatty", return_value=False),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            manager._build_client(fake_boto3, "us-east-1", MagicMock())
+
+        bsession = captured["botocore_session"]
+        provider = bsession.get_component("credential_provider").get_provider("assume-role")
+        assert provider._prompter is _fail_fast_mfa_prompter
