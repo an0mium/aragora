@@ -29,7 +29,7 @@ When an agent or human is asked to "make this plan permanent / durable":
 | Near-term execution order | [`docs/status/NEXT_STEPS_CANONICAL.md`](NEXT_STEPS_CANONICAL.md) |
 | Tracked epics/milestones | [`docs/status/ACTIVE_EXECUTION_ISSUES.md`](ACTIVE_EXECUTION_ISSUES.md) |
 | Feature backlog (P0–P5) | [`docs/FEATURE_GAP_LIST.md`](../FEATURE_GAP_LIST.md) |
-| Detailed design specs | `docs/plans/` , `docs/superpowers/specs/` |
+| Detailed design specs | `docs/plans/` , `docs/superpowers/specs/` , `docs/superpowers/plans/` |
 | Executable work | GitHub issue / epic (linked from the row) |
 
 ## Where durable planning outputs already live (search these first)
@@ -43,10 +43,10 @@ When an agent or human is asked to "make this plan permanent / durable":
 
 | Item | Source | Status | Destination | Tracking |
 |---|---|---|---|---|
-| **Sakana Fugu integration** (Fugu as capable agent + resilience backstop + benchmark; never counts as model-family diversity) | this session | Planned | `docs/plans/2026-06-26-sakana-fugu-integration.md` | Epic [#8641](https://github.com/synaptent/aragora/issues/8641); F1–F5 [#8642](https://github.com/synaptent/aragora/issues/8642) [#8643](https://github.com/synaptent/aragora/issues/8643) [#8644](https://github.com/synaptent/aragora/issues/8644) [#8645](https://github.com/synaptent/aragora/issues/8645) [#8647](https://github.com/synaptent/aragora/issues/8647); PR [#8640](https://github.com/synaptent/aragora/pull/8640) |
-| **Reconcile lane** (merge-first reconcile mission on the spine: prune→triage→inspect→harvest→cut→settle→govern; one conductor; real pause/lock) | this session | Spec written | `docs/superpowers/specs/2026-06-26-reconcile-lane-design.md` | Epic [#8649](https://github.com/synaptent/aragora/issues/8649) |
-| **Native mission engine** (`aragora mission seed/status/run/resume/reconcile`; preserve-first reconcile/admission; live exact-head gate; validation injection; operator receipts) | Codex on `codex/native-mission-engine` | **Committed `0512a27e88`** (CANONICAL; based on `origin/mission/native-orchestrator-spine`, ahead 1; 103 tests pass) | `docs/plans/2026-06-26-native-mission-engine.md` (+ `2026-06-25-native-mission-orchestrator-spec.md`) | **Canonical branch.** Needs `module_tiers`/`METRICS` regen before missions-module drift checks pass; then open PR + Tier-4 settlement |
-| **Mission spine (Phase A)** survivable orchestrator (`aragora/missions/` state/ledger/orchestrator/swarm) | `mission/native-orchestrator-spine` | **SUPERSEDED** by `codex/native-mission-engine` @ `0512a27e88` | `aragora/missions/` | PR [#8628](https://github.com/synaptent/aragora/pull/8628) — close/retire; do **not** push the local regen-fix commit as a duplicate |
+| **Sakana Fugu integration** (Fugu as capable agent + resilience backstop + benchmark; never counts as model-family diversity) | this session | Planned | lands via PR [#8640](https://github.com/synaptent/aragora/pull/8640) → `docs/plans/2026-06-26-sakana-fugu-integration.md` (not yet on `main`) | Epic [#8641](https://github.com/synaptent/aragora/issues/8641); F1–F5 [#8642](https://github.com/synaptent/aragora/issues/8642) [#8643](https://github.com/synaptent/aragora/issues/8643) [#8644](https://github.com/synaptent/aragora/issues/8644) [#8645](https://github.com/synaptent/aragora/issues/8645) [#8647](https://github.com/synaptent/aragora/issues/8647) |
+| **Reconcile lane** (merge-first reconcile mission on the spine: prune→triage→inspect→harvest→cut→settle→govern; one conductor; real pause/lock) | this session | Spec written | lands via PR [#8656](https://github.com/synaptent/aragora/pull/8656) → `docs/superpowers/specs/2026-06-26-reconcile-lane-design.md` (not yet on `main`) | Epic [#8649](https://github.com/synaptent/aragora/issues/8649) |
+| **Native mission engine** (`aragora mission seed/status/run/resume/reconcile`; preserve-first reconcile/admission; live exact-head gate; validation injection; operator receipts) | `codex/native-mission-engine` | **CANONICAL**; in quorum/settlement | `docs/superpowers/plans/2026-06-26-native-mission-engine.md` (on the branch) | PR [#8655](https://github.com/synaptent/aragora/pull/8655) — head advances during settlement; check live `gh pr view 8655` for exact head rather than pinning a SHA |
+| **Mission spine (Phase A)** survivable orchestrator (`aragora/missions/` state/ledger/orchestrator/swarm) | `mission/native-orchestrator-spine` | **SUPERSEDED** by `codex/native-mission-engine` | `aragora/missions/` | PR #8628 closed; superseded by PR [#8655](https://github.com/synaptent/aragora/pull/8655) |
 | **Workspace reconciliation (2026-06-26)** branches 2,749→489, worktrees 319→1; 1,695 stale codex branches inspected, 4 preserved | this session | Done | (operational) | preserved branches: `codex/review-6887`, `codex/rbac-openapi-coverage-primary-20260615`, `codex/validate-doc-links-anchor-check-r2-20260514`, `codex/disaster-recovery-stat-portability-improver-20260609` — harvest to PRs |
 | **Head freeze** — 5 grinder daemons disabled (boss-loop, merge-arbiter, merge-shepherd, overnight-watchdog, publisher); publisher pause-manifest bug confirmed (never read) | this session | Done | (operational) | fixed by reconcile-lane "real pause/lock" (above) |
 
@@ -72,7 +72,7 @@ These are the durable, tracked roadmap epics. Keep this list current as the inta
 
 1. **Full audit** ([Epic #8650](https://github.com/synaptent/aragora/issues/8650)): sweep all durable sources (docs, GitHub issues/PRs, `.aragora/` state, nomic plan stores) and classify every item as `canonical / implemented / duplicate / superseded / active-roadmap / needs-decision / chat-only`. _(This register is the living home of that audit.)_
 2. ~~Reconcile-lane epic~~ → done: [Epic #8649](https://github.com/synaptent/aragora/issues/8649).
-3. ~~Mission canonical-branch decision~~ → **resolved**: canonical = `codex/native-mission-engine` @ `0512a27e88` (Codex committed it, based on the spine). Remaining: land the `module_tiers`/`METRICS` regen fix on that branch, open its PR, close spine PR #8628.
+3. ~~Mission canonical-branch decision~~ → **resolved**: canonical = `codex/native-mission-engine` (PR #8655); regen fix landed; spine PR #8628 closed. Remaining: clear model-quorum on its live exact head, then settle.
 4. **Harvest the 4 preserved branches** into draft PRs (see Register row).
 
 > **Single-register rule:** this file (`docs/status/ROADMAP_INTAKE_REGISTER.md`, PR #8648) is THE intake register. Any agent asked to "create an intake register" must **extend this one**, not create a parallel file — duplicating it reproduces the exact sprawl it exists to prevent.
@@ -91,7 +91,7 @@ Do not implement from this section.
 | **Model router / model independence** | Factory Router | partially exists | Aragora already has `aragora/routing/` Pareto optimizer + OpenRouter fallback; Fugu (#8641) extends it; decide how much to productize as a named "router" |
 | **Sovereign / self-hosted / air-gapped intelligence** | Factory 2.0 | needs-decision | Aligns with founder's no-standing-key / Secrets-Manager principle; EU/air-gapped deployment story |
 | **Continual learning / self-improvement instrumentation** | Factory 2.0 | partially exists | Aragora has Nomic loop + KnowledgeMound cross-cycle learning; decide what to formalize/measure |
-| **Missions + operator dashboard + persistent execution** | Factory 2.0 | in progress | Mission engine committed (`0512a27e88`); dashboard + headless persistent runtime are the remaining gaps |
+| **Missions + operator dashboard + persistent execution** | Factory 2.0 | in progress | Mission engine in PR #8655; dashboard + headless persistent runtime are the remaining gaps |
 
 ## Maintenance
 
