@@ -222,6 +222,28 @@ def test_lease_heartbeat_records_lost_ownership(tmp_path):
         assert "lost ownership" in heartbeat.lost_reason
 
 
+def test_lease_heartbeat_stops_when_unit_is_done(tmp_path):
+    """A heartbeat must not reacquire an already-completed unit."""
+    _, lp = _mission(tmp_path, 1)
+    led = Ledger(lp)
+    led.claim("u1", "w1", ttl=0.15)
+    with _LeaseHeartbeat(led, "u1", "w1", ttl=0.15) as heartbeat:
+        led.record_done("u1")
+        time.sleep(0.2)
+        assert heartbeat.lost_reason is not None
+
+
+def test_lease_heartbeat_stops_when_unit_is_parked(tmp_path):
+    """A heartbeat must not refresh a parked unit's lease."""
+    _, lp = _mission(tmp_path, 1)
+    led = Ledger(lp)
+    led.claim("u1", "w1", ttl=0.15)
+    with _LeaseHeartbeat(led, "u1", "w1", ttl=0.15) as heartbeat:
+        led.record_constraint("feature:u1", "parked")
+        time.sleep(0.2)
+        assert heartbeat.lost_reason is not None
+
+
 def test_worker_discards_success_after_losing_lease(tmp_path):
     """If a long-running dispatch loses its lease, its eventual success is stale and
     must not mark the unit done."""

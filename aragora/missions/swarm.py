@@ -65,9 +65,14 @@ class _LeaseHeartbeat:
     def _beat(self) -> None:
         while not self._stop.wait(self._interval):
             try:
-                if not self._ledger.claim(self._unit, self._worker_id, ttl=self._ttl):
+                if not self._ledger.claim_actionable(
+                    self._unit,
+                    self._worker_id,
+                    constraint_key=f"feature:{self._unit}",
+                    ttl=self._ttl,
+                ):
                     self._lost_reason = (
-                        f"lease heartbeat for {self._unit} lost ownership to another worker"
+                        f"lease heartbeat for {self._unit} lost ownership or actionability"
                     )
                     logger.warning(self._lost_reason)
                     self._stop.set()

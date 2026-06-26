@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .ledger import LedgerCorruptError
 from .state import Feature, MissionState, Status, mission_owner_lock
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,11 @@ class MissionOrchestrator:
 
         feature = state.next_pending()
         if feature is None:
+            if self._block_unrunnable_pending(
+                state,
+                "unmet or unsupported preconditions left no runnable mission work",
+            ):
+                state.save(self.state_path)
             return False
 
         # Provisionally count a *crash* BEFORE dispatch, so a raise leaves the count
@@ -211,6 +217,18 @@ class MissionOrchestrator:
         else:
             feat.status = Status.PENDING  # bounded retry
 
+    def _block_unrunnable_pending(self, state: MissionState, reason: str) -> bool:
+        changed = False
+        for feat in state.features:
+            if feat.status != Status.PENDING:
+                continue
+            details = (
+                ", ".join(feat.preconditions) if feat.preconditions else "no runnable dispatch"
+            )
+            state.mark_blocked(feat.id, f"{reason}: {details}")
+            changed = True
+        return changed
+
     # ---- run loop ------------------------------------------------------------
 
     def run(self, dispatch: Dispatch, max_ticks: int = 10_000) -> tuple[int, int]:
@@ -263,7 +281,20 @@ class MissionOrchestrator:
 
         ledger_path = self._ledger_path_for_reconcile()
         if ledger_path is not None:
-            _reconcile_locked(self.state_path, ledger_path)
+            try:
+                _reconcile_locked(self.state_path, ledger_path)
+            except LedgerCorruptError as exc:
+                self._block_all_open_work(f"ledger reconcile failed closed: {exc}")
+
+    def _block_all_open_work(self, reason: str) -> None:
+        state = MissionState.load(self.state_path)
+        changed = False
+        for feat in state.features:
+            if feat.status in {Status.PENDING, Status.IN_PROGRESS}:
+                state.mark_blocked(feat.id, reason)
+                changed = True
+        if changed:
+            state.save(self.state_path)
 
     def _ledger_path_for_reconcile(self) -> Path | None:
         if self.ledger_path is not None:

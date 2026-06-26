@@ -427,6 +427,53 @@ class TestAgentRoles:
         assert await hierarchy.get_agents_by_role(AgentRole.MAYOR) == []
 
     @pytest.mark.asyncio
+    async def test_default_hierarchy_falls_back_to_legacy_when_runtime_file_corrupt(
+        self, monkeypatch, tmp_path, reset_singletons
+    ):
+        runtime_dir = tmp_path / ".nomic"
+        runtime_hierarchy_dir = runtime_dir / "agent_hierarchy"
+        runtime_hierarchy_dir.mkdir(parents=True)
+        runtime_file = runtime_hierarchy_dir / "hierarchy.json"
+        runtime_file.write_text("{not valid json", encoding="utf-8")
+        legacy_dir = tmp_path / ".agents"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "hierarchy.json"
+        legacy_file.write_text(
+            json.dumps(
+                {
+                    "assignments": [
+                        {
+                            "agent_id": "mayor-legacy",
+                            "role": "mayor",
+                            "assigned_at": datetime.now(timezone.utc).isoformat(),
+                            "supervised_by": None,
+                            "supervises": [],
+                            "capabilities": [],
+                            "is_ephemeral": False,
+                            "expires_at": None,
+                            "metadata": {"source": "legacy"},
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(runtime_dir))
+        monkeypatch.setattr(AgentHierarchy, "_repo_root", staticmethod(lambda: tmp_path))
+
+        hierarchy = AgentHierarchy()
+        await hierarchy.initialize()
+
+        assignment = await hierarchy.get_assignment("mayor-legacy")
+        assert assignment is not None
+        assert assignment.role == AgentRole.MAYOR
+        assert (
+            json.loads(runtime_file.read_text(encoding="utf-8"))["assignments"][0]["agent_id"]
+            == "mayor-legacy"
+        )
+        assert not legacy_file.exists()
+
+    @pytest.mark.asyncio
     async def test_supervision_hierarchy(self, temp_dir, reset_singletons):
         """Test supervision relationships."""
         hierarchy = AgentHierarchy(temp_dir)

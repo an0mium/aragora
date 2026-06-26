@@ -246,24 +246,23 @@ class AgentHierarchy:
 
     async def _load_hierarchy(self) -> None:
         """Load hierarchy from file."""
-        source = self.hierarchy_file
-        using_legacy_default = False
-        if not source.exists() and self._legacy_hierarchy_file is not None:
-            legacy = self._legacy_hierarchy_file
-            if legacy.exists():
-                source = legacy
-                using_legacy_default = True
+        sources: list[tuple[Path, bool]] = []
+        if self.hierarchy_file.exists():
+            sources.append((self.hierarchy_file, False))
+        if self._legacy_hierarchy_file is not None and self._legacy_hierarchy_file.exists():
+            sources.append((self._legacy_hierarchy_file, True))
 
-        if not source.exists():
+        if not sources:
             return
 
-        try:
-            with open(source) as f:
-                data = json.load(f)
-                for assignment_data in data.get("assignments", []):
-                    assignment = RoleAssignment.from_dict(assignment_data)
-                    self._assignments[assignment.agent_id] = assignment
-            if using_legacy_default and not self.hierarchy_file.exists():
+        for source, using_legacy_default in sources:
+            try:
+                assignments = self._read_assignments(source)
+            except (OSError, json.JSONDecodeError, ValueError) as e:
+                logger.error("Failed to load hierarchy from %s: %s", source, e)
+                continue
+            self._assignments = {a.agent_id: a for a in assignments}
+            if using_legacy_default:
                 await self._save_hierarchy()
                 self._retire_legacy_hierarchy(source)
                 logger.info(
@@ -271,8 +270,13 @@ class AgentHierarchy:
                     source,
                     self.hierarchy_file,
                 )
-        except (OSError, json.JSONDecodeError, ValueError) as e:
-            logger.error("Failed to load hierarchy: %s", e)
+            return
+
+    @staticmethod
+    def _read_assignments(source: Path) -> list[RoleAssignment]:
+        with open(source) as f:
+            data = json.load(f)
+        return [RoleAssignment.from_dict(item) for item in data.get("assignments", [])]
 
     async def _save_hierarchy(self) -> None:
         """Save hierarchy to file."""
