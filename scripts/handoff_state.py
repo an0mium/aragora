@@ -1118,12 +1118,17 @@ def github_evidence_for_branch(
     if desired_head:
         for item in open_pr_items:
             compact = _compact_open_pr(item)
+            head_ref = str(compact.get("head") or "")
             head_sha = str(compact.get("head_sha") or "")
             base_ref = str(compact.get("base") or DEFAULT_PR_BASE)
-            if heads_match(desired_head, head_sha) and _base_matches(
-                desired_base,
-                base_ref,
-                actual_is_live=True,
+            if (
+                head_ref == branch
+                and heads_match(desired_head, head_sha)
+                and _base_matches(
+                    desired_base,
+                    base_ref,
+                    actual_is_live=True,
+                )
             ):
                 exact_open_pr = {**compact, "base": base_ref or None}
                 break
