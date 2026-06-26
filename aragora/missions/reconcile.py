@@ -253,24 +253,32 @@ class AdmissionPolicy:
 
 
 def _goal_targets_backlog(goal_lc: str, allowed_goal_keywords: tuple[str, ...]) -> bool:
-    direct_patterns = {
+    action_patterns = {
         "cleanup": r"\b(cleanup|clean\s+up)\b",
         "clean up": r"\b(cleanup|clean\s+up)\b",
         "reconcile": r"\breconcile\b",
         "drain": r"\bdrain\b",
         "settle": r"\bsettle(?:ment)?\b",
         "evidence": r"\bevidence\b",
+        "repair": r"\b(repair|fix)\b",
+        "merge": r"\bmerge\b",
     }
+    patterns: list[str] = []
     for keyword in allowed_goal_keywords:
-        pattern = direct_patterns.get(keyword)
-        if pattern and re.search(pattern, goal_lc):
-            return True
+        pattern = action_patterns.get(keyword)
+        if pattern:
+            patterns.append(pattern)
+    if not patterns:
+        return False
 
-    backlog_nouns = r"(?:backlog|queue|queued\s+work|pr|prs|pull\s+request|branch|ci|check)"
-    action_verbs = r"(?:repair|fix|merge)"
+    action_terms = "|".join(f"(?:{pattern})" for pattern in patterns)
+    backlog_nouns = (
+        r"(?:backlog|queue|queued\s+work|worktree|worktrees|artifact|artifacts|"
+        r"pr\s*#?\d+|pr|prs|pull\s+request|pull\s+requests|branch|branches|ci|check|checks)"
+    )
     return bool(
-        re.search(rf"\b{action_verbs}\b.*\b{backlog_nouns}\b", goal_lc)
-        or re.search(rf"\b{backlog_nouns}\b.*\b{action_verbs}\b", goal_lc)
+        re.search(rf"(?:{action_terms}).{{0,120}}\b{backlog_nouns}\b", goal_lc)
+        or re.search(rf"\b{backlog_nouns}\b.{{0,120}}(?:{action_terms})", goal_lc)
     )
 
 

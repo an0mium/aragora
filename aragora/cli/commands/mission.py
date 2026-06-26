@@ -322,7 +322,11 @@ def _load_live_inventory_artifacts(
             continue
         artifact = _artifact_from_inventory(candidate)
         if include_github:
-            artifact = _artifact_with_merge_packet_fields(artifact, candidate)
+            artifact = _artifact_with_merge_packet_fields(
+                artifact,
+                candidate,
+                repo_root=repo_root,
+            )
         artifacts.append(artifact)
     return artifacts
 
@@ -359,12 +363,16 @@ def _artifact_from_inventory(candidate: dict[str, Any]) -> WorkArtifact:
 
 
 def _artifact_with_merge_packet_fields(
-    artifact: WorkArtifact, candidate: dict[str, Any]
+    artifact: WorkArtifact,
+    candidate: dict[str, Any],
+    *,
+    repo_root: Path | None = None,
+    repo_slug: str = "synaptent/aragora",
 ) -> WorkArtifact:
     pr_number = _first_open_pr_number(candidate)
     if pr_number is None:
         return artifact
-    packet = _merge_packet_for_pr(pr_number)
+    packet = _merge_packet_for_pr(pr_number, repo_root=repo_root, repo_slug=repo_slug)
     entry = _first_packet_entry(packet, pr_number)
     if entry is None:
         return artifact
@@ -398,7 +406,12 @@ def _first_open_pr_number(candidate: dict[str, Any]) -> int | None:
     return _int_or_none(first.get("number"))
 
 
-def _merge_packet_for_pr(pr_number: int) -> dict[str, Any]:
+def _merge_packet_for_pr(
+    pr_number: int,
+    *,
+    repo_root: Path | None = None,
+    repo_slug: str = "synaptent/aragora",
+) -> dict[str, Any]:
     proc = subprocess.run(
         [
             sys.executable,
@@ -408,8 +421,11 @@ def _merge_packet_for_pr(pr_number: int) -> dict[str, Any]:
             "merge-packet",
             "--pr",
             str(pr_number),
+            "--repo",
+            repo_slug,
             "--json",
         ],
+        cwd=repo_root or Path.cwd(),
         text=True,
         capture_output=True,
         check=False,

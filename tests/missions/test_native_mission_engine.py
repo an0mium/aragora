@@ -136,6 +136,19 @@ def test_admission_policy_does_not_bypass_on_product_merge_wording() -> None:
     assert not decision.allowed
 
 
+def test_admission_policy_requires_backlog_context_for_bypass_terms() -> None:
+    policy = AdmissionPolicy(max_unresolved=0)
+    report = ReconcileMode.REPORT.run(
+        [WorkArtifact("valuable", kind="branch", clean=True, unique_commits=True)]
+    )
+
+    assert not policy.evaluate("Build a drain pump", report).allowed
+    assert not policy.evaluate("Settle the product layout", report).allowed
+    assert not policy.evaluate("Design an evidence board", report).allowed
+    assert policy.evaluate("Drain PR queue", report).allowed
+    assert policy.evaluate("Fix CI checks for queued branches", report).allowed
+
+
 def test_validation_injection_adds_gated_validator_features() -> None:
     state = MissionState(
         mission_id="m",
@@ -350,11 +363,21 @@ def test_live_gate_foreign_commits_inspects_subjects_on_mission_branches() -> No
                 "bad123\tfix(memory): unrelated cache work\n"
                 "ok456\tmission: implement native engine\n"
             )
+        if cmd[:3] == ["git", "show", "--format="] and cmd[-1] == "ok456":
+            return "aragora/missions/live_gate.py\n"
         raise AssertionError(f"unexpected command: {cmd}")
 
     gate = LiveBossLoopGate(repo_root=Path("/repo"), runner=runner)
+    branch = gate.branch_for(
+        Feature(
+            id="engine",
+            description="ship engine",
+            milestone="m",
+            metadata={"branch": "mission/engine", "paths": ["aragora/missions"]},
+        )
+    )
 
-    assert gate.foreign_commits("mission/engine", "origin/main", ("mission/", "structex/")) == [
+    assert gate.foreign_commits(branch, "origin/main", ("mission/", "structex/")) == [
         "bad123 fix(memory): unrelated cache work"
     ]
 
@@ -366,16 +389,21 @@ def test_live_gate_foreign_commits_allows_conventional_mission_subjects() -> Non
                 "ok123\tfix(mission): harden resume path\n"
                 "ok456\tfeat(structex): add dispatcher guard\n"
             )
+        if cmd[:3] == ["git", "show", "--format="]:
+            return "aragora/missions/live_gate.py\n"
         raise AssertionError(f"unexpected command: {cmd}")
 
     gate = LiveBossLoopGate(repo_root=Path("/repo"), runner=runner)
-
-    assert (
-        gate.foreign_commits(
-            "codex/native-mission-engine", "origin/main", ("mission/", "structex/")
+    branch = gate.branch_for(
+        Feature(
+            id="engine",
+            description="ship engine",
+            milestone="m",
+            metadata={"branch": "codex/native-mission-engine", "paths": ["aragora/missions"]},
         )
-        == []
     )
+
+    assert gate.foreign_commits(branch, "origin/main", ("mission/", "structex/")) == []
 
 
 def test_live_gate_requires_exact_head_packet_entry() -> None:

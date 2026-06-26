@@ -7,7 +7,11 @@ merge, and head-moved-under-us.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from aragora.missions.dispatch import BossLoopDispatch, GateVerdict
+from aragora.missions.live_gate import LiveBossLoopGate
 from aragora.missions.state import Feature
 
 
@@ -121,3 +125,67 @@ def test_head_moved_under_us_does_not_falsely_succeed():
     handoff = BossLoopDispatch(gate)(_feat())
     assert not handoff.success
     assert "did not land" in handoff.blocked_reason
+
+
+def test_live_gate_tier_prefers_merge_packet_over_feature_metadata():
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:5] == [
+            "python",
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
+            return json.dumps({"entries": [{"pr_number": 8655, "tier": 3}]})
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("."), runner=runner)
+    feature = Feature(
+        id="a5",
+        description="inspect",
+        milestone="m",
+        metadata={"pr": 8655, "tier": 1},
+    )
+
+    assert gate.tier_of(feature) == 3
+
+
+def test_live_gate_foreign_guard_rejects_subject_only_allowance():
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:2] == ["git", "log"]:
+            return "abc123\tmission: update feature\n"
+        if cmd[:3] == ["git", "show", "--format="]:
+            return "aragora/missions/state.py\n"
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("."), runner=runner)
+    branch = gate.branch_for(
+        Feature(id="a5", description="inspect", milestone="m", metadata={"branch": "mission/a5"})
+    )
+
+    foreign = gate.foreign_commits(branch, "origin/main", ("mission/",))
+
+    assert foreign == ["abc123 mission: update feature (missing mission path allowlist)"]
+
+
+def test_live_gate_foreign_guard_rejects_unexpected_paths():
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:2] == ["git", "log"]:
+            return "abc123\tmission: update feature\n"
+        if cmd[:3] == ["git", "show", "--format="]:
+            return "aragora/missions/state.py\nREADME.md\n"
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("."), runner=runner)
+    branch = gate.branch_for(
+        Feature(
+            id="a5",
+            description="inspect",
+            milestone="m",
+            metadata={"branch": "mission/a5", "paths": ["aragora/missions"]},
+        )
+    )
+
+    foreign = gate.foreign_commits(branch, "origin/main", ("mission/",))
+
+    assert foreign == ["abc123 mission: update feature (unexpected paths: README.md)"]

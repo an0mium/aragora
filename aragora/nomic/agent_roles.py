@@ -275,13 +275,18 @@ class AgentHierarchy:
                 legacy_sources.append(source)
 
         if loaded_any and migrated_legacy:
-            await self._save_hierarchy()
-            for source in legacy_sources:
-                self._retire_legacy_hierarchy(source)
-                logger.info(
-                    "Migrated legacy agent hierarchy from %s to %s",
-                    source,
-                    self.hierarchy_file,
+            if await self._save_hierarchy():
+                for source in legacy_sources:
+                    self._retire_legacy_hierarchy(source)
+                    logger.info(
+                        "Migrated legacy agent hierarchy from %s to %s",
+                        source,
+                        self.hierarchy_file,
+                    )
+            else:
+                logger.error(
+                    "Skipped retiring legacy agent hierarchy because save failed: %s",
+                    ", ".join(str(source) for source in legacy_sources),
                 )
 
     @staticmethod
@@ -290,7 +295,7 @@ class AgentHierarchy:
             data = json.load(f)
         return [RoleAssignment.from_dict(item) for item in data.get("assignments", [])]
 
-    async def _save_hierarchy(self) -> None:
+    async def _save_hierarchy(self) -> bool:
         """Save hierarchy to file."""
         payload = {
             "assignments": [a.to_dict() for a in self._assignments.values()],
@@ -308,10 +313,12 @@ class AgentHierarchy:
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp, self.hierarchy_file)
+            return True
         except OSError as e:
             with contextlib.suppress(FileNotFoundError):
                 os.unlink(tmp)
             logger.error("Failed to save hierarchy: %s", e)
+            return False
 
     @staticmethod
     def _repo_root() -> Path:

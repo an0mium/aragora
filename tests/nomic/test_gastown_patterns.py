@@ -177,6 +177,44 @@ class TestBeadStore:
         assert len(pending) == 3
 
 
+class TestAgentHierarchyMigration:
+    """Regression coverage for preserve-first legacy hierarchy migration."""
+
+    @pytest.mark.asyncio
+    async def test_legacy_hierarchy_is_not_retired_when_save_fails(
+        self, temp_dir, reset_singletons, monkeypatch
+    ):
+        legacy_dir = temp_dir / ".agents"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "hierarchy.json"
+        legacy_file.write_text(
+            json.dumps(
+                {
+                    "assignments": [
+                        {
+                            "agent_id": "mayor-001",
+                            "role": "mayor",
+                            "assigned_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        hierarchy = AgentHierarchy(temp_dir / "new-hierarchy")
+        hierarchy._legacy_hierarchy_file = legacy_file
+
+        async def fail_save():
+            return False
+
+        monkeypatch.setattr(hierarchy, "_save_hierarchy", fail_save)
+
+        await hierarchy.initialize()
+
+        assert legacy_file.exists()
+        assert not legacy_file.with_name("hierarchy.json.migrated").exists()
+
+
 # =============================================================================
 # Convoy Tests
 # =============================================================================

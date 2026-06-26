@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
 from aragora.cli.commands.mission import (
     _artifact_with_merge_packet_fields,
+    _merge_packet_for_pr,
     _operator_tier_for,
     cmd_mission,
 )
@@ -405,7 +407,7 @@ def test_inventory_artifact_enrichment_uses_merge_packet_for_auto_drain(monkeypa
     candidate = {"links": {"open_prs": [{"number": 8655}]}}
     monkeypatch.setattr(
         "aragora.cli.commands.mission._merge_packet_for_pr",
-        lambda pr: {
+        lambda pr, **kwargs: {
             "entries": [
                 {
                     "pr_number": pr,
@@ -437,7 +439,7 @@ def test_inventory_artifact_enrichment_refuses_human_blockers(monkeypatch) -> No
     candidate = {"links": {"open_prs": [{"number": 8655}]}}
     monkeypatch.setattr(
         "aragora.cli.commands.mission._merge_packet_for_pr",
-        lambda pr: {
+        lambda pr, **kwargs: {
             "entries": [
                 {
                     "pr_number": pr,
@@ -459,6 +461,44 @@ def test_inventory_artifact_enrichment_refuses_human_blockers(monkeypatch) -> No
 
     assert enriched.checks_green
     assert not enriched.quorum_satisfied
+
+
+def test_merge_packet_for_pr_uses_explicit_repo_and_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[list[str], Path]] = []
+
+    class Proc:
+        returncode = 0
+        stdout = '{"entries": [{"pr_number": 8655}]}'
+        stderr = ""
+
+    def fake_run(cmd, *, cwd, text, capture_output, check):
+        calls.append((cmd, cwd))
+        return Proc()
+
+    monkeypatch.setattr("aragora.cli.commands.mission.subprocess.run", fake_run)
+
+    payload = _merge_packet_for_pr(8655, repo_root=tmp_path, repo_slug="owner/repo")
+
+    assert payload["entries"][0]["pr_number"] == 8655
+    assert calls == [
+        (
+            [
+                sys.executable,
+                "-m",
+                "aragora.cli.main",
+                "review-queue",
+                "merge-packet",
+                "--pr",
+                "8655",
+                "--repo",
+                "owner/repo",
+                "--json",
+            ],
+            tmp_path,
+        )
+    ]
 
 
 def test_cmd_mission_reconcile_outputs_json(

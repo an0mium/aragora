@@ -78,41 +78,52 @@ class LiveBossLoopGate:
         if not output.strip():
             return []
         subject_prefixes = _subject_prefixes(allowed_prefixes)
+        allowed_paths = _metadata_paths(self._metadata_by_branch.get(branch, {}).get("paths"))
         foreign: list[str] = []
         for line in output.splitlines():
             commit, _, subject = line.partition("\t")
             if not subject.startswith(subject_prefixes):
                 foreign.append(f"{commit} {subject}".strip())
+                continue
+            changed_paths = _changed_paths_for_commit(self.runner, self.repo_root, commit)
+            if not allowed_paths:
+                foreign.append(f"{commit} {subject} (missing mission path allowlist)".strip())
+                continue
+            unexpected = [
+                path for path in changed_paths if not _path_is_allowed(path, allowed_paths)
+            ]
+            if unexpected:
+                sample = ", ".join(unexpected[:3])
+                foreign.append(f"{commit} {subject} (unexpected paths: {sample})".strip())
         return foreign
 
     def tier_of(self, feature: Feature) -> int:
+        pr = feature.metadata.get("pr")
+        if pr is not None:
+            pr_number = _int_or_default(pr, -1)
+            if pr_number < 0:
+                return 3
+            payload = self._run_json(
+                [
+                    "python",
+                    "-m",
+                    "aragora.cli.main",
+                    "review-queue",
+                    "merge-packet",
+                    "--pr",
+                    str(pr_number),
+                    "--repo",
+                    self.repo_slug,
+                    "--json",
+                ]
+            )
+            entry = _find_packet_entry_for_pr(payload, pr_number)
+            if entry is not None:
+                return _int_or_default(entry.get("tier"), 3)
         raw_tier = feature.metadata.get("tier")
         if raw_tier is not None:
-            try:
-                return int(raw_tier)
-            except (TypeError, ValueError):
-                pass
-        pr = feature.metadata.get("pr")
-        if pr is None:
-            return 3
-        payload = self._run_json(
-            [
-                "python",
-                "-m",
-                "aragora.cli.main",
-                "review-queue",
-                "merge-packet",
-                "--pr",
-                str(pr),
-                "--repo",
-                self.repo_slug,
-                "--json",
-            ]
-        )
-        entry = _find_packet_entry_for_pr(payload, int(pr))
-        if entry is None:
-            return 3
-        return _int_or_default(entry.get("tier"), 3)
+            return _int_or_default(raw_tier, 3)
+        return 3
 
     def collect_evidence(self, branch: str, head: str) -> GateVerdict:
         metadata = self._metadata_by_branch.get(branch, {})
@@ -232,6 +243,40 @@ def _subject_prefixes(allowed_prefixes: tuple[str, ...]) -> tuple[str, ...]:
                 }
             )
     return tuple(sorted(prefixes))
+
+
+def _metadata_paths(raw: Any) -> tuple[str, ...]:
+    if isinstance(raw, str):
+        values = [raw]
+    elif isinstance(raw, (list, tuple, set)):
+        values = [str(item) for item in raw]
+    else:
+        return ()
+    paths = []
+    for value in values:
+        normalized = value.strip().lstrip("./")
+        if normalized:
+            paths.append(normalized.rstrip("/") + ("/" if value.rstrip().endswith("/") else ""))
+    return tuple(paths)
+
+
+def _changed_paths_for_commit(runner: Runner, repo_root: Path, commit: str) -> list[str]:
+    output = runner(["git", "show", "--format=", "--name-only", commit], repo_root)
+    return [line.strip().lstrip("./") for line in output.splitlines() if line.strip()]
+
+
+def _path_is_allowed(path: str, allowed_paths: tuple[str, ...]) -> bool:
+    normalized = path.strip().lstrip("./")
+    for allowed in allowed_paths:
+        clean_allowed = allowed.strip().lstrip("./")
+        if not clean_allowed:
+            continue
+        if clean_allowed.endswith("/"):
+            if normalized.startswith(clean_allowed):
+                return True
+        elif normalized == clean_allowed or normalized.startswith(f"{clean_allowed}/"):
+            return True
+    return False
 
 
 def _packet_allows_admin_squash(
