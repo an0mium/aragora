@@ -101,6 +101,9 @@ LOCAL_WORK_MARKER_KEYS = (
     "local_changes",
     "local_work",
     "dirty",
+)
+OWNER_WORK_MARKER_KEYS = (
+    *LOCAL_WORK_MARKER_KEYS,
     "dirty_worktree",
     "branch_ahead",
     "branch_ahead_of_origin_main",
@@ -471,13 +474,18 @@ def owner_evidence_from_payload(payload: Mapping[str, Any]) -> OwnerEvidence:
         owner_state=_first_text(payload, "owner_state", "assessed"),
         owner_blocking_state=_first_text(payload, "owner_blocking_state"),
         owner_blocking_state_reason=_first_text(payload, "owner_blocking_state_reason"),
-        advisory_withheld=_first_text(payload, "advisory_withheld"),
+        advisory_withheld=_first_text(payload, "advisory_withheld")
+        or _possible_unpushed_marker(payload, marker_keys=OWNER_WORK_MARKER_KEYS),
         stale_claim_available=available,
         payload=_owner_payload_summary(payload),
     )
 
 
-def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
+def _possible_unpushed_marker(
+    payload: Mapping[str, Any],
+    *,
+    marker_keys: Sequence[str] = LOCAL_WORK_MARKER_KEYS,
+) -> str | None:
     if _first_text(payload, "advisory_withheld") == "possible_unpushed_work":
         return "possible_unpushed_work"
     for key in (
@@ -489,17 +497,19 @@ def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
         value = str(payload.get(key) or "").strip().lower()
         if value == "possible_unpushed_work" or "possible unpushed work" in value:
             return "possible_unpushed_work"
-    for key in LOCAL_WORK_MARKER_KEYS:
+    for key in marker_keys:
         value = payload.get(key)
         if value is True:
             return "possible_unpushed_work"
         if isinstance(value, int) and value > 0:
             return "possible_unpushed_work"
+        if isinstance(value, str) and value.strip():
+            return "possible_unpushed_work"
         if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)) and value:
             return "possible_unpushed_work"
     for key in ("stale_claim_advisory", "owner_liveness", "cleanup_safety"):
         value = payload.get(key)
-        if isinstance(value, Mapping) and _possible_unpushed_marker(value):
+        if isinstance(value, Mapping) and _possible_unpushed_marker(value, marker_keys=marker_keys):
             return "possible_unpushed_work"
     advisory = payload.get("stale_claim_advisory")
     if isinstance(advisory, Mapping) and advisory.get("available") is True:

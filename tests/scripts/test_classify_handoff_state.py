@@ -13,6 +13,15 @@ import scripts.classify_handoff_state as cli
 
 HEAD = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 OTHER_HEAD = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+RECONCILE_LOCAL_WORK_MARKER_KEYS = (
+    "uncommitted_changes",
+    "has_uncommitted_changes",
+    "uncommitted",
+    "unpushed_commits",
+    "local_changes",
+    "local_work",
+    "dirty",
+)
 
 
 class FakeGitHub:
@@ -1106,12 +1115,16 @@ def test_lane_registry_possible_unpushed_marker_blocks_default_classifier(
     assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
 
 
+def test_local_work_marker_keys_match_reconcile_fail_closed_keys() -> None:
+    assert mod.LOCAL_WORK_MARKER_KEYS == RECONCILE_LOCAL_WORK_MARKER_KEYS
+
+
 def test_top_level_local_work_marker_blocks_publication(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(
         tmp_path,
         branch="codex/example",
-        extra_payload={"unpushed_commits": 1},
+        extra_payload={"unpushed_commits": "1"},
     )
 
     item = _classify_one(tmp_path)
@@ -1129,7 +1142,7 @@ def test_local_evidence_local_work_marker_blocks_publication(tmp_path: Path) -> 
             {
                 "branch": "codex/example",
                 "desired_head_sha": HEAD,
-                "local_work": True,
+                "local_work": "yes",
             }
         ],
     )
@@ -2101,6 +2114,29 @@ def test_owner_probe_no_matching_lane_does_not_block(tmp_path: Path) -> None:
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
     assert item["evidence"]["owner"]["available"] is True
     assert item["evidence"]["owner"]["matched"] is False
+
+
+def test_owner_probe_liveness_dirty_signal_blocks(tmp_path: Path) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "identify_lane_owner.py").write_text(
+        "import json\n"
+        "print(json.dumps({"
+        "'branch': 'codex/example', "
+        "'status': 'released', "
+        "'dirty_worktree': True, "
+        "'stale_claim_advisory': {'available': True}"
+        "}))\n",
+        encoding="utf-8",
+    )
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    owner = mod.OwnerProbe(repo_root=tmp_path, state_root=tmp_path, timeout_seconds=2)
+
+    item = _classify_one(tmp_path, owner=owner)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK.value
+    assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
 
 
 def test_selected_outbox_file_cannot_escape_outbox_dir(tmp_path: Path) -> None:
