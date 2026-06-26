@@ -415,7 +415,7 @@ class TestRedisLazyInitialization:
         """ImportError from redis_config should be handled gracefully."""
         cache = RedisTTLCache(prefix="test")
         with patch(
-            "aragora.server.redis_config.get_redis_client",
+            "aragora.utils.redis_config.get_redis_client",
             side_effect=ImportError("No module"),
         ):
             cache._redis_checked = False  # Reset to force re-check
@@ -427,7 +427,7 @@ class TestRedisLazyInitialization:
         """None from get_redis_client should be handled."""
         cache = RedisTTLCache(prefix="test")
         with patch(
-            "aragora.server.redis_config.get_redis_client",
+            "aragora.utils.redis_config.get_redis_client",
             return_value=None,
         ):
             cache._redis_checked = False
@@ -440,7 +440,7 @@ class TestRedisLazyInitialization:
         cache = RedisTTLCache(prefix="test")
         mock_client = MagicMock()
         with patch(
-            "aragora.server.redis_config.get_redis_client",
+            "aragora.utils.redis_config.get_redis_client",
             return_value=mock_client,
         ):
             cache._redis_checked = False

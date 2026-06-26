@@ -187,11 +187,20 @@ def plan_rerun(
     cooldown_seconds: int = 600,
     max_reruns_per_head: int = 3,
     has_real_required_failure: bool = False,
+    pr_rounds_consumed: int = 0,
+    pr_round_budget: int = 0,
 ) -> RerunDecision:
     """Decide whether to re-run the gate so it re-reads current-head evidence.
 
     All checks fail safe (a ``False`` decision) when an input is missing or
     ambiguous. See module docstring for the safety invariants.
+
+    ``pr_round_budget`` is the per-PR convergence budget that survives head drift
+    (``max_reruns_per_head`` resets every new head, so it never bounds a churning
+    PR — see :mod:`aragora.swarm.convergence_ledger`). When ``pr_rounds_consumed``
+    reaches it, this stops re-running and signals that the PR needs a *decision*
+    (net-value adjudication), not another round. ``pr_round_budget=0`` disables the
+    check, so existing callers are unaffected until they opt in.
     """
 
     def decide(should: bool, reason: str) -> RerunDecision:
@@ -221,6 +230,12 @@ def plan_rerun(
     if not (run_created < newest):
         return decide(False, "quorum run already postdates the newest countable evidence")
 
+    if pr_round_budget and pr_rounds_consumed >= pr_round_budget:
+        return decide(
+            False,
+            f"PR round budget exhausted ({pr_rounds_consumed}/{pr_round_budget} repair "
+            "rounds across head drift); net-value adjudication required, not another rerun",
+        )
     if reruns_this_head >= max_reruns_per_head:
         return decide(False, f"max reruns reached for this head ({max_reruns_per_head})")
     if last_rerun_at is not None:

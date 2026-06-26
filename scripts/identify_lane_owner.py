@@ -45,10 +45,21 @@ status, assessment), a consumer-facing ``owner_blocking_state``, and
 — only for stale/terminal owners with no indication of local unpushed
 work — a machine-readable ``stale_claim_advisory`` codifying the
 manual stale-claim override protocol exercised on #8125. This is
-VISIBILITY + ADVISORY only: it never changes a go/no-go decision by
-itself, and it fails closed (``advisory_withheld:
-"possible_unpushed_work"``) whenever uncommitted/unpushed work might
-exist.
+VISIBILITY + ADVISORY only: it may reconcile displayed owner-state
+labels when current lease evidence proves a live owner, but it never
+authorizes cleanup or stale-claim override by itself and it fails
+closed (``advisory_withheld: "possible_unpushed_work"``) whenever
+uncommitted/unpushed work might exist.
+
+``owner_liveness.assessed`` and legacy ``liveness_state`` are deliberately
+separate signals. ``owner_liveness.assessed`` uses the lane lease and the
+``--stale-hours`` threshold. ``liveness_state`` remains the older direct
+process / harness-heartbeat summary, including the fixed heartbeat freshness
+window, so a live lease can coexist with ``missing_heartbeat`` or
+``stale_heartbeat``. In that case ``owner_blocking_state`` is authoritative for
+dispatch/reassignment, while ``cleanup_state`` and
+``recommended_operator_action`` remain authoritative for mutation/cleanup. The
+JSON ``owner_liveness_alignment`` object exposes that precedence explicitly.
 
 Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
 GitHub state, lane registry, mailboxes, or any other on-disk file.
@@ -68,7 +79,7 @@ import time
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 # ---------------------------------------------------------------------------
 # Paths (overridable for tests)
@@ -150,7 +161,7 @@ ACTIVE_STATUSES = {
     "blocked",
 }
 CONFLICT_STATUSES = {"conflict", "conflicting"}
-COMPLETED_STATUSES = {"completed", "released", "superseded"}
+COMPLETED_STATUSES = {"completed", "released", "superseded", "expired"}
 
 # Subprocess timeout for ``agent_bridge operator-snapshot``.
 SNAPSHOT_TIMEOUT_SECONDS = 30
@@ -1211,8 +1222,8 @@ def build_owner_info(
 STALE_HOURS_DEFAULT = 6.0
 LANE_RUNS_GLOB_DEFAULT = str(STATE_ROOT_DEFAULT / "run-*" / "lanes")
 
-# Lane-ledger statuses meaning the owning lane can no longer be working.
-TERMINAL_LANE_STATUSES = {"completed", "failed", "cancelled", "dead"}
+# Lane-ledger/status rows meaning the owning lane can no longer be working.
+TERMINAL_LANE_STATUSES = COMPLETED_STATUSES | {"failed", "cancelled", "dead"}
 
 STALE_CLAIM_PROTOCOL = "stale-claim-override"
 ADVISORY_WITHHELD_UNPUSHED = "possible_unpushed_work"
@@ -1566,6 +1577,45 @@ def _gh_api_json(
     return _json_payload(proc.stdout)
 
 
+def _gh_api_paginated_json_list(
+    api_path: str,
+    *,
+    repo_root: Path,
+    runner: CommandRunner,
+    per_page: int = 100,
+    max_pages: int = 20,
+) -> list[Any] | None:
+    """Fetch a small GitHub REST list endpoint without silently truncating it."""
+
+    values: list[Any] = []
+    separator = "&" if "?" in api_path else "?"
+    for page in range(1, max_pages + 1):
+        payload = _gh_api_json(
+            f"{api_path}{separator}per_page={per_page}&page={page}",
+            repo_root=repo_root,
+            runner=runner,
+        )
+        if not isinstance(payload, list):
+            return None
+        values.extend(payload)
+        if len(payload) < per_page:
+            return values
+    return None
+
+
+def _pull_base_ref(pull: Mapping[str, Any]) -> str:
+    base = pull.get("base")
+    if isinstance(base, Mapping):
+        ref = str(base.get("ref") or "").strip()
+        if ref:
+            return ref
+    for key in ("baseRefName", "base_ref_name", "base_ref"):
+        ref = str(pull.get(key) or "").strip()
+        if ref:
+            return ref
+    return ""
+
+
 def _merged_pr_commit_list_proof(
     desired_head: str,
     *,
@@ -1596,19 +1646,21 @@ def _merged_pr_commit_list_proof(
         number = pull.get("number")
         if not isinstance(number, int):
             continue
-        commits = _gh_api_json(
-            f"repos/{repo_slug}/pulls/{number}/commits?per_page=100",
+        commits = _gh_api_paginated_json_list(
+            f"repos/{repo_slug}/pulls/{number}/commits",
             repo_root=repo_root,
             runner=runner,
         )
         if not isinstance(commits, list):
             continue
         if any(isinstance(item, dict) and item.get("sha") == desired_head for item in commits):
+            base_ref = _pull_base_ref(pull)
             return {
                 "proven": True,
                 "method": "merged_pr_commit_list",
                 "pr_number": number,
                 "repo": repo_slug,
+                "base_ref": base_ref or None,
             }
     return {
         "proven": False,
@@ -1774,19 +1826,31 @@ def assess_owner_liveness(
 
     Returns a dict with ``owner_liveness``, ``stale_claim_advisory``
     and ``advisory_withheld`` keys, merged additively into the JSON
-    output. Pure visibility: this never changes a go/no-go decision
-    by itself. ``assessed == "unknown"`` NEVER produces an advisory,
-    and any hint of local work withholds it
+    output. Pure visibility: this may reconcile displayed owner-state
+    labels when a current lease proves a live owner, but it never
+    authorizes cleanup or stale-claim override by itself.
+    ``owner_liveness.assessed`` uses ``stale_hours`` for lane-lease
+    age. The legacy ``liveness_state`` field is computed earlier from
+    direct process / harness-heartbeat evidence and may still report a
+    missing or stale heartbeat; callers should use the aligned
+    cleanup/action fields for operator routing.
+    ``assessed == "unknown"`` NEVER produces an advisory, and any hint
+    of local work withholds it
     (``advisory_withheld: "possible_unpushed_work"``).
     """
 
     now_dt = now or datetime.now(timezone.utc)
     threshold_seconds = max(0.0, stale_hours) * 3600.0
 
-    # lane_status: the lane ledger's view of the owning lane.
+    # lane_status: the lane ledger's view of the owning lane. When no ledger
+    # exists, a terminal registry status is still enough to avoid treating the
+    # row as an active owner lease.
     lane_status = "unknown"
+    registry_status = str(lane.get("status") or "").strip().lower()
     if ledger_entry is not None:
         lane_status = str(ledger_entry.get("status") or "").strip().lower() or "unknown"
+    elif registry_status in COMPLETED_STATUSES:
+        lane_status = registry_status
 
     # last_heartbeat_at: matched heartbeat row first, then owner record,
     # then ledger heartbeat fields; null when nothing carries one.
@@ -1939,6 +2003,10 @@ def assess_owner_liveness(
         "owner_liveness": owner_liveness,
         "owner_blocking_state": owner_blocking_state,
         "owner_blocking_state_reason": owner_blocking_state_reason,
+        "owner_liveness_precedence": (
+            "owner_blocking_state controls dispatch/reassignment; cleanup_state and "
+            "recommended_operator_action control mutation/cleanup"
+        ),
         "stale_claim_advisory": advisory,
         "advisory_withheld": advisory_withheld,
         "local_work_preservation": local_work_preservation,
@@ -1965,6 +2033,101 @@ def _print_liveness_summary(payload: dict[str, Any]) -> None:
         f"last_heartbeat_at={liveness['last_heartbeat_at'] or '-'} "
         f"stale_claim_advisory={advisory}"
     )
+
+
+def _align_owner_state_with_liveness(payload: dict[str, Any]) -> None:
+    """Keep legacy owner fields truthful after adding advisory liveness.
+
+    ``build_owner_info`` predates the richer liveness assessment and can only
+    classify direct process/heartbeat evidence. The later ``owner_liveness``
+    pass also considers current lease timestamps and lane-ledger state. When
+    that pass proves a live owner but direct heartbeat evidence is missing or
+    stale, keep the conservative cleanup/action guidance while clarifying that
+    the lane has current owner-lease evidence.
+    """
+
+    liveness = payload.get("owner_liveness") or {}
+    if (
+        payload.get("owner_state") != "owned"
+        or payload.get("owner_blocking_state") != OWNER_BLOCKING_LIVE
+        or liveness.get("assessed") != "live"
+    ):
+        payload["owner_liveness_alignment"] = {
+            "applied": False,
+            "dispatch_field": "owner_blocking_state",
+            "cleanup_field": "cleanup_state",
+            "action_field": "recommended_operator_action",
+            "reason": "owner lease did not prove a live owner needing legacy-field alignment",
+        }
+        return
+
+    liveness_state = str(payload.get("liveness_state") or "")
+    if liveness_state == "missing_heartbeat":
+        payload["owner_state_reason"] = (
+            "active lane has current owner lease evidence but no matched harness heartbeat row"
+        )
+    elif liveness_state == "stale_heartbeat":
+        payload["owner_state_reason"] = (
+            "active lane has current owner lease evidence but matched harness heartbeat is stale"
+        )
+    else:
+        payload["owner_liveness_alignment"] = {
+            "applied": False,
+            "dispatch_field": "owner_blocking_state",
+            "cleanup_field": "cleanup_state",
+            "action_field": "recommended_operator_action",
+            "reason": "legacy liveness_state already carries current heartbeat or process evidence",
+        }
+        return
+
+    payload["owner_liveness_alignment"] = {
+        "applied": True,
+        "dispatch_field": "owner_blocking_state",
+        "dispatch_value": payload.get("owner_blocking_state"),
+        "cleanup_field": "cleanup_state",
+        "cleanup_value": payload.get("cleanup_state"),
+        "action_field": "recommended_operator_action",
+        "action_value": payload.get("recommended_operator_action"),
+        "legacy_liveness_state": liveness_state,
+        "lease_assessment": liveness.get("assessed"),
+        "reason": (
+            "dispatch/reassignment follows live owner lease evidence; mutation/cleanup "
+            "keeps conservative heartbeat-derived guidance"
+        ),
+    }
+
+
+def owner_info_with_aligned_liveness(
+    info: LaneOwnerInfo, liveness_payload: dict[str, Any] | None
+) -> tuple[LaneOwnerInfo, dict[str, Any]]:
+    """Return display-ready owner fields after liveness alignment.
+
+    Direct library consumers should use this helper after combining
+    ``build_owner_info`` with ``assess_owner_liveness``; otherwise they can
+    produce a raw merge that lacks the same precedence/alignment metadata as
+    the CLI JSON output.
+    """
+
+    payload = dataclasses.asdict(info)
+    if liveness_payload is not None:
+        payload.update(liveness_payload)
+        _align_owner_state_with_liveness(payload)
+
+    aligned_info = dataclasses.replace(
+        info,
+        cleanup_state=payload["cleanup_state"],
+        owner_state_reason=payload["owner_state_reason"],
+        recommended_operator_action=payload["recommended_operator_action"],
+    )
+    return aligned_info, payload
+
+
+def _info_with_aligned_owner_state(
+    info: LaneOwnerInfo, liveness_payload: dict[str, Any] | None
+) -> tuple[LaneOwnerInfo, dict[str, Any]]:
+    """Compatibility wrapper for the public alignment helper."""
+
+    return owner_info_with_aligned_liveness(info, liveness_payload)
 
 
 # ---------------------------------------------------------------------------
@@ -2085,7 +2248,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=STALE_HOURS_DEFAULT,
         help=(
             "Owner-lease age (hours) beyond which a lane with no fresher "
-            f"heartbeat is assessed stale (default {STALE_HOURS_DEFAULT})."
+            f"heartbeat is assessed stale (default {STALE_HOURS_DEFAULT}); "
+            "legacy liveness_state still reflects process/heartbeat freshness."
         ),
     )
     p.add_argument(
@@ -2189,15 +2353,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     local_work_preservation=local_work_preservation,
                 )
 
+    output_info, payload = _info_with_aligned_owner_state(info, liveness_payload)
+
     if args.json:
-        payload = dataclasses.asdict(info)
-        if liveness_payload is not None:
-            payload.update(liveness_payload)
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
-        _print_human(info)
+        _print_human(output_info)
         if liveness_payload is not None:
-            _print_liveness_summary(liveness_payload)
+            _print_liveness_summary(payload)
 
     return 0
 

@@ -107,6 +107,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
           IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft || 'false' }}
+          # Activate severity-gated dissent (FIPS #8574 / spec docs/specs/FINDING_SEVERITY_GATE.md):
+          # a [P2]/[P3]-only or finding-free CHANGES-REQUESTED becomes advisory (non-blocking,
+          # non-counting); [P0]/[P1] and populated Blocker labels still ALWAYS block. The gate-logic
+          # code + the disclosed bare-"no" Blocker security fix are already on main; this only sets
+          # the live (CI) side of the min(prepared, live) flag — the prepare side is set in operator env.
+          ARAGORA_ENABLE_SEVERITY_GATED_DISSENT: "1"
         shell: bash
         run: |
           set -euo pipefail

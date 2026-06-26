@@ -24,7 +24,7 @@ def _reset_and_get_pool(env_overrides: dict[str, str] | None = None):
     The Redis module uses module-level state that must be reset between tests.
     Returns the pool and availability status after initialization.
     """
-    import aragora.server.redis_config as redis_mod
+    import aragora.utils.redis_config as redis_mod
 
     # Reset module state
     redis_mod.reset_redis_state()
@@ -93,21 +93,28 @@ class TestMaxConnectionsValidation:
 
     def test_max_connections_zero_clamped_to_1(self, caplog):
         """max_connections of 0 is clamped to 1."""
-        with caplog.at_level(logging.WARNING, logger="aragora.server.redis_config"):
+        with caplog.at_level(logging.WARNING, logger="aragora.utils.redis_config"):
             max_connections = _reset_and_get_pool({"ARAGORA_REDIS_MAX_CONNECTIONS": "0"})
         assert max_connections == 1
 
     def test_max_connections_negative_clamped_to_1(self, caplog):
         """max_connections of -5 is clamped to 1."""
-        with caplog.at_level(logging.WARNING, logger="aragora.server.redis_config"):
+        with caplog.at_level(logging.WARNING, logger="aragora.utils.redis_config"):
             max_connections = _reset_and_get_pool({"ARAGORA_REDIS_MAX_CONNECTIONS": "-5"})
         assert max_connections == 1
 
     def test_max_connections_exceeding_10000_capped(self, caplog):
         """max_connections > 10000 is capped to 10000."""
-        with caplog.at_level(logging.WARNING, logger="aragora.server.redis_config"):
+        with caplog.at_level(logging.WARNING, logger="aragora.utils.redis_config"):
             max_connections = _reset_and_get_pool({"ARAGORA_REDIS_MAX_CONNECTIONS": "15000"})
         assert max_connections == 10000
+
+    def test_malformed_max_connections_falls_back_to_default(self, caplog):
+        """A non-integer max_connections degrades to the default instead of raising."""
+        with caplog.at_level(logging.WARNING, logger="aragora.utils.redis_config"):
+            max_connections = _reset_and_get_pool({"ARAGORA_REDIS_MAX_CONNECTIONS": "not-a-number"})
+        assert max_connections == 50
+        assert any("not a valid integer" in record.message for record in caplog.records)
 
 
 class TestMaxConnectionsWarningLogs:
@@ -115,12 +122,52 @@ class TestMaxConnectionsWarningLogs:
 
     def test_clamping_to_1_logs_warning(self, caplog):
         """Clamping max_connections to 1 logs a warning."""
-        with caplog.at_level(logging.WARNING, logger="aragora.server.redis_config"):
+        with caplog.at_level(logging.WARNING, logger="aragora.utils.redis_config"):
             _reset_and_get_pool({"ARAGORA_REDIS_MAX_CONNECTIONS": "0"})
         assert any("clamping to 1" in record.message for record in caplog.records)
 
     def test_capping_at_10000_logs_warning(self, caplog):
         """Capping max_connections to 10000 logs a warning."""
-        with caplog.at_level(logging.WARNING, logger="aragora.server.redis_config"):
+        with caplog.at_level(logging.WARNING, logger="aragora.utils.redis_config"):
             _reset_and_get_pool({"ARAGORA_REDIS_MAX_CONNECTIONS": "20000"})
         assert any("capping at 10000" in record.message for record in caplog.records)
+
+
+class TestEnvParseHelpers:
+    """Symmetric coverage for the malformed-env fallback helpers."""
+
+    def test_int_env_malformed_falls_back(self, caplog):
+        import aragora.utils.redis_config as redis_mod
+
+        with mock.patch.dict(
+            "os.environ", {"ARAGORA_REDIS_MAX_CONNECTIONS": "not-an-int"}, clear=False
+        ):
+            with caplog.at_level(logging.WARNING, logger="aragora.utils.redis_config"):
+                value = redis_mod._int_env("ARAGORA_REDIS_MAX_CONNECTIONS", 50)
+        assert value == 50
+        assert any("not a valid integer" in record.message for record in caplog.records)
+
+    def test_float_env_malformed_falls_back(self, caplog):
+        import aragora.utils.redis_config as redis_mod
+
+        with mock.patch.dict(
+            "os.environ", {"ARAGORA_REDIS_SOCKET_TIMEOUT": "not-a-float"}, clear=False
+        ):
+            with caplog.at_level(logging.WARNING, logger="aragora.utils.redis_config"):
+                value = redis_mod._float_env("ARAGORA_REDIS_SOCKET_TIMEOUT", 5.0)
+        assert value == 5.0
+        assert any("not a valid number" in record.message for record in caplog.records)
+
+    def test_valid_values_parse_normally(self):
+        import aragora.utils.redis_config as redis_mod
+
+        with mock.patch.dict(
+            "os.environ",
+            {
+                "ARAGORA_REDIS_MAX_CONNECTIONS": "123",
+                "ARAGORA_REDIS_SOCKET_TIMEOUT": "2.5",
+            },
+            clear=False,
+        ):
+            assert redis_mod._int_env("ARAGORA_REDIS_MAX_CONNECTIONS", 50) == 123
+            assert redis_mod._float_env("ARAGORA_REDIS_SOCKET_TIMEOUT", 5.0) == 2.5
