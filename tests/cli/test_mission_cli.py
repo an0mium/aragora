@@ -44,6 +44,7 @@ def test_mission_parser_accepts_public_subcommands(tmp_path: Path) -> None:
     assert seed.goal == ["Refactor auth"]
     assert seed.state == str(state_path)
     assert seed.autonomy == "report"
+    assert seed.admission_max_unresolved == 0
 
     run = parser.parse_args(
         [
@@ -112,6 +113,7 @@ def test_cmd_mission_seed_writes_native_state(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
+    monkeypatch.setattr("aragora.cli.commands.mission._load_artifacts", lambda *a, **k: [])
     parser = build_parser()
     state_path = tmp_path / "state.json"
     args = parser.parse_args(
@@ -138,6 +140,7 @@ def test_cmd_mission_seed_writes_native_state(
     assert loaded.features[0].metadata["budget_usd"] == 50.0
     assert loaded.features[0].metadata["relay"] == "email"
     assert loaded.features[0].metadata["tracks"] == ["sme"]
+    assert loaded.features[0].metadata["admission_max_unresolved"] == 0
     captured = capsys.readouterr()
     assert "Seeded mission" in captured.out
     assert str(state_path) in captured.out
@@ -147,12 +150,89 @@ def test_cmd_mission_legacy_alias_seeds_state(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
+    monkeypatch.setattr("aragora.cli.commands.mission._load_artifacts", lambda *a, **k: [])
     parser = build_parser()
     state_path = tmp_path / "state.json"
     args = parser.parse_args(["mission", "Refactor auth", "--state", str(state_path)])
 
     assert cmd_mission(args) == 0
     assert MissionState.load(state_path).goal == "Refactor auth"
+    assert "Seeded mission" in capsys.readouterr().out
+
+
+def test_cmd_mission_seed_blocks_producer_work_under_backlog_pressure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
+    fixture = tmp_path / "artifacts.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {
+                    "artifact_id": "valuable",
+                    "kind": "branch",
+                    "clean": True,
+                    "unique_commits": True,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    state_path = tmp_path / "state.json"
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "mission",
+            "seed",
+            "Build new dashboard",
+            "--state",
+            str(state_path),
+            "--artifact-fixture",
+            str(fixture),
+        ]
+    )
+
+    assert cmd_mission(args) == 1
+
+    assert not state_path.exists()
+    assert "mission admission blocked" in capsys.readouterr().err
+
+
+def test_cmd_mission_seed_allows_cleanup_goal_under_backlog_pressure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
+    fixture = tmp_path / "artifacts.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {
+                    "artifact_id": "valuable",
+                    "kind": "branch",
+                    "clean": True,
+                    "unique_commits": True,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    state_path = tmp_path / "state.json"
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "mission",
+            "seed",
+            "Reconcile and drain queued work",
+            "--state",
+            str(state_path),
+            "--artifact-fixture",
+            str(fixture),
+        ]
+    )
+
+    assert cmd_mission(args) == 0
+
+    assert MissionState.load(state_path).goal == "Reconcile and drain queued work"
     assert "Seeded mission" in capsys.readouterr().out
 
 

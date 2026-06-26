@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from aragora.missions import (
+    AdmissionPolicy,
     Feature,
     Handoff,
     MissionOrchestrator,
@@ -69,6 +70,9 @@ def _cmd_seed(args: argparse.Namespace, goal_words: list[str]) -> int:
     _assert_native_mission_enabled("seed")
     if args.budget is not None and args.budget < 0:
         raise ValueError("budget_usd must be non-negative")
+    decision = _admission_decision(args, goal)
+    if not decision.allowed:
+        raise RuntimeError(f"mission admission blocked: {decision.reason}")
     mission_id = f"mission-{uuid.uuid4().hex[:12]}"
     state_path = _state_path(args, mission_id=mission_id)
     tracks = _tracks(args)
@@ -77,6 +81,7 @@ def _cmd_seed(args: argparse.Namespace, goal_words: list[str]) -> int:
         "max_hours": args.max_hours,
         "relay": args.relay,
         "auto_settle_max_tier": args.auto_settle_max_tier,
+        "admission_max_unresolved": args.admission_max_unresolved,
         "tracks": tracks,
         "autonomy": args.autonomy,
     }
@@ -192,6 +197,19 @@ def _assert_native_mission_enabled(action: str) -> None:
             f"Native mission engine is disabled for mission {action} "
             "(set ARAGORA_ENABLE_NATIVE_MISSION=1 to opt in)."
         )
+
+
+def _admission_decision(args: argparse.Namespace, goal: str):
+    artifacts = _load_artifacts(
+        args,
+        include_github=False,
+        repo_root=_repo_root_for(args, None),
+    )
+    report = ReconcileMode.REPORT.run(artifacts)
+    return AdmissionPolicy(max_unresolved=max(0, int(args.admission_max_unresolved))).evaluate(
+        goal,
+        report,
+    )
 
 
 def _operator_tier_for(args: argparse.Namespace, state_path: Path | None) -> int:

@@ -72,6 +72,15 @@ def add_mission_parser(subparsers: Any, lazy: Callable[[str, str], Callable[...,
         help="Maximum live inventory artifacts to inspect during reconcile.",
     )
     mission_parser.add_argument(
+        "--admission-max-unresolved",
+        type=int,
+        default=0,
+        help=(
+            "Maximum parked backlog artifacts allowed when seeding producer missions. "
+            "Cleanup, evidence, settlement, drain, and repair goals bypass this limit."
+        ),
+    )
+    mission_parser.add_argument(
         "--json", action="store_true", help="Emit JSON output where supported"
     )
     mission_parser.add_argument("--budget", type=float, help="The USD budget limit for the mission")
