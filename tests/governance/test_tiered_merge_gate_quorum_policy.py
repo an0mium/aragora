@@ -97,12 +97,21 @@ def test_tier1_counts_any_two_distinct_families():
 
 @pytest.mark.parametrize("tier", [1, 2])
 def test_tiered_gate_relaxation_requires_western_frontier(tier):
+    # Flag ON (ARAGORA_ENABLE_TIERED_MERGE_GATE=1): a Tier 1-2 PR settles on a
+    # single western-frontier signal (claude/openai).
     rule = tier_quorum_rule(tier, tiered_gate=True)
     assert rule.required_signals == 1
     assert rule.requires_western_frontier is True
     assert rule.is_satisfied_by({"claude"}) is True  # frontier solo-settles
     assert rule.is_satisfied_by({"grok"}) is False  # Western but not frontier
     assert rule.is_satisfied_by({"deepseek"}) is False  # cheap cannot solo-settle
+
+    # Flag OFF (contrast): without the gate, Tier 1-2 require two distinct
+    # families, so a lone western-frontier signal no longer satisfies the quorum.
+    off = tier_quorum_rule(tier, tiered_gate=False)
+    assert off.required_signals == 2
+    assert off.requires_western_frontier is False
+    assert off.is_satisfied_by({"claude"}) is False  # one signal is insufficient
 
 
 # --- G3: single source of truth across all three surfaces --------------------
