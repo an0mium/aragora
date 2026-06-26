@@ -36,7 +36,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import sys
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -72,6 +71,24 @@ def _fail_fast_mfa_prompter(prompt: str = "") -> str:
         "Run interactively, pre-export an AWS session, or set "
         "ARAGORA_USE_SECRETS_MANAGER=false to silence."
     )
+
+
+def _has_controlling_tty() -> bool:
+    """Whether a controlling terminal is reachable for an interactive prompt.
+
+    botocore's MFA prompt uses ``getpass``, which reads ``/dev/tty`` (the controlling
+    terminal), NOT stdin — so ``sys.stdin.isatty()`` is the wrong question: a process
+    with redirected stdin but a live terminal (``python app.py </dev/null`` in an SSH
+    shell) could still prompt successfully. Probe ``/dev/tty`` directly to match what
+    getpass will actually do, so we only fail-fast when there is genuinely no terminal
+    (cron, nohup, a detached daemon).
+    """
+    try:
+        fd = os.open("/dev/tty", os.O_RDWR)
+    except OSError:
+        return False
+    os.close(fd)
+    return True
 
 
 # Import botocore exceptions for proper error handling
@@ -450,11 +467,7 @@ class SecretManager:
         caller falls back to env/.env secrets. Interactive TTYs and MFA-free
         credential paths (instance roles, OIDC) are unaffected.
         """
-        try:
-            interactive = sys.stdin.isatty()
-        except (ValueError, OSError, AttributeError):
-            interactive = False
-        if _mfa_prompt_allowed(isatty=interactive):
+        if _mfa_prompt_allowed(isatty=_has_controlling_tty()):
             return boto3.client("secretsmanager", region_name=region, config=config)
         try:
             # Reach botocore's session via boto3's own wrapper (``_session``) rather
@@ -467,9 +480,18 @@ class SecretManager:
             )
             provider._prompter = _fail_fast_mfa_prompter
             return boto_session.client("secretsmanager", region_name=region, config=config)
-        except Exception:  # noqa: BLE001 - botocore internals vary by version; degrade safely
-            logger.debug("non-interactive MFA guard unavailable; using default client")
-            return boto3.client("secretsmanager", region_name=region, config=config)
+        except Exception:  # noqa: BLE001 - botocore internals vary by version
+            # Fail CLOSED, not back to the hang-prone default client: if the guard
+            # cannot be installed in a non-interactive process, returning
+            # boto3.client() here would re-enter the exact getpass MFA hang this
+            # exists to prevent. Returning None makes the caller fall back to
+            # env/.env secrets instead.
+            logger.warning(
+                "could not install non-interactive MFA guard for %s; refusing the "
+                "default client to avoid a getpass hang (using env/.env secrets)",
+                region,
+            )
+            return None
 
     def _load_from_aws(self) -> dict[str, str]:
         """Load secrets from AWS Secrets Manager."""
