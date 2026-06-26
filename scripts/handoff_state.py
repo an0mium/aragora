@@ -868,40 +868,53 @@ def classify_handoff_item(
                 reason="GitHub PR evidence is unavailable; cannot prove absence of exact open PR",
                 evidence=evidence,
             )
-        if github.open_prs and is_pr_publication_request(payload):
-            if queue_cap.open_pr_cap_reached:
+        if github.open_prs:
+            if is_pr_publication_request(payload):
+                if queue_cap.open_pr_cap_reached:
+                    return HandoffClassification(
+                        outbox_file=path.name,
+                        idempotency_key=idem,
+                        branch=branch,
+                        desired_head_sha=desired_head or None,
+                        state=HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP,
+                        reason="remote branch is exact but existing open PR is not exact and open PR cap is reached",
+                        evidence=evidence,
+                        next_mutation_candidate="queue_drain",
+                    )
+                if _queue_cap_uncertain_for_publication(queue_cap):
+                    return HandoffClassification(
+                        outbox_file=path.name,
+                        idempotency_key=idem,
+                        branch=branch,
+                        desired_head_sha=desired_head or None,
+                        state=HandoffState.UNKNOWN,
+                        reason=(
+                            "remote branch is exact but queue-cap evidence is stale or unavailable; "
+                            "cannot prove publication is safe"
+                        ),
+                        evidence=evidence,
+                    )
                 return HandoffClassification(
                     outbox_file=path.name,
                     idempotency_key=idem,
                     branch=branch,
                     desired_head_sha=desired_head or None,
-                    state=HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP,
-                    reason="remote branch is exact but existing open PR is not exact and open PR cap is reached",
+                    state=HandoffState.PUBLICATION_REQUESTED,
+                    reason="remote branch is exact but existing open PR head does not match desired head",
                     evidence=evidence,
-                    next_mutation_candidate="queue_drain",
-                )
-            if _queue_cap_uncertain_for_publication(queue_cap):
-                return HandoffClassification(
-                    outbox_file=path.name,
-                    idempotency_key=idem,
-                    branch=branch,
-                    desired_head_sha=desired_head or None,
-                    state=HandoffState.UNKNOWN,
-                    reason=(
-                        "remote branch is exact but queue-cap evidence is stale or unavailable; "
-                        "cannot prove publication is safe"
-                    ),
-                    evidence=evidence,
+                    next_mutation_candidate="publish_or_represent_pr",
                 )
             return HandoffClassification(
                 outbox_file=path.name,
                 idempotency_key=idem,
                 branch=branch,
                 desired_head_sha=desired_head or None,
-                state=HandoffState.PUBLICATION_REQUESTED,
-                reason="remote branch is exact but existing open PR head does not match desired head",
+                state=HandoffState.UNKNOWN,
+                reason=(
+                    "remote branch is exact but existing open PR head does not match desired head; "
+                    "manual reconciliation is required before treating the branch as preserved"
+                ),
                 evidence=evidence,
-                next_mutation_candidate="publish_or_represent_pr",
             )
         if queue_cap.open_pr_cap_reached and is_pr_publication_request(payload):
             return HandoffClassification(

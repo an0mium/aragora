@@ -208,6 +208,7 @@ def _classify_one(
     tmp_path: Path,
     *,
     branch: str = "codex/example",
+    outbox_file: str = "open-pr-codex-example-aaaaaaaa.json",
     github: FakeGitHub | None = None,
     owner: FakeOwnerProbe | None = None,
 ) -> dict[str, Any]:
@@ -215,7 +216,7 @@ def _classify_one(
         repo_root=tmp_path,
         state_root=tmp_path,
         github_repo="synaptent/aragora",
-        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        outbox_file=outbox_file,
         github_client=github or FakeGitHub(),
         owner_probe=owner or FakeOwnerProbe(),
     )
@@ -1013,13 +1014,22 @@ def test_non_pr_remote_exact_head_does_not_hide_pr_lookup_degradation(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path, open_pr_cap_reached=False)
-    _write_outbox(tmp_path, branch="codex/example", action_type="preserve_branch")
+    _write_outbox(
+        tmp_path,
+        key="preserve-branch-codex-example-aaaaaaaa",
+        branch="codex/example",
+        action_type="preserve_branch",
+    )
     github = FakeGitHub(
         refs={"codex/example": {"ref": "refs/heads/codex/example", "object": {"sha": HEAD}}},
         errors={"pr:codex/example": "gh api failed (TimeoutExpired)"},
     )
 
-    item = _classify_one(tmp_path, github=github)
+    item = _classify_one(
+        tmp_path,
+        outbox_file="preserve-branch-codex-example-aaaaaaaa.json",
+        github=github,
+    )
 
     assert item["state"] == mod.HandoffState.UNKNOWN.value
     assert item["evidence"]["github"]["mode"] == "degraded"
@@ -1065,6 +1075,45 @@ def test_remote_exact_head_with_mismatched_open_pr_stays_publication_requested(
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
     assert item["evidence"]["github"]["exact_open_pr"] is None
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
+
+
+def test_non_pr_remote_exact_head_with_mismatched_open_pr_is_not_mutable(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        key="preserve-branch-codex-example-aaaaaaaa",
+        branch="codex/example",
+        action_type="preserve_branch",
+    )
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 9000,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": "codex/example", "sha": OTHER_HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        },
+        refs={"codex/example": {"ref": "refs/heads/codex/example", "object": {"sha": HEAD}}},
+    )
+
+    item = _classify_one(
+        tmp_path,
+        outbox_file="preserve-branch-codex-example-aaaaaaaa.json",
+        github=github,
+    )
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["safe_to_mutate"] is False
+    assert item["next_mutation_candidate"] == "none"
+    assert item["evidence"]["github"]["exact_open_pr"] is None
+    assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
+    assert "existing open PR head does not match desired head" in item["reason"]
 
 
 def test_open_pr_evidence_is_compact_when_pr_is_not_exact(tmp_path: Path) -> None:
