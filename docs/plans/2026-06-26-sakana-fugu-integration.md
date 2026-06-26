@@ -112,9 +112,10 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 1. Exact API base URL, model IDs, auth header, streaming semantics, rate limits (from `console.sakana.ai`).
 2. Whether Fugu exposes any sub-model attribution (would relax — but not remove — the opaque-vote rule).
 3. Token/cost accounting shape for the cost-quality optimizer.
-4. Whether to also expose Fugu via the existing OpenRouter path if/when listed there (vs direct).
+4. Whether to expose OpenRouter's current `sakana/fugu-ultra` surface alongside the direct Sakana API path, and whether direct `fugu` should remain the default for the balanced tier.
 
 ## References
 - Sakana Fugu release: https://sakana.ai/fugu-release/ and https://sakana.ai/fugu/
+- OpenRouter Fugu Ultra listing: https://openrouter.ai/sakana/fugu-ultra
 - Technical report: https://arxiv.org/abs/2606.21228
 - Related Aragora work: `docs/superpowers/specs/2026-06-26-reconcile-lane-design.md` (mission engine), `docs/**/2026-06-25-native-mission-orchestrator-spec.md` (spine).
