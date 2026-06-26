@@ -810,6 +810,16 @@ def classify_handoff_item(
                 reason=f"branch has exact-head draft open PR #{number}",
                 evidence=evidence,
             )
+        if github.mode != "ready":
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.REPRESENTED_BY_EXACT_OPEN_PR,
+                reason=f"branch has exact-head open PR #{number} but GitHub PR evidence is degraded",
+                evidence=evidence,
+            )
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
