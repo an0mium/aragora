@@ -123,9 +123,9 @@ The independent head-moving daemons — **boss-loop, publisher, merge-arbiter, m
 
 There is a confirmed bug: the publisher **never read its pause manifest** (`~/.aragora/fleet-pause/paused-agents.txt`) — a code search this session found **zero references** to it, so the pause was decorative. The reconcile lane fixes this structurally:
 
-- **One central pause/lock**, checked by **every repo-touching action** before it may **spawn / push / merge / publish**. Implemented as a single guard (e.g. `reconcile.pause.is_paused()`) read at the top of Stages 1, 4, 5, 6 (every mutation) and by every generator the conductor calls.
+- **One central pause/lock**, checked by **every repo-touching action** before it may mutate local or remote repo state: spawn agents, create PRs, push, merge, publish, delete branches, remove/prune worktrees, or write outbound handoff state. Implemented as a single guard (e.g. `reconcile.pause.is_paused()`) read by the conductor-owned mutation adapter used by Stages 1, 4, 5, 6 and by every generator the conductor calls.
 - Paused → the stage is a **no-op that emits a `paused` terminal receipt** (not a silent skip — §9 alerting).
-- The check is the conductor's, not each daemon's, so there is exactly one manifest and one reader. No mutation path may bypass it (the audit for this is a test that greps every `git push`/`gh pr merge`/`git branch -D` call site routes through the guard).
+- The check is the conductor's, not each daemon's, so there is exactly one manifest and one reader. No mutation path may bypass it: tests enumerate the mutation adapter surface (`git push`, `gh pr create/edit/merge/close`, `git branch -D`, `git worktree remove/prune`, cleanup helpers, publisher/outbox writes) and assert each path routes through the guard before executing.
 
 ---
 
@@ -215,7 +215,7 @@ Crash safety is inherited from the spine: `MissionState.save` is atomic (`os.rep
 - **Guardrail tests.** Assert Prune/Cut **never** touch a dirty / live-process / PR-backing / preserved branch even when it otherwise classifies for removal.
 - **Receipt emission.** Assert every artifact that exits any apply stage has exactly one terminal receipt in one of the five terminal states, signature-valid (`SignedReceipt`), and recoverable (deleted-receipt SHA re-creates the branch). Dry-run preview receipts are explicitly non-terminal and must not consume the artifact's terminal receipt slot.
 - **Idempotency.** Run each stage twice on the same fixture; second run mutates nothing and re-emits identical receipts; the inspection quorum is **not** re-invoked (receipt-cache hit).
-- **Pause is real.** With the pause manifest set, assert every mutating stage emits a `paused` receipt and mutates nothing — and a grep-test that every `git push`/`gh pr merge`/`git branch -D` call site routes through the pause guard (the §3c regression test).
+- **Pause is real.** With the pause manifest set, assert every mutating stage emits a `paused` receipt and mutates nothing. The §3c regression test must also enumerate the full conductor-owned mutation adapter surface — PR creation/edits/closures, pushes, merges, branch deletion, worktree removal/pruning, cleanup helpers, and publisher/outbox writes — and prove every path calls the pause guard before executing.
 - **Crash/resume.** `kill -9` mid-Cut (between two deletes); relaunch; assert no double-delete and the manifest receipt is consistent — reuses the parent's Phase-A exit test.
 
 ---
@@ -241,7 +241,7 @@ Receipts persist via `gauntlet/receipt_store`; the per-batch inspection receipt 
 A **manual run of exactly this flow this session** validated it:
 
 - **Branches: 2,749 → 489.** **Worktrees: 319 → 1.**
-- Adversarial inspection of **288 substantive stale branches found exactly 4 worth preserving.** The remaining 284: **235 now-obsolete automation-plumbing + 47 superseded.**
+- Adversarial inspection of **288 substantive stale branches found exactly 4 worth preserving.** The archived rollup identified **235 now-obsolete automation-plumbing** and **47 superseded** rows among the non-preserved set; the signed manifest remains the only delete authority, and any count mismatch fails closed into manual reconciliation instead of becoming implicit cut authority.
 
 Two design conclusions follow directly:
 
