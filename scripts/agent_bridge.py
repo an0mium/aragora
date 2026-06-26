@@ -1358,6 +1358,32 @@ def _release_dev_coordination_leases_for_session(*owner_session_ids: str) -> Non
         return
 
 
+def _codex_owner_session_id(session: Session) -> str:
+    if session.session_id:
+        return session.session_id
+    if session.worktree:
+        worktree_name = Path(session.worktree).name
+        if worktree_name:
+            return worktree_name
+    return session.name
+
+
+def _codex_owner_session_ids(session: Session) -> tuple[str, ...]:
+    values = [
+        session.session_id,
+        Path(session.worktree).name if session.worktree else "",
+        session.name,
+    ]
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        item = str(value or "").strip()
+        if item and item not in seen:
+            seen.add(item)
+            ordered.append(item)
+    return tuple(ordered)
+
+
 def _codex_send_lease_requested(args: argparse.Namespace) -> bool:
     return bool(
         str(getattr(args, "task_id", "") or "").strip()
@@ -1391,6 +1417,7 @@ def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> str |
             file=sys.stderr,
         )
         return None
+    owner_session_id = _codex_owner_session_id(session)
 
     command = [
         "python3",
@@ -1406,7 +1433,7 @@ def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> str |
         "--agent",
         "codex",
         "--session-id",
-        session.session_id or session.name,
+        owner_session_id,
         "--branch",
         session.branch,
         "--worktree",
@@ -1445,11 +1472,17 @@ def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> str |
     try:
         payload = json.loads(result.stdout or "{}")
     except json.JSONDecodeError:
-        return ""
+        print("Codex send lease claim failed: malformed JSON response", file=sys.stderr)
+        return None
     lease = payload.get("lease") if isinstance(payload, dict) else None
-    if isinstance(lease, dict):
-        return str(lease.get("lease_id") or "").strip()
-    return ""
+    if not isinstance(lease, dict):
+        print("Codex send lease claim failed: missing lease payload", file=sys.stderr)
+        return None
+    lease_id = str(lease.get("lease_id") or "").strip()
+    if not lease_id:
+        print("Codex send lease claim failed: missing lease_id", file=sys.stderr)
+        return None
+    return lease_id
 
 
 def _find_session(sessions: list[Session], target: str) -> Session | None:
@@ -2069,7 +2102,7 @@ def cmd_launch(args: argparse.Namespace) -> int:
         lane_claim_conflict = _lane_conflict(latest_lane_records, lane_id, session.name)
         if lane_claim_conflict is not None and not bool(getattr(args, "allow_conflict", False)):
             _kill_tmux_launcher_session(session.name)
-            _release_dev_coordination_leases_for_session(session.name, session.session_id or "")
+            _release_dev_coordination_leases_for_session(*_codex_owner_session_ids(session))
             exit_code = 1
         else:
             persist_conflict = _persist_lane_claim(
@@ -2085,7 +2118,7 @@ def cmd_launch(args: argparse.Namespace) -> int:
             if persist_conflict is not None and not bool(getattr(args, "allow_conflict", False)):
                 lane_claim_conflict = persist_conflict
                 _kill_tmux_launcher_session(session.name)
-                _release_dev_coordination_leases_for_session(session.name, session.session_id or "")
+                _release_dev_coordination_leases_for_session(*_codex_owner_session_ids(session))
                 exit_code = 1
 
     # Report writes are wrapped so a consumer closing the pipe early cannot
@@ -2326,7 +2359,7 @@ def cmd_send(args: argparse.Namespace) -> int:
             )
             return 1
     send_lease_id = _claim_codex_send_lease(session, args)
-    if send_lease_id is None or send_lease_id is False:
+    if send_lease_id is None:
         return 1
     if lane_id:
         persist_conflict = _persist_lane_claim(

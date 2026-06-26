@@ -368,6 +368,32 @@ def test_claim_lease_allow_overlap_does_not_bypass_forbidden_paths(
     assert exc_info.value.conflicts[0]["forbidden_paths"] == ["aragora/server/auth_checks.py"]
 
 
+def test_claim_lease_same_owner_session_can_reclaim_scope(
+    store: DevCoordinationStore,
+) -> None:
+    first = store.claim_lease(
+        task_id="clb-owner-reuse-a",
+        title="Launch lane",
+        owner_agent="codex",
+        owner_session_id="same-session",
+        branch="codex/mission",
+        worktree_path="/tmp/wt-mission",
+        claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+    )
+    second = store.claim_lease(
+        task_id="clb-owner-reuse-b",
+        title="Send lane prompt",
+        owner_agent="codex",
+        owner_session_id="same-session",
+        branch="codex/mission",
+        worktree_path="/tmp/wt-mission",
+        claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+    )
+
+    assert second.lease_id != first.lease_id
+    assert second.owner_session_id == "same-session"
+
+
 def test_claim_lease_detects_existing_fleet_claim(store: DevCoordinationStore) -> None:
     store.fleet_store.claim_paths(
         session_id="external-session",

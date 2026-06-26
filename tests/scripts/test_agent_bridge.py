@@ -3394,7 +3394,9 @@ def test_cmd_send_claims_codex_lease_before_prompt_delivery(
 
     monkeypatch.setattr(mod, "_write_lane_registry", _recording_write)
     monkeypatch.setattr(
-        mod, "_claim_codex_send_lease", lambda _session, _args: events.append("lease") or True
+        mod,
+        "_claim_codex_send_lease",
+        lambda _session, _args: events.append("lease") or "lease-123",
     )
     monkeypatch.setattr(mod, "_send_tmux", lambda _target, _prompt: events.append("send") or True)
 
@@ -3442,7 +3444,7 @@ def test_cmd_send_refuses_codex_prompt_when_lease_claim_fails(
     monkeypatch.setattr(mod, "discover", lambda: [session])
     monkeypatch.setattr(mod, "_resolve_tmux_target", lambda _session: "aragora:codex-strategic")
     monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
-    monkeypatch.setattr(mod, "_claim_codex_send_lease", lambda _session, _args: False)
+    monkeypatch.setattr(mod, "_claim_codex_send_lease", lambda _session, _args: None)
 
     def _unexpected_send(_target, _prompt):
         raise AssertionError("prompt must not be delivered without a scoped Codex lease")
@@ -3528,6 +3530,77 @@ def test_cmd_send_releases_lane_claim_when_tmux_send_fails(
     assert released == ["lease-123"]
 
 
+def test_claim_codex_send_lease_uses_worktree_session_id_and_requires_lease_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    calls: list[list[str]] = []
+    session = mod.Session(
+        name="codex-lane",
+        agent="codex",
+        status="alive",
+        branch="codex/mission",
+        worktree="/tmp/aragora-mission",
+    )
+
+    def _fake_run(cmd, **_kwargs):
+        calls.append(list(cmd))
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({"ok": True, "lease": {"lease_id": "lease-123"}}),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    lease_id = mod._claim_codex_send_lease(
+        session,
+        argparse.Namespace(
+            task_id="Q-mission-conductor",
+            goal="Continue scoped mission lane.",
+            claimed_path=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            write_scope=[],
+            test=[],
+            forbidden_path=[],
+            allow_overlap=False,
+        ),
+    )
+
+    assert lease_id == "lease-123"
+    command = calls[0]
+    assert command[command.index("--session-id") + 1] == "aragora-mission"
+    assert capsys.readouterr().err == ""
+
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({"ok": True, "lease": {}}),
+            stderr="",
+        ),
+    )
+
+    assert (
+        mod._claim_codex_send_lease(
+            session,
+            argparse.Namespace(
+                task_id="Q-mission-conductor",
+                goal="Continue scoped mission lane.",
+                claimed_path=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+                write_scope=[],
+                test=[],
+                forbidden_path=[],
+                allow_overlap=False,
+            ),
+        )
+        is None
+    )
+    assert "missing lease_id" in capsys.readouterr().err
+
+
 def test_cmd_launch_kills_session_when_post_launch_persist_detects_conflict(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -3581,7 +3654,7 @@ def test_cmd_launch_kills_session_when_post_launch_persist_detects_conflict(
         "--kill",
         "codex-lane",
     ] in calls
-    assert released_sessions == [("codex-lane", "")]
+    assert released_sessions == [(tmp_path.name, "codex-lane")]
 
 
 def test_cmd_launch_undelivered_is_observational_rc0_by_default(

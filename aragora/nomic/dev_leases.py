@@ -225,6 +225,8 @@ def find_conflicting_leases(
     for lease in active_leases:
         if exclude_lease_id and lease.lease_id == exclude_lease_id:
             continue
+        if owner_session_id and lease.owner_session_id == owner_session_id:
+            continue
         if lease.overlaps(normalized_globs, normalized_paths):
             conflicts.append(
                 {
@@ -436,6 +438,8 @@ def _find_conflicting_leases_locked(
     tracked_sessions = {lease.owner_session_id for lease in active_leases}
     for lease in active_leases:
         if exclude_lease_id and lease.lease_id == exclude_lease_id:
+            continue
+        if owner_session_id and lease.owner_session_id == owner_session_id:
             continue
         if lease.overlaps(normalized_globs, normalized_paths):
             conflicts.append(
