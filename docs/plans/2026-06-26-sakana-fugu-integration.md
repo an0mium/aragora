@@ -91,7 +91,7 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 - **Acceptance:** reproducible benchmark + a written comparison artifact.
 
 ### F5 — Research spike (longer horizon, non-binding)
-- **F5.1** Study TRINITY / Conductor (arxiv 2606.21228); evaluate whether learned-orchestration improves `team_selector` / router vs hand-designed selection. Output: a findings memo, not necessarily code.
+- **F5.1** Study TRINITY (arxiv 2512.04695), Conductor (arxiv 2512.04388), and the Fugu technical report (arxiv 2606.21228); evaluate whether learned-orchestration improves `team_selector` / router vs hand-designed selection. Output: a findings memo, not necessarily code.
 
 ## Cross-cutting requirements
 - **Feature flag** `enable_fugu` (default OFF) until F1–F3 test matrix passes.
@@ -117,5 +117,7 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 ## References
 - Sakana Fugu release: https://sakana.ai/fugu-release/ and https://sakana.ai/fugu/
 - OpenRouter Fugu Ultra listing: https://openrouter.ai/sakana/fugu-ultra
-- Technical report: https://arxiv.org/abs/2606.21228
+- Fugu technical report: https://arxiv.org/abs/2606.21228
+- Conductor paper: https://arxiv.org/abs/2512.04388
+- TRINITY paper: https://arxiv.org/abs/2512.04695
 - Related Aragora work: `docs/superpowers/specs/2026-06-26-reconcile-lane-design.md` (reconcile lane) and PR #8655's native mission orchestrator spec (mission spine; lands separately).
