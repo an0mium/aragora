@@ -484,7 +484,7 @@ def test_execute_reuses_existing_agent_lane_and_sends_prompt(tmp_path: Path) -> 
     assert "existing-lane" in send_commands[0]
 
 
-def test_execute_blocks_existing_autonomous_codex_lane_without_revalidated_lease(
+def test_execute_reuses_existing_autonomous_codex_lane_and_sends_prompt(
     tmp_path: Path,
 ) -> None:
     import goal_conductor as mod
@@ -512,9 +512,13 @@ def test_execute_blocks_existing_autonomous_codex_lane_without_revalidated_lease
 
     result = conductor.run_once()
 
-    assert result.decisions[0].action == "blocked"
-    assert "cannot be reused" in result.decisions[0].reason
-    assert runner.executed == []
+    assert result.decisions[0].action == "execute"
+    assert not any("launch" in call for command in runner.executed for call in command)
+    send_commands = [command for command in runner.executed if "send" in command]
+    assert len(send_commands) == 1
+    assert send_commands[0][:3] == ["python3", "scripts/agent_bridge.py", "send"]
+    assert "--lane" in send_commands[0]
+    assert "existing-lane" in send_commands[0]
 
 
 def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Path) -> None:
@@ -667,6 +671,38 @@ def test_autonomous_codex_lane_without_lease_scope_is_blocked(tmp_path: Path) ->
 
     assert result.decisions[0].action == "blocked"
     assert "requires task_id plus at least one" in result.decisions[0].reason
+    assert runner.executed == []
+
+
+def test_autonomous_codex_lane_with_only_tests_is_blocked(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "tests-only",
+            "agent": "codex",
+            "mode": "implementation",
+            "goal": "Patch something.",
+            "prompt": "Patch broadly.",
+            "task_id": "Q-tests-only",
+            "tests": ["python3 -m pytest tests/scripts/test_goal_conductor.py -q"],
+        }
+    ]
+    mission = mod.Mission.from_dict(payload)
+    runner = FakeRunner(mod, open_prs=[])
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "blocked"
+    assert "claimed_path or write_scope" in result.decisions[0].reason
     assert runner.executed == []
 
 

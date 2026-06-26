@@ -1265,13 +1265,14 @@ def _persist_lane_claim(
 ) -> None:
     existing = _find_lane_record(records, lane_id)
     conflict = _lane_conflict(records, lane_id, session.name)
-    if conflict is not None and allow_conflict:
-        conflict.status = "conflict"
-        conflict.conflict_session = session.name
-        conflict.conflict_reason = f"conflicting active owner claim from {session.name}"
-        conflict.next_action = next_action or "resolve ambiguous lane ownership"
-        conflict.updated_at = _now_iso()
-        _write_lane_registry(records)
+    if conflict is not None:
+        if allow_conflict:
+            conflict.status = "conflict"
+            conflict.conflict_session = session.name
+            conflict.conflict_reason = f"conflicting active owner claim from {session.name}"
+            conflict.next_action = next_action or "resolve ambiguous lane ownership"
+            conflict.updated_at = _now_iso()
+            _write_lane_registry(records)
         return
 
     record = existing or LaneRecord(lane_id=lane_id, owner_session=session.name)
@@ -1894,6 +1895,7 @@ def cmd_launch(args: argparse.Namespace) -> int:
     ):
         exit_code = 1
 
+    lane_claim_conflict: LaneRecord | None = None
     if lane_id and exit_code == 0:
         session = Session(
             name=args.name,
@@ -1903,16 +1905,32 @@ def cmd_launch(args: argparse.Namespace) -> int:
             lifecycle="live",
             worktree=str(launch_cwd),
         )
-        _persist_lane_claim(
-            lane_records if lane_records is not None else _load_lane_registry(),
-            lane_id,
-            session,
-            goal=str(getattr(args, "lease_title", "") or "").strip(),
-            source=str(getattr(args, "source", "") or "").strip(),
-            status=str(getattr(args, "status", "") or "active").strip(),
-            next_action=str(getattr(args, "next_action", "") or "").strip(),
-            allow_conflict=bool(getattr(args, "allow_conflict", False)),
-        )
+        latest_lane_records = _load_lane_registry()
+        lane_claim_conflict = _lane_conflict(latest_lane_records, lane_id, session.name)
+        if lane_claim_conflict is not None and not bool(getattr(args, "allow_conflict", False)):
+            _persist_lane_claim(
+                latest_lane_records,
+                lane_id,
+                session,
+                goal=str(getattr(args, "lease_title", "") or "").strip(),
+                source=str(getattr(args, "source", "") or "").strip(),
+                status=str(getattr(args, "status", "") or "active").strip(),
+                next_action=str(getattr(args, "next_action", "") or "").strip()
+                or "resolve ambiguous lane ownership",
+                allow_conflict=True,
+            )
+            exit_code = 1
+        else:
+            _persist_lane_claim(
+                latest_lane_records,
+                lane_id,
+                session,
+                goal=str(getattr(args, "lease_title", "") or "").strip(),
+                source=str(getattr(args, "source", "") or "").strip(),
+                status=str(getattr(args, "status", "") or "active").strip(),
+                next_action=str(getattr(args, "next_action", "") or "").strip(),
+                allow_conflict=bool(getattr(args, "allow_conflict", False)),
+            )
 
     # Report writes are wrapped so a consumer closing the pipe early cannot
     # mask the dispatch outcome (see _install_sigpipe_hygiene / issue #8317).
@@ -1929,6 +1947,12 @@ def cmd_launch(args: argparse.Namespace) -> int:
             }
             if dispatch is not None:
                 payload["dispatch"] = dispatch
+            if lane_claim_conflict is not None:
+                payload["lane_conflict"] = {
+                    "lane_id": lane_id,
+                    "owner_session": lane_claim_conflict.owner_session,
+                    "status": lane_claim_conflict.status,
+                }
             print(json.dumps(payload, indent=2))
         else:
             if result.stdout:
@@ -1951,6 +1975,13 @@ def cmd_launch(args: argparse.Namespace) -> int:
                         "dispatch receipt records delivered=false.",
                         file=sys.stderr,
                     )
+            if lane_claim_conflict is not None:
+                print(
+                    f"Lane '{lane_id}' was claimed by active session "
+                    f"'{lane_claim_conflict.owner_session}' before post-launch persistence; "
+                    "recorded a conflict and returning failure.",
+                    file=sys.stderr,
+                )
     except BrokenPipeError:
         _mute_stdout_after_broken_pipe()
 

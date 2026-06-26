@@ -222,13 +222,13 @@ class LaneSpec:
 
     @property
     def has_lease_scope(self) -> bool:
-        return bool(self.claimed_paths or self.write_scopes or self.tests)
+        return bool(self.claimed_paths or self.write_scopes)
 
     def lease_blocker(self) -> str | None:
         if self.agent == "codex" and self.autonomous and not self.has_lease_scope:
             return (
                 "autonomous Codex lane requires task_id plus at least one "
-                "claimed_path, write_scope, or test"
+                "claimed_path or write_scope"
             )
         return None
 
@@ -842,8 +842,6 @@ class GoalConductor:
                     launch.extend(["--forbidden-path", path])
             commands.append(launch)
             return commands
-        if lane.agent == "codex" and lane.autonomous:
-            return []
         commands.append(
             [
                 "python3",
@@ -901,18 +899,6 @@ class GoalConductor:
                         lane_id=lane.lane_id,
                         action="blocked",
                         reason=lease_blocker,
-                    )
-                )
-                continue
-            if lane.lane_id in sessions and lane.agent == "codex" and lane.autonomous:
-                decisions.append(
-                    LaneDecision(
-                        lane_id=lane.lane_id,
-                        action="blocked",
-                        reason=(
-                            "existing autonomous Codex session cannot be reused "
-                            "because the conductor cannot revalidate its dev lease"
-                        ),
                     )
                 )
                 continue

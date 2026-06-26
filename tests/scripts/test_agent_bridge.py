@@ -3272,6 +3272,64 @@ def test_cmd_launch_passes_codex_lease_flags_to_tmux_launcher(
     assert records[0].next_action == "open draft PR"
 
 
+def test_cmd_launch_rechecks_lane_owner_before_post_launch_persist(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _setup_launch_repo(mod, tmp_path, monkeypatch)
+    _fake_launch_subprocess(mod, monkeypatch, _SUBMITTED_PANE)
+    load_calls = 0
+    written: list[list[mod.LaneRecord]] = []
+
+    def _fake_load_lane_registry() -> list[mod.LaneRecord]:
+        nonlocal load_calls
+        load_calls += 1
+        if load_calls == 1:
+            return []
+        return [
+            mod.LaneRecord(
+                lane_id="codex-lane",
+                owner_session="already-running",
+                status="active",
+            )
+        ]
+
+    monkeypatch.setattr(mod, "_load_lane_registry", _fake_load_lane_registry)
+    monkeypatch.setattr(
+        mod,
+        "_write_lane_registry",
+        lambda records: written.append([mod.LaneRecord.from_dict(r.to_dict()) for r in records]),
+    )
+
+    rc = mod.cmd_launch(
+        _launch_namespace(
+            tmp_path,
+            name="codex-lane",
+            agent="codex",
+            autonomous=True,
+            submit_verify_timeout=0,
+            task_id="Q-mission-conductor",
+            lease_title="Patch conductor docs.",
+            claimed_path=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            lane="codex-lane",
+        )
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["lane_conflict"] == {
+        "lane_id": "codex-lane",
+        "owner_session": "already-running",
+        "status": "conflict",
+    }
+    assert written[-1][0].status == "conflict"
+    assert written[-1][0].conflict_session == "codex-lane"
+
+
 def test_cmd_launch_undelivered_is_observational_rc0_by_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

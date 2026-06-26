@@ -1368,6 +1368,21 @@ class DevCoordinationStore:
     ) -> WorkLease:
         from aragora.nomic.dev_leases import claim_lease as _impl
 
+        lease_metadata = dict(metadata or {})
+
+        def _metadata_claims(*keys: str) -> list[str]:
+            claims: list[str] = []
+            for key in keys:
+                value = lease_metadata.get(key)
+                if value is None:
+                    continue
+                items = value if isinstance(value, list) else [value]
+                for item in items:
+                    text = str(item).strip()
+                    if text:
+                        claims.append(_normalize_claim(text))
+            return claims
+
         normalized_forbidden = [
             _normalize_claim(item) for item in forbidden_paths or [] if str(item).strip()
         ]
@@ -1377,22 +1392,50 @@ class DevCoordinationStore:
         normalized_claimed = [
             _normalize_claim(item) for item in claimed_paths or [] if str(item).strip()
         ]
+        effective_forbidden = list(
+            dict.fromkeys(
+                [
+                    *normalized_forbidden,
+                    *_metadata_claims(
+                        "forbidden_paths",
+                        "forbidden_globs",
+                        "hot_paths",
+                        "hot_globs",
+                    ),
+                ]
+            )
+        )
+        effective_allowed = list(
+            dict.fromkeys(
+                [
+                    *normalized_allowed,
+                    *_metadata_claims("allowed_globs", "allowed_paths", "write_scopes"),
+                ]
+            )
+        )
+        effective_claimed = list(
+            dict.fromkeys(
+                [
+                    *normalized_claimed,
+                    *_metadata_claims("claimed_paths", "claim_paths"),
+                ]
+            )
+        )
         protected_conflicts = [
             {
                 "type": "forbidden_path",
                 "path": scope,
-                "protected_scope": normalized_forbidden,
+                "protected_scope": effective_forbidden,
                 "message": (
                     "lease scope overlaps forbidden_paths; narrow the positive scope "
                     "or remove the protected path from forbidden_paths"
                 ),
             }
-            for scope in [*normalized_allowed, *normalized_claimed]
-            if _claims_overlap([scope], [], normalized_forbidden)
+            for scope in [*effective_allowed, *effective_claimed]
+            if _claims_overlap([scope], [], effective_forbidden)
         ]
         if protected_conflicts:
             raise LeaseConflictError(protected_conflicts)
-        lease_metadata = dict(metadata or {})
         if normalized_forbidden:
             lease_metadata["forbidden_paths"] = normalized_forbidden
         return _impl(
