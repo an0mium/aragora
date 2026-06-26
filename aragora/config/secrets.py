@@ -457,14 +457,16 @@ class SecretManager:
         if _mfa_prompt_allowed(isatty=interactive):
             return boto3.client("secretsmanager", region_name=region, config=config)
         try:
-            import botocore.session  # type: ignore[import-untyped, import-not-found]
-
-            bsession = botocore.session.get_session()
-            provider = bsession.get_component("credential_provider").get_provider("assume-role")
-            provider._prompter = _fail_fast_mfa_prompter
-            return boto3.Session(botocore_session=bsession).client(
-                "secretsmanager", region_name=region, config=config
+            # Reach botocore's session via boto3's own wrapper (``_session``) rather
+            # than importing botocore.session directly — keeps this off the typed
+            # import surface (boto3 is already an untyped/Any import).
+            boto_session = boto3.Session()
+            botocore_session = boto_session._session
+            provider = botocore_session.get_component("credential_provider").get_provider(
+                "assume-role"
             )
+            provider._prompter = _fail_fast_mfa_prompter
+            return boto_session.client("secretsmanager", region_name=region, config=config)
         except Exception:  # noqa: BLE001 - botocore internals vary by version; degrade safely
             logger.debug("non-interactive MFA guard unavailable; using default client")
             return boto3.client("secretsmanager", region_name=region, config=config)

@@ -879,25 +879,28 @@ class TestNonInteractiveMfaGuard:
 
     def test_real_botocore_prompter_is_failfast_when_headless(self):
         """End-to-end against real botocore: the assume-role provider's prompter is
-        replaced with the fail-fast one (so it can't getpass-hang)."""
-        manager = SecretManager(SecretsConfig())
-        captured: dict[str, object] = {}
+        replaced with the fail-fast one (so it can't getpass-hang). The guard reaches
+        the botocore session via boto3's ``_session`` wrapper."""
+        import botocore.session
 
-        class _CapturingSession:
-            def __init__(self, *, botocore_session):
-                captured["botocore_session"] = botocore_session
+        manager = SecretManager(SecretsConfig())
+        real_botocore_session = botocore.session.get_session()
+
+        class _FakeSession:
+            _session = real_botocore_session
 
             def client(self, **_kw):
                 return MagicMock()
 
         fake_boto3 = MagicMock()
-        fake_boto3.Session = _CapturingSession
+        fake_boto3.Session = _FakeSession
         with (
             patch("aragora.config.secrets.sys.stdin.isatty", return_value=False),
             patch.dict(os.environ, {}, clear=True),
         ):
             manager._build_client(fake_boto3, "us-east-1", MagicMock())
 
-        bsession = captured["botocore_session"]
-        provider = bsession.get_component("credential_provider").get_provider("assume-role")
+        provider = real_botocore_session.get_component("credential_provider").get_provider(
+            "assume-role"
+        )
         assert provider._prompter is _fail_fast_mfa_prompter
