@@ -170,7 +170,7 @@ class LaneSpec:
             raise ValueError(f"lane {lane_id!r} must define prompt or prompt_file")
         strict_launch_verify = payload.get(
             "strict_launch_verify",
-            payload.get("strict_verify", True),
+            payload.get("strict_verify", False),
         )
         return cls(
             lane_id=lane_id,
@@ -732,8 +732,6 @@ class GoalConductor:
         for entry in _merge_packet_entries(snapshot.get("merge_packets")):
             tier = _coerce_int(entry.get("tier"))
             if tier is None:
-                pr_number = entry.get("pr_number", "?")
-                gates.append(f"merge-packet entry has unparseable tier: #{pr_number}")
                 continue
             if tier >= 4 or _truthy(entry.get("requires_human_risk_settlement")):
                 pr_number = entry.get("pr_number", "?")

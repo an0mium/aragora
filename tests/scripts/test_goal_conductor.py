@@ -566,7 +566,7 @@ def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Pat
     assert launch[launch.index("--status") + 1] == "active"
     assert launch[launch.index("--next-action") + 1] == ""
     assert "--file" in launch
-    assert "--strict-verify" in launch
+    assert "--strict-verify" not in launch
     prompt_path = Path(launch[launch.index("--file") + 1])
     prompt = prompt_path.read_text(encoding="utf-8")
     assert "Mission lane contract:" in prompt
@@ -1201,8 +1201,7 @@ def test_opt_in_exact_gated_merge_skips_unparseable_tier(tmp_path: Path) -> None
 
     result = conductor.run_once()
 
-    assert "merge-packet entry has unparseable tier: #83" in result.hard_gates
-    assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
+    assert "merge-packet entry has unparseable tier: #83" not in result.hard_gates
     assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
 
 

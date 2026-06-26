@@ -110,9 +110,10 @@ panel.
 Mission files should include the goal objective, stop condition, checkpoints,
 lane ownership, and allowed mutation class. Implementation lanes that launch
 Codex autonomously must also include a dev-coordination lease: `task_id` plus at
-least one `claimed_paths`, `write_scopes`, or `tests` entry. The conductor turns
-those fields into `scripts/tmux_session_launcher.sh` lease flags so Codex lanes
-cannot free-pick the queue.
+least one concrete mutation scope in `claimed_paths` or `write_scopes`. `tests`
+entries constrain validation, but they do not define write authority. The
+conductor turns those fields into `scripts/tmux_session_launcher.sh` lease flags
+so Codex lanes cannot free-pick the queue.
 
 The conductor emits a JSONL transcript and markdown handoff under
 `.aragora/goal-conductor/`; it does not bypass Tier gates, install launchd jobs,
