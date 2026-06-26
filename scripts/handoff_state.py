@@ -1054,30 +1054,15 @@ def github_evidence_for_branch(
     open_pr_items = open_prs or []
     if desired_head:
         for item in open_pr_items:
-            head = item.get("head") if isinstance(item.get("head"), Mapping) else {}
-            base = item.get("base") if isinstance(item.get("base"), Mapping) else {}
-            head_sha = str(head.get("sha") or item.get("head_sha") or item.get("headRefOid") or "")
-            base_ref = str(
-                base.get("ref")
-                or item.get("base_ref")
-                or item.get("baseRefName")
-                or DEFAULT_PR_BASE
-            )
+            compact = _compact_open_pr(item)
+            head_sha = str(compact.get("head_sha") or "")
+            base_ref = str(compact.get("base") or DEFAULT_PR_BASE)
             if heads_match(desired_head, head_sha) and _base_matches(
                 desired_base,
                 base_ref,
                 actual_is_live=True,
             ):
-                head_ref = str(head.get("ref") or item.get("head_ref") or "").strip()
-                exact_open_pr = {
-                    "number": item.get("number"),
-                    "state": item.get("state"),
-                    "draft": item.get("draft"),
-                    "head": head_ref or None,
-                    "head_sha": head_sha,
-                    "base": base_ref or None,
-                    "html_url": item.get("html_url") or item.get("url"),
-                }
+                exact_open_pr = {**compact, "base": base_ref or None}
                 break
     target_pr_error = None
     if exact_open_pr is None and target_pr is not None:
@@ -1106,7 +1091,7 @@ def github_evidence_for_branch(
     return GitHubEvidence(
         mode=mode,
         error=errors or None,
-        open_prs=open_pr_items,
+        open_prs=[_compact_open_pr(item) for item in open_pr_items],
         exact_open_pr=exact_open_pr,
         remote_ref=remote_ref,
     )
@@ -1151,12 +1136,21 @@ def _exact_open_pr_from_payload(
         actual_is_live=True,
     ):
         return None
+    return {**_compact_open_pr(item), "base": base_ref or None}
+
+
+def _compact_open_pr(item: Mapping[str, Any]) -> dict[str, Any]:
+    head = item.get("head") if isinstance(item.get("head"), Mapping) else {}
+    base = item.get("base") if isinstance(item.get("base"), Mapping) else {}
+    head_ref = str(head.get("ref") or item.get("head_ref") or item.get("headRefName") or "").strip()
+    head_sha = str(head.get("sha") or item.get("head_sha") or item.get("headRefOid") or "").strip()
+    base_ref = str(base.get("ref") or item.get("base_ref") or item.get("baseRefName") or "").strip()
     return {
         "number": item.get("number"),
         "state": item.get("state"),
         "draft": item.get("draft"),
         "head": head_ref or None,
-        "head_sha": head_sha,
+        "head_sha": head_sha or None,
         "base": base_ref or None,
         "html_url": item.get("html_url") or item.get("url"),
     }

@@ -1067,6 +1067,44 @@ def test_remote_exact_head_with_mismatched_open_pr_stays_publication_requested(
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
 
 
+def test_open_pr_evidence_is_compact_when_pr_is_not_exact(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 9000,
+                    "state": "open",
+                    "draft": True,
+                    "html_url": "https://github.com/synaptent/aragora/pull/9000",
+                    "head": {"ref": "codex/example", "sha": OTHER_HEAD},
+                    "base": {"ref": "main"},
+                    "_links": {"self": {"href": "https://api.github.com/noisy"}},
+                    "repo": {"full_name": "synaptent/aragora"},
+                    "user": {"login": "scarmani"},
+                }
+            ]
+        },
+        refs={"codex/example": {"ref": "refs/heads/codex/example", "object": {"sha": HEAD}}},
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["github"]["open_prs"] == [
+        {
+            "number": 9000,
+            "state": "open",
+            "draft": True,
+            "head": "codex/example",
+            "head_sha": OTHER_HEAD,
+            "base": "main",
+            "html_url": "https://github.com/synaptent/aragora/pull/9000",
+        }
+    ]
+
+
 def test_remote_exact_head_does_not_hide_live_owner_gate(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, branch="codex/example")
