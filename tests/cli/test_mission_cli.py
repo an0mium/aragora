@@ -345,6 +345,47 @@ def test_cmd_mission_run_report_mode_does_not_mutate_state(
     assert "Mission run (report): no dispatch performed; 0/1 completed" in capsys.readouterr().out
 
 
+def test_cmd_mission_auto_drain_parks_seeded_intake_without_branch_metadata(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
+    monkeypatch.setattr("aragora.cli.commands.mission._load_artifacts", lambda *a, **k: [])
+    parser = build_parser()
+    state_path = tmp_path / "state.json"
+    seed = parser.parse_args(
+        [
+            "mission",
+            "seed",
+            "Refactor auth",
+            "--state",
+            str(state_path),
+        ]
+    )
+
+    assert cmd_mission(seed) == 0
+
+    run = parser.parse_args(
+        [
+            "mission",
+            "run",
+            "--state",
+            str(state_path),
+            "--autonomy",
+            "auto-drain",
+            "--max-ticks",
+            "1",
+            "--repo-root",
+            str(tmp_path),
+        ]
+    )
+    assert cmd_mission(run) == 1
+
+    feature = MissionState.load(state_path).features[0]
+    assert feature.status == Status.BLOCKED
+    assert "metadata.branch" in feature.notes
+    assert "Mission run: 0/1 completed" in capsys.readouterr().out
+
+
 def test_cmd_mission_run_refuses_paused_mission(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

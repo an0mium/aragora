@@ -86,6 +86,17 @@ class BossLoopDispatch:
         self.receipt_dir = Path(receipt_dir) if receipt_dir is not None else None
 
     def __call__(self, feature: Feature) -> Handoff:
+        if _missing_live_branch(feature):
+            return Handoff(
+                success=False,
+                terminal=True,
+                blocked_reason=(
+                    "auto-drain requires feature metadata.branch before live dispatch; "
+                    "seed/intake features must be converted into branch-backed work first"
+                ),
+                discovered=[f"feature {feature.id} has no metadata.branch; parked for intake"],
+            )
+
         branch = self.gate.branch_for(feature)
 
         # Idempotency: a crash-retried feature whose PR already merged is done.
@@ -236,3 +247,8 @@ def _only_missing_path_allowlist(foreign: list[str]) -> bool:
     return bool(foreign) and all(
         item.endswith("(missing mission path allowlist)") for item in foreign
     )
+
+
+def _missing_live_branch(feature: Feature) -> bool:
+    branch = feature.metadata.get("branch")
+    return not (isinstance(branch, str) and branch.strip())

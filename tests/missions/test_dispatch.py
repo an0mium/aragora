@@ -35,11 +35,13 @@ class FakeGate:
         self.verdict = verdict or GateVerdict(satisfied=True)
         self.merge_ok = merge_ok
         self.tier = tier
+        self.branch_calls = 0
         self.merge_calls: list[tuple[str, str]] = []
         self.foreign_args: tuple[str, str, tuple[str, ...]] | None = None
         self.evidence_calls = 0
 
     def branch_for(self, feature: Feature) -> str:
+        self.branch_calls += 1
         return f"mission/{feature.id}"
 
     def already_merged(self, branch: str) -> bool:
@@ -65,7 +67,26 @@ class FakeGate:
 
 
 def _feat() -> Feature:
-    return Feature(id="a5", description="rehome x", milestone="phase-a-spine")
+    return Feature(
+        id="a5",
+        description="rehome x",
+        milestone="phase-a-spine",
+        metadata={"branch": "mission/a5"},
+    )
+
+
+def test_missing_branch_metadata_parks_before_live_git_lookup():
+    gate = FakeGate()
+    feature = Feature(id="a5", description="seeded intake", milestone="phase-a-spine")
+
+    handoff = BossLoopDispatch(gate)(feature)
+
+    assert not handoff.success
+    assert handoff.terminal
+    assert "metadata.branch" in handoff.blocked_reason
+    assert gate.branch_calls == 0
+    assert gate.evidence_calls == 0
+    assert gate.merge_calls == []
 
 
 def test_clean_quorum_merges_head_bound():
