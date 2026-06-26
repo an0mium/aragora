@@ -914,17 +914,6 @@ def classify_handoff_item(
             ),
         )
 
-    if github.mode in {"degraded", "disabled"} and is_pr_publication_request(payload):
-        return HandoffClassification(
-            outbox_file=path.name,
-            idempotency_key=idem,
-            branch=branch,
-            desired_head_sha=desired_head or None,
-            state=HandoffState.UNKNOWN,
-            reason="GitHub evidence is unavailable; cannot prove absence of exact open PR/ref",
-            evidence=evidence,
-        )
-
     if _terminal_receipt_satisfied(receipt_evidence):
         return HandoffClassification(
             outbox_file=path.name,
@@ -992,6 +981,17 @@ def classify_handoff_item(
             desired_head_sha=desired_head or None,
             state=HandoffState.UNKNOWN,
             reason="publication requested but queue-cap evidence is stale or unavailable",
+            evidence=evidence,
+        )
+
+    if github.mode in {"degraded", "disabled"} and is_pr_publication_request(payload):
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.UNKNOWN,
+            reason="GitHub evidence is unavailable; cannot prove absence of exact open PR/ref",
             evidence=evidence,
         )
 

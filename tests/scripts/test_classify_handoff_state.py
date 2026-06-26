@@ -1872,6 +1872,46 @@ def test_github_degraded_pr_lookup_fails_closed_for_publication(tmp_path: Path) 
     assert item["next_mutation_candidate"] == "none"
 
 
+def test_github_degraded_pr_lookup_still_reports_local_owner_blocker(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(errors={"pr:codex/example": "gh api failed (TimeoutExpired)"})
+    owner = FakeOwnerProbe(
+        {
+            "codex/example": {
+                "available": True,
+                "matched": True,
+                "lane_id": "Q1",
+                "owner_session": "engineering-autopilot-Q1",
+                "owner_blocking_state": "live_owner",
+                "status": "active",
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github, owner=owner)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["github"]["mode"] == "degraded"
+    assert item["next_mutation_candidate"] == "owner_followup"
+
+
+def test_github_degraded_pr_lookup_still_reports_live_queue_cap(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(errors={"pr:codex/example": "gh api failed (TimeoutExpired)"})
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
+    assert item["evidence"]["github"]["mode"] == "degraded"
+    assert item["next_mutation_candidate"] == "queue_drain"
+
+
 def test_missing_origin_disables_github_instead_of_defaulting_repo(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, branch="codex/example")
@@ -2077,7 +2117,7 @@ def test_classify_reports_partial_github_errors_without_global_blindness(
     assert payload["github"]["mode"] == "partial"
     assert payload["github"]["item_error_count"] == 1
     assert payload["counts"][mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value] == 1
-    assert payload["counts"][mod.HandoffState.UNKNOWN.value] == 1
+    assert payload["counts"][mod.HandoffState.BLOCKED_BY_OWNER.value] == 1
 
 
 def test_owner_probe_failure_fails_closed(tmp_path: Path) -> None:
