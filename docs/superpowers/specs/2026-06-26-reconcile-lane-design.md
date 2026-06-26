@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-26
 **Status:** Design / buildable backlog
-**Parent:** [`docs/plans/2026-06-25-native-mission-orchestrator-spec.md`](../../plans/2026-06-25-native-mission-orchestrator-spec.md) — the canonical mission-orchestrator design. This document is **subordinate** to it: it does not redefine `MissionState`, the stateless tick loop, the handoff/triage protocol, validator injection, or the 6 primitives. It specifies the **first real mission** that runs on that spine.
+**Parent:** the canonical mission-orchestrator design (`docs/plans/2026-06-25-native-mission-orchestrator-spec.md`, lands via PR #8655 — not yet on `main`, so referenced rather than linked to avoid a dangling reference). This document is **subordinate** to it: it does not redefine `MissionState`, the stateless tick loop, the handoff/triage protocol, validator injection, or the 6 primitives. It specifies the **first real mission** that runs on that spine.
 **Author:** distilled from a manual reconcile pass run this session (empirical results in §10).
 
 ---
