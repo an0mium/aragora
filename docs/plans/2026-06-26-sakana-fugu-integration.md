@@ -118,4 +118,4 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 - Sakana Fugu release: https://sakana.ai/fugu-release/ and https://sakana.ai/fugu/
 - OpenRouter Fugu Ultra listing: https://openrouter.ai/sakana/fugu-ultra
 - Technical report: https://arxiv.org/abs/2606.21228
-- Related Aragora work: `docs/superpowers/specs/2026-06-26-reconcile-lane-design.md` (mission engine), `docs/**/2026-06-25-native-mission-orchestrator-spec.md` (spine).
+- Related Aragora work: `docs/superpowers/specs/2026-06-26-reconcile-lane-design.md` (reconcile lane) and PR #8655's native mission orchestrator spec (mission spine; lands separately).
