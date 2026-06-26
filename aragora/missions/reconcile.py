@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -304,6 +305,7 @@ def inject_validation_features(
     path_values: set[str] = set()
     for f in non_validators:
         raw_paths = f.metadata.get("paths") or []
+        raw_iterable: Iterable[Any]
         if isinstance(raw_paths, str):
             raw_iterable = [raw_paths]
         elif isinstance(raw_paths, (list, tuple, set)):
