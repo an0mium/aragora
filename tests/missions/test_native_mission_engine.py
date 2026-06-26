@@ -125,6 +125,17 @@ def test_admission_policy_allows_cleanup_missions_under_backlog_pressure() -> No
     assert decision.allowed
 
 
+def test_admission_policy_does_not_bypass_on_product_merge_wording() -> None:
+    policy = AdmissionPolicy(max_unresolved=0)
+    report = ReconcileMode.REPORT.run(
+        [WorkArtifact("valuable", kind="branch", clean=True, unique_commits=True)]
+    )
+
+    decision = policy.evaluate("Implement merge conflict UI", report)
+
+    assert not decision.allowed
+
+
 def test_validation_injection_adds_gated_validator_features() -> None:
     state = MissionState(
         mission_id="m",

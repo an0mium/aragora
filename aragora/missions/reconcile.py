@@ -241,7 +241,7 @@ class AdmissionPolicy:
         if report.unresolved_count <= self.max_unresolved:
             return AdmissionDecision(True, "unresolved backlog is within admission limit")
         goal_lc = goal.lower()
-        if any(keyword in goal_lc for keyword in self.allowed_goal_keywords):
+        if _goal_targets_backlog(goal_lc, self.allowed_goal_keywords):
             return AdmissionDecision(True, "mission directly targets backlog drain/repair")
         return AdmissionDecision(
             False,
@@ -250,6 +250,28 @@ class AdmissionPolicy:
                 "new producer work is blocked until cleanup, drain, evidence, settlement, or repair"
             ),
         )
+
+
+def _goal_targets_backlog(goal_lc: str, allowed_goal_keywords: tuple[str, ...]) -> bool:
+    direct_patterns = {
+        "cleanup": r"\b(cleanup|clean\s+up)\b",
+        "clean up": r"\b(cleanup|clean\s+up)\b",
+        "reconcile": r"\breconcile\b",
+        "drain": r"\bdrain\b",
+        "settle": r"\bsettle(?:ment)?\b",
+        "evidence": r"\bevidence\b",
+    }
+    for keyword in allowed_goal_keywords:
+        pattern = direct_patterns.get(keyword)
+        if pattern and re.search(pattern, goal_lc):
+            return True
+
+    backlog_nouns = r"(?:backlog|queue|queued\s+work|pr|prs|pull\s+request|branch|ci|check)"
+    action_verbs = r"(?:repair|fix|merge)"
+    return bool(
+        re.search(rf"\b{action_verbs}\b.*\b{backlog_nouns}\b", goal_lc)
+        or re.search(rf"\b{backlog_nouns}\b.*\b{action_verbs}\b", goal_lc)
+    )
 
 
 def inject_validation_features(
