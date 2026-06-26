@@ -788,11 +788,14 @@ class GoalConductor:
             gates.append(f"publisher not ready: {snapshot['publisher'].get('summary', 'unknown')}")
         for entry in _merge_packet_entries(snapshot.get("merge_packets")):
             tier = _coerce_int(entry.get("tier"))
-            if tier is None:
-                continue
-            if tier >= 4 or _truthy(entry.get("requires_human_risk_settlement")):
+            human_settlement_required = _truthy(entry.get("requires_human_risk_settlement"))
+            if tier is not None and tier >= 4:
+                human_settlement_required = True
+            if human_settlement_required:
                 pr_number = entry.get("pr_number", "?")
-                tier_name = entry.get("tier_name") or f"tier_{tier}"
+                tier_name = entry.get("tier_name") or (
+                    f"tier_{tier}" if tier is not None else "tier_unknown"
+                )
                 gates.append(f"human/non-author settlement gate present: #{pr_number} {tier_name}")
             if _truthy(entry.get("unresolved_dissent")):
                 pr_number = entry.get("pr_number", "?")

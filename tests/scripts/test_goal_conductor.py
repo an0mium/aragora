@@ -937,6 +937,39 @@ def test_execute_does_not_treat_string_false_as_human_settlement_gate(
     assert [decision.action for decision in result.decisions] == ["execute", "execute"]
 
 
+def test_execute_blocks_human_settlement_even_when_tier_is_unparseable(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    open_prs = [{"number": 7156, "title": "unknown tier gate", "isDraft": False}]
+    merge_packet = {
+        "entries": [
+            {
+                "pr_number": 7156,
+                "tier": "unknown",
+                "tier_name": "tier_unknown",
+                "requires_human_risk_settlement": True,
+            }
+        ]
+    }
+    runner = FakeRunner(mod, open_prs=open_prs, merge_packet=merge_packet)
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.hard_gates == ["human/non-author settlement gate present: #7156 tier_unknown"]
+    assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
+    assert runner.executed == []
+
+
 def test_execute_blocks_all_lanes_when_unresolved_dissent_present(tmp_path: Path) -> None:
     import goal_conductor as mod
 
@@ -949,6 +982,39 @@ def test_execute_blocks_all_lanes_when_unresolved_dissent_present(tmp_path: Path
                 "pr_number": 7156,
                 "tier": 2,
                 "tier_name": "tier_2_live_automation",
+                "unresolved_dissent": True,
+                "requires_human_risk_settlement": False,
+            }
+        ]
+    }
+    runner = FakeRunner(mod, open_prs=open_prs, merge_packet=merge_packet)
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.hard_gates == ["unresolved model dissent present: #7156"]
+    assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
+    assert runner.executed == []
+
+
+def test_execute_blocks_unresolved_dissent_even_when_tier_is_unparseable(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    open_prs = [{"number": 7156, "title": "dissent", "isDraft": False}]
+    merge_packet = {
+        "entries": [
+            {
+                "pr_number": 7156,
+                "tier": "unknown",
                 "unresolved_dissent": True,
                 "requires_human_risk_settlement": False,
             }

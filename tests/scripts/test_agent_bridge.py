@@ -3419,7 +3419,7 @@ def test_cmd_send_claims_codex_lease_before_prompt_delivery(
     )
 
     assert rc == 0
-    assert events == ["lane-persisted", "lease", "send"]
+    assert events == ["lease", "lane-persisted", "send"]
 
 
 def test_cmd_send_refuses_codex_prompt_when_lease_claim_fails(
@@ -3470,6 +3470,62 @@ def test_cmd_send_refuses_codex_prompt_when_lease_claim_fails(
     )
 
     assert rc == 1
+    assert mod._load_lane_registry() == []
+
+
+def test_cmd_send_releases_lane_claim_when_tmux_send_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text("[]", encoding="utf-8")
+    session = mod.Session(
+        name="codex-strategic",
+        agent="codex",
+        status="alive",
+        tmux_target="aragora:codex-strategic",
+        branch="codex/mission",
+        worktree="/tmp/aragora-mission",
+        session_id="wt-mission",
+    )
+    released: list[object] = []
+    monkeypatch.setattr(mod, "discover", lambda: [session])
+    monkeypatch.setattr(mod, "_resolve_tmux_target", lambda _session: "aragora:codex-strategic")
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_claim_codex_send_lease", lambda _session, _args: "lease-123")
+    monkeypatch.setattr(
+        mod, "_release_dev_coordination_lease", lambda lease_id: released.append(lease_id)
+    )
+    monkeypatch.setattr(mod, "_send_tmux", lambda _target, _prompt: False)
+
+    rc = mod.cmd_send(
+        argparse.Namespace(
+            name="codex-strategic",
+            prompt=["Continue"],
+            file=None,
+            lane="mission-lane",
+            goal="Continue scoped mission lane.",
+            source="#8627",
+            status="active",
+            next_action="open draft PR",
+            task_id="Q-mission-conductor",
+            claimed_path=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            write_scope=[],
+            test=[],
+            forbidden_path=[],
+            allow_overlap=False,
+            allow_conflict=False,
+        )
+    )
+
+    assert rc == 1
+    records = mod._load_lane_registry()
+    assert len(records) == 1
+    assert records[0].status == "released"
+    assert records[0].next_action == "released after tmux send failed before prompt delivery"
+    assert released == ["lease-123"]
 
 
 def test_cmd_launch_kills_session_when_post_launch_persist_detects_conflict(
@@ -3490,6 +3546,12 @@ def test_cmd_launch_kills_session_when_post_launch_persist_detects_conflict(
     monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
     monkeypatch.setattr(mod, "_lane_conflict", lambda _records, _lane, _owner: None)
     monkeypatch.setattr(mod, "_persist_lane_claim", lambda *_args, **_kwargs: conflict)
+    released_sessions: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        mod,
+        "_release_dev_coordination_leases_for_session",
+        lambda *session_ids: released_sessions.append(tuple(session_ids)),
+    )
 
     rc = mod.cmd_launch(
         _launch_namespace(
@@ -3519,6 +3581,7 @@ def test_cmd_launch_kills_session_when_post_launch_persist_detects_conflict(
         "--kill",
         "codex-lane",
     ] in calls
+    assert released_sessions == [("codex-lane", "")]
 
 
 def test_cmd_launch_undelivered_is_observational_rc0_by_default(

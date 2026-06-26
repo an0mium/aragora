@@ -320,8 +320,11 @@ def claim_lease(
             claimed_paths=normalized_paths,
             owner_session_id=owner_session_id,
         )
-        if conflicts and not allow_overlap:
-            raise LeaseConflictError(conflicts)
+        non_overridable_conflicts = [
+            conflict for conflict in conflicts if conflict.get("type") == "forbidden_path"
+        ]
+        if non_overridable_conflicts or (conflicts and not allow_overlap):
+            raise LeaseConflictError(non_overridable_conflicts if allow_overlap else conflicts)
 
         lease = WorkLease(
             lease_id=str(uuid.uuid4())[:12],

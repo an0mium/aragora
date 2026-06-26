@@ -1293,6 +1293,28 @@ def _persist_lane_claim(
     return None
 
 
+def _release_lane_claim(
+    records: list[LaneRecord],
+    lane_id: str,
+    session: Session,
+    *,
+    reason: str,
+) -> None:
+    record = _find_lane_record(records, lane_id)
+    if record is None:
+        return
+    if record.owner_session != session.name:
+        return
+    if record.status not in ACTIVE_LANE_STATUSES:
+        return
+    record.status = "released"
+    record.next_action = reason
+    record.updated_at = _now_iso()
+    record.conflict_session = ""
+    record.conflict_reason = ""
+    _write_lane_registry(records)
+
+
 def _kill_tmux_launcher_session(name: str) -> None:
     launcher = CANONICAL_REPO_ROOT / "scripts" / "tmux_session_launcher.sh"
     try:
@@ -1307,6 +1329,35 @@ def _kill_tmux_launcher_session(name: str) -> None:
         return
 
 
+def _release_dev_coordination_lease(lease_id: object) -> None:
+    if not isinstance(lease_id, str) or not lease_id.strip():
+        return
+    try:
+        from aragora.nomic.dev_coordination import DevCoordinationStore
+
+        store = DevCoordinationStore(repo_root=CANONICAL_REPO_ROOT)
+        store.release_lease(lease_id.strip())
+    except Exception:
+        # Best-effort cleanup only; the caller still fails closed and reports the root error.
+        return
+
+
+def _release_dev_coordination_leases_for_session(*owner_session_ids: str) -> None:
+    session_ids = {str(item).strip() for item in owner_session_ids if str(item).strip()}
+    if not session_ids:
+        return
+    try:
+        from aragora.nomic.dev_coordination import DevCoordinationStore
+
+        store = DevCoordinationStore(repo_root=CANONICAL_REPO_ROOT)
+        for lease in store.list_active_leases():
+            if str(lease.owner_session_id).strip() in session_ids:
+                store.release_lease(lease.lease_id)
+    except Exception:
+        # Best-effort cleanup only; the launch/send command has already failed closed.
+        return
+
+
 def _codex_send_lease_requested(args: argparse.Namespace) -> bool:
     return bool(
         str(getattr(args, "task_id", "") or "").strip()
@@ -1317,9 +1368,9 @@ def _codex_send_lease_requested(args: argparse.Namespace) -> bool:
     )
 
 
-def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> bool:
+def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> str | None:
     if session.agent != "codex" or not _codex_send_lease_requested(args):
-        return True
+        return ""
 
     task_id = str(getattr(args, "task_id", "") or "").strip()
     claimed_paths = [
@@ -1333,13 +1384,13 @@ def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> bool:
             "Codex send lease requires --task-id plus --claimed-path or --write-scope",
             file=sys.stderr,
         )
-        return False
+        return None
     if not session.branch or not session.worktree:
         print(
             "Codex send lease requires session branch and worktree metadata",
             file=sys.stderr,
         )
-        return False
+        return None
 
     command = [
         "python3",
@@ -1386,12 +1437,19 @@ def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> bool:
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
         print(f"Codex send lease claim failed: {exc}", file=sys.stderr)
-        return False
+        return None
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or f"exit {result.returncode}").strip()
         print(f"Codex send lease claim failed: {detail}", file=sys.stderr)
-        return False
-    return True
+        return None
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        return ""
+    lease = payload.get("lease") if isinstance(payload, dict) else None
+    if isinstance(lease, dict):
+        return str(lease.get("lease_id") or "").strip()
+    return ""
 
 
 def _find_session(sessions: list[Session], target: str) -> Session | None:
@@ -2011,6 +2069,7 @@ def cmd_launch(args: argparse.Namespace) -> int:
         lane_claim_conflict = _lane_conflict(latest_lane_records, lane_id, session.name)
         if lane_claim_conflict is not None and not bool(getattr(args, "allow_conflict", False)):
             _kill_tmux_launcher_session(session.name)
+            _release_dev_coordination_leases_for_session(session.name, session.session_id or "")
             exit_code = 1
         else:
             persist_conflict = _persist_lane_claim(
@@ -2026,6 +2085,7 @@ def cmd_launch(args: argparse.Namespace) -> int:
             if persist_conflict is not None and not bool(getattr(args, "allow_conflict", False)):
                 lane_claim_conflict = persist_conflict
                 _kill_tmux_launcher_session(session.name)
+                _release_dev_coordination_leases_for_session(session.name, session.session_id or "")
                 exit_code = 1
 
     # Report writes are wrapped so a consumer closing the pipe early cannot
@@ -2265,6 +2325,10 @@ def cmd_send(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
+    send_lease_id = _claim_codex_send_lease(session, args)
+    if send_lease_id is None or send_lease_id is False:
+        return 1
+    if lane_id:
         persist_conflict = _persist_lane_claim(
             records,
             lane_id,
@@ -2276,17 +2340,24 @@ def cmd_send(args: argparse.Namespace) -> int:
             allow_conflict=bool(getattr(args, "allow_conflict", False)),
         )
         if persist_conflict is not None and not getattr(args, "allow_conflict", False):
+            _release_dev_coordination_lease(send_lease_id)
             print(
                 f"Lane '{lane_id}' already owned by active session "
                 f"'{persist_conflict.owner_session}'",
                 file=sys.stderr,
             )
             return 1
-    if not _claim_codex_send_lease(session, args):
-        return 1
     if _send_tmux(target, prompt):
         print(f"Sent to '{session.name}' ({len(prompt)} chars)")
         return 0
+    if lane_id:
+        _release_lane_claim(
+            records,
+            lane_id,
+            session,
+            reason="released after tmux send failed before prompt delivery",
+        )
+    _release_dev_coordination_lease(send_lease_id)
     print(f"Send failed for '{session.name}'", file=sys.stderr)
     return 1
 
