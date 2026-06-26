@@ -263,11 +263,11 @@ class TestCmdStatusLocal:
     def test_handles_import_error(self, mock_args, capsys):
         """Handle missing billing module."""
         with patch.dict("sys.modules", {"aragora.billing.usage": None}):
-            # Force import to fail
-            with patch("builtins.__import__", side_effect=ImportError("No module")):
-                result = cmd_status_local(mock_args)
+            result = cmd_status_local(mock_args)
 
         assert result == 1
+        captured = capsys.readouterr()
+        assert "Error reading local usage" in captured.out
 
 
 class TestCmdUsage:
@@ -345,12 +345,11 @@ class TestCmdUsage:
     def test_local_usage_handles_import_error(self, mock_args, capsys):
         """Handle missing local usage tracker dependencies."""
         with patch.dict("sys.modules", {"aragora.billing.usage": None}):
-            with patch("builtins.__import__", side_effect=ImportError("No module")):
-                result = cmd_usage_local(
-                    mock_args,
-                    datetime(2026, 1, 1),
-                    datetime(2026, 2, 1),
-                )
+            result = cmd_usage_local(
+                mock_args,
+                datetime(2026, 1, 1),
+                datetime(2026, 2, 1),
+            )
 
         assert result == 1
         captured = capsys.readouterr()
