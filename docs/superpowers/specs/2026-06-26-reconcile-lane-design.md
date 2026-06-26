@@ -3,6 +3,8 @@
 **Date:** 2026-06-26
 **Status:** Design / buildable backlog
 **Parent:** the canonical mission-orchestrator design (`docs/plans/2026-06-25-native-mission-orchestrator-spec.md`, lands via PR #8655 — not yet on `main`, so referenced rather than linked to avoid a dangling reference). This document is **subordinate** to it: it does not redefine `MissionState`, the stateless tick loop, the handoff/triage protocol, validator injection, or the 6 primitives. It specifies the **first real mission** that runs on that spine.
+
+**Merge dependency:** this PR is safe to land as a design/spec artifact before #8655, but implementation is hard-stacked after #8655. Until `aragora/missions/` is on `main`, references to mission-spine types below are target surfaces, not buildable current-main imports.
 **Author:** distilled from a manual reconcile pass run this session (empirical results in §10).
 
 ---
@@ -42,7 +44,7 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 - **Goal:** delete branches/worktrees that are provably valueless, with a recovery net.
 - **Input:** repo root, `--base origin/main`, `--ttl-hours` (default 24).
 - **Eligible (delete):** merged-into-`origin/main` (incl. squash-merge proven by `codex_worktree_autopilot._branch_effectively_merged` / `is_patch_equivalent`) or empty-diff (`harvest_salvage_branches._is_trivial_diff` → "no files changed"/"zero net LOC"). `[gone]` upstream is only a candidate signal; it is never deletion authority unless fresh merged/equivalent/zero-diff proof also exists.
-- **Guardrails (NEVER delete):** a **dirty** worktree (`_safe_worktree_dirty`), a worktree with a **live process** (`_has_active_session` via lock files + `lsof` cwd), a **PR-backing branch** (open PR head; cross-checked against `gh pr list` and the handoff-state evidence), or a branch whose current ref no longer equals the manifest `head_sha`. These are the existing autopilot guardrails plus exact-head binding — the lane only *invokes* them.
+- **Guardrails (NEVER delete):** a **dirty** worktree (`_safe_worktree_dirty`), a worktree with a **live process** (`_has_active_session` via lock files + `lsof` cwd), a **PR-backing branch** (open PR head; cross-checked against `gh pr list`, `codex_worktree_value_inventory.py --include-pr-state`, and outbox/owner evidence), or a branch whose current ref no longer equals the manifest `head_sha`. These are the existing autopilot guardrails plus exact-head binding — the lane only *invokes* them.
 - **Recovery net:** deletion never relies on a branch reflog or on `.git/worktree-archive/` alone, because neither is a durable ref that prevents Git garbage collection. Before deletion, the lane writes a durable manifest receipt with `{branch, head_sha, reason}` and creates an actual keep-ref such as `refs/archive/reconcile/<safe-branch>/<timestamp>` pointing at `head_sha` until the retention window expires. Recovery is `git branch <name> <head_sha>` from the receipt while the protected SHA is retained by that ref.
 - **Output:** `pruned[]` (branch, sha, reason), `skipped[]` (branch, guardrail or `head_moved`). **Idempotency:** already-deleted → no-op; a re-appearing dirty/live/head-moved worktree is skipped, never force-removed.
 - **Calls:** dry-run never calls `codex_worktree_autopilot.py cleanup`, because that helper archives/removes worktrees even when branch deletion is disabled. Dry-run uses the read-only inventory/inspect path (`codex_worktree_value_inventory.py --base origin/main --dry-run --json` plus `safe_worktree_cleanup.py inspect` for candidate worktrees) after a fresh `git fetch origin main`. Apply mode re-runs fresh inspect evidence, creates the keep-ref, resolves each branch ref immediately before deletion, requires `current_head == manifest.head_sha`, removes manifest-listed worktrees via `safe_worktree_cleanup.py remove` **without** relying on that helper's raw branch-delete path, then deletes branches with an atomic exact-head operation (`git update-ref -d refs/heads/<branch> <expected_sha>`) or an equivalent new helper API. The bulk autopilot `cleanup` helper may be used only behind a conductor adapter that proves its entire live result set equals the already-inspected manifest and deletes branches through the same exact-head API. The eligibility base and execution base must match the remote-tracking branch; local `main` is never delete authority.
@@ -74,7 +76,7 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 
 - **Goal:** every clean Stage-3 `preserve` verdict becomes a **DRAFT PR** carrying the inspection rationale, deduped against existing open PRs.
 - **Input:** Stage-3 clean `preserve` verdicts + their receipts. `needs-human` / split-inspection receipts are excluded and stay in the manual queue.
-- **Process:** for each preserved branch, open a draft PR (rationale = the receipt's verdict reason; body links the `DecisionReceipt` id). Dedup against `gh pr list` and the handoff-state `represented_by_exact_open_pr` evidence so a re-run never opens a second PR for an already-represented branch.
+- **Process:** for each preserved branch, open a draft PR (rationale = the receipt's verdict reason; body links the `DecisionReceipt` id). Dedup against `gh pr list`, `codex_worktree_value_inventory.py --include-pr-state`, and outbox/owner evidence so a re-run never opens a second PR for an already-represented branch.
 - **Why draft:** admission rule (§3a) — a preserved branch now has a **declared path to merge** (the draft PR enters the normal review-queue/quorum gate) instead of lingering as orphaned value.
 - **Calls:** the existing auto-PR archetype path in `harvest_salvage_branches.py` for self-contained changes; larger preserves get a draft PR + an operator-review note.
 - **Output:** `harvested[]` (branch, pr_number, receipt_id). **Idempotency:** already-has-PR → no-op.
@@ -136,7 +138,7 @@ There is a confirmed bug: the publisher **never read its pause manifest** (`~/.a
 | Worktree cleanup + guardrails | `scripts/codex_worktree_autopilot.py` (`cleanup`), `scripts/safe_worktree_cleanup.py` | Stage 1 |
 | Worktree value inventory | `scripts/codex_worktree_value_inventory.py` (`classify_candidate`, value classes) | Stage 1/2 evidence |
 | Salvage classifier (discard / auto-PR / operator-review) | `scripts/harvest_salvage_branches.py` (`_is_trivial_diff`, `_matches_auto_pr_archetype`, `_diff_stat`, `_commit_log`) | Stages 2,4,5 |
-| Handoff/outbox state classifier | `scripts/handoff_state.py` (`classify_handoffs`), `scripts/classify_handoff_state.py` | PR-backing / representation evidence (guardrails) |
+| PR/outbox representation evidence | `scripts/codex_worktree_value_inventory.py --include-pr-state`, `scripts/reconcile_automation_outbox.py`, `scripts/identify_lane_owner.py` | PR-backing / representation evidence (guardrails) |
 | Outbox reconcile | `scripts/reconcile_automation_outbox.py` (`--apply`) | settles satisfied handoffs before Cut |
 | Auto-merge decision core | `aragora/swarm/auto_merge_green.py` (`decide_auto_merge`, `apply_merges`), `scripts/auto_merge_quorum_green.py` | Stage 6 |
 | WIP / backpressure | `aragora/swarm/wip_budget.py` (`classify_wip`), `scripts/backlog_gate.py` | Stage 7 |
@@ -148,7 +150,7 @@ The lane is **orchestration + governance + the inspection runner**. Everything e
 
 ## 5. Architecture — mapping onto MissionState / ledger / orchestrator
 
-The reconcile lane is **a mission**, expressed in the parent's existing types (`aragora/missions/`), with **no new spine code**:
+After #8655 lands, the reconcile lane is **a mission**, expressed in the parent's mission types (`aragora/missions/`), with **no new spine code**:
 
 - **`MissionState`** (`state.py`): `goal = "reconcile the repo git surface"`. The seven stages are **`Feature`s** in array order, milestone-grouped (`milestone="prune"`, …, `"govern"`). Stage ordering is `preconditions` (`feature:prune` → `feature:triage` → …). Substantive-branch inspection fans out as **per-batch features** under the `inspect` milestone, each `fulfills` a `VAL-*` assertion ("every substantive branch has a preserve/cut verdict with a receipt").
 - **`MissionOrchestrator`** (`orchestrator.py`): drives the stages one survivable tick at a time. Each stage's work is a `Dispatch` callable returning a `Handoff`. A `kill -9` mid-Cut resumes from the persisted checkpoint with zero double-cut (Stage idempotency = dispatch idempotency).
@@ -210,7 +212,7 @@ Crash safety is inherited from the spine: `MissionState.save` is atomic (`os.rep
 
 ## 8. Testing strategy
 
-- **Temp-repo fixtures with synthetic sprawl.** A fixture builds a throwaway git repo and fabricates the full taxonomy: merged-into-main, `[gone]`, empty-diff, dirty worktree, live-process worktree (sentinel lock file), PR-backing branch, retry-series duplicates, `trivial`/`tiny`/`substantive` branches, and a Tier-0..4 spread of open PRs. No network: `gh` and the model quorum are injected (the primitives already take injectable list/merge fns — `apply_merges(merge_fn=…)`, `backlog_gate.run_gate(list_prs=…)`, `classify_handoffs(github_client=…, owner_probe=…)`).
+- **Temp-repo fixtures with synthetic sprawl.** A fixture builds a throwaway git repo and fabricates the full taxonomy: merged-into-main, `[gone]`, empty-diff, dirty worktree, live-process worktree (sentinel lock file), PR-backing branch, retry-series duplicates, `trivial`/`tiny`/`substantive` branches, and a Tier-0..4 spread of open PRs. No network: `gh`, outbox/owner probes, and the model quorum are injected (the primitives already take injectable list/merge fns — `apply_merges(merge_fn=…)`, `backlog_gate.run_gate(list_prs=…)`, and the inventory/outbox scripts accept cached or fixture-backed data).
 - **Dry-run vs apply parity.** For each stage, assert the dry-run **plan** exactly equals the set the `--apply` run mutates (same branches pruned/cut, same PRs merged) — the core safety property. A divergence is a bug.
 - **Guardrail tests.** Assert Prune/Cut **never** touch a dirty / live-process / active-session / PR-backing / preserved / protected-surface / unmerged-commit branch even when it otherwise classifies for removal.
 - **Exact-head deletion tests.** Advance a branch after dry-run/inspection but before apply; assert Prune/Cut skip deletion and emit `needs-human-at-<sha>` or `head_moved`, preserving both the old protected SHA and the new branch tip.
