@@ -139,6 +139,10 @@ def _run_worker_fenced(
     ledger = Ledger(ledger_path)
     res = SwarmResult(worker_id=worker_id)
 
+    def abandon_lost_lease(unit: str) -> None:
+        ledger.rollback_attempt(f"feature:{unit}")
+        res.lost_leases.append(unit)
+
     n = 0
     while max_units is None or n < max_units:
         unit = select_for(state, ledger, worker_id)
@@ -165,7 +169,7 @@ def _run_worker_fenced(
                 unit,
                 heartbeat.lost_reason,
             )
-            res.lost_leases.append(unit)
+            abandon_lost_lease(unit)
             continue
 
         # Discovered work is *advisory* in swarm mode (propose/accept boundary): the
@@ -186,7 +190,7 @@ def _run_worker_fenced(
                     worker_id,
                     unit,
                 )
-                res.lost_leases.append(unit)
+                abandon_lost_lease(unit)
                 continue
             continue
 
@@ -217,7 +221,7 @@ def _run_worker_fenced(
                 worker_id,
                 unit,
             )
-            res.lost_leases.append(unit)
+            abandon_lost_lease(unit)
             continue
 
     return res

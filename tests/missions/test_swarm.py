@@ -234,6 +234,7 @@ def test_worker_discards_success_after_losing_lease(tmp_path):
     assert res.done == []
     assert res.lost_leases == ["f1"]
     led = Ledger(lp)
+    assert led.attempts("feature:f1") == 0
     assert led.is_done("f1") is False
     assert led.discoveries() == {}
 
@@ -252,6 +253,7 @@ def test_worker_skips_lost_lease_and_continues_draining(tmp_path):
     assert res.lost_leases == ["f1"]
     assert res.done == ["f2"]
     led = Ledger(lp)
+    assert led.attempts("feature:f1") == 0
     assert led.is_done("f1") is False
     assert led.is_done("f2") is True
 

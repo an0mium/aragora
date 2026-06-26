@@ -1,6 +1,7 @@
 """Tests for Gastown-inspired patterns (Beads, Convoys, Hook Queue, Agent Roles, Molecules)."""
 
 import asyncio
+import json
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -366,6 +367,46 @@ class TestAgentRoles:
         assert hierarchy.hierarchy_file == runtime_dir / "agent_hierarchy" / "hierarchy.json"
         assert hierarchy.hierarchy_file.exists()
         assert not (tmp_path / ".agents" / "hierarchy.json").exists()
+
+    @pytest.mark.asyncio
+    async def test_default_hierarchy_migrates_legacy_agents_file(
+        self, monkeypatch, tmp_path, reset_singletons
+    ):
+        runtime_dir = tmp_path / ".nomic"
+        legacy_dir = tmp_path / ".agents"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "hierarchy.json"
+        legacy_file.write_text(
+            json.dumps(
+                {
+                    "assignments": [
+                        {
+                            "agent_id": "mayor-legacy",
+                            "role": "mayor",
+                            "assigned_at": datetime.now(timezone.utc).isoformat(),
+                            "supervised_by": None,
+                            "supervises": [],
+                            "capabilities": [],
+                            "is_ephemeral": False,
+                            "expires_at": None,
+                            "metadata": {"source": "legacy"},
+                        }
+                    ]
+                }
+            )
+        )
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(runtime_dir))
+
+        hierarchy = AgentHierarchy()
+        await hierarchy.initialize()
+
+        migrated_file = runtime_dir / "agent_hierarchy" / "hierarchy.json"
+        assert migrated_file.exists()
+        assert legacy_file.exists()
+        assignment = await hierarchy.get_assignment("mayor-legacy")
+        assert assignment is not None
+        assert assignment.role == AgentRole.MAYOR
 
     @pytest.mark.asyncio
     async def test_supervision_hierarchy(self, temp_dir, reset_singletons):

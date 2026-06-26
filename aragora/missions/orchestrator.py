@@ -65,8 +65,9 @@ class MissionOrchestrator:
     :func:`mission_owner_lock`: ``run``/``tick`` take the exclusive side, swarm
     workers take the shared side, so a second orchestrator *or* a live swarm on the
     same ``state_path`` fails fast with :class:`MissionOwnershipError`. If a
-    ``ledger_path`` is given, ``run`` reconciles ledger results into state before
-    ticking, so switching swarm→orchestrator never re-dispatches already-done work.
+    ``ledger_path`` is given (or a sibling ``ledger.json`` already exists), ``run``
+    reconciles ledger results into state before ticking, so switching
+    swarm→orchestrator never re-dispatches already-done work.
     Per-save persistence stays atomic via ``os.replace`` (no torn reads).
     """
 
@@ -95,7 +96,7 @@ class MissionOrchestrator:
         holding the fence once for the whole run.
         """
         with mission_owner_lock(self.state_path, exclusive=True):
-            if self.ledger_path is not None:
+            if self._ledger_path_for_reconcile() is not None:
                 self._reconcile_ledger()
             return self._tick(dispatch)
 
@@ -216,14 +217,15 @@ class MissionOrchestrator:
 
         Holds the exclusive :func:`mission_owner_lock` for the whole run, so a second
         orchestrator *or* a live swarm fails fast with ``MissionOwnershipError``
-        instead of racing ``next_pending``. If a ``ledger_path`` was given, folds the
-        swarm's ledger results into state first (so swarm→orchestrator never
-        re-dispatches done/parked work). The final state is reported precisely:
+        instead of racing ``next_pending``. If a ``ledger_path`` was given (or a
+        sibling ``ledger.json`` already exists), folds the swarm's ledger results
+        into state first (so swarm→orchestrator never re-dispatches done/parked
+        work). The final state is reported precisely:
         complete, blocked-remaining, or hit the tick cap.
         """
         hit_cap = True
         with mission_owner_lock(self.state_path, exclusive=True):
-            if self.ledger_path is not None:
+            if self._ledger_path_for_reconcile() is not None:
                 self._reconcile_ledger()
             for _ in range(max_ticks):
                 if not self._tick(dispatch):
@@ -258,5 +260,12 @@ class MissionOrchestrator:
         """
         from .swarm import _reconcile_locked
 
+        ledger_path = self._ledger_path_for_reconcile()
+        if ledger_path is not None:
+            _reconcile_locked(self.state_path, ledger_path)
+
+    def _ledger_path_for_reconcile(self) -> Path | None:
         if self.ledger_path is not None:
-            _reconcile_locked(self.state_path, self.ledger_path)
+            return self.ledger_path
+        default_path = self.state_path.with_name("ledger.json")
+        return default_path if default_path.exists() else None

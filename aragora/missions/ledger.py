@@ -208,6 +208,20 @@ class Ledger:
             self._save(data)
             return n
 
+    def rollback_attempt(self, key: str) -> int:
+        """Undo one provisional attempt when no durable outcome was recorded."""
+        with self._locked():
+            data = self._load()
+            current = data.attempts.get(key, 0)
+            if current <= 1:
+                data.attempts.pop(key, None)
+                n = 0
+            else:
+                n = current - 1
+                data.attempts[key] = n
+            self._save(data)
+            return n
+
     def attempts(self, key: str) -> int:
         return self._load().attempts.get(key, 0)
 

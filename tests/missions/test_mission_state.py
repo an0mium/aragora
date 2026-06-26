@@ -229,6 +229,27 @@ def test_public_tick_reconciles_ledger_when_configured(tmp_path):
     assert final.get("f2").status == Status.COMPLETED
 
 
+def test_public_tick_reconciles_default_sibling_ledger(tmp_path):
+    """The standard state.json/ledger.json layout must be safe without wiring."""
+    from aragora.missions.ledger import Ledger
+
+    p = tmp_path / "state.json"
+    lp = tmp_path / "ledger.json"
+    _mission(2).save(p)
+    Ledger(lp).record_done("f1")
+    seen: list[str] = []
+
+    def dispatch(feat):
+        seen.append(feat.id)
+        return Handoff(success=True)
+
+    assert MissionOrchestrator(p).tick(dispatch) is True
+    assert seen == ["f2"]
+    final = MissionState.load(p)
+    assert final.get("f1").status == Status.COMPLETED
+    assert final.get("f2").status == Status.COMPLETED
+
+
 def test_insert_followup_extends_queue():
     m = _mission(2)
     m.insert_feature(Feature(id="f1.5", description="follow", milestone="m1"), before="f2")

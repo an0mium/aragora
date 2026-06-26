@@ -220,11 +220,12 @@ class AgentHierarchy:
         Args:
             hierarchy_dir: Directory for persistence
         """
-        self.hierarchy_dir = (
-            Path(hierarchy_dir)
-            if hierarchy_dir is not None
-            else (get_default_data_dir() / "agent_hierarchy")
-        )
+        if hierarchy_dir is not None:
+            self.hierarchy_dir = Path(hierarchy_dir)
+            self._legacy_hierarchy_file = None
+        else:
+            self.hierarchy_dir = get_default_data_dir() / "agent_hierarchy"
+            self._legacy_hierarchy_file = Path(".agents") / "hierarchy.json"
         self.hierarchy_file = self.hierarchy_dir / "hierarchy.json"
         self._assignments: dict[str, RoleAssignment] = {}
         self._lock = asyncio.Lock()
@@ -242,15 +243,30 @@ class AgentHierarchy:
 
     async def _load_hierarchy(self) -> None:
         """Load hierarchy from file."""
-        if not self.hierarchy_file.exists():
+        source = self.hierarchy_file
+        using_legacy_default = False
+        if not source.exists() and self._legacy_hierarchy_file is not None:
+            legacy = self._legacy_hierarchy_file
+            if legacy.exists():
+                source = legacy
+                using_legacy_default = True
+
+        if not source.exists():
             return
 
         try:
-            with open(self.hierarchy_file) as f:
+            with open(source) as f:
                 data = json.load(f)
                 for assignment_data in data.get("assignments", []):
                     assignment = RoleAssignment.from_dict(assignment_data)
                     self._assignments[assignment.agent_id] = assignment
+            if using_legacy_default and not self.hierarchy_file.exists():
+                await self._save_hierarchy()
+                logger.info(
+                    "Migrated legacy agent hierarchy from %s to %s",
+                    source,
+                    self.hierarchy_file,
+                )
         except OSError as e:
             logger.error("Failed to load hierarchy: %s", e)
 
