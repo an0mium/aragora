@@ -43,7 +43,7 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 - **Input:** repo root, `--base origin/main`, `--ttl-hours` (default 24).
 - **Eligible (delete):** merged-into-`origin/main` (incl. squash-merge proven by `codex_worktree_autopilot._branch_effectively_merged` / `is_patch_equivalent`), `[gone]` upstream, empty-diff (`harvest_salvage_branches._is_trivial_diff` → "no files changed"/"zero net LOC").
 - **Guardrails (NEVER delete):** a **dirty** worktree (`_safe_worktree_dirty`), a worktree with a **live process** (`_has_active_session` via lock files + `lsof` cwd), or a **PR-backing branch** (open PR head; cross-checked against `gh pr list` and the handoff-state evidence). These are the existing autopilot guardrails — the lane only *invokes* them.
-- **Recovery net:** branch deletion keeps reflog (`git branch -D` retains the commit; the worktree-archive under `.git/worktree-archive/` is the autopilot's existing archive). A terminal receipt records the deleted SHA so recovery is `git branch <name> <sha>`.
+- **Recovery net:** deletion never relies on a branch reflog, because `git branch -D` can remove the branch reflog and later garbage collection can prune otherwise-unreferenced commits. Before deletion, the lane writes a durable manifest receipt with `{branch, head_sha, reason}` and protects the SHA with the existing archive/keep-ref mechanism (`.git/worktree-archive/` or an equivalent `refs/archive/reconcile/...` ref) until the retention window expires. Recovery is `git branch <name> <head_sha>` from the receipt while the protected SHA is retained.
 - **Output:** `pruned[]` (branch, sha, reason), `skipped[]` (branch, guardrail). **Idempotency:** already-deleted → no-op; a re-appearing dirty/live worktree is skipped, never force-removed.
 - **Calls:** `codex_worktree_autopilot.py cleanup --base main --ttl-hours N [--apply via the autopilot's own delete path]`. The lane passes `--no-delete-branches` in dry-run and the real delete only under `--apply`.
 
@@ -83,7 +83,7 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 
 - **Goal:** delete everything classified for removal: Triage `empty`/`trivial`/`superseded` + Stage-3 `cut` verdicts.
 - **Guardrails (subtract before deleting):** never cut a branch that is **preserved** (Stage 3/4) or **PR-backing** (open-PR head). Re-checks live PR state at cut time (heads move).
-- **Recovery net:** same as Prune — reflog + a **manifest receipt** listing every cut `{branch, sha, class, reason, receipt_id?}`, so any cut is recoverable by SHA.
+- **Recovery net:** same as Prune — a durable protected SHA plus a **manifest receipt** listing every cut `{branch, sha, class, reason, receipt_id?}`. Recovery must use the receipt SHA; branch reflog is not treated as durable evidence after deletion.
 - **Output:** `cut_manifest` receipt. **Idempotency:** already-deleted → no-op; a branch that gained a PR since Triage is skipped (guardrail re-check).
 
 ### Stage 6 — Settle (repaired auto-merge on green quorum, Tier 0-2)
@@ -188,7 +188,7 @@ Each stage implements the parent's `Dispatch = Callable[[Feature], Handoff]`. Un
 | **Input** | `Feature` (carries stage params in `notes`/config) + live git/GitHub re-derived at dispatch time |
 | **Output** | `Handoff(success, discovered[], follow_ups[], terminal, blocked_reason)` + zero-or-more terminal receipts |
 | **Idempotency** | re-run with unchanged heads → same result; mutations are no-ops when already applied; receipts cache on `(artifact, sha)` |
-| **Dry-run** | default; emits the *plan* (would-prune/would-cut/would-merge) and writes receipts marked `dry_run=true`; `--apply` flips to real mutation |
+| **Dry-run** | default; emits the *plan* (would-prune/would-cut/would-merge) and writes non-terminal preview receipts marked `dry_run=true`; `--apply` flips to real mutation and is the only mode that may emit terminal artifact-exit receipts |
 | **Pause** | every mutating stage checks §3c first; paused → `Handoff(success=False, terminal=True, blocked_reason="fleet paused")` + `paused` receipt |
 | **Calls** | the wrapped primitive(s) in §4 — the stage is glue, not new cleanup logic |
 
@@ -213,7 +213,7 @@ Crash safety is inherited from the spine: `MissionState.save` is atomic (`os.rep
 - **Temp-repo fixtures with synthetic sprawl.** A fixture builds a throwaway git repo and fabricates the full taxonomy: merged-into-main, `[gone]`, empty-diff, dirty worktree, live-process worktree (sentinel lock file), PR-backing branch, retry-series duplicates, `trivial`/`tiny`/`substantive` branches, and a Tier-0..4 spread of open PRs. No network: `gh` and the model quorum are injected (the primitives already take injectable list/merge fns — `apply_merges(merge_fn=…)`, `backlog_gate.run_gate(list_prs=…)`, `classify_handoffs(github_client=…, owner_probe=…)`).
 - **Dry-run vs apply parity.** For each stage, assert the dry-run **plan** exactly equals the set the `--apply` run mutates (same branches pruned/cut, same PRs merged) — the core safety property. A divergence is a bug.
 - **Guardrail tests.** Assert Prune/Cut **never** touch a dirty / live-process / PR-backing / preserved branch even when it otherwise classifies for removal.
-- **Receipt emission.** Assert every artifact that exits any stage has exactly one terminal receipt in one of the five terminal states, signature-valid (`SignedReceipt`), and recoverable (deleted-receipt SHA re-creates the branch).
+- **Receipt emission.** Assert every artifact that exits any apply stage has exactly one terminal receipt in one of the five terminal states, signature-valid (`SignedReceipt`), and recoverable (deleted-receipt SHA re-creates the branch). Dry-run preview receipts are explicitly non-terminal and must not consume the artifact's terminal receipt slot.
 - **Idempotency.** Run each stage twice on the same fixture; second run mutates nothing and re-emits identical receipts; the inspection quorum is **not** re-invoked (receipt-cache hit).
 - **Pause is real.** With the pause manifest set, assert every mutating stage emits a `paused` receipt and mutates nothing — and a grep-test that every `git push`/`gh pr merge`/`git branch -D` call site routes through the pause guard (the §3c regression test).
 - **Crash/resume.** `kill -9` mid-Cut (between two deletes); relaunch; assert no double-delete and the manifest receipt is consistent — reuses the parent's Phase-A exit test.
@@ -227,7 +227,7 @@ Every artifact exits in exactly one state, each a signed `DecisionReceipt`:
 | Terminal state | Meaning | Recovery |
 |----------------|---------|----------|
 | `merged` | Tier 0-2 settled on green quorum | n/a |
-| `closed-superseded` | retry-series duplicate or obsoleted branch, cut | reflog SHA in receipt |
+| `closed-superseded` | retry-series duplicate or obsoleted branch, cut | protected SHA in receipt |
 | `preserved-blocked` | inspection said preserve → draft PR opened | PR number in receipt |
 | `deleted` | safe dead branch/worktree pruned/cut | `git branch <name> <sha>` from receipt |
 | `needs-human-at-<sha>` | Tier 3-4, ambiguous split, or protected-surface — manual queue | operator fork |
