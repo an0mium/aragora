@@ -93,6 +93,16 @@ def test_foreign_commit_guard_blocks_before_evidence():
     assert gate.merge_calls == []
 
 
+def test_missing_path_allowlist_parks_without_terminal_contamination():
+    gate = FakeGate(foreign=["abc123 mission: update feature (missing mission path allowlist)"])
+    handoff = BossLoopDispatch(gate)(_feat())
+    assert not handoff.success
+    assert not handoff.terminal
+    assert "metadata missing paths" in handoff.blocked_reason
+    assert gate.evidence_calls == 0
+    assert gate.merge_calls == []
+
+
 def test_tier3_escalates_before_spending_a_quorum():
     gate = FakeGate(tier=3)
     handoff = BossLoopDispatch(gate)(_feat())

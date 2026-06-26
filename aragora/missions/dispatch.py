@@ -99,6 +99,15 @@ class BossLoopDispatch:
         # head — park for re-derive instead of merging someone else's work.
         foreign = self.gate.foreign_commits(branch, self.base, self.allowed_prefixes)
         if foreign:
+            if _only_missing_path_allowlist(foreign):
+                return Handoff(
+                    success=False,
+                    blocked_reason=(
+                        "mission metadata missing paths; add metadata.paths before auto-drain "
+                        f"so the foreign-commit guard can verify {branch}"
+                    ),
+                    discovered=[f"mission path allowlist missing on {branch}"],
+                )
             # Terminal: a contaminated branch needs a re-derive, not a re-dispatch.
             return Handoff(
                 success=False,
@@ -173,6 +182,15 @@ class BossLoopDispatch:
             )
         foreign = self.gate.foreign_commits(branch, self.base, self.allowed_prefixes)
         if foreign:
+            if _only_missing_path_allowlist(foreign):
+                return Handoff(
+                    success=False,
+                    blocked_reason=(
+                        "mission metadata missing paths after evidence; add metadata.paths "
+                        f"before retrying auto-drain for {branch}"
+                    ),
+                    discovered=[f"mission path allowlist missing on {branch} before merge"],
+                )
             return Handoff(
                 success=False,
                 terminal=True,
@@ -212,3 +230,9 @@ class BossLoopDispatch:
             logger.error("failed to write operator receipt for %s: %s", feature.id, exc)
             return None
         return str(path)
+
+
+def _only_missing_path_allowlist(foreign: list[str]) -> bool:
+    return bool(foreign) and all(
+        item.endswith("(missing mission path allowlist)") for item in foreign
+    )

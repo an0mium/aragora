@@ -61,6 +61,8 @@ class LiveBossLoopGate:
             )
             if str(payload.get("state") or "").upper() == "MERGED" or payload.get("mergedAt"):
                 pr_branch = str(payload.get("headRefName") or "").strip()
+                if pr_branch == branch:
+                    return True
                 try:
                     branch_head = self.head_of(branch)
                 except RuntimeError:
@@ -187,6 +189,8 @@ class LiveBossLoopGate:
             return False
         verdict = self.collect_evidence(branch, head)
         if not verdict.satisfied:
+            return False
+        if verdict.tier >= 3:
             return False
         self.runner(
             [

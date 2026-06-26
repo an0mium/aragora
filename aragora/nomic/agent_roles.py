@@ -323,10 +323,13 @@ class AgentHierarchy:
 
     @staticmethod
     def _repo_root() -> Path:
+        module_root = Path(__file__).resolve().parents[2]
+        if (module_root / ".git").exists() or (module_root / ".agents").exists():
+            return module_root
         for candidate in (Path.cwd(), *Path.cwd().parents):
             if (candidate / ".git").exists() or (candidate / ".agents").exists():
                 return candidate
-        return Path(__file__).resolve().parents[2]
+        return module_root
 
     @staticmethod
     def _retire_legacy_hierarchy(path: Path) -> None:
@@ -341,6 +344,7 @@ class AgentHierarchy:
         supervised_by: str | None = None,
         additional_capabilities: set[RoleCapability] | None = None,
         metadata: dict[str, Any] | None = None,
+        expires_at: datetime | None = None,
     ) -> RoleAssignment:
         """
         Register an agent with a role.
@@ -351,6 +355,7 @@ class AgentHierarchy:
             supervised_by: Agent ID of supervisor
             additional_capabilities: Extra capabilities beyond role defaults
             metadata: Additional metadata
+            expires_at: Optional expiration timestamp for ephemeral agents
 
         Returns:
             The created role assignment
@@ -371,6 +376,7 @@ class AgentHierarchy:
                 assigned_at=datetime.now(timezone.utc),
                 supervised_by=supervised_by,
                 metadata=metadata or {},
+                expires_at=expires_at,
             )
 
             # Add additional capabilities
@@ -507,14 +513,8 @@ class AgentHierarchy:
             role=AgentRole.POLECAT,
             supervised_by=supervised_by,
             metadata={"task_description": task_description},
+            expires_at=expires_at,
         )
-        assignment.expires_at = expires_at
-
-        if not await self._save_hierarchy():
-            self._assignments.pop(agent_id, None)
-            if not await self._save_hierarchy():
-                self._assignments[agent_id] = assignment
-            raise RuntimeError("failed to save agent hierarchy after spawning polecat")
         logger.info("Spawned Polecat %s for task: %s...", agent_id, task_description[:50])
         return assignment
 

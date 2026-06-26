@@ -247,6 +247,23 @@ class TestAgentHierarchyMigration:
 
         assert await hierarchy.get_assignment("crew-001") is not None
 
+    @pytest.mark.asyncio
+    async def test_spawn_polecat_rolls_back_when_initial_save_fails(
+        self, temp_dir, reset_singletons, monkeypatch
+    ):
+        hierarchy = AgentHierarchy(temp_dir / "hierarchy")
+        await hierarchy.register_agent("mayor-001", AgentRole.MAYOR)
+
+        async def fail_save():
+            return False
+
+        monkeypatch.setattr(hierarchy, "_save_hierarchy", fail_save)
+
+        with pytest.raises(RuntimeError, match="failed to save agent hierarchy"):
+            await hierarchy.spawn_polecat("mayor-001", "Fix bug in auth module")
+
+        assert await hierarchy.get_agents_by_role(AgentRole.POLECAT) == []
+
 
 # =============================================================================
 # Convoy Tests
@@ -628,6 +645,7 @@ class TestAgentRoles:
         assert polecat.role == AgentRole.POLECAT
         assert polecat.is_ephemeral
         assert polecat.supervised_by == "mayor-001"
+        assert polecat.expires_at is not None
 
     @pytest.mark.asyncio
     async def test_role_capabilities(self, temp_dir, reset_singletons):

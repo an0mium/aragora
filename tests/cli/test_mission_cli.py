@@ -426,7 +426,7 @@ def test_inventory_artifact_enrichment_uses_merge_packet_for_auto_drain(monkeypa
         open_pr=True,
         evidence=["inventory"],
     )
-    candidate = {"links": {"open_prs": [{"number": 8655}]}}
+    candidate = {"git": {"head": "abc123"}, "links": {"open_prs": [{"number": 8655}]}}
     monkeypatch.setattr(
         "aragora.cli.commands.mission._merge_packet_for_pr",
         lambda pr, **kwargs: {
@@ -458,7 +458,7 @@ def test_inventory_artifact_enrichment_uses_merge_packet_for_auto_drain(monkeypa
 
 def test_inventory_artifact_enrichment_refuses_human_blockers(monkeypatch) -> None:
     artifact = WorkArtifact("wt", kind="worktree", clean=True, open_pr=True)
-    candidate = {"links": {"open_prs": [{"number": 8655}]}}
+    candidate = {"git": {"head": "abc123"}, "links": {"open_prs": [{"number": 8655}]}}
     monkeypatch.setattr(
         "aragora.cli.commands.mission._merge_packet_for_pr",
         lambda pr, **kwargs: {
@@ -483,6 +483,38 @@ def test_inventory_artifact_enrichment_refuses_human_blockers(monkeypatch) -> No
 
     assert enriched.checks_green
     assert not enriched.quorum_satisfied
+
+
+def test_inventory_artifact_enrichment_parks_missing_inventory_head(monkeypatch) -> None:
+    artifact = WorkArtifact("wt", kind="worktree", clean=True, open_pr=True)
+    candidate = {"links": {"open_prs": [{"number": 8655}]}}
+    monkeypatch.setattr(
+        "aragora.cli.commands.mission._merge_packet_for_pr",
+        lambda pr, **kwargs: {
+            "entries": [
+                {
+                    "pr_number": pr,
+                    "head_sha": "abc123",
+                    "tier": 2,
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "requires_human_preapproval": False,
+                    "unresolved_dissent": False,
+                    "check_surfaces": {"required_pr_checks": {"summary": "5/5 required green"}},
+                }
+            ]
+        },
+    )
+
+    enriched = _artifact_with_merge_packet_fields(artifact, candidate)
+
+    assert enriched.tier == 2
+    assert enriched.head_sha == "abc123"
+    assert not enriched.checks_green
+    assert not enriched.quorum_satisfied
+    assert "inventory omitted candidate head" in enriched.evidence[-1]
 
 
 def test_inventory_artifact_enrichment_parks_stale_inventory_head(monkeypatch) -> None:

@@ -412,6 +412,19 @@ def _artifact_with_merge_packet_fields(
     tier = _int_or_none(entry.get("tier"))
     head_sha = str(entry.get("head_sha") or entry.get("headRefOid") or "").strip() or None
     candidate_head = _candidate_head_sha(candidate)
+    if head_sha and not candidate_head:
+        evidence = [
+            *artifact.evidence,
+            f"merge-packet PR {pr_number}: parked because inventory omitted candidate head for packet head {head_sha}",
+        ]
+        return replace(
+            artifact,
+            tier=tier,
+            head_sha=head_sha,
+            checks_green=False,
+            quorum_satisfied=False,
+            evidence=evidence,
+        )
     if candidate_head and head_sha and candidate_head != head_sha:
         evidence = [
             *artifact.evidence,

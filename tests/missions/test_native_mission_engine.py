@@ -370,13 +370,14 @@ def test_live_gate_tier_parks_when_pr_packet_entry_is_missing() -> None:
 def test_live_gate_already_merged_is_squash_merge_aware() -> None:
     def runner(cmd: list[str], cwd: Path) -> str:
         if cmd[:2] == ["git", "rev-parse"] and cmd[-1] == "codex/native-mission-engine":
-            return "abc123\n"
+            return "local-branch-moved\n"
         if cmd[:3] == ["gh", "pr", "view"]:
             return json.dumps(
                 {
                     "state": "MERGED",
                     "mergedAt": "2026-06-26T19:00:00Z",
                     "headRefOid": "abc123",
+                    "headRefName": "codex/native-mission-engine",
                 }
             )
         raise AssertionError(f"unexpected command: {cmd}")
@@ -547,6 +548,43 @@ def test_live_gate_merge_head_bound_verifies_merged_state() -> None:
             return ""
         if cmd[:3] == ["gh", "pr", "view"]:
             return json.dumps({"state": "OPEN", "mergedAt": None})
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
+    branch = gate.branch_for(
+        Feature(
+            id="engine",
+            description="ship engine",
+            milestone="m",
+            metadata={"branch": "codex/native-mission-engine", "pr": 8625, "tier": 2},
+        )
+    )
+
+    assert not gate.merge_head_bound(branch, "abc123")
+
+
+def test_live_gate_merge_head_bound_rechecks_operator_tier() -> None:
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return json.dumps(
+                {
+                    "entries": [
+                        {
+                            "pr_number": 8625,
+                            "head_sha": "abc123",
+                            "tier": 3,
+                            "status": "satisfied",
+                            "verdict": "admin_squash_allowed",
+                            "admin_squash_allowed": True,
+                            "requires_human_risk_settlement": False,
+                            "requires_human_preapproval": False,
+                            "unresolved_dissent": False,
+                        }
+                    ]
+                }
+            )
+        if cmd[:3] == ["gh", "pr", "merge"]:
+            raise AssertionError("merge must not be attempted for Tier-3 packet")
         raise AssertionError(f"unexpected command: {cmd}")
 
     gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
