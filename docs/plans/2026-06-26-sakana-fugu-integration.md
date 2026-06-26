@@ -57,7 +57,7 @@ anywhere a DecisionReceipt must attribute which model produced which claim (Fugu
 - `aragora/routing/` — `provider_router.py`, `cost_quality_optimizer.py`, `provider_config.py`, `provider_metrics.py`, `lara_router.py`.
 - `aragora/agents/fallback.py`, `aragora/agents/airlock.py` — resilience fallback chain.
 - `aragora/swarm/quorum_evidence.py`, `merge_quorum_io.py` — quorum / model-family diversity.
-- `aragora/gauntlet/receipt_models.py` (`DecisionReceipt`) — receipt annotation.
+- `aragora/gauntlet/receipt_models.py` (`DecisionReceipt`), `aragora/gauntlet/odr_export.py`, `aragora/gauntlet/odr_schema.json` — receipt annotation and public audit export/schema compatibility.
 - Secrets: `aragora/config/secrets.py` (AWS Secrets Manager) — add `FUGU_API_KEY` to both `MANAGED_SECRETS` and `CRITICAL_SECRETS` (no raw env key, per founder principle).
 
 ## Phased plan
@@ -82,8 +82,8 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 ### F3 — Debate participation with auditability guards (moat-protecting)
 - **F3.1** Fugu/Ultra selectable as a debate participant.
 - **F3.2** Quorum/evidence: Fugu votes flagged `opaque-orchestrated`; **never** count toward model-family diversity (`swarm/quorum_evidence.py`, `merge_quorum_io.py`).
-- **F3.3** `DecisionReceipt` annotation for opaque-orchestrated votes.
-- **Acceptance:** test asserting `claude + fugu` does NOT satisfy a 2-family requirement; receipts label Fugu votes.
+- **F3.3** `DecisionReceipt` annotation for opaque-orchestrated votes, plus ODR export/schema updates so public audit artifacts preserve the label without schema failure.
+- **Acceptance:** test asserting `claude + fugu` does NOT satisfy a 2-family requirement; receipts and ODR exports label Fugu votes.
 
 ### F4 — Differentiation benchmark (external proof)
 - **F4.1** Harness comparing Aragora transparent consensus vs Fugu black box on the same decisions (quality, auditability, cost, latency).
@@ -105,7 +105,7 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 - Registry/readiness tests (agent types resolve; doctor reports Fugu; missing key degrades gracefully).
 - Router tests (Fugu selected on correct cost/quality profile; fallback engages on degradation).
 - EU-guard tests (EU context never selects Fugu via router, direct debate participant/team selection, or fallback execution).
-- Quorum test (Fugu vote flagged; `claude+fugu` ≠ 2 families; receipts annotated).
+- Quorum/ODR tests (Fugu vote flagged; `claude+fugu` ≠ 2 families; receipts and ODR exports annotated; `odr_schema.json` accepts the public label).
 - Benchmark harness reproducibility test.
 
 ## Open items to confirm at implementation
