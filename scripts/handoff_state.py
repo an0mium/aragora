@@ -111,6 +111,33 @@ OWNER_WORK_MARKER_KEYS = (
     "unique_commits",
     "worktree_dirty",
 )
+LOCAL_WORK_FALSE_MARKER_VALUES = frozenset(
+    (
+        "0",
+        "clean",
+        "false",
+        "no",
+        "none",
+        "verified-clean",
+        "verified_clean",
+    )
+)
+LOCAL_WORK_TRUE_MARKER_VALUES = frozenset(
+    (
+        "1",
+        "ahead",
+        "branch_ahead",
+        "dirty",
+        "local_work",
+        "possible_unpushed_work",
+        "true",
+        "uncommitted",
+        "uncommitted_changes",
+        "unpushed",
+        "unpushed_commits",
+        "yes",
+    )
+)
 
 
 class HandoffState(str, Enum):
@@ -503,8 +530,10 @@ def _possible_unpushed_marker(
             return "possible_unpushed_work"
         if isinstance(value, int) and value > 0:
             return "possible_unpushed_work"
-        if isinstance(value, str) and value.strip():
-            return "possible_unpushed_work"
+        if isinstance(value, str):
+            string_marker = _local_work_string_marker(value)
+            if string_marker is True:
+                return "possible_unpushed_work"
         if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)) and value:
             return "possible_unpushed_work"
     for key in ("stale_claim_advisory", "owner_liveness", "cleanup_safety"):
@@ -515,6 +544,17 @@ def _possible_unpushed_marker(
     if isinstance(advisory, Mapping) and advisory.get("available") is True:
         return None
     return None
+
+
+def _local_work_string_marker(value: str) -> bool:
+    normalized = str(value or "").strip().lower().replace(" ", "_")
+    if not normalized:
+        return False
+    if normalized in LOCAL_WORK_FALSE_MARKER_VALUES:
+        return False
+    if normalized in LOCAL_WORK_TRUE_MARKER_VALUES:
+        return True
+    return True
 
 
 def _owner_payload_summary(payload: Mapping[str, Any]) -> dict[str, Any]:

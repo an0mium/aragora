@@ -1204,6 +1204,24 @@ def test_top_level_local_work_marker_blocks_publication(tmp_path: Path) -> None:
     assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
 
 
+@pytest.mark.parametrize("marker_value", ["false", "0", "none", "clean", "verified-clean"])
+def test_top_level_negative_local_work_marker_does_not_block_publication(
+    tmp_path: Path,
+    marker_value: str,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        extra_payload={"local_work": marker_value},
+    )
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["advisory_withheld"] is None
+
+
 def test_local_evidence_local_work_marker_blocks_publication(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(
@@ -1222,6 +1240,30 @@ def test_local_evidence_local_work_marker_blocks_publication(tmp_path: Path) -> 
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK.value
     assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
+
+
+@pytest.mark.parametrize("marker_value", ["false", "0", "none", "clean", "verified-clean"])
+def test_local_evidence_negative_local_work_marker_does_not_block_publication(
+    tmp_path: Path,
+    marker_value: str,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        local_evidence=[
+            {
+                "branch": "codex/example",
+                "desired_head_sha": HEAD,
+                "local_work": marker_value,
+            }
+        ],
+    )
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["advisory_withheld"] is None
 
 
 def test_lane_registry_terminal_owner_does_not_block_by_default(
@@ -1541,6 +1583,44 @@ def test_lane_registry_dirty_signal_overrides_available_advisory(
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK.value
     assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
+
+
+@pytest.mark.parametrize("marker_value", ["false", "0", "none", "clean", "verified-clean"])
+def test_lane_registry_negative_dirty_signal_keeps_available_advisory(
+    tmp_path: Path,
+    marker_value: str,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/example",
+                    "status": "released",
+                    "stale_claim_advisory": {"available": True},
+                    "dirty_worktree": marker_value,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=FakeGitHub(),
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["advisory_withheld"] is None
 
 
 def test_owner_payload_evidence_redacts_local_session_metadata(tmp_path: Path) -> None:
