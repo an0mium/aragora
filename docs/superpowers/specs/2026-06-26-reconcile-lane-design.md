@@ -41,7 +41,7 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 
 - **Goal:** delete branches/worktrees that are provably valueless, with a recovery net.
 - **Input:** repo root, `--base origin/main`, `--ttl-hours` (default 24).
-- **Eligible (delete):** merged-into-`origin/main` (incl. squash-merge proven by `codex_worktree_autopilot._branch_effectively_merged` / `is_patch_equivalent`), `[gone]` upstream, empty-diff (`harvest_salvage_branches._is_trivial_diff` → "no files changed"/"zero net LOC").
+- **Eligible (delete):** merged-into-`origin/main` (incl. squash-merge proven by `codex_worktree_autopilot._branch_effectively_merged` / `is_patch_equivalent`) or empty-diff (`harvest_salvage_branches._is_trivial_diff` → "no files changed"/"zero net LOC"). `[gone]` upstream is only a candidate signal; it is never deletion authority unless fresh merged/equivalent/zero-diff proof also exists.
 - **Guardrails (NEVER delete):** a **dirty** worktree (`_safe_worktree_dirty`), a worktree with a **live process** (`_has_active_session` via lock files + `lsof` cwd), or a **PR-backing branch** (open PR head; cross-checked against `gh pr list` and the handoff-state evidence). These are the existing autopilot guardrails — the lane only *invokes* them.
 - **Recovery net:** deletion never relies on a branch reflog, because `git branch -D` can remove the branch reflog and later garbage collection can prune otherwise-unreferenced commits. Before deletion, the lane writes a durable manifest receipt with `{branch, head_sha, reason}` and protects the SHA with the existing archive/keep-ref mechanism (`.git/worktree-archive/` or an equivalent `refs/archive/reconcile/...` ref) until the retention window expires. Recovery is `git branch <name> <head_sha>` from the receipt while the protected SHA is retained.
 - **Output:** `pruned[]` (branch, sha, reason), `skipped[]` (branch, guardrail). **Idempotency:** already-deleted → no-op; a re-appearing dirty/live worktree is skipped, never force-removed.
@@ -109,7 +109,7 @@ These are invariants the whole lane upholds, not stages.
 
 ### (a) MERGE-FIRST ADMISSION RULE
 
-**No worker creates new work unless the system has a declared path to merge, park, or retire it.** Operationally: Stage 7 is a **precondition** the generators consult (`backlog_gate` `mode`), and Stage 4 only preserves a branch by giving it a draft PR (a merge path). A branch with no path to merge/park/retire is **cut** (Stage 5), not left to rot. This is why §10's sprawl could exist at all — generation outran settlement; the rule structurally prevents recurrence.
+**No worker creates new work unless the system has a declared path to merge, park, or retire it.** Operationally: Stage 7 is a **precondition** the generators consult (`backlog_gate` `mode`), and Stage 4 only preserves a branch by giving it a draft PR (a merge path). A branch with no path to merge is either parked with a `needs-human-at-<sha>` receipt or retired only when Stage 5's full guardrail recheck proves deletion is policy-allowed. This is why §10's sprawl could exist at all — generation outran settlement; the rule structurally prevents recurrence.
 
 ### (b) ONE CONDUCTOR
 
