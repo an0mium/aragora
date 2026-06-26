@@ -90,6 +90,15 @@ def test_complete_records_done_and_releases_atomically(tmp_path):
     assert led.claim_actionable("u1", "w2", constraint_key="feature:u1") is False
 
 
+def test_invalidate_done_removes_stale_completion(tmp_path):
+    led = _ledger(tmp_path)
+    led.record_done("u1")
+
+    assert led.invalidate_done("u1") is True
+    assert led.is_done("u1") is False
+    assert led.invalidate_done("u1") is False
+
+
 def test_complete_refuses_lost_lease(tmp_path):
     """A worker whose lease expired and was claimed by another worker must not record
     a stale success outcome after its dispatch returns."""

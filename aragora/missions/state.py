@@ -184,7 +184,14 @@ class MissionState:
             feat.worker_session_ids.append(session_id)
 
     def mark_completed(self, feature_id: str) -> None:
-        self.get(feature_id).status = Status.COMPLETED
+        feat = self.get(feature_id)
+        feat.status = Status.COMPLETED
+        for key in (
+            "validation_reopened_by",
+            "validation_reopened_reason",
+            "validation_reopened_ledger_done_invalidated",
+        ):
+            feat.metadata.pop(key, None)
 
     def mark_blocked(self, feature_id: str, reason: str = "") -> None:
         feat = self.get(feature_id)

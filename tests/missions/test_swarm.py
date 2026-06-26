@@ -15,6 +15,7 @@ import time
 
 from aragora.missions.ledger import Ledger
 from aragora.missions.orchestrator import Handoff, MissionOrchestrator
+from aragora.missions.reconcile import apply_validation_result
 from aragora.missions.state import Feature, MissionState, Status
 from aragora.missions.swarm import _LeaseHeartbeat, reconcile_from_ledger, run_worker
 
@@ -345,3 +346,60 @@ def test_reconcile_folds_parked_in_progress_to_blocked(tmp_path):
     final = MissionState.load(sp)
     assert final.get("f1").status == Status.BLOCKED
     assert "parked: repeated blocker" in final.get("f1").notes
+
+
+def test_failed_validation_invalidates_stale_ledger_done(tmp_path):
+    sp, lp = _mission(tmp_path, 1)
+    state = MissionState.load(sp)
+    state.mark_completed("f1")
+    state.insert_feature(
+        Feature(
+            id="validate-m1-tests",
+            description="validate",
+            milestone="m1",
+            metadata={"validation_for": "m1", "validates": ["f1"]},
+        )
+    )
+    Ledger(lp).record_done("f1")
+
+    apply_validation_result(
+        state,
+        "validate-m1-tests",
+        passed=False,
+        reason="regression failed",
+        ledger_path=lp,
+    )
+    state.save(sp)
+    reconcile_from_ledger(sp, lp)
+
+    final = MissionState.load(sp)
+    assert final.get("f1").status == Status.PENDING
+    assert not Ledger(lp).is_done("f1")
+
+
+def test_reconcile_refuses_stale_validation_done_without_ledger_invalidation(tmp_path):
+    sp, lp = _mission(tmp_path, 1)
+    state = MissionState.load(sp)
+    state.mark_completed("f1")
+    state.insert_feature(
+        Feature(
+            id="validate-m1-tests",
+            description="validate",
+            milestone="m1",
+            metadata={"validation_for": "m1", "validates": ["f1"]},
+        )
+    )
+    Ledger(lp).record_done("f1")
+
+    apply_validation_result(
+        state,
+        "validate-m1-tests",
+        passed=False,
+        reason="regression failed",
+    )
+    state.save(sp)
+    reconcile_from_ledger(sp, lp)
+
+    final = MissionState.load(sp)
+    assert final.get("f1").status == Status.PENDING
+    assert "ledger done ignored" in final.get("f1").notes

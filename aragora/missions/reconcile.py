@@ -345,12 +345,19 @@ def apply_validation_result(
     *,
     passed: bool,
     reason: str,
+    ledger_path: str | Path | None = None,
 ) -> None:
     """Apply a validator outcome and reopen parent work on failure."""
     validator = state.get(validator_feature_id)
     if passed:
         validator.status = Status.COMPLETED
         return
+
+    ledger = None
+    if ledger_path is not None:
+        from .ledger import Ledger
+
+        ledger = Ledger(ledger_path)
 
     state.mark_blocked(validator_feature_id, reason or "validation failed")
     validates = validator.metadata.get("validates", [])
@@ -362,6 +369,12 @@ def apply_validation_result(
         except KeyError:
             continue
         parent.status = Status.PENDING
+        parent.metadata["validation_reopened_by"] = validator_feature_id
+        parent.metadata["validation_reopened_reason"] = reason or "validation failed"
+        if ledger is not None:
+            parent.metadata["validation_reopened_ledger_done_invalidated"] = ledger.invalidate_done(
+                parent.id
+            )
         note = f"validation {validator_feature_id} failed"
         if reason:
             note = f"{note}: {reason}"

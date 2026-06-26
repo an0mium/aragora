@@ -212,7 +212,7 @@ def _assert_native_mission_enabled(action: str) -> None:
 def _admission_decision(args: argparse.Namespace, goal: str):
     artifacts = _load_artifacts(
         args,
-        include_github=False,
+        include_github=True,
         repo_root=_repo_root_for(args, None),
     )
     report = ReconcileMode.REPORT.run(artifacts)
@@ -557,6 +557,10 @@ def _packet_checks_green(entry: dict[str, Any]) -> bool:
 
 
 def _packet_allows_auto_drain(entry: dict[str, Any]) -> bool:
+    if str(entry.get("status") or "").lower() != "satisfied":
+        return False
+    if str(entry.get("verdict") or "").lower() != "admin_squash_allowed":
+        return False
     if entry.get("admin_squash_allowed") is not True:
         return False
     for blocker in (

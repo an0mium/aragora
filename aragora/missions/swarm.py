@@ -263,7 +263,14 @@ def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
     n = 0
     for feat in state.features:
         if feat.id in done and feat.status != Status.COMPLETED:
+            if _has_stale_validation_done(feat):
+                note = "ledger done ignored because validation reopened this feature"
+                if note not in feat.notes:
+                    feat.notes = (feat.notes + "\n" if feat.notes else "") + note
+                    n += 1
+                continue
             feat.status = Status.COMPLETED
+            _clear_validation_reopen_metadata(feat)
             n += 1
         elif feat.status != Status.COMPLETED and ledger.is_excluded(f"feature:{feat.id}"):
             # Never downgrade COMPLETED on a stale park, but do fold active parks over
@@ -291,3 +298,19 @@ def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
     if n:
         state.save(state_path)
     return n
+
+
+def _has_stale_validation_done(feat) -> bool:
+    return bool(
+        feat.metadata.get("validation_reopened_by")
+        and not feat.metadata.get("validation_reopened_ledger_done_invalidated")
+    )
+
+
+def _clear_validation_reopen_metadata(feat) -> None:
+    for key in (
+        "validation_reopened_by",
+        "validation_reopened_reason",
+        "validation_reopened_ledger_done_invalidated",
+    ):
+        feat.metadata.pop(key, None)

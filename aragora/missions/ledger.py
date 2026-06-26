@@ -237,6 +237,16 @@ class Ledger:
             data.done.add(unit)
             self._save(data)
 
+    def invalidate_done(self, unit: str) -> bool:
+        """Remove a stale completion marker after downstream validation reopens work."""
+        with self._locked():
+            data = self._load()
+            if unit not in data.done:
+                return False
+            data.done.remove(unit)
+            self._save(data)
+            return True
+
     def complete(
         self,
         unit: str,

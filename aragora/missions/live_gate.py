@@ -324,7 +324,9 @@ def _path_is_allowed(path: str, allowed_paths: tuple[str, ...]) -> bool:
 def _packet_allows_admin_squash(
     entry: dict[str, Any], quorum: dict[str, Any], verdict: str
 ) -> bool:
-    del verdict
+    status = str(_packet_value(entry, quorum, "status") or "").lower()
+    if status != "satisfied" or verdict != "admin_squash_allowed":
+        return False
     if _packet_value(entry, quorum, "admin_squash_allowed") is not True:
         return False
     for blocker in (

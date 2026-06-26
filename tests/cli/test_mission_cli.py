@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from aragora.cli.commands.mission import (
+    _admission_decision,
     _artifact_with_merge_packet_fields,
     _merge_packet_for_pr,
     _operator_tier_for,
@@ -220,6 +221,28 @@ def test_cmd_mission_seed_blocks_producer_work_under_backlog_pressure(
 
     assert not state_path.exists()
     assert "mission admission blocked" in capsys.readouterr().err
+
+
+def test_admission_decision_includes_github_inventory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[bool] = []
+
+    def fake_load_artifacts(args, *, include_github, repo_root):
+        calls.append(include_github)
+        return []
+
+    monkeypatch.setattr("aragora.cli.commands.mission._load_artifacts", fake_load_artifacts)
+    monkeypatch.setattr(
+        "aragora.cli.commands.mission._repo_root_for", lambda args, state_path: tmp_path
+    )
+    parser = build_parser()
+    args = parser.parse_args(["mission", "seed", "Build new dashboard"])
+
+    decision = _admission_decision(args, "Build new dashboard")
+
+    assert decision.allowed
+    assert calls == [True]
 
 
 def test_cmd_mission_seed_allows_cleanup_goal_under_backlog_pressure(
@@ -471,6 +494,35 @@ def test_inventory_artifact_enrichment_refuses_human_blockers(monkeypatch) -> No
                     "verdict": "admin_squash_allowed",
                     "admin_squash_allowed": True,
                     "requires_human_risk_settlement": True,
+                    "requires_human_preapproval": False,
+                    "unresolved_dissent": False,
+                    "check_surfaces": {"required_pr_checks": {"summary": "5/5 required green"}},
+                }
+            ]
+        },
+    )
+
+    enriched = _artifact_with_merge_packet_fields(artifact, candidate)
+
+    assert enriched.checks_green
+    assert not enriched.quorum_satisfied
+
+
+def test_inventory_artifact_enrichment_requires_satisfied_packet(monkeypatch) -> None:
+    artifact = WorkArtifact("wt", kind="worktree", clean=True, open_pr=True)
+    candidate = {"git": {"head": "abc123"}, "links": {"open_prs": [{"number": 8655}]}}
+    monkeypatch.setattr(
+        "aragora.cli.commands.mission._merge_packet_for_pr",
+        lambda pr, **kwargs: {
+            "entries": [
+                {
+                    "pr_number": pr,
+                    "head_sha": "abc123",
+                    "tier": 2,
+                    "status": "repair_or_wait",
+                    "verdict": "not_ready_for_settlement",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
                     "requires_human_preapproval": False,
                     "unresolved_dissent": False,
                     "check_surfaces": {"required_pr_checks": {"summary": "5/5 required green"}},
