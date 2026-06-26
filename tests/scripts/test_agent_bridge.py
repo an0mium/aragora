@@ -3280,7 +3280,7 @@ def test_cmd_launch_rechecks_lane_owner_before_post_launch_persist(
     import agent_bridge as mod
 
     _setup_launch_repo(mod, tmp_path, monkeypatch)
-    _fake_launch_subprocess(mod, monkeypatch, _SUBMITTED_PANE)
+    calls = _fake_launch_subprocess(mod, monkeypatch, _SUBMITTED_PANE)
     load_calls = 0
     written: list[list[mod.LaneRecord]] = []
 
@@ -3328,6 +3328,12 @@ def test_cmd_launch_rechecks_lane_owner_before_post_launch_persist(
     }
     assert written[-1][0].status == "conflict"
     assert written[-1][0].conflict_session == "codex-lane"
+    assert [
+        "bash",
+        str(mod.CANONICAL_REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+        "--kill",
+        "codex-lane",
+    ] in calls
 
 
 def test_cmd_launch_undelivered_is_observational_rc0_by_default(

@@ -264,6 +264,49 @@ def test_claim_lease_metadata_scope_cannot_engulf_metadata_forbidden_path(
     assert exc_info.value.conflicts[0]["path"] == "aragora/server/**"
 
 
+def test_claim_lease_metadata_forbidden_paths_are_persisted_normalized(
+    store: DevCoordinationStore,
+) -> None:
+    lease = store.claim_lease(
+        task_id="clb-forbidden-metadata-normalized",
+        title="Bounded app repair",
+        owner_agent="codex",
+        owner_session_id="sess-forbidden-metadata-normalized",
+        branch="codex/forbidden-metadata-normalized",
+        worktree_path="/tmp/wt-forbidden-metadata-normalized",
+        allowed_globs=["docs/**"],
+        metadata={
+            "forbidden_paths": [
+                " aragora/server/auth_checks.py ",
+                "aragora/server/auth_checks.py",
+            ]
+        },
+    )
+
+    assert lease.metadata["forbidden_paths"] == ["aragora/server/auth_checks.py"]
+
+
+def test_claim_lease_merges_explicit_and_metadata_forbidden_paths(
+    store: DevCoordinationStore,
+) -> None:
+    lease = store.claim_lease(
+        task_id="clb-forbidden-merge",
+        title="Bounded app repair",
+        owner_agent="codex",
+        owner_session_id="sess-forbidden-merge",
+        branch="codex/forbidden-merge",
+        worktree_path="/tmp/wt-forbidden-merge",
+        claimed_paths=["aragora/server/routes.py"],
+        forbidden_paths=["aragora/server/auth_checks.py"],
+        metadata={"forbidden_paths": ["aragora/server/legacy_auth.py"]},
+    )
+
+    assert lease.metadata["forbidden_paths"] == [
+        "aragora/server/auth_checks.py",
+        "aragora/server/legacy_auth.py",
+    ]
+
+
 def test_claim_lease_detects_existing_fleet_claim(store: DevCoordinationStore) -> None:
     store.fleet_store.claim_paths(
         session_id="external-session",

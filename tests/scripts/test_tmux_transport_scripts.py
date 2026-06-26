@@ -311,6 +311,41 @@ def test_tmux_session_launcher_rejects_autonomous_codex_with_task_id_only(
     assert "requires --task-id plus at least one concrete" in result.stderr
 
 
+def test_tmux_session_launcher_rejects_autonomous_codex_with_task_id_and_test_only(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "codex-auto",
+            "--agent",
+            "codex",
+            "--autonomous",
+            "--task-id",
+            "Q123",
+            "--test",
+            "python3 -m pytest tests/scripts/test_goal_conductor.py -q",
+            "--prompt",
+            "report git status only",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "Tests constrain" in result.stderr
+    assert "validation but do not define a write lease." in result.stderr
+
+
 def test_tmux_session_launcher_accepts_autonomous_codex_with_task_id_and_scope(
     tmp_path: Path,
 ) -> None:

@@ -271,7 +271,7 @@ if [[ -n "${PROMPT}" ]]; then
 fi
 
 LEASE_SCOPE_CONFIGURED="0"
-if [[ ${#WRITE_SCOPES[@]} -gt 0 || ${#CLAIMED_PATHS[@]} -gt 0 || ${#TEST_COMMANDS[@]} -gt 0 ]]; then
+if [[ ${#WRITE_SCOPES[@]} -gt 0 || ${#CLAIMED_PATHS[@]} -gt 0 ]]; then
     LEASE_SCOPE_CONFIGURED="1"
 fi
 
@@ -289,7 +289,8 @@ of free-picking the queue. Pass an explicit dev-coordination lease, for example:
   --task-id Q123 --title "repair PR #123" --claimed-path scripts/foo.py
 
 A valid autonomous Codex lease requires --task-id plus at least one concrete
-scope signal: --claimed-path, --write-scope, or --test.
+mutation scope signal: --claimed-path or --write-scope. Tests constrain
+validation but do not define a write lease.
 
 For one-off manual debugging only, pass --allow-unleased-codex.
 EOF

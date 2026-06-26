@@ -1292,6 +1292,20 @@ def _persist_lane_claim(
     _write_lane_registry(records)
 
 
+def _kill_tmux_launcher_session(name: str) -> None:
+    launcher = CANONICAL_REPO_ROOT / "scripts" / "tmux_session_launcher.sh"
+    try:
+        subprocess.run(
+            ["bash", str(launcher), "--kill", name],
+            cwd=str(CANONICAL_REPO_ROOT),
+            check=False,
+            timeout=10,
+        )
+    except (subprocess.SubprocessError, OSError):
+        # Best-effort cleanup only; the launch still reports the conflict and fails closed.
+        return
+
+
 def _find_session(sessions: list[Session], target: str) -> Session | None:
     for s in sessions:
         if target in s.name or target in (s.session_id or ""):
@@ -1919,6 +1933,7 @@ def cmd_launch(args: argparse.Namespace) -> int:
                 or "resolve ambiguous lane ownership",
                 allow_conflict=True,
             )
+            _kill_tmux_launcher_session(session.name)
             exit_code = 1
         else:
             _persist_lane_claim(

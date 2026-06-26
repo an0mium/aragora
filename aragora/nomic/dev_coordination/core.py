@@ -1399,8 +1399,6 @@ class DevCoordinationStore:
                     *_metadata_claims(
                         "forbidden_paths",
                         "forbidden_globs",
-                        "hot_paths",
-                        "hot_globs",
                     ),
                 ]
             )
@@ -1436,8 +1434,8 @@ class DevCoordinationStore:
         ]
         if protected_conflicts:
             raise LeaseConflictError(protected_conflicts)
-        if normalized_forbidden:
-            lease_metadata["forbidden_paths"] = normalized_forbidden
+        if effective_forbidden:
+            lease_metadata["forbidden_paths"] = effective_forbidden
         return _impl(
             self,
             task_id=task_id,

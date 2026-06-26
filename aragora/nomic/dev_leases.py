@@ -596,7 +596,12 @@ def _validate_completion_scope(
     protected_patterns = list(
         dict.fromkeys(
             _normalize_claim(item)
-            for key in ("forbidden_paths", "forbidden_globs", "hot_paths", "hot_globs")
+            for key in (
+                "forbidden_paths",
+                "forbidden_globs",
+                "hot_paths",
+                "hot_globs",
+            )
             for item in lease.metadata.get(key, [])
             if str(item).strip()
         )
