@@ -44,6 +44,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from aragora.persistence.db_config import get_default_data_dir
+
 logger = logging.getLogger(__name__)
 
 
@@ -218,7 +220,11 @@ class AgentHierarchy:
         Args:
             hierarchy_dir: Directory for persistence
         """
-        self.hierarchy_dir = hierarchy_dir or Path(".agents")
+        self.hierarchy_dir = (
+            Path(hierarchy_dir)
+            if hierarchy_dir is not None
+            else (get_default_data_dir() / "agent_hierarchy")
+        )
         self.hierarchy_file = self.hierarchy_dir / "hierarchy.json"
         self._assignments: dict[str, RoleAssignment] = {}
         self._lock = asyncio.Lock()

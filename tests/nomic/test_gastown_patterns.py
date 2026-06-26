@@ -351,6 +351,23 @@ class TestAgentRoles:
         assert RoleCapability.CREATE_CONVOY in assignment.capabilities
 
     @pytest.mark.asyncio
+    async def test_default_hierarchy_state_uses_runtime_data_dir(
+        self, monkeypatch, tmp_path, reset_singletons
+    ):
+        """Default hierarchy persistence must not dirty the repo-level .agents tree."""
+        runtime_dir = tmp_path / ".nomic"
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(runtime_dir))
+
+        hierarchy = AgentHierarchy()
+        await hierarchy.initialize()
+        await hierarchy.register_agent("mayor-001", AgentRole.MAYOR)
+
+        assert hierarchy.hierarchy_file == runtime_dir / "agent_hierarchy" / "hierarchy.json"
+        assert hierarchy.hierarchy_file.exists()
+        assert not (tmp_path / ".agents" / "hierarchy.json").exists()
+
+    @pytest.mark.asyncio
     async def test_supervision_hierarchy(self, temp_dir, reset_singletons):
         """Test supervision relationships."""
         hierarchy = AgentHierarchy(temp_dir)
