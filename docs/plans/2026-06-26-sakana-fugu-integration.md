@@ -40,11 +40,11 @@ the product.
 | Provider readiness/health (`config/provider_readiness.py`, `cli/doctor.py`) | Readiness + `aragora doctor` check | Easy | F1 |
 | Router (`aragora/routing/` Pareto optimizer) | `fugu`=balanced tier, `fugu-ultra`=hard-task tier | Strong (Aragora's analog to Factory Router) | F2 |
 | Resilience (Airlock / OpenRouter fallback chain) | Fugu as HA fallback — it self-routes around degraded providers | Strong (resilience pillar) | F2 |
-| EU/compliance guard (tenancy/compliance routing) | **Exclude** Fugu for EU-tenant / EU-residency contexts | Required guardrail | F2 |
+| EU/compliance guard (tenancy/compliance routing, agent construction, team selection, fallback execution) | **Exclude** Fugu for EU-tenant / EU-residency contexts | Required guardrail | F2 |
 | Debate participant (`debate/orchestrator.py`, team selection) | Fugu Ultra as a strong single voice | Useful — with quorum caveat | F3 |
 | Quorum/evidence (`swarm/quorum_evidence.py`, `merge_quorum_io.py`) | Flag `opaque-orchestrated`; never counts as a family | Moat-protecting | F3 |
 | Differentiation benchmark | Aragora transparent consensus vs Fugu black box, same decisions | High strategic / external proof | F4 |
-| Research spike (TRINITY/Conductor, arxiv 2606.21228) | Inform `team_selector`/router learned-orchestration | Longer horizon | F5 |
+| Research spike (TRINITY, Conductor, Fugu report) | Inform `team_selector`/router learned-orchestration | Longer horizon | F5 |
 
 **Where Fugu is NOT used:** as a substitute for transparent quorum; in EU/compliance contexts;
 anywhere a DecisionReceipt must attribute which model produced which claim (Fugu is opaque).
@@ -58,7 +58,7 @@ anywhere a DecisionReceipt must attribute which model produced which claim (Fugu
 - `aragora/agents/fallback.py`, `aragora/agents/airlock.py` — resilience fallback chain.
 - `aragora/swarm/quorum_evidence.py`, `merge_quorum_io.py` — quorum / model-family diversity.
 - `aragora/gauntlet/receipt_models.py` (`DecisionReceipt`) — receipt annotation.
-- Secrets: `aragora/config/secrets.py` (AWS Secrets Manager) — `FUGU_API_KEY` (no raw env key, per founder principle).
+- Secrets: `aragora/config/secrets.py` (AWS Secrets Manager) — add `FUGU_API_KEY` to both `MANAGED_SECRETS` and `CRITICAL_SECRETS` (no raw env key, per founder principle).
 
 ## Phased plan
 
@@ -67,7 +67,7 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 `console.sakana.ai` docs during F1 — the release page did not publish them.
 
 ### F1 — Transport & registry (the easy, high-value core)
-- **F1.1** Add `fugu` / `fugu-ultra` via `openai_compatible.py` (base `console.sakana.ai`, `FUGU_API_KEY` via Secrets Manager). Confirm endpoint/model-ids/auth from console docs.
+- **F1.1** Add `fugu` / `fugu-ultra` via `openai_compatible.py` (exact API base URL TBD from Sakana console/docs, `FUGU_API_KEY` via Secrets Manager). Confirm endpoint/model-ids/auth from console docs before wiring a concrete base URL.
 - **F1.2** Register as agent types (`registry.py`, `types.py`, `spec.py`, `config_loader.py`).
 - **F1.3** Provider-readiness entry + `aragora doctor` check + credential validator.
 - **F1.4** Pricing/cost metadata for cost-quality routing.
@@ -76,8 +76,8 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 ### F2 — Routing & resilience
 - **F2.1** Add Fugu to the Pareto router (`fugu`=balanced, `fugu-ultra`=hard-task) with cost/quality/latency metadata.
 - **F2.2** Register Fugu as an HA fallback in the Airlock/OpenRouter fallback chain (leverages Fugu's own route-around-degradation).
-- **F2.3** EU/compliance guard: router excludes Fugu for EU-tenant / EU-residency contexts (wire into tenancy/compliance routing).
-- **Acceptance:** router selects Fugu for appropriate cost/quality profiles; fallback engages on primary degradation; EU contexts provably never select Fugu (test).
+- **F2.3** EU/compliance guard: router, agent construction, debate team selection, and fallback execution all exclude Fugu for EU-tenant / EU-residency contexts (wire into tenancy/compliance routing).
+- **Acceptance:** router selects Fugu for appropriate cost/quality profiles; fallback engages on primary degradation; EU contexts provably never select Fugu through router, direct debate participant selection, or fallback execution (tests).
 
 ### F3 — Debate participation with auditability guards (moat-protecting)
 - **F3.1** Fugu/Ultra selectable as a debate participant.
@@ -95,8 +95,8 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 
 ## Cross-cutting requirements
 - **Feature flag** `enable_fugu` (default OFF) until F1–F3 test matrix passes.
-- **Secrets**: `FUGU_API_KEY` via AWS Secrets Manager only — never a raw env key.
-- **EU guard** is a hard requirement, not best-effort (compliance risk).
+- **Secrets**: `FUGU_API_KEY` via AWS Secrets Manager only — never a raw env key; add it to `MANAGED_SECRETS` and `CRITICAL_SECRETS` so hydration and strict-mode enforcement are explicit.
+- **EU guard** is a hard requirement, not best-effort (compliance risk), and applies to router selection, direct agent construction, team selection, and fallback execution.
 - **Auditability**: every Fugu use that reaches a receipt is labeled `opaque-orchestrated`.
 - **No grinder coupling**: do not attach `boss-ready` to these issues (fleet is frozen).
 
@@ -104,7 +104,7 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 - Adapter unit tests (auth, streaming, error/timeout, token accounting) against a mocked OpenAI-compatible endpoint.
 - Registry/readiness tests (agent types resolve; doctor reports Fugu; missing key degrades gracefully).
 - Router tests (Fugu selected on correct cost/quality profile; fallback engages on degradation).
-- EU-guard test (EU context never selects Fugu).
+- EU-guard tests (EU context never selects Fugu via router, direct debate participant/team selection, or fallback execution).
 - Quorum test (Fugu vote flagged; `claude+fugu` ≠ 2 families; receipts annotated).
 - Benchmark harness reproducibility test.
 
