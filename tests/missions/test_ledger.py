@@ -227,15 +227,15 @@ def test_concurrent_claims_exactly_one_wins(tmp_path):
     assert len(led.active_claims()) == 1
 
 
-def test_select_does_not_claim_in_progress(tmp_path):
-    """grok [P2]: a worker must not claim an IN_PROGRESS feature — that belongs to
-    the orchestrator's reclaim path. Only PENDING is claimable to the swarm."""
+def test_select_claims_orphaned_in_progress_when_owner_fence_is_clear(tmp_path):
+    """grok [P2]: with no live orchestrator holding the owner fence, a swarm worker
+    may reclaim an IN_PROGRESS checkpoint left behind by a crashed orchestrator."""
     from aragora.missions.state import Status
 
     state = _mission(2)
-    state.features[0].status = Status.IN_PROGRESS  # f1 is mid-flight under the orchestrator
+    state.features[0].status = Status.IN_PROGRESS
     led = _ledger(tmp_path)
-    assert select_for(state, led, "wA", now=100.0) == "f2"  # f1 skipped, not grabbed
+    assert select_for(state, led, "wA", now=100.0) == "f1"
 
 
 def test_ledger_load_tolerates_unknown_fields(tmp_path):

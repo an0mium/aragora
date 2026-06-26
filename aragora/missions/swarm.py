@@ -38,7 +38,9 @@ class _LeaseHeartbeat:
     (claude's [P2]). A background thread re-claims (refreshes ``claimed_at``) every
     ``ttl/3`` until the dispatch returns, so a live worker's lease never lapses; if
     the worker process dies, the thread dies with it and the TTL fallback still frees
-    the unit. The heartbeat itself never raises into the worker.
+    the unit. The heartbeat itself never raises into the worker, but it records
+    lost ownership so the caller can fail closed after dispatch returns instead
+    of treating a stale result as support.
     """
 
     def __init__(self, ledger: Ledger, unit: str, worker_id: str, ttl: float) -> None:
@@ -49,6 +51,11 @@ class _LeaseHeartbeat:
         self._interval = max(0.5, ttl / 3)
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._lost_reason: str | None = None
+
+    @property
+    def lost_reason(self) -> str | None:
+        return self._lost_reason
 
     def __enter__(self) -> _LeaseHeartbeat:
         self._thread = threading.Thread(target=self._beat, daemon=True)
@@ -59,10 +66,10 @@ class _LeaseHeartbeat:
         while not self._stop.wait(self._interval):
             try:
                 if not self._ledger.claim(self._unit, self._worker_id, ttl=self._ttl):
-                    logger.warning(
-                        "lease heartbeat for %s lost ownership to another worker",
-                        self._unit,
+                    self._lost_reason = (
+                        f"lease heartbeat for {self._unit} lost ownership to another worker"
                     )
+                    logger.warning(self._lost_reason)
                     self._stop.set()
                     return
             except Exception:  # noqa: BLE001 - a heartbeat must never crash the worker
@@ -82,6 +89,7 @@ class SwarmResult:
     done: list[str] = field(default_factory=list)
     parked: list[str] = field(default_factory=list)
     blocked: list[str] = field(default_factory=list)  # blocked attempts (incl. pre-park)
+    lost_leases: list[str] = field(default_factory=list)
 
 
 def run_worker(
@@ -142,12 +150,23 @@ def _run_worker_fenced(
         attempts = ledger.bump_attempt(f"feature:{unit}")
         try:
             # Heartbeat keeps the lease fresh so a long dispatch isn't reclaimed.
-            with _LeaseHeartbeat(ledger, unit, worker_id, DEFAULT_LEASE_TTL):
+            heartbeat = _LeaseHeartbeat(ledger, unit, worker_id, DEFAULT_LEASE_TTL)
+            with heartbeat:
                 handoff = dispatch(state.get(unit))
         except (
             Exception
         ) as exc:  # dispatch is an external callback — may raise anything  # noqa: BLE001
             handoff = Handoff(success=False, blocked_reason=f"dispatch raised: {exc!r}")
+
+        if heartbeat.lost_reason:
+            logger.warning(
+                "worker %s abandoned stale result for %s after losing the lease: %s",
+                worker_id,
+                unit,
+                heartbeat.lost_reason,
+            )
+            res.lost_leases.append(unit)
+            break
 
         # Discovered work is *advisory* in swarm mode (propose/accept boundary): the
         # swarm records what it found — discovered notes and proposed follow-ups —
@@ -167,6 +186,8 @@ def _run_worker_fenced(
                     worker_id,
                     unit,
                 )
+                res.lost_leases.append(unit)
+                break
             continue
 
         # Failure: record discoveries, optional park, and lease release as one owned
@@ -196,6 +217,8 @@ def _run_worker_fenced(
                 worker_id,
                 unit,
             )
+            res.lost_leases.append(unit)
+            break
 
     return res
 

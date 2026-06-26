@@ -386,8 +386,9 @@ def select_for(
 ) -> str | None:
     """Stigmergic pickup: atomic-claim the first available feature for ``worker_id``.
 
-    "Available" = pending, known preconditions met, not done (in state OR the ledger),
-    not parked (active constraint), and not claimed by another worker.
+    "Available" = pending or orphaned in-progress, known preconditions met, not done
+    (in state OR the ledger), not parked (active constraint), and not claimed by
+    another worker.
     Returns the claimed feature id, or None if nothing is available to *this* worker.
 
     This is how non-overlapping fronts emerge with no central dispatcher: every
@@ -405,10 +406,11 @@ def select_for(
     done = {f.id for f in state.features if f.status == Status.COMPLETED} | ledger.done_units()
 
     for feat in state.features:
-        # Only PENDING is claimable. A stale IN_PROGRESS belongs to the
-        # orchestrator's reclaim path (and orchestrator-mode is mutually exclusive
-        # with the swarm via the owner fence), so a worker must never grab it.
-        if feat.status != Status.PENDING or feat.id in done:
+        # PENDING is normal swarm work. IN_PROGRESS is also claimable here because
+        # run_worker holds the shared side of the owner fence; if an orchestrator
+        # were alive its exclusive lock would block the swarm before selection.
+        # That lets swarm-only recovery reclaim crash-orphaned checkpointed units.
+        if feat.status not in {Status.PENDING, Status.IN_PROGRESS} or feat.id in done:
             continue
         unmet = [p for p in feat.preconditions if not (p.startswith("feature:") and p[8:] in done)]
         if unmet:

@@ -208,6 +208,18 @@ def test_lease_heartbeat_keeps_a_long_dispatch_claim_alive(tmp_path):
     assert led.active_claims() == {}
 
 
+def test_lease_heartbeat_records_lost_ownership(tmp_path):
+    """A heartbeat that loses ownership must surface that loss to the worker loop."""
+    _, lp = _mission(tmp_path, 1)
+    led = Ledger(lp)
+    led.claim("u1", "w1", ttl=0.3)
+    with _LeaseHeartbeat(led, "u1", "w1", ttl=0.3) as heartbeat:
+        led.claim("u1", "w2", now=time.time() + 1.0)
+        time.sleep(0.6)
+        assert heartbeat.lost_reason is not None
+        assert "lost ownership" in heartbeat.lost_reason
+
+
 def test_worker_discards_success_after_losing_lease(tmp_path):
     """If a long-running dispatch loses its lease, its eventual success is stale and
     must not mark the unit done."""
@@ -220,9 +232,30 @@ def test_worker_discards_success_after_losing_lease(tmp_path):
 
     res = run_worker(sp, lp, "w1", dispatch, max_units=1)
     assert res.done == []
+    assert res.lost_leases == ["f1"]
     led = Ledger(lp)
     assert led.is_done("f1") is False
     assert led.discoveries() == {}
+
+
+def test_swarm_reclaims_orphaned_in_progress_when_owner_fence_is_clear(tmp_path):
+    """If only swarm mode is running, an old IN_PROGRESS checkpoint is an orphaned
+    unit the ledger may safely reclaim under the shared owner fence."""
+    sp, lp = _mission(tmp_path, 2)
+    state = MissionState.load(sp)
+    state.get("f1").status = Status.IN_PROGRESS
+    state.save(sp)
+
+    seen: list[str] = []
+
+    def dispatch(feat):
+        seen.append(feat.id)
+        return Handoff(success=True)
+
+    res = run_worker(sp, lp, "w1", dispatch, max_units=1)
+    assert res.done == ["f1"]
+    assert seen == ["f1"]
+    assert Ledger(lp).done_units() == {"f1"}
 
 
 def test_reconcile_does_not_revert_completed_to_blocked(tmp_path):
