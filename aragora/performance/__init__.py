@@ -19,7 +19,7 @@ from aragora.performance.lazy_loading import (
     LazyLoader,
     prefetch,
 )
-from aragora.performance.adaptive_cache import (
+from aragora.caching.adaptive import (
     AdaptiveTTLCache,
     AccessPattern,
     CacheOptimizer,
