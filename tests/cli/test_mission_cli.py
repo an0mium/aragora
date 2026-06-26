@@ -334,6 +334,9 @@ def test_inventory_artifact_enrichment_uses_merge_packet_for_auto_drain(monkeypa
                     "status": "satisfied",
                     "verdict": "admin_squash_allowed",
                     "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "requires_human_preapproval": False,
+                    "unresolved_dissent": False,
                     "check_surfaces": {"required_pr_checks": {"summary": "5/5 required green"}},
                 }
             ]
@@ -347,6 +350,35 @@ def test_inventory_artifact_enrichment_uses_merge_packet_for_auto_drain(monkeypa
     assert enriched.checks_green
     assert enriched.quorum_satisfied
     assert "merge-packet PR 8655: satisfied / admin_squash_allowed" in enriched.evidence
+
+
+def test_inventory_artifact_enrichment_refuses_human_blockers(monkeypatch) -> None:
+    artifact = WorkArtifact("wt", kind="worktree", clean=True, open_pr=True)
+    candidate = {"links": {"open_prs": [{"number": 8655}]}}
+    monkeypatch.setattr(
+        "aragora.cli.commands.mission._merge_packet_for_pr",
+        lambda pr: {
+            "entries": [
+                {
+                    "pr_number": pr,
+                    "head_sha": "abc123",
+                    "tier": 2,
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": True,
+                    "requires_human_preapproval": False,
+                    "unresolved_dissent": False,
+                    "check_surfaces": {"required_pr_checks": {"summary": "5/5 required green"}},
+                }
+            ]
+        },
+    )
+
+    enriched = _artifact_with_merge_packet_fields(artifact, candidate)
+
+    assert enriched.checks_green
+    assert not enriched.quorum_satisfied
 
 
 def test_cmd_mission_reconcile_outputs_json(

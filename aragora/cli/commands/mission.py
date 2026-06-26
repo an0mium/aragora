@@ -352,7 +352,7 @@ def _artifact_with_merge_packet_fields(
         return artifact
     tier = _int_or_none(entry.get("tier"))
     head_sha = str(entry.get("head_sha") or entry.get("headRefOid") or "").strip() or None
-    admin_allowed = bool(entry.get("admin_squash_allowed"))
+    squash_allowed = _packet_allows_auto_drain(entry)
     evidence = [
         *artifact.evidence,
         f"merge-packet PR {pr_number}: {entry.get('status', 'unknown')} / {entry.get('verdict', 'unknown')}",
@@ -362,7 +362,7 @@ def _artifact_with_merge_packet_fields(
         tier=tier,
         head_sha=head_sha,
         checks_green=_packet_checks_green(entry),
-        quorum_satisfied=admin_allowed,
+        quorum_satisfied=squash_allowed,
         evidence=evidence,
     )
 
@@ -435,6 +435,19 @@ def _packet_checks_green(entry: dict[str, Any]) -> bool:
         and "failing" not in summary
         and "pending" not in summary
     )
+
+
+def _packet_allows_auto_drain(entry: dict[str, Any]) -> bool:
+    if entry.get("admin_squash_allowed") is not True:
+        return False
+    for blocker in (
+        "requires_human_risk_settlement",
+        "requires_human_preapproval",
+        "unresolved_dissent",
+    ):
+        if entry.get(blocker) is not False:
+            return False
+    return True
 
 
 def _int_or_none(value: Any) -> int | None:
