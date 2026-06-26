@@ -42,7 +42,7 @@ the product.
 | Resilience (Airlock / OpenRouter fallback chain) | Fugu as HA fallback — it self-routes around degraded providers | Strong (resilience pillar) | F2 |
 | EU/compliance guard (tenancy/compliance routing, agent construction, team selection, fallback execution) | **Exclude** Fugu for EU-tenant / EU-residency contexts | Required guardrail | F2 |
 | Debate participant (`debate/orchestrator.py`, team selection) | Fugu Ultra as a strong single voice | Useful — with quorum caveat | F3 |
-| Quorum/evidence (`swarm/quorum_evidence.py`, `merge_quorum_io.py`) | Flag `opaque-orchestrated`; never counts as a family | Moat-protecting | F3 |
+| Quorum/evidence (`swarm/quorum_evidence.py`, `merge_quorum_io.py`, `cli/commands/review_queue.py`) | Flag `opaque-orchestrated`; never counts as a family in debate receipts or PR merge evidence | Moat-protecting | F3 |
 | Differentiation benchmark | Aragora transparent consensus vs Fugu black box, same decisions | High strategic / external proof | F4 |
 | Research spike (TRINITY, Conductor, Fugu report) | Inform `team_selector`/router learned-orchestration | Longer horizon | F5 |
 
@@ -56,7 +56,7 @@ anywhere a DecisionReceipt must attribute which model produced which claim (Fugu
 - `aragora/config/provider_readiness.py`, `aragora/cli/doctor.py` — readiness/health.
 - `aragora/routing/` — `provider_router.py`, `cost_quality_optimizer.py`, `provider_config.py`, `provider_metrics.py`, `lara_router.py`.
 - `aragora/agents/fallback.py`, `aragora/agents/airlock.py` — resilience fallback chain.
-- `aragora/swarm/quorum_evidence.py`, `merge_quorum_io.py` — quorum / model-family diversity.
+- `aragora/swarm/quorum_evidence.py`, `merge_quorum_io.py`, `aragora/cli/commands/review_queue.py` (`evidence-lint`, `_normalize_model_family`, counted families) — quorum / model-family diversity and PR merge-evidence counting.
 - `aragora/gauntlet/receipt_models.py` (`DecisionReceipt`), `aragora/gauntlet/odr_export.py`, `aragora/gauntlet/odr_schema.json` — receipt annotation and public audit export/schema compatibility.
 - Secrets: `aragora/config/secrets.py` (AWS Secrets Manager) — add `FUGU_API_KEY` to both `MANAGED_SECRETS` and `CRITICAL_SECRETS` (no raw env key, per founder principle).
 
@@ -81,9 +81,9 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 
 ### F3 — Debate participation with auditability guards (moat-protecting)
 - **F3.1** Fugu/Ultra selectable as a debate participant.
-- **F3.2** Quorum/evidence: Fugu votes flagged `opaque-orchestrated`; **never** count toward model-family diversity (`swarm/quorum_evidence.py`, `merge_quorum_io.py`).
+- **F3.2** Quorum/evidence: Fugu votes flagged `opaque-orchestrated`; **never** count toward model-family diversity in debate receipts or PR merge evidence (`swarm/quorum_evidence.py`, `merge_quorum_io.py`, `cli/commands/review_queue.py` evidence-lint/counting).
 - **F3.3** `DecisionReceipt` annotation for opaque-orchestrated votes, plus ODR export/schema updates so public audit artifacts preserve the label without schema failure.
-- **Acceptance:** test asserting `claude + fugu` does NOT satisfy a 2-family requirement; receipts and ODR exports label Fugu votes.
+- **Acceptance:** test asserting `claude + fugu` does NOT satisfy a 2-family requirement; PR merge evidence-lint/counting also refuses Fugu as a canonical/countable review family; receipts and ODR exports label Fugu votes.
 
 ### F4 — Differentiation benchmark (external proof)
 - **F4.1** Harness comparing Aragora transparent consensus vs Fugu black box on the same decisions (quality, auditability, cost, latency).
@@ -105,7 +105,7 @@ pass). Confirm exact base URL, model IDs, auth header, streaming, and rate limit
 - Registry/readiness tests (agent types resolve; doctor reports Fugu; missing key degrades gracefully).
 - Router tests (Fugu selected on correct cost/quality profile; fallback engages on degradation).
 - EU-guard tests (EU context never selects Fugu via router, direct debate participant/team selection, or fallback execution).
-- Quorum/ODR tests (Fugu vote flagged; `claude+fugu` ≠ 2 families; receipts and ODR exports annotated; `odr_schema.json` accepts the public label).
+- Quorum/merge-evidence/ODR tests (Fugu vote flagged; `claude+fugu` ≠ 2 families; review-queue evidence-lint/counted-families refuse Fugu as canonical/countable; receipts and ODR exports annotated; `odr_schema.json` accepts the public label).
 - Benchmark harness reproducibility test.
 
 ## Open items to confirm at implementation
