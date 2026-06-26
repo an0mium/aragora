@@ -36,24 +36,24 @@ modules:
     tier: core
     py_files: 83
     importer_count: 184
-    test_file_count: 166
+    test_file_count: 167
     override_reason: "Agent factory, 43 registered types"
   - name: billing
     tier: core
-    py_files: 38
-    importer_count: 150
-    test_file_count: 119
+    py_files: 39
+    importer_count: 154
+    test_file_count: 125
   - name: cli
     tier: core
-    py_files: 119
-    importer_count: 6
-    test_file_count: 144
+    py_files: 121
+    importer_count: 7
+    test_file_count: 148
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
     py_files: 17
-    importer_count: 362
-    test_file_count: 88
+    importer_count: 364
+    test_file_count: 91
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
     tier: core
@@ -85,9 +85,9 @@ modules:
     test_file_count: 51
   - name: gauntlet
     tier: core
-    py_files: 37
+    py_files: 38
     importer_count: 66
-    test_file_count: 103
+    test_file_count: 104
   - name: knowledge
     tier: core
     py_files: 177
@@ -102,8 +102,8 @@ modules:
   - name: nomic
     tier: core
     py_files: 162
-    importer_count: 91
-    test_file_count: 221
+    importer_count: 92
+    test_file_count: 223
   - name: observability
     tier: core
     py_files: 67
@@ -111,8 +111,8 @@ modules:
     test_file_count: 57
   - name: pipeline
     tier: core
-    py_files: 49
-    importer_count: 71
+    py_files: 50
+    importer_count: 72
     test_file_count: 125
   - name: ranking
     tier: core
@@ -138,14 +138,14 @@ modules:
   - name: server
     tier: core
     py_files: 1115
-    importer_count: 180
-    test_file_count: 1887
+    importer_count: 179
+    test_file_count: 1884
     override_reason: "FastAPI server + 3K+ API operations"
   - name: storage
     tier: core
-    py_files: 104
+    py_files: 105
     importer_count: 227
-    test_file_count: 165
+    test_file_count: 166
     override_reason: "persistence layer"
 
   # --- integrated (91) ---
@@ -251,9 +251,9 @@ modules:
     test_file_count: 7
   - name: documents
     tier: integrated
-    py_files: 18
-    importer_count: 15
-    test_file_count: 11
+    py_files: 19
+    importer_count: 17
+    test_file_count: 12
   - name: epistemic
     tier: integrated
     py_files: 21
@@ -542,9 +542,9 @@ modules:
     test_file_count: 5
   - name: swarm
     tier: integrated
-    py_files: 118
+    py_files: 123
     importer_count: 32
-    test_file_count: 181
+    test_file_count: 191
   - name: templates
     tier: integrated
     py_files: 1
