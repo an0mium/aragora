@@ -56,11 +56,16 @@ class LiveBossLoopGate:
                     "--repo",
                     self.repo_slug,
                     "--json",
-                    "state,mergedAt",
+                    "state,mergedAt,headRefOid",
                 ]
             )
             if str(payload.get("state") or "").upper() == "MERGED" or payload.get("mergedAt"):
-                return True
+                try:
+                    branch_head = self.head_of(branch)
+                except RuntimeError:
+                    return False
+                pr_head = str(payload.get("headRefOid") or "").strip()
+                return bool(pr_head) and pr_head == branch_head
         output = self.runner(
             ["git", "branch", "--merged", self.base, "--list", branch], self.repo_root
         )
@@ -104,6 +109,11 @@ class LiveBossLoopGate:
             pr_number = _int_or_default(pr, -1)
             if pr_number < 0:
                 return 3
+            branch = self.branch_for(feature)
+            try:
+                head = self.head_of(branch)
+            except RuntimeError:
+                return 3
             payload = self._run_json(
                 [
                     sys.executable,
@@ -118,7 +128,7 @@ class LiveBossLoopGate:
                     "--json",
                 ]
             )
-            entry = _find_packet_entry_for_pr(payload, pr_number)
+            entry = _find_packet_entry(payload, pr_number, head)
             if entry is not None:
                 return _int_or_default(entry.get("tier"), 3)
             return 3

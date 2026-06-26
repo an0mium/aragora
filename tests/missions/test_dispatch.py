@@ -141,6 +141,8 @@ def test_head_moved_under_us_does_not_falsely_succeed():
 
 def test_live_gate_tier_prefers_merge_packet_over_feature_metadata():
     def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:3] == ["git", "rev-parse", "mission/a5"]:
+            return "abc123\n"
         if cmd[:5] == [
             sys.executable,
             "-m",
@@ -148,7 +150,7 @@ def test_live_gate_tier_prefers_merge_packet_over_feature_metadata():
             "review-queue",
             "merge-packet",
         ]:
-            return json.dumps({"entries": [{"pr_number": 8655, "tier": 3}]})
+            return json.dumps({"entries": [{"pr_number": 8655, "head_sha": "abc123", "tier": 3}]})
         raise AssertionError(f"unexpected command: {cmd}")
 
     gate = LiveBossLoopGate(repo_root=Path("."), runner=runner)

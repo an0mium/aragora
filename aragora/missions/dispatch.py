@@ -165,6 +165,21 @@ class BossLoopDispatch:
                 blocked_reason=f"quorum not satisfied: {verdict.dissent or 'incomplete'}",
             )
 
+        current_head = self.gate.head_of(branch)
+        if current_head != head:
+            return Handoff(
+                success=False,
+                blocked_reason=f"head moved from {head} to {current_head} after evidence",
+            )
+        foreign = self.gate.foreign_commits(branch, self.base, self.allowed_prefixes)
+        if foreign:
+            return Handoff(
+                success=False,
+                terminal=True,
+                blocked_reason=f"contaminated after evidence by foreign commits {foreign}; re-derive clean off {self.base}",
+                discovered=[f"foreign-commit guard tripped on {branch} before merge"],
+            )
+
         if self.gate.merge_head_bound(branch, head):
             logger.info("feature %s merged head-bound at %s", feature.id, head)
             return Handoff(success=True, session_id=head)

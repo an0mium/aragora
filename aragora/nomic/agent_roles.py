@@ -301,21 +301,22 @@ class AgentHierarchy:
             "assignments": [a.to_dict() for a in self._assignments.values()],
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-        self.hierarchy_dir.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(
-            dir=str(self.hierarchy_dir),
-            prefix=f".{self.hierarchy_file.name}.",
-            suffix=".tmp",
-        )
+        tmp = ""
         try:
+            self.hierarchy_dir.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(
+                dir=str(self.hierarchy_dir),
+                prefix=f".{self.hierarchy_file.name}.",
+                suffix=".tmp",
+            )
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp, self.hierarchy_file)
             return True
-        except OSError as e:
-            with contextlib.suppress(FileNotFoundError):
+        except (OSError, TypeError, ValueError) as e:
+            with contextlib.suppress(FileNotFoundError, OSError):
                 os.unlink(tmp)
             logger.error("Failed to save hierarchy: %s", e)
             return False

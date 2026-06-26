@@ -323,6 +323,8 @@ def test_live_gate_reads_feature_metadata_and_never_uses_admin_merge() -> None:
 
 def test_live_gate_tier_falls_back_to_merge_packet_when_metadata_omits_tier() -> None:
     def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:3] == ["git", "rev-parse", "codex/native-mission-engine"]:
+            return "abc123\n"
         if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
             return json.dumps({"entries": [{"pr_number": 8625, "head_sha": "abc123", "tier": 2}]})
         raise AssertionError(f"unexpected command: {cmd}")
@@ -344,6 +346,8 @@ def test_live_gate_tier_falls_back_to_merge_packet_when_metadata_omits_tier() ->
 
 def test_live_gate_tier_parks_when_pr_packet_entry_is_missing() -> None:
     def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:3] == ["git", "rev-parse", "codex/native-mission-engine"]:
+            return "abc123\n"
         if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
             return json.dumps({"entries": [{"pr_number": 9999, "head_sha": "abc123", "tier": 1}]})
         raise AssertionError(f"unexpected command: {cmd}")
@@ -365,8 +369,16 @@ def test_live_gate_tier_parks_when_pr_packet_entry_is_missing() -> None:
 
 def test_live_gate_already_merged_is_squash_merge_aware() -> None:
     def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:3] == ["git", "rev-parse", "codex/native-mission-engine"]:
+            return "abc123\n"
         if cmd[:3] == ["gh", "pr", "view"]:
-            return json.dumps({"state": "MERGED", "mergedAt": "2026-06-26T19:00:00Z"})
+            return json.dumps(
+                {
+                    "state": "MERGED",
+                    "mergedAt": "2026-06-26T19:00:00Z",
+                    "headRefOid": "abc123",
+                }
+            )
         raise AssertionError(f"unexpected command: {cmd}")
 
     gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
