@@ -31,7 +31,7 @@ This is the merge-side counterpart to Factory-with-provenance: where the parent 
 | 2 | **Triage** stale branches | no (classify) | `harvest_salvage_branches.py` classifier, `codex_worktree_value_inventory.py` |
 | 3 | **Inspect** substantive branches (adversarial) | no (vote) | NEW pluggable runner → workflow fan-out *or* API quorum; emits `DecisionReceipt` |
 | 4 | **Harvest** preserve-verdicts → draft PRs | draft PRs | `harvest_salvage_branches.py` auto-PR archetype path |
-| 5 | **Cut** classified-cut branches | branches | `harvest_salvage_branches.py` discard path + `git branch -D` |
+| 5 | **Cut/Park** policy-allowed retirements | branches + receipts | `harvest_salvage_branches.py` discard path + protected-SHA receipts + human queue |
 | 6 | **Settle** green-quorum Tier 0-2 | merges | `auto_merge_green.py` + `scripts/auto_merge_quorum_green.py` |
 | 7 | **Govern** WIP backpressure | signal files | `wip_budget.py` + `scripts/backlog_gate.py` |
 
@@ -79,12 +79,12 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 - **Calls:** the existing auto-PR archetype path in `harvest_salvage_branches.py` for self-contained changes; larger preserves get a draft PR + an operator-review note.
 - **Output:** `harvested[]` (branch, pr_number, receipt_id). **Idempotency:** already-has-PR → no-op.
 
-### Stage 5 — Cut (force-delete classified-cut)
+### Stage 5 — Cut/Park (retire only what policy allows)
 
-- **Goal:** delete everything classified for removal: Triage `empty`/`trivial`/`superseded` + Stage-3 `cut` verdicts.
-- **Guardrails (subtract before deleting):** never cut a branch that is **preserved** (Stage 3/4), **PR-backing** (open-PR head), backed by a **dirty or live worktree/session**, or touches a **protected surface** from §11. Re-checks live PR state, dirty/live worktree state, active-session locks/processes, and protected-path classification at cut time (heads move); protected-surface and active/dirty branches route to `needs-human-at-<sha>` instead of deletion.
+- **Goal:** retire everything classified for removal: Triage `empty`/`trivial`/`superseded` + Stage-3 `cut` verdicts. Autonomous deletion is limited to branches with no approval-required risk: already merged/equivalent to `origin/main`, gone upstream with no unique commits, or empty/trivial with fresh zero-diff proof. Any branch with unmerged commits is parked with a `needs-human-at-<sha>` receipt instead of `git branch -D`.
+- **Guardrails (subtract before deleting):** never cut a branch that is **preserved** (Stage 3/4), **PR-backing** (open-PR head), backed by a **dirty or live worktree/session**, has **unmerged commits requiring approval**, or touches a **protected surface** from §11. Re-checks live PR state, dirty/live worktree state, active-session locks/processes, merge/equivalence proof, and protected-path classification at cut time (heads move); protected-surface, active/dirty, and unmerged branches route to `needs-human-at-<sha>` instead of deletion.
 - **Recovery net:** same as Prune — a durable protected SHA plus a **manifest receipt** listing every cut `{branch, sha, class, reason, receipt_id?}`. Recovery must use the receipt SHA; branch reflog is not treated as durable evidence after deletion.
-- **Output:** `cut_manifest` receipt. **Idempotency:** already-deleted → no-op; a branch that gained a PR since Triage is skipped (guardrail re-check).
+- **Output:** `cut_manifest` receipt for policy-allowed deletions plus `needs-human-at-<sha>` receipts for unmerged/protected/active cut candidates. **Idempotency:** already-deleted → no-op; a branch that gained a PR since Triage is skipped (guardrail re-check).
 
 ### Stage 6 — Settle (repaired auto-merge on green quorum, Tier 0-2)
 
@@ -212,7 +212,7 @@ Crash safety is inherited from the spine: `MissionState.save` is atomic (`os.rep
 
 - **Temp-repo fixtures with synthetic sprawl.** A fixture builds a throwaway git repo and fabricates the full taxonomy: merged-into-main, `[gone]`, empty-diff, dirty worktree, live-process worktree (sentinel lock file), PR-backing branch, retry-series duplicates, `trivial`/`tiny`/`substantive` branches, and a Tier-0..4 spread of open PRs. No network: `gh` and the model quorum are injected (the primitives already take injectable list/merge fns — `apply_merges(merge_fn=…)`, `backlog_gate.run_gate(list_prs=…)`, `classify_handoffs(github_client=…, owner_probe=…)`).
 - **Dry-run vs apply parity.** For each stage, assert the dry-run **plan** exactly equals the set the `--apply` run mutates (same branches pruned/cut, same PRs merged) — the core safety property. A divergence is a bug.
-- **Guardrail tests.** Assert Prune/Cut **never** touch a dirty / live-process / active-session / PR-backing / preserved / protected-surface branch even when it otherwise classifies for removal.
+- **Guardrail tests.** Assert Prune/Cut **never** touch a dirty / live-process / active-session / PR-backing / preserved / protected-surface / unmerged-commit branch even when it otherwise classifies for removal.
 - **Receipt emission.** Assert every artifact that exits any apply stage has exactly one terminal receipt in one of the five terminal states, signature-valid (`SignedReceipt`), and recoverable (deleted-receipt SHA re-creates the branch). Dry-run preview receipts are explicitly non-terminal and must not consume the artifact's terminal receipt slot.
 - **Idempotency.** Run each stage twice on the same fixture; second run mutates nothing and re-emits identical receipts; the inspection quorum is **not** re-invoked (receipt-cache hit).
 - **Pause is real.** With the pause manifest set, assert every mutating stage emits a `paused` receipt and mutates nothing. The §3c regression test must also enumerate the full conductor-owned mutation adapter surface — PR creation/edits/closures, pushes, merges, branch deletion, worktree removal/pruning, cleanup helpers, and publisher/outbox writes — and prove every path calls the pause guard before executing.
@@ -227,7 +227,7 @@ Every artifact exits in exactly one state, each a signed `DecisionReceipt`:
 | Terminal state | Meaning | Recovery |
 |----------------|---------|----------|
 | `merged` | Tier 0-2 settled on green quorum | n/a |
-| `closed-superseded` | retry-series duplicate or obsoleted branch, cut | protected SHA in receipt |
+| `closed-superseded` | retry-series duplicate or obsoleted branch retired only when merged/equivalent/no-unique-work proof makes deletion policy-allowed | protected SHA in receipt |
 | `preserved-blocked` | inspection said preserve → draft PR opened | PR number in receipt |
 | `deleted` | safe dead branch/worktree pruned/cut | `git branch <name> <sha>` from receipt |
 | `needs-human-at-<sha>` | Tier 3-4, ambiguous split, or protected-surface — manual queue | operator fork |
@@ -246,7 +246,7 @@ A **manual run of exactly this flow this session** validated it:
 Two design conclusions follow directly:
 
 1. **The flow works** end-to-end at scale on the real repo.
-2. **The value-density of sprawl is very low** (~1.4% of even the *substantive* subset was worth keeping). Therefore **aggressive cut + cheap inspection is the correct posture**: the expected cost of over-preserving (carrying thousands of dead branches) vastly exceeds the expected cost of inspecting (a few cents of quorum per substantive branch, receipt-cached). This is the empirical justification for cutting by default and only spending the quorum on the `substantive` slice — and for the fail-safe (split → preserve) being rare enough to route to a human without flooding the queue.
+2. **The value-density of sprawl is very low** (~1.4% of even the *substantive* subset was worth keeping). Therefore **aggressive classification + cheap inspection is the correct posture**: the expected cost of over-preserving (carrying thousands of dead branches) vastly exceeds the expected cost of inspecting (a few cents of quorum per substantive branch, receipt-cached). This is the empirical justification for classifying stale work quickly, deleting only policy-allowed no-unique-work branches, and parking unmerged/protected cases with receipts — and for the fail-safe (split → preserve) being rare enough to route to a human without flooding the queue.
 
 ---
 
@@ -254,7 +254,7 @@ Two design conclusions follow directly:
 
 - **Tier 3-4 settlement** — server / persistence / security / public-API surfaces. Routed to the operator fork as `needs-human-at-<sha>`. Identical boundary to `dispatch.BossLoopDispatch.operator_tier=3`.
 - **Agent-split ambiguous branches** — when inspection quorum is *split* (no clean preserve/cut majority), the branch is **preserved into the manual queue**, not auto-cut. §10 says these are rare.
-- **Protected files / workflows / public API** — per the Agent Operating Contract: a branch touching `CLAUDE.md`, `aragora/__init__.py`, `.github/workflows/*`, or a public surface is never auto-cut or auto-merged here; it escalates.
+- **Protected files / workflows / public API / control-plane surfaces** — per the Agent Operating Contract and repo-local agent rules: a branch touching `AGENTS.md`, `CLAUDE.md`, `docs/AGENT_OPERATING_CONTRACT.md`, `docs/governance/**`, `aragora/__init__.py`, `scripts/nomic_loop.py`, `.github/workflows/*`, `.env*`, `secrets/**`, or a public API surface is never auto-cut or auto-merged here; it escalates.
 - **`--apply` itself** — the lane is dry-run by default; a human (or a Phase-2 scheduled job with an explicit `--apply` and an honored pause manifest) authorizes mutation.
 
 ---
