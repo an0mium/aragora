@@ -141,7 +141,7 @@ def test_head_moved_under_us_does_not_falsely_succeed():
 
 def test_live_gate_tier_prefers_merge_packet_over_feature_metadata():
     def runner(cmd: list[str], cwd: Path) -> str:
-        if cmd[:3] == ["git", "rev-parse", "mission/a5"]:
+        if cmd[:2] == ["git", "rev-parse"] and cmd[-1] == "mission/a5":
             return "abc123\n"
         if cmd[:5] == [
             sys.executable,

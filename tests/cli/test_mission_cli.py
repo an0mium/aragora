@@ -527,7 +527,7 @@ def test_merge_packet_for_pr_uses_explicit_repo_and_cwd(
         stdout = '{"entries": [{"pr_number": 8655}]}'
         stderr = ""
 
-    def fake_run(cmd, *, cwd, text, capture_output, check):
+    def fake_run(cmd, *, cwd, text, capture_output, check, timeout):
         calls.append((cmd, cwd))
         return Proc()
 

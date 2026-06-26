@@ -56,14 +56,15 @@ class LiveBossLoopGate:
                     "--repo",
                     self.repo_slug,
                     "--json",
-                    "state,mergedAt,headRefOid",
+                    "state,mergedAt,headRefOid,headRefName",
                 ]
             )
             if str(payload.get("state") or "").upper() == "MERGED" or payload.get("mergedAt"):
+                pr_branch = str(payload.get("headRefName") or "").strip()
                 try:
                     branch_head = self.head_of(branch)
                 except RuntimeError:
-                    return False
+                    return bool(pr_branch) and pr_branch == branch
                 pr_head = str(payload.get("headRefOid") or "").strip()
                 return bool(pr_head) and pr_head == branch_head
         output = self.runner(
@@ -72,7 +73,10 @@ class LiveBossLoopGate:
         return bool(output.strip())
 
     def head_of(self, branch: str) -> str:
-        return self.runner(["git", "rev-parse", branch], self.repo_root).strip()
+        return self.runner(
+            ["git", "rev-parse", "--verify", "--end-of-options", branch],
+            self.repo_root,
+        ).strip()
 
     def foreign_commits(
         self, branch: str, base: str, allowed_prefixes: tuple[str, ...]
@@ -222,7 +226,17 @@ class LiveBossLoopGate:
 
 
 def _run(cmd: list[str], cwd: Path) -> str:
-    proc = subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, check=False)
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"{cmd[0]} timed out after {exc.timeout}s") from exc
     if proc.returncode != 0:
         raise RuntimeError(
             (proc.stderr or proc.stdout or f"{cmd[0]} exited {proc.returncode}").strip()

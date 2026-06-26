@@ -251,13 +251,17 @@ def _repo_root_for(args: argparse.Namespace, state_path: Path | None) -> Path:
     if cwd_root is not None:
         return cwd_root
 
-    proc = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        cwd=Path.cwd(),
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=Path.cwd(),
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"git rev-parse timed out after {exc.timeout}s") from exc
     if proc.returncode == 0 and proc.stdout.strip():
         return Path(proc.stdout.strip()).resolve()
     raise RuntimeError("could not resolve repository root for mission auto-drain")
@@ -324,7 +328,19 @@ def _load_live_inventory_artifacts(
     ]
     if not include_github:
         cmd.insert(-2, "--skip-gh")
-    proc = subprocess.run(cmd, cwd=repo_root, text=True, capture_output=True, check=False)
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"codex_worktree_value_inventory.py timed out after {exc.timeout}s"
+        ) from exc
     if proc.returncode != 0:
         raise RuntimeError(
             (proc.stderr or proc.stdout or "codex_worktree_value_inventory.py failed").strip()
@@ -464,24 +480,28 @@ def _merge_packet_for_pr(
     repo_root: Path | None = None,
     repo_slug: str = "synaptent/aragora",
 ) -> dict[str, Any]:
-    proc = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "aragora.cli.main",
-            "review-queue",
-            "merge-packet",
-            "--pr",
-            str(pr_number),
-            "--repo",
-            repo_slug,
-            "--json",
-        ],
-        cwd=repo_root or Path.cwd(),
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "aragora.cli.main",
+                "review-queue",
+                "merge-packet",
+                "--pr",
+                str(pr_number),
+                "--repo",
+                repo_slug,
+                "--json",
+            ],
+            cwd=repo_root or Path.cwd(),
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return {}
     if proc.returncode != 0:
         return {}
     try:
