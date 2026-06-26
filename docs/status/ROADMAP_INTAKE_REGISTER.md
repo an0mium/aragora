@@ -44,9 +44,9 @@ When an agent or human is asked to "make this plan permanent / durable":
 | Item | Source | Status | Destination | Tracking |
 |---|---|---|---|---|
 | **Sakana Fugu integration** (Fugu as capable agent + resilience backstop + benchmark; never counts as model-family diversity) | this session | Planned | `docs/plans/2026-06-26-sakana-fugu-integration.md` | Epic [#8641](https://github.com/synaptent/aragora/issues/8641); F1–F5 [#8642](https://github.com/synaptent/aragora/issues/8642) [#8643](https://github.com/synaptent/aragora/issues/8643) [#8644](https://github.com/synaptent/aragora/issues/8644) [#8645](https://github.com/synaptent/aragora/issues/8645) [#8647](https://github.com/synaptent/aragora/issues/8647); PR [#8640](https://github.com/synaptent/aragora/pull/8640) |
-| **Reconcile lane** (merge-first reconcile mission on the spine: prune→triage→inspect→harvest→cut→settle→govern; one conductor; real pause/lock) | this session | Spec written | `docs/superpowers/specs/2026-06-26-reconcile-lane-design.md` | needs epic — see audit below |
-| **Native mission engine** (`aragora mission seed/status/run/resume/reconcile`; preserve-first reconcile/admission; live exact-head gate; validation injection; operator receipts) | Codex on `codex/native-mission-engine` | Implemented (uncommitted in worktree; 103 tests pass) | `docs/plans/2026-06-26-native-mission-engine.md` (+ `2026-06-25-native-mission-orchestrator-spec.md`) | branch needs commit + canonical-branch decision (diverged from `mission/native-orchestrator-spine` #8628) |
-| **Mission spine (Phase A)** survivable orchestrator (`aragora/missions/` state/ledger/orchestrator/swarm) | `mission/native-orchestrator-spine` | Built; PR open; superseded by Codex branch | `aragora/missions/` | PR [#8628](https://github.com/synaptent/aragora/pull/8628) — do **not** push as duplicate; consolidate on Codex branch |
+| **Reconcile lane** (merge-first reconcile mission on the spine: prune→triage→inspect→harvest→cut→settle→govern; one conductor; real pause/lock) | this session | Spec written | `docs/superpowers/specs/2026-06-26-reconcile-lane-design.md` | Epic [#8649](https://github.com/synaptent/aragora/issues/8649) |
+| **Native mission engine** (`aragora mission seed/status/run/resume/reconcile`; preserve-first reconcile/admission; live exact-head gate; validation injection; operator receipts) | Codex on `codex/native-mission-engine` | **Committed `0512a27e88`** (CANONICAL; based on `origin/mission/native-orchestrator-spine`, ahead 1; 103 tests pass) | `docs/plans/2026-06-26-native-mission-engine.md` (+ `2026-06-25-native-mission-orchestrator-spec.md`) | **Canonical branch.** Needs `module_tiers`/`METRICS` regen before missions-module drift checks pass; then open PR + Tier-4 settlement |
+| **Mission spine (Phase A)** survivable orchestrator (`aragora/missions/` state/ledger/orchestrator/swarm) | `mission/native-orchestrator-spine` | **SUPERSEDED** by `codex/native-mission-engine` @ `0512a27e88` | `aragora/missions/` | PR [#8628](https://github.com/synaptent/aragora/pull/8628) — close/retire; do **not** push the local regen-fix commit as a duplicate |
 | **Workspace reconciliation (2026-06-26)** branches 2,749→489, worktrees 319→1; 1,695 stale codex branches inspected, 4 preserved | this session | Done | (operational) | preserved branches: `codex/review-6887`, `codex/rbac-openapi-coverage-primary-20260615`, `codex/validate-doc-links-anchor-check-r2-20260514`, `codex/disaster-recovery-stat-portability-improver-20260609` — harvest to PRs |
 | **Head freeze** — 5 grinder daemons disabled (boss-loop, merge-arbiter, merge-shepherd, overnight-watchdog, publisher); publisher pause-manifest bug confirmed (never read) | this session | Done | (operational) | fixed by reconcile-lane "real pause/lock" (above) |
 
@@ -70,10 +70,28 @@ These are the durable, tracked roadmap epics. Keep this list current as the inta
 
 ## Pending consolidation actions
 
-1. **Full audit (tracked separately):** sweep all durable sources (docs, GitHub issues/PRs, `.aragora/` state, nomic plan stores) and classify every item as `canonical / implemented / duplicate / superseded / active-roadmap / needs-decision / chat-only`. Output: rows in this register + a normalized backlog. _(This register is the living home of that audit.)_
-2. **Reconcile-lane epic:** create an epic so the spec becomes tracked executable work.
-3. **Mission canonical-branch decision:** `codex/native-mission-engine` vs `mission/native-orchestrator-spine` (#8628) have diverged; pick one, carry the `module_tiers`/`METRICS` regen fix, retire the other.
+1. **Full audit** ([Epic #8650](https://github.com/synaptent/aragora/issues/8650)): sweep all durable sources (docs, GitHub issues/PRs, `.aragora/` state, nomic plan stores) and classify every item as `canonical / implemented / duplicate / superseded / active-roadmap / needs-decision / chat-only`. _(This register is the living home of that audit.)_
+2. ~~Reconcile-lane epic~~ → done: [Epic #8649](https://github.com/synaptent/aragora/issues/8649).
+3. ~~Mission canonical-branch decision~~ → **resolved**: canonical = `codex/native-mission-engine` @ `0512a27e88` (Codex committed it, based on the spine). Remaining: land the `module_tiers`/`METRICS` regen fix on that branch, open its PR, close spine PR #8628.
 4. **Harvest the 4 preserved branches** into draft PRs (see Register row).
+
+> **Single-register rule:** this file (`docs/status/ROADMAP_INTAKE_REGISTER.md`, PR #8648) is THE intake register. Any agent asked to "create an intake register" must **extend this one**, not create a parallel file — duplicating it reproduces the exact sprawl it exists to prevent.
+
+## Chat-only / not-yet-durable items (capture, do NOT treat as adopted)
+
+These are themes raised in chat/attachments that are **not yet decided** roadmap items. Captured
+here so they aren't lost; each needs an explicit founder decision before becoming tracked work.
+Do not implement from this section.
+
+| Theme | Origin | Status | Notes |
+|---|---|---|---|
+| **Sakana Fugu integration** | chat request | **NOW DURABLE** → moved to Register above | Was chat-only; now `docs/plans/2026-06-26-sakana-fugu-integration.md` + Epic #8641 |
+| **Automated STRIDE / OWASP security review on every PR** (CWE refs, severity, inline fix) | Factory.ai announcement | needs-decision | Parallels Aragora's `security-review` capability + gauntlet; candidate product surface |
+| **Software-factory loop** (signal → triage → build → test → review → ship → monitor → signal) | Factory 2.0 | needs-decision | Aragora analog = mission engine + reconcile lane + receipts; this is the umbrella vision, not a discrete task |
+| **Model router / model independence** | Factory Router | partially exists | Aragora already has `aragora/routing/` Pareto optimizer + OpenRouter fallback; Fugu (#8641) extends it; decide how much to productize as a named "router" |
+| **Sovereign / self-hosted / air-gapped intelligence** | Factory 2.0 | needs-decision | Aligns with founder's no-standing-key / Secrets-Manager principle; EU/air-gapped deployment story |
+| **Continual learning / self-improvement instrumentation** | Factory 2.0 | partially exists | Aragora has Nomic loop + KnowledgeMound cross-cycle learning; decide what to formalize/measure |
+| **Missions + operator dashboard + persistent execution** | Factory 2.0 | in progress | Mission engine committed (`0512a27e88`); dashboard + headless persistent runtime are the remaining gaps |
 
 ## Maintenance
 
