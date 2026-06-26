@@ -25,10 +25,10 @@ thresholds:
 
 summary:
   core: 21
-  integrated: 91
+  integrated: 92
   experimental: 29
   deprecated: 2
-  total: 143
+  total: 144
 
 modules:
   # --- core (21) ---
@@ -36,24 +36,24 @@ modules:
     tier: core
     py_files: 83
     importer_count: 184
-    test_file_count: 166
+    test_file_count: 167
     override_reason: "Agent factory, 43 registered types"
   - name: billing
     tier: core
-    py_files: 38
-    importer_count: 150
-    test_file_count: 119
+    py_files: 39
+    importer_count: 154
+    test_file_count: 125
   - name: cli
     tier: core
-    py_files: 119
-    importer_count: 6
-    test_file_count: 144
+    py_files: 121
+    importer_count: 7
+    test_file_count: 148
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
     py_files: 17
-    importer_count: 362
-    test_file_count: 88
+    importer_count: 364
+    test_file_count: 91
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
     tier: core
@@ -85,9 +85,9 @@ modules:
     test_file_count: 51
   - name: gauntlet
     tier: core
-    py_files: 37
+    py_files: 38
     importer_count: 66
-    test_file_count: 103
+    test_file_count: 104
   - name: knowledge
     tier: core
     py_files: 177
@@ -103,7 +103,7 @@ modules:
     tier: core
     py_files: 162
     importer_count: 91
-    test_file_count: 221
+    test_file_count: 222
   - name: observability
     tier: core
     py_files: 67
@@ -148,7 +148,7 @@ modules:
     test_file_count: 165
     override_reason: "persistence layer"
 
-  # --- integrated (91) ---
+  # --- integrated (92) ---
   - name: analysis
     tier: integrated
     py_files: 29
@@ -400,6 +400,11 @@ modules:
     py_files: 21
     importer_count: 1
     test_file_count: 15
+  - name: missions
+    tier: integrated
+    py_files: 9
+    importer_count: 1
+    test_file_count: 6
   - name: ml
     tier: integrated
     py_files: 8
@@ -428,7 +433,7 @@ modules:
   - name: persistence
     tier: integrated
     py_files: 27
-    importer_count: 137
+    importer_count: 138
     test_file_count: 26
   - name: plugins
     tier: integrated
@@ -542,9 +547,9 @@ modules:
     test_file_count: 5
   - name: swarm
     tier: integrated
-    py_files: 118
+    py_files: 123
     importer_count: 32
-    test_file_count: 181
+    test_file_count: 191
   - name: templates
     tier: integrated
     py_files: 1
