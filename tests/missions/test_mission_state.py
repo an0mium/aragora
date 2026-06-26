@@ -132,6 +132,19 @@ def test_public_tick_is_fenced(tmp_path):
             orch.tick(lambda feat: Handoff(success=True))
 
 
+def test_owner_fence_fails_closed_without_fcntl(tmp_path, monkeypatch):
+    """Non-POSIX platforms must not silently disable the owner fence."""
+    import aragora.missions.state as state_module
+    from aragora.missions.state import MissionOwnershipError, mission_owner_lock
+
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+    monkeypatch.setattr(state_module, "fcntl", None)
+    with pytest.raises(MissionOwnershipError, match="requires POSIX fcntl"):
+        with mission_owner_lock(p):
+            pass
+
+
 def test_load_tolerates_unknown_fields_from_newer_schema(tmp_path):
     """[P3] forward-compat: state written by a newer schema with an extra feature
     field loads (dropping the unknown key) instead of crashing with TypeError."""

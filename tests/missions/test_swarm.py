@@ -238,6 +238,24 @@ def test_worker_discards_success_after_losing_lease(tmp_path):
     assert led.discoveries() == {}
 
 
+def test_worker_skips_lost_lease_and_continues_draining(tmp_path):
+    """One stale handoff must not strand the rest of a worker's runnable queue."""
+    sp, lp = _mission(tmp_path, 2)
+
+    def dispatch(feat):
+        if feat.id == "f1":
+            Ledger(lp).claim(feat.id, "other", now=time.time() + 3600.0)
+            return Handoff(success=True, discovered=["stale success"])
+        return Handoff(success=True)
+
+    res = run_worker(sp, lp, "w1", dispatch)
+    assert res.lost_leases == ["f1"]
+    assert res.done == ["f2"]
+    led = Ledger(lp)
+    assert led.is_done("f1") is False
+    assert led.is_done("f2") is True
+
+
 def test_swarm_reclaims_orphaned_in_progress_when_owner_fence_is_clear(tmp_path):
     """If only swarm mode is running, an old IN_PROGRESS checkpoint is an orphaned
     unit the ledger may safely reclaim under the shared owner fence."""

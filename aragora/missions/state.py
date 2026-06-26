@@ -73,12 +73,14 @@ def mission_owner_lock(state_path: str | Path, *, exclusive: bool = True) -> Ite
     :class:`MissionOwnershipError` instead of double-dispatching a feature — while a
     real multi-worker swarm still runs in parallel. The per-save ``os.replace`` is
     atomic regardless (no torn reads); this fence is what makes *conflicting writers*
-    a loud error. No-op when POSIX ``fcntl`` is unavailable.
+    a loud error. If POSIX ``fcntl`` is unavailable, fail closed instead of
+    silently running without a fence.
     """
     path = Path(state_path)
     if fcntl is None:  # pragma: no cover - non-POSIX
-        yield
-        return
+        raise MissionOwnershipError(
+            "mission owner locking requires POSIX fcntl (not available on this platform)"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     lock_path = path.with_suffix(path.suffix + ".owner.lock")
     mode = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH

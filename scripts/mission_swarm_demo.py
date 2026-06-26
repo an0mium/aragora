@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from aragora.missions import Feature, Ledger, MissionState, select_for  # noqa: E402
+from aragora.missions import Feature, Handoff, MissionState, run_worker  # noqa: E402
 
 N_UNITS = 9
 N_WORKERS = 3
@@ -26,19 +26,12 @@ WORK_SECONDS = 0.08
 
 
 def _worker(worker_id: str, state_path: Path, ledger_path: Path, log_path: Path) -> None:
-    state = MissionState.load(state_path)
-    ledger = Ledger(ledger_path)
-    did: list[str] = []
-    while True:
-        unit = select_for(state, ledger, worker_id)  # atomic claim through the lock
-        if unit is None:
-            break
+    def dispatch(_: Feature) -> Handoff:
         time.sleep(WORK_SECONDS)  # 'work' the unit
-        did.append(unit)
-        # Mark done + drop the lease atomically (one locked transaction) so there is
-        # no released-but-not-done window for another worker to re-pick the unit.
-        ledger.complete(unit, worker_id)
-    log_path.write_text("\n".join(did), encoding="utf-8")
+        return Handoff(success=True)
+
+    res = run_worker(state_path, ledger_path, worker_id, dispatch)
+    log_path.write_text("\n".join(res.done), encoding="utf-8")
 
 
 def main() -> int:

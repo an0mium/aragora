@@ -80,7 +80,7 @@ def test_complete_records_done_and_releases_atomically(tmp_path):
     single lock — so there is no released-but-not-done window to re-claim."""
     led = _ledger(tmp_path)
     led.claim("u1", "w1", now=100.0)
-    assert led.complete("u1", "w1", discoveries=["found x"]) is True
+    assert led.complete("u1", "w1", discoveries=["found x"], now=100.0) is True
     assert led.is_done("u1") is True
     assert led.active_claims(now=100.0) == {}  # lease dropped in the same transaction
     assert led.discoveries() == {"u1": ["found x"]}
@@ -98,6 +98,15 @@ def test_complete_refuses_lost_lease(tmp_path):
     assert led.is_done("u1") is False
     assert led.discoveries() == {}
     assert led.active_claims(now=102.0) == {"u1": "w2"}
+
+
+def test_complete_refuses_expired_lease_without_new_owner(tmp_path):
+    led = _ledger(tmp_path)
+    led.claim("u1", "w1", ttl=1.0, now=100.0)
+    assert led.complete("u1", "w1", discoveries=["stale success"], now=102.0) is False
+    assert led.is_done("u1") is False
+    assert led.discoveries() == {}
+    assert led.active_claims(now=102.0) == {}
 
 
 def test_fail_records_park_and_release_atomically(tmp_path):
@@ -140,6 +149,25 @@ def test_fail_refuses_lost_lease(tmp_path):
     assert led.is_excluded("feature:u1", now=102.0) is False
     assert led.discoveries() == {}
     assert led.active_claims(now=102.0) == {"u1": "w2"}
+
+
+def test_fail_refuses_expired_lease_without_new_owner(tmp_path):
+    led = _ledger(tmp_path)
+    led.claim("u1", "w1", ttl=1.0, now=100.0)
+    assert (
+        led.fail(
+            "u1",
+            "w1",
+            discoveries=["stale failure"],
+            constraint_key="feature:u1",
+            constraint_reason="parked stale",
+            now=102.0,
+        )
+        is False
+    )
+    assert led.is_excluded("feature:u1", now=102.0) is False
+    assert led.discoveries() == {}
+    assert led.active_claims(now=102.0) == {}
 
 
 def test_constraint_ttl_evaporates(tmp_path):

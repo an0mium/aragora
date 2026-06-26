@@ -166,7 +166,7 @@ def _run_worker_fenced(
                 heartbeat.lost_reason,
             )
             res.lost_leases.append(unit)
-            break
+            continue
 
         # Discovered work is *advisory* in swarm mode (propose/accept boundary): the
         # swarm records what it found — discovered notes and proposed follow-ups —
@@ -187,7 +187,7 @@ def _run_worker_fenced(
                     unit,
                 )
                 res.lost_leases.append(unit)
-                break
+                continue
             continue
 
         # Failure: record discoveries, optional park, and lease release as one owned
@@ -218,7 +218,7 @@ def _run_worker_fenced(
                 unit,
             )
             res.lost_leases.append(unit)
-            break
+            continue
 
     return res
 

@@ -219,7 +219,14 @@ class Ledger:
             data.done.add(unit)
             self._save(data)
 
-    def complete(self, unit: str, worker_id: str, *, discoveries: list[str] | None = None) -> bool:
+    def complete(
+        self,
+        unit: str,
+        worker_id: str,
+        *,
+        discoveries: list[str] | None = None,
+        now: float | None = None,
+    ) -> bool:
         """Atomically finish ``unit``: mark done, fold any discovery notes, and drop
         the worker's lease — **all under one lock**.
 
@@ -231,10 +238,11 @@ class Ledger:
         is applied only if ``worker_id`` still owns the lease; a worker whose lease
         lapsed and was claimed by another process must not mark stale work done.
         """
+        now = time.time() if now is None else now
         with self._locked():
             data = self._load()
             held = data.leases.get(unit)
-            if not held or held.worker_id != worker_id:
+            if not held or held.worker_id != worker_id or held.is_expired(now):
                 return False
             data.done.add(unit)
             if discoveries:
@@ -269,7 +277,7 @@ class Ledger:
         with self._locked():
             data = self._load()
             held = data.leases.get(unit)
-            if not held or held.worker_id != worker_id:
+            if not held or held.worker_id != worker_id or held.is_expired(now):
                 return False
             if discoveries:
                 notes = data.discoveries.setdefault(unit, [])
