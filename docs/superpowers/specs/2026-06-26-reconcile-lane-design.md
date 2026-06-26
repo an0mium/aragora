@@ -97,8 +97,8 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 ### Stage 7 — Govern (WIP backpressure on all generators)
 
 - **Goal:** enforce the merge-first admission rule (§3a) at the fleet level — if WIP is over cap, **signal all generators to drain, not generate**.
-- **Input:** live open non-draft PR count + in-flight reconcile items.
-- **Process:** `WIP = open non-draft PRs + in-flight items`. Compute `classify_wip` (`aragora/swarm/wip_budget`) and run `scripts/backlog_gate.py` to write the `.aragora/backpressure.json` signal (`mode: generate | shepherd`). Over cap → every generation lane (boss-loop, publisher, swarm) reads `shepherd` and creates **no new work** until WIP drains.
+- **Input:** live open PR count, including draft PRs, plus in-flight reconcile items and harvested-but-unsettled `preserved-blocked` receipts.
+- **Process:** `WIP = open non-draft PRs + open draft PRs + harvested-but-unsettled preserved branches + other in-flight items`. Compute `classify_wip` (`aragora/swarm/wip_budget`) and run `scripts/backlog_gate.py` to write the `.aragora/backpressure.json` signal (`mode: generate | shepherd`). Over cap → every generation lane (boss-loop, publisher, swarm) reads `shepherd` and creates **no new work** until WIP drains.
 - **Output:** the backpressure signal file + a `wip_decision` receipt. **Idempotency:** a pure read→classify→atomic-write; re-run overwrites the signal with the current count. Never fabricates a count (over-cap requires a real count AND a real ceiling — `wip_budget`'s fail-safe).
 
 ---
@@ -214,6 +214,7 @@ Crash safety is inherited from the spine: `MissionState.save` is atomic (`os.rep
 - **Dry-run vs apply parity.** For each stage, assert the dry-run **plan** exactly equals the set the `--apply` run mutates (same branches pruned/cut, same PRs merged) — the core safety property. A divergence is a bug.
 - **Guardrail tests.** Assert Prune/Cut **never** touch a dirty / live-process / active-session / PR-backing / preserved / protected-surface / unmerged-commit branch even when it otherwise classifies for removal.
 - **Receipt emission.** Assert every artifact that exits any apply stage has exactly one terminal receipt in one of the five terminal states, signature-valid (`SignedReceipt`), and recoverable (deleted-receipt SHA re-creates the branch). Dry-run preview receipts are explicitly non-terminal and must not consume the artifact's terminal receipt slot.
+- **WIP accounting.** Assert Stage 7 counts open draft PRs and harvested-but-unsettled preserved branches, not only non-draft PRs, before it allows generators to produce more work.
 - **Idempotency.** Run each stage twice on the same fixture; second run mutates nothing and re-emits identical receipts; the inspection quorum is **not** re-invoked (receipt-cache hit).
 - **Pause is real.** With the pause manifest set, assert every mutating stage emits a `paused` receipt and mutates nothing. The §3c regression test must also enumerate the full conductor-owned mutation adapter surface — PR creation/edits/closures, pushes, merges, branch deletion, worktree removal/pruning, cleanup helpers, and publisher/outbox writes — and prove every path calls the pause guard before executing.
 - **Crash/resume.** `kill -9` mid-Cut (between two deletes); relaunch; assert no double-delete and the manifest receipt is consistent — reuses the parent's Phase-A exit test.
