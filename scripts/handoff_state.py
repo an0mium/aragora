@@ -93,6 +93,21 @@ BASE_FIELD_KEYS = (
     "target_base",
     "base_branch",
 )
+LOCAL_WORK_MARKER_KEYS = (
+    "uncommitted_changes",
+    "has_uncommitted_changes",
+    "uncommitted",
+    "unpushed_commits",
+    "local_changes",
+    "local_work",
+    "dirty",
+    "dirty_worktree",
+    "branch_ahead",
+    "branch_ahead_of_origin_main",
+    "has_unique_commits",
+    "unique_commits",
+    "worktree_dirty",
+)
 
 
 class HandoffState(str, Enum):
@@ -360,9 +375,9 @@ class OwnerProbe:
         if proc.returncode != 0:
             message = (proc.stderr or proc.stdout or "").strip().splitlines()
             text = message[0] if message else f"identify_lane_owner exited {proc.returncode}"
-            matched = "no lane matched" not in text.lower()
+            no_match = _owner_probe_no_match(text)
             result = OwnerEvidence(
-                available=not matched,
+                available=no_match,
                 matched=False,
                 error=text,
             )
@@ -451,16 +466,7 @@ def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
         value = str(payload.get(key) or "").strip().lower()
         if value == "possible_unpushed_work" or "possible unpushed work" in value:
             return "possible_unpushed_work"
-    for key in (
-        "branch_ahead",
-        "branch_ahead_of_origin_main",
-        "dirty",
-        "dirty_worktree",
-        "has_unique_commits",
-        "uncommitted_changes",
-        "unique_commits",
-        "worktree_dirty",
-    ):
+    for key in LOCAL_WORK_MARKER_KEYS:
         value = payload.get(key)
         if value is True:
             return "possible_unpushed_work"
@@ -658,6 +664,9 @@ def classify_handoff_item(
     github = github_evidence_for_branch(github_client, branch, desired_head, desired_base)
     evidence["github"] = dataclasses.asdict(github)
     owner = owner_probe.probe(branch) if branch else OwnerEvidence()
+    local_work_marker = _payload_possible_unpushed_marker(payload)
+    if local_work_marker and owner.advisory_withheld is None:
+        owner = dataclasses.replace(owner, advisory_withheld=local_work_marker)
     evidence["owner"] = dataclasses.asdict(owner)
     steering = steering_evidence_for_branch(
         state_root=state_root,
@@ -1014,7 +1023,11 @@ def github_evidence_for_branch(
                 or item.get("baseRefName")
                 or DEFAULT_PR_BASE
             )
-            if heads_match(desired_head, head_sha) and _base_matches(desired_base, base_ref):
+            if heads_match(desired_head, head_sha) and _base_matches(
+                desired_base,
+                base_ref,
+                actual_is_live=True,
+            ):
                 exact_open_pr = {
                     "number": item.get("number"),
                     "state": item.get("state"),
@@ -1432,11 +1445,16 @@ def _remote_ref_matches(remote_ref: Mapping[str, Any] | None, desired_head: str)
     return heads_match(desired_head, str(remote_ref.get("sha") or ""))
 
 
-def _base_matches(desired_base: str, actual_base: str) -> bool:
+def _base_matches(desired_base: str, actual_base: str, *, actual_is_live: bool = False) -> bool:
     expected = _normalize_base_ref(desired_base)
     if not expected:
         return True
-    return expected == _normalize_base_ref(actual_base)
+    actual = str(actual_base or "").strip()
+    if not actual:
+        return False
+    if actual_is_live:
+        return expected == actual
+    return expected == _normalize_base_ref(actual)
 
 
 def _normalize_base_ref(value: str) -> str:
@@ -1450,6 +1468,20 @@ def _normalize_base_ref(value: str) -> str:
 def _possible_unpushed(owner: OwnerEvidence) -> bool:
     value = str(owner.advisory_withheld or "").strip().lower()
     return value == "possible_unpushed_work"
+
+
+def _payload_possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
+    if _possible_unpushed_marker(payload):
+        return "possible_unpushed_work"
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        if _possible_unpushed_marker(local_evidence):
+            return "possible_unpushed_work"
+    return None
+
+
+def _owner_probe_no_match(text: str) -> bool:
+    normalized = str(text or "").strip().lower()
+    return "no lane matched" in normalized or "no matching lane" in normalized
 
 
 def _human_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:

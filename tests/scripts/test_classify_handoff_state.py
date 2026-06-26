@@ -66,6 +66,7 @@ def _write_outbox(
     base: str | None = None,
     action_type: str = "open_or_update_pr",
     local_evidence: list[dict[str, Any]] | None = None,
+    extra_payload: dict[str, Any] | None = None,
 ) -> Path:
     outbox = state_root / ".aragora" / "automation-outbox"
     outbox.mkdir(parents=True, exist_ok=True)
@@ -90,6 +91,8 @@ def _write_outbox(
         payload["base"] = base
     if local_evidence is not None:
         payload["local_evidence"] = local_evidence
+    if extra_payload is not None:
+        payload.update(extra_payload)
     path.write_text(json.dumps(payload), encoding="utf-8")
     return path
 
@@ -638,6 +641,29 @@ def test_local_evidence_origin_main_base_alias_does_not_conflict(tmp_path: Path)
     assert "local_evidence" not in item["evidence"]
 
 
+def test_live_open_pr_base_ref_is_not_collapsed_as_local_alias(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example", base="main")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "origin/main"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["github"]["exact_open_pr"] is None
+
+
 def test_terminal_receipts_choose_newest_by_timestamp_not_filename(tmp_path: Path) -> None:
     receipts = tmp_path / ".aragora" / "automation-receipts"
     receipts.mkdir(parents=True, exist_ok=True)
@@ -1032,6 +1058,40 @@ def test_lane_registry_possible_unpushed_marker_blocks_default_classifier(
         github_client=FakeGitHub(),
     )
     item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK.value
+    assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
+
+
+def test_top_level_local_work_marker_blocks_publication(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        extra_payload={"unpushed_commits": 1},
+    )
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK.value
+    assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
+
+
+def test_local_evidence_local_work_marker_blocks_publication(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        local_evidence=[
+            {
+                "branch": "codex/example",
+                "desired_head_sha": HEAD,
+                "local_work": True,
+            }
+        ],
+    )
+
+    item = _classify_one(tmp_path)
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK.value
     assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
@@ -1979,6 +2039,24 @@ def test_owner_probe_failure_fails_closed(tmp_path: Path) -> None:
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["owner"]["available"] is False
+    assert item["evidence"]["owner"]["matched"] is False
+
+
+def test_owner_probe_no_matching_lane_does_not_block(tmp_path: Path) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "identify_lane_owner.py").write_text(
+        "import sys\nprint('ERROR: no matching lane criteria', file=sys.stderr)\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    owner = mod.OwnerProbe(repo_root=tmp_path, state_root=tmp_path, timeout_seconds=2)
+
+    item = _classify_one(tmp_path, owner=owner)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["available"] is True
     assert item["evidence"]["owner"]["matched"] is False
 
 
