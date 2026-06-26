@@ -382,6 +382,43 @@ def test_missing_base_defaults_to_main_for_exact_open_pr_representation(
     assert item["evidence"]["github"]["exact_open_pr"] is None
 
 
+def test_non_pr_exact_open_pr_representation_requires_default_base(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(
+        tmp_path,
+        key="preserve-branch-codex-example-aaaaaaaa",
+        branch="codex/example",
+        action_type="preserve_branch",
+    )
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "html_url": "https://github.com/synaptent/aragora/pull/8570",
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "release"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(
+        tmp_path,
+        outbox_file="preserve-branch-codex-example-aaaaaaaa.json",
+        github=github,
+    )
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["safe_to_mutate"] is False
+    assert item["next_mutation_candidate"] == "none"
+    assert item["evidence"]["github"]["exact_open_pr"] is None
+
+
 def test_exact_open_pr_representation_honors_base_ref_name_alias(
     tmp_path: Path,
 ) -> None:

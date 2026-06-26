@@ -1607,6 +1607,8 @@ def _remote_ref_matches(remote_ref: Mapping[str, Any] | None, desired_head: str)
 def _base_matches(desired_base: str, actual_base: str, *, actual_is_live: bool = False) -> bool:
     expected = _normalize_base_ref(desired_base)
     if not expected:
+        if actual_is_live:
+            return _normalize_base_ref(actual_base) == DEFAULT_PR_BASE
         return True
     actual = str(actual_base or "").strip()
     if not actual:
