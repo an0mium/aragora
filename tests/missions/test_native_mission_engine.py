@@ -254,7 +254,13 @@ def test_live_gate_reads_feature_metadata_and_never_uses_admin_merge() -> None:
                         {
                             "pr_number": 8625,
                             "head_sha": "abc123",
-                            "model_review_quorum": {"verdict": "satisfied", "tier": 2},
+                            "tier": 2,
+                            "status": "satisfied",
+                            "verdict": "admin_squash_allowed",
+                            "admin_squash_allowed": True,
+                            "requires_human_risk_settlement": False,
+                            "requires_human_preapproval": False,
+                            "unresolved_dissent": False,
                         }
                     ]
                 }
@@ -284,6 +290,27 @@ def test_live_gate_reads_feature_metadata_and_never_uses_admin_merge() -> None:
     assert "--match-head-commit" in merge_call
     assert "abc123" in merge_call
     assert "--admin" not in merge_call
+
+
+def test_live_gate_tier_falls_back_to_merge_packet_when_metadata_omits_tier() -> None:
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:4] == ["python", "-m", "aragora.cli.main", "review-queue"]:
+            return json.dumps({"entries": [{"pr_number": 8625, "head_sha": "abc123", "tier": 2}]})
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
+
+    assert (
+        gate.tier_of(
+            Feature(
+                id="engine",
+                description="ship engine",
+                milestone="m",
+                metadata={"branch": "codex/native-mission-engine", "pr": 8625},
+            )
+        )
+        == 2
+    )
 
 
 def test_live_gate_foreign_commits_inspects_subjects_on_mission_branches() -> None:
@@ -393,6 +420,8 @@ def test_live_gate_refuses_admin_squash_when_packet_has_human_blocker() -> None:
                             "verdict": "admin_squash_allowed",
                             "admin_squash_allowed": True,
                             "requires_human_risk_settlement": True,
+                            "requires_human_preapproval": False,
+                            "unresolved_dissent": False,
                         }
                     ]
                 }

@@ -7,9 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from aragora.cli.commands.mission import _operator_tier_for, cmd_mission
+from aragora.cli.commands.mission import (
+    _artifact_with_merge_packet_fields,
+    _operator_tier_for,
+    cmd_mission,
+)
 from aragora.cli.parser import build_parser
-from aragora.missions import Feature, MissionState, Status
+from aragora.missions import Feature, MissionState, Status, WorkArtifact
 
 
 def test_mission_parser_accepts_public_subcommands(tmp_path: Path) -> None:
@@ -85,6 +89,17 @@ def test_mission_parser_keeps_legacy_goal_alias() -> None:
     assert args.command == "mission"
     assert args.mission_action == "Do something"
     assert args.goal == []
+
+
+def test_cmd_mission_without_action_reports_missing_seed_goal(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["mission"])
+
+    assert cmd_mission(args) == 1
+
+    assert "mission seed requires a goal" in capsys.readouterr().err
 
 
 def test_mission_parser_rejects_invalid_relay() -> None:
@@ -179,7 +194,7 @@ def test_cmd_mission_seed_refuses_when_native_mission_flag_is_off(
     assert "Native mission engine is disabled" in capsys.readouterr().err
 
 
-def test_cmd_mission_run_report_mode_parks_without_false_completion(
+def test_cmd_mission_run_report_mode_does_not_mutate_state(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
@@ -198,9 +213,9 @@ def test_cmd_mission_run_report_mode_parks_without_false_completion(
     assert cmd_mission(args) == 0
 
     feature = MissionState.load(state_path).get("f1")
-    assert feature.status == Status.BLOCKED
-    assert "report autonomy does not dispatch feature f1" in feature.notes
-    assert "Mission run: 0/1 completed" in capsys.readouterr().out
+    assert feature.status == Status.PENDING
+    assert feature.notes == ""
+    assert "Mission run (report): no dispatch performed; 0/1 completed" in capsys.readouterr().out
 
 
 def test_cmd_mission_run_refuses_paused_mission(
@@ -244,9 +259,20 @@ def test_cmd_mission_resume_reclaims_under_owner_lock_and_crash_cap(
         ],
     ).save(state_path)
     parser = build_parser()
-    args = parser.parse_args(["mission", "resume", "--state", str(state_path), "--max-ticks", "2"])
+    args = parser.parse_args(
+        [
+            "mission",
+            "resume",
+            "--state",
+            str(state_path),
+            "--autonomy",
+            "auto-drain",
+            "--max-ticks",
+            "2",
+        ]
+    )
 
-    assert cmd_mission(args) == 0
+    assert cmd_mission(args) == 1
 
     feature = MissionState.load(state_path).get("f1")
     assert feature.status == Status.BLOCKED
@@ -286,6 +312,40 @@ def test_auto_drain_operator_tier_honors_seeded_auto_settle_ceiling(tmp_path: Pa
     )
 
     assert _operator_tier_for(args, state_path) == 2
+
+
+def test_inventory_artifact_enrichment_uses_merge_packet_for_auto_drain(monkeypatch) -> None:
+    artifact = WorkArtifact(
+        "wt",
+        kind="worktree",
+        clean=True,
+        open_pr=True,
+        evidence=["inventory"],
+    )
+    candidate = {"links": {"open_prs": [{"number": 8655}]}}
+    monkeypatch.setattr(
+        "aragora.cli.commands.mission._merge_packet_for_pr",
+        lambda pr: {
+            "entries": [
+                {
+                    "pr_number": pr,
+                    "head_sha": "abc123",
+                    "tier": 2,
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                }
+            ]
+        },
+    )
+
+    enriched = _artifact_with_merge_packet_fields(artifact, candidate)
+
+    assert enriched.tier == 2
+    assert enriched.head_sha == "abc123"
+    assert enriched.checks_green
+    assert enriched.quorum_satisfied
+    assert "merge-packet PR 8655: satisfied / admin_squash_allowed" in enriched.evidence
 
 
 def test_cmd_mission_reconcile_outputs_json(

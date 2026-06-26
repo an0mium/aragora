@@ -69,10 +69,33 @@ class LiveBossLoopGate:
         return foreign
 
     def tier_of(self, feature: Feature) -> int:
-        try:
-            return int(feature.metadata.get("tier", 0))
-        except (TypeError, ValueError):
+        raw_tier = feature.metadata.get("tier")
+        if raw_tier is not None:
+            try:
+                return int(raw_tier)
+            except (TypeError, ValueError):
+                pass
+        pr = feature.metadata.get("pr")
+        if pr is None:
             return 3
+        payload = self._run_json(
+            [
+                "python",
+                "-m",
+                "aragora.cli.main",
+                "review-queue",
+                "merge-packet",
+                "--pr",
+                str(pr),
+                "--repo",
+                self.repo_slug,
+                "--json",
+            ]
+        )
+        entry = _find_packet_entry_for_pr(payload, int(pr))
+        if entry is None:
+            return 3
+        return _int_or_default(entry.get("tier"), 3)
 
     def collect_evidence(self, branch: str, head: str) -> GateVerdict:
         metadata = self._metadata_by_branch.get(branch, {})
@@ -185,17 +208,40 @@ def _subject_prefixes(allowed_prefixes: tuple[str, ...]) -> tuple[str, ...]:
 def _packet_allows_admin_squash(
     entry: dict[str, Any], quorum: dict[str, Any], verdict: str
 ) -> bool:
-    if "admin_squash_allowed" in entry:
-        if not bool(entry.get("admin_squash_allowed")):
+    del verdict
+    if _packet_value(entry, quorum, "admin_squash_allowed") is not True:
+        return False
+    for blocker in (
+        "requires_human_risk_settlement",
+        "requires_human_preapproval",
+        "unresolved_dissent",
+    ):
+        if _packet_value(entry, quorum, blocker) is not False:
             return False
-        if entry.get("requires_human_risk_settlement") or entry.get("requires_human_preapproval"):
-            return False
-        if entry.get("unresolved_dissent"):
-            return False
-        return True
-    return verdict in {"satisfied", "pass", "passed", "green"} or bool(
-        entry.get("satisfied") or quorum.get("satisfied")
-    )
+    return True
+
+
+def _packet_value(entry: dict[str, Any], quorum: dict[str, Any], key: str) -> Any:
+    if key in entry:
+        return entry.get(key)
+    return quorum.get(key)
+
+
+def _find_packet_entry_for_pr(payload: dict[str, Any], pr: int) -> dict[str, Any] | None:
+    candidates: list[Any] = []
+    for key in ("ready", "not_ready", "items", "entries"):
+        raw = payload.get(key)
+        if isinstance(raw, list):
+            candidates.extend(raw)
+    if not candidates and any(k in payload for k in ("pr_number", "number", "head_sha")):
+        candidates.append(payload)
+
+    for entry in candidates:
+        if not isinstance(entry, dict):
+            continue
+        if _int_or_default(entry.get("pr_number", entry.get("number")), -1) == pr:
+            return entry
+    return None
 
 
 def _int_or_default(value: Any, default: int) -> int:

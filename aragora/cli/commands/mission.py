@@ -8,6 +8,7 @@ import logging
 import subprocess
 import sys
 import uuid
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -58,14 +59,14 @@ def _normalize_action(args: argparse.Namespace) -> tuple[str, list[str]]:
         return raw, goal_words
     if raw:
         return "seed", [raw, *goal_words]
-    return "status", goal_words
+    return "seed", goal_words
 
 
 def _cmd_seed(args: argparse.Namespace, goal_words: list[str]) -> int:
-    _assert_native_mission_enabled("seed")
     goal = " ".join(goal_words).strip()
     if not goal:
         raise ValueError("mission seed requires a goal")
+    _assert_native_mission_enabled("seed")
     if args.budget is not None and args.budget < 0:
         raise ValueError("budget_usd must be non-negative")
     mission_id = f"mission-{uuid.uuid4().hex[:12]}"
@@ -114,12 +115,17 @@ def _cmd_run(args: argparse.Namespace, *, resume: bool) -> int:
     _assert_native_mission_enabled("run")
     state_path = _state_path(args)
     _assert_not_paused(state_path)
+    if args.autonomy != "auto-drain":
+        state = MissionState.load(state_path)
+        done, total = state.progress()
+        print(f"Mission run ({args.autonomy}): no dispatch performed; {done}/{total} completed")
+        return 0
     if resume:
         print("Resume requested; reclaim is handled under the mission owner lock.")
     dispatch = _dispatch_for(args, state_path=state_path)
     done, total = MissionOrchestrator(state_path).run(dispatch, max_ticks=args.max_ticks)
     print(f"Mission run: {done}/{total} completed")
-    return 0
+    return 0 if done == total else 1
 
 
 def _assert_not_paused(state_path: Path) -> None:
@@ -137,7 +143,7 @@ def _assert_not_paused(state_path: Path) -> None:
 def _cmd_reconcile(args: argparse.Namespace) -> int:
     _assert_native_mission_enabled("reconcile")
     mode = ReconcileMode(args.autonomy)
-    artifacts = _load_artifacts(args)
+    artifacts = _load_artifacts(args, include_github=mode == ReconcileMode.AUTO_DRAIN)
     report = mode.run(artifacts)
     if args.json:
         print(report.to_json())
@@ -247,16 +253,16 @@ def _tracks(args: argparse.Namespace) -> list[str]:
     return [track.strip() for track in raw.split(",") if track.strip()]
 
 
-def _load_artifacts(args: argparse.Namespace) -> list[WorkArtifact]:
+def _load_artifacts(args: argparse.Namespace, *, include_github: bool) -> list[WorkArtifact]:
     if getattr(args, "artifact_fixture", None):
         payload = json.loads(Path(args.artifact_fixture).read_text(encoding="utf-8"))
         if not isinstance(payload, list):
             raise ValueError("--artifact-fixture must contain a JSON list")
         return [WorkArtifact.from_dict(item) for item in payload]
-    return _load_live_inventory_artifacts(limit=args.limit)
+    return _load_live_inventory_artifacts(limit=args.limit, include_github=include_github)
 
 
-def _load_live_inventory_artifacts(*, limit: int) -> list[WorkArtifact]:
+def _load_live_inventory_artifacts(*, limit: int, include_github: bool) -> list[WorkArtifact]:
     cmd = [
         sys.executable,
         "scripts/codex_worktree_value_inventory.py",
@@ -266,10 +272,11 @@ def _load_live_inventory_artifacts(*, limit: int) -> list[WorkArtifact]:
         str(limit),
         "--size-mode",
         "none",
-        "--skip-gh",
         "--dry-run",
         "--json",
     ]
+    if not include_github:
+        cmd.insert(-2, "--skip-gh")
     proc = subprocess.run(cmd, text=True, capture_output=True, check=False)
     if proc.returncode != 0:
         raise RuntimeError(
@@ -279,11 +286,15 @@ def _load_live_inventory_artifacts(*, limit: int) -> list[WorkArtifact]:
     candidates = payload.get("candidates", [])
     if not isinstance(candidates, list):
         return []
-    return [
-        _artifact_from_inventory(candidate)
-        for candidate in candidates
-        if isinstance(candidate, dict)
-    ]
+    artifacts: list[WorkArtifact] = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        artifact = _artifact_from_inventory(candidate)
+        if include_github:
+            artifact = _artifact_with_merge_packet_fields(artifact, candidate)
+        artifacts.append(artifact)
+    return artifacts
 
 
 def _artifact_from_inventory(candidate: dict[str, Any]) -> WorkArtifact:
@@ -315,3 +326,91 @@ def _artifact_from_inventory(candidate: dict[str, Any]) -> WorkArtifact:
         superseded=classification == "superseded",
         evidence=[str(item) for item in proof],
     )
+
+
+def _artifact_with_merge_packet_fields(
+    artifact: WorkArtifact, candidate: dict[str, Any]
+) -> WorkArtifact:
+    pr_number = _first_open_pr_number(candidate)
+    if pr_number is None:
+        return artifact
+    packet = _merge_packet_for_pr(pr_number)
+    entry = _first_packet_entry(packet, pr_number)
+    if entry is None:
+        return artifact
+    tier = _int_or_none(entry.get("tier"))
+    head_sha = str(entry.get("head_sha") or entry.get("headRefOid") or "").strip() or None
+    admin_allowed = bool(entry.get("admin_squash_allowed"))
+    evidence = [
+        *artifact.evidence,
+        f"merge-packet PR {pr_number}: {entry.get('status', 'unknown')} / {entry.get('verdict', 'unknown')}",
+    ]
+    return replace(
+        artifact,
+        tier=tier,
+        head_sha=head_sha,
+        checks_green=admin_allowed,
+        quorum_satisfied=admin_allowed,
+        evidence=evidence,
+    )
+
+
+def _first_open_pr_number(candidate: dict[str, Any]) -> int | None:
+    links = candidate.get("links")
+    if not isinstance(links, dict):
+        return None
+    open_prs = links.get("open_prs")
+    if not isinstance(open_prs, list) or not open_prs:
+        return None
+    first = open_prs[0]
+    if not isinstance(first, dict):
+        return None
+    return _int_or_none(first.get("number"))
+
+
+def _merge_packet_for_pr(pr_number: int) -> dict[str, Any]:
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+            "--pr",
+            str(pr_number),
+            "--json",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return {}
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _first_packet_entry(packet: dict[str, Any], pr_number: int) -> dict[str, Any] | None:
+    candidates: list[Any] = []
+    for key in ("entries", "ready", "not_ready", "items"):
+        value = packet.get(key)
+        if isinstance(value, list):
+            candidates.extend(value)
+    if not candidates and packet:
+        candidates.append(packet)
+    for item in candidates:
+        if not isinstance(item, dict):
+            continue
+        if _int_or_none(item.get("pr_number", item.get("number"))) == pr_number:
+            return item
+    return None
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
