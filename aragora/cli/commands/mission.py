@@ -115,12 +115,8 @@ def _cmd_run(args: argparse.Namespace, *, resume: bool) -> int:
     state_path = _state_path(args)
     _assert_not_paused(state_path)
     if resume:
-        state = MissionState.load(state_path)
-        reclaimed = state.reclaim_in_progress()
-        if reclaimed:
-            state.save(state_path)
-            print(f"Reclaimed in-progress features: {', '.join(reclaimed)}")
-    dispatch = _dispatch_for(args)
+        print("Resume requested; reclaim is handled under the mission owner lock.")
+    dispatch = _dispatch_for(args, state_path=state_path)
     done, total = MissionOrchestrator(state_path).run(dispatch, max_ticks=args.max_ticks)
     print(f"Mission run: {done}/{total} completed")
     return 0
@@ -156,11 +152,15 @@ def _cmd_reconcile(args: argparse.Namespace) -> int:
     return 0
 
 
-def _dispatch_for(args: argparse.Namespace):
+def _dispatch_for(args: argparse.Namespace, *, state_path: Path | None = None):
     if args.autonomy == "auto-drain":
         base = "origin/main"
-        gate = LiveBossLoopGate(repo_root=Path.cwd(), base=base)
-        return BossLoopDispatch(gate, base=base, operator_tier=args.operator_tier)
+        gate = LiveBossLoopGate(repo_root=_repo_root_for(args, state_path), base=base)
+        return BossLoopDispatch(
+            gate,
+            base=base,
+            operator_tier=_operator_tier_for(args, state_path),
+        )
 
     def report_dispatch(feature: Feature) -> Handoff:
         return Handoff(
@@ -182,6 +182,54 @@ def _assert_native_mission_enabled(action: str) -> None:
             f"Native mission engine is disabled for mission {action} "
             "(set ARAGORA_ENABLE_NATIVE_MISSION=1 to opt in)."
         )
+
+
+def _operator_tier_for(args: argparse.Namespace, state_path: Path | None) -> int:
+    auto_settle_max_tier = int(args.auto_settle_max_tier)
+    if state_path is not None and state_path.exists():
+        state = MissionState.load(state_path)
+        for feature in state.features:
+            raw = feature.metadata.get("auto_settle_max_tier")
+            if raw is None:
+                continue
+            try:
+                auto_settle_max_tier = min(auto_settle_max_tier, int(raw))
+            except (TypeError, ValueError):
+                continue
+    return min(int(args.operator_tier), auto_settle_max_tier + 1)
+
+
+def _repo_root_for(args: argparse.Namespace, state_path: Path | None) -> Path:
+    explicit = getattr(args, "repo_root", None)
+    if explicit:
+        return Path(explicit).expanduser().resolve()
+
+    if state_path is not None:
+        state_root = _nearest_git_root(state_path.expanduser().resolve().parent)
+        if state_root is not None:
+            return state_root
+
+    cwd_root = _nearest_git_root(Path.cwd())
+    if cwd_root is not None:
+        return cwd_root
+
+    proc = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=Path.cwd(),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode == 0 and proc.stdout.strip():
+        return Path(proc.stdout.strip()).resolve()
+    raise RuntimeError("could not resolve repository root for mission auto-drain")
+
+
+def _nearest_git_root(start: Path) -> Path | None:
+    for candidate in (start, *start.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
 
 
 def _state_path(args: argparse.Namespace, *, mission_id: str | None = None) -> Path:

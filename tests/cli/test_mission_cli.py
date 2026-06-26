@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from aragora.cli.commands.mission import cmd_mission
+from aragora.cli.commands.mission import _operator_tier_for, cmd_mission
 from aragora.cli.parser import build_parser
 from aragora.missions import Feature, MissionState, Status
 
@@ -61,6 +61,20 @@ def test_mission_parser_accepts_public_subcommands(tmp_path: Path) -> None:
     reconcile = parser.parse_args(["mission", "reconcile", "--autonomy", "safe-clean"])
     assert reconcile.mission_action == "reconcile"
     assert reconcile.autonomy == "safe-clean"
+
+    auto_drain = parser.parse_args(
+        [
+            "mission",
+            "run",
+            "--state",
+            str(state_path),
+            "--autonomy",
+            "auto-drain",
+            "--repo-root",
+            str(tmp_path),
+        ]
+    )
+    assert auto_drain.repo_root == str(tmp_path)
 
 
 def test_mission_parser_keeps_legacy_goal_alias() -> None:
@@ -208,6 +222,70 @@ def test_cmd_mission_run_refuses_paused_mission(
 
     assert MissionState.load(state_path).get("f1").status == Status.PENDING
     assert "mission is paused" in capsys.readouterr().err
+
+
+def test_cmd_mission_resume_reclaims_under_owner_lock_and_crash_cap(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
+    state_path = tmp_path / "state.json"
+    MissionState(
+        mission_id="mission-test",
+        goal="g",
+        milestones=["m"],
+        features=[
+            Feature(
+                id="f1",
+                description="inspect",
+                milestone="m",
+                status=Status.IN_PROGRESS,
+                crash_count=4,
+            )
+        ],
+    ).save(state_path)
+    parser = build_parser()
+    args = parser.parse_args(["mission", "resume", "--state", str(state_path), "--max-ticks", "2"])
+
+    assert cmd_mission(args) == 0
+
+    feature = MissionState.load(state_path).get("f1")
+    assert feature.status == Status.BLOCKED
+    assert "crashed 4x" in feature.notes
+    out = capsys.readouterr().out
+    assert "Resume requested" in out
+    assert "Mission run: 0/1 completed" in out
+
+
+def test_auto_drain_operator_tier_honors_seeded_auto_settle_ceiling(tmp_path: Path) -> None:
+    state_path = tmp_path / "state.json"
+    MissionState(
+        mission_id="mission-test",
+        goal="g",
+        milestones=["m"],
+        features=[
+            Feature(
+                id="f1",
+                description="inspect",
+                milestone="m",
+                metadata={"auto_settle_max_tier": 1},
+            )
+        ],
+    ).save(state_path)
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "mission",
+            "run",
+            "--state",
+            str(state_path),
+            "--autonomy",
+            "auto-drain",
+            "--auto-settle-max-tier",
+            "2",
+        ]
+    )
+
+    assert _operator_tier_for(args, state_path) == 2
 
 
 def test_cmd_mission_reconcile_outputs_json(

@@ -110,15 +110,16 @@ class LiveBossLoopGate:
         reasons = quorum.get("reasons") or entry.get("reasons") or []
         if isinstance(reasons, str):
             reasons = [reasons]
-        satisfied = verdict in {"satisfied", "pass", "passed", "green"} or bool(
-            entry.get("satisfied")
-        )
+        satisfied = _packet_allows_admin_squash(entry, quorum, verdict)
         return GateVerdict(satisfied=satisfied, tier=tier, dissent=list(reasons))
 
     def merge_head_bound(self, branch: str, head: str) -> bool:
         metadata = self._metadata_by_branch.get(branch, {})
         pr = metadata.get("pr")
         if pr is None:
+            return False
+        verdict = self.collect_evidence(branch, head)
+        if not verdict.satisfied:
             return False
         self.runner(
             [
@@ -179,6 +180,22 @@ def _subject_prefixes(allowed_prefixes: tuple[str, ...]) -> tuple[str, ...]:
         if prefix.endswith("/"):
             prefixes.add(f"{prefix[:-1]}:")
     return tuple(sorted(prefixes))
+
+
+def _packet_allows_admin_squash(
+    entry: dict[str, Any], quorum: dict[str, Any], verdict: str
+) -> bool:
+    if "admin_squash_allowed" in entry:
+        if not bool(entry.get("admin_squash_allowed")):
+            return False
+        if entry.get("requires_human_risk_settlement") or entry.get("requires_human_preapproval"):
+            return False
+        if entry.get("unresolved_dissent"):
+            return False
+        return True
+    return verdict in {"satisfied", "pass", "passed", "green"} or bool(
+        entry.get("satisfied") or quorum.get("satisfied")
+    )
 
 
 def _int_or_default(value: Any, default: int) -> int:

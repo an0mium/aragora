@@ -255,22 +255,34 @@ class AgentHierarchy:
         if not sources:
             return
 
+        loaded_any = False
+        migrated_legacy = False
+        legacy_sources: list[Path] = []
         for source, using_legacy_default in sources:
             try:
                 assignments = self._read_assignments(source)
             except (OSError, json.JSONDecodeError, ValueError) as e:
                 logger.error("Failed to load hierarchy from %s: %s", source, e)
                 continue
-            self._assignments = {a.agent_id: a for a in assignments}
+            loaded_any = True
+            for assignment in assignments:
+                if using_legacy_default:
+                    self._assignments.setdefault(assignment.agent_id, assignment)
+                else:
+                    self._assignments[assignment.agent_id] = assignment
             if using_legacy_default:
-                await self._save_hierarchy()
+                migrated_legacy = True
+                legacy_sources.append(source)
+
+        if loaded_any and migrated_legacy:
+            await self._save_hierarchy()
+            for source in legacy_sources:
                 self._retire_legacy_hierarchy(source)
                 logger.info(
                     "Migrated legacy agent hierarchy from %s to %s",
                     source,
                     self.hierarchy_file,
                 )
-            return
 
     @staticmethod
     def _read_assignments(source: Path) -> list[RoleAssignment]:

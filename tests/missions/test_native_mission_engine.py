@@ -334,6 +334,87 @@ def test_live_gate_requires_exact_head_packet_entry() -> None:
     assert verdict.dissent == ["merge-packet had no exact-head entry for PR 8625 at abc123"]
 
 
+def test_live_gate_uses_canonical_admin_squash_authorization() -> None:
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str], cwd: Path) -> str:
+        calls.append(cmd)
+        if cmd[:4] == ["python", "-m", "aragora.cli.main", "review-queue"]:
+            return json.dumps(
+                {
+                    "entries": [
+                        {
+                            "pr_number": 8625,
+                            "head_sha": "abc123",
+                            "tier": 2,
+                            "status": "satisfied",
+                            "verdict": "admin_squash_allowed",
+                            "admin_squash_allowed": True,
+                            "requires_human_risk_settlement": False,
+                            "requires_human_preapproval": False,
+                            "unresolved_dissent": False,
+                        }
+                    ]
+                }
+            )
+        if cmd[:3] == ["gh", "pr", "merge"]:
+            return ""
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
+    branch = gate.branch_for(
+        Feature(
+            id="engine",
+            description="ship engine",
+            milestone="m",
+            metadata={"branch": "codex/native-mission-engine", "pr": 8625, "tier": 2},
+        )
+    )
+
+    verdict = gate.collect_evidence(branch, "abc123")
+
+    assert verdict.satisfied
+    assert verdict.tier == 2
+    assert gate.merge_head_bound(branch, "abc123")
+    assert any(cmd[:3] == ["gh", "pr", "merge"] for cmd in calls)
+
+
+def test_live_gate_refuses_admin_squash_when_packet_has_human_blocker() -> None:
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:4] == ["python", "-m", "aragora.cli.main", "review-queue"]:
+            return json.dumps(
+                {
+                    "entries": [
+                        {
+                            "pr_number": 8625,
+                            "head_sha": "abc123",
+                            "tier": 2,
+                            "status": "satisfied",
+                            "verdict": "admin_squash_allowed",
+                            "admin_squash_allowed": True,
+                            "requires_human_risk_settlement": True,
+                        }
+                    ]
+                }
+            )
+        if cmd[:3] == ["gh", "pr", "merge"]:
+            raise AssertionError("merge must not be attempted")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
+    branch = gate.branch_for(
+        Feature(
+            id="engine",
+            description="ship engine",
+            milestone="m",
+            metadata={"branch": "codex/native-mission-engine", "pr": 8625, "tier": 2},
+        )
+    )
+
+    assert not gate.collect_evidence(branch, "abc123").satisfied
+    assert not gate.merge_head_bound(branch, "abc123")
+
+
 def test_headless_runtime_config_uses_provider_env_without_enabling_flag(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_MISSION_RUNTIME", "headless-api")
     monkeypatch.setenv("OPENAI_API_KEY", "test-openai")

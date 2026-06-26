@@ -55,6 +55,13 @@ def add_mission_parser(subparsers: Any, lazy: Callable[[str, str], Callable[...,
         help="Tier at or above which live dispatch parks for operator settlement.",
     )
     mission_parser.add_argument(
+        "--repo-root",
+        help=(
+            "Repository root for live auto-drain git/gh checks. Defaults to the git root "
+            "containing --state, then the current git root."
+        ),
+    )
+    mission_parser.add_argument(
         "--artifact-fixture",
         help="Load reconcile artifacts from a JSON fixture instead of live inventory helpers.",
     )
