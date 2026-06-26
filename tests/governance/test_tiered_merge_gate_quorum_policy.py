@@ -97,12 +97,21 @@ def test_tier1_counts_any_two_distinct_families():
 
 @pytest.mark.parametrize("tier", [1, 2])
 def test_tiered_gate_relaxation_requires_western_frontier(tier):
+    # Flag ON (ARAGORA_ENABLE_TIERED_MERGE_GATE=1): a Tier 1-2 PR settles on a
+    # single western-frontier signal (claude/openai).
     rule = tier_quorum_rule(tier, tiered_gate=True)
     assert rule.required_signals == 1
     assert rule.requires_western_frontier is True
     assert rule.is_satisfied_by({"claude"}) is True  # frontier solo-settles
     assert rule.is_satisfied_by({"grok"}) is False  # Western but not frontier
     assert rule.is_satisfied_by({"deepseek"}) is False  # cheap cannot solo-settle
+
+    # Flag OFF (contrast): without the gate, Tier 1-2 require two distinct
+    # families, so a lone western-frontier signal no longer satisfies the quorum.
+    off = tier_quorum_rule(tier, tiered_gate=False)
+    assert off.required_signals == 2
+    assert off.requires_western_frontier is False
+    assert off.is_satisfied_by({"claude"}) is False  # one signal is insufficient
 
 
 # --- G3: single source of truth across all three surfaces --------------------
@@ -133,6 +142,81 @@ def test_reconcile_diagnostic_matches_policy():
         assert required_signals == rule.required_signals
         assert requires_dogfood == (tier > 0)
         assert requires_human == (tier >= 3)
+
+
+@pytest.mark.parametrize("tier", [1, 2])
+def test_reconcile_diagnostic_is_flag_aware_under_tiered_gate(tier, monkeypatch):
+    # The reconcile diagnostic must read the SAME tiered-gate flag the live gate reads
+    # (tiered_merge_gate_enabled), not hardcode the strict default-OFF regime. Under the
+    # flag a Tier 1-2 PR settles on one western-frontier signal, so a lone claude signal
+    # (+ dogfood) must NOT be reported as short of quorum; with the flag OFF the same lone
+    # signal IS one short of the strict two-family bar.
+    from aragora.swarm.merge_quorum_reconcile import EvidenceComment, summarize_settlement
+
+    lone_frontier = [
+        EvidenceComment(
+            created_at="2026-06-26T00:00:00Z",
+            would_count=True,
+            reviewer_id="claude",
+            is_dogfood=True,
+        )
+    ]
+
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+    on = summarize_settlement(
+        pr_number=1,
+        head_sha="deadbeef",
+        tier=tier,
+        comments=lone_frontier,
+        human_settlement_present=False,
+        quorum_conclusion="FAILURE",
+    )
+    # Mirrors the live gate, which accepts a lone western-frontier signal under the flag.
+    assert tier_quorum_rule(tier, tiered_gate=True).is_satisfied_by(["claude"]) is True
+    assert "more distinct model signal" not in on.next_action
+    assert "western-frontier" not in on.next_action  # claude already satisfies the frontier
+
+    monkeypatch.delenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", raising=False)
+    off = summarize_settlement(
+        pr_number=1,
+        head_sha="deadbeef",
+        tier=tier,
+        comments=lone_frontier,
+        human_settlement_present=False,
+        quorum_conclusion="FAILURE",
+    )
+    # Strict (flag OFF) bar: the same lone signal is one short of the two-family quorum.
+    assert tier_quorum_rule(tier, tiered_gate=False).is_satisfied_by(["claude"]) is False
+    assert "collect 1 more distinct model signal" in off.next_action
+
+
+@pytest.mark.parametrize("tier", [1, 2])
+def test_reconcile_diagnostic_never_green_lights_non_frontier_under_tiered_gate(tier, monkeypatch):
+    # NEVER falsely green-light: grok is Western but NOT western-frontier, so under the flag
+    # a lone grok signal does not settle a Tier 1-2 PR. The diagnostic must surface the
+    # missing western-frontier signal (mirroring the gate's western_frontier check) instead
+    # of reporting the lone non-frontier signal as sufficient.
+    from aragora.swarm.merge_quorum_reconcile import EvidenceComment, summarize_settlement
+
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+    lone_grok = [
+        EvidenceComment(
+            created_at="2026-06-26T00:00:00Z",
+            would_count=True,
+            reviewer_id="grok",
+            is_dogfood=True,
+        )
+    ]
+    status = summarize_settlement(
+        pr_number=1,
+        head_sha="deadbeef",
+        tier=tier,
+        comments=lone_grok,
+        human_settlement_present=False,
+        quorum_conclusion="FAILURE",
+    )
+    assert tier_quorum_rule(tier, tiered_gate=True).is_satisfied_by(["grok"]) is False
+    assert "western-frontier" in status.next_action
 
 
 def test_review_queue_reexports_canonical_jurisdiction_sets():
