@@ -102,6 +102,17 @@ def test_tier3_escalates_before_spending_a_quorum():
     assert gate.merge_calls == []  # never auto-settles a Tier-3 surface
 
 
+def test_tier3_escalation_writes_operator_receipt(tmp_path):
+    gate = FakeGate(tier=3)
+    handoff = BossLoopDispatch(gate, receipt_dir=tmp_path / "receipts")(_feat())
+
+    receipts = list((tmp_path / "receipts").glob("*.json"))
+
+    assert not handoff.success
+    assert len(receipts) == 1
+    assert "operator receipt:" in handoff.discovered[0]
+
+
 def test_post_evidence_tier_reclassification_escalates():
     """Defense in depth: pre-classification says Tier-0 but evidence reveals Tier-3
     — must escalate, not auto-merge past the operator boundary."""

@@ -23,9 +23,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Protocol
 
 from .orchestrator import Handoff
+from .reconcile import write_operator_receipt
 from .state import Feature
 
 logger = logging.getLogger(__name__)
@@ -75,11 +77,13 @@ class BossLoopDispatch:
         base: str = "origin/main",
         allowed_prefixes: tuple[str, ...] = ("structex/", "mission/"),
         operator_tier: int = 3,
+        receipt_dir: str | Path | None = None,
     ) -> None:
         self.gate = gate
         self.base = base
         self.allowed_prefixes = allowed_prefixes
         self.operator_tier = operator_tier
+        self.receipt_dir = Path(receipt_dir) if receipt_dir is not None else None
 
     def __call__(self, feature: Feature) -> Handoff:
         branch = self.gate.branch_for(feature)
@@ -108,10 +112,23 @@ class BossLoopDispatch:
         # Bind once: tier_of may be a non-deterministic (LLM/heuristic) classifier.
         tier = self.gate.tier_of(feature)
         if tier >= self.operator_tier:
+            reason = f"tier-{tier} surface requires operator settlement (head {head})"
+            receipt = self._operator_receipt(
+                feature,
+                blocker=reason,
+                evidence=[
+                    f"branch {branch}",
+                    f"head {head}",
+                    f"operator_tier {self.operator_tier}",
+                ],
+                next_action="Ask the operator for exact-head settlement approval.",
+            )
+            discovered = [f"operator receipt: {receipt}"] if receipt else []
             return Handoff(
                 success=False,
                 terminal=True,
-                blocked_reason=f"tier-{tier} surface requires operator settlement (head {head})",
+                blocked_reason=reason,
+                discovered=discovered,
             )
 
         verdict = self.gate.collect_evidence(branch, head)
@@ -119,10 +136,26 @@ class BossLoopDispatch:
         # Defense in depth: if evidence reveals a higher tier than the cheap
         # pre-classification, still escalate — never auto-merge past Tier-3.
         if verdict.tier >= self.operator_tier:
+            reason = (
+                f"evidence reclassified to tier-{verdict.tier}: "
+                f"operator settlement required (head {head})"
+            )
+            receipt = self._operator_receipt(
+                feature,
+                blocker=reason,
+                evidence=[
+                    f"branch {branch}",
+                    f"head {head}",
+                    *verdict.dissent,
+                ],
+                next_action="Ask the operator for exact-head settlement approval.",
+            )
+            discovered = [f"operator receipt: {receipt}"] if receipt else []
             return Handoff(
                 success=False,
                 terminal=True,
-                blocked_reason=f"evidence reclassified to tier-{verdict.tier}: operator settlement required (head {head})",
+                blocked_reason=reason,
+                discovered=discovered,
             )
 
         if not verdict.satisfied:
@@ -140,3 +173,27 @@ class BossLoopDispatch:
         return Handoff(
             success=False, blocked_reason=f"head-bound merge of {head} did not land (head moved?)"
         )
+
+    def _operator_receipt(
+        self,
+        feature: Feature,
+        *,
+        blocker: str,
+        evidence: list[str],
+        next_action: str,
+    ) -> str | None:
+        if self.receipt_dir is None:
+            return None
+        try:
+            path = write_operator_receipt(
+                self.receipt_dir,
+                feature_id=feature.id,
+                blocker=blocker,
+                evidence=evidence,
+                next_action=next_action,
+                human_required=True,
+            )
+        except OSError as exc:
+            logger.error("failed to write operator receipt for %s: %s", feature.id, exc)
+            return None
+        return str(path)

@@ -175,10 +175,12 @@ def _dispatch_for(args: argparse.Namespace, *, state_path: Path | None = None):
     if args.autonomy == "auto-drain":
         base = "origin/main"
         gate = LiveBossLoopGate(repo_root=_repo_root_for(args, state_path), base=base)
+        receipt_dir = state_path.parent / "receipts" if state_path is not None else None
         return BossLoopDispatch(
             gate,
             base=base,
             operator_tier=_operator_tier_for(args, state_path),
+            receipt_dir=receipt_dir,
         )
 
     def report_dispatch(feature: Feature) -> Handoff:
@@ -196,7 +198,11 @@ def _dispatch_for(args: argparse.Namespace, *, state_path: Path | None = None):
 
 
 def _assert_native_mission_enabled(action: str) -> None:
-    if not MissionRuntimeConfig.from_env().enables_native_mission_flag:
+    from aragora.config.feature_flags import FeatureFlagRegistry
+
+    runtime_enabled = MissionRuntimeConfig.from_env().enables_native_mission_flag
+    registry_enabled = FeatureFlagRegistry().is_enabled("enable_native_mission")
+    if not (runtime_enabled or registry_enabled):
         raise RuntimeError(
             f"Native mission engine is disabled for mission {action} "
             "(set ARAGORA_ENABLE_NATIVE_MISSION=1 to opt in)."
