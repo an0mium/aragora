@@ -32,6 +32,7 @@ class FakeRunner:
         settle_payload: dict | None = None,
         settle_returncode: int = 0,
         merge_returncode: int = 0,
+        bridge_snapshot: dict | None = None,
     ):
         self.mod = mod
         self.open_prs = open_prs or []
@@ -42,6 +43,11 @@ class FakeRunner:
         self.settle_payload = settle_payload or {"blockers": [], "head_sha": ""}
         self.settle_returncode = settle_returncode
         self.merge_returncode = merge_returncode
+        self.bridge_snapshot = bridge_snapshot or {
+            "health": {"ok": True, "issues": []},
+            "recent_blockers": [],
+            "summary": {"active_lanes": 0, "fresh_agent_heartbeats": 0},
+        }
         self.calls: list[list[str]] = []
         self.executed: list[list[str]] = []
 
@@ -77,7 +83,7 @@ class FakeRunner:
             return self.mod.CommandResult(
                 args=args,
                 returncode=0,
-                stdout=json.dumps({"sessions": 0, "lanes": 0}),
+                stdout=json.dumps(self.bridge_snapshot),
             )
         if "agent_bridge.py --json sessions" in command:
             return self.mod.CommandResult(
@@ -514,6 +520,116 @@ def test_execute_blocks_existing_autonomous_codex_lane_reuse(
 
     assert result.decisions[0].action == "blocked"
     assert "existing autonomous Codex lanes are not reused" in result.decisions[0].reason
+    assert runner.executed == []
+
+
+def test_execute_blocks_codex_lane_when_bridge_reports_missing_liveness(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "codex-lane",
+            "agent": "codex",
+            "mode": "implementation",
+            "goal": "Patch conductor docs.",
+            "prompt": "Patch only the scoped docs.",
+            "task_id": "Q-mission-conductor",
+            "claimed_paths": ["docs/guides/CONDUCTOR_WORKFLOW.md"],
+        }
+    ]
+    runner = FakeRunner(
+        mod,
+        open_prs=[],
+        bridge_snapshot={
+            "health": {
+                "ok": False,
+                "issues": [
+                    {
+                        "type": "lane_missing_heartbeat",
+                        "lane_id": "codex-lane",
+                        "owner_state": "active_lane_missing_liveness",
+                        "detail": "active lane 'codex-lane' has no heartbeat timestamp",
+                        "recommended_operator_action": (
+                            "start or refresh agent_heartbeat.py before treating owner as live"
+                        ),
+                    }
+                ],
+            },
+            "recent_blockers": [],
+            "summary": {"active_lanes": 1, "fresh_agent_heartbeats": 0},
+        },
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "blocked"
+    assert "operator snapshot reports lane_missing_heartbeat" in result.decisions[0].reason
+    assert "agent_heartbeat.py" in result.decisions[0].reason
+    assert runner.executed == []
+
+
+def test_execute_blocks_codex_lane_when_bridge_reports_reconciler_conflict(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "codex-lane",
+            "agent": "codex",
+            "mode": "implementation",
+            "goal": "Patch conductor docs.",
+            "prompt": "Patch only the scoped docs.",
+            "task_id": "Q-mission-conductor",
+            "claimed_paths": ["docs/guides/CONDUCTOR_WORKFLOW.md"],
+        }
+    ]
+    runner = FakeRunner(
+        mod,
+        open_prs=[],
+        bridge_snapshot={
+            "health": {
+                "ok": False,
+                "issues": [
+                    {
+                        "type": "lane_conflict",
+                        "lane_id": "codex-lane",
+                        "owner_state": "lane_conflict",
+                        "detail": "lane 'codex-lane' in conflict with codex-other",
+                        "recommended_operator_action": (
+                            "resolve_lane_conflicts.py dry-run before mutation or cleanup"
+                        ),
+                    }
+                ],
+            },
+            "recent_blockers": [],
+            "summary": {"active_lanes": 1, "conflict_lanes": 1},
+        },
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "blocked"
+    assert "operator snapshot reports lane_conflict" in result.decisions[0].reason
+    assert "resolve_lane_conflicts.py" in result.decisions[0].reason
     assert runner.executed == []
 
 

@@ -34,6 +34,19 @@ DEFAULT_MAX_NEW_LANES_PER_CYCLE = 2
 MERGE_POLICY_REPORT_ONLY = "report_only"
 MERGE_POLICY_EXACT_GATED_TIER_0_2 = "exact_gated_tier_0_2"
 MERGE_POLICIES = {MERGE_POLICY_REPORT_ONLY, MERGE_POLICY_EXACT_GATED_TIER_0_2}
+DISPATCH_BLOCKING_HEALTH_TYPES = {
+    "lane_conflict",
+    "lane_identity_conflict",
+    "lane_missing_heartbeat",
+    "lane_missing_next_action",
+    "lane_missing_steering_outcome",
+}
+DISPATCH_BLOCKING_OWNER_STATES = {
+    "active_lane_incomplete_metadata",
+    "active_lane_missing_liveness",
+    "duplicate_active_owner",
+    "lane_conflict",
+}
 ALLOWED_AGENTS = {"codex", "claude", "droid", "factory"}
 PANEL_MODE = "panel"
 IMPLEMENTATION_MODES = {"implementation", "implement", "write"}
@@ -461,6 +474,50 @@ def _is_queue_cap_gate(gate: str) -> bool:
 
 def _fatal_hard_gates(gates: list[str]) -> list[str]:
     return [gate for gate in gates if not _is_queue_cap_gate(gate)]
+
+
+def _issue_lane_ids(issue: dict[str, Any]) -> set[str]:
+    lane_ids: set[str] = set()
+    lane_id = str(issue.get("lane_id") or "").strip()
+    if lane_id:
+        lane_ids.add(lane_id)
+    raw_lane_ids = issue.get("lane_ids")
+    if isinstance(raw_lane_ids, list):
+        lane_ids.update(str(item).strip() for item in raw_lane_ids if str(item).strip())
+    return lane_ids
+
+
+def _dispatch_health_blocker(snapshot: dict[str, Any], lane: LaneSpec) -> str | None:
+    bridge = snapshot.get("agent_bridge")
+    if not isinstance(bridge, dict):
+        return None
+    health = bridge.get("health")
+    if not isinstance(health, dict):
+        return None
+    issues = health.get("issues")
+    if not isinstance(issues, list):
+        return None
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        issue_type = str(issue.get("type") or "").strip()
+        owner_state = str(issue.get("owner_state") or "").strip()
+        if (
+            issue_type not in DISPATCH_BLOCKING_HEALTH_TYPES
+            and owner_state not in DISPATCH_BLOCKING_OWNER_STATES
+        ):
+            continue
+        if lane.lane_id not in _issue_lane_ids(issue):
+            continue
+        detail = str(issue.get("detail") or owner_state or issue_type).strip()
+        action = str(issue.get("recommended_operator_action") or "").strip()
+        reason = f"operator snapshot reports {issue_type or owner_state} for lane {lane.lane_id}"
+        if detail:
+            reason = f"{reason}: {detail}"
+        if action:
+            reason = f"{reason}; {action}"
+        return reason
+    return None
 
 
 @dataclass
@@ -897,6 +954,16 @@ class GoalConductor:
                         lane_id=lane.lane_id,
                         action="blocked",
                         reason=lease_blocker,
+                    )
+                )
+                continue
+            dispatch_blocker = _dispatch_health_blocker(snapshot, lane)
+            if dispatch_blocker:
+                decisions.append(
+                    LaneDecision(
+                        lane_id=lane.lane_id,
+                        action="blocked",
+                        reason=dispatch_blocker,
                     )
                 )
                 continue
