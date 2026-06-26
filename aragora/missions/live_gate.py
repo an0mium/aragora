@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -105,7 +106,7 @@ class LiveBossLoopGate:
                 return 3
             payload = self._run_json(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "aragora.cli.main",
                     "review-queue",
@@ -133,7 +134,7 @@ class LiveBossLoopGate:
 
         payload = self._run_json(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "aragora.cli.main",
                 "review-queue",

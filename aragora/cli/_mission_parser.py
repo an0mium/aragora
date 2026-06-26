@@ -77,7 +77,8 @@ def add_mission_parser(subparsers: Any, lazy: Callable[[str, str], Callable[...,
         default=0,
         help=(
             "Maximum parked backlog artifacts allowed when seeding producer missions. "
-            "Cleanup, evidence, settlement, drain, and repair goals bypass this limit."
+            "Cleanup, evidence, settlement, drain, and repair goals bypass this limit "
+            "only when they name backlog objects such as PRs, branches, worktrees, or CI."
         ),
     )
     mission_parser.add_argument(
@@ -104,5 +105,12 @@ def add_mission_parser(subparsers: Any, lazy: Callable[[str, str], Callable[...,
     )
     mission_parser.add_argument(
         "--tracks", help="Comma-separated focus tracks (e.g. sme,qa,billing)"
+    )
+    mission_parser.add_argument(
+        "--paths",
+        help=(
+            "Comma-separated repo paths this mission is allowed to mutate during auto-drain "
+            "foreign-commit checks."
+        ),
     )
     mission_parser.set_defaults(func=lazy("aragora.cli.commands.mission", "cmd_mission"))

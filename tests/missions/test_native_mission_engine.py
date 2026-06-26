@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 from aragora.missions import Feature, MissionState, Status
@@ -271,7 +272,7 @@ def test_live_gate_reads_feature_metadata_and_never_uses_admin_merge() -> None:
             return ""
         if cmd[:2] == ["git", "log"]:
             return "abc123\tmission: implement native engine\n"
-        if cmd[:4] == ["python", "-m", "aragora.cli.main", "review-queue"]:
+        if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
             return json.dumps(
                 {
                     "ready": [
@@ -318,7 +319,7 @@ def test_live_gate_reads_feature_metadata_and_never_uses_admin_merge() -> None:
 
 def test_live_gate_tier_falls_back_to_merge_packet_when_metadata_omits_tier() -> None:
     def runner(cmd: list[str], cwd: Path) -> str:
-        if cmd[:4] == ["python", "-m", "aragora.cli.main", "review-queue"]:
+        if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
             return json.dumps({"entries": [{"pr_number": 8625, "head_sha": "abc123", "tier": 2}]})
         raise AssertionError(f"unexpected command: {cmd}")
 
@@ -408,7 +409,7 @@ def test_live_gate_foreign_commits_allows_conventional_mission_subjects() -> Non
 
 def test_live_gate_requires_exact_head_packet_entry() -> None:
     def runner(cmd: list[str], cwd: Path) -> str:
-        if cmd[:4] == ["python", "-m", "aragora.cli.main", "review-queue"]:
+        if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
             return json.dumps(
                 {
                     "ready": [
@@ -443,7 +444,7 @@ def test_live_gate_uses_canonical_admin_squash_authorization() -> None:
 
     def runner(cmd: list[str], cwd: Path) -> str:
         calls.append(cmd)
-        if cmd[:4] == ["python", "-m", "aragora.cli.main", "review-queue"]:
+        if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
             return json.dumps(
                 {
                     "entries": [
@@ -485,7 +486,7 @@ def test_live_gate_uses_canonical_admin_squash_authorization() -> None:
 
 def test_live_gate_refuses_admin_squash_when_packet_has_human_blocker() -> None:
     def runner(cmd: list[str], cwd: Path) -> str:
-        if cmd[:4] == ["python", "-m", "aragora.cli.main", "review-queue"]:
+        if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
             return json.dumps(
                 {
                     "entries": [

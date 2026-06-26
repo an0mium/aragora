@@ -39,6 +39,8 @@ def test_mission_parser_accepts_public_subcommands(tmp_path: Path) -> None:
             "1",
             "--tracks",
             "sme,qa",
+            "--paths",
+            "aragora/missions,tests/missions",
         ]
     )
     assert seed.command == "mission"
@@ -47,6 +49,7 @@ def test_mission_parser_accepts_public_subcommands(tmp_path: Path) -> None:
     assert seed.state == str(state_path)
     assert seed.autonomy == "report"
     assert seed.admission_max_unresolved == 0
+    assert seed.paths == "aragora/missions,tests/missions"
 
     run = parser.parse_args(
         [
@@ -131,6 +134,8 @@ def test_cmd_mission_seed_writes_native_state(
             "email",
             "--tracks",
             "sme",
+            "--paths",
+            "./aragora/missions, tests/missions",
         ]
     )
 
@@ -142,6 +147,7 @@ def test_cmd_mission_seed_writes_native_state(
     assert loaded.features[0].metadata["budget_usd"] == 50.0
     assert loaded.features[0].metadata["relay"] == "email"
     assert loaded.features[0].metadata["tracks"] == ["sme"]
+    assert loaded.features[0].metadata["paths"] == ["aragora/missions", "tests/missions"]
     assert loaded.features[0].metadata["admission_max_unresolved"] == 0
     captured = capsys.readouterr()
     assert "Seeded mission" in captured.out
@@ -160,6 +166,22 @@ def test_cmd_mission_legacy_alias_seeds_state(
     assert cmd_mission(args) == 0
     assert MissionState.load(state_path).goal == "Refactor auth"
     assert "Seeded mission" in capsys.readouterr().out
+
+
+def test_cmd_mission_seed_refuses_existing_state_path(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
+    monkeypatch.setattr("aragora.cli.commands.mission._load_artifacts", lambda *a, **k: [])
+    parser = build_parser()
+    state_path = tmp_path / "state.json"
+    state_path.write_text('{"mission_id": "old"}', encoding="utf-8")
+    args = parser.parse_args(["mission", "Refactor auth", "--state", str(state_path)])
+
+    assert cmd_mission(args) == 1
+
+    assert json.loads(state_path.read_text(encoding="utf-8"))["mission_id"] == "old"
+    assert "refusing to overwrite" in capsys.readouterr().err
 
 
 def test_cmd_mission_seed_blocks_producer_work_under_backlog_pressure(
@@ -461,6 +483,38 @@ def test_inventory_artifact_enrichment_refuses_human_blockers(monkeypatch) -> No
 
     assert enriched.checks_green
     assert not enriched.quorum_satisfied
+
+
+def test_inventory_artifact_enrichment_parks_stale_inventory_head(monkeypatch) -> None:
+    artifact = WorkArtifact("wt", kind="worktree", clean=True, open_pr=True)
+    candidate = {"git": {"head": "old123"}, "links": {"open_prs": [{"number": 8655}]}}
+    monkeypatch.setattr(
+        "aragora.cli.commands.mission._merge_packet_for_pr",
+        lambda pr, **kwargs: {
+            "entries": [
+                {
+                    "pr_number": pr,
+                    "head_sha": "new456",
+                    "tier": 2,
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "requires_human_preapproval": False,
+                    "unresolved_dissent": False,
+                    "check_surfaces": {"required_pr_checks": {"summary": "5/5 required green"}},
+                }
+            ]
+        },
+    )
+
+    enriched = _artifact_with_merge_packet_fields(artifact, candidate)
+
+    assert enriched.tier == 2
+    assert enriched.head_sha == "old123"
+    assert not enriched.checks_green
+    assert not enriched.quorum_satisfied
+    assert "inventory head old123 != packet head new456" in enriched.evidence[-1]
 
 
 def test_merge_packet_for_pr_uses_explicit_repo_and_cwd(

@@ -75,7 +75,10 @@ def _cmd_seed(args: argparse.Namespace, goal_words: list[str]) -> int:
         raise RuntimeError(f"mission admission blocked: {decision.reason}")
     mission_id = f"mission-{uuid.uuid4().hex[:12]}"
     state_path = _state_path(args, mission_id=mission_id)
+    if state_path.exists():
+        raise RuntimeError(f"mission state already exists at {state_path}; refusing to overwrite")
     tracks = _tracks(args)
+    paths = _paths(args)
     metadata: dict[str, Any] = {
         "budget_usd": args.budget,
         "max_hours": args.max_hours,
@@ -83,6 +86,7 @@ def _cmd_seed(args: argparse.Namespace, goal_words: list[str]) -> int:
         "auto_settle_max_tier": args.auto_settle_max_tier,
         "admission_max_unresolved": args.admission_max_unresolved,
         "tracks": tracks,
+        "paths": paths,
         "autonomy": args.autonomy,
     }
     state = MissionState(
@@ -275,6 +279,13 @@ def _tracks(args: argparse.Namespace) -> list[str]:
     return [track.strip() for track in raw.split(",") if track.strip()]
 
 
+def _paths(args: argparse.Namespace) -> list[str]:
+    raw = getattr(args, "paths", None)
+    if not raw:
+        return []
+    return [path.strip().lstrip("./") for path in raw.split(",") if path.strip()]
+
+
 def _load_artifacts(
     args: argparse.Namespace, *, include_github: bool, repo_root: Path
 ) -> list[WorkArtifact]:
@@ -378,6 +389,20 @@ def _artifact_with_merge_packet_fields(
         return artifact
     tier = _int_or_none(entry.get("tier"))
     head_sha = str(entry.get("head_sha") or entry.get("headRefOid") or "").strip() or None
+    candidate_head = _candidate_head_sha(candidate)
+    if candidate_head and head_sha and candidate_head != head_sha:
+        evidence = [
+            *artifact.evidence,
+            f"merge-packet PR {pr_number}: parked because inventory head {candidate_head} != packet head {head_sha}",
+        ]
+        return replace(
+            artifact,
+            tier=tier,
+            head_sha=candidate_head,
+            checks_green=False,
+            quorum_satisfied=False,
+            evidence=evidence,
+        )
     squash_allowed = _packet_allows_auto_drain(entry)
     evidence = [
         *artifact.evidence,
@@ -391,6 +416,27 @@ def _artifact_with_merge_packet_fields(
         quorum_satisfied=squash_allowed,
         evidence=evidence,
     )
+
+
+def _candidate_head_sha(candidate: dict[str, Any]) -> str | None:
+    for key in (
+        "candidate_head_sha",
+        "head_sha",
+        "headRefOid",
+        "source_head_sha",
+        "sha",
+        "commit",
+    ):
+        value = str(candidate.get(key) or "").strip()
+        if value:
+            return value
+    raw_git = candidate.get("git")
+    git = raw_git if isinstance(raw_git, dict) else {}
+    for key in ("head", "head_sha", "headRefOid", "sha", "commit"):
+        value = str(git.get(key) or "").strip()
+        if value:
+            return value
+    return None
 
 
 def _first_open_pr_number(candidate: dict[str, Any]) -> int | None:

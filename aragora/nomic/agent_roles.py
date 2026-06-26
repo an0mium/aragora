@@ -355,6 +355,14 @@ class AgentHierarchy:
             The created role assignment
         """
         async with self._lock:
+            previous_assignment = self._assignments.get(agent_id)
+            supervisor_before: tuple[str, list[str]] | None = None
+            if supervised_by and supervised_by in self._assignments:
+                supervisor_before = (
+                    supervised_by,
+                    list(self._assignments[supervised_by].supervises),
+                )
+
             # Create assignment
             assignment = RoleAssignment(
                 agent_id=agent_id,
@@ -375,7 +383,17 @@ class AgentHierarchy:
                     supervisor.supervises.append(agent_id)
 
             self._assignments[agent_id] = assignment
-            await self._save_hierarchy()
+            if not await self._save_hierarchy():
+                if previous_assignment is None:
+                    self._assignments.pop(agent_id, None)
+                else:
+                    self._assignments[agent_id] = previous_assignment
+                if supervisor_before is not None:
+                    supervisor_id, supervises = supervisor_before
+                    supervisor = self._assignments.get(supervisor_id)
+                    if supervisor is not None:
+                        supervisor.supervises = supervises
+                raise RuntimeError("failed to save agent hierarchy after registering agent")
 
             logger.info("Registered agent %s as %s", agent_id, role.value)
             return assignment
@@ -395,6 +413,16 @@ class AgentHierarchy:
                 return False
 
             assignment = self._assignments[agent_id]
+            supervisor_before: tuple[str, list[str]] | None = None
+            if assignment.supervised_by:
+                supervisor = self._assignments.get(assignment.supervised_by)
+                if supervisor is not None:
+                    supervisor_before = (assignment.supervised_by, list(supervisor.supervises))
+            supervised_before = {
+                supervised_id: self._assignments[supervised_id].supervised_by
+                for supervised_id in assignment.supervises
+                if supervised_id in self._assignments
+            }
 
             # Remove from supervisor's list
             if assignment.supervised_by:
@@ -409,7 +437,18 @@ class AgentHierarchy:
                     supervised.supervised_by = assignment.supervised_by
 
             del self._assignments[agent_id]
-            await self._save_hierarchy()
+            if not await self._save_hierarchy():
+                self._assignments[agent_id] = assignment
+                if supervisor_before is not None:
+                    supervisor_id, supervises = supervisor_before
+                    supervisor = self._assignments.get(supervisor_id)
+                    if supervisor is not None:
+                        supervisor.supervises = supervises
+                for supervised_id, previous_supervisor in supervised_before.items():
+                    supervised = self._assignments.get(supervised_id)
+                    if supervised is not None:
+                        supervised.supervised_by = previous_supervisor
+                raise RuntimeError("failed to save agent hierarchy after unregistering agent")
 
             logger.info("Unregistered agent %s", agent_id)
             return True
@@ -470,7 +509,9 @@ class AgentHierarchy:
         )
         assignment.expires_at = expires_at
 
-        await self._save_hierarchy()
+        if not await self._save_hierarchy():
+            assignment.expires_at = None
+            raise RuntimeError("failed to save agent hierarchy after spawning polecat")
         logger.info("Spawned Polecat %s for task: %s...", agent_id, task_description[:50])
         return assignment
 

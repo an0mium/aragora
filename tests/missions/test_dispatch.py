@@ -8,6 +8,7 @@ merge, and head-moved-under-us.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 from aragora.missions.dispatch import BossLoopDispatch, GateVerdict
@@ -130,7 +131,7 @@ def test_head_moved_under_us_does_not_falsely_succeed():
 def test_live_gate_tier_prefers_merge_packet_over_feature_metadata():
     def runner(cmd: list[str], cwd: Path) -> str:
         if cmd[:5] == [
-            "python",
+            sys.executable,
             "-m",
             "aragora.cli.main",
             "review-queue",

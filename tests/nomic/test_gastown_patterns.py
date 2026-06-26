@@ -214,6 +214,39 @@ class TestAgentHierarchyMigration:
         assert legacy_file.exists()
         assert not legacy_file.with_name("hierarchy.json.migrated").exists()
 
+    @pytest.mark.asyncio
+    async def test_register_agent_rolls_back_when_save_fails(
+        self, temp_dir, reset_singletons, monkeypatch
+    ):
+        hierarchy = AgentHierarchy(temp_dir / "hierarchy")
+
+        async def fail_save():
+            return False
+
+        monkeypatch.setattr(hierarchy, "_save_hierarchy", fail_save)
+
+        with pytest.raises(RuntimeError, match="failed to save agent hierarchy"):
+            await hierarchy.register_agent("crew-001", AgentRole.CREW)
+
+        assert await hierarchy.get_assignment("crew-001") is None
+
+    @pytest.mark.asyncio
+    async def test_unregister_agent_rolls_back_when_save_fails(
+        self, temp_dir, reset_singletons, monkeypatch
+    ):
+        hierarchy = AgentHierarchy(temp_dir / "hierarchy")
+        await hierarchy.register_agent("crew-001", AgentRole.CREW)
+
+        async def fail_save():
+            return False
+
+        monkeypatch.setattr(hierarchy, "_save_hierarchy", fail_save)
+
+        with pytest.raises(RuntimeError, match="failed to save agent hierarchy"):
+            await hierarchy.unregister_agent("crew-001")
+
+        assert await hierarchy.get_assignment("crew-001") is not None
+
 
 # =============================================================================
 # Convoy Tests
