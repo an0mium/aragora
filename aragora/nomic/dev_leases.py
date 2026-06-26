@@ -242,6 +242,32 @@ def find_conflicting_leases(
                     "expires_at": lease.expires_at,
                 }
             )
+        forbidden_scope = [
+            _normalize_claim(str(item))
+            for key in ("forbidden_paths", "forbidden_globs", "hot_paths", "hot_globs")
+            for item in (
+                lease.metadata.get(key, [])
+                if isinstance(lease.metadata.get(key, []), list)
+                else [lease.metadata.get(key, "")]
+            )
+            if _normalize_claim(str(item))
+        ]
+        if forbidden_scope and _claims_overlap(forbidden_scope, normalized_globs, normalized_paths):
+            conflicts.append(
+                {
+                    "lease_id": lease.lease_id,
+                    "task_id": lease.task_id,
+                    "title": lease.title,
+                    "owner_agent": lease.owner_agent,
+                    "owner_session_id": lease.owner_session_id,
+                    "branch": lease.branch,
+                    "worktree_path": lease.worktree_path,
+                    "forbidden_paths": forbidden_scope,
+                    "expires_at": lease.expires_at,
+                    "type": "forbidden_path",
+                    "message": "claim overlaps another active lease's forbidden_paths",
+                }
+            )
     for claim in self.fleet_store.list_claims():
         session_id = str(claim.get("session_id", "")).strip()
         if owner_session_id and session_id == owner_session_id:
@@ -423,6 +449,32 @@ def _find_conflicting_leases_locked(
                     "allowed_globs": lease.allowed_globs,
                     "claimed_paths": lease.claimed_paths,
                     "expires_at": lease.expires_at,
+                }
+            )
+        forbidden_scope = [
+            _normalize_claim(str(item))
+            for key in ("forbidden_paths", "forbidden_globs", "hot_paths", "hot_globs")
+            for item in (
+                lease.metadata.get(key, [])
+                if isinstance(lease.metadata.get(key, []), list)
+                else [lease.metadata.get(key, "")]
+            )
+            if _normalize_claim(str(item))
+        ]
+        if forbidden_scope and _claims_overlap(forbidden_scope, normalized_globs, normalized_paths):
+            conflicts.append(
+                {
+                    "lease_id": lease.lease_id,
+                    "task_id": lease.task_id,
+                    "title": lease.title,
+                    "owner_agent": lease.owner_agent,
+                    "owner_session_id": lease.owner_session_id,
+                    "branch": lease.branch,
+                    "worktree_path": lease.worktree_path,
+                    "forbidden_paths": forbidden_scope,
+                    "expires_at": lease.expires_at,
+                    "type": "forbidden_path",
+                    "message": "claim overlaps another active lease's forbidden_paths",
                 }
             )
     for claim in self.fleet_store.list_claims():

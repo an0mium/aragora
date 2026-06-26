@@ -897,26 +897,35 @@ class GoalConductor:
                     launch.extend(["--forbidden-path", path])
             commands.append(launch)
             return commands
-        commands.append(
-            [
-                "python3",
-                "scripts/agent_bridge.py",
-                "send",
-                lane.lane_id,
-                "--file",
-                str(prompt_file),
-                "--lane",
-                lane.lane_id,
-                "--goal",
-                lane.goal,
-                "--source",
-                lane.source,
-                "--status",
-                lane.status,
-                "--next-action",
-                lane.next_action,
-            ]
-        )
+        send = [
+            "python3",
+            "scripts/agent_bridge.py",
+            "send",
+            lane.lane_id,
+            "--file",
+            str(prompt_file),
+            "--lane",
+            lane.lane_id,
+            "--goal",
+            lane.goal,
+            "--source",
+            lane.source,
+            "--status",
+            lane.status,
+            "--next-action",
+            lane.next_action,
+        ]
+        if lane.agent == "codex" and lane.autonomous:
+            send.extend(["--task-id", lane.task_id or lane.lane_id])
+            for path in lane.claimed_paths:
+                send.extend(["--claimed-path", path])
+            for scope in lane.write_scopes:
+                send.extend(["--write-scope", scope])
+            for test_cmd in lane.tests:
+                send.extend(["--test", test_cmd])
+            for path in lane.forbidden_paths:
+                send.extend(["--forbidden-path", path])
+        commands.append(send)
         return commands
 
     def _panel_commands(self, lane: LaneSpec, run_dir: Path) -> list[list[str]]:

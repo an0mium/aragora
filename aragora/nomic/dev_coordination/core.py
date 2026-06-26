@@ -1376,7 +1376,7 @@ class DevCoordinationStore:
                 value = lease_metadata.get(key)
                 if value is None:
                     continue
-                items = value if isinstance(value, list) else [value]
+                items = value if isinstance(value, (list, tuple)) else [value]
                 for item in items:
                     text = str(item).strip()
                     if text:
@@ -1384,13 +1384,15 @@ class DevCoordinationStore:
             return claims
 
         normalized_forbidden = [
-            _normalize_claim(item) for item in forbidden_paths or [] if str(item).strip()
+            _normalize_claim(str(item).strip())
+            for item in forbidden_paths or []
+            if str(item).strip()
         ]
         normalized_allowed = [
-            _normalize_claim(item) for item in allowed_globs or [] if str(item).strip()
+            _normalize_claim(str(item).strip()) for item in allowed_globs or [] if str(item).strip()
         ]
         normalized_claimed = [
-            _normalize_claim(item) for item in claimed_paths or [] if str(item).strip()
+            _normalize_claim(str(item).strip()) for item in claimed_paths or [] if str(item).strip()
         ]
         effective_forbidden = list(
             dict.fromkeys(
@@ -1444,8 +1446,8 @@ class DevCoordinationStore:
             owner_session_id=owner_session_id,
             branch=branch,
             worktree_path=worktree_path,
-            allowed_globs=allowed_globs,
-            claimed_paths=claimed_paths,
+            allowed_globs=effective_allowed,
+            claimed_paths=effective_claimed,
             expected_tests=expected_tests,
             ttl_hours=ttl_hours,
             metadata=lease_metadata,

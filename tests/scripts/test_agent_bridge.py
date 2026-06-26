@@ -3324,10 +3324,9 @@ def test_cmd_launch_rechecks_lane_owner_before_post_launch_persist(
     assert payload["lane_conflict"] == {
         "lane_id": "codex-lane",
         "owner_session": "already-running",
-        "status": "conflict",
+        "status": "active",
     }
-    assert written[-1][0].status == "conflict"
-    assert written[-1][0].conflict_session == "codex-lane"
+    assert written == []
     assert [
         "bash",
         str(mod.CANONICAL_REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
@@ -3364,6 +3363,113 @@ def test_persist_lane_claim_returns_active_conflict_without_writing(
     assert writes == []
     assert existing.owner_session == "already-running"
     assert existing.status == "active"
+
+
+def test_cmd_send_claims_codex_lease_before_prompt_delivery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text("[]", encoding="utf-8")
+    session = mod.Session(
+        name="codex-strategic",
+        agent="codex",
+        status="alive",
+        tmux_target="aragora:codex-strategic",
+        branch="codex/mission",
+        worktree="/tmp/aragora-mission",
+        session_id="wt-mission",
+    )
+    events: list[str] = []
+    monkeypatch.setattr(mod, "discover", lambda: [session])
+    monkeypatch.setattr(mod, "_resolve_tmux_target", lambda _session: "aragora:codex-strategic")
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    original_write = mod._write_lane_registry
+
+    def _recording_write(records):
+        events.append("lane-persisted")
+        original_write(records)
+
+    monkeypatch.setattr(mod, "_write_lane_registry", _recording_write)
+    monkeypatch.setattr(
+        mod, "_claim_codex_send_lease", lambda _session, _args: events.append("lease") or True
+    )
+    monkeypatch.setattr(mod, "_send_tmux", lambda _target, _prompt: events.append("send") or True)
+
+    rc = mod.cmd_send(
+        argparse.Namespace(
+            name="codex-strategic",
+            prompt=["Continue"],
+            file=None,
+            lane="mission-lane",
+            goal="Continue scoped mission lane.",
+            source="#8627",
+            status="active",
+            next_action="open draft PR",
+            task_id="Q-mission-conductor",
+            claimed_path=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            write_scope=[],
+            test=[],
+            forbidden_path=[],
+            allow_overlap=False,
+            allow_conflict=False,
+        )
+    )
+
+    assert rc == 0
+    assert events == ["lane-persisted", "lease", "send"]
+
+
+def test_cmd_send_refuses_codex_prompt_when_lease_claim_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text("[]", encoding="utf-8")
+    session = mod.Session(
+        name="codex-strategic",
+        agent="codex",
+        status="alive",
+        tmux_target="aragora:codex-strategic",
+        branch="codex/mission",
+        worktree="/tmp/aragora-mission",
+        session_id="wt-mission",
+    )
+    monkeypatch.setattr(mod, "discover", lambda: [session])
+    monkeypatch.setattr(mod, "_resolve_tmux_target", lambda _session: "aragora:codex-strategic")
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_claim_codex_send_lease", lambda _session, _args: False)
+
+    def _unexpected_send(_target, _prompt):
+        raise AssertionError("prompt must not be delivered without a scoped Codex lease")
+
+    monkeypatch.setattr(mod, "_send_tmux", _unexpected_send)
+
+    rc = mod.cmd_send(
+        argparse.Namespace(
+            name="codex-strategic",
+            prompt=["Continue"],
+            file=None,
+            lane="mission-lane",
+            goal="Continue scoped mission lane.",
+            source="#8627",
+            status="active",
+            next_action="open draft PR",
+            task_id="Q-mission-conductor",
+            claimed_path=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            write_scope=[],
+            test=[],
+            forbidden_path=[],
+            allow_overlap=False,
+            allow_conflict=False,
+        )
+    )
+
+    assert rc == 1
 
 
 def test_cmd_launch_kills_session_when_post_launch_persist_detects_conflict(

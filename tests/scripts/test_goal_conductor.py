@@ -525,6 +525,10 @@ def test_execute_reuses_existing_healthy_autonomous_codex_lane_and_sends_prompt(
     assert send_commands[0][:3] == ["python3", "scripts/agent_bridge.py", "send"]
     assert "--lane" in send_commands[0]
     assert "existing-lane" in send_commands[0]
+    assert send_commands[0][send_commands[0].index("--task-id") + 1] == "Q-mission-conductor"
+    assert send_commands[0][send_commands[0].index("--claimed-path") + 1] == (
+        "docs/guides/CONDUCTOR_WORKFLOW.md"
+    )
 
 
 def test_execute_blocks_codex_lane_when_bridge_reports_missing_liveness(

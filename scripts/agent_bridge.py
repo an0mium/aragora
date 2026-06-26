@@ -1307,6 +1307,93 @@ def _kill_tmux_launcher_session(name: str) -> None:
         return
 
 
+def _codex_send_lease_requested(args: argparse.Namespace) -> bool:
+    return bool(
+        str(getattr(args, "task_id", "") or "").strip()
+        or getattr(args, "claimed_path", [])
+        or getattr(args, "write_scope", [])
+        or getattr(args, "test", [])
+        or getattr(args, "forbidden_path", [])
+    )
+
+
+def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> bool:
+    if session.agent != "codex" or not _codex_send_lease_requested(args):
+        return True
+
+    task_id = str(getattr(args, "task_id", "") or "").strip()
+    claimed_paths = [
+        str(item).strip() for item in getattr(args, "claimed_path", []) or [] if str(item).strip()
+    ]
+    write_scopes = [
+        str(item).strip() for item in getattr(args, "write_scope", []) or [] if str(item).strip()
+    ]
+    if not task_id or not (claimed_paths or write_scopes):
+        print(
+            "Codex send lease requires --task-id plus --claimed-path or --write-scope",
+            file=sys.stderr,
+        )
+        return False
+    if not session.branch or not session.worktree:
+        print(
+            "Codex send lease requires session branch and worktree metadata",
+            file=sys.stderr,
+        )
+        return False
+
+    command = [
+        "python3",
+        "-m",
+        "aragora.nomic.dev_coordination",
+        "--repo",
+        str(CANONICAL_REPO_ROOT),
+        "claim",
+        "--task-id",
+        task_id,
+        "--title",
+        str(getattr(args, "goal", "") or task_id).strip() or task_id,
+        "--agent",
+        "codex",
+        "--session-id",
+        session.session_id or session.name,
+        "--branch",
+        session.branch,
+        "--worktree",
+        session.worktree,
+        "--json",
+    ]
+    for scope in write_scopes:
+        command.extend(["--write-scope", scope])
+    for path in claimed_paths:
+        command.extend(["--claimed-path", path])
+    for test_cmd in getattr(args, "test", []) or []:
+        if str(test_cmd).strip():
+            command.extend(["--test", str(test_cmd).strip()])
+    for path in getattr(args, "forbidden_path", []) or []:
+        if str(path).strip():
+            command.extend(["--forbidden-path", str(path).strip()])
+    if getattr(args, "allow_overlap", False):
+        command.append("--allow-overlap")
+
+    try:
+        result = subprocess.run(
+            command,
+            cwd=str(CANONICAL_REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        print(f"Codex send lease claim failed: {exc}", file=sys.stderr)
+        return False
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or f"exit {result.returncode}").strip()
+        print(f"Codex send lease claim failed: {detail}", file=sys.stderr)
+        return False
+    return True
+
+
 def _find_session(sessions: list[Session], target: str) -> Session | None:
     for s in sessions:
         if target in s.name or target in (s.session_id or ""):
@@ -1923,17 +2010,6 @@ def cmd_launch(args: argparse.Namespace) -> int:
         latest_lane_records = _load_lane_registry()
         lane_claim_conflict = _lane_conflict(latest_lane_records, lane_id, session.name)
         if lane_claim_conflict is not None and not bool(getattr(args, "allow_conflict", False)):
-            _persist_lane_claim(
-                latest_lane_records,
-                lane_id,
-                session,
-                goal=str(getattr(args, "lease_title", "") or "").strip(),
-                source=str(getattr(args, "source", "") or "").strip(),
-                status=str(getattr(args, "status", "") or "active").strip(),
-                next_action=str(getattr(args, "next_action", "") or "").strip()
-                or "resolve ambiguous lane ownership",
-                allow_conflict=True,
-            )
             _kill_tmux_launcher_session(session.name)
             exit_code = 1
         else:
@@ -2189,25 +2265,26 @@ def cmd_send(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-    if _send_tmux(target, prompt):
-        if lane_id:
-            persist_conflict = _persist_lane_claim(
-                records,
-                lane_id,
-                session,
-                goal=str(getattr(args, "goal", "") or "").strip(),
-                source=str(getattr(args, "source", "") or "").strip(),
-                status=str(getattr(args, "status", "") or "active").strip(),
-                next_action=str(getattr(args, "next_action", "") or "").strip(),
-                allow_conflict=bool(getattr(args, "allow_conflict", False)),
+        persist_conflict = _persist_lane_claim(
+            records,
+            lane_id,
+            session,
+            goal=str(getattr(args, "goal", "") or "").strip(),
+            source=str(getattr(args, "source", "") or "").strip(),
+            status=str(getattr(args, "status", "") or "active").strip(),
+            next_action=str(getattr(args, "next_action", "") or "").strip(),
+            allow_conflict=bool(getattr(args, "allow_conflict", False)),
+        )
+        if persist_conflict is not None and not getattr(args, "allow_conflict", False):
+            print(
+                f"Lane '{lane_id}' already owned by active session "
+                f"'{persist_conflict.owner_session}'",
+                file=sys.stderr,
             )
-            if persist_conflict is not None and not getattr(args, "allow_conflict", False):
-                print(
-                    f"Lane '{lane_id}' already owned by active session "
-                    f"'{persist_conflict.owner_session}'",
-                    file=sys.stderr,
-                )
-                return 1
+            return 1
+    if not _claim_codex_send_lease(session, args):
+        return 1
+    if _send_tmux(target, prompt):
         print(f"Sent to '{session.name}' ({len(prompt)} chars)")
         return 0
     print(f"Send failed for '{session.name}'", file=sys.stderr)
@@ -3376,6 +3453,16 @@ def main() -> int:
     send_p.add_argument("--source", default="", help="Source issue or PR reference")
     send_p.add_argument("--status", default="active", help="Lane status")
     send_p.add_argument("--next-action", default="", help="Next action for the lane")
+    send_p.add_argument("--task-id", default="", help="Codex dev-coordination task id")
+    send_p.add_argument("--write-scope", action="append", default=[], help="Allowed write scope")
+    send_p.add_argument("--claimed-path", action="append", default=[], help="Claimed path")
+    send_p.add_argument("--test", action="append", default=[], help="Validation command")
+    send_p.add_argument(
+        "--forbidden-path", action="append", default=[], help="Forbidden path for Codex lease"
+    )
+    send_p.add_argument(
+        "--allow-overlap", action="store_true", help="Allow overlapping Codex lease claim"
+    )
     send_p.add_argument(
         "--allow-conflict",
         action="store_true",

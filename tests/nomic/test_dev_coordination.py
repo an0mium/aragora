@@ -307,6 +307,36 @@ def test_claim_lease_merges_explicit_and_metadata_forbidden_paths(
     ]
 
 
+def test_claim_lease_forbidden_paths_block_other_active_claim_scope(
+    store: DevCoordinationStore,
+) -> None:
+    lease = store.claim_lease(
+        task_id="clb-forbidden-owner",
+        title="Bounded docs repair",
+        owner_agent="codex",
+        owner_session_id="sess-forbidden-owner",
+        branch="codex/forbidden-owner",
+        worktree_path="/tmp/wt-forbidden-owner",
+        claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+        forbidden_paths=["aragora/server/auth_checks.py"],
+    )
+
+    with pytest.raises(LeaseConflictError) as exc_info:
+        store.claim_lease(
+            task_id="clb-forbidden-intruder",
+            title="Unauthorized auth repair",
+            owner_agent="codex",
+            owner_session_id="sess-forbidden-intruder",
+            branch="codex/forbidden-intruder",
+            worktree_path="/tmp/wt-forbidden-intruder",
+            claimed_paths=["aragora/server/auth_checks.py"],
+        )
+
+    assert exc_info.value.conflicts[0]["lease_id"] == lease.lease_id
+    assert exc_info.value.conflicts[0]["type"] == "forbidden_path"
+    assert exc_info.value.conflicts[0]["forbidden_paths"] == ["aragora/server/auth_checks.py"]
+
+
 def test_claim_lease_detects_existing_fleet_claim(store: DevCoordinationStore) -> None:
     store.fleet_store.claim_paths(
         session_id="external-session",
