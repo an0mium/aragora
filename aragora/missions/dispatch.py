@@ -72,7 +72,7 @@ class BossLoopDispatch:
         self,
         gate: FleetGate,
         *,
-        base: str = "main",
+        base: str = "origin/main",
         allowed_prefixes: tuple[str, ...] = ("structex/", "mission/"),
         operator_tier: int = 3,
     ) -> None:

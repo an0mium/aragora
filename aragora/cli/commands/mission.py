@@ -22,6 +22,7 @@ from aragora.missions import (
 )
 from aragora.missions.dispatch import BossLoopDispatch
 from aragora.missions.live_gate import LiveBossLoopGate
+from aragora.missions.runtime import MissionRuntimeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ def _normalize_action(args: argparse.Namespace) -> tuple[str, list[str]]:
 
 
 def _cmd_seed(args: argparse.Namespace, goal_words: list[str]) -> int:
+    _assert_native_mission_enabled("seed")
     goal = " ".join(goal_words).strip()
     if not goal:
         raise ValueError("mission seed requires a goal")
@@ -109,6 +111,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
 
 
 def _cmd_run(args: argparse.Namespace, *, resume: bool) -> int:
+    _assert_native_mission_enabled("run")
     state_path = _state_path(args)
     _assert_not_paused(state_path)
     if resume:
@@ -136,6 +139,7 @@ def _assert_not_paused(state_path: Path) -> None:
 
 
 def _cmd_reconcile(args: argparse.Namespace) -> int:
+    _assert_native_mission_enabled("reconcile")
     mode = ReconcileMode(args.autonomy)
     artifacts = _load_artifacts(args)
     report = mode.run(artifacts)
@@ -154,16 +158,30 @@ def _cmd_reconcile(args: argparse.Namespace) -> int:
 
 def _dispatch_for(args: argparse.Namespace):
     if args.autonomy == "auto-drain":
-        gate = LiveBossLoopGate(repo_root=Path.cwd())
-        return BossLoopDispatch(gate, operator_tier=args.operator_tier)
+        base = "origin/main"
+        gate = LiveBossLoopGate(repo_root=Path.cwd(), base=base)
+        return BossLoopDispatch(gate, base=base, operator_tier=args.operator_tier)
 
     def report_dispatch(feature: Feature) -> Handoff:
         return Handoff(
-            success=True,
-            discovered=[f"{args.autonomy} mission dispatch recorded without live head mutation"],
+            success=False,
+            terminal=True,
+            blocked_reason=(
+                f"{args.autonomy} autonomy does not dispatch feature {feature.id}; "
+                "use mission reconcile for reporting or auto-drain for gated head-bound merges"
+            ),
+            discovered=[f"{args.autonomy} mission dispatch parked without live head mutation"],
         )
 
     return report_dispatch
+
+
+def _assert_native_mission_enabled(action: str) -> None:
+    if not MissionRuntimeConfig.from_env().enables_native_mission_flag:
+        raise RuntimeError(
+            f"Native mission engine is disabled for mission {action} "
+            "(set ARAGORA_ENABLE_NATIVE_MISSION=1 to opt in)."
+        )
 
 
 def _state_path(args: argparse.Namespace, *, mission_id: str | None = None) -> Path:

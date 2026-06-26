@@ -31,6 +31,7 @@ class FakeGate:
         self.merge_ok = merge_ok
         self.tier = tier
         self.merge_calls: list[tuple[str, str]] = []
+        self.foreign_args: tuple[str, str, tuple[str, ...]] | None = None
         self.evidence_calls = 0
 
     def branch_for(self, feature: Feature) -> str:
@@ -43,6 +44,7 @@ class FakeGate:
         return self.head
 
     def foreign_commits(self, branch, base, allowed_prefixes):
+        self.foreign_args = (branch, base, allowed_prefixes)
         return list(self.foreign)
 
     def tier_of(self, feature: Feature) -> int:
@@ -65,6 +67,7 @@ def test_clean_quorum_merges_head_bound():
     gate = FakeGate(head="deadbeef", verdict=GateVerdict(satisfied=True, tier=0))
     handoff = BossLoopDispatch(gate)(_feat())
     assert handoff.success
+    assert gate.foreign_args == ("mission/a5", "origin/main", ("structex/", "mission/"))
     assert gate.merge_calls == [("mission/a5", "deadbeef")]
 
 

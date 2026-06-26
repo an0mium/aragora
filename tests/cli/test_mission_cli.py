@@ -80,8 +80,9 @@ def test_mission_parser_rejects_invalid_relay() -> None:
 
 
 def test_cmd_mission_seed_writes_native_state(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
     parser = build_parser()
     state_path = tmp_path / "state.json"
     args = parser.parse_args(
@@ -114,8 +115,9 @@ def test_cmd_mission_seed_writes_native_state(
 
 
 def test_cmd_mission_legacy_alias_seeds_state(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
     parser = build_parser()
     state_path = tmp_path / "state.json"
     args = parser.parse_args(["mission", "Refactor auth", "--state", str(state_path)])
@@ -149,9 +151,24 @@ def test_cmd_mission_status_prints_progress(
     assert "1 blocked" in out
 
 
-def test_cmd_mission_run_report_mode_drains_local_state(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_cmd_mission_seed_refuses_when_native_mission_flag_is_off(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.delenv("ARAGORA_ENABLE_NATIVE_MISSION", raising=False)
+    parser = build_parser()
+    state_path = tmp_path / "state.json"
+    args = parser.parse_args(["mission", "seed", "Refactor auth", "--state", str(state_path)])
+
+    assert cmd_mission(args) == 1
+
+    assert not state_path.exists()
+    assert "Native mission engine is disabled" in capsys.readouterr().err
+
+
+def test_cmd_mission_run_report_mode_parks_without_false_completion(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
     state_path = tmp_path / "state.json"
     MissionState(
         mission_id="mission-test",
@@ -166,13 +183,16 @@ def test_cmd_mission_run_report_mode_drains_local_state(
 
     assert cmd_mission(args) == 0
 
-    assert MissionState.load(state_path).get("f1").status == Status.COMPLETED
-    assert "Mission run: 1/1 completed" in capsys.readouterr().out
+    feature = MissionState.load(state_path).get("f1")
+    assert feature.status == Status.BLOCKED
+    assert "report autonomy does not dispatch feature f1" in feature.notes
+    assert "Mission run: 0/1 completed" in capsys.readouterr().out
 
 
 def test_cmd_mission_run_refuses_paused_mission(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
     state_path = tmp_path / "state.json"
     state_path.with_name("PAUSED").write_text("operator pause\n", encoding="utf-8")
     MissionState(
@@ -191,8 +211,9 @@ def test_cmd_mission_run_refuses_paused_mission(
 
 
 def test_cmd_mission_reconcile_outputs_json(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
     fixture = tmp_path / "artifacts.json"
     fixture.write_text(
         json.dumps(

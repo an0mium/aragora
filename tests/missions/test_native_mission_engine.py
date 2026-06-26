@@ -286,6 +286,54 @@ def test_live_gate_reads_feature_metadata_and_never_uses_admin_merge() -> None:
     assert "--admin" not in merge_call
 
 
+def test_live_gate_foreign_commits_inspects_subjects_on_mission_branches() -> None:
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:2] == ["git", "log"]:
+            return (
+                "bad123\tfix(memory): unrelated cache work\n"
+                "ok456\tmission: implement native engine\n"
+            )
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), runner=runner)
+
+    assert gate.foreign_commits("mission/engine", "origin/main", ("mission/", "structex/")) == [
+        "bad123 fix(memory): unrelated cache work"
+    ]
+
+
+def test_live_gate_requires_exact_head_packet_entry() -> None:
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:4] == ["python", "-m", "aragora.cli.main", "review-queue"]:
+            return json.dumps(
+                {
+                    "ready": [
+                        {
+                            "pr_number": 8625,
+                            "model_review_quorum": {"verdict": "satisfied", "tier": 2},
+                        }
+                    ]
+                }
+            )
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
+    branch = gate.branch_for(
+        Feature(
+            id="engine",
+            description="ship engine",
+            milestone="m",
+            metadata={"branch": "codex/native-mission-engine", "pr": 8625, "tier": 2},
+        )
+    )
+
+    verdict = gate.collect_evidence(branch, "abc123")
+
+    assert not verdict.satisfied
+    assert verdict.tier == 3
+    assert verdict.dissent == ["merge-packet had no exact-head entry for PR 8625 at abc123"]
+
+
 def test_headless_runtime_config_uses_provider_env_without_enabling_flag(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_MISSION_RUNTIME", "headless-api")
     monkeypatch.setenv("OPENAI_API_KEY", "test-openai")

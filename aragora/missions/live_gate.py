@@ -60,12 +60,11 @@ class LiveBossLoopGate:
         )
         if not output.strip():
             return []
-        if branch.startswith(allowed_prefixes):
-            return []
+        subject_prefixes = _subject_prefixes(allowed_prefixes)
         foreign: list[str] = []
         for line in output.splitlines():
             commit, _, subject = line.partition("\t")
-            if not subject.startswith(allowed_prefixes):
+            if not subject.startswith(subject_prefixes):
                 foreign.append(f"{commit} {subject}".strip())
         return foreign
 
@@ -169,9 +168,17 @@ def _find_packet_entry(payload: dict[str, Any], pr: int, head: str) -> dict[str,
             continue
         entry_pr = _int_or_default(entry.get("pr_number", entry.get("number")), -1)
         entry_head = entry.get("head_sha") or entry.get("headRefOid") or entry.get("head")
-        if entry_pr == pr and (entry_head == head or entry_head is None):
+        if entry_pr == pr and entry_head == head:
             return entry
     return None
+
+
+def _subject_prefixes(allowed_prefixes: tuple[str, ...]) -> tuple[str, ...]:
+    prefixes: set[str] = set(allowed_prefixes)
+    for prefix in allowed_prefixes:
+        if prefix.endswith("/"):
+            prefixes.add(f"{prefix[:-1]}:")
+    return tuple(sorted(prefixes))
 
 
 def _int_or_default(value: Any, default: int) -> int:
