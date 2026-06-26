@@ -342,6 +342,20 @@ class TestCmdUsage:
         assert "Debates by day:" in captured.out
         assert "2026-01-15:" in captured.out
 
+    def test_local_usage_handles_import_error(self, mock_args, capsys):
+        """Handle missing local usage tracker dependencies."""
+        with patch.dict("sys.modules", {"aragora.billing.usage": None}):
+            with patch("builtins.__import__", side_effect=ImportError("No module")):
+                result = cmd_usage_local(
+                    mock_args,
+                    datetime(2026, 1, 1),
+                    datetime(2026, 2, 1),
+                )
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "Error reading local usage" in captured.out
+
 
 class TestCmdSubscribe:
     """Tests for cmd_subscribe function."""
