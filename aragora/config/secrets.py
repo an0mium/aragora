@@ -438,7 +438,12 @@ class SecretManager:
                 },
             )
             client = self._build_client(boto3, region, config)
-            self._aws_clients[region] = client
+            # Don't cache a fail-closed None: a later retry (e.g. after credentials
+            # become available, or in a different process state) must be able to
+            # re-attempt Secrets Manager rather than be pinned to None for the
+            # SecretManager instance's lifetime.
+            if client is not None:
+                self._aws_clients[region] = client
             return client
         except ImportError:
             logger.debug("boto3 not installed, AWS Secrets Manager unavailable")
