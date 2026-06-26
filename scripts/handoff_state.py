@@ -233,6 +233,7 @@ class NarrowGitHubClient:
         self.disabled = disabled
         self.timeout_seconds = timeout_seconds
         self._pr_cache: dict[str, tuple[list[dict[str, Any]] | None, str | None]] = {}
+        self._pr_number_cache: dict[int, tuple[dict[str, Any] | None, str | None]] = {}
         self._ref_cache: dict[str, tuple[dict[str, Any] | None, str | None]] = {}
 
     @property
@@ -278,6 +279,28 @@ class NarrowGitHubClient:
                 f"open PR REST page cap reached after {max_pages} pages for exact branch",
             )
         self._pr_cache[branch] = result
+        return result
+
+    def open_pr_by_number(self, pr_number: int) -> tuple[dict[str, Any] | None, str | None]:
+        if self.disabled:
+            return None, "github disabled"
+        if pr_number in self._pr_number_cache:
+            return self._pr_number_cache[pr_number]
+        _, repo_error = _github_repo_owner(self.github_repo)
+        if repo_error is not None:
+            result = (None, repo_error)
+            self._pr_number_cache[pr_number] = result
+            return result
+        payload, error = self._api(f"repos/{self.github_repo}/pulls/{pr_number}")
+        if error is not None and _github_not_found_error(error):
+            result = (None, None)
+        elif error is not None:
+            result = (None, error)
+        elif not isinstance(payload, dict):
+            result = (None, "target PR REST response was not a mapping")
+        else:
+            result = (payload, None)
+        self._pr_number_cache[pr_number] = result
         return result
 
     def remote_ref(self, branch: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -661,7 +684,13 @@ def classify_handoff_item(
             evidence=evidence,
         )
 
-    github = github_evidence_for_branch(github_client, branch, desired_head, desired_base)
+    github = github_evidence_for_branch(
+        github_client,
+        branch,
+        desired_head,
+        desired_base,
+        target_pr=receipt_evidence.target_pr,
+    )
     evidence["github"] = dataclasses.asdict(github)
     owner = owner_probe.probe(branch) if branch else OwnerEvidence()
     local_work_marker = _payload_possible_unpushed_marker(payload)
@@ -1007,6 +1036,7 @@ def github_evidence_for_branch(
     branch: str,
     desired_head: str,
     desired_base: str = "",
+    target_pr: int | None = None,
 ) -> GitHubEvidence:
     open_prs, pr_error = github_client.open_prs_for_branch(branch)
     ref, ref_error = github_client.remote_ref(branch)
@@ -1038,6 +1068,15 @@ def github_evidence_for_branch(
                     "html_url": item.get("html_url") or item.get("url"),
                 }
                 break
+    target_pr_error = None
+    if exact_open_pr is None and target_pr is not None:
+        target_payload, target_pr_error = _open_pr_by_number(github_client, target_pr)
+        if target_payload is not None:
+            exact_open_pr = _exact_open_pr_from_payload(
+                target_payload,
+                desired_head=desired_head,
+                desired_base=desired_base,
+            )
     remote_ref = None
     if ref is not None:
         obj = ref.get("object") if isinstance(ref.get("object"), Mapping) else {}
@@ -1045,7 +1084,7 @@ def github_evidence_for_branch(
             "ref": ref.get("ref"),
             "sha": obj.get("sha") or ref.get("sha"),
         }
-    errors = "; ".join(error for error in (pr_error, ref_error) if error)
+    errors = "; ".join(error for error in (pr_error, target_pr_error, ref_error) if error)
     if getattr(github_client, "disabled", False):
         mode = "disabled"
     elif errors:
@@ -1059,6 +1098,52 @@ def github_evidence_for_branch(
         exact_open_pr=exact_open_pr,
         remote_ref=remote_ref,
     )
+
+
+def _open_pr_by_number(
+    github_client: Any,
+    target_pr: int,
+) -> tuple[dict[str, Any] | None, str | None]:
+    lookup = getattr(github_client, "open_pr_by_number", None)
+    if lookup is None:
+        return None, "github client cannot lookup target PR by number"
+    payload, error = lookup(target_pr)
+    if payload is not None and not isinstance(payload, dict):
+        return None, "target PR lookup response was not a mapping"
+    return payload, error
+
+
+def _exact_open_pr_from_payload(
+    item: Mapping[str, Any],
+    *,
+    desired_head: str,
+    desired_base: str,
+) -> dict[str, Any] | None:
+    if str(item.get("state") or "").strip().lower() != "open":
+        return None
+    if not desired_head:
+        return None
+    head = item.get("head") if isinstance(item.get("head"), Mapping) else {}
+    base = item.get("base") if isinstance(item.get("base"), Mapping) else {}
+    head_sha = str(head.get("sha") or item.get("head_sha") or item.get("headRefOid") or "")
+    base_ref = str(
+        base.get("ref") or item.get("base_ref") or item.get("baseRefName") or DEFAULT_PR_BASE
+    )
+    if not heads_match(desired_head, head_sha) or not _base_matches(
+        desired_base,
+        base_ref,
+        actual_is_live=True,
+    ):
+        return None
+    return {
+        "number": item.get("number"),
+        "state": item.get("state"),
+        "draft": item.get("draft"),
+        "head": head.get("ref") or item.get("head_ref"),
+        "head_sha": head_sha,
+        "base": base_ref or None,
+        "html_url": item.get("html_url") or item.get("url"),
+    }
 
 
 def load_terminal_receipts(receipt_dir: Path) -> dict[str, dict[str, Any]]:
@@ -1167,7 +1252,7 @@ def receipt_evidence_from_payload(
     outbox_payload: Mapping[str, Any],
 ) -> ReceiptEvidence:
     if receipt is None:
-        return ReceiptEvidence()
+        return ReceiptEvidence(target_pr=target_pr_number_from_receipt(outbox_payload))
     status = str(receipt.get("status") or "").strip().lower() or None
     reason = str(receipt.get("reason") or "").strip().lower() or None
     has_pr = receipt_has_pr_reference(receipt)
@@ -1185,7 +1270,8 @@ def receipt_evidence_from_payload(
         has_issue_reference=has_issue,
         issue_only_pr_receipt=issue_only,
         path=str(receipt.get("__receipt_path") or "") or None,
-        target_pr=target_pr_number_from_receipt(receipt),
+        target_pr=target_pr_number_from_receipt(receipt)
+        or target_pr_number_from_receipt(outbox_payload),
     )
 
 
@@ -1403,7 +1489,7 @@ def receipt_has_issue_reference(receipt: Mapping[str, Any]) -> bool:
 
 
 def target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
-    for key in ("target_pr", "pr_number", "pull_request_number"):
+    for key in ("target_pr", "target_open_pr", "pr_number", "pull_request_number"):
         number = _pr_number_from_value(receipt.get(key))
         if number is not None:
             return number

@@ -22,13 +22,16 @@ class FakeGitHub:
         self,
         *,
         open_prs: dict[str, list[dict[str, Any]]] | None = None,
+        pr_by_number: dict[int, dict[str, Any]] | None = None,
         refs: dict[str, dict[str, Any]] | None = None,
         errors: dict[str, str] | None = None,
     ) -> None:
         self.open_prs = open_prs or {}
+        self.pr_by_number = pr_by_number or {}
         self.refs = refs or {}
         self.errors = errors or {}
         self.pr_calls = 0
+        self.pr_number_calls = 0
         self.ref_calls = 0
 
     def open_prs_for_branch(self, branch: str) -> tuple[list[dict[str, Any]] | None, str | None]:
@@ -37,6 +40,13 @@ class FakeGitHub:
         if error:
             return None, error
         return self.open_prs.get(branch, []), None
+
+    def open_pr_by_number(self, pr_number: int) -> tuple[dict[str, Any] | None, str | None]:
+        self.pr_number_calls += 1
+        error = self.errors.get(f"pr-number:{pr_number}")
+        if error:
+            return None, error
+        return self.pr_by_number.get(pr_number), None
 
     def remote_ref(self, branch: str) -> tuple[dict[str, Any] | None, str | None]:
         self.ref_calls += 1
@@ -748,6 +758,39 @@ def test_terminal_pr_receipt_with_owner_noise_stays_unknown_without_live_proof(
     assert item["state"] == mod.HandoffState.UNKNOWN.value
     assert item["next_mutation_candidate"] == "none"
     assert "terminal receipt exists" in item["reason"]
+
+
+def test_target_pr_reference_can_prove_exact_open_pr_representation(
+    tmp_path: Path,
+) -> None:
+    key = "open-pr-codex-example-aaaaaaaa"
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(
+        tmp_path,
+        key=key,
+        branch="codex/original-branch",
+        extra_payload={"target_open_pr": 8570},
+    )
+    github = FakeGitHub(
+        pr_by_number={
+            8570: {
+                "number": 8570,
+                "state": "open",
+                "draft": False,
+                "head": {"ref": "codex/represented-elsewhere", "sha": HEAD},
+                "base": {"ref": "main"},
+                "html_url": "https://github.com/synaptent/aragora/pull/8570",
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["safe_to_mutate"] is True
+    assert item["evidence"]["github"]["exact_open_pr"]["number"] == 8570
+    assert item["evidence"]["github"]["exact_open_pr"]["head"] == "codex/represented-elsewhere"
+    assert github.pr_number_calls == 1
 
 
 def test_terminal_completed_receipt_without_pr_does_not_suppress_publication(
