@@ -390,9 +390,9 @@ class AgentHierarchy:
                     self._assignments[agent_id] = previous_assignment
                 if supervisor_before is not None:
                     supervisor_id, supervises = supervisor_before
-                    supervisor = self._assignments.get(supervisor_id)
-                    if supervisor is not None:
-                        supervisor.supervises = supervises
+                    rollback_supervisor = self._assignments.get(supervisor_id)
+                    if rollback_supervisor is not None:
+                        rollback_supervisor.supervises = supervises
                 raise RuntimeError("failed to save agent hierarchy after registering agent")
 
             logger.info("Registered agent %s as %s", agent_id, role.value)
