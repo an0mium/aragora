@@ -1,0 +1,70 @@
+name: Aragora Receipt Self-Test
+
+# Live validation harness for the M2 receipt-emitting action (PR #8669).
+# Runs the root marketplace action (`uses: ./`) against THIS PR, exercising the
+# real GitHub Actions execution path that cannot be run locally: YAML parse,
+# source install, dry-run quorum collection, and the bridge -> ODR -> verify
+# receipt step. Produces a real `decision-receipt.odr.json` artifact.
+#
+# Scoped to the strategy-cadence base branch only; safe to delete after the
+# action is validated and merged.
+
+on:
+  pull_request:
+    branches: [worktree-strategy-mission-cadence]
+  workflow_dispatch:
+
+concurrency:
+  group: receipt-selftest-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  receipt-selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Aragora action (emit receipt)
+        id: review
+        uses: ./
+        with:
+          agents: anthropic-api,openai-api
+          rounds: '1'
+          post-comment: 'false'        # self-test: never comment on the PR
+          emit-receipt: 'true'
+          receipt-reviewers: 'claude openai'
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Report receipt outcome
+        if: always()
+        shell: bash
+        env:
+          RECEIPT_VERDICT: ${{ steps.review.outputs.receipt-verdict }}
+          RECEIPT_VERIFIED: ${{ steps.review.outputs.receipt-verified }}
+          RECEIPT_PATH: ${{ steps.review.outputs.receipt-path }}
+        run: |
+          echo "receipt-verdict=$RECEIPT_VERDICT"
+          echo "receipt-verified=$RECEIPT_VERIFIED"
+          echo "receipt-path=$RECEIPT_PATH"
+          if [ -f ./aragora-artifacts/decision-receipt.odr.json ]; then
+            echo "::notice title=Receipt produced::A verifiable decision receipt was emitted by the action."
+            head -c 4000 ./aragora-artifacts/decision-receipt.odr.json || true
+          else
+            echo "::warning title=No receipt::No receipt produced (e.g. no model access in CI). See receipt.log below."
+            [ -f ./aragora-artifacts/receipt.log ] && cat ./aragora-artifacts/receipt.log || true
+          fi
+
+      - name: Upload self-test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: decision-receipt-selftest-${{ github.run_id }}
+          path: ./aragora-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
