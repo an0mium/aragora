@@ -91,7 +91,7 @@ def _anchor_text(value: str) -> str:
     """Return markdown-stripped text before GitHub-style slug normalization."""
     value = unquote(value).lower()
     value = re.sub(r"`([^`]+)`", r"\1", value)
-    value = re.sub(r"\[[^\]]+\]\(([^)]+)\)", r"\1", value)
+    value = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", value)
     return re.sub(r"<[^>]+>", "", value)
 
 

@@ -68,6 +68,13 @@ def test_github_slug_strips_punctuation_without_word_breaks() -> None:
     )
 
 
+def test_github_slug_uses_visible_markdown_link_text() -> None:
+    assert (
+        github_slug("ODR GA ([#8223](https://github.com/synaptent/aragora/pull/8223))")
+        == "odr-ga-8223"
+    )
+
+
 def test_validate_link_rejects_loose_normalized_markdown_anchor(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     source = docs / "source.md"
