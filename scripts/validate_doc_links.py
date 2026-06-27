@@ -92,6 +92,7 @@ def normalize_anchor(value: str) -> str:
     value = re.sub(r"`([^`]+)`", r"\1", value)
     value = re.sub(r"\[[^\]]+\]\(([^)]+)\)", r"\1", value)
     value = re.sub(r"<[^>]+>", "", value)
+    value = value.replace("'", "").replace("’", "")
     value = re.sub(r"[^a-z0-9]+", " ", value)
     return " ".join(value.split())
 

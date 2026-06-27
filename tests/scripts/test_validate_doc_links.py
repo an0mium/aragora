@@ -3,7 +3,7 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-from scripts.validate_doc_links import find_markdown_links, validate_link
+from scripts.validate_doc_links import find_markdown_links, github_slug, validate_link
 
 
 def _write(path: Path, text: str) -> None:
@@ -41,6 +41,20 @@ def test_validate_link_rejects_prefix_only_markdown_anchor(tmp_path: Path) -> No
     _write(target, "## Canonical Metrics")
 
     assert validate_link(source, "target.md#canon", docs) == "Anchor not found: #canon"
+
+
+def test_validate_link_uses_github_apostrophe_slug(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    source = docs / "source.md"
+    target = docs / "target.md"
+    _write(source, "[ok](target.md#whats-partially-working)")
+    _write(target, "## What's Partially Working")
+
+    assert github_slug("What's Partially Working") == "whats-partially-working"
+    assert validate_link(source, "target.md#whats-partially-working", docs) is None
+    assert validate_link(source, "target.md#what-s-partially-working", docs) == (
+        "Anchor not found: #what-s-partially-working"
+    )
 
 
 def test_validate_link_accepts_anchor_only_links(tmp_path: Path) -> None:
