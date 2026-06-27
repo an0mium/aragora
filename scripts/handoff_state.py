@@ -46,6 +46,7 @@ DEFAULT_STEERING_ROOT = Path(".aragora/operator-steering")
 DEFAULT_HEARTBEATS = Path(".aragora/agent-bridge/heartbeats.json")
 DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS = 1800
 DEFAULT_PR_BASE = "main"
+URL_PATTERN = re.compile(r"https?://\S+")
 
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 ACTIVE_LANE_STATUSES = {
@@ -1806,6 +1807,7 @@ def _steering_branch_tokens(payload: Mapping[str, Any]) -> set[str]:
 
 
 def _branch_tokens_from_text(text: str) -> set[str]:
+    text = URL_PATTERN.sub("", text)
     return {
         token.rstrip(".,;:!?)]}'\"")
         for token in re.findall(r"\b[A-Za-z0-9._-]+/[A-Za-z0-9._/-]+", text)

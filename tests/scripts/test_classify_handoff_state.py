@@ -1961,6 +1961,45 @@ def test_steering_branch_match_survives_trailing_punctuation(tmp_path: Path) -> 
     assert item["evidence"]["steering"]["blocking_message_count"] == 1
 
 
+def test_steering_lane_hint_match_survives_github_pr_url_without_branch(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    inbox = tmp_path / ".aragora" / "operator-steering" / "engineering-autopilot-Q1"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / "2026-06-24T00-00-00-000Z-pr-url.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "aragora-operator-steering/1.0",
+                "to_session": "engineering-autopilot-Q1",
+                "lane_id_hint": "Q1",
+                "priority": "blocking",
+                "subject": "Resolve https://github.com/synaptent/aragora/pull/8570",
+                "body": "Do not move non-owner state until that PR is represented.",
+                "message_sha256": "fixture-sha",
+            }
+        ),
+        encoding="utf-8",
+    )
+    owner = FakeOwnerProbe(
+        {
+            "codex/example": {
+                "lane_id": "Q1",
+                "owner_session": "engineering-autopilot-Q1",
+                "status": "released",
+                "stale_claim_advisory": {"available": True},
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, owner=owner)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["steering"]["pending_message_count"] == 1
+    assert item["evidence"]["steering"]["blocking_message_count"] == 1
+
+
 def test_steering_to_session_requires_branch_or_lane_correlation(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, branch="codex/example")
@@ -1968,6 +2007,43 @@ def test_steering_to_session_requires_branch_or_lane_correlation(tmp_path: Path)
         tmp_path,
         branch="codex/other",
         owner_session="engineering-autopilot-Q1",
+    )
+    owner = FakeOwnerProbe(
+        {
+            "codex/example": {
+                "lane_id": "Q1",
+                "owner_session": "engineering-autopilot-Q1",
+                "status": "released",
+                "stale_claim_advisory": {"available": True},
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, owner=owner)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["steering"]["pending_message_count"] == 0
+
+
+def test_steering_unrelated_branch_message_with_pr_url_stays_excluded(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    inbox = tmp_path / ".aragora" / "operator-steering" / "engineering-autopilot-Q1"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / "2026-06-24T00-00-00-000Z-other-pr-url.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "aragora-operator-steering/1.0",
+                "to_session": "engineering-autopilot-Q1",
+                "priority": "blocking",
+                "subject": "Block codex/other",
+                "body": "Evidence: https://github.com/synaptent/aragora/pull/8570",
+                "message_sha256": "fixture-sha",
+            }
+        ),
+        encoding="utf-8",
     )
     owner = FakeOwnerProbe(
         {
