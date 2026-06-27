@@ -233,7 +233,9 @@ runs:
 
         # The bridge/emitter may be newer than the published PyPI 'aragora', so
         # install the action's own pinned source for the receipt tooling.
-        pip install "$GITHUB_ACTION_PATH" >> "$LOG" 2>&1 || true
+        # jsonschema enables full schema validation (the emitter degrades to
+        # digest-only without it, but full validation is preferred when present).
+        pip install "$GITHUB_ACTION_PATH" jsonschema >> "$LOG" 2>&1 || true
 
         REPO="${{ github.repository }}"
         PR="${{ steps.diff.outputs.pr_number }}"

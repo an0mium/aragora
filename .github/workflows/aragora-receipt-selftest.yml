@@ -10,8 +10,9 @@ name: Aragora Receipt Self-Test
 # action is validated and merged.
 
 on:
-  pull_request:
-    branches: [worktree-strategy-mission-cadence]
+  # Manual-dispatch only: auto-running on every push wastes CI while CI model
+  # transport is unavailable (no reviewer CLIs; OpenRouter 403). Trigger this
+  # by hand once model access is configured, to capture a strong-quorum receipt.
   workflow_dispatch:
 
 concurrency:
