@@ -337,6 +337,37 @@ def test_claim_lease_forbidden_paths_block_other_active_claim_scope(
     assert exc_info.value.conflicts[0]["forbidden_paths"] == ["aragora/server/auth_checks.py"]
 
 
+def test_claim_lease_new_forbidden_paths_block_existing_active_claim_scope(
+    store: DevCoordinationStore,
+) -> None:
+    lease = store.claim_lease(
+        task_id="clb-active-owner",
+        title="Active auth repair",
+        owner_agent="codex",
+        owner_session_id="sess-active-owner",
+        branch="codex/active-owner",
+        worktree_path="/tmp/wt-active-owner",
+        claimed_paths=["aragora/server/auth_checks.py"],
+    )
+
+    with pytest.raises(LeaseConflictError) as exc_info:
+        store.claim_lease(
+            task_id="clb-forbidden-later",
+            title="Docs repair",
+            owner_agent="codex",
+            owner_session_id="sess-forbidden-later",
+            branch="codex/forbidden-later",
+            worktree_path="/tmp/wt-forbidden-later",
+            claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            forbidden_paths=["aragora/server/auth_checks.py"],
+        )
+
+    assert exc_info.value.conflicts[0]["lease_id"] == lease.lease_id
+    assert exc_info.value.conflicts[0]["type"] == "forbidden_path"
+    assert exc_info.value.conflicts[0]["claimed_paths"] == ["aragora/server/auth_checks.py"]
+    assert exc_info.value.conflicts[0]["forbidden_paths"] == ["aragora/server/auth_checks.py"]
+
+
 def test_claim_lease_allow_overlap_does_not_bypass_forbidden_paths(
     store: DevCoordinationStore,
 ) -> None:
@@ -422,6 +453,37 @@ def test_claim_lease_same_owner_session_cannot_bypass_forbidden_paths(
     assert exc_info.value.conflicts[0]["lease_id"] == first.lease_id
     assert exc_info.value.conflicts[0]["type"] == "forbidden_path"
     assert exc_info.value.conflicts[0]["forbidden_paths"] == ["scripts/settle_tier4_pr.py"]
+
+
+def test_claim_lease_same_owner_session_cannot_forbid_existing_scope(
+    store: DevCoordinationStore,
+) -> None:
+    first = store.claim_lease(
+        task_id="clb-owner-forbidden-later-a",
+        title="Launch lane",
+        owner_agent="codex",
+        owner_session_id="same-session",
+        branch="codex/mission",
+        worktree_path="/tmp/wt-mission",
+        claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+    )
+
+    with pytest.raises(LeaseConflictError) as exc_info:
+        store.claim_lease(
+            task_id="clb-owner-forbidden-later-b",
+            title="Send lane prompt",
+            owner_agent="codex",
+            owner_session_id="same-session",
+            branch="codex/mission",
+            worktree_path="/tmp/wt-mission",
+            claimed_paths=["scripts/settle_tier4_pr.py"],
+            forbidden_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+        )
+
+    assert exc_info.value.conflicts[0]["lease_id"] == first.lease_id
+    assert exc_info.value.conflicts[0]["type"] == "forbidden_path"
+    assert exc_info.value.conflicts[0]["claimed_paths"] == ["docs/guides/CONDUCTOR_WORKFLOW.md"]
+    assert exc_info.value.conflicts[0]["forbidden_paths"] == ["docs/guides/CONDUCTOR_WORKFLOW.md"]
 
 
 def test_claim_lease_detects_existing_fleet_claim(store: DevCoordinationStore) -> None:

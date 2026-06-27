@@ -1336,6 +1336,7 @@ class DevCoordinationStore:
         *,
         allowed_globs: list[str],
         claimed_paths: list[str],
+        forbidden_paths: list[str] | None = None,
         owner_session_id: str | None = None,
         exclude_lease_id: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -1345,6 +1346,7 @@ class DevCoordinationStore:
             self,
             allowed_globs=allowed_globs,
             claimed_paths=claimed_paths,
+            forbidden_paths=forbidden_paths,
             owner_session_id=owner_session_id,
             exclude_lease_id=exclude_lease_id,
         )
@@ -1460,6 +1462,7 @@ class DevCoordinationStore:
         *,
         allowed_globs: list[str],
         claimed_paths: list[str],
+        forbidden_paths: list[str] | None = None,
         owner_session_id: str | None = None,
         exclude_lease_id: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -1470,6 +1473,7 @@ class DevCoordinationStore:
             conn,
             allowed_globs=allowed_globs,
             claimed_paths=claimed_paths,
+            forbidden_paths=forbidden_paths,
             owner_session_id=owner_session_id,
             exclude_lease_id=exclude_lease_id,
         )
