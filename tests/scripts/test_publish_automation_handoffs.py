@@ -1768,7 +1768,7 @@ def test_main_preview_does_not_write_outbox_receipt(
     monkeypatch.setattr(
         mod,
         "_load_outbox_handoffs_with_skip_reasons",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter()),
+        lambda repo_root, **kwargs: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,
@@ -1839,7 +1839,7 @@ def test_main_accepts_explicit_dry_run_alias(monkeypatch: Any, tmp_path: Path, c
     monkeypatch.setattr(
         mod,
         "_load_outbox_handoffs_with_skip_reasons",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter()),
+        lambda repo_root, **kwargs: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,
@@ -2346,8 +2346,8 @@ def test_main_local_only_summary_never_probes_github(
     monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
     monkeypatch.setattr(
         mod,
-        "load_outbox_handoffs",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+        "_load_outbox_handoffs_with_skip_reasons",
+        lambda repo_root, **kwargs: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,
