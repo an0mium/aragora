@@ -289,8 +289,8 @@ Corrections applied after auditing scripts and journal:
 
 ## Steering templates (for the operator)
 
-See [`docs/prompts/STEERING_TEMPLATES.md`](STEERING_TEMPLATES.md) if/when it
-ships. The two canonical templates:
+See `docs/prompts/STEERING_TEMPLATES.md` if/when it ships. The two canonical
+templates:
 
 - **Substrate Freeze (Tier-4 redirection):** halts new orchestration verbs;
   redirects the next phase to running an existing benchmark/vertical and
