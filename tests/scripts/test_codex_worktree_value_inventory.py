@@ -237,6 +237,17 @@ def test_passive_anchor_scan_stops_on_non_anchor_file(tmp_path: Path) -> None:
     assert mod.passive_session_anchor_files(root) == []
 
 
+def test_passive_anchor_scan_ignores_platform_detritus(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = tmp_path / "residue"
+    root.mkdir()
+    (root / ".session-anchor").write_text("anchor\n")
+    (root / ".DS_Store").write_text("ignored\n")
+
+    assert mod.passive_session_anchor_files(root) == [str(root / ".session-anchor")]
+
+
 def test_passive_anchor_scan_caps_large_anchor_only_tree(tmp_path: Path) -> None:
     import codex_worktree_value_inventory as mod
 
@@ -247,7 +258,29 @@ def test_passive_anchor_scan_caps_large_anchor_only_tree(tmp_path: Path) -> None
         anchor_dir.mkdir()
         (anchor_dir / ".session-anchor").write_text("anchor\n")
 
-    assert mod.passive_session_anchor_files(root) == []
+    _anchors, truncated = mod.passive_session_anchor_scan(root)
+    assert truncated is True
+
+
+def test_no_git_cache_residue_reports_truncated_anchor_scan(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path, repo=False)
+    for index in range(mod.PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT + 1):
+        anchor_dir = root / f"anchor-{index}"
+        anchor_dir.mkdir()
+        (anchor_dir / ".session-anchor").write_text("anchor\n")
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "no_git_cache_residue"
+    assert candidate.links["passive_session_anchor_scan_truncated"] is True
+    assert candidate.cleanup_safety.safe_to_delete is False
 
 
 def test_no_git_active_marker_is_preserved(tmp_path: Path) -> None:

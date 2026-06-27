@@ -71,6 +71,13 @@ PASSIVE_SESSION_ANCHOR_FILES = frozenset(
         ".session-anchor",
     }
 )
+PASSIVE_SESSION_ANCHOR_IGNORED_FILES = frozenset(
+    {
+        ".DS_Store",
+        "Thumbs.db",
+        "desktop.ini",
+    }
+)
 PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT = 512
 RECEIPT_PATH_KEYS = frozenset(
     {
@@ -719,8 +726,8 @@ def has_active_session(candidate_root: Path, repo_path: Path | None) -> bool:
     return bool(active_lock_files(candidate_root, repo_path))
 
 
-def passive_session_anchor_files(candidate_root: Path) -> list[str]:
-    """Return passive wrapper anchor files under an otherwise no-git residue path."""
+def passive_session_anchor_scan(candidate_root: Path) -> tuple[list[str], bool]:
+    """Return passive wrapper anchor files and whether the bounded scan truncated."""
     anchors: list[str] = []
     scanned_entries = 0
     pending = [candidate_root]
@@ -731,21 +738,29 @@ def passive_session_anchor_files(candidate_root: Path) -> list[str]:
                 for entry in entries:
                     scanned_entries += 1
                     if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
-                        return []
+                        return sorted(anchors), True
                     try:
                         if entry.is_dir(follow_symlinks=False):
                             pending.append(Path(entry.path))
                             continue
                         if not entry.is_file(follow_symlinks=False):
-                            return []
+                            return [], False
                     except OSError:
-                        return []
+                        return [], False
+                    if entry.name in PASSIVE_SESSION_ANCHOR_IGNORED_FILES:
+                        continue
                     if entry.name not in PASSIVE_SESSION_ANCHOR_FILES:
-                        return []
+                        return [], False
                     anchors.append(entry.path)
         except OSError:
-            return []
-    return sorted(anchors)
+            return [], False
+    return sorted(anchors), False
+
+
+def passive_session_anchor_files(candidate_root: Path) -> list[str]:
+    """Return passive wrapper anchor files under an otherwise no-git residue path."""
+    anchors, _truncated = passive_session_anchor_scan(candidate_root)
+    return anchors
 
 
 def git_status_dirty(repo_path: Path, *, timeout: int) -> tuple[bool, bool, str | None]:
@@ -1324,9 +1339,15 @@ def classify_candidate(
         else:
             classification = "no_git_cache_residue"
             proof.append("no git metadata at candidate root or candidate/aragora path")
-            if passive_anchors := passive_session_anchor_files(candidate_root):
+            passive_anchors, passive_anchor_scan_truncated = passive_session_anchor_scan(
+                candidate_root
+            )
+            if passive_anchors:
                 links["passive_session_anchors"] = passive_anchors
                 proof.append("passive session anchor residue only")
+            if passive_anchor_scan_truncated:
+                links["passive_session_anchor_scan_truncated"] = True
+                proof.append("passive session anchor scan truncated before cleanup authority")
         return build_candidate(
             candidate_root,
             repo_path,
