@@ -80,6 +80,26 @@ def _merged_pr_gh(tmp_path: Path, *, merge_commit: str = "merge") -> Path:
     )
 
 
+def _closed_pr_gh(
+    tmp_path: Path,
+    *,
+    closed_at: str = "2026-05-23T19:16:23Z",
+    head_sha: str = "head",
+) -> Path:
+    return _fake_gh(
+        tmp_path,
+        {
+            "number": 7435,
+            "state": "CLOSED",
+            "headRefOid": head_sha,
+            "closedAt": closed_at,
+            "mergedAt": None,
+            "mergeCommit": None,
+            "url": "https://github.com/synaptent/aragora/pull/7435",
+        },
+    )
+
+
 def _write_read_receipt(inbox: Path, *, message_filename: str, message_sha256: str = "") -> None:
     receipt_dir = inbox / "_read_receipts"
     receipt_dir.mkdir(parents=True, exist_ok=True)
@@ -632,30 +652,6 @@ def test_merged_pr_audit_ignores_open_and_unmerged_prs(tmp_path: Path) -> None:
     assert result["apply_eligible"] is False
     assert result["blocked_reason"] == "pr_not_merged"
 
-    gh_closed = _fake_gh(
-        tmp_path,
-        {
-            "number": 7441,
-            "state": "CLOSED",
-            "headRefOid": "abc",
-            "mergedAt": None,
-            "mergeCommit": None,
-            "url": "https://github.com/synaptent/aragora/pull/7441",
-        },
-    )
-
-    closed_result = resolver.audit_merged_pr_lanes(
-        registry_path=registry,
-        receipt_dir=tmp_path / "receipts",
-        pr=7441,
-        gh_bin=str(gh_closed),
-        apply=False,
-    )
-
-    assert closed_result["finding_count"] == 0
-    assert closed_result["github_state"]["state"] == "CLOSED"
-    assert closed_result["blocked_reason"] == "pr_not_merged"
-
 
 def test_merged_pr_audit_reports_github_state_unavailable(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
@@ -683,6 +679,205 @@ def test_merged_pr_audit_reports_github_state_unavailable(tmp_path: Path) -> Non
     assert result["finding_count"] == 0
     assert result["github_state"]["available"] is False
     assert result["blocked_reason"] == "github_state_unavailable"
+
+
+def test_closed_pr_audit_reports_active_rows_without_mutating(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-closed",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_closed_pr_gh(tmp_path)),
+        apply=False,
+    )
+
+    assert result["github_state"]["state"] == "CLOSED"
+    assert result["github_state"]["closedAt"] == "2026-05-23T19:16:23Z"
+    assert result["finding_count"] == 1
+    assert result["apply_eligible"] is False
+    assert result["blocked_reason"] is None
+    assert "--expected-closed-at 2026-05-23T19:16:23Z" in result["operator_apply_command"]
+    assert "--expected-head-sha head" in result["operator_apply_command"]
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_closed_pr_audit_apply_requires_expected_closed_at(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-closed",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_closed_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "expected_closed_at_required"
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_closed_pr_audit_apply_requires_expected_head_sha(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-closed",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_closed_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_closed_at="2026-05-23T19:16:23Z",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "expected_head_sha_required"
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_closed_pr_audit_apply_rejects_closed_at_mismatch(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-closed",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_closed_pr_gh(tmp_path, closed_at="2026-05-23T19:16:23Z")),
+        apply=True,
+        operator_authorized=True,
+        expected_closed_at="2026-05-23T19:17:00Z",
+        expected_head_sha="head",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "closed_at_mismatch"
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_closed_pr_audit_apply_rejects_head_sha_mismatch(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-closed",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_closed_pr_gh(tmp_path, head_sha="actual-head")),
+        apply=True,
+        operator_authorized=True,
+        expected_closed_at="2026-05-23T19:16:23Z",
+        expected_head_sha="expected-head",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "head_sha_mismatch"
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_closed_pr_audit_apply_supersedes_safe_rows_with_closed_at_guard(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    receipt_dir = tmp_path / "receipts"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-closed",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=receipt_dir,
+        pr=7435,
+        gh_bin=str(_closed_pr_gh(tmp_path, closed_at="2026-05-23T19:16:23Z")),
+        apply=True,
+        operator_authorized=True,
+        expected_closed_at="2026-05-23T19:16:23Z",
+        expected_head_sha="head",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        resolved_at="2026-05-23T19:20:00Z",
+    )
+
+    rows = json.loads(registry.read_text(encoding="utf-8"))
+    receipts = sorted(receipt_dir.glob("*.json"))
+    receipt = json.loads(receipts[0].read_text(encoding="utf-8"))
+    assert result["resolved_count"] == 1
+    assert result["blocked_reason"] is None
+    assert rows[0]["status"] == "superseded"
+    assert receipt["schema_version"] == "aragora-merged-pr-lane-audit/1.0"
+    assert receipt["closed_at"] == "2026-05-23T19:16:23Z"
+    assert receipt["terminal_state"] == "CLOSED"
 
 
 def test_merged_pr_audit_apply_requires_operator_authorization(tmp_path: Path) -> None:

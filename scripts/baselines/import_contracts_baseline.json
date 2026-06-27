@@ -112,7 +112,6 @@
         "aragora.utils -> aragora.connectors",
         "aragora.utils -> aragora.knowledge",
         "aragora.utils -> aragora.resilience",
-        "aragora.utils -> aragora.server",
         "aragora.utils -> aragora.storage",
         "aragora.verticals -> aragora.connectors",
         "aragora.workflow -> aragora.connectors",

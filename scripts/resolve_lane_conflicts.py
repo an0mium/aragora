@@ -48,6 +48,7 @@ ACTIVE_STATUSES = {
     "blocked",
 }
 INACTIVE_OWNER_STATUSES = {"released", "completed", "superseded"}
+TERMINAL_PR_STATES = {"MERGED", "CLOSED"}
 HEARTBEAT_TIMESTAMP_KEYS = ("last_heartbeat_at", "last_seen_at", "heartbeat_at")
 PID_KEYS = ("pid", "owner_pid")
 LOCAL_WORK_KEYS = ("worktree", "local_worktree", "local_work_path")
@@ -521,7 +522,7 @@ def _fetch_pr_state(*, pr: int, gh_bin: str) -> dict[str, Any]:
         "view",
         str(pr),
         "--json",
-        "number,state,headRefOid,mergedAt,mergeCommit,url",
+        "number,state,headRefOid,closedAt,mergedAt,mergeCommit,url",
     ]
     try:
         proc = subprocess.run(
@@ -568,6 +569,7 @@ def _fetch_pr_state(*, pr: int, gh_bin: str) -> dict[str, Any]:
         "number": _coerce_int(payload.get("number")),
         "state": str(payload.get("state") or "").upper(),
         "headRefOid": str(payload.get("headRefOid") or ""),
+        "closedAt": payload.get("closedAt"),
         "mergedAt": payload.get("mergedAt"),
         "mergeCommit": _merge_commit_oid(payload),
         "url": str(payload.get("url") or ""),
@@ -674,15 +676,49 @@ def _quote_shell_arg(value: Any) -> str:
     return "'" + text.replace("'", "'\"'\"'") + "'"
 
 
+def _terminal_pr_state(github_state: dict[str, Any]) -> str:
+    return str(github_state.get("state") or "").upper()
+
+
+def _terminal_pr_proof_matches(
+    *,
+    github_state: dict[str, Any],
+    expected_merge_commit: str | None,
+    expected_closed_at: str | None,
+    expected_head_sha: str | None,
+) -> bool:
+    state = _terminal_pr_state(github_state)
+    if state == "MERGED":
+        expected = str(expected_merge_commit or "")
+        return bool(expected) and str(github_state.get("mergeCommit") or "") == expected
+    if state == "CLOSED":
+        expected_closed = str(expected_closed_at or "")
+        expected_head = str(expected_head_sha or "")
+        return (
+            bool(expected_closed)
+            and bool(expected_head)
+            and str(github_state.get("closedAt") or "") == expected_closed
+            and str(github_state.get("headRefOid") or "") == expected_head
+        )
+    return False
+
+
 def _steering_body(*, pr: int, github_state: dict[str, Any]) -> str:
     merge_commit = github_state.get("mergeCommit") or ""
     head = github_state.get("headRefOid") or ""
     merged_at = github_state.get("mergedAt") or ""
+    closed_at = github_state.get("closedAt") or ""
+    state = _terminal_pr_state(github_state)
+    if state == "CLOSED":
+        terminal = f"closed at {closed_at} from head {head}"
+        target = "already-closed target"
+    else:
+        terminal = f"merged at {merge_commit} from head {head} (merged_at={merged_at})"
+        target = "already-merged target"
     return (
-        f"PR #{pr} is already merged at {merge_commit} from head {head} "
-        f"(merged_at={merged_at}). Please mark this lane completed, released, "
-        "or superseded via claim_active_agent_lane.py; do not continue PR "
-        "mutation work on this already-merged target."
+        f"PR #{pr} is already {terminal}. Please mark this lane completed, released, "
+        "or superseded via claim_active_agent_lane.py; do not continue PR mutation work "
+        f"on this {target}."
     )
 
 
@@ -716,9 +752,10 @@ def _owner_release_commands(
     github_state: dict[str, Any],
 ) -> list[str]:
     merge_commit = github_state.get("mergeCommit") or ""
-    next_action = _quote_shell_arg(
-        f"superseded after PR #{pr} merged at {merge_commit}; no further PR mutation"
-    )
+    closed_at = github_state.get("closedAt") or ""
+    state = _terminal_pr_state(github_state)
+    terminal = f"closed at {closed_at}" if state == "CLOSED" else f"merged at {merge_commit}"
+    next_action = _quote_shell_arg(f"superseded after PR #{pr} {terminal}; no further PR mutation")
     commands: list[str] = []
     for finding in findings:
         lane_id = finding.get("lane_id")
@@ -740,14 +777,23 @@ def _operator_apply_command(
     registry_path: Path,
     receipt_dir: Path,
     expected_merge_commit: str,
+    expected_closed_at: str,
+    expected_head_sha: str,
     heartbeat_path: Path,
     steering_inbox_root: Path,
     heartbeat_fresh_seconds: int,
 ) -> str:
-    commit_arg = expected_merge_commit or "<merge-commit-sha>"
+    terminal_guard = (
+        (
+            f"--expected-closed-at {expected_closed_at or '<closed-at>'} "
+            f"--expected-head-sha {expected_head_sha or '<head-sha>'}"
+        )
+        if expected_closed_at
+        else f"--expected-merge-commit {expected_merge_commit or '<merge-commit-sha>'}"
+    )
     return (
         "python3 scripts/resolve_lane_conflicts.py --merged-pr-lane-audit "
-        f"--pr {pr} --expected-merge-commit {commit_arg} --operator-authorized "
+        f"--pr {pr} {terminal_guard} --operator-authorized "
         f"--registry-path {registry_path} --receipt-dir {receipt_dir} "
         f"--heartbeat-path {_quote_shell_arg(heartbeat_path)} "
         f"--steering-inbox-root {_quote_shell_arg(steering_inbox_root)} "
@@ -763,6 +809,8 @@ def _base_merged_pr_audit_result(
     apply: bool,
     operator_authorized: bool,
     expected_merge_commit: str | None,
+    expected_closed_at: str | None,
+    expected_head_sha: str | None,
     github_state: dict[str, Any],
     findings: list[dict[str, Any]],
     blocked_reason: str | None,
@@ -771,25 +819,40 @@ def _base_merged_pr_audit_result(
     heartbeat_fresh_seconds: int,
 ) -> dict[str, Any]:
     merge_commit = str(github_state.get("mergeCommit") or "")
+    closed_at = str(github_state.get("closedAt") or "")
+    head_sha = str(github_state.get("headRefOid") or "")
     expected = str(expected_merge_commit or "")
+    expected_closed = str(expected_closed_at or "")
+    expected_head = str(expected_head_sha or "")
     unsafe_findings = [finding for finding in findings if finding.get("terminal_safety_blockers")]
     safe_findings = [finding for finding in findings if not finding.get("terminal_safety_blockers")]
     apply_eligible = (
         apply
         and operator_authorized
-        and bool(expected)
         and bool(safe_findings)
         and github_state.get("available") is True
-        and github_state.get("state") == "MERGED"
-        and merge_commit == expected
+        and _terminal_pr_state(github_state) in TERMINAL_PR_STATES
+        and _terminal_pr_proof_matches(
+            github_state=github_state,
+            expected_merge_commit=expected,
+            expected_closed_at=expected_closed,
+            expected_head_sha=expected_head,
+        )
     )
     operator_apply_command = ""
     if heartbeat_fresh_seconds >= 0:
+        terminal_state = _terminal_pr_state(github_state)
         operator_apply_command = _operator_apply_command(
             pr=pr,
             registry_path=registry_path,
             receipt_dir=receipt_dir,
             expected_merge_commit=merge_commit or expected,
+            expected_closed_at=(
+                closed_at or expected_closed or "<closed-at>" if terminal_state == "CLOSED" else ""
+            ),
+            expected_head_sha=(
+                head_sha or expected_head or "<head-sha>" if terminal_state == "CLOSED" else ""
+            ),
             heartbeat_path=heartbeat_path,
             steering_inbox_root=steering_inbox_root,
             heartbeat_fresh_seconds=heartbeat_fresh_seconds,
@@ -817,6 +880,8 @@ def _base_merged_pr_audit_result(
         "requires_operator_authorization": True,
         "operator_authorized": operator_authorized,
         "expected_merge_commit": expected,
+        "expected_closed_at": expected_closed,
+        "expected_head_sha": expected_head,
         "apply_eligible": apply_eligible,
         "blocked_reason": blocked_reason,
         "resolved_count": 0,
@@ -829,12 +894,15 @@ def _merged_pr_audit_blocked_reason(
     apply: bool,
     operator_authorized: bool,
     expected_merge_commit: str | None,
+    expected_closed_at: str | None,
+    expected_head_sha: str | None,
     github_state: dict[str, Any],
     findings: list[dict[str, Any]],
 ) -> str | None:
     if github_state.get("available") is not True:
         return "github_state_unavailable"
-    if github_state.get("state") != "MERGED":
+    state = _terminal_pr_state(github_state)
+    if state not in TERMINAL_PR_STATES:
         return "pr_not_merged"
     if not findings:
         return "no_active_lanes_for_merged_pr"
@@ -842,11 +910,23 @@ def _merged_pr_audit_blocked_reason(
         return None
     if not operator_authorized:
         return "operator_authorization_required"
-    expected = str(expected_merge_commit or "")
-    if not expected:
-        return "expected_merge_commit_required"
-    if str(github_state.get("mergeCommit") or "") != expected:
-        return "merge_commit_mismatch"
+    if state == "MERGED":
+        expected = str(expected_merge_commit or "")
+        if not expected:
+            return "expected_merge_commit_required"
+        if str(github_state.get("mergeCommit") or "") != expected:
+            return "merge_commit_mismatch"
+    if state == "CLOSED":
+        expected_closed = str(expected_closed_at or "")
+        expected_head = str(expected_head_sha or "")
+        if not expected_closed:
+            return "expected_closed_at_required"
+        if str(github_state.get("closedAt") or "") != expected_closed:
+            return "closed_at_mismatch"
+        if not expected_head:
+            return "expected_head_sha_required"
+        if str(github_state.get("headRefOid") or "") != expected_head:
+            return "head_sha_mismatch"
     unsafe_findings = [finding for finding in findings if finding.get("terminal_safety_blockers")]
     safe_findings = [finding for finding in findings if not finding.get("terminal_safety_blockers")]
     if unsafe_findings and not safe_findings:
@@ -863,16 +943,17 @@ def audit_merged_pr_lanes(
     apply: bool = False,
     operator_authorized: bool = False,
     expected_merge_commit: str | None = None,
+    expected_closed_at: str | None = None,
+    expected_head_sha: str | None = None,
     resolved_at: str | None = None,
     heartbeat_path: Path | None = None,
     steering_inbox_root: Path | None = None,
     heartbeat_fresh_seconds: int = HEARTBEAT_FRESH_SECONDS,
 ) -> dict[str, Any]:
-    """Audit active/blocked lane rows for an already-merged PR.
+    """Audit active/blocked lane rows for an already-terminal PR.
 
     Dry-run mode never mutates. Apply mode requires explicit operator
-    authorization and an exact merge-commit guard before superseding active
-    lifecycle rows.
+    authorization and exact terminal proof before superseding active lifecycle rows.
     """
 
     resolved_at = resolved_at or _utc_now_iso()
@@ -902,7 +983,10 @@ def audit_merged_pr_lanes(
         rows = _read_rows(registry_path)
         heartbeats, heartbeat_load_error = _read_rows_checked(heartbeat_path)
         findings: list[dict[str, Any]] = []
-        if github_state.get("available") is True and github_state.get("state") == "MERGED":
+        if (
+            github_state.get("available") is True
+            and _terminal_pr_state(github_state) in TERMINAL_PR_STATES
+        ):
             raw_findings = _active_pr_lane_findings(rows, pr=pr)
             if heartbeat_fresh_seconds < 0:
                 findings = []
@@ -927,6 +1011,8 @@ def audit_merged_pr_lanes(
             apply=apply,
             operator_authorized=operator_authorized,
             expected_merge_commit=expected_merge_commit,
+            expected_closed_at=expected_closed_at,
+            expected_head_sha=expected_head_sha,
             github_state=github_state,
             findings=findings,
         )
@@ -937,6 +1023,8 @@ def audit_merged_pr_lanes(
             apply=apply,
             operator_authorized=operator_authorized,
             expected_merge_commit=expected_merge_commit,
+            expected_closed_at=expected_closed_at,
+            expected_head_sha=expected_head_sha,
             github_state=github_state,
             findings=findings,
             blocked_reason=blocked_reason,
@@ -971,18 +1059,25 @@ def audit_merged_pr_lanes(
                 row["status"] = "superseded"
                 row["updated_at"] = resolved_at
                 row["last_steering_outcome"] = "superseded"
+                terminal_state = _terminal_pr_state(github_state)
                 receipt = {
                     "schema_version": MERGED_PR_RECEIPT_SCHEMA_VERSION,
                     "lane_id": row.get("lane_id"),
                     "owner_session": row.get("owner_session"),
                     "pr_number": pr,
                     "head_sha": github_state.get("headRefOid"),
+                    "terminal_state": terminal_state,
                     "merge_commit": github_state.get("mergeCommit"),
+                    "closed_at": github_state.get("closedAt"),
                     "merged_at": github_state.get("mergedAt"),
                     "old_status": old_status,
                     "new_status": "superseded",
                     "resolved_at_utc": resolved_at,
-                    "resolution": "merged_pr_has_active_lane_row",
+                    "resolution": (
+                        "closed_pr_has_active_lane_row"
+                        if terminal_state == "CLOSED"
+                        else "merged_pr_has_active_lane_row"
+                    ),
                     "terminal_safety_blockers": findings_by_key.get(row_key, {}).get(
                         "terminal_safety_blockers",
                         [],
@@ -1082,6 +1177,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exact merge commit required for authorized merged-PR apply mode.",
     )
     parser.add_argument(
+        "--expected-closed-at",
+        default="",
+        help="Exact closedAt timestamp required for authorized closed-PR apply mode.",
+    )
+    parser.add_argument(
+        "--expected-head-sha",
+        default="",
+        help="Exact headRefOid required for authorized closed-PR apply mode.",
+    )
+    parser.add_argument(
         "--operator-authorized",
         action="store_true",
         help="Required with --apply in merged-PR lane audit mode.",
@@ -1166,6 +1271,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             apply=bool(args.apply),
             operator_authorized=bool(args.operator_authorized),
             expected_merge_commit=args.expected_merge_commit,
+            expected_closed_at=args.expected_closed_at,
+            expected_head_sha=args.expected_head_sha,
             heartbeat_path=args.heartbeat_path,
             steering_inbox_root=args.steering_inbox_root,
             heartbeat_fresh_seconds=args.heartbeat_fresh_seconds,

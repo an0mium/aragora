@@ -100,6 +100,99 @@ def test_negative_verdict_line_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: CHANGES-REQUESTED")
 
 
+def test_fenced_parser_examples_do_not_block():
+    body = (
+        "Verdict: PASS\n\n"
+        "The parser needs to understand examples like:\n"
+        "```markdown\n"
+        "Verdict: CHANGES-REQUESTED\n"
+        "[P2] This is quoted gate syntax, not a live finding.\n"
+        "Blockers: no authentication on admin endpoint\n"
+        "```\n"
+        "The implementation is otherwise safe."
+    )
+    assert has_blocking_or_negative_verdict(body) is False
+    assert has_blocking_finding_or_label(body) is False
+    assert highest_blocking_severity(body) is None
+
+
+def test_blockquoted_parser_examples_do_not_block():
+    body = (
+        "Verdict: PASS\n\n"
+        "> Verdict: CHANGES-REQUESTED\n"
+        "> [P1] Quoted example text, not a live finding.\n"
+        "> Blockers: no validation\n"
+        "\n"
+        "No live blockers."
+    )
+    assert has_blocking_or_negative_verdict(body) is False
+    assert has_blocking_finding_or_label(body) is False
+    assert highest_blocking_severity(body) is None
+
+
+def test_live_blockquoted_finding_still_blocks():
+    body = "Verdict: PASS\n\n> [P1] settlement gate bypass remains live reviewer output\n"
+    assert has_blocking_or_negative_verdict(body) is True
+    assert has_blocking_finding_or_label(body) is True
+    assert highest_blocking_severity(body) == "P1"
+
+
+def test_prose_starting_with_backticks_does_not_open_fence():
+    body = (
+        "Verdict: PASS\n"
+        "``` is used for code examples in markdown prose.\n"
+        "- [P1] live settlement gate bypass remains\n"
+    )
+    assert has_blocking_or_negative_verdict(body) is True
+    assert has_blocking_finding_or_label(body) is True
+    assert highest_blocking_severity(body) == "P1"
+
+
+def test_single_line_code_span_does_not_open_fence():
+    body = (
+        "Verdict: PASS\n"
+        "```[P1] quoted inline example```\n"
+        "- [P1] live settlement gate bypass remains\n"
+    )
+    assert has_blocking_or_negative_verdict(body) is True
+    assert has_blocking_finding_or_label(body) is True
+    assert highest_blocking_severity(body) == "P1"
+
+
+def test_unclosed_fence_fails_closed_for_priority_finding():
+    body = (
+        "Verdict: PASS\n```markdown\n- [P1] unclosed quoted finding cannot be silently discarded\n"
+    )
+    assert has_blocking_or_negative_verdict(body) is True
+    assert has_blocking_finding_or_label(body) is True
+    assert highest_blocking_severity(body) == "P1"
+
+
+def test_indented_parser_example_does_not_block():
+    body = (
+        "Verdict: PASS\n\n"
+        "    Verdict: CHANGES-REQUESTED\n"
+        "    [P1] indented parser example, not a live finding\n"
+        "No live blockers.\n"
+    )
+    assert has_blocking_or_negative_verdict(body) is False
+    assert has_blocking_finding_or_label(body) is False
+    assert highest_blocking_severity(body) is None
+
+
+def test_real_finding_after_fenced_example_still_blocks():
+    body = (
+        "Verdict: PASS\n"
+        "```\n"
+        "[P1] quoted example ignored\n"
+        "```\n"
+        "- [P1] live settlement gate bypass remains"
+    )
+    assert has_blocking_or_negative_verdict(body) is True
+    assert has_blocking_finding_or_label(body) is True
+    assert highest_blocking_severity(body) == "P1"
+
+
 # --- Blocker-label path: bare "no" finding bypass (openai #8574 P1) --------
 #
 # `_NON_BLOCKING_PREFIXES` used to include a bare "no", so a populated Blocker

@@ -410,6 +410,7 @@ def test_operator_snapshot_summary_only_json_omits_records(
             "count": 2,
             "fresh_count": 1,
             "stale_count": 1,
+            "terminal_count": 0,
             "latest_by_owner": {
                 "codex-owner": {
                     "owner_session": "codex-owner",
@@ -435,7 +436,12 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert payload["summary"]["active_processes"] == 0
     assert payload["summary"]["active_process_roles"] == []
     assert payload["process_census"] == {"ok": True, "total": 0, "by_role": {}}
-    assert payload["agent_heartbeats"] == {"count": 2, "fresh_count": 1, "stale_count": 1}
+    assert payload["agent_heartbeats"] == {
+        "count": 2,
+        "fresh_count": 1,
+        "stale_count": 1,
+        "terminal_count": 0,
+    }
     assert payload["health"] == {"ok": True, "issues": []}
     assert discover_include_summaries == [False]
 
