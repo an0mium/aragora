@@ -394,6 +394,36 @@ def test_claim_lease_same_owner_session_can_reclaim_scope(
     assert second.owner_session_id == "same-session"
 
 
+def test_claim_lease_same_owner_session_cannot_bypass_forbidden_paths(
+    store: DevCoordinationStore,
+) -> None:
+    first = store.claim_lease(
+        task_id="clb-owner-reuse-forbidden-a",
+        title="Launch lane",
+        owner_agent="codex",
+        owner_session_id="same-session",
+        branch="codex/mission",
+        worktree_path="/tmp/wt-mission",
+        claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+        forbidden_paths=["scripts/settle_tier4_pr.py"],
+    )
+
+    with pytest.raises(LeaseConflictError) as exc_info:
+        store.claim_lease(
+            task_id="clb-owner-reuse-forbidden-b",
+            title="Send lane prompt",
+            owner_agent="codex",
+            owner_session_id="same-session",
+            branch="codex/mission",
+            worktree_path="/tmp/wt-mission",
+            claimed_paths=["scripts/settle_tier4_pr.py"],
+        )
+
+    assert exc_info.value.conflicts[0]["lease_id"] == first.lease_id
+    assert exc_info.value.conflicts[0]["type"] == "forbidden_path"
+    assert exc_info.value.conflicts[0]["forbidden_paths"] == ["scripts/settle_tier4_pr.py"]
+
+
 def test_claim_lease_detects_existing_fleet_claim(store: DevCoordinationStore) -> None:
     store.fleet_store.claim_paths(
         session_id="external-session",

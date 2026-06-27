@@ -1394,6 +1394,61 @@ def _codex_send_lease_requested(args: argparse.Namespace) -> bool:
     )
 
 
+def _reusable_codex_send_lease(
+    session: Session,
+    *,
+    claimed_paths: list[str],
+    write_scopes: list[str],
+) -> bool | None:
+    """Return True when an existing same-session lease safely covers this send.
+
+    tmux session discovery can be sparse: the pane metadata may know only the
+    window name while the launch-time lease knows the final worktree/branch.
+    Reusing a same-session lease lets an already leased lane receive follow-up
+    prompts without fabricating branch/worktree metadata. It remains fail-closed
+    for forbidden/hot paths and for any conflicting non-owner lease.
+    """
+    owner_session_ids = set(_codex_owner_session_ids(session))
+    if not owner_session_ids:
+        return None
+    try:
+        from aragora.nomic.dev_coordination import DevCoordinationStore
+
+        store = DevCoordinationStore(repo_root=CANONICAL_REPO_ROOT)
+        active_leases = store.list_active_leases()
+    except Exception:
+        return None
+
+    reusable_owner_session_id = ""
+    for lease in active_leases:
+        owner_session_id = str(getattr(lease, "owner_session_id", "") or "").strip()
+        if owner_session_id not in owner_session_ids:
+            continue
+        if lease.overlaps(write_scopes, claimed_paths):
+            reusable_owner_session_id = owner_session_id
+            break
+    if not reusable_owner_session_id:
+        return None
+
+    try:
+        conflicts = store.find_conflicting_leases(
+            allowed_globs=write_scopes,
+            claimed_paths=claimed_paths,
+            owner_session_id=reusable_owner_session_id,
+        )
+    except Exception as exc:
+        print(f"Could not verify reusable Codex send lease: {exc}", file=sys.stderr)
+        return False
+    if conflicts:
+        print(
+            "Codex send lease conflicts with active lease scope: "
+            + json.dumps(conflicts, sort_keys=True),
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
 def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> str | None:
     if session.agent != "codex" or not _codex_send_lease_requested(args):
         return ""
@@ -1412,6 +1467,15 @@ def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> str |
         )
         return None
     if not session.branch or not session.worktree:
+        reusable_lease = _reusable_codex_send_lease(
+            session,
+            claimed_paths=claimed_paths,
+            write_scopes=write_scopes,
+        )
+        if reusable_lease is True:
+            return ""
+        if reusable_lease is False:
+            return None
         print(
             "Codex send lease requires session branch and worktree metadata",
             file=sys.stderr,

@@ -490,10 +490,14 @@ def _issue_lane_ids(issue: dict[str, Any]) -> set[str]:
 def _dispatch_health_blocker(snapshot: dict[str, Any], lane: LaneSpec) -> str | None:
     bridge = snapshot.get("agent_bridge")
     if not isinstance(bridge, dict):
-        return None
+        return (
+            "operator snapshot unavailable; blocking dispatch until agent_bridge.py reports health"
+        )
     health = bridge.get("health")
     if not isinstance(health, dict):
-        return None
+        return (
+            "operator snapshot missing health; blocking dispatch until owner liveness is verifiable"
+        )
     issues = health.get("issues")
     if not isinstance(issues, list):
         return None
@@ -1182,9 +1186,12 @@ class GoalConductor:
             merge_decision = None
             if not (self.execute and fatal_gates):
                 merge_decision = self._maybe_apply_one_exact_gated_merge(snapshot)
-            decisions = self.plan_lanes(snapshot, run_dir)
-            if merge_decision is not None:
-                decisions.insert(0, merge_decision)
+            if self.execute and merge_decision is not None and merge_decision.action == "merged":
+                decisions = [merge_decision]
+            else:
+                decisions = self.plan_lanes(snapshot, run_dir)
+                if merge_decision is not None:
+                    decisions.insert(0, merge_decision)
         self.apply_decisions(decisions)
         jsonl_path = run_dir / "conductor.jsonl"
         markdown_path = run_dir / "handoff.md"

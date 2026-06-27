@@ -43,11 +43,15 @@ class FakeRunner:
         self.settle_payload = settle_payload or {"blockers": [], "head_sha": ""}
         self.settle_returncode = settle_returncode
         self.merge_returncode = merge_returncode
-        self.bridge_snapshot = bridge_snapshot or {
-            "health": {"ok": True, "issues": []},
-            "recent_blockers": [],
-            "summary": {"active_lanes": 0, "fresh_agent_heartbeats": 0},
-        }
+        self.bridge_snapshot = (
+            bridge_snapshot
+            if bridge_snapshot is not None
+            else {
+                "health": {"ok": True, "issues": []},
+                "recent_blockers": [],
+                "summary": {"active_lanes": 0, "fresh_agent_heartbeats": 0},
+            }
+        )
         self.calls: list[list[str]] = []
         self.executed: list[list[str]] = []
 
@@ -583,6 +587,39 @@ def test_execute_blocks_codex_lane_when_bridge_reports_missing_liveness(
     assert result.decisions[0].action == "blocked"
     assert "operator snapshot reports lane_missing_heartbeat" in result.decisions[0].reason
     assert "agent_heartbeat.py" in result.decisions[0].reason
+    assert runner.executed == []
+
+
+def test_execute_blocks_codex_lane_when_operator_snapshot_unavailable(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "codex-lane",
+            "agent": "codex",
+            "mode": "implementation",
+            "goal": "Patch conductor docs.",
+            "prompt": "Patch only the scoped docs.",
+            "task_id": "Q-mission-conductor",
+            "claimed_paths": ["docs/guides/CONDUCTOR_WORKFLOW.md"],
+        }
+    ]
+    runner = FakeRunner(mod, open_prs=[], bridge_snapshot=[])
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "blocked"
+    assert "operator snapshot unavailable" in result.decisions[0].reason
     assert runner.executed == []
 
 
@@ -1124,7 +1161,8 @@ def test_opt_in_exact_gated_merge_runs_settle_then_normal_protected_squash(
 
     result = conductor.run_once()
 
-    assert [decision.action for decision in result.decisions] == ["merged", "execute", "execute"]
+    assert [decision.action for decision in result.decisions] == ["merged"]
+    assert len(runner.executed) == 1
     assert runner.executed[0] == [
         "gh",
         "pr",
@@ -1346,7 +1384,8 @@ def test_opt_in_exact_gated_merge_respects_admin_order_and_not_ready(
 
     result = conductor.run_once()
 
-    assert [decision.action for decision in result.decisions] == ["merged", "execute", "execute"]
+    assert [decision.action for decision in result.decisions] == ["merged"]
+    assert len(runner.executed) == 1
     assert runner.executed[0] == [
         "gh",
         "pr",
@@ -1445,7 +1484,8 @@ def test_opt_in_exact_gated_merge_runs_under_queue_cap_gate(
     result = conductor.run_once()
 
     assert result.hard_gates == ["open PR queue at/above cap (2/2)"]
-    assert [decision.action for decision in result.decisions] == ["merged", "blocked", "execute"]
+    assert [decision.action for decision in result.decisions] == ["merged"]
+    assert len(runner.executed) == 1
     assert any(
         command[:3] == ["python3", "scripts/settle_one_pr.py", "--pr"] for command in runner.calls
     )

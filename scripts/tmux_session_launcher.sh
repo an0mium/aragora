@@ -544,7 +544,7 @@ fi
 #   - Droid/Factory prompted work always uses `droid exec --auto high`; use
 #     ARAGORA_DROID_AUTO_LEVEL=low|medium|high to lower the level explicitly.
 if [[ "${AGENT}" == "codex" ]]; then
-    CODEX_SESSION_ARGS=(--agent "${NAME}" --base main)
+    CODEX_SESSION_ARGS=(--agent "${NAME}" --base main --session-id "${NAME}")
     if [[ "${AUTONOMOUS}" == "1" ]]; then
         CODEX_SESSION_ARGS+=(--yolo)
     fi

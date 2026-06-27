@@ -616,6 +616,7 @@ def test_tmux_session_launcher_autonomous_codex_prompt_uses_exec(
     launch_script = Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.launch.sh"
     launch_body = launch_script.read_text(encoding="utf-8")
     assert "--task-id Q123" in launch_body
+    assert "--session-id codex-auto" in launch_body
     assert "--claimed-path scripts/tmux_session_launcher.sh" in launch_body
     assert "codex exec --dangerously-bypass-approvals-and-sandbox - <" in launch_body
     assert "--ask-for-approval" not in launch_body
@@ -806,6 +807,7 @@ def test_tmux_session_launcher_accepts_autonomous_codex_with_task_id_and_scope(
     launch_script = Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.launch.sh"
     launch_body = launch_script.read_text(encoding="utf-8")
     assert "--task-id Q123" in launch_body
+    assert "--session-id codex-auto" in launch_body
     assert "--claimed-path scripts/tmux_session_launcher.sh" in launch_body
 
 
