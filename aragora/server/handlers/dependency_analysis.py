@@ -254,8 +254,6 @@ async def handle_generate_sbom(
     }
     """
     try:
-        analyzer = get_dependency_analyzer()
-
         repo_path, err = _validate_repo_path(data.get("repo_path"))
         if err:
             return err
@@ -264,6 +262,7 @@ async def handle_generate_sbom(
         if sbom_format not in ("cyclonedx", "spdx"):
             return error_response("format must be 'cyclonedx' or 'spdx'", status=400)
 
+        analyzer = get_dependency_analyzer()
         include_vulns = data.get("include_vulnerabilities", True)
 
         # Resolve dependencies first
