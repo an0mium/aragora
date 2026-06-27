@@ -200,6 +200,13 @@ class WorktreeCandidate:
     next_action: str
 
 
+@dataclass(frozen=True)
+class PassiveSessionAnchorScanResult:
+    anchors: list[str]
+    truncated: bool = False
+    anchor_only: bool = False
+
+
 @dataclass
 class InventoryContext:
     repo: Path
@@ -726,10 +733,16 @@ def has_active_session(candidate_root: Path, repo_path: Path | None) -> bool:
     return bool(active_lock_files(candidate_root, repo_path))
 
 
-def passive_session_anchor_scan(candidate_root: Path) -> tuple[list[str], bool]:
-    """Return passive wrapper anchor files and whether the bounded scan truncated."""
+def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorScanResult:
+    """Return passive wrapper anchors from a bounded, non-symlink scan."""
+    try:
+        if candidate_root.is_symlink():
+            return PassiveSessionAnchorScanResult([])
+    except OSError:
+        return PassiveSessionAnchorScanResult([])
     anchors: list[str] = []
     scanned_entries = 0
+    anchor_only = True
     pending = [candidate_root]
     while pending:
         root = pending.pop()
@@ -738,29 +751,33 @@ def passive_session_anchor_scan(candidate_root: Path) -> tuple[list[str], bool]:
                 for entry in entries:
                     scanned_entries += 1
                     if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
-                        return sorted(anchors), True
+                        return PassiveSessionAnchorScanResult([], truncated=True)
                     try:
                         if entry.is_dir(follow_symlinks=False):
                             pending.append(Path(entry.path))
                             continue
                         if not entry.is_file(follow_symlinks=False):
-                            return [], False
+                            anchor_only = False
+                            continue
                     except OSError:
-                        return [], False
+                        return PassiveSessionAnchorScanResult([])
                     if entry.name in PASSIVE_SESSION_ANCHOR_IGNORED_FILES:
                         continue
                     if entry.name not in PASSIVE_SESSION_ANCHOR_FILES:
-                        return [], False
+                        anchor_only = False
+                        continue
                     anchors.append(entry.path)
         except OSError:
-            return [], False
-    return sorted(anchors), False
+            return PassiveSessionAnchorScanResult([])
+    return PassiveSessionAnchorScanResult(
+        sorted(anchors),
+        anchor_only=bool(anchors) and anchor_only,
+    )
 
 
 def passive_session_anchor_files(candidate_root: Path) -> list[str]:
     """Return passive wrapper anchor files under an otherwise no-git residue path."""
-    anchors, _truncated = passive_session_anchor_scan(candidate_root)
-    return anchors
+    return passive_session_anchor_scan(candidate_root).anchors
 
 
 def git_status_dirty(repo_path: Path, *, timeout: int) -> tuple[bool, bool, str | None]:
@@ -1339,13 +1356,15 @@ def classify_candidate(
         else:
             classification = "no_git_cache_residue"
             proof.append("no git metadata at candidate root or candidate/aragora path")
-            passive_anchors, passive_anchor_scan_truncated = passive_session_anchor_scan(
-                candidate_root
-            )
-            if passive_anchors:
-                links["passive_session_anchors"] = passive_anchors
-                proof.append("passive session anchor residue only")
-            if passive_anchor_scan_truncated:
+            passive_scan = passive_session_anchor_scan(candidate_root)
+            if passive_scan.anchors:
+                links["passive_session_anchors"] = passive_scan.anchors
+                if passive_scan.anchor_only:
+                    proof.append("passive session anchor residue only")
+                else:
+                    links["passive_session_anchor_mixed_residue"] = True
+                    proof.append("passive session anchors present with additional residue")
+            if passive_scan.truncated:
                 links["passive_session_anchor_scan_truncated"] = True
                 proof.append("passive session anchor scan truncated before cleanup authority")
         return build_candidate(
