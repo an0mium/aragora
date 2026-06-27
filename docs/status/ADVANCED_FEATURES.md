@@ -7,7 +7,7 @@ This guide covers advanced capabilities in Aragora for power users who need to l
 1. [RLM (Recursive Language Models)](#rlm-recursive-language-models)
 2. [Belief Network](#belief-network)
 3. [Explainability](#explainability)
-4. [Matrix/Graph Debates](#matrixgraph-debates)
+4. [Matrix/Graph Debates](#matrix-graph-debates)
 5. [Workflow Templates](#workflow-templates)
 
 ---

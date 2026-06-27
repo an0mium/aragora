@@ -412,7 +412,7 @@ for INSTANCE in i-0823e60c7c4b924e1 i-07e538fafbe61696d; do
 done
 ```
 
-**Version drift** exists when instances report different commit SHAs. See [Section 5.2](#52-version-drift) for remediation.
+**Version drift** exists when instances report different commit SHAs. See [Section 5.2](#5-2-version-drift) for remediation.
 
 ### 4.5 SSL Certificate Check
 
@@ -498,7 +498,7 @@ aws ssm send-command \
 
 **Resolution checklist:**
 
-1. If `aragora` service is stopped/failed: restart it (see [Section 5.3](#53-service-crash)).
+1. If `aragora` service is stopped/failed: restart it (see [Section 5.3](#5-3-service-crash)).
 2. If nginx is down: `sudo systemctl restart nginx`.
 3. If disk is full: clear old logs with `sudo journalctl --vacuum-size=500M`.
 4. If OOM: check `dmesg | grep -i oom` and consider instance type upgrade.

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import unquote
@@ -102,6 +103,21 @@ def github_slug(value: str) -> str:
 
 def heading_anchors(path: Path) -> set[str]:
     """Collect markdown heading and explicit HTML id anchors from a file."""
+    try:
+        resolved = path.resolve()
+        stat = resolved.stat()
+    except OSError:
+        return set()
+    return set(_heading_anchors_cached(resolved, stat.st_mtime_ns, stat.st_size))
+
+
+@lru_cache(maxsize=512)
+def _heading_anchors_cached(
+    path: Path,
+    mtime_ns: int,  # noqa: ARG001 - cache key invalidates stale reads
+    size: int,  # noqa: ARG001 - cache key invalidates stale reads
+) -> frozenset[str]:
+    """Collect exact anchors for a file, cached by path and file stat."""
     anchors: set[str] = set()
     seen_slugs: dict[str, int] = {}
     try:
@@ -122,24 +138,15 @@ def heading_anchors(path: Path) -> set[str]:
                 anchors.add(slug if duplicate_index == 0 else f"{slug}-{duplicate_index}")
             if normalized:
                 anchors.add(normalized)
-                anchors.add(normalized.replace(" ", ""))
-    return anchors
+    return frozenset(anchors)
 
 
 def anchor_exists(path: Path, anchor: str) -> bool:
     """Return whether a markdown file contains the requested heading anchor."""
     wanted = normalize_anchor(anchor)
     wanted_slug = github_slug(anchor)
-    wanted_compact = wanted.replace(" ", "")
-    for existing in heading_anchors(path):
-        normalized = normalize_anchor(existing)
-        if existing == wanted_slug or normalized == wanted:
-            return True
-        if wanted and normalized.startswith(f"{wanted} "):
-            return True
-        if wanted_compact and normalized.replace(" ", "").startswith(wanted_compact):
-            return True
-    return False
+    anchors = heading_anchors(path)
+    return wanted_slug in anchors or wanted in anchors
 
 
 def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:
@@ -165,9 +172,13 @@ def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:
 
     # Normalize path
     try:
+        repo_root = docs_dir.parent.resolve()
         target = target.resolve()
     except (OSError, ValueError):
         return f"Invalid path: {link}"
+
+    if not target.is_relative_to(repo_root):
+        return f"Path escapes repository root: {file_part}"
 
     # Check if file exists
     if not target.exists():

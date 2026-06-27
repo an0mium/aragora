@@ -7,7 +7,7 @@ This guide covers distributed tracing, metrics, and monitoring for Aragora deplo
 - [Overview](#overview)
 - [OpenTelemetry Tracing](#opentelemetry-tracing)
 - [Prometheus Metrics](#prometheus-metrics)
-- [N+1 Query Detection](#n1-query-detection)
+- [N+1 Query Detection](#n-1-query-detection)
 - [Grafana Dashboards](#grafana-dashboards)
 - [Local Development](#local-development)
 - [Production Setup](#production-setup)

@@ -15,8 +15,8 @@
 ## Table of Contents
 
 - [What Actually Works](#what-actually-works)
-- [What's Partially Working](#whats-partially-working)
-- [What's Scaffolding](#whats-scaffolding)
+- [What's Partially Working](#what-s-partially-working)
+- [What's Scaffolding](#what-s-scaffolding)
 - [Defensible Value Proposition](#defensible-value-proposition)
 - [What Will Be Eaten by Bigger Companies](#what-will-be-eaten-by-bigger-companies)
 - [How to Strengthen the Moat](#how-to-strengthen-the-moat)

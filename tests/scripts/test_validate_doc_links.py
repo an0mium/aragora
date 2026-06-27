@@ -33,6 +33,16 @@ def test_validate_link_accepts_github_heading_slug(tmp_path: Path) -> None:
     assert validate_link(source, "target.md#part-1-stable-heading", docs) is None
 
 
+def test_validate_link_rejects_prefix_only_markdown_anchor(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    source = docs / "source.md"
+    target = docs / "target.md"
+    _write(source, "[bad](target.md#canon)")
+    _write(target, "## Canonical Metrics")
+
+    assert validate_link(source, "target.md#canon", docs) == "Anchor not found: #canon"
+
+
 def test_validate_link_accepts_anchor_only_links(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     source = docs / "source.md"
@@ -46,6 +56,29 @@ def test_validate_link_accepts_anchor_only_links(tmp_path: Path) -> None:
     )
 
     assert validate_link(source, "#local-section", docs) is None
+
+
+def test_validate_link_reports_missing_anchor_only_links(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    source = docs / "source.md"
+    _write(source, "# Local Section\n\n[bad](#missing-section)")
+
+    assert validate_link(source, "#missing-section", docs) == ("Anchor not found: #missing-section")
+
+
+def test_validate_link_rejects_absolute_path_escape(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    source = docs / "source.md"
+    outside = tmp_path.parent / "outside.md"
+    _write(source, "[bad](/../outside.md)")
+    _write(outside, "# Outside")
+
+    try:
+        assert validate_link(source, "/../outside.md", docs) == (
+            "Path escapes repository root: /../outside.md"
+        )
+    finally:
+        outside.unlink(missing_ok=True)
 
 
 def test_find_markdown_links_keeps_anchor_only_links() -> None:

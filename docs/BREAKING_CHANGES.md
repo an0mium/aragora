@@ -19,7 +19,7 @@ For v1-to-v2 migration details, see [guides/V1_TO_V2_MIGRATION.md](guides/V1_TO_
 | [Agent Spec String Parsing](#agent-spec-string-parsing) | `AgentSpec.parse()`, `parse_list()`, colon format | Low |
 | [RLM Backend Parameter](#rlm-backend-parameter) | `rlm_backend` kwarg on cognitive limiters | Low |
 | [Type Aliases](#type-aliases) | `ValidationResult` alias | Low |
-| [datetime.utcnow() Cleanup](#datetimeutcnow-cleanup) | 317 call sites across 101 modules | Internal |
+| [datetime.utcnow() Cleanup](#datetime-utcnow-cleanup) | 317 call sites across 101 modules | Internal |
 
 ---
 
