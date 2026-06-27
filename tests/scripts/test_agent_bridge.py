@@ -3581,6 +3581,54 @@ def test_claim_codex_send_lease_reuses_existing_same_owner_scope_with_sparse_tmu
     assert capsys.readouterr().err == ""
 
 
+def test_claim_codex_send_lease_rejects_same_owner_scope_expansion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import agent_bridge as mod
+    from aragora.nomic.dev_coordination import DevCoordinationStore
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    repo_root = mod.CANONICAL_REPO_ROOT
+    repo_root.mkdir(parents=True)
+    subprocess.run(["git", "init"], cwd=repo_root, check=True, capture_output=True)
+    store = DevCoordinationStore(repo_root=repo_root)
+    store.claim_lease(
+        task_id="Q-mission-conductor",
+        title="Launch conductor lane",
+        owner_agent="codex",
+        owner_session_id="codex-lane",
+        branch="codex/mission",
+        worktree_path=str(tmp_path / "mission-worktree"),
+        claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+    )
+    session = mod.Session(
+        name="codex-lane",
+        agent="codex",
+        status="alive",
+        branch="",
+        worktree="",
+    )
+
+    lease_id = mod._claim_codex_send_lease(
+        session,
+        argparse.Namespace(
+            task_id="Q-mission-conductor",
+            goal="Expand scoped mission lane.",
+            claimed_path=[
+                "docs/guides/CONDUCTOR_WORKFLOW.md",
+                "scripts/goal_conductor.py",
+            ],
+            write_scope=[],
+            test=[],
+            forbidden_path=[],
+            allow_overlap=False,
+        ),
+    )
+
+    assert lease_id is None
+    assert "requires session branch and worktree metadata" in capsys.readouterr().err
+
+
 def test_claim_codex_send_lease_uses_worktree_session_id_and_requires_lease_id(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

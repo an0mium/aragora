@@ -1394,6 +1394,38 @@ def _codex_send_lease_requested(args: argparse.Namespace) -> bool:
     )
 
 
+def _lease_covers_codex_send_scope(
+    lease: object,
+    *,
+    claimed_paths: list[str],
+    write_scopes: list[str],
+) -> bool:
+    """Return True only when the existing lease contains the whole send scope."""
+    requested_scope = [
+        str(item).strip() for item in (*claimed_paths, *write_scopes) if str(item).strip()
+    ]
+    if not requested_scope:
+        return False
+    lease_scope = [
+        str(item).strip()
+        for item in (
+            *list(getattr(lease, "claimed_paths", []) or []),
+            *list(getattr(lease, "allowed_globs", []) or []),
+        )
+        if str(item).strip()
+    ]
+    if not lease_scope:
+        return False
+    try:
+        from aragora.nomic.dev_coordination import _path_matches_glob
+    except Exception:
+        return False
+    return all(
+        any(_path_matches_glob(requested, existing) for existing in lease_scope)
+        for requested in requested_scope
+    )
+
+
 def _reusable_codex_send_lease(
     session: Session,
     *,
@@ -1424,7 +1456,11 @@ def _reusable_codex_send_lease(
         owner_session_id = str(getattr(lease, "owner_session_id", "") or "").strip()
         if owner_session_id not in owner_session_ids:
             continue
-        if lease.overlaps(write_scopes, claimed_paths):
+        if _lease_covers_codex_send_scope(
+            lease,
+            claimed_paths=claimed_paths,
+            write_scopes=write_scopes,
+        ):
             reusable_owner_session_id = owner_session_id
             break
     if not reusable_owner_session_id:
