@@ -732,7 +732,7 @@ def test_open_codex_prs_from_rest_rejects_unexpected_json_shape(
         raise AssertionError("expected REST shape failure")
 
 
-def test_open_codex_prs_from_rest_skips_missing_head_metadata(
+def test_open_codex_prs_from_rest_rejects_missing_head_metadata(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(
@@ -746,7 +746,12 @@ def test_open_codex_prs_from_rest_skips_missing_head_metadata(
         ),
     )
 
-    assert mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora") == []
+    try:
+        mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora")
+    except RuntimeError as exc:
+        assert "missing head metadata for PR #7001" in str(exc)
+    else:  # pragma: no cover - assertion clarity
+        raise AssertionError("expected missing head metadata failure")
 
 
 def test_open_codex_prs_falls_back_to_rest_when_graphql_and_cache_fail(
