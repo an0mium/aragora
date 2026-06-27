@@ -123,7 +123,7 @@ def _heading_anchors_cached(
     try:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
-        return anchors
+        return frozenset()
 
     for line in text.splitlines():
         heading = HEADING_RE.match(line)
