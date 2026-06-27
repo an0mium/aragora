@@ -134,26 +134,25 @@ def _heading_anchors_cached(
 
     for line in text.splitlines():
         heading = HEADING_RE.match(line)
-        titles = [heading.group(1).strip()] if heading else []
-        titles.extend(HTML_ID_RE.findall(line))
-        for title in titles:
-            normalized = normalize_anchor(title)
-            slug = github_slug(title)
+        if heading:
+            slug = github_slug(heading.group(1).strip())
             if slug:
                 duplicate_index = seen_slugs.get(slug, 0)
                 seen_slugs[slug] = duplicate_index + 1
                 anchors.add(slug if duplicate_index == 0 else f"{slug}-{duplicate_index}")
-            if normalized:
-                anchors.add(normalized)
+        for html_id in HTML_ID_RE.findall(line):
+            explicit_id = unquote(html_id).strip()
+            if explicit_id:
+                anchors.add(explicit_id)
     return frozenset(anchors)
 
 
 def anchor_exists(path: Path, anchor: str) -> bool:
     """Return whether a markdown file contains the requested heading anchor."""
-    wanted = normalize_anchor(anchor)
     wanted_slug = github_slug(anchor)
+    wanted_explicit_id = unquote(anchor).strip()
     anchors = heading_anchors(path)
-    return wanted_slug in anchors or wanted in anchors
+    return wanted_slug in anchors or wanted_explicit_id in anchors
 
 
 def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:

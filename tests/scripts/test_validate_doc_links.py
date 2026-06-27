@@ -68,6 +68,41 @@ def test_github_slug_strips_punctuation_without_word_breaks() -> None:
     )
 
 
+def test_validate_link_rejects_loose_normalized_markdown_anchor(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    source = docs / "source.md"
+    target = docs / "target.md"
+    _write(source, "[bad](target.md#active-direction-open-decision-receipt)")
+    _write(target, "## Active direction — Open Decision Receipt")
+
+    assert (
+        validate_link(
+            source,
+            "target.md#active-direction-open-decision-receipt",
+            docs,
+        )
+        == "Anchor not found: #active-direction-open-decision-receipt"
+    )
+    assert (
+        validate_link(
+            source,
+            "target.md#active-direction--open-decision-receipt",
+            docs,
+        )
+        is None
+    )
+
+
+def test_validate_link_accepts_explicit_html_id_anchor(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    source = docs / "source.md"
+    target = docs / "target.md"
+    _write(source, "[ok](target.md#manual-anchor)")
+    _write(target, '<a id="manual-anchor"></a>\n\n## Different Heading')
+
+    assert validate_link(source, "target.md#manual-anchor", docs) is None
+
+
 def test_validate_link_accepts_anchor_only_links(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     source = docs / "source.md"
