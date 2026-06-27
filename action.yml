@@ -51,6 +51,18 @@ inputs:
     description: 'Upload SARIF to GitHub Security tab'
     required: false
     default: 'false'
+  emit-receipt:
+    description: >-
+      Emit a portable, verifiable Open Decision Receipt (ODR) for the review and
+      upload it as a build artifact. Runs a heterogeneous-model merge-quorum
+      collection (dry-run, never posts) and bridges it to a signed-off-able
+      receipt. Set to "false" to skip (avoids a second model pass).
+    required: false
+    default: 'true'
+  receipt-reviewers:
+    description: 'Space-separated model families for the receipt quorum (keys must be provided)'
+    required: false
+    default: 'claude openai'
 
 outputs:
   review-path:
@@ -95,6 +107,18 @@ outputs:
   sarif-path:
     description: 'Path to SARIF output file (if generated)'
     value: ${{ steps.review.outputs.sarif_path }}
+  receipt-path:
+    description: 'Path to the verifiable ODR decision receipt (if emitted)'
+    value: ${{ steps.receipt.outputs.receipt_path }}
+  receipt-verdict:
+    description: 'Receipt verdict (PASS / CHANGES_REQUESTED)'
+    value: ${{ steps.receipt.outputs.receipt_verdict }}
+  receipt-digest:
+    description: 'SHA-256 JCS content digest of the receipt'
+    value: ${{ steps.receipt.outputs.receipt_digest }}
+  receipt-verified:
+    description: 'Whether the emitted receipt passed schema + digest verification'
+    value: ${{ steps.receipt.outputs.receipt_verified }}
 
 runs:
   using: 'composite'
@@ -188,51 +212,68 @@ runs:
         # Action-level metadata and extracted counts from JSON output
         echo "review_log_path=./aragora-artifacts/review.log" >> $GITHUB_OUTPUT
 
-        python3 - <<'PY' >> "$GITHUB_OUTPUT"
-import json
-from pathlib import Path
-
-path = Path("./aragora-artifacts/review.json")
-if path.is_file():
-    print("review_json_path=./aragora-artifacts/review.json")
-    try:
-        data = json.loads(path.read_text())
-    except Exception:
-        data = {}
-else:
-    print("review_json_path=")
-    data = {}
-
-def count_list(key: str) -> int:
-    value = data.get(key, [])
-    return len(value) if isinstance(value, list) else 0
-
-unanimous = count_list("unanimous_critiques")
-critical = count_list("critical_issues")
-high = count_list("high_issues")
-medium = count_list("medium_issues")
-low = count_list("low_issues")
-risk_areas = count_list("risk_areas")
-split_opinions = count_list("split_opinions")
-total = critical + high + medium + low
-
-agreement = data.get("agreement_score", 0) or 0
-try:
-    agreement = float(agreement)
-except Exception:
-    agreement = 0
-
-print(f"unanimous_count={unanimous}")
-print(f"critical_count={critical}")
-print(f"high_count={high}")
-print(f"medium_count={medium}")
-print(f"low_count={low}")
-print(f"total_count={total}")
-print(f"risk_areas_count={risk_areas}")
-print(f"split_opinions_count={split_opinions}")
-print(f"agreement_score={agreement}")
-PY
+        python3 "$GITHUB_ACTION_PATH/scripts/extract_review_counts.py" \
+          ./aragora-artifacts/review.json >> "$GITHUB_OUTPUT"
       env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
+
+    - name: Emit decision receipt
+      id: receipt
+      if: inputs.emit-receipt == 'true'
+      shell: bash
+      run: |
+        # Failure-tolerant by design: a receipt problem must never break the
+        # workflow. All work is best-effort; the step always exits 0 and logs
+        # to ./aragora-artifacts/receipt.log.
+        set +e
+        mkdir -p ./aragora-artifacts
+        LOG=./aragora-artifacts/receipt.log
+
+        # The bridge/emitter may be newer than the published PyPI 'aragora', so
+        # install the action's own pinned source for the receipt tooling.
+        pip install "$GITHUB_ACTION_PATH" >> "$LOG" 2>&1 || true
+
+        REPO="${{ github.repository }}"
+        PR="${{ steps.diff.outputs.pr_number }}"
+
+        # Collect a heterogeneous-model quorum — DRY RUN: prepares + lints,
+        # never posts (no --apply), Tier-gated regardless.
+        python3 "$GITHUB_ACTION_PATH/scripts/collect_quorum_evidence.py" \
+          --repo "$REPO" --pr "$PR" \
+          --reviewers ${{ inputs.receipt-reviewers }} \
+          --json > ./aragora-artifacts/outcome.json 2>> "$LOG"
+
+        if [ -s ./aragora-artifacts/outcome.json ]; then
+          python3 "$GITHUB_ACTION_PATH/scripts/emit_pr_receipt.py" \
+            --outcome ./aragora-artifacts/outcome.json \
+            --out ./aragora-artifacts/decision-receipt.odr.json \
+            --verify \
+            --github-output "$GITHUB_OUTPUT" >> "$LOG" 2>&1
+        else
+          echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
+          echo "no outcome collected; receipt skipped" >> "$LOG"
+        fi
+
+        # Append a receipt summary to the PR comment if both exist.
+        RECEIPT=./aragora-artifacts/decision-receipt.odr.json
+        if [ -f "$RECEIPT" ] && [ -f ./aragora-artifacts/comment.md ]; then
+          VERDICT=$(python3 -c "import json;print(json.load(open('$RECEIPT'))['claim'].get('verdict',''))" 2>>"$LOG")
+          RID=$(python3 -c "import json;print(json.load(open('$RECEIPT')).get('receipt_id',''))" 2>>"$LOG")
+          {
+            echo ""
+            echo "---"
+            echo "### 🧾 Decision Receipt"
+            echo ""
+            echo "- Receipt: \`$RID\`  ·  Verdict: \`$VERDICT\`"
+            echo "- Independently verifiable: \`pip install aragora-verify && aragora-verify decision-receipt.odr.json\`"
+            echo "- The full portable receipt is attached as a build artifact."
+          } >> ./aragora-artifacts/comment.md
+        fi
+        exit 0
+      env:
+        GH_TOKEN: ${{ github.token }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}
         OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
