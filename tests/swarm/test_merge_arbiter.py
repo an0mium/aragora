@@ -11,6 +11,7 @@ import pytest
 from aragora.swarm.merge_arbiter import (
     AUTOMATION_REVIEWER_LOGINS,
     REQUIRED_CHECKS,
+    ArbiterOperationalError,
     ArbiterSummary,
     MergeArbiter,
     MergeArbiterConfig,
@@ -96,17 +97,19 @@ class TestListCandidatePrs:
         assert result[0]["number"] == 1
         assert result[1]["number"] == 2
 
-    def test_returns_empty_on_gh_failure(self):
+    def test_raises_operational_error_on_gh_failure(self):
         config = MergeArbiterConfig()
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
-            mock_gh.return_value = _make_gh_result(returncode=1, stderr="error")
-            assert _list_candidate_prs(config) == []
+            mock_gh.return_value = _make_gh_result(returncode=1, stderr="error connecting")
+            with pytest.raises(ArbiterOperationalError):
+                _list_candidate_prs(config)
 
-    def test_returns_empty_on_bad_json(self):
+    def test_raises_operational_error_on_bad_json(self):
         config = MergeArbiterConfig()
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
             mock_gh.return_value = _make_gh_result(stdout="not json")
-            assert _list_candidate_prs(config) == []
+            with pytest.raises(ArbiterOperationalError):
+                _list_candidate_prs(config)
 
 
 # ---------------------------------------------------------------------------
@@ -124,10 +127,11 @@ class TestGetCheckStatus:
         for name in REQUIRED_CHECKS:
             assert result[name] == "SUCCESS"
 
-    def test_returns_empty_on_failure(self):
+    def test_raises_operational_error_on_failure_without_json(self):
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
             mock_gh.return_value = _make_gh_result(returncode=1)
-            assert _get_check_status(1, "owner/repo") == {}
+            with pytest.raises(ArbiterOperationalError):
+                _get_check_status(1, "owner/repo")
 
 
 class TestHumanSettlement:
@@ -455,11 +459,14 @@ class TestEvaluatePrDraft:
 
 class TestCircuitBreaker:
     @pytest.mark.asyncio
-    async def test_stops_after_consecutive_failures(self):
+    async def test_not_ready_prs_never_trip_the_breaker(self):
+        # A queue of PRs with failing required checks (the common all-red state,
+        # incl. PRs waiting on the quorum check) must NOT stop the engine — else
+        # the arbiter would stop before posting the evidence that turns them green.
         config = MergeArbiterConfig(
             max_consecutive_failures=3,
-            poll_interval_seconds=0.01,
-            max_runtime_hours=0.01,
+            poll_interval_seconds=0.001,
+            max_runtime_hours=0.0002,  # ~0.7s of polling
         )
         arbiter = MergeArbiter(config=config)
 
@@ -467,15 +474,11 @@ class TestCircuitBreaker:
         failing_checks = _all_passing_ready_checks()
         failing_checks["lint"] = "FAILURE"
 
-        call_count = 0
-
-        def fake_list(_cfg):
-            nonlocal call_count
-            call_count += 1
-            return [failing_pr]
-
         with (
-            patch("aragora.swarm.merge_arbiter._list_candidate_prs", side_effect=fake_list),
+            patch(
+                "aragora.swarm.merge_arbiter._list_candidate_prs",
+                return_value=[failing_pr],
+            ),
             patch(
                 "aragora.swarm.merge_arbiter._get_required_checks",
                 return_value=list(REQUIRED_CHECKS),
@@ -484,8 +487,110 @@ class TestCircuitBreaker:
         ):
             summary = await arbiter.run()
 
-        assert "circuit breaker" in summary.stop_reason
-        assert call_count == 3
+        assert "circuit breaker" not in summary.stop_reason
+        assert summary.stop_reason == "max runtime reached"
+        assert summary.merged == []
+        assert 1 in summary.failed  # recorded for reporting, but did not stop the engine
+
+    @pytest.mark.asyncio
+    async def test_consecutive_operational_faults_trip_the_breaker(self):
+        # Genuine operational faults (cannot list PRs) SHOULD fail closed.
+        config = MergeArbiterConfig(
+            max_consecutive_failures=3,
+            poll_interval_seconds=0.001,
+            max_runtime_hours=1.0,  # long; breaker should stop us well before this
+        )
+        arbiter = MergeArbiter(config=config)
+
+        with patch(
+            "aragora.swarm.merge_arbiter._list_candidate_prs",
+            side_effect=ArbiterOperationalError("gh pr list failed: error connecting"),
+        ):
+            summary = await arbiter.run()
+
+        assert "operational faults" in summary.stop_reason
+        assert summary.polls == 3
+
+    @pytest.mark.asyncio
+    async def test_systemic_evaluation_faults_trip_the_breaker(self):
+        # Every evaluation faulting (e.g. gh auth death mid-run) is systemic
+        # and SHOULD fail closed, even though listing still works.
+        config = MergeArbiterConfig(
+            max_consecutive_failures=3,
+            poll_interval_seconds=0.001,
+            max_runtime_hours=1.0,
+        )
+        arbiter = MergeArbiter(config=config)
+
+        with (
+            patch(
+                "aragora.swarm.merge_arbiter._list_candidate_prs",
+                return_value=[_pr(1, "codex/poison")],
+            ),
+            patch(
+                "aragora.swarm.merge_arbiter._evaluate_pr",
+                side_effect=ArbiterOperationalError("gh pr checks failed for #1: timeout"),
+            ),
+        ):
+            summary = await arbiter.run()
+
+        assert "operational faults" in summary.stop_reason
+        assert summary.polls == 3
+
+    @pytest.mark.asyncio
+    async def test_single_poison_pill_pr_does_not_halt_the_arbiter(self):
+        # One PR that faults on every evaluation must not stop the engine while
+        # the rest of the queue evaluates cleanly.
+        config = MergeArbiterConfig(
+            max_consecutive_failures=3,
+            poll_interval_seconds=0.001,
+            max_runtime_hours=0.0002,  # ~0.7s of polling
+        )
+        arbiter = MergeArbiter(config=config)
+
+        poison = _pr(1, "codex/poison")
+        healthy = _pr(2, "codex/healthy")
+        failing_checks = _all_passing_ready_checks()
+        failing_checks["lint"] = "FAILURE"
+
+        def evaluate(pr, _config):
+            if pr["number"] == 1:
+                raise ArbiterOperationalError("gh pr checks failed for #1: timeout")
+            return MergeResult(2, "codex/healthy", False, "failing required checks: lint")
+
+        with (
+            patch(
+                "aragora.swarm.merge_arbiter._list_candidate_prs",
+                return_value=[poison, healthy],
+            ),
+            patch("aragora.swarm.merge_arbiter._evaluate_pr", side_effect=evaluate),
+        ):
+            summary = await arbiter.run()
+
+        assert "circuit breaker" not in summary.stop_reason
+        assert summary.stop_reason == "max runtime reached"
+        assert 2 in summary.failed
+        assert summary.polls >= config.max_consecutive_failures
+
+
+class TestGetCheckStatusFaults:
+    def test_raises_operational_error_when_gh_fails_without_json(self):
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            mock_gh.return_value = _make_gh_result(returncode=1, stdout="", stderr="auth dead")
+            with pytest.raises(ArbiterOperationalError):
+                _get_check_status(1, "owner/repo")
+
+    def test_parseable_json_is_truth_even_on_nonzero_exit(self):
+        # gh pr checks exits non-zero for pending/failing checks; output wins.
+        payload = json.dumps([{"name": "lint", "state": "failure"}])
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            mock_gh.return_value = _make_gh_result(returncode=8, stdout=payload)
+            assert _get_check_status(1, "owner/repo") == {"lint": "FAILURE"}
+
+    def test_zero_exit_without_checks_is_not_a_fault(self):
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            mock_gh.return_value = _make_gh_result(returncode=0, stdout="[]")
+            assert _get_check_status(1, "owner/repo") == {}
 
 
 # ---------------------------------------------------------------------------

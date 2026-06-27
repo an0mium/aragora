@@ -860,13 +860,13 @@ class TestDataFetchingHelpers:
         assert abs(result["error_rate"] - 0.05) < 1e-9
 
     def test_get_circuit_breaker_state_no_v2_module(self, handler):
-        """Returns unknown when circuit_breaker_v2 import fails."""
+        """Returns unknown when the circuit breaker module import fails."""
         import builtins
 
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
-            if "circuit_breaker_v2" in name:
+            if "simple_circuit_breaker" in name:
                 raise ImportError("no module")
             return original_import(name, *args, **kwargs)
 

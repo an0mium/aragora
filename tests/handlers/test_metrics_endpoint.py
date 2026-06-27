@@ -681,8 +681,10 @@ class TestHandlerInit:
 class TestHandlerCanHandle:
     """Test can_handle() route matching."""
 
-    def test_handles_metrics(self, handler):
-        assert handler.can_handle("/metrics") is True
+    def test_does_not_claim_metrics(self, handler):
+        # /metrics is owned by MetricsHandler in the unified server
+        # (first-wins registry); direct handle("/metrics") still works.
+        assert handler.can_handle("/metrics") is False
 
     def test_handles_api_metrics_prometheus(self, handler):
         assert handler.can_handle("/api/metrics/prometheus") is True
@@ -713,7 +715,8 @@ class TestHandlerCanHandle:
         assert handler.can_handle("/") is False
 
     def test_routes_constant(self, handler):
-        assert "/metrics" in handler.ROUTES
+        # /metrics intentionally absent: owned by MetricsHandler
+        assert "/metrics" not in handler.ROUTES
         assert "/api/metrics/prometheus" in handler.ROUTES
         assert "/api/metrics/prometheus/summary" in handler.ROUTES
 

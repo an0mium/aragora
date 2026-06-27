@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -34,6 +35,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from audit_codex_branch_backlog import (  # noqa: E402
     DEFAULT_OUTBOX_DIR,
     DEFAULT_RECEIPT_DIR,
+    TERMINAL_RECEIPT_STATUSES,
     _commit_prefix_matches,
     is_patch_equivalent,
     terminal_receipted_handoff_branch_heads,
@@ -41,15 +43,51 @@ from audit_codex_branch_backlog import (  # noqa: E402
 )
 
 SCHEMA = "aragora-worktree-harvest/1.0"
+# Every git/gh subprocess in this module must carry an explicit timeout so a
+# wedged candidate repo (e.g. `git status` blocked on an fsmonitor daemon or
+# hook) can never hang the whole inventory. Overridable per-run via
+# --git-timeout-seconds (alias of the long-standing --git-timeout flag).
+GIT_TIMEOUT_SECONDS = 30
+MAX_SMART_MERGE_PATCH_COMMITS = 25
+# Substring run_cmd embeds in stderr on timeout; classify_candidate uses it to
+# annotate timed-out candidates as inspect_timeout (always protected).
+_TIMEOUT_ERROR_MARKER = "timed out after"
 DEFAULT_LEGACY_ROOT = Path.home() / ".codex" / "worktrees"
 DEFAULT_CANONICAL_REL_ROOT = Path(".worktrees") / "codex-auto"
 DEFAULT_ROOT = DEFAULT_LEGACY_ROOT  # kept for backward compatibility
 DEFAULT_LEDGER_ROOT = Path(".aragora/worktree-harvest")
+DEFAULT_HARVEST_RECEIPT_REL_DIR = DEFAULT_LEDGER_ROOT / "harvest-receipts"
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
     ".codex_session_active",
     ".nomic-session-active",
 )
+RECEIPT_PATH_KEYS = frozenset(
+    {
+        "candidate_path",
+        "candidate_repo_path",
+        "checkout_path",
+        "path",
+        "repo_path",
+        "source_path",
+        "source_repo_path",
+        "worktree",
+        "worktree_path",
+    }
+)
+RECEIPT_HEAD_KEYS = frozenset(
+    {
+        "candidate_head",
+        "candidate_head_sha",
+        "commit",
+        "head",
+        "head_sha",
+        "sha",
+        "source_head",
+        "source_head_sha",
+    }
+)
+TERMINAL_HARVEST_DECISION_PREFIXES = ("already_", "preserve_")
 PROJECT_MARKER_FILES = (
     ".git",
     "pyproject.toml",
@@ -110,6 +148,7 @@ class GitInfo:
     patch_equivalent_to_base: bool = False
     smart_merge_equivalent_to_base: bool = False
     lookup_failed: bool = False
+    inspect_timeout: bool = False
     lookup_errors: list[str] = field(default_factory=list)
 
 
@@ -163,31 +202,155 @@ class InventoryContext:
     smart_merge_detection: bool = False
     smart_merge_main_subjects: list[str] = field(default_factory=list)
     open_pr_heads_cache: dict[str, list[dict[str, Any]]] | None = None
+    open_pr_records_cache: list[dict[str, Any]] | None = None
+    branch_pr_records_cache: dict[str, list[dict[str, Any]]] | None = None
+    terminal_receipt_path_heads: dict[str, set[str | None]] = field(default_factory=dict)
 
 
 def utc_now() -> datetime:
     return datetime.now(UTC).replace(microsecond=0)
 
 
-def run_cmd(args: list[str], cwd: Path, *, timeout: int) -> subprocess.CompletedProcess[str]:
+def _kill_process_tree(proc: subprocess.Popen) -> None:
+    """Kill the child and its whole session, then drain pipes boundedly.
+
+    ``subprocess.run(timeout=...)`` kills only the direct child and then
+    drains its pipes with no timeout; a descendant process (git hook,
+    fsmonitor daemon) that inherited the pipe FDs keeps them open and the
+    drain blocks forever -- the observed "hung inside candidate git status"
+    failure. Killing the whole session and bounding the drain guarantees
+    run_cmd always returns.
+
+    ``os.killpg``/``start_new_session`` are POSIX-only; on platforms without
+    them the AttributeError/OSError fallback kills the direct child only.
+    """
     try:
-        return subprocess.run(
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (OSError, AttributeError):
+        proc.kill()
+    try:
+        proc.communicate(timeout=5)
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        # Last resort: abandon the pipes rather than block the inventory.
+        for stream in (proc.stdout, proc.stderr):
+            if stream is not None:
+                try:
+                    stream.close()
+                except OSError:
+                    pass
+        try:
+            proc.wait(timeout=5)  # reap; SIGKILL was already sent above
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+
+def run_cmd(
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: int,
+    env: dict[str, str] | None = None,
+    input_text: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        proc = subprocess.Popen(
             args,
             cwd=cwd,
             text=True,
-            capture_output=True,
-            check=False,
-            timeout=timeout,
+            encoding="utf-8",
+            errors="replace",
+            stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            start_new_session=True,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        stderr = str(exc)
-        if isinstance(exc, subprocess.TimeoutExpired):
-            stderr = f"command timed out after {timeout}s: {' '.join(args)}"
-        return subprocess.CompletedProcess(args=args, returncode=124, stdout="", stderr=stderr)
+    except OSError as exc:
+        return subprocess.CompletedProcess(args=args, returncode=124, stdout="", stderr=str(exc))
+    try:
+        if input_text is None:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        else:
+            stdout, stderr = proc.communicate(input=input_text, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=124,
+            stdout="",
+            stderr=f"command timed out after {timeout}s: {' '.join(args)}",
+        )
+    except (UnicodeError, OSError, ValueError) as exc:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=125,
+            stdout="",
+            stderr=f"command failed while reading output: {type(exc).__name__}: {exc}",
+        )
+    return subprocess.CompletedProcess(
+        args=args, returncode=proc.returncode, stdout=stdout or "", stderr=stderr or ""
+    )
 
 
-def run_git(args: list[str], cwd: Path, *, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+def run_cmd_bytes(
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: int,
+    env: dict[str, str] | None = None,
+    input_bytes: bytes | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    try:
+        proc = subprocess.Popen(
+            args,
+            cwd=cwd,
+            stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        return subprocess.CompletedProcess(
+            args=args, returncode=124, stdout=b"", stderr=str(exc).encode()
+        )
+    try:
+        if input_bytes is None:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        else:
+            stdout, stderr = proc.communicate(input=input_bytes, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=124,
+            stdout=b"",
+            stderr=f"command timed out after {timeout}s: {' '.join(args)}".encode(),
+        )
+    except (OSError, ValueError) as exc:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=125,
+            stdout=b"",
+            stderr=f"command failed while reading output: {type(exc).__name__}: {exc}".encode(),
+        )
+    return subprocess.CompletedProcess(
+        args=args, returncode=proc.returncode, stdout=stdout or b"", stderr=stderr or b""
+    )
+
+
+def run_git(
+    args: list[str], cwd: Path, *, timeout: int = GIT_TIMEOUT_SECONDS
+) -> subprocess.CompletedProcess[str]:
     return run_cmd(["git", *args], cwd, timeout=timeout)
+
+
+def run_git_bytes(
+    args: list[str], cwd: Path, *, timeout: int = GIT_TIMEOUT_SECONDS
+) -> subprocess.CompletedProcess[bytes]:
+    return run_cmd_bytes(["git", *args], cwd, timeout=timeout)
 
 
 def resolve_repo(path: Path) -> Path:
@@ -286,6 +449,177 @@ def branch_matches_receipt(
     return any(
         receipt_head is None or _commit_prefix_matches(receipt_head, head) for receipt_head in heads
     )
+
+
+def _absolute_path_key(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        return None
+    return str(path.resolve(strict=False))
+
+
+def _receipt_heads_from_mapping(payload: dict[str, Any]) -> set[str | None]:
+    heads: set[str | None] = set()
+    for key, value in payload.items():
+        if key not in RECEIPT_HEAD_KEYS:
+            continue
+        if value is None:
+            heads.add(None)
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text:
+                heads.add(text)
+    return heads
+
+
+def _concrete_receipt_heads_from_value(value: Any) -> set[str]:
+    heads: set[str] = set()
+    if isinstance(value, dict):
+        heads.update(head for head in _receipt_heads_from_mapping(value) if head)
+        for item in value.values():
+            heads.update(_concrete_receipt_heads_from_value(item))
+    elif isinstance(value, list):
+        for item in value:
+            heads.update(_concrete_receipt_heads_from_value(item))
+    return heads
+
+
+def _merged_pr_receipt_head_matches(github_pr: dict[str, Any], payload: dict[str, Any]) -> bool:
+    pr_heads = {head for head in _receipt_heads_from_mapping(github_pr) if head}
+    if not pr_heads:
+        return False
+
+    receipt_heads = {head for head in _receipt_heads_from_mapping(payload) if head}
+    for key in (
+        "candidate",
+        "candidates",
+        "local_evidence",
+        "requested_action",
+        "selected_candidate",
+        "source_candidate",
+        "source_candidates",
+    ):
+        receipt_heads.update(_concrete_receipt_heads_from_value(payload.get(key)))
+
+    reconfirmation = payload.get("reconfirmation")
+    if isinstance(reconfirmation, dict):
+        for key in (
+            "candidate",
+            "candidates",
+            "local_evidence",
+            "requested_action",
+            "selected_candidate",
+            "source_candidate",
+            "source_candidates",
+        ):
+            receipt_heads.update(_concrete_receipt_heads_from_value(reconfirmation.get(key)))
+
+    return bool(receipt_heads) and any(
+        _commit_prefix_matches(pr_head, receipt_head)
+        for pr_head in pr_heads
+        for receipt_head in receipt_heads
+    )
+
+
+def _receipt_path_head_pairs(
+    value: Any,
+    *,
+    inherited_heads: set[str | None] | None = None,
+) -> list[tuple[str, str | None]]:
+    heads = set(inherited_heads or set())
+    pairs: list[tuple[str, str | None]] = []
+
+    if isinstance(value, dict):
+        local_heads = _receipt_heads_from_mapping(value)
+        if local_heads:
+            heads = local_heads
+        for key, item in value.items():
+            if key in RECEIPT_PATH_KEYS:
+                path_key = _absolute_path_key(item)
+                if path_key:
+                    for head in heads or {None}:
+                        pairs.append((path_key, head))
+            if isinstance(item, (dict, list)):
+                pairs.extend(_receipt_path_head_pairs(item, inherited_heads=heads))
+    elif isinstance(value, list):
+        for item in value:
+            pairs.extend(_receipt_path_head_pairs(item, inherited_heads=heads))
+
+    return pairs
+
+
+def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
+    status = str(payload.get("status") or "").strip()
+    if status in TERMINAL_RECEIPT_STATUSES:
+        return True
+    decision_value = payload.get("decision")
+    if isinstance(decision_value, dict):
+        decision = str(
+            decision_value.get("outcome")
+            or decision_value.get("status")
+            or decision_value.get("decision")
+            or ""
+        ).strip()
+    else:
+        decision = str(decision_value or payload.get("outcome") or "").strip()
+    if decision in TERMINAL_RECEIPT_STATUSES:
+        return True
+    if decision.startswith(TERMINAL_HARVEST_DECISION_PREFIXES):
+        return True
+    github_pr = payload.get("github_pr")
+    reconfirmation = payload.get("reconfirmation")
+    if isinstance(reconfirmation, dict) and not isinstance(github_pr, dict):
+        github_pr = reconfirmation.get("github_pr")
+    if isinstance(github_pr, dict):
+        state = str(github_pr.get("state") or "").strip().upper()
+        if state == "MERGED" and _merged_pr_receipt_head_matches(github_pr, payload):
+            return True
+    return False
+
+
+def terminal_receipt_path_heads(receipt_roots: list[Path]) -> dict[str, set[str | None]]:
+    """Return terminal receipt path refs with optional exact-head evidence."""
+
+    refs: dict[str, set[str | None]] = {}
+    for receipt_root in receipt_roots:
+        for receipt_file in json_files(receipt_root):
+            payload = load_json_mapping(receipt_file)
+            if payload is None or not _terminal_path_receipt(payload):
+                continue
+            for path_key, head in _receipt_path_head_pairs(payload):
+                refs.setdefault(path_key, set()).add(head)
+    return refs
+
+
+def path_matches_receipt(
+    candidate_path: Path,
+    repo_path: Path | None,
+    head: str | None,
+    receipt_path_heads: dict[str, set[str | None]],
+) -> bool:
+    path_keys = {_absolute_path_key(str(candidate_path))}
+    if repo_path is not None:
+        path_keys.add(_absolute_path_key(str(repo_path)))
+    for path_key in {item for item in path_keys if item}:
+        heads = receipt_path_heads.get(path_key, set())
+        if not heads:
+            continue
+        if not head:
+            if None in heads:
+                return True
+            continue
+        if any(
+            receipt_head is None or _commit_prefix_matches(receipt_head, head)
+            for receipt_head in heads
+        ):
+            return True
+    return False
 
 
 def outbox_files_for_branch(outbox_dir: Path, branch: str | None) -> list[str]:
@@ -491,10 +825,161 @@ def branch_subjects_match_recent_main(
     return len(matched) == len(subjects), matched
 
 
+def branch_patches_present_on_base(
+    repo_path: Path,
+    base: str,
+    rev: str,
+    *,
+    timeout: int,
+    lookup_errors: list[str] | None = None,
+) -> tuple[bool, list[str]]:
+    """Return true when every unique non-merge commit patch is already in base.
+
+    Some stale branches contain local commits whose changes were later merged
+    through a different PR/commit, while the stale branch's old tree still
+    differs from current main. Plain tree-diff or `git cherry` checks can leave
+    those as false `unique_unharvested` rows. Use a temporary index loaded with
+    `base` and verify each commit's reverse patch applies there. This is the
+    same safety property as "cherry-pick onto base would be empty", without
+    mutating the candidate worktree.
+    """
+
+    commits_proc = run_git(
+        ["rev-list", "--reverse", "--no-merges", f"{base}..{rev}"],
+        repo_path,
+        timeout=timeout,
+    )
+    if commits_proc.returncode != 0:
+        if lookup_errors is not None:
+            detail = (commits_proc.stderr or commits_proc.stdout or "").strip()
+            lookup_errors.append(
+                f"patch-present rev-list failed: {detail or commits_proc.returncode}"
+            )
+        return False, []
+    commits = [line.strip() for line in commits_proc.stdout.splitlines() if line.strip()]
+    if not commits:
+        return False, []
+    if len(commits) > MAX_SMART_MERGE_PATCH_COMMITS:
+        if lookup_errors is not None:
+            lookup_errors.append(
+                "patch-present skipped: "
+                f"{len(commits)} commits exceeds budget {MAX_SMART_MERGE_PATCH_COMMITS}"
+            )
+        return False, []
+
+    fd, index_path = tempfile.mkstemp(prefix="aragora-inventory-index-")
+    os.close(fd)
+    try:
+        env = dict(os.environ)
+        env["GIT_INDEX_FILE"] = index_path
+        read_tree = run_cmd(["git", "read-tree", base], repo_path, timeout=timeout, env=env)
+        if read_tree.returncode != 0:
+            if lookup_errors is not None:
+                detail = (read_tree.stderr or read_tree.stdout or "").strip()
+                lookup_errors.append(
+                    f"patch-present read-tree failed: {detail or read_tree.returncode}"
+                )
+            return False, []
+
+        verified: list[str] = []
+        for commit in commits:
+            patch = run_git_bytes(
+                ["show", "--format=", "--binary", commit], repo_path, timeout=timeout
+            )
+            if patch.returncode != 0 or not patch.stdout.strip():
+                if lookup_errors is not None:
+                    detail = (
+                        (patch.stderr or patch.stdout or b"").decode("utf-8", "replace").strip()
+                    )
+                    reason = "empty patch" if patch.returncode == 0 else detail or patch.returncode
+                    lookup_errors.append(f"patch-present show failed for {commit}: {reason}")
+                return False, verified
+            reverse_check = run_cmd_bytes(
+                ["git", "apply", "--cached", "--reverse", "--check", "-"],
+                repo_path,
+                timeout=timeout,
+                env=env,
+                input_bytes=patch.stdout,
+            )
+            if reverse_check.returncode != 0:
+                if lookup_errors is not None and reverse_check.returncode == 124:
+                    detail = (
+                        (reverse_check.stderr or reverse_check.stdout or b"")
+                        .decode("utf-8", "replace")
+                        .strip()
+                    )
+                    lookup_errors.append(
+                        f"patch-present reverse-check failed for {commit}: "
+                        f"{detail or reverse_check.returncode}"
+                    )
+                return False, verified
+            verified.append(commit)
+        return True, verified
+    finally:
+        try:
+            os.unlink(index_path)
+        except FileNotFoundError:
+            pass
+
+
+def branch_unique_merge_commits(
+    repo_path: Path,
+    base: str,
+    rev: str,
+    *,
+    timeout: int,
+) -> tuple[list[str] | None, str | None]:
+    proc = run_git(["rev-list", "--merges", f"{base}..{rev}"], repo_path, timeout=timeout)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        return None, detail or f"git rev-list --merges exited {proc.returncode}"
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()], None
+
+
+def branch_merge_tree_matches_base(
+    repo_path: Path,
+    base: str,
+    rev: str,
+    *,
+    timeout: int,
+) -> tuple[bool | None, str | None]:
+    """Return true when merging rev into base would leave base's tree unchanged."""
+
+    base_tree = run_git(["rev-parse", f"{base}^{{tree}}"], repo_path, timeout=timeout)
+    if base_tree.returncode != 0:
+        detail = (base_tree.stderr or base_tree.stdout or "").strip()
+        return None, detail or f"git rev-parse {base}^{{tree}} exited {base_tree.returncode}"
+    base_tree_sha = base_tree.stdout.strip().splitlines()[0] if base_tree.stdout.strip() else ""
+    if not base_tree_sha:
+        return None, "git rev-parse returned an empty tree id"
+
+    merge_tree = run_git(
+        ["merge-tree", "--write-tree", "--no-messages", base, rev],
+        repo_path,
+        timeout=timeout,
+    )
+    if merge_tree.returncode != 0:
+        detail = (merge_tree.stderr or merge_tree.stdout or "").strip()
+        reason = detail or f"git merge-tree exited {merge_tree.returncode}"
+        if merge_tree.returncode == 124 or _TIMEOUT_ERROR_MARKER in reason:
+            return None, reason
+        return False, reason
+    merged_tree_sha = merge_tree.stdout.strip().splitlines()[0] if merge_tree.stdout.strip() else ""
+    if not merged_tree_sha:
+        return None, "git merge-tree returned an empty tree id"
+    return merged_tree_sha == base_tree_sha, None
+
+
 def prefetch_open_pr_heads(
     repo: Path, *, timeout: int
-) -> tuple[dict[str, list[dict[str, Any]]], bool, str | None]:
-    proc = run_cmd(
+) -> tuple[
+    dict[str, list[dict[str, Any]]],
+    list[dict[str, Any]],
+    dict[str, list[dict[str, Any]]],
+    bool,
+    str | None,
+]:
+    open_proc = run_cmd(
         [
             "gh",
             "pr",
@@ -504,29 +989,75 @@ def prefetch_open_pr_heads(
             "--limit",
             "500",
             "--json",
-            "number,title,url,headRefName",
+            "number,title,url,headRefName,body,state,headRefOid",
         ],
         repo,
         timeout=timeout,
     )
-    if proc.returncode != 0:
-        return {}, True, proc.stderr.strip() or "gh pr prefetch failed"
+    if open_proc.returncode != 0:
+        return {}, [], {}, True, open_proc.stderr.strip() or "gh pr open prefetch failed"
     try:
-        payload = json.loads(proc.stdout or "[]")
+        open_payload = json.loads(open_proc.stdout or "[]")
     except json.JSONDecodeError as exc:
-        return {}, True, f"failed to parse gh pr prefetch output: {exc}"
-    if not isinstance(payload, list):
-        return {}, True, "gh pr prefetch output was not a list"
+        return {}, [], {}, True, f"failed to parse gh pr open prefetch output: {exc}"
+    if not isinstance(open_payload, list):
+        return {}, [], {}, True, "gh pr open prefetch output was not a list"
+
+    all_proc = run_cmd(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "all",
+            "--limit",
+            "500",
+            "--json",
+            "number,title,url,headRefName,body,state,headRefOid",
+        ],
+        repo,
+        timeout=timeout,
+    )
+    if all_proc.returncode != 0:
+        return {}, [], {}, True, all_proc.stderr.strip() or "gh pr all-state prefetch failed"
+    try:
+        all_payload = json.loads(all_proc.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        return {}, [], {}, True, f"failed to parse gh pr all-state prefetch output: {exc}"
+    if not isinstance(all_payload, list):
+        return {}, [], {}, True, "gh pr all-state prefetch output was not a list"
+
     cache: dict[str, list[dict[str, Any]]] = {}
-    for item in payload:
+    records: list[dict[str, Any]] = []
+    branch_records: dict[str, list[dict[str, Any]]] = {}
+    for item in all_payload:
         if not isinstance(item, dict):
             continue
         head = item.get("headRefName")
         if not isinstance(head, str) or not head:
             continue
-        record = {k: v for k, v in item.items() if k in ("number", "title", "url")}
+        record = {
+            k: v
+            for k, v in item.items()
+            if k in ("number", "title", "url", "headRefName", "body", "state", "headRefOid")
+        }
+        branch_records.setdefault(head, []).append(record)
+    for item in open_payload:
+        if not isinstance(item, dict):
+            continue
+        head = item.get("headRefName")
+        if not isinstance(head, str) or not head:
+            continue
+        if str(item.get("state") or "OPEN").upper() != "OPEN":
+            continue
+        record = {
+            k: v
+            for k, v in item.items()
+            if k in ("number", "title", "url", "headRefName", "body", "state", "headRefOid")
+        }
+        records.append(record)
         cache.setdefault(head, []).append(record)
-    return cache, False, None
+    return cache, records, branch_records, False, None
 
 
 def lookup_open_prs(
@@ -557,6 +1088,118 @@ def lookup_open_prs(
     if not isinstance(payload, list):
         return [], True, "gh pr output was not a list"
     return [item for item in payload if isinstance(item, dict)], False, None
+
+
+def lookup_branch_prs(
+    repo: Path,
+    branch: str | None,
+    *,
+    timeout: int,
+    skip_gh: bool,
+    cached_branch_prs: dict[str, list[dict[str, Any]]] | None = None,
+) -> tuple[list[dict[str, Any]], bool, str | None]:
+    """Return all GitHub PR records for a branch.
+
+    This is used only for preserve decisions: if a stale closed PR branch is
+    explicitly superseded by an open PR, inventory must not propose harvesting
+    that old branch again.
+    """
+
+    if not branch or skip_gh:
+        return [], False, None
+    if cached_branch_prs is not None:
+        return list(cached_branch_prs.get(branch, [])), False, None
+    proc = run_cmd(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "all",
+            "--head",
+            branch,
+            "--json",
+            "number,title,url,state,headRefName,headRefOid",
+        ],
+        repo,
+        timeout=timeout,
+    )
+    if proc.returncode != 0:
+        return [], True, proc.stderr.strip() or "gh pr branch lookup failed"
+    try:
+        payload = json.loads(proc.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        return [], True, f"failed to parse gh pr branch output: {exc}"
+    if not isinstance(payload, list):
+        return [], True, "gh pr branch output was not a list"
+    return [item for item in payload if isinstance(item, dict)], False, None
+
+
+_SUPERSESSION_TERMS = (
+    "supersede",
+    "supersedes",
+    "superseded",
+    "re-cut",
+    "recut",
+    "re cut",
+    "replaces",
+    "replacement",
+)
+
+
+def _open_pr_explicitly_supersedes(source_pr_number: int, open_pr: dict[str, Any]) -> bool:
+    text = f"{open_pr.get('title') or ''}\n{open_pr.get('body') or ''}".lower()
+    if not text:
+        return False
+    for match in re.finditer(rf"#\s*{source_pr_number}\b", text):
+        window = text[max(0, match.start() - 96) : min(len(text), match.end() + 96)]
+        if any(term in window for term in _SUPERSESSION_TERMS):
+            return True
+    return False
+
+
+def lookup_superseding_open_prs(
+    repo: Path,
+    branch: str | None,
+    *,
+    timeout: int,
+    skip_gh: bool,
+    open_pr_records: list[dict[str, Any]] | None,
+    branch_pr_records: dict[str, list[dict[str, Any]]] | None,
+) -> tuple[list[dict[str, Any]], bool, str | None]:
+    if not branch or skip_gh or not open_pr_records:
+        return [], False, None
+
+    branch_prs, failed, error = lookup_branch_prs(
+        repo,
+        branch,
+        timeout=timeout,
+        skip_gh=skip_gh,
+        cached_branch_prs=branch_pr_records,
+    )
+    if failed:
+        return [], True, error
+
+    source_numbers: list[int] = []
+    for item in branch_prs:
+        state = str(item.get("state") or "").upper()
+        number = item.get("number")
+        if state == "OPEN" or not isinstance(number, int):
+            continue
+        source_numbers.append(number)
+
+    superseding: list[dict[str, Any]] = []
+    for source_number in source_numbers:
+        for open_pr in open_pr_records:
+            if _open_pr_explicitly_supersedes(source_number, open_pr):
+                record = {
+                    k: v
+                    for k, v in open_pr.items()
+                    if k in ("number", "title", "url", "headRefName")
+                }
+                record["supersedes_pr"] = source_number
+                superseding.append(record)
+    return superseding, False, None
 
 
 def measure_sizes(
@@ -622,6 +1265,7 @@ def classify_candidate(
     proof: list[str] = []
     links: dict[str, Any] = {
         "open_prs": [],
+        "superseding_open_prs": [],
         "outbox_files": [],
         "receipt_files": [],
     }
@@ -728,11 +1372,18 @@ def classify_candidate(
     links["outbox_files"] = outbox_files_for_branch(context.outbox_dir, branch)
     links["receipt_files"] = receipt_files_for_branch(context.receipt_dir, branch)
     outbox_protected = bool(branch and branch in context.unresolved_outbox_branches)
-    receipt_protected = branch_matches_receipt(
+    branch_receipt_protected = branch_matches_receipt(
         branch,
         head,
         context.terminal_receipt_branch_heads,
     )
+    path_receipt_protected = path_matches_receipt(
+        candidate_root,
+        repo_path,
+        head,
+        context.terminal_receipt_path_heads,
+    )
+    receipt_protected = branch_receipt_protected or path_receipt_protected
 
     if active_session or lock_files or dirty:
         classification = "active_or_dirty"
@@ -753,53 +1404,145 @@ def classify_candidate(
             proof.append("unresolved automation outbox references branch")
     elif receipt_protected:
         classification = "receipt_protected"
-        proof.append("terminal automation receipt references branch/head")
+        if branch_receipt_protected:
+            proof.append("terminal automation receipt references branch/head")
+        if path_receipt_protected:
+            proof.append("terminal receipt references path/head")
     elif git.ahead and git.ahead > 0:
-        patch_equivalent = False
-        try:
-            patch_equivalent = is_patch_equivalent(
-                repo_path,
-                context.base,
-                rev or "HEAD",
-                timeout=context.patch_timeout,
-            )
-        except Exception as exc:
+        superseding_open_prs, superseding_failed, superseding_error = lookup_superseding_open_prs(
+            context.repo,
+            branch,
+            timeout=context.gh_timeout,
+            skip_gh=context.skip_gh,
+            open_pr_records=context.open_pr_records_cache,
+            branch_pr_records=context.branch_pr_records_cache,
+        )
+        links["superseding_open_prs"] = superseding_open_prs
+        if superseding_failed:
             git.lookup_failed = True
-            git.lookup_errors.append(f"patch equivalence failed: {exc}")
+            git.lookup_errors.append(superseding_error or "superseding open PR lookup failed")
             classification = "lookup_failed"
-            proof.append("patch equivalence lookup failed")
+            proof.append("superseding open PR lookup failed")
+        elif superseding_open_prs:
+            classification = "open_pr_or_outbox"
+            proof.append("open PR explicitly supersedes closed source PR for branch")
         else:
-            git.patch_equivalent_to_base = patch_equivalent
-            if patch_equivalent:
-                classification = "patch_equivalent_or_merged"
-                proof.append("branch is patch-equivalent to base")
-            elif context.smart_merge_detection:
-                smart_equivalent, matched_subjects = branch_subjects_match_recent_main(
+            patch_equivalent = False
+            try:
+                patch_equivalent = is_patch_equivalent(
                     repo_path,
                     context.base,
                     rev or "HEAD",
-                    context.smart_merge_main_subjects,
                     timeout=context.patch_timeout,
                 )
-                git.smart_merge_equivalent_to_base = smart_equivalent
-                if smart_equivalent:
+            except Exception as exc:
+                git.lookup_failed = True
+                git.lookup_errors.append(f"patch equivalence failed: {exc}")
+                classification = "lookup_failed"
+                proof.append("patch equivalence lookup failed")
+            else:
+                git.patch_equivalent_to_base = patch_equivalent
+                if patch_equivalent:
                     classification = "patch_equivalent_or_merged"
-                    proof.append(
-                        "all unique commit subjects match recent main squash-merge subjects"
+                    proof.append("branch is patch-equivalent to base")
+                elif context.smart_merge_detection:
+                    merge_tree_matches, merge_tree_error = branch_merge_tree_matches_base(
+                        repo_path,
+                        context.base,
+                        rev or "HEAD",
+                        timeout=context.patch_timeout,
                     )
-                    links["smart_merge_matched_subjects"] = matched_subjects
+                    if merge_tree_matches is None and merge_tree_error:
+                        git.lookup_failed = True
+                        git.lookup_errors.append(
+                            f"smart merge merge-tree lookup failed: {merge_tree_error}"
+                        )
+                        classification = "lookup_failed"
+                        proof.append("smart merge lookup failed")
+                    elif merge_tree_matches:
+                        git.smart_merge_equivalent_to_base = True
+                        classification = "patch_equivalent_or_merged"
+                        proof.append("merging branch into base leaves base tree unchanged")
+                        links["smart_merge_merge_tree"] = context.base
+                    elif merge_tree_error:
+                        classification = "unique_unharvested"
+                        proof.append(
+                            "merge-tree did not prove branch is already represented on base"
+                        )
+                        links["smart_merge_merge_tree_error"] = merge_tree_error
+                    else:
+                        merge_commits, merge_error = branch_unique_merge_commits(
+                            repo_path,
+                            context.base,
+                            rev or "HEAD",
+                            timeout=context.patch_timeout,
+                        )
+                        if merge_error:
+                            git.lookup_failed = True
+                            git.lookup_errors.append(
+                                f"smart merge merge-commit lookup failed: {merge_error}"
+                            )
+                            classification = "lookup_failed"
+                            proof.append("smart merge lookup failed")
+                        elif merge_commits:
+                            classification = "unique_unharvested"
+                            proof.append(
+                                "smart merge detection skipped because branch contains merge commits"
+                            )
+                            links["smart_merge_merge_commits"] = merge_commits
+                        else:
+                            smart_equivalent, matched_subjects = branch_subjects_match_recent_main(
+                                repo_path,
+                                context.base,
+                                rev or "HEAD",
+                                context.smart_merge_main_subjects,
+                                timeout=context.patch_timeout,
+                            )
+                            if smart_equivalent:
+                                proof.append(
+                                    "all unique commit subjects match recent main squash-merge "
+                                    "subjects (advisory; patch proof still required)"
+                                )
+                                links["smart_merge_matched_subjects"] = matched_subjects
+                            error_count_before = len(git.lookup_errors)
+                            patches_present, matched_commits = branch_patches_present_on_base(
+                                repo_path,
+                                context.base,
+                                rev or "HEAD",
+                                timeout=context.patch_timeout,
+                                lookup_errors=git.lookup_errors,
+                            )
+                            git.smart_merge_equivalent_to_base = patches_present
+                            if patches_present:
+                                classification = "patch_equivalent_or_merged"
+                                proof.append(
+                                    "all unique commit patches are already present on base"
+                                )
+                                links["smart_merge_matched_commits"] = matched_commits
+                            elif len(git.lookup_errors) > error_count_before:
+                                git.lookup_failed = True
+                                classification = "lookup_failed"
+                                proof.append("smart merge patch-present lookup failed")
+                            else:
+                                classification = "unique_unharvested"
+                                proof.append("branch has unique commits or diff ahead of base")
                 else:
                     classification = "unique_unharvested"
                     proof.append("branch has unique commits or diff ahead of base")
-            else:
-                classification = "unique_unharvested"
-                proof.append("branch has unique commits or diff ahead of base")
     elif git.registered_worktree:
         classification = "patch_equivalent_or_merged"
         proof.append("registered git worktree has no unique commits ahead of base")
     else:
         classification = "unregistered_git_residue"
         proof.append("git checkout is not registered in git worktree list")
+
+    if any(_TIMEOUT_ERROR_MARKER in error for error in git.lookup_errors):
+        # A timed-out lookup is never authoritative: the candidate is already
+        # routed to a protected class (active_or_dirty via the fail-dirty
+        # status path, or lookup_failed), so it can never be safe-to-clean.
+        # Annotate it so operators and the summary can count timeouts.
+        git.inspect_timeout = True
+        proof.append("inspect_timeout: a git/GitHub lookup timed out; candidate is protected")
 
     return build_candidate(
         candidate_root,
@@ -981,16 +1724,14 @@ def candidate_roots(root: Path, limit: int | None = None) -> list[Path]:
 
 def _git_common_dir(repo: Path) -> Path | None:
     """Return the git common dir for ``repo`` without raising on non-repos."""
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    # cwd="." is deliberate: ``repo`` may be a deleted/broken worktree path,
+    # and Popen(cwd=<missing dir>) raises before git can answer; ``git -C``
+    # reports the failure gracefully instead.
+    result = run_cmd(
+        ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        Path("."),
+        timeout=5,
+    )
     if result.returncode != 0:
         return None
     raw = result.stdout.strip()
@@ -1105,6 +1846,7 @@ def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
         "bytes_by_class": bytes_by_class,
         "known_size_bytes": known_bytes,
         "size_lookup_failures": size_lookup_failures,
+        "inspect_timeouts": sum(1 for candidate in candidates if candidate.git.inspect_timeout),
         "inventory_coverage": (
             1.0 if not candidates else (len(candidates) - size_lookup_failures) / len(candidates)
         ),
@@ -1150,10 +1892,16 @@ def inventory(
     candidate_paths = candidate_roots_from(roots, limit)
     sizes, size_failures = measure_sizes(candidate_paths, mode=size_mode, timeout=size_timeout)
     open_pr_heads_cache: dict[str, list[dict[str, Any]]] | None = None
+    open_pr_records_cache: list[dict[str, Any]] | None = None
+    branch_pr_records_cache: dict[str, list[dict[str, Any]]] | None = None
     if include_pr_state:
-        cache, fetch_failed, _err = prefetch_open_pr_heads(repo, timeout=gh_timeout)
+        cache, records, branch_records, fetch_failed, _err = prefetch_open_pr_heads(
+            repo, timeout=gh_timeout
+        )
         if not fetch_failed:
             open_pr_heads_cache = cache
+            open_pr_records_cache = records
+            branch_pr_records_cache = branch_records
     context = InventoryContext(
         repo=repo,
         base=base,
@@ -1173,6 +1921,12 @@ def inventory(
             outbox_dir=outbox_dir,
             receipt_dir=receipt_dir,
         ),
+        terminal_receipt_path_heads=terminal_receipt_path_heads(
+            [
+                receipt_dir if receipt_dir.is_absolute() else repo / receipt_dir,
+                repo / DEFAULT_HARVEST_RECEIPT_REL_DIR,
+            ]
+        ),
         skip_gh=skip_gh,
         git_timeout=git_timeout,
         gh_timeout=gh_timeout,
@@ -1184,6 +1938,8 @@ def inventory(
             else []
         ),
         open_pr_heads_cache=open_pr_heads_cache,
+        open_pr_records_cache=open_pr_records_cache,
+        branch_pr_records_cache=branch_pr_records_cache,
     )
     candidates = [
         classify_candidate(
@@ -1284,7 +2040,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--size-mode", choices=("du", "stat", "none"), default="du")
     parser.add_argument("--size-timeout", type=int, default=300)
-    parser.add_argument("--git-timeout", type=int, default=30)
+    parser.add_argument(
+        "--git-timeout",
+        "--git-timeout-seconds",
+        dest="git_timeout",
+        type=int,
+        default=GIT_TIMEOUT_SECONDS,
+        help=f"Timeout for each git subprocess (default {GIT_TIMEOUT_SECONDS}s; "
+        "a timed-out candidate is annotated inspect_timeout and preserved)",
+    )
     parser.add_argument("--gh-timeout", type=int, default=30)
     parser.add_argument("--patch-timeout", type=int, default=45)
     parser.add_argument("--skip-gh", action="store_true")
@@ -1292,9 +2056,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--smart-merge-detection",
         action="store_true",
         help=(
-            "Reclassify ahead branches as patch_equivalent_or_merged when every "
-            "unique commit subject loosely matches a recent main squash-merge "
-            "subject. Default off to preserve legacy inventory behavior."
+            "Reclassify ahead branches as patch_equivalent_or_merged when merge-tree "
+            "or patch-presence proves the branch is already represented on base. "
+            "Loose recent-main subject matches are recorded only as advisory context. "
+            "Default off to preserve legacy inventory behavior."
         ),
     )
     parser.add_argument(

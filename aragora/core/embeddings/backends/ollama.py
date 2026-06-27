@@ -5,7 +5,12 @@ import logging
 import os
 import socket
 
-import aiohttp
+from aragora._lazy_imports import lazy_module
+
+# Optional runtime dep: imported lazily so the embeddings package can be
+# imported on a base install that lacks aiohttp. aiohttp is only needed when
+# this backend actually issues an HTTP request to the embedding provider.
+aiohttp = lazy_module("aiohttp")
 
 from aragora.core.embeddings.backends import EmbeddingBackend
 from aragora.core.embeddings.types import (

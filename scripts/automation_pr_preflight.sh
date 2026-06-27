@@ -17,6 +17,7 @@ test_changes=""
 docs_only_changes=""
 forbidden_files=""
 rescue_publish_files=""
+publisher_startup_changes=""
 docs_only=false
 
 usage() {
@@ -49,6 +50,7 @@ emit_json() {
     export PREFLIGHT_DOCS_ONLY="${docs_only}"
     export PREFLIGHT_FORBIDDEN_FILES="${forbidden_files}"
     export PREFLIGHT_RESCUE_PUBLISH_FILES="${rescue_publish_files}"
+    export PREFLIGHT_PUBLISHER_STARTUP_CHANGES="${publisher_startup_changes}"
     python3 -c '
 import json
 import os
@@ -59,8 +61,11 @@ def lines(name: str) -> list[str]:
     return [line for line in os.environ.get(name, "").splitlines() if line]
 
 
+changed_paths = set(lines("PREFLIGHT_CHANGED_FILES"))
 source_changes = lines("PREFLIGHT_SOURCE_CHANGES")
 test_changes = lines("PREFLIGHT_TEST_CHANGES")
+publisher_startup_changes = lines("PREFLIGHT_PUBLISHER_STARTUP_CHANGES")
+changed_paths = set(lines("PREFLIGHT_CHANGED_FILES"))
 python_sources = [path for path in source_changes if path.endswith(".py")]
 suggested_commands: list[str] = []
 if python_sources:
@@ -69,9 +74,30 @@ if python_sources:
         f"python3 scripts/nomic_ci_test_selector.py --changed-files {quoted} --dry-run"
     )
     suggested_commands.append(f"python3 -m ruff check {quoted}")
+if "scripts/agent_bridge.py" in source_changes:
+    suggested_commands.append("python3 scripts/agent_bridge.py operator-snapshot --json --summary-only")
 if test_changes:
     quoted_tests = " ".join(shlex.quote(path) for path in test_changes)
     suggested_commands.append(f"python3 -m pytest {quoted_tests} -q")
+if changed_paths & {
+    "scripts/render_benchmark_truth_status.py",
+    "tests/scripts/test_render_benchmark_truth_status.py",
+}:
+    suggested_commands.append("python3 -m py_compile scripts/render_benchmark_truth_status.py")
+    pytest_command = "python3 -m pytest tests/scripts/test_render_benchmark_truth_status.py -q"
+    if pytest_command not in suggested_commands:
+        suggested_commands.append(pytest_command)
+if publisher_startup_changes:
+    startup_modules = (
+        "scripts.cache_codex_automation_github_status",
+        "scripts.publish_automation_handoffs",
+        "scripts.publish_codex_automation_branches",
+        "scripts.github_cli_health",
+    )
+    suggested_commands.append(
+        "python3 -c \"import importlib; [importlib.import_module(module) "
+        f"for module in {startup_modules!r}]\""
+    )
 
 payload = {
     "base_ref": os.environ["PREFLIGHT_BASE_REF"],
@@ -172,6 +198,7 @@ fi
 
 source_changes="$(printf '%s\n' "${changed_files}" | grep -E '(^aragora/|^scripts/|^\.github/|^tests/).*\.(py|sh|ya?ml|toml|json|ts|tsx|js|jsx)$' || true)"
 test_changes="$(printf '%s\n' "${changed_files}" | grep -E '(^tests/|__tests__/|\.test\.|\.spec\.)' || true)"
+publisher_startup_changes="$(printf '%s\n' "${changed_files}" | grep -E '^scripts/(cache_codex_automation_github_status|github_cli_health|publish_automation_handoffs|publish_codex_automation_branches)\.py$' || true)"
 docs_only_changes="$(printf '%s\n' "${changed_files}" | grep -Ev '(^docs/|^docs-site/|\.md$)' || true)"
 if [[ -z "${docs_only_changes}" ]]; then
     docs_only=true
@@ -212,4 +239,33 @@ fi
 
 echo "preflight: changed files"
 printf '%s\n' "${changed_files}" | sed 's/^/  - /'
+
+# Opt-in Tier-4 merge-train guard (default off; flip ARAGORA_TIER4_MERGE_TRAIN=1).
+# Refuses to add an (N+1)th concurrent open PR to a serialized Tier-4 surface
+# (e.g. scripts/settle_tier4_pr.py), which is what creates the settlement
+# pile-up + re-conflict churn. Best-effort: a transport/tooling failure warns
+# and does NOT block (only a clean queue decision, exit 2, fails the preflight).
+# Reads open-PR state via the App token, so it never burns the operator PAT.
+if [[ "${ARAGORA_TIER4_MERGE_TRAIN:-0}" == "1" ]]; then
+    changed_csv="$(printf '%s\n' "${changed_files}" | sed '/^$/d' | paste -sd, -)"
+    train_args=(--check --changed-files "${changed_csv}" --repo "${ARAGORA_TIER4_MERGE_TRAIN_REPO:-synaptent/aragora}")
+    if [[ -n "${ARAGORA_TIER4_MERGE_TRAIN_PR:-}" ]]; then
+        train_args+=(--candidate-pr "${ARAGORA_TIER4_MERGE_TRAIN_PR}")
+    fi
+    if [[ -n "${ARAGORA_TIER4_MERGE_TRAIN_CAP:-}" ]]; then
+        train_args+=(--cap "${ARAGORA_TIER4_MERGE_TRAIN_CAP}")
+    fi
+    set +e
+    train_out="$(python3 scripts/tier4_merge_train.py "${train_args[@]}" 2>&1)"
+    train_rc=$?
+    set -e
+    if [[ "${train_rc}" -eq 2 ]]; then
+        fail_preflight 2 "tier-4 merge-train lane full: ${train_out}"
+    elif [[ "${train_rc}" -ne 0 ]]; then
+        echo "preflight: tier-4 merge-train check skipped (non-fatal): ${train_out}" >&2
+    else
+        echo "preflight: tier-4 merge-train lane has room"
+    fi
+fi
+
 echo "preflight: ok"

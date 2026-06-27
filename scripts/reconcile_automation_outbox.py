@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -41,11 +42,51 @@ from audit_codex_branch_backlog import (  # noqa: E402
     run_git,
 )
 from github_cli_health import check_github_cli_health  # noqa: E402
+from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
 
 UTC = timezone.utc
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
+
+# Bounded terminal-archive policy for the existing_issue deadlock:
+# the publisher refuses to open a duplicate PR because a GitHub issue already
+# tracks the task (receipt reason "existing_issue"), while the reconciler
+# refuses to archive PR-intent handoffs satisfied only by an issue receipt.
+# Neither side ever clears the handoff. The escape valve below archives such
+# handoffs with an explicit terminal receipt, but only when ALL gates hold:
+# verified issue state, minimum item age, and a per-pass archive cap.
+DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
+DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
+TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
+LOCAL_WORK_MARKER_KEYS = (
+    "uncommitted_changes",
+    "has_uncommitted_changes",
+    "uncommitted",
+    "unpushed_commits",
+    "local_changes",
+    "local_work",
+    "dirty",
+)
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -84,19 +125,32 @@ def _resolve_path(repo_root: Path, value: Path | None, default: Path) -> Path:
     return (repo_root / expanded).resolve()
 
 
-def _branch_has_landed_on_main(root: Path, base: str, branch: str) -> bool:
-    """Return True if the branch's HEAD or a patch-equivalent commit is on main."""
-    proc = run_git(["rev-parse", "--verify", branch], root, timeout=15)
+def _normalize_base_ref(value: str) -> str:
+    text = str(value or "").strip()
+    for prefix in ("refs/remotes/origin/", "refs/heads/", "origin/"):
+        if text.startswith(prefix):
+            return text.removeprefix(prefix)
+    return text
+
+
+def _ref_has_landed_on_main(root: Path, base: str, ref: str) -> bool:
+    """Return True if ref or a patch-equivalent commit is on the selected base."""
+    proc = run_git(["rev-parse", "--verify", ref], root, timeout=15)
     if proc.returncode != 0:
         return False
-    proc = run_git(["merge-base", "--is-ancestor", branch, base], root, timeout=15)
+    proc = run_git(["merge-base", "--is-ancestor", ref, base], root, timeout=15)
     if proc.returncode == 0:
         return True
-    proc = run_git(["cherry", base, branch], root, timeout=120)
+    proc = run_git(["cherry", base, ref], root, timeout=120)
     if proc.returncode != 0:
         return False
     statuses = [line.split(" ", 1)[0] for line in proc.stdout.splitlines() if line.strip()]
     return bool(statuses) and all(status == "-" for status in statuses)
+
+
+def _branch_has_landed_on_main(root: Path, base: str, branch: str) -> bool:
+    """Return True if the branch's HEAD or a patch-equivalent commit is on main."""
+    return _ref_has_landed_on_main(root, base, branch)
 
 
 def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
@@ -212,6 +266,337 @@ def _desired_head_from_payload(payload: dict[str, Any]) -> str:
             if head:
                 return head
     return ""
+
+
+def _copy_local_work_markers(record: dict[str, Any], source: Mapping[str, Any]) -> None:
+    for key in LOCAL_WORK_MARKER_KEYS:
+        if source.get(key):
+            record[key] = source.get(key)
+
+
+def _has_local_work_marker(record: Mapping[str, Any]) -> bool:
+    return any(bool(record.get(key)) for key in LOCAL_WORK_MARKER_KEYS)
+
+
+def _lane_records_from_payload(payload: Mapping[str, Any], branch: str) -> list[dict[str, Any]]:
+    """Build lane-like records for every local evidence reference.
+
+    Older handoffs may contain multiple local_evidence records. Treating only
+    the last worktree as authoritative can hide still-active local work, so the
+    merged-PR proof path must prove every referenced worktree/head independently.
+    """
+
+    desired_head = _desired_head_from_payload(dict(payload))
+    common: dict[str, Any] = {"branch": branch}
+    if desired_head:
+        common["desired_head_sha"] = desired_head
+        common["head_sha"] = desired_head
+    _copy_local_work_markers(common, payload)
+
+    lane = payload.get("lane")
+    if isinstance(lane, Mapping):
+        lane_id = str(lane.get("lane_id") or lane.get("lane") or "").strip()
+        if lane_id:
+            common["lane_id"] = lane_id
+
+    records: list[dict[str, Any]] = []
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        record = dict(common)
+        local_branch = str(local_evidence.get("branch") or "").strip()
+        if local_branch:
+            record["branch"] = local_branch
+        local_head = str(
+            local_evidence.get("desired_head_sha")
+            or local_evidence.get("head_sha")
+            or local_evidence.get("head")
+            or local_evidence.get("commit")
+            or ""
+        ).strip()
+        if local_head:
+            record["desired_head_sha"] = local_head
+            record["head_sha"] = local_head
+        worktree = str(local_evidence.get("worktree") or "").strip()
+        if worktree:
+            record["worktree"] = worktree
+        _copy_local_work_markers(record, local_evidence)
+        records.append(record)
+
+    worktree = str(payload.get("worktree") or "").strip()
+    if worktree and not any(record.get("worktree") == worktree for record in records):
+        record = dict(common)
+        record["worktree"] = worktree
+        _copy_local_work_markers(record, payload)
+        records.append(record)
+
+    if not records:
+        records.append(dict(common))
+    return records
+
+
+def _lane_record_from_payload(payload: Mapping[str, Any], branch: str) -> dict[str, Any]:
+    """Build the first minimal lane-like record needed by legacy callers."""
+    return _lane_records_from_payload(payload, branch)[0]
+
+
+def _requested_base_from_payload(payload: Mapping[str, Any]) -> str:
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        for key in ("base", "base_ref", "base_ref_name", "target_base"):
+            base = str(requested_action.get(key) or "").strip()
+            if base:
+                return base
+    for key in ("base", "base_ref", "base_ref_name", "target_base"):
+        base = str(payload.get(key) or "").strip()
+        if base:
+            return base
+    return ""
+
+
+def _upstream_base_matches(upstream: Mapping[str, Any], expected_base: str) -> bool:
+    expected = _normalize_base_ref(expected_base)
+    for key in ("base_ref", "base_ref_name", "baseRefName", "base"):
+        actual = upstream.get(key)
+        if isinstance(actual, Mapping):
+            actual = actual.get("ref")
+        actual_ref = _normalize_base_ref(str(actual or "").strip())
+        if actual_ref:
+            return actual_ref == expected
+    return False
+
+
+def _desired_head_landed_on_base(root: Path, base: str, branch: str, desired_head: str) -> bool:
+    branch_head = _git_ref_head(root, branch) if branch else ""
+    if (
+        branch_head
+        and _heads_match(desired_head, branch_head)
+        and _ref_has_landed_on_main(root, base, branch)
+    ):
+        return True
+    return bool(desired_head) and _ref_has_landed_on_main(root, base, desired_head)
+
+
+def _merged_pr_commit_preservation_proof(
+    *,
+    root: Path,
+    state_root: Path,
+    payload: dict[str, Any],
+    branch: str,
+    repo_name: str,
+    base: str,
+) -> Mapping[str, Any] | None:
+    """Return proof that an outbox head is already preserved by a merged PR.
+
+    This intentionally accepts only the merged-PR commit-list proof. A remote
+    branch at the exact desired head still represents unpublished PR-intent work,
+    so it must keep protecting the outbox handoff. The merged PR must also target
+    the reconciler base, and the desired head must be present or patch-equivalent
+    on that base now; historical PR membership alone is not enough after reverts.
+    """
+
+    if not _is_pr_publication_request(payload):
+        return None
+    expected_base = _requested_base_from_payload(payload) or base
+    records = _lane_records_from_payload(payload, branch)
+    if not records:
+        return None
+
+    proofs: list[Mapping[str, Any]] = []
+    desired_heads: set[str] = set()
+    worktree_paths: list[str] = []
+    common_upstream: Mapping[str, Any] | None = None
+
+    for record in records:
+        desired_head = str(record.get("desired_head_sha") or "").strip()
+        if not desired_head:
+            return None
+        record_branch = str(record.get("branch") or branch).strip()
+        desired_heads.add(desired_head)
+
+        if not record.get("worktree"):
+            if _has_local_work_marker(record):
+                return None
+            if not _desired_head_landed_on_base(root, base, record_branch, desired_head):
+                return None
+            proof = {
+                "available": True,
+                "branch": record_branch,
+                "desired_head_sha": desired_head,
+                "upstream_preservation": {
+                    "proven": True,
+                    "method": "current_base_contains_desired_head",
+                    "base": base,
+                },
+            }
+            proofs.append(proof)
+            continue
+
+        worktree_paths.append(str(record.get("worktree") or ""))
+        try:
+            proof = build_worktree_reference_preservation_proof(
+                record,
+                repo_root=root,
+                state_root=state_root,
+            )
+        except Exception:
+            return None
+        if not isinstance(proof, Mapping):
+            return None
+
+        upstream = proof.get("upstream_preservation")
+        if proof.get("available") is not True:
+            if proof.get("reason") != "upstream_preservation_unproven":
+                return None
+            if not _preservation_proof_has_absent_worktree(proof):
+                return None
+            upstream = _merged_pr_commit_list_preservation(root, repo_name, desired_head)
+            if upstream.get("proven") is not True:
+                return None
+            proof = {
+                **dict(proof),
+                "available": True,
+                "upstream_preservation": upstream,
+                "upstream_preservation_fallback": "direct_paginated_merged_pr_lookup",
+            }
+        elif not isinstance(upstream, Mapping) or not (
+            upstream.get("method") == "merged_pr_commit_list" and upstream.get("proven") is True
+        ):
+            if not _preservation_proof_has_absent_worktree(proof):
+                return None
+            upstream = _merged_pr_commit_list_preservation(root, repo_name, desired_head)
+            if upstream.get("proven") is not True:
+                return None
+            proof = {
+                **dict(proof),
+                "upstream_preservation": upstream,
+                "upstream_preservation_fallback": {
+                    "from": dict(proof.get("upstream_preservation") or {}),
+                    "method": "direct_paginated_merged_pr_lookup",
+                },
+            }
+        if not isinstance(upstream, Mapping):
+            return None
+        if not _upstream_base_matches(upstream, expected_base):
+            return None
+        if common_upstream is None:
+            common_upstream = upstream
+        proofs.append(proof)
+
+    if common_upstream is None:
+        common_upstream = {
+            "proven": True,
+            "method": "current_base_contains_desired_head",
+            "base": base,
+        }
+    if len(proofs) == 1:
+        single = dict(proofs[0])
+        single["upstream_preservation"] = dict(common_upstream)
+        return single
+    return {
+        "available": True,
+        "branch": branch,
+        "desired_head_sha": sorted(desired_heads)[0] if len(desired_heads) == 1 else None,
+        "desired_head_shas": sorted(desired_heads),
+        "worktree_paths": worktree_paths,
+        "worktree_proofs": proofs,
+        "upstream_preservation": dict(common_upstream),
+    }
+
+
+def _preservation_proof_has_absent_worktree(proof: Mapping[str, Any]) -> bool:
+    inspections = proof.get("worktree_inspections")
+    if not isinstance(inspections, Sequence) or isinstance(inspections, (str, bytes, bytearray)):
+        return False
+    return bool(inspections) and all(
+        isinstance(item, Mapping) and item.get("absent_noop") is True for item in inspections
+    )
+
+
+def _gh_api_paginated_items(root: Path, endpoint: str) -> list[Mapping[str, Any]] | None:
+    try:
+        proc = subprocess.run(
+            ["gh", "api", "--paginate", "--slurp", endpoint],
+            cwd=root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        pages = json.loads(proc.stdout or "[]")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(pages, list):
+        return None
+    items: list[Mapping[str, Any]] = []
+    for page in pages:
+        if isinstance(page, list):
+            items.extend(item for item in page if isinstance(item, Mapping))
+        elif isinstance(page, Mapping):
+            items.append(page)
+    return items
+
+
+def _pull_base_ref(pull: Mapping[str, Any]) -> str:
+    base = pull.get("base")
+    if isinstance(base, Mapping):
+        ref = str(base.get("ref") or "").strip()
+        if ref:
+            return ref
+    for key in ("baseRefName", "base_ref_name", "base_ref"):
+        ref = str(pull.get(key) or "").strip()
+        if ref:
+            return ref
+    return ""
+
+
+def _merged_pr_commit_list_preservation(
+    root: Path,
+    repo_name: str,
+    desired_head: str,
+) -> Mapping[str, Any]:
+    if not desired_head:
+        return {
+            "proven": False,
+            "method": "merged_pr_commit_list",
+            "reason": "desired_head_unavailable",
+        }
+    pulls = _gh_api_paginated_items(root, f"repos/{repo_name}/commits/{desired_head}/pulls")
+    if pulls is None:
+        return {
+            "proven": False,
+            "method": "merged_pr_commit_list",
+            "reason": "commit_pulls_unavailable",
+        }
+    for pull in pulls:
+        if not pull.get("merged_at"):
+            continue
+        number = pull.get("number")
+        if not isinstance(number, int):
+            continue
+        commits = _gh_api_paginated_items(
+            root,
+            f"repos/{repo_name}/pulls/{number}/commits?per_page=100",
+        )
+        if commits is None:
+            continue
+        if any(item.get("sha") == desired_head for item in commits):
+            return {
+                "proven": True,
+                "method": "merged_pr_commit_list",
+                "pr_number": number,
+                "repo": repo_name,
+                "source": "gh_api_paginated",
+                "base_ref": _pull_base_ref(pull) or None,
+            }
+    return {
+        "proven": False,
+        "method": "merged_pr_commit_list",
+        "reason": "no_merged_pr_commit_contains_desired_head",
+    }
 
 
 def _requested_action_type(payload: Mapping[str, Any]) -> str:
@@ -389,6 +774,232 @@ def _issue_only_pr_receipt_keep_reason(
     return None
 
 
+def _issue_url_from_receipt(receipt: Mapping[str, Any]) -> str:
+    for key in ("existing_issue_url", "created_issue_url", "issue_url"):
+        url = str(receipt.get(key) or "").strip()
+        if url:
+            return url
+    return ""
+
+
+def _issue_number_from_url(url: str) -> int | None:
+    text = str(url or "").strip().rstrip("/")
+    marker = "/issues/"
+    if marker not in text:
+        return None
+    candidate = text.rsplit(marker, 1)[1].split("/", 1)[0]
+    return int(candidate) if candidate.isdigit() else None
+
+
+def _parse_timestamp(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _outbox_item_age_days(path: Path, payload: Mapping[str, Any], now: datetime) -> float | None:
+    """Age of an outbox handoff, preferring payload timestamps over file mtime."""
+    for key in ("created_at", "updated_at"):
+        timestamp = _parse_timestamp(payload.get(key))
+        if timestamp is not None:
+            return (now - timestamp).total_seconds() / 86400.0
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return None
+    return (now - datetime.fromtimestamp(mtime, tz=UTC)).total_seconds() / 86400.0
+
+
+class _IssueStateChecker:
+    """Verify linked GitHub issue state via gh, with caching and a failure circuit.
+
+    After MAX_CONSECUTIVE_FAILURES consecutive gh errors the checker stops
+    issuing new calls and reports issues as unverifiable, so a GitHub outage
+    cannot turn one reconcile pass into hundreds of 20s timeouts.
+    """
+
+    MAX_CONSECUTIVE_FAILURES = 3
+
+    def __init__(self, root: Path, default_repo: str) -> None:
+        self._root = root
+        self._default_repo = default_repo
+        self._cache: dict[tuple[str, int], tuple[Mapping[str, Any] | None, str | None]] = {}
+        self._consecutive_failures = 0
+
+    def state(
+        self, issue_url: str, receipt: Mapping[str, Any]
+    ) -> tuple[Mapping[str, Any] | None, str | None]:
+        """Return (issue_state, error). issue_state is None when unverifiable."""
+        number = _issue_number_from_url(issue_url)
+        if number is None:
+            return None, f"could not parse issue number from {issue_url!r}"
+        repo = str(receipt.get("repo") or self._default_repo).strip() or self._default_repo
+        cache_key = (repo, number)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+        if self._consecutive_failures >= self.MAX_CONSECUTIVE_FAILURES:
+            return None, "issue state lookups disabled after repeated gh failures"
+        result = self._fetch(repo, number)
+        if result[0] is None:
+            self._consecutive_failures += 1
+        else:
+            self._consecutive_failures = 0
+        self._cache[cache_key] = result
+        return result
+
+    def _fetch(self, repo: str, number: int) -> tuple[Mapping[str, Any] | None, str | None]:
+        try:
+            proc = subprocess.run(
+                [
+                    "gh",
+                    "issue",
+                    "view",
+                    str(number),
+                    "--repo",
+                    repo,
+                    "--json",
+                    "number,state,stateReason,url",
+                ],
+                cwd=self._root,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=20,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return None, f"gh issue view failed ({exc.__class__.__name__})"
+        if proc.returncode != 0:
+            detail = (proc.stderr or "").strip().splitlines()
+            return None, f"gh issue view exited {proc.returncode}: {detail[0] if detail else ''}"
+        try:
+            payload = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            return None, "gh issue view returned unparseable JSON"
+        if not isinstance(payload, Mapping):
+            return None, "gh issue view returned non-mapping JSON"
+        return payload, None
+
+
+def _existing_issue_terminal_candidate(
+    *,
+    path: Path,
+    payload: Mapping[str, Any],
+    receipt: Mapping[str, Any],
+    min_age_days: float,
+    cap: int,
+    archived_so_far: int,
+    issue_checker: _IssueStateChecker,
+    now: datetime | None = None,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Evaluate the bounded existing_issue terminal-archive escape valve.
+
+    Returns (terminal_info, gate_detail):
+      (info, None)    -- ALL gates hold; archive with this terminal receipt.
+      (None, detail)  -- in scope but a gate blocked it; keep, annotated.
+      (None, None)    -- out of scope; the normal issue-only keep applies.
+    """
+    if not _is_pr_publication_request(payload):
+        return None, None
+    status = str(receipt.get("status") or "").strip().lower()
+    reason = str(receipt.get("reason") or "").strip().lower()
+    if status != "already_satisfied" or reason != "existing_issue":
+        return None, None
+    if _receipt_has_pr_reference(receipt):
+        return None, None
+    issue_url = _issue_url_from_receipt(receipt)
+    if not issue_url:
+        return None, None
+
+    now_value = now or datetime.now(UTC)
+    age_days = _outbox_item_age_days(path, payload, now_value)
+    if age_days is None:
+        return None, "terminal-archive gate: item age unknown"
+    if age_days < min_age_days:
+        return None, (f"terminal-archive gate: item age {age_days:.1f}d < min {min_age_days:.1f}d")
+    if archived_so_far >= cap:
+        return None, f"terminal-archive gate: per-pass archive cap {cap} reached"
+
+    issue_state, error = issue_checker.state(issue_url, receipt)
+    if issue_state is None:
+        return None, f"terminal-archive gate: issue state unverified ({error})"
+    state = str(issue_state.get("state") or "").strip().upper()
+    state_reason = str(issue_state.get("stateReason") or "").strip().upper()
+    if state != "OPEN" and not (state == "CLOSED" and state_reason == "COMPLETED"):
+        return None, (
+            f"terminal-archive gate: issue {issue_url} is "
+            f"{state or 'UNKNOWN'}/{state_reason or 'unknown'}, not open or closed-completed"
+        )
+
+    terminal_info: dict[str, Any] = {
+        "disposition": TERMINAL_DISPOSITION_EXISTING_ISSUE,
+        "issue_url": str(issue_state.get("url") or issue_url),
+        "issue_number": issue_state.get("number"),
+        "issue_state": state,
+        "issue_state_reason": state_reason or None,
+        "issue_state_checked_at": now_value.isoformat(),
+        "decision_evidence": {
+            "publisher_decision": "existing_issue",
+            "receipt_status": status,
+            "receipt_reason": reason,
+            "receipt_recorded_at": receipt.get("recorded_at"),
+            "receipt_idempotency_key": receipt.get("idempotency_key"),
+        },
+        "item_age_days": round(age_days, 2),
+        "min_age_days": min_age_days,
+        "per_pass_archive_cap": cap,
+        "archived_by": "scripts/reconcile_automation_outbox.py",
+    }
+    return terminal_info, None
+
+
+def _archive_with_terminal_disposition(
+    path: Path,
+    archive_dir: Path,
+    payload: Mapping[str, Any],
+    terminal_info: Mapping[str, Any],
+) -> Path:
+    """Archive an outbox handoff with an explicit terminal receipt embedded.
+
+    The archived copy is written first (with terminal_disposition populated)
+    and only then is the live outbox file removed, so a failure can never
+    delete a handoff without its terminal receipt landing in the archive.
+    """
+    archived = {key: value for key, value in payload.items() if key != "__source_file"}
+    archived["terminal_disposition"] = dict(terminal_info)
+    destination = archive_dir / path.name
+    destination.write_text(json.dumps(archived, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.unlink()
+    return destination
+
+
+def _archive_with_preservation_proof(
+    path: Path,
+    archive_dir: Path,
+    payload: Mapping[str, Any],
+    proof: Mapping[str, Any],
+    reason: str,
+) -> Path:
+    archived = {key: value for key, value in payload.items() if key != "__source_file"}
+    archived["terminal_disposition"] = {
+        "archived_by": "scripts/reconcile_automation_outbox.py",
+        "reason": reason,
+        "preservation_proof": dict(proof),
+    }
+    destination = archive_dir / path.name
+    destination.write_text(json.dumps(archived, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.unlink()
+    return destination
+
+
 def _heads_match(expected: str, actual: str) -> bool:
     expected_value = expected.strip().lower()
     actual_value = actual.strip().lower()
@@ -548,7 +1159,7 @@ def _write_synthetic_receipt(
 
 
 def _github_open_pr_state(root: Path, repo_name: str) -> tuple[dict[str, int], bool, str]:
-    """Return open codex PR heads when GitHub is healthy enough to trust."""
+    """Return open PR heads when GitHub is healthy enough to trust."""
 
     try:
         health = check_github_cli_health(root)
@@ -560,10 +1171,12 @@ def _github_open_pr_state(root: Path, repo_name: str) -> tuple[dict[str, int], b
         return {}, False, detail
 
     try:
-        open_prs = open_pr_heads(root, repo_name, "codex/")
+        open_prs = open_pr_heads(root, repo_name, "")
     except Exception as exc:
         return {}, False, f"open PR fetch failed ({exc})"
-    return open_prs, True, f"{len(open_prs)} open codex/* PRs"
+    if not isinstance(open_prs, dict):
+        return {}, False, "open PR fetch returned no usable data"
+    return open_prs, True, f"{len(open_prs)} open PRs"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -628,6 +1241,25 @@ def main(argv: list[str] | None = None) -> int:
             "the selected outbox directory; repeat to target multiple handoffs."
         ),
     )
+    parser.add_argument(
+        "--existing-issue-min-age-days",
+        type=float,
+        default=DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS,
+        help=(
+            "Minimum handoff age (days) before an open-PR handoff whose publisher "
+            "decision was existing_issue may be archived with a terminal receipt "
+            f"(default: {DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS})."
+        ),
+    )
+    parser.add_argument(
+        "--existing-issue-archive-cap",
+        type=int,
+        default=DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP,
+        help=(
+            "Maximum existing_issue terminal archives per reconcile pass "
+            f"(default: {DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP})."
+        ),
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--apply",
@@ -685,7 +1317,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def emit(message: str = "") -> None:
         if not args.json:
-            print(message)
+            _emit_output(message)
 
     emit(f"state_root: {state_root}")
     emit(f"outbox_dir: {outbox_dir}")
@@ -747,7 +1379,7 @@ def main(argv: list[str] | None = None) -> int:
                 "total_outbox_count": len(all_outbox_files),
             }
             if args.json:
-                print(json.dumps(payload, indent=2, sort_keys=True))
+                _emit_output(json.dumps(payload, indent=2, sort_keys=True))
             else:
                 for key in missing_keys:
                     emit(f"ERROR: no outbox handoff found for idempotency key {key}")
@@ -775,16 +1407,21 @@ def main(argv: list[str] | None = None) -> int:
 
     counts = {
         "satisfied_by_existing_receipt": 0,
+        "archived_superseded_by_existing_issue": 0,
         "blocked_receipt_pr_head_mismatch": 0,
         "blocked_receipt_issue_only": 0,
         "satisfied_by_superseded_handoff": 0,
         "satisfied_by_landed_on_main": 0,
         "satisfied_by_open_pr_merged": 0,  # placeholder; we only know open PRs
+        "satisfied_by_merged_pr_commit_proof": 0,
         "still_protecting_active_work": 0,
         "missing_branch": 0,
         "blocked_missing_branch_open_pr_unknown": 0,
         "skipped_unparseable": 0,
     }
+
+    issue_checker = _IssueStateChecker(root, args.repo_name)
+    existing_issue_archived = 0
 
     actions: list[dict[str, Any]] = []
     for path in outbox_files:
@@ -804,6 +1441,71 @@ def main(argv: list[str] | None = None) -> int:
         if receipt is not None:
             issue_only_keep_reason = _issue_only_pr_receipt_keep_reason(payload, receipt)
             if issue_only_keep_reason is not None:
+                terminal_info, gate_detail = _existing_issue_terminal_candidate(
+                    path=path,
+                    payload=payload,
+                    receipt=receipt,
+                    min_age_days=args.existing_issue_min_age_days,
+                    cap=args.existing_issue_archive_cap,
+                    archived_so_far=existing_issue_archived,
+                    issue_checker=issue_checker,
+                )
+                if terminal_info is not None:
+                    existing_issue_archived += 1
+                    counts["archived_superseded_by_existing_issue"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "archive",
+                            "reason": (
+                                "superseded by existing issue "
+                                f"{terminal_info['issue_url']} (terminal receipt)"
+                            ),
+                            "terminal_disposition": terminal_info,
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    if args.apply:
+                        _archive_with_terminal_disposition(
+                            path, archive_dir, payload, terminal_info
+                        )
+                    continue
+                merged_pr_proof = _merged_pr_commit_preservation_proof(
+                    root=root,
+                    state_root=state_root,
+                    payload=payload,
+                    branch=branch,
+                    repo_name=args.repo_name,
+                    base=args.base,
+                )
+                if merged_pr_proof is not None:
+                    upstream = merged_pr_proof.get("upstream_preservation") or {}
+                    pr_number = upstream.get("pr_number") if isinstance(upstream, Mapping) else None
+                    reason = "desired head preserved by merged PR commit list" + (
+                        f" (PR #{pr_number})" if pr_number is not None else ""
+                    )
+                    counts["satisfied_by_merged_pr_commit_proof"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "archive",
+                            "reason": reason,
+                            "preservation_proof": merged_pr_proof,
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    if args.apply:
+                        _archive_with_preservation_proof(
+                            path, archive_dir, payload, merged_pr_proof, reason
+                        )
+                    continue
+                issue_only_kept_reason = (
+                    issue_only_keep_reason
+                    if gate_detail is None
+                    else f"{issue_only_keep_reason} ({gate_detail})"
+                )
                 counts["blocked_receipt_issue_only"] += 1
                 counts["still_protecting_active_work"] += 1
                 actions.append(
@@ -811,7 +1513,7 @@ def main(argv: list[str] | None = None) -> int:
                         "path": str(path),
                         "branch": branch,
                         "decision": "keep",
-                        "reason": issue_only_keep_reason,
+                        "reason": issue_only_kept_reason,
                         "synthetic_receipt": False,
                     }
                 )
@@ -1061,6 +1763,44 @@ def main(argv: list[str] | None = None) -> int:
             )
             continue
 
+        merged_pr_proof = _merged_pr_commit_preservation_proof(
+            root=root,
+            state_root=state_root,
+            payload=payload,
+            branch=branch,
+            repo_name=args.repo_name,
+            base=args.base,
+        )
+        if merged_pr_proof is not None:
+            upstream = merged_pr_proof.get("upstream_preservation") or {}
+            pr_number = upstream.get("pr_number") if isinstance(upstream, Mapping) else None
+            reason = "desired head preserved by merged PR commit list" + (
+                f" (PR #{pr_number})" if pr_number is not None else ""
+            )
+            counts["satisfied_by_merged_pr_commit_proof"] += 1
+            actions.append(
+                {
+                    "path": str(path),
+                    "branch": branch,
+                    "decision": "archive",
+                    "reason": reason,
+                    "preservation_proof": merged_pr_proof,
+                    "synthetic_receipt": True,
+                }
+            )
+            if args.apply:
+                _write_synthetic_receipt(
+                    receipt_dir=receipt_dir,
+                    outbox_payload=payload,
+                    reason=reason,
+                    pr_number=int(pr_number) if isinstance(pr_number, int) else None,
+                    apply=True,
+                )
+                _archive_with_preservation_proof(
+                    path, archive_dir, payload, merged_pr_proof, reason
+                )
+            continue
+
         reason = (
             "branch has unique commits not on main, no open PR — actively protecting"
             if open_pr_state_available
@@ -1125,6 +1865,12 @@ def main(argv: list[str] | None = None) -> int:
             "base": args.base,
             "counts": counts,
             "dry_run": not args.apply,
+            "existing_issue_policy": {
+                "archive_cap": args.existing_issue_archive_cap,
+                "archived_this_pass": existing_issue_archived,
+                "min_age_days": args.existing_issue_min_age_days,
+                "terminal_disposition": TERMINAL_DISPOSITION_EXISTING_ISSUE,
+            },
             "kept": kept,
             "outbox_count": len(outbox_files),
             "outbox_dir": str(outbox_dir),
@@ -1145,7 +1891,7 @@ def main(argv: list[str] | None = None) -> int:
             payload["action_count"] = len(actions)
             payload["actions_omitted"] = True
             payload.pop("actions", None)
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _emit_output(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
 

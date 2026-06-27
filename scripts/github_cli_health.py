@@ -8,10 +8,15 @@ import json
 import os
 import shutil
 import subprocess
-from dataclasses import asdict, dataclass
+import sys
 from collections.abc import Mapping
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 DEFAULT_TIMEOUT_SECONDS = 20
 CONNECTIVITY_ERROR_TOKENS = (

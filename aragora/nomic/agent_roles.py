@@ -35,14 +35,19 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
+import tempfile
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+from aragora.persistence.db_config import get_default_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +223,12 @@ class AgentHierarchy:
         Args:
             hierarchy_dir: Directory for persistence
         """
-        self.hierarchy_dir = hierarchy_dir or Path(".agents")
+        if hierarchy_dir is not None:
+            self.hierarchy_dir = Path(hierarchy_dir)
+            self._legacy_hierarchy_file = None
+        else:
+            self.hierarchy_dir = get_default_data_dir() / "agent_hierarchy"
+            self._legacy_hierarchy_file = self._repo_root() / ".agents" / "hierarchy.json"
         self.hierarchy_file = self.hierarchy_dir / "hierarchy.json"
         self._assignments: dict[str, RoleAssignment] = {}
         self._lock = asyncio.Lock()
@@ -236,32 +246,96 @@ class AgentHierarchy:
 
     async def _load_hierarchy(self) -> None:
         """Load hierarchy from file."""
-        if not self.hierarchy_file.exists():
+        sources: list[tuple[Path, bool]] = []
+        if self.hierarchy_file.exists():
+            sources.append((self.hierarchy_file, False))
+        if self._legacy_hierarchy_file is not None and self._legacy_hierarchy_file.exists():
+            sources.append((self._legacy_hierarchy_file, True))
+
+        if not sources:
             return
 
-        try:
-            with open(self.hierarchy_file) as f:
-                data = json.load(f)
-                for assignment_data in data.get("assignments", []):
-                    assignment = RoleAssignment.from_dict(assignment_data)
+        loaded_any = False
+        migrated_legacy = False
+        legacy_sources: list[Path] = []
+        for source, using_legacy_default in sources:
+            try:
+                assignments = self._read_assignments(source)
+            except (OSError, json.JSONDecodeError, ValueError) as e:
+                logger.error("Failed to load hierarchy from %s: %s", source, e)
+                continue
+            loaded_any = True
+            for assignment in assignments:
+                if using_legacy_default:
+                    self._assignments.setdefault(assignment.agent_id, assignment)
+                else:
                     self._assignments[assignment.agent_id] = assignment
-        except OSError as e:
-            logger.error("Failed to load hierarchy: %s", e)
+            if using_legacy_default:
+                migrated_legacy = True
+                legacy_sources.append(source)
 
-    async def _save_hierarchy(self) -> None:
-        """Save hierarchy to file."""
-        try:
-            with open(self.hierarchy_file, "w") as f:
-                json.dump(
-                    {
-                        "assignments": [a.to_dict() for a in self._assignments.values()],
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    },
-                    f,
-                    indent=2,
+        if loaded_any and migrated_legacy:
+            if await self._save_hierarchy():
+                for source in legacy_sources:
+                    self._retire_legacy_hierarchy(source)
+                    logger.info(
+                        "Migrated legacy agent hierarchy from %s to %s",
+                        source,
+                        self.hierarchy_file,
+                    )
+            else:
+                logger.error(
+                    "Skipped retiring legacy agent hierarchy because save failed: %s",
+                    ", ".join(str(source) for source in legacy_sources),
                 )
-        except OSError as e:
+
+    @staticmethod
+    def _read_assignments(source: Path) -> list[RoleAssignment]:
+        with open(source) as f:
+            data = json.load(f)
+        return [RoleAssignment.from_dict(item) for item in data.get("assignments", [])]
+
+    async def _save_hierarchy(self) -> bool:
+        """Save hierarchy to file."""
+        payload = {
+            "assignments": [a.to_dict() for a in self._assignments.values()],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        tmp = ""
+        try:
+            self.hierarchy_dir.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(
+                dir=str(self.hierarchy_dir),
+                prefix=f".{self.hierarchy_file.name}.",
+                suffix=".tmp",
+            )
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, self.hierarchy_file)
+            return True
+        except (OSError, TypeError, ValueError) as e:
+            with contextlib.suppress(FileNotFoundError, OSError):
+                os.unlink(tmp)
             logger.error("Failed to save hierarchy: %s", e)
+            return False
+
+    @staticmethod
+    def _repo_root() -> Path:
+        module_root = Path(__file__).resolve().parents[2]
+        if (module_root / ".git").exists() or (module_root / ".agents").exists():
+            return module_root
+        for candidate in (Path.cwd(), *Path.cwd().parents):
+            if (candidate / ".git").exists() or (candidate / ".agents").exists():
+                return candidate
+        return module_root
+
+    @staticmethod
+    def _retire_legacy_hierarchy(path: Path) -> None:
+        retired = path.with_name(f"{path.name}.migrated")
+        with contextlib.suppress(OSError):
+            os.replace(path, retired)
 
     async def register_agent(
         self,
@@ -270,6 +344,7 @@ class AgentHierarchy:
         supervised_by: str | None = None,
         additional_capabilities: set[RoleCapability] | None = None,
         metadata: dict[str, Any] | None = None,
+        expires_at: datetime | None = None,
     ) -> RoleAssignment:
         """
         Register an agent with a role.
@@ -280,11 +355,20 @@ class AgentHierarchy:
             supervised_by: Agent ID of supervisor
             additional_capabilities: Extra capabilities beyond role defaults
             metadata: Additional metadata
+            expires_at: Optional expiration timestamp for ephemeral agents
 
         Returns:
             The created role assignment
         """
         async with self._lock:
+            previous_assignment = self._assignments.get(agent_id)
+            supervisor_before: tuple[str, list[str]] | None = None
+            if supervised_by and supervised_by in self._assignments:
+                supervisor_before = (
+                    supervised_by,
+                    list(self._assignments[supervised_by].supervises),
+                )
+
             # Create assignment
             assignment = RoleAssignment(
                 agent_id=agent_id,
@@ -292,6 +376,7 @@ class AgentHierarchy:
                 assigned_at=datetime.now(timezone.utc),
                 supervised_by=supervised_by,
                 metadata=metadata or {},
+                expires_at=expires_at,
             )
 
             # Add additional capabilities
@@ -305,7 +390,17 @@ class AgentHierarchy:
                     supervisor.supervises.append(agent_id)
 
             self._assignments[agent_id] = assignment
-            await self._save_hierarchy()
+            if not await self._save_hierarchy():
+                if previous_assignment is None:
+                    self._assignments.pop(agent_id, None)
+                else:
+                    self._assignments[agent_id] = previous_assignment
+                if supervisor_before is not None:
+                    supervisor_id, supervises = supervisor_before
+                    rollback_supervisor = self._assignments.get(supervisor_id)
+                    if rollback_supervisor is not None:
+                        rollback_supervisor.supervises = supervises
+                raise RuntimeError("failed to save agent hierarchy after registering agent")
 
             logger.info("Registered agent %s as %s", agent_id, role.value)
             return assignment
@@ -325,6 +420,16 @@ class AgentHierarchy:
                 return False
 
             assignment = self._assignments[agent_id]
+            supervisor_before: tuple[str, list[str]] | None = None
+            if assignment.supervised_by:
+                supervisor = self._assignments.get(assignment.supervised_by)
+                if supervisor is not None:
+                    supervisor_before = (assignment.supervised_by, list(supervisor.supervises))
+            supervised_before = {
+                supervised_id: self._assignments[supervised_id].supervised_by
+                for supervised_id in assignment.supervises
+                if supervised_id in self._assignments
+            }
 
             # Remove from supervisor's list
             if assignment.supervised_by:
@@ -339,7 +444,18 @@ class AgentHierarchy:
                     supervised.supervised_by = assignment.supervised_by
 
             del self._assignments[agent_id]
-            await self._save_hierarchy()
+            if not await self._save_hierarchy():
+                self._assignments[agent_id] = assignment
+                if supervisor_before is not None:
+                    supervisor_id, supervises = supervisor_before
+                    supervisor = self._assignments.get(supervisor_id)
+                    if supervisor is not None:
+                        supervisor.supervises = supervises
+                for supervised_id, previous_supervisor in supervised_before.items():
+                    supervised = self._assignments.get(supervised_id)
+                    if supervised is not None:
+                        supervised.supervised_by = previous_supervisor
+                raise RuntimeError("failed to save agent hierarchy after unregistering agent")
 
             logger.info("Unregistered agent %s", agent_id)
             return True
@@ -397,10 +513,8 @@ class AgentHierarchy:
             role=AgentRole.POLECAT,
             supervised_by=supervised_by,
             metadata={"task_description": task_description},
+            expires_at=expires_at,
         )
-        assignment.expires_at = expires_at
-
-        await self._save_hierarchy()
         logger.info("Spawned Polecat %s for task: %s...", agent_id, task_description[:50])
         return assignment
 

@@ -20,6 +20,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add repo root to path
@@ -29,6 +30,10 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.decomposition_bridge import DecompositionBridge  # noqa: E402
 from aragora.swarm.issue_scanner import BossIssueCandidate, scan_all  # noqa: E402
 from aragora.swarm.issue_upgrader import upgrade_issue_heuristic  # noqa: E402
+from aragora.swarm.pr_value import (  # noqa: E402
+    CLASS_MAINTENANCE,
+    read_backpressure_withheld_classes,
+)
 from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue  # noqa: E402
 from aragora.swarm.roadmap_priority import load_roadmap_priority_policy  # noqa: E402
 
@@ -45,6 +50,7 @@ _OPEN_PR_PAGE_SIZE = 100
 _OPEN_PR_MAX_PAGES = 10
 _OPEN_PR_FILES_PAGE_SIZE = 100
 _OPEN_PR_FILES_MAX_PAGES = 10
+DEFAULT_BACKPRESSURE_SIGNAL_FILE = REPO_ROOT / ".aragora" / "backpressure.json"
 _UPGRADEABLE_CATEGORIES = frozenset(
     {"test_coverage", "broad_exception", "silent_exception", "type_annotation"}
 )
@@ -431,6 +437,130 @@ def create_github_issue(
         return False
 
 
+def select_with_substrate_cap(
+    filtered: list[tuple[BossIssueCandidate, str]],
+    max_issues: int,
+    substrate_cap: float,
+) -> tuple[list[tuple[BossIssueCandidate, str]], int]:
+    """Trim candidates to ``max_issues``, capping the substrate-surface share.
+
+    Order-preserving single pass: product-surface candidates are never
+    skipped by the cap; substrate-surface candidates are admitted only up to
+    ``int(max_issues * substrate_cap)``. Returns (selected, substrate_skipped)
+    so callers can report skips instead of truncating silently.
+    """
+    if substrate_cap >= 1.0:
+        return filtered[:max_issues], 0
+    substrate_budget = int(max_issues * max(0.0, substrate_cap))
+    selected: list[tuple[BossIssueCandidate, str]] = []
+    substrate_taken = 0
+    substrate_skipped = 0
+    for item in filtered:
+        if len(selected) >= max_issues:
+            break
+        if getattr(item[0], "surface", "substrate") == "substrate":
+            if substrate_taken >= substrate_budget:
+                substrate_skipped += 1
+                continue
+            substrate_taken += 1
+        selected.append(item)
+    return selected, substrate_skipped
+
+
+def apply_net_closure_floor(
+    max_issues: int,
+    created_7d: int,
+    closed_7d: int,
+    floor: float,
+) -> tuple[int, str]:
+    """Throttle issue-creation appetite by the trailing closed:created ratio.
+
+    Pure function (FOCUS.md Sprint 4 goal 3 / plan v2 Phase 0.3; audit basis
+    215 created : 0 closed). When the trailing-window ``closed:created`` ratio
+    is at or above ``floor``, the full ``max_issues`` allowance applies. Below
+    the floor the allowance scales linearly with the ratio:
+    ``allowed = min(max_issues, int(max_issues * ratio / floor))`` — at
+    ratio == floor you get full allowance, at zero closures you get zero new
+    issues. ``floor <= 0`` disables the throttle; ``created_7d == 0`` means
+    there is nothing to throttle against. Returns (allowed_count, reason) —
+    the reason always states the numbers so skips are reported, never silent.
+    """
+    if floor <= 0:
+        return max_issues, (
+            f"Closure floor disabled (floor={floor:g}): created_7d={created_7d} "
+            f"closed_7d={closed_7d} allowed={max_issues}"
+        )
+    if created_7d <= 0:
+        return max_issues, (
+            f"Closure floor {floor:g}: nothing to throttle against "
+            f"(created_7d={created_7d} closed_7d={closed_7d}) allowed={max_issues}"
+        )
+    ratio = closed_7d / max(1, created_7d)
+    if ratio >= floor:
+        return max_issues, (
+            f"Closure floor {floor:g} met (ratio={ratio:.3f}): "
+            f"created_7d={created_7d} closed_7d={closed_7d} allowed={max_issues}"
+        )
+    allowed = min(max_issues, int(max_issues * ratio / floor))
+    return allowed, (
+        f"Closure floor {floor:g} NOT met (ratio={ratio:.3f}): "
+        f"created_7d={created_7d} closed_7d={closed_7d} -> throttled "
+        f"allowed={allowed} of max_issues={max_issues}"
+    )
+
+
+def _search_issue_total(repo: str, qualifier: str) -> int | None:
+    """Return the total_count of a GitHub issue search, or None on failure.
+
+    Failures are reported (never silent): the underlying gh exit code /
+    stderr / parse error is printed so a fail-open closure floor is always
+    attributable to a concrete cause.
+    """
+    query = f"repo:{repo} type:issue {qualifier}"
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "api",
+                "-X",
+                "GET",
+                "search/issues",
+                "-f",
+                f"q={query}",
+                "-f",
+                "per_page=1",
+                "--jq",
+                ".total_count",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            return int(result.stdout.strip() or "0")
+        stderr = (result.stderr or "").strip()
+        print(
+            f"  gh search failed for {qualifier!r}: rc={result.returncode} stderr={stderr[:200]!r}"
+        )
+    except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
+        print(f"  gh search failed for {qualifier!r}: {type(exc).__name__}: {exc}")
+    return None
+
+
+def fetch_closure_counts_7d(repo: str) -> tuple[int, int] | None:
+    """Fetch (created_7d, closed_7d) issue counts via the gh REST search API.
+
+    Returns None when either count is unavailable so the caller can fail open
+    with an explicit report instead of throttling on bad data.
+    """
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    created = _search_issue_total(repo, f"created:>={since}")
+    closed = _search_issue_total(repo, f"closed:>={since}")
+    if created is None or closed is None:
+        return None
+    return created, closed
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate boss-ready GitHub issues by scanning the codebase"
@@ -438,6 +568,49 @@ def main() -> None:
     parser.add_argument("--repo", default="synaptent/aragora", help="GitHub repo")
     parser.add_argument("--dry-run", action="store_true", help="Preview without creating")
     parser.add_argument("--max-issues", type=int, default=20, help="Max issues to create")
+    parser.add_argument(
+        "--substrate-cap",
+        type=float,
+        default=0.3,
+        help=(
+            "Maximum fraction of created issues whose surface is loop/meta "
+            "substrate (scripts/, swarm, nomic, workflows). Product-surface "
+            "candidates are never skipped by this cap. 1.0 disables the cap. "
+            "FOCUS.md Sprint 3 goal 2."
+        ),
+    )
+    parser.add_argument(
+        "--closure-floor",
+        type=float,
+        default=0.25,
+        help=(
+            "Minimum trailing-7d closed:created issue ratio for the full "
+            "--max-issues allowance. Below the floor the allowance scales "
+            "linearly with the ratio (zero closures -> zero new issues). "
+            "0 disables. FOCUS.md Sprint 4 goal 3."
+        ),
+    )
+    parser.add_argument(
+        "--backpressure-signal-file",
+        default=str(DEFAULT_BACKPRESSURE_SIGNAL_FILE),
+        help=(
+            "Read explicit admission.withhold_classes from this backpressure signal. "
+            "When maintenance is withheld, substrate candidate generation is disabled. "
+            "Missing or legacy files without admission are advisory-only."
+        ),
+    )
+    parser.add_argument(
+        "--created-7d",
+        type=int,
+        default=None,
+        help="Override the trailing-7d created-issue count (skips the gh fetch; testing)",
+    )
+    parser.add_argument(
+        "--closed-7d",
+        type=int,
+        default=None,
+        help="Override the trailing-7d closed-issue count (skips the gh fetch; testing)",
+    )
     parser.add_argument("--categories", nargs="*", help="Filter to specific categories")
     parser.add_argument("--label", default="boss-ready", help="Primary label for created issues")
     parser.add_argument(
@@ -569,8 +742,50 @@ def main() -> None:
         f"{skipped_val} validation failures"
     )
 
-    # 5. Trim to max
-    to_create = filtered[: args.max_issues]
+    # 5. Trim to max, capping the substrate-surface share (Sprint 3 goal 2)
+    effective_substrate_cap = args.substrate_cap
+    withheld_classes = read_backpressure_withheld_classes(args.backpressure_signal_file)
+    if CLASS_MAINTENANCE in withheld_classes:
+        effective_substrate_cap = 0.0
+        print("  Backpressure admission withheld maintenance: substrate candidate cap forced to 0%")
+    to_create, substrate_skipped = select_with_substrate_cap(
+        filtered, args.max_issues, effective_substrate_cap
+    )
+    if substrate_skipped:
+        print(
+            f"  Substrate cap {effective_substrate_cap:.0%}: skipped "
+            f"{substrate_skipped} substrate-surface candidates "
+            f"(substrate_skipped={substrate_skipped})"
+        )
+
+    # 5b. Net-closure floor (Sprint 4 goal 3): throttle total appetite when
+    # the trailing-7d closed:created ratio falls below the floor.
+    created_7d = args.created_7d
+    closed_7d = args.closed_7d
+    counts_available = True
+    if args.closure_floor > 0 and (created_7d is None or closed_7d is None):
+        counts = fetch_closure_counts_7d(args.repo)
+        if counts is None:
+            counts_available = False
+            print(
+                f"  Closure floor {args.closure_floor:g}: 7d issue counts "
+                "unavailable (gh search failed); floor NOT applied "
+                f"(fail-open, allowed={args.max_issues})"
+            )
+        else:
+            if created_7d is None:
+                created_7d = counts[0]
+            if closed_7d is None:
+                closed_7d = counts[1]
+    if counts_available:
+        allowed, closure_reason = apply_net_closure_floor(
+            args.max_issues, created_7d or 0, closed_7d or 0, args.closure_floor
+        )
+        print(f"  {closure_reason}")
+        if allowed < len(to_create):
+            # Re-apply the substrate cap at the throttled budget so the
+            # cap's composition is preserved while the total shrinks.
+            to_create, _ = select_with_substrate_cap(to_create, allowed, effective_substrate_cap)
 
     # 6. Create or dry-run
     if args.dry_run:

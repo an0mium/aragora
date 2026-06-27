@@ -33,7 +33,7 @@ Output is a markdown table comparing per-brief:
   - new_verdict_full         (severity gate + simulated advocate)
 
 Plus aggregate rollups. Intended consumer is
-``docs/status/2026-04-24-mode3-rc1-calibration-post-fix.md``.
+``docs/archive/status/2026-04-24-mode3-rc1-calibration-post-fix.md``.
 """
 
 from __future__ import annotations

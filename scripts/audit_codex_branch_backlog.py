@@ -218,21 +218,45 @@ def worktree_map(root: Path) -> dict[str, list[Path]]:
 
     by_branch: dict[str, list[Path]] = defaultdict(list)
     current_path: Path | None = None
+    current_head: str | None = None
     current_branch: str | None = None
 
     def flush() -> None:
-        if current_path is not None and current_branch:
+        if current_path is None:
+            return
+        if current_branch:
             by_branch[current_branch].append(current_path)
+        elif current_head and COMMIT_PREFIX_RE.fullmatch(current_head):
+            for prefix_len in range(7, len(current_head) + 1):
+                by_branch[current_head[:prefix_len]].append(current_path)
 
     for line in proc.stdout.splitlines():
         if line.startswith("worktree "):
             flush()
             current_path = Path(line.removeprefix("worktree ").strip()).resolve()
+            current_head = None
             current_branch = None
+        elif line.startswith("HEAD "):
+            current_head = line.removeprefix("HEAD ").strip()
         elif line.startswith("branch "):
             current_branch = line.removeprefix("branch refs/heads/").strip()
     flush()
     return by_branch
+
+
+def _worktree_paths_for_branch(
+    worktrees: Mapping[str, list[Path]], branch: str, head_sha: str
+) -> list[Path]:
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    normalized_head = head_sha.strip().lower()
+    for key in (branch, normalized_head):
+        for path in worktrees.get(key, []):
+            if path in seen:
+                continue
+            seen.add(path)
+            paths.append(path)
+    return paths
 
 
 def dirty_worktree(path: Path) -> bool:
@@ -1184,7 +1208,7 @@ def audit(
     for row in rows:
         branch = row["name"]
         committed_at = parse_dt(row["committed_at"])
-        paths = worktrees.get(branch, [])
+        paths = _worktree_paths_for_branch(worktrees, branch, row["head_sha"])
         dirty_paths = [str(path) for path in paths if dirty_worktree(path)]
         active_paths = [str(path) for path in paths if active_worktree(path)]
         open_pr = prs.get(branch) if prs is not None else None
@@ -1527,6 +1551,25 @@ def summary_only_payload(
     return compact
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     summary = payload["summary"]
     print("# Codex Branch Backlog Audit\n")
@@ -1754,11 +1797,14 @@ def main(argv: list[str] | None = None) -> int:
                 DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY if args.examples is None else args.examples
             ),
         )
-    if args.markdown:
-        print_markdown(payload, examples=10 if args.examples is None else args.examples)
-    else:
-        # JSON is the default to make automation consumption explicit.
-        print(json.dumps(payload, indent=2 if args.json else None))
+    try:
+        if args.markdown:
+            print_markdown(payload, examples=10 if args.examples is None else args.examples)
+        else:
+            # JSON is the default to make automation consumption explicit.
+            _emit_output(json.dumps(payload, indent=2 if args.json else None))
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
     return 0
 
 

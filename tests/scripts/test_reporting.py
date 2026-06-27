@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
@@ -87,3 +89,41 @@ def test_build_scorecard_reads_published_truth_artifact_payload(
     assert run["no_rescue_truth_success_rate"] == 0.8
     assert run["merged_issue_rate"] == 0.6
     assert run["rescue_count"] == 1
+
+
+def test_build_scorecard_rejects_non_finite_rate_values(tmp_path: Path) -> None:
+    corpus_path = _write_corpus(tmp_path / "corpus.json")
+    report_path = _write_json(
+        tmp_path / "truth-artifact.json",
+        {
+            "generated_at": "2026-04-15T23:05:32Z",
+            "coverage": {"attempted_issue_count": 1},
+            "primary_metrics": {
+                "truth_success_rate": "NaN",
+                "no_rescue_truth_success_rate": 0.5,
+                "merged_only_rate": 0.5,
+            },
+        },
+    )
+
+    with pytest.raises(ValueError, match="truth_success_rate.*finite"):
+        mod.build_scorecard([report_path], corpus_path=corpus_path)
+
+
+def test_build_scorecard_rejects_out_of_range_rate_values(tmp_path: Path) -> None:
+    corpus_path = _write_corpus(tmp_path / "corpus.json")
+    report_path = _write_json(
+        tmp_path / "truth-artifact.json",
+        {
+            "generated_at": "2026-04-15T23:05:32Z",
+            "coverage": {"attempted_issue_count": 1},
+            "primary_metrics": {
+                "truth_success_rate": 0.75,
+                "no_rescue_truth_success_rate": 1.2,
+                "merged_only_rate": 0.5,
+            },
+        },
+    )
+
+    with pytest.raises(ValueError, match="no_rescue_truth_success_rate.*between 0.0 and 1.0"):
+        mod.build_scorecard([report_path], corpus_path=corpus_path)
