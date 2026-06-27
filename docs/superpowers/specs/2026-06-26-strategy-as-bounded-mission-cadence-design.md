@@ -28,7 +28,11 @@ DecisionReceipt + model quorum).
    at a time and **refuses to start the next until the current one's external
    proof artifact exists and verifies.** Continuity means *durable + resumable +
    advanced on a cadence*, **not perpetual motion**.
-2. **This session:** write this spec, register it, then start M1.
+2. **This session:** write this spec, then produce a decision-complete
+   implementation plan. **M1 does not start until the founder approves the plan.**
+   M1 is scoped to **ODR v1.0 docs + verification only** — no README,
+   `action.yml`, `.github/workflows/`, server verify endpoint, auto-signing-in-gate,
+   or any Tier 3-4 surface.
 
 ## What already exists (audit, verified on `main`)
 
@@ -125,13 +129,16 @@ then exit.
 | # | Sub-mission | Covers | Tier | Terminal DONE (external proof gate) |
 |---|---|---|---|---|
 | **M0** | Mission Queue section in the Intake Register + GitHub epic | (infra) | 0 | Register section exists on `main` with M1-M3 rows; epic open |
-| **M1** | **ODR v1.0 GA** — extend epic #8223: add versioning/stability contract to the spec; formalize native `DecisionReceipt` ↔ ODR mapping; close production wiring | #3 (+ README sentence) | 0-1 docs; **3** for auto-sign-in-gate (#8225) & server verify endpoint (#8226) | `pip install aragora-verify` then `aragora-verify <receipt.json>` independently verifies a receipt the **live gate** produced, against the v1.0 spec; CI verifies a checked-in example receipt |
+| **M1** | **ODR v1.0 GA (docs + verification only)** — extend epic #8223: add versioning/stability contract to the spec; formalize native `DecisionReceipt` ↔ ODR mapping; checked-in example receipt + verification test | #3 | 0-1 | `pip install aragora-verify` then `aragora-verify <receipt.json>` independently verifies a receipt produced from a native `DecisionReceipt` via `odr_export`, against the v1.0 spec; CI verifies a checked-in example receipt |
+| **M1-defer** | Production wiring deferred out of M1: auto-sign-in-gate (#8225), server verify endpoint (#8226) | #3 | **3 → HARD STOP** | parked for founder/operator; not part of the autonomous M1 slice |
 | **M2** | **Action wedge** — build `CollectOutcome → DecisionReceipt` bridge; rewrite `action.yml` to run the quorum and emit a verifiable receipt artifact + PR comment | #2 | 1-2 bridge; **2-3 workflow change = approval-required → HARD STOP for founder** | The Action runs **green on a real PR in this repo** and uploads a receipt that `aragora-verify` passes |
 | **M3** | **Proof corpus + legibility** — run the gate across a window of PRs, publish receipts + a short "what the quorum caught" writeup; trim README to one sentence; quarantine sprawl behind `aragora/experimental/` | #1, #4, #5 | mixed; **README narrative = Tier 3 founder call → HARD STOP** | A public artifact (release/page) with the receipt corpus live, AND a stranger-readable README + ≤5 documented load-bearing modules on `main` |
 
-The README one-sentence reframe (a small, safe edit) lands as the first commit of
-M1 so the repo's front door starts telling the story immediately; the full
-legibility reframe (module quarantine, narrative reconciliation) is M3.
+**The README reframe is entirely M3, not M1.** The one-sentence reframe is the same
+act as the narrative decision (you cannot write the sentence until the narrative is
+chosen), so it parks for the founder under M3. M1 touches **no** README,
+`action.yml`, `.github/workflows/`, server verify endpoint, auto-signing-in-gate,
+or any Tier 3-4 surface — it is ODR v1.0 docs + verification only.
 
 ## Error handling & guardrails (binding)
 
