@@ -71,6 +71,7 @@ PASSIVE_SESSION_ANCHOR_FILES = frozenset(
         ".session-anchor",
     }
 )
+PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT = 512
 RECEIPT_PATH_KEYS = frozenset(
     {
         "candidate_path",
@@ -720,12 +721,31 @@ def has_active_session(candidate_root: Path, repo_path: Path | None) -> bool:
 
 def passive_session_anchor_files(candidate_root: Path) -> list[str]:
     """Return passive wrapper anchor files under an otherwise no-git residue path."""
-    try:
-        files = [entry for entry in candidate_root.rglob("*") if entry.is_file()]
-    except OSError:
-        return []
-    anchors = [str(path) for path in files if path.name in PASSIVE_SESSION_ANCHOR_FILES]
-    return sorted(anchors) if anchors and len(anchors) == len(files) else []
+    anchors: list[str] = []
+    scanned_entries = 0
+    pending = [candidate_root]
+    while pending:
+        root = pending.pop()
+        try:
+            with os.scandir(root) as entries:
+                for entry in entries:
+                    scanned_entries += 1
+                    if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
+                        return []
+                    try:
+                        if entry.is_dir(follow_symlinks=False):
+                            pending.append(Path(entry.path))
+                            continue
+                        if not entry.is_file(follow_symlinks=False):
+                            return []
+                    except OSError:
+                        return []
+                    if entry.name not in PASSIVE_SESSION_ANCHOR_FILES:
+                        return []
+                    anchors.append(entry.path)
+        except OSError:
+            return []
+    return sorted(anchors)
 
 
 def git_status_dirty(repo_path: Path, *, timeout: int) -> tuple[bool, bool, str | None]:

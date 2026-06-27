@@ -173,6 +173,9 @@ def test_no_git_cache_residue_is_cleanup_candidate(tmp_path: Path) -> None:
     assert candidate.classification == "no_git_cache_residue"
     assert candidate.cleanup_candidate is True
     assert candidate.decision == "cleanup_candidate"
+    assert candidate.cleanup_safety.safety_class == "stale_residue"
+    assert candidate.cleanup_safety.requires_live_cleanup_inspect is True
+    assert candidate.cleanup_safety.safe_to_delete is False
 
 
 def test_anchor_only_wrapper_summary_counts_passive_residue(tmp_path: Path) -> None:
@@ -202,6 +205,49 @@ def test_anchor_only_wrapper_summary_counts_passive_residue(tmp_path: Path) -> N
     assert candidate.cleanup_safety.safety_class == "stale_residue"
     assert candidate.cleanup_safety.requires_live_cleanup_inspect is True
     assert candidate.cleanup_safety.safe_to_delete is False
+
+
+def test_nested_anchor_only_wrapper_counts_passive_residue(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path, repo=False)
+    nested = root / ".worktrees" / "session"
+    nested.mkdir(parents=True)
+    (nested / ".session-anchor").write_text("anchor\n")
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "no_git_cache_residue"
+    assert candidate.links["passive_session_anchors"] == [str(nested / ".session-anchor")]
+    assert "passive_session_anchor" in candidate.cleanup_safety.signals
+
+
+def test_passive_anchor_scan_stops_on_non_anchor_file(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = tmp_path / "residue"
+    root.mkdir()
+    (root / "not-an-anchor.txt").write_text("data\n")
+
+    assert mod.passive_session_anchor_files(root) == []
+
+
+def test_passive_anchor_scan_caps_large_anchor_only_tree(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = tmp_path / "residue"
+    root.mkdir()
+    for index in range(mod.PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT + 1):
+        anchor_dir = root / f"anchor-{index}"
+        anchor_dir.mkdir()
+        (anchor_dir / ".session-anchor").write_text("anchor\n")
+
+    assert mod.passive_session_anchor_files(root) == []
 
 
 def test_no_git_active_marker_is_preserved(tmp_path: Path) -> None:
