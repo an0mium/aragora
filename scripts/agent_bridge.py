@@ -1426,11 +1426,51 @@ def _lease_covers_codex_send_scope(
     )
 
 
+def _metadata_values(mapping: object, *keys: str) -> list[str]:
+    if not isinstance(mapping, dict):
+        return []
+    values: list[str] = []
+    for key in keys:
+        raw = mapping.get(key, [])
+        if isinstance(raw, list):
+            values.extend(str(item).strip() for item in raw if str(item).strip())
+        elif str(raw).strip():
+            values.append(str(raw).strip())
+    return values
+
+
+def _lease_covers_codex_forbidden_paths(
+    lease: object,
+    *,
+    forbidden_paths: list[str],
+) -> bool:
+    requested = [str(item).strip() for item in forbidden_paths if str(item).strip()]
+    if not requested:
+        return True
+    existing = _metadata_values(
+        getattr(lease, "metadata", {}) or {},
+        "forbidden_paths",
+        "forbidden_globs",
+        "hot_paths",
+        "hot_globs",
+    )
+    if not existing:
+        return False
+    try:
+        from aragora.nomic.dev_coordination import _path_matches_glob
+    except Exception:
+        return False
+    return all(
+        any(_path_matches_glob(item, forbidden) for forbidden in existing) for item in requested
+    )
+
+
 def _reusable_codex_send_lease(
     session: Session,
     *,
     claimed_paths: list[str],
     write_scopes: list[str],
+    forbidden_paths: list[str],
 ) -> bool | None:
     """Return True when an existing same-session lease safely covers this send.
 
@@ -1460,6 +1500,9 @@ def _reusable_codex_send_lease(
             lease,
             claimed_paths=claimed_paths,
             write_scopes=write_scopes,
+        ) and _lease_covers_codex_forbidden_paths(
+            lease,
+            forbidden_paths=forbidden_paths,
         ):
             reusable_owner_session_id = owner_session_id
             break
@@ -1496,6 +1539,9 @@ def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> str |
     write_scopes = [
         str(item).strip() for item in getattr(args, "write_scope", []) or [] if str(item).strip()
     ]
+    forbidden_paths = [
+        str(item).strip() for item in getattr(args, "forbidden_path", []) or [] if str(item).strip()
+    ]
     if not task_id or not (claimed_paths or write_scopes):
         print(
             "Codex send lease requires --task-id plus --claimed-path or --write-scope",
@@ -1507,6 +1553,7 @@ def _claim_codex_send_lease(session: Session, args: argparse.Namespace) -> str |
             session,
             claimed_paths=claimed_paths,
             write_scopes=write_scopes,
+            forbidden_paths=forbidden_paths,
         )
         if reusable_lease is True:
             return ""
