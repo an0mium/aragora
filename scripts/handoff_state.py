@@ -663,10 +663,19 @@ def classify_handoffs(
             github_errors.append(gh_error)
         items.append(item)
 
-    counts = Counter(item.state.value for item in items)
     github_mode = (
         "disabled" if getattr(gh, "disabled", False) else ("partial" if github_errors else "ready")
     )
+    if github_mode != "ready":
+        items = [
+            _withhold_mutation_for_global_github_degradation(
+                item,
+                mode=github_mode,
+                error=github_errors[0] if github_errors else None,
+            )
+            for item in items
+        ]
+    counts = Counter(item.state.value for item in items)
     payload = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -687,6 +696,30 @@ def classify_handoffs(
         "items": [item.to_dict() for item in items],
     }
     return payload
+
+
+def _withhold_mutation_for_global_github_degradation(
+    item: HandoffClassification,
+    *,
+    mode: str,
+    error: str | None,
+) -> HandoffClassification:
+    if item.next_mutation_candidate == "none" and not item.safe_to_mutate:
+        return item
+    evidence = {
+        **item.evidence,
+        "global_github_safety": {
+            "mode": mode,
+            "error": error,
+            "mutation_withheld": True,
+        },
+    }
+    return dataclasses.replace(
+        item,
+        evidence=evidence,
+        next_mutation_candidate="none",
+        safe_to_mutate=False,
+    )
 
 
 def classify_handoff_item(

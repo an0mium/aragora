@@ -282,6 +282,88 @@ def test_exact_open_pr_representation_is_safe_without_owner_blockers(tmp_path: P
     assert item["safe_to_mutate"] is True
 
 
+def test_classify_handoffs_ready_github_keeps_exact_pr_mutation_safe(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "html_url": "https://github.com/synaptent/aragora/pull/8570",
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        }
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=github,
+    )
+    item = payload["items"][0]
+
+    assert payload["github"]["mode"] == "ready"
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["next_mutation_candidate"] == "write_representation_receipt_then_archive"
+    assert item["safe_to_mutate"] is True
+
+
+def test_classify_handoffs_partial_github_withholds_exact_pr_mutation(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(
+        tmp_path,
+        key="open-pr-codex-safe-aaaaaaaa",
+        branch="codex/safe",
+        head=HEAD,
+    )
+    _write_outbox(
+        tmp_path,
+        key="open-pr-codex-failing-bbbbbbbb",
+        branch="codex/failing",
+        head=OTHER_HEAD,
+    )
+    github = FakeGitHub(
+        open_prs={
+            "codex/safe": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "html_url": "https://github.com/synaptent/aragora/pull/8570",
+                    "head": {"ref": "codex/safe", "sha": HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        },
+        errors={"pr:codex/failing": "gh api failed (TimeoutExpired)"},
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        github_client=github,
+    )
+    safe_item = next(item for item in payload["items"] if item["branch"] == "codex/safe")
+
+    assert payload["github"]["mode"] == "partial"
+    assert safe_item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert safe_item["next_mutation_candidate"] == "none"
+    assert safe_item["safe_to_mutate"] is False
+    assert safe_item["evidence"]["global_github_safety"]["mode"] == "partial"
+
+
 def test_exact_draft_open_pr_representation_is_not_safe_to_mutate(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, branch="codex/example")
@@ -2365,7 +2447,8 @@ def test_github_degraded_pr_lookup_still_reports_local_owner_blocker(
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["github"]["mode"] == "degraded"
-    assert item["next_mutation_candidate"] == "owner_followup"
+    assert item["next_mutation_candidate"] == "none"
+    assert item["evidence"]["global_github_safety"]["mode"] == "partial"
 
 
 def test_github_degraded_pr_lookup_still_reports_live_queue_cap(
@@ -2379,7 +2462,8 @@ def test_github_degraded_pr_lookup_still_reports_live_queue_cap(
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
     assert item["evidence"]["github"]["mode"] == "degraded"
-    assert item["next_mutation_candidate"] == "queue_drain"
+    assert item["next_mutation_candidate"] == "none"
+    assert item["evidence"]["global_github_safety"]["mode"] == "partial"
 
 
 def test_missing_origin_disables_github_instead_of_defaulting_repo(tmp_path: Path) -> None:
