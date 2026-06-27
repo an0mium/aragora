@@ -63,6 +63,10 @@ def test_github_slug_strips_punctuation_without_word_breaks() -> None:
     assert github_slug("5.2 Version Drift") == "52-version-drift"
     assert github_slug("Matrix/Graph Debates") == "matrixgraph-debates"
     assert (
+        github_slug("DRIFT-007: `ARAGORA_SINGLE_INSTANCE=true` undocumented")
+        == "drift-007-aragora_single_instancetrue-undocumented"
+    )
+    assert (
         github_slug("Active direction — Open Decision Receipt")
         == "active-direction--open-decision-receipt"
     )

@@ -23,7 +23,7 @@ from urllib.parse import unquote
 
 HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
 HTML_ID_RE = re.compile(r"""\bid=["']([^"']+)["']""")
-GITHUB_PUNCTUATION_RE = re.compile(r"[`~!@#$%^&*()_=+\[\]{}\\|;:'\",.<>/?—–]")
+GITHUB_PUNCTUATION_RE = re.compile(r"[`~!@#$%^&*()=+\[\]{}\\|;:'\",.<>/?—–]")
 
 
 class BrokenLink(NamedTuple):
