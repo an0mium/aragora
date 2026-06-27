@@ -1485,8 +1485,6 @@ def desired_base_from_payload(payload: Mapping[str, Any]) -> str:
 
 def local_evidence_conflict_reason(payload: Mapping[str, Any]) -> str | None:
     records = _local_evidence_mappings(payload.get("local_evidence"))
-    if not records:
-        return None
     top_branch = _first_text(payload, "branch")
     top_head = _first_text(payload, *HEAD_FIELD_KEYS)
     top_base = _first_text(payload, *BASE_FIELD_KEYS)
@@ -1494,6 +1492,14 @@ def local_evidence_conflict_reason(payload: Mapping[str, Any]) -> str | None:
     action_branch = _first_text(requested_action, "branch")
     action_head = _first_text(requested_action, *HEAD_FIELD_KEYS)
     action_base = _first_text(requested_action, *BASE_FIELD_KEYS)
+    if top_branch and action_branch and top_branch != action_branch:
+        return "top-level branch conflicts with requested_action branch"
+    if top_head and action_head and not heads_match(top_head, action_head):
+        return "top-level desired head conflicts with requested_action desired head"
+    if top_base and action_base and not _base_matches(top_base, action_base):
+        return "top-level base conflicts with requested_action base"
+    if not records:
+        return None
     for record in records:
         record_branch = _first_text(record, "branch")
         record_head = _first_text(record, *HEAD_FIELD_KEYS)

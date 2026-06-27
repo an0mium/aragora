@@ -718,6 +718,37 @@ def test_local_evidence_origin_main_base_alias_does_not_conflict(tmp_path: Path)
     assert "local_evidence" not in item["evidence"]
 
 
+def test_requested_action_branch_conflict_without_local_evidence_fails_closed(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    handoff = _write_outbox(tmp_path, branch="codex/example")
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload["requested_action"]["branch"] = "codex/other"
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+
+    item = _classify_one(tmp_path, github=FakeGitHub())
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["reason"] == "top-level branch conflicts with requested_action branch"
+
+
+def test_requested_action_head_conflict_without_local_evidence_fails_closed(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    handoff = _write_outbox(tmp_path, branch="codex/example")
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload["requested_action"]["desired_head_sha"] = OTHER_HEAD
+    payload["requested_action"]["head_sha"] = OTHER_HEAD
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+
+    item = _classify_one(tmp_path, github=FakeGitHub())
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["reason"] == "top-level desired head conflicts with requested_action desired head"
+
+
 def test_live_open_pr_base_ref_is_not_collapsed_as_local_alias(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, branch="codex/example", base="main")
