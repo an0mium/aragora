@@ -561,6 +561,8 @@ def _local_work_string_marker(value: str) -> bool:
         return False
     if normalized in LOCAL_WORK_TRUE_MARKER_VALUES:
         return True
+    # Unknown non-empty markers fail closed: producer-specific sentinels must be
+    # explicitly allowlisted before they can prove absence of local work.
     return True
 
 
@@ -1666,6 +1668,8 @@ def _head_values_conflict(values: Sequence[str]) -> bool:
     full_values.discard(None)
     if len(full_values) > 1:
         return True
+    # A full SHA and its usable prefix describe the same head; only unrelated
+    # representatives should make multiple local-evidence records conflict.
     representatives: list[str] = []
     for value in normalized:
         if not any(heads_match(value, existing) for existing in representatives):

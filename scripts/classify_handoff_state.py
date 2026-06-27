@@ -82,9 +82,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--fail-on-unsafe-state",
         action="store_true",
         help=(
-            "Compatibility flag. Unsafe classifications now exit 2 by default when "
-            "classification is unknown, GitHub evidence is unavailable, or any item "
-            "exposes an unsafe mutation candidate."
+            "Deprecated compatibility flag. Unsafe classifications exit 2 by default; "
+            "this flag is accepted for older callers that still pass it explicitly."
         ),
     )
     return parser
@@ -110,6 +109,13 @@ def _has_unsafe_state(payload: dict) -> bool:
     return False
 
 
+def _exit_code_for_payload(payload: dict, *, fail_on_unsafe_state: bool = False) -> int:
+    # Fail-closed exits are now the default; the flag remains an explicit
+    # compatibility alias so older callers do not get a misleading parser error.
+    _ = fail_on_unsafe_state
+    return 2 if _has_unsafe_state(payload) else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     payload = classify_handoffs(
@@ -125,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     output = compact_summary(payload) if args.summary_only else payload
     if args.json:
         print(json.dumps(output, indent=2, sort_keys=True))
-        return 2 if _has_unsafe_state(payload) else 0
+        return _exit_code_for_payload(payload, fail_on_unsafe_state=args.fail_on_unsafe_state)
 
     print(f"schema_version: {output['schema_version']}")
     print(f"generated_at: {output['generated_at']}")
@@ -138,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
         print("items:")
         for item in output.get("items", []):
             print(f"  {item.get('outbox_file')}: {item.get('state')} ({item.get('reason')})")
-    return 2 if _has_unsafe_state(payload) else 0
+    return _exit_code_for_payload(payload, fail_on_unsafe_state=args.fail_on_unsafe_state)
 
 
 if __name__ == "__main__":

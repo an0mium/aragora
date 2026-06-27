@@ -316,6 +316,46 @@ def test_registry_only_owner_probe_representation_is_not_safe_to_mutate(
     assert "owner liveness helper was not used" in item["reason"]
 
 
+def test_liveness_helper_exact_open_pr_representation_can_be_safe_to_mutate(
+    tmp_path: Path,
+) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "identify_lane_owner.py").write_text(
+        "import sys\nprint('ERROR: no matching lane criteria', file=sys.stderr)\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "html_url": "https://github.com/synaptent/aragora/pull/8570",
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                }
+            ]
+        }
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=github,
+        with_liveness_helper=True,
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["next_mutation_candidate"] == "write_representation_receipt_then_archive"
+    assert item["safe_to_mutate"] is True
+
+
 def test_exact_draft_open_pr_representation_is_not_safe_to_mutate(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, branch="codex/example")
@@ -719,6 +759,39 @@ def test_local_evidence_equivalent_sha_prefix_records_do_not_conflict(
     item = _classify_one(tmp_path, github=FakeGitHub())
 
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert "local_evidence" not in item["evidence"]
+
+
+def test_local_evidence_equivalent_sha_prefix_records_can_prove_exact_open_pr(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        head=HEAD,
+        local_evidence=[
+            {"branch": "codex/example", "desired_head_sha": HEAD},
+            {"branch": "codex/example", "target_head_sha": HEAD[:12]},
+        ],
+    )
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "html_url": "https://github.com/synaptent/aragora/pull/8570",
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github, owner=FakeOwnerProbe())
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
     assert "local_evidence" not in item["evidence"]
 
 
@@ -1619,6 +1692,26 @@ def test_local_evidence_negative_local_work_marker_does_not_block_publication(
 
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
     assert item["evidence"]["owner"]["advisory_withheld"] is None
+
+
+def test_local_evidence_unknown_local_work_marker_fails_closed(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        local_evidence=[
+            {
+                "branch": "codex/example",
+                "desired_head_sha": HEAD,
+                "local_work": "producer-specific-sentinel",
+            }
+        ],
+    )
+
+    item = _classify_one(tmp_path, github=FakeGitHub())
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK.value
+    assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
 
 
 def test_lane_registry_terminal_owner_does_not_block_by_default(
@@ -2591,6 +2684,34 @@ def test_cli_fail_on_unsafe_state_returns_nonzero_for_disabled_github(
     )
 
     assert code == 2
+
+
+def test_cli_fail_on_unsafe_state_flag_is_default_compatibility_alias() -> None:
+    safe_payload = {
+        "github": {"mode": "ready"},
+        "items": [
+            {
+                "state": "represented_by_exact_open_pr",
+                "next_mutation_candidate": "write_representation_receipt_then_archive",
+                "safe_to_mutate": True,
+            }
+        ],
+    }
+    unsafe_payload = {
+        "github": {"mode": "ready"},
+        "items": [
+            {
+                "state": "represented_by_exact_open_pr",
+                "next_mutation_candidate": "none",
+                "safe_to_mutate": False,
+            }
+        ],
+    }
+
+    assert cli._exit_code_for_payload(safe_payload) == 0  # noqa: SLF001
+    assert cli._exit_code_for_payload(safe_payload, fail_on_unsafe_state=True) == 0  # noqa: SLF001
+    assert cli._exit_code_for_payload(unsafe_payload) == 2  # noqa: SLF001
+    assert cli._exit_code_for_payload(unsafe_payload, fail_on_unsafe_state=True) == 2  # noqa: SLF001
 
 
 def test_cli_returns_nonzero_for_unsafe_state_by_default(
