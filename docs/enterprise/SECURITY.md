@@ -22,7 +22,7 @@ This document covers security features implemented in Aragora, including authent
 
 - [Authentication](#authentication)
   - [JWT Tokens](#jwt-tokens)
-  - [OAuth 2.0](#oauth-2-0)
+  - [OAuth 2.0](#oauth-20)
   - [Token Revocation](#token-revocation)
 - [Authorization](#authorization)
   - [Role-Based Access](#role-based-access)

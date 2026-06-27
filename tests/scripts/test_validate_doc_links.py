@@ -57,6 +57,17 @@ def test_validate_link_uses_github_apostrophe_slug(tmp_path: Path) -> None:
     )
 
 
+def test_github_slug_strips_punctuation_without_word_breaks() -> None:
+    assert github_slug("OAuth 2.0") == "oauth-20"
+    assert github_slug("N+1 Query Detection") == "n1-query-detection"
+    assert github_slug("5.2 Version Drift") == "52-version-drift"
+    assert github_slug("Matrix/Graph Debates") == "matrixgraph-debates"
+    assert (
+        github_slug("Active direction — Open Decision Receipt")
+        == "active-direction--open-decision-receipt"
+    )
+
+
 def test_validate_link_accepts_anchor_only_links(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     source = docs / "source.md"

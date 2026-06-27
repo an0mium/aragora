@@ -23,6 +23,7 @@ from urllib.parse import unquote
 
 HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
 HTML_ID_RE = re.compile(r"""\bid=["']([^"']+)["']""")
+GITHUB_PUNCTUATION_RE = re.compile(r"[`~!@#$%^&*()_=+\[\]{}\\|;:'\",.<>/?—–]")
 
 
 class BrokenLink(NamedTuple):
@@ -86,20 +87,25 @@ def split_link_target(raw: str) -> tuple[str, str]:
     return path_part, unquote(anchor) if sep else ""
 
 
-def normalize_anchor(value: str) -> str:
-    """Normalize a heading or anchor the way GitHub-style markdown links do."""
+def _anchor_text(value: str) -> str:
+    """Return markdown-stripped text before GitHub-style slug normalization."""
     value = unquote(value).lower()
     value = re.sub(r"`([^`]+)`", r"\1", value)
     value = re.sub(r"\[[^\]]+\]\(([^)]+)\)", r"\1", value)
-    value = re.sub(r"<[^>]+>", "", value)
-    value = value.replace("'", "").replace("’", "")
-    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"<[^>]+>", "", value)
+
+
+def normalize_anchor(value: str) -> str:
+    """Normalize a heading or explicit id for loose internal comparisons."""
+    value = GITHUB_PUNCTUATION_RE.sub("", _anchor_text(value))
+    value = re.sub(r"[-\s]+", " ", value)
     return " ".join(value.split())
 
 
 def github_slug(value: str) -> str:
     """Return the canonical GitHub-style slug for a heading."""
-    return normalize_anchor(value).replace(" ", "-")
+    value = GITHUB_PUNCTUATION_RE.sub("", _anchor_text(value))
+    return re.sub(r"\s", "-", value.strip())
 
 
 def heading_anchors(path: Path) -> set[str]:

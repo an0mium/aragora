@@ -13,7 +13,7 @@ Configure external identity providers for Aragora authentication.
 - [Microsoft Entra ID (Azure AD)](#microsoft-entra-id-azure-ad)
 - [GitHub OAuth](#github-oauth)
 - [Okta](#okta)
-- [SAML 2.0 Configuration](#saml-2-0-configuration)
+- [SAML 2.0 Configuration](#saml-20-configuration)
 - [OpenID Connect (OIDC)](#openid-connect-oidc)
 - [Troubleshooting](#troubleshooting)
 
