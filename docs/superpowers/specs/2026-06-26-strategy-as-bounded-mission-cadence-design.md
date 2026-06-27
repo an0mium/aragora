@@ -128,8 +128,8 @@ then exit.
 
 | # | Sub-mission | Covers | Tier | Terminal DONE (external proof gate) |
 |---|---|---|---|---|
-| **M0** | Mission Queue section in the Intake Register + GitHub epic | (infra) | 0 | Register section exists on `main` with M1-M3 rows; epic open |
-| **M1** | **ODR v1.0 GA (docs + verification only)** — extend epic #8223: add versioning/stability contract to the spec; formalize native `DecisionReceipt` ↔ ODR mapping; checked-in example receipt + verification test | #3 | 0-1 | `pip install aragora-verify` then `aragora-verify <receipt.json>` independently verifies a receipt produced from a native `DecisionReceipt` via `odr_export`, against the v1.0 spec; CI verifies a checked-in example receipt |
+| **M0** | Mission Queue section in the Intake Register + parser test (autonomous). GitHub epic creation parks for the operator. | (infra) | 0 | Register section exists with M1-M3 rows and the parser test passes |
+| **M1** | **ODR v1.0 GA (docs + verification only)** — extend epic #8223: add versioning/stability contract to the spec; formalize native `DecisionReceipt` ↔ ODR mapping; checked-in example receipt + verification test | #3 | 0-1 | `pip install aragora-verify` then `aragora-verify <receipt.json>` independently verifies an **unsigned** receipt produced from a native `DecisionReceipt` via `odr_export`, against the published ODR profile; CI verifies a checked-in example receipt |
 | **M1-defer** | Production wiring deferred out of M1: auto-sign-in-gate (#8225), server verify endpoint (#8226) | #3 | **3 → HARD STOP** | parked for founder/operator; not part of the autonomous M1 slice |
 | **M2** | **Action wedge** — build `CollectOutcome → DecisionReceipt` bridge; rewrite `action.yml` to run the quorum and emit a verifiable receipt artifact + PR comment | #2 | 1-2 bridge; **2-3 workflow change = approval-required → HARD STOP for founder** | The Action runs **green on a real PR in this repo** and uploads a receipt that `aragora-verify` passes |
 | **M3** | **Proof corpus + legibility** — run the gate across a window of PRs, publish receipts + a short "what the quorum caught" writeup; trim README to one sentence; quarantine sprawl behind `aragora/experimental/` | #1, #4, #5 | mixed; **README narrative = Tier 3 founder call → HARD STOP** | A public artifact (release/page) with the receipt corpus live, AND a stranger-readable README + ≤5 documented load-bearing modules on `main` |
@@ -176,8 +176,10 @@ elves-aragora gate:
   batch runner and gate mocked (mirror `tests/swarm/test_boss_loop_*.py`).
 - **Register round-trip:** parse the Mission Queue section, mutate a row status,
   re-serialize; assert single-active invariant.
-- **M1 proof:** an end-to-end test that exports a receipt via `odr_export`, signs
-  it, and verifies it with `aragora-verify` against the v1.0 schema.
+- **M1 proof:** an end-to-end test that exports a receipt via `odr_export` and
+  verifies it with `aragora-verify` against the published ODR profile. The
+  example is **unsigned** — the absent-signature check is a warning, not a
+  failure. Signing (and any format-version bump to v1.0) is parked Tier 3.
 - **No new `mypy` errors vs baseline; test count never decreases** (elves gate
   step 3).
 
