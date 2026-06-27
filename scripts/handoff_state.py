@@ -1517,7 +1517,11 @@ def local_evidence_conflict_reason(payload: Mapping[str, Any]) -> str | None:
         for record in records
         if str(record.get("branch") or "").strip()
     }
-    heads = {value for record in records if (value := _first_text(record, *HEAD_FIELD_KEYS))}
+    heads: list[str] = []
+    for record in records:
+        value = _first_text(record, *HEAD_FIELD_KEYS)
+        if value and not any(heads_match(value, existing) for existing in heads):
+            heads.append(value)
     bases = {
         _normalize_base_ref(value)
         for record in records

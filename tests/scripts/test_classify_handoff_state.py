@@ -641,6 +641,26 @@ def test_conflicting_local_evidence_alias_records_fail_closed(tmp_path: Path) ->
     assert "local_evidence head conflicts" in item["reason"]
 
 
+def test_local_evidence_equivalent_sha_prefix_records_do_not_conflict(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        head=HEAD,
+        local_evidence=[
+            {"branch": "codex/example", "desired_head_sha": HEAD},
+            {"branch": "codex/example", "target_head_sha": HEAD[:12]},
+        ],
+    )
+
+    item = _classify_one(tmp_path, github=FakeGitHub())
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert "local_evidence" not in item["evidence"]
+
+
 def test_single_local_evidence_conflict_with_top_level_fails_closed(
     tmp_path: Path,
 ) -> None:
