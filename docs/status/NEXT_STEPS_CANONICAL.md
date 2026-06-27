@@ -12,6 +12,16 @@ This is the single source of truth for short-horizon execution priorities.
 
 The immediate gate is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
 
+The active strategy mission that turns this proof-first loop into an outsider-legible
+product wedge is [#8665](https://github.com/synaptent/aragora/issues/8665):
+DecisionReceipt/ODR v1.0, then a GitHub Action receipt artifact, then a public proof
+corpus. Its durable queue lives in
+[`ROADMAP_INTAKE_REGISTER.md`](ROADMAP_INTAKE_REGISTER.md#active-mission-queue--strategy-mission-cadence-8665),
+and its design lives in
+[`docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md`](../superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md).
+This does not widen the autonomy gate; it focuses the proof loop on the narrow receipt
+wedge: multi-model PR review in, signed DecisionReceipt out.
+
 Current proof-loop state for `CS-01..03` reconciliation is delegated to the live recurring `B0`/`TW-03` proof surfaces:
 
 - `docs/THESIS.md` is v4 canonical.
