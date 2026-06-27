@@ -6,7 +6,7 @@
 
 **Canonical intake:** [`docs/status/ROADMAP_INTAKE_REGISTER.md`](../../status/ROADMAP_INTAKE_REGISTER.md)
 
-**Product sentence:** Aragora gives AI-assisted work a second opinion and a portable receipt: multi-model review in, signed DecisionReceipt out.
+**Product sentence:** Aragora gives AI-assisted work a second opinion and a portable receipt: multi-model review in, signed DecisionReceipt out after the ODR offline-verifier spine and Action artifact gates are proven.
 
 ---
 
@@ -17,7 +17,7 @@ This design extends live repo primitives instead of inventing another runtime.
 | Surface | Current repo truth | Design implication |
 |---|---|---|
 | Roadmap intake | `docs/status/ROADMAP_INTAKE_REGISTER.md` exists and is the single-register rule. | Register this mission there; do not create a parallel index. |
-| ODR | `docs/specs/OPEN_DECISION_RECEIPT.md`, `aragora/gauntlet/odr_schema.json`, `aragora/gauntlet/odr_export.py`, `aragora/gauntlet/odr_signing.py`, and `aragora-verify/` already exist. | M1 is ODR v1.0 GA, not greenfield receipt work. |
+| ODR | `docs/specs/OPEN_DECISION_RECEIPT.md`, `aragora/gauntlet/odr_schema.json`, `aragora/gauntlet/odr_export.py`, `aragora/gauntlet/odr_signing.py`, `aragora-verify/`, and the existing ODR completion plan `docs/superpowers/plans/2026-06-13-odr-completion-mission.md` already exist. | M1 extends the ODR-2 -> ODR-3 offline-verifier spine; it does not create a competing ODR executor or freeze v1.0 before the verifier proof lands. |
 | GitHub Action | `action.yml` runs advisory `aragora review`, but does not emit ODR/DecisionReceipt artifacts. | M2 is a bridge from quorum evidence to a receipt artifact, then an approval-gated Action change. |
 | Mission runtime | `aragora/cli/commands/mission.py`, `aragora/missions/`, and `aragora/swarm/mission.py` exist; native-mission work is being integrated. | Use the mission spine and `GateEvaluation`; do not add a parallel orchestrator. |
 | External proof | Existing docs already insist that claims trail measured proof. | The mission exits only when a public/verifiable artifact exists. |
@@ -37,7 +37,7 @@ Only one sub-mission is active at a time. The next sub-mission cannot start unti
 | Mission | Scope | Existing tracker(s) | Terminal proof gate |
 |---|---|---|---|
 | M0: Durable strategy registration | Add this spec, register #8665, and expose the mission queue in the intake register. | #8665, #8650 | Spec and register row are on main; #8665 links the queue and existing epics. |
-| M1: ODR v1.0 GA | Promote ODR v0.1 to a stable v1 contract: versioning policy, native `DecisionReceipt` to ODR mapping, independent verifier fixture, and signing proof. | #8223 | `aragora-verify` verifies a live Aragora-produced ODR receipt against a checked-in v1 fixture and spec. |
+| M1: ODR spine to v1.0 candidate | Extend the existing ODR completion mission: finish the ODR-2 signing dependency, make the ODR-3 offline verifier prove a live receipt, then promote ODR v0.1 toward a stable v1 candidate with versioning policy, native `DecisionReceipt` mapping, independent verifier fixture, and signing proof. | #8223; existing plan `docs/superpowers/plans/2026-06-13-odr-completion-mission.md` | `aragora-verify` verifies a live Aragora-produced ODR receipt against a checked-in v1 candidate fixture and spec; only then can a GA stability claim be made. |
 | M2: GitHub Action wedge | Convert PR quorum/CollectOutcome evidence into a DecisionReceipt/ODR artifact; prepare the approval-required Action update separately. | #8665 plus follow-up issue | A real PR run uploads a receipt artifact that `aragora-verify` accepts. |
 | M3: Proof corpus and legibility | Publish a small corpus of real PR governance receipts and trim the front-door story to the Action/receipt wedge. | #8257 plus follow-up issue | Public proof page/release exists with receipt corpus and a README path a newcomer can understand in one sitting. |
 
@@ -73,9 +73,9 @@ Fail-closed rules:
 - `needs_human`: Tier 3/4, workflow, release, signing-key, or public-positioning decision needs exact-head operator settlement.
 - `pass`: artifact exists, verifier passes, and any required human settlement is already recorded.
 
-## M1 Implementation Plan: ODR v1.0 GA
+## M1 Implementation Plan: ODR Spine to v1.0 Candidate
 
-M1 is the first executable sub-mission after M0. It extends [#8223](https://github.com/synaptent/aragora/issues/8223).
+M1 is the first executable sub-mission after M0. It extends [#8223](https://github.com/synaptent/aragora/issues/8223) through the existing ODR completion plan at [`docs/superpowers/plans/2026-06-13-odr-completion-mission.md`](../plans/2026-06-13-odr-completion-mission.md). That plan's ODR-2 -> ODR-3 spine remains the right-of-way: signing and the offline verifier must settle before this mission claims ODR v1.0 GA.
 
 ### Task 1: Versioning and Stability Contract
 
@@ -86,7 +86,7 @@ M1 is the first executable sub-mission after M0. It extends [#8223](https://gith
 
 Steps:
 
-- [ ] Add a `v1.0 stability contract` section to `docs/specs/OPEN_DECISION_RECEIPT.md` stating which fields are stable, which changes require a minor version, which changes require a major version, and how v0.1 consumers migrate.
+- [ ] Add a `v1.0 candidate stability contract` section to `docs/specs/OPEN_DECISION_RECEIPT.md` stating which fields are intended to become stable, which changes would require a minor version, which changes would require a major version, and how v0.1 consumers migrate after the ODR-3 verifier proof lands.
 - [ ] Update `aragora/gauntlet/odr_schema.json` only after the stability contract is clear; do not rename existing fields unless the migration text names the compatibility behavior.
 - [ ] Add or update tests in `tests/gauntlet/test_odr_export.py` so `ODR_VERSION`, `ODR_PROFILE_URI`, and the schema `$id` stay synchronized.
 - [ ] Run `python3 -m pytest tests/gauntlet/test_odr_export.py -q`.
@@ -127,7 +127,7 @@ Steps:
 
 Steps:
 
-- [ ] Record the M1 proof artifact path and verifier command in the register.
+- [ ] Record the M1 proof artifact path and verifier command in the register, preserving the existing ODR completion mission as the authoritative execution spine.
 - [ ] Update the GitHub issue with the exact command output and the commit SHA that produced the verified receipt.
 - [ ] Keep any signing-key, server endpoint, or protected deployment change parked as `needs_human`; those are not required for the M1 doc/schema proof to land.
 
@@ -220,8 +220,8 @@ Circuit breaker: if no external proof progresses for three consecutive ticks, ha
 ## Acceptance Criteria
 
 - The register has exactly one row and one mission-queue section for this strategy mission.
-- M1 extends #8223 instead of creating a competing receipt spec.
+- M0 is explicitly merge-gated until this registration PR lands on `main`.
+- M1 extends #8223 and the existing ODR completion plan instead of creating a competing receipt spec or executor.
 - M2 prepares protected Action/workflow changes but does not land them without exact-head settlement.
 - M3 publishes proof before broadening claims.
 - A newcomer can state the wedge in one sentence: multi-model review in, signed DecisionReceipt out.
-
