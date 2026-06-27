@@ -173,6 +173,32 @@ def test_no_git_cache_residue_is_cleanup_candidate(tmp_path: Path) -> None:
     assert candidate.classification == "no_git_cache_residue"
     assert candidate.cleanup_candidate is True
     assert candidate.decision == "cleanup_candidate"
+
+
+def test_anchor_only_wrapper_summary_counts_passive_residue(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path, repo=False)
+    (root / ".claude-session-anchor").write_text("anchor\n")
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    summary = mod.build_summary([candidate])
+
+    assert summary["cleanup_candidate_count"] == 1
+    assert summary["passive_session_anchor_residue_count"] == 1
+    assert candidate.links["passive_session_anchors"] == [str(root / ".claude-session-anchor")]
+    assert "passive session anchor residue only" in candidate.proof
+    assert "passive_session_anchor" in candidate.cleanup_safety.signals
+    assert summary["top_cleanup_candidates"][0]["cleanup_safety"]["signals"] == [
+        "stale",
+        "passive_session_anchor",
+    ]
     assert candidate.cleanup_safety.safety_class == "stale_residue"
     assert candidate.cleanup_safety.requires_live_cleanup_inspect is True
     assert candidate.cleanup_safety.safe_to_delete is False

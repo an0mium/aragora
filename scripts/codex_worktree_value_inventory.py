@@ -62,6 +62,15 @@ ACTIVE_SESSION_FILES = (
     ".codex_session_active",
     ".nomic-session-active",
 )
+PASSIVE_SESSION_ANCHOR_FILES = frozenset(
+    {
+        ".claude-session-anchor",
+        ".codex-session-anchor",
+        ".codex-session",
+        ".droid-session-anchor",
+        ".session-anchor",
+    }
+)
 RECEIPT_PATH_KEYS = frozenset(
     {
         "candidate_path",
@@ -709,6 +718,16 @@ def has_active_session(candidate_root: Path, repo_path: Path | None) -> bool:
     return bool(active_lock_files(candidate_root, repo_path))
 
 
+def passive_session_anchor_files(candidate_root: Path) -> list[str]:
+    """Return passive wrapper anchor files under an otherwise no-git residue path."""
+    try:
+        files = [entry for entry in candidate_root.rglob("*") if entry.is_file()]
+    except OSError:
+        return []
+    anchors = [str(path) for path in files if path.name in PASSIVE_SESSION_ANCHOR_FILES]
+    return sorted(anchors) if anchors and len(anchors) == len(files) else []
+
+
 def git_status_dirty(repo_path: Path, *, timeout: int) -> tuple[bool, bool, str | None]:
     proc = run_git(["status", "--porcelain"], repo_path, timeout=timeout)
     if proc.returncode != 0:
@@ -1285,6 +1304,9 @@ def classify_candidate(
         else:
             classification = "no_git_cache_residue"
             proof.append("no git metadata at candidate root or candidate/aragora path")
+            if passive_anchors := passive_session_anchor_files(candidate_root):
+                links["passive_session_anchors"] = passive_anchors
+                proof.append("passive session anchor residue only")
         return build_candidate(
             candidate_root,
             repo_path,
@@ -1692,6 +1714,9 @@ def cleanup_safety_for_candidate(
             signals=["stale", "harvested", "duplicate"],
         )
     if cleanup_candidate and classification in {"unregistered_git_residue", "no_git_cache_residue"}:
+        signals = ["stale"]
+        if links.get("passive_session_anchors"):
+            signals.append("passive_session_anchor")
         return CleanupSafety(
             safety_class="stale_residue",
             preserve=False,
@@ -1699,7 +1724,7 @@ def cleanup_safety_for_candidate(
             requires_live_cleanup_inspect=True,
             reason="local residue has no active owner or unique confirmed work in inventory",
             next_action="run fresh safe_worktree_cleanup.py inspect before any removal",
-            signals=["stale"],
+            signals=signals,
         )
     return CleanupSafety(
         safety_class="unknown_preserve",
@@ -1847,6 +1872,9 @@ def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
         "known_size_bytes": known_bytes,
         "size_lookup_failures": size_lookup_failures,
         "inspect_timeouts": sum(1 for candidate in candidates if candidate.git.inspect_timeout),
+        "passive_session_anchor_residue_count": sum(
+            1 for candidate in candidates if candidate.links.get("passive_session_anchors")
+        ),
         "inventory_coverage": (
             1.0 if not candidates else (len(candidates) - size_lookup_failures) / len(candidates)
         ),
