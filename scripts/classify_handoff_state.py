@@ -82,8 +82,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "--fail-on-unsafe-state",
         action="store_true",
         help=(
-            "Exit 2 when classification is unknown, GitHub evidence is unavailable, "
-            "or any item exposes an unsafe mutation candidate."
+            "Compatibility flag. Unsafe classifications now exit 2 by default when "
+            "classification is unknown, GitHub evidence is unavailable, or any item "
+            "exposes an unsafe mutation candidate."
         ),
     )
     return parser
@@ -124,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
     output = compact_summary(payload) if args.summary_only else payload
     if args.json:
         print(json.dumps(output, indent=2, sort_keys=True))
-        return 2 if args.fail_on_unsafe_state and _has_unsafe_state(payload) else 0
+        return 2 if _has_unsafe_state(payload) else 0
 
     print(f"schema_version: {output['schema_version']}")
     print(f"generated_at: {output['generated_at']}")
@@ -137,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
         print("items:")
         for item in output.get("items", []):
             print(f"  {item.get('outbox_file')}: {item.get('state')} ({item.get('reason')})")
-    return 2 if args.fail_on_unsafe_state and _has_unsafe_state(payload) else 0
+    return 2 if _has_unsafe_state(payload) else 0
 
 
 if __name__ == "__main__":

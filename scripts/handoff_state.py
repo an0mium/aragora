@@ -467,7 +467,12 @@ class LaneRegistryOwnerProbe:
     def probe(self, branch: str) -> OwnerEvidence:
         candidates = [row for row in self.records if str(row.get("branch") or "") == branch]
         if not candidates:
-            return OwnerEvidence(available=True, matched=False, error="no lane matched")
+            return OwnerEvidence(
+                available=True,
+                matched=False,
+                error="no lane matched",
+                source="lane_registry",
+            )
         row = _best_lane_record(candidates)
         status = str(row.get("status") or "").strip().lower()
         blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
@@ -476,6 +481,7 @@ class LaneRegistryOwnerProbe:
         elif blocking_state is None and status in ACTIVE_LANE_STATUSES:
             blocking_state = "unknown_owner"
         evidence = owner_evidence_from_payload(row)
+        evidence.source = evidence.source or "lane_registry"
         evidence.status = status or evidence.status
         evidence.owner_blocking_state = evidence.owner_blocking_state or blocking_state
         evidence.owner_blocking_state_reason = evidence.owner_blocking_state_reason or (
@@ -615,6 +621,7 @@ def classify_handoffs(
     )
     receipts = load_terminal_receipts(receipt_dir)
     outbox_files = _selected_outbox_files(outbox_dir, outbox_file)
+    steering_rows = _steering_message_rows(_state_path(state_root, DEFAULT_STEERING_ROOT))
     gh = github_client or NarrowGitHubClient(
         repo_root=repo_root,
         github_repo=github_repo or "",
@@ -657,6 +664,7 @@ def classify_handoffs(
             github_client=gh,
             owner_probe=owner,
             state_root=state_root,
+            steering_rows=steering_rows,
         )
         gh_error = item.evidence.get("github", {}).get("error")
         if isinstance(gh_error, str) and gh_error:
@@ -698,6 +706,7 @@ def classify_handoff_item(
     github_client: Any,
     owner_probe: Any,
     state_root: Path,
+    steering_rows: Sequence[Mapping[str, Any]] | None = None,
 ) -> HandoffClassification:
     idem = str(payload.get("idempotency_key") or path.stem).strip() or path.stem
     branch = branch_from_payload(payload)
@@ -753,6 +762,7 @@ def classify_handoff_item(
         branch=branch,
         owner_session=owner.owner_session,
         lane_id=owner.lane_id,
+        message_rows=steering_rows,
     )
     evidence["steering"] = dataclasses.asdict(steering)
     if not desired_head and github.open_prs:
@@ -821,6 +831,21 @@ def classify_handoff_item(
                 reason=f"branch has exact-head open PR #{number} but GitHub PR evidence is degraded",
                 evidence=evidence,
             )
+        mutation_guard = _exact_open_pr_mutation_guard(
+            github.exact_open_pr,
+            desired_head,
+            owner,
+        )
+        if mutation_guard:
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.REPRESENTED_BY_EXACT_OPEN_PR,
+                reason=f"branch has exact-head open PR #{number} but {mutation_guard}",
+                evidence=evidence,
+            )
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
@@ -834,6 +859,7 @@ def classify_handoff_item(
         )
 
     remote_exact_head = _remote_ref_matches(github.remote_ref, desired_head)
+    remote_mutation_guard = _remote_ref_mutation_guard(github.remote_ref, desired_head, owner)
     if remote_exact_head and _possible_unpushed(owner):
         return HandoffClassification(
             outbox_file=path.name,
@@ -968,10 +994,17 @@ def classify_handoff_item(
             branch=branch,
             desired_head_sha=desired_head or None,
             state=HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH,
-            reason="desired head is preserved by exact remote branch",
+            reason=(
+                f"desired head is preserved by exact remote branch but {remote_mutation_guard}"
+                if remote_mutation_guard
+                else "desired head is preserved by exact remote branch"
+            ),
             evidence=evidence,
-            next_mutation_candidate="represent_or_publish_remote_branch",
-            safe_to_mutate=not (
+            next_mutation_candidate=(
+                "none" if remote_mutation_guard else "represent_or_publish_remote_branch"
+            ),
+            safe_to_mutate=remote_mutation_guard is None
+            and not (
                 _possible_unpushed(owner)
                 or _human_blocked(owner, steering)
                 or _owner_blocked(owner, steering)
@@ -1360,13 +1393,16 @@ def steering_evidence_for_branch(
     branch: str,
     owner_session: str | None,
     lane_id: str | None,
+    message_rows: Sequence[Mapping[str, Any]] | None = None,
 ) -> SteeringEvidence:
     root = _state_path(state_root, DEFAULT_STEERING_ROOT)
-    if not root.exists():
+    rows = list(message_rows) if message_rows is not None else _steering_message_rows(root)
+    if not rows:
         return SteeringEvidence()
     matches: list[dict[str, Any]] = []
-    for path in sorted(root.glob("*/*.json")):
-        payload = _load_json(path)
+    for row in rows:
+        path = Path(str(row.get("path") or ""))
+        payload = row.get("payload")
         if not isinstance(payload, dict):
             continue
         to_session = str(payload.get("to_session") or "")
@@ -1386,7 +1422,7 @@ def steering_evidence_for_branch(
             pass
         else:
             continue
-        receipt = latest_read_receipt_for_message(path)
+        receipt = row.get("latest_read_receipt")
         human_detected = _looks_human(payload)
         matches.append(
             {
@@ -1427,6 +1463,24 @@ def steering_evidence_for_branch(
         latest_message=latest,
         latest_read_receipt=latest_receipt,
     )
+
+
+def _steering_message_rows(root: Path) -> list[dict[str, Any]]:
+    if not root.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for path in sorted(root.glob("*/*.json")):
+        payload = _load_json(path)
+        if not isinstance(payload, dict):
+            continue
+        rows.append(
+            {
+                "path": str(path),
+                "payload": payload,
+                "latest_read_receipt": latest_read_receipt_for_message(path),
+            }
+        )
+    return rows
 
 
 def branch_from_payload(payload: Mapping[str, Any]) -> str:
@@ -1523,17 +1577,17 @@ def local_evidence_conflict_reason(payload: Mapping[str, Any]) -> str | None:
         for record in records
         if str(record.get("branch") or "").strip()
     }
-    heads: list[str] = []
+    head_values: list[str] = []
     for record in records:
         value = _first_text(record, *HEAD_FIELD_KEYS)
-        if value and not any(heads_match(value, existing) for existing in heads):
-            heads.append(value)
+        if value:
+            head_values.append(value)
     bases = {
         _normalize_base_ref(value)
         for record in records
         if (value := _first_text(record, *BASE_FIELD_KEYS))
     }
-    if len(branches) > 1 or len(heads) > 1 or len(bases) > 1:
+    if len(branches) > 1 or _head_values_conflict(head_values) or len(bases) > 1:
         return "multiple local_evidence records disagree on branch, head, or base"
     return None
 
@@ -1606,6 +1660,29 @@ def heads_match(expected: str, actual: str) -> bool:
     return expected_value.startswith(actual_value) or actual_value.startswith(expected_value)
 
 
+def _head_values_conflict(values: Sequence[str]) -> bool:
+    normalized = [str(value or "").strip().lower() for value in values if str(value or "").strip()]
+    full_values = {_full_sha_or_none(value) for value in normalized}
+    full_values.discard(None)
+    if len(full_values) > 1:
+        return True
+    representatives: list[str] = []
+    for value in normalized:
+        if not any(heads_match(value, existing) for existing in representatives):
+            representatives.append(value)
+    return len(representatives) > 1
+
+
+def full_heads_match(expected: str, actual: str) -> bool:
+    expected_value = str(expected or "").strip().lower()
+    actual_value = str(actual or "").strip().lower()
+    return bool(
+        _full_sha_or_none(expected_value)
+        and _full_sha_or_none(actual_value)
+        and expected_value == actual_value
+    )
+
+
 def _full_sha_or_none(value: str) -> str | None:
     return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
 
@@ -1618,6 +1695,32 @@ def _remote_ref_matches(remote_ref: Mapping[str, Any] | None, desired_head: str)
     if not remote_ref or not desired_head:
         return False
     return heads_match(desired_head, str(remote_ref.get("sha") or ""))
+
+
+def _remote_ref_mutation_guard(
+    remote_ref: Mapping[str, Any] | None,
+    desired_head: str,
+    owner: OwnerEvidence,
+) -> str | None:
+    if not full_heads_match(desired_head, str((remote_ref or {}).get("sha") or "")):
+        return "full desired-head SHA does not exactly match the remote branch head"
+    return _owner_probe_mutation_guard(owner)
+
+
+def _exact_open_pr_mutation_guard(
+    exact_open_pr: Mapping[str, Any] | None,
+    desired_head: str,
+    owner: OwnerEvidence,
+) -> str | None:
+    if not full_heads_match(desired_head, str((exact_open_pr or {}).get("head_sha") or "")):
+        return "full desired-head SHA does not exactly match the PR head"
+    return _owner_probe_mutation_guard(owner)
+
+
+def _owner_probe_mutation_guard(owner: OwnerEvidence) -> str | None:
+    if str(owner.source or "") == "lane_registry":
+        return "owner liveness helper was not used for mutation-grade safety"
+    return None
 
 
 def _base_matches(desired_base: str, actual_base: str, *, actual_is_live: bool = False) -> bool:

@@ -276,10 +276,44 @@ def test_exact_open_pr_representation_is_safe_without_owner_blockers(tmp_path: P
         }
     )
 
-    item = _classify_one(tmp_path, github=github)
+    item = _classify_one(tmp_path, github=github, owner=FakeOwnerProbe())
 
     assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
     assert item["safe_to_mutate"] is True
+
+
+def test_registry_only_owner_probe_representation_is_not_safe_to_mutate(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "html_url": "https://github.com/synaptent/aragora/pull/8570",
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                }
+            ]
+        }
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=github,
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["safe_to_mutate"] is False
+    assert item["next_mutation_candidate"] == "none"
+    assert "owner liveness helper was not used" in item["reason"]
 
 
 def test_exact_draft_open_pr_representation_is_not_safe_to_mutate(tmp_path: Path) -> None:
@@ -298,7 +332,7 @@ def test_exact_draft_open_pr_representation_is_not_safe_to_mutate(tmp_path: Path
         }
     )
 
-    item = _classify_one(tmp_path, github=github)
+    item = _classify_one(tmp_path, github=github, owner=FakeOwnerProbe())
 
     assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
     assert item["next_mutation_candidate"] == "none"
@@ -326,7 +360,7 @@ def test_open_pr_without_desired_head_fails_closed(tmp_path: Path) -> None:
         }
     )
 
-    item = _classify_one(tmp_path, github=github)
+    item = _classify_one(tmp_path, github=github, owner=FakeOwnerProbe())
 
     assert item["state"] == mod.HandoffState.UNKNOWN.value
     assert "no desired head" in item["reason"]
@@ -507,6 +541,33 @@ def test_exact_open_pr_representation_accepts_reconcile_sha_prefix(
     assert item["evidence"]["github"]["exact_open_pr"]["number"] == 8570
 
 
+def test_open_pr_sha_prefix_representation_is_not_safe_to_mutate(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(tmp_path, branch="codex/example", head=HEAD[:12])
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github, owner=FakeOwnerProbe())
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["safe_to_mutate"] is False
+    assert item["next_mutation_candidate"] == "none"
+    assert "full desired-head SHA does not exactly match the PR head" in item["reason"]
+
+
 def test_exact_open_pr_representation_blocks_when_owner_probe_unavailable(
     tmp_path: Path,
 ) -> None:
@@ -659,6 +720,29 @@ def test_local_evidence_equivalent_sha_prefix_records_do_not_conflict(
 
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
     assert "local_evidence" not in item["evidence"]
+
+
+def test_local_evidence_prefix_does_not_hide_multiple_full_heads(
+    tmp_path: Path,
+) -> None:
+    first = "abcdef1111111111111111111111111111111111"
+    second = "abcdef1222222222222222222222222222222222"
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        head="abcdef1",
+        local_evidence=[
+            {"branch": "codex/example", "desired_head_sha": "abcdef1"},
+            {"branch": "codex/example", "target_head_sha": first},
+            {"branch": "codex/example", "headRefOid": second},
+        ],
+    )
+
+    item = _classify_one(tmp_path, github=FakeGitHub())
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert "multiple local_evidence records disagree" in item["reason"]
 
 
 def test_single_local_evidence_conflict_with_top_level_fails_closed(
@@ -1269,6 +1353,34 @@ def test_remote_exact_head_with_mismatched_open_pr_stays_publication_requested(
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
     assert item["evidence"]["github"]["exact_open_pr"] is None
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
+
+
+def test_remote_sha_prefix_representation_is_not_safe_to_mutate(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(
+        tmp_path,
+        key="preserve-branch-codex-example-aaaaaaaa",
+        branch="codex/example",
+        head=HEAD[:12],
+        action_type="preserve_branch",
+    )
+    github = FakeGitHub(
+        refs={"codex/example": {"ref": "refs/heads/codex/example", "object": {"sha": HEAD}}}
+    )
+
+    item = _classify_one(
+        tmp_path,
+        outbox_file="preserve-branch-codex-example-aaaaaaaa.json",
+        github=github,
+        owner=FakeOwnerProbe(),
+    )
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH.value
+    assert item["safe_to_mutate"] is False
+    assert item["next_mutation_candidate"] == "none"
+    assert "full desired-head SHA does not exactly match the remote branch head" in item["reason"]
 
 
 def test_non_pr_remote_exact_head_with_mismatched_open_pr_is_not_mutable(
@@ -2439,7 +2551,7 @@ def test_text_summary_only_omits_items(
     )
     output = capsys.readouterr().out
 
-    assert code == 0
+    assert code == 2
     assert "counts:" in output
     assert "items:" not in output
 
@@ -2475,6 +2587,27 @@ def test_cli_fail_on_unsafe_state_returns_nonzero_for_disabled_github(
             "open-pr-codex-example-aaaaaaaa.json",
             "--json",
             "--fail-on-unsafe-state",
+        ]
+    )
+
+    assert code == 2
+
+
+def test_cli_returns_nonzero_for_unsafe_state_by_default(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+
+    code = cli.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--state-root",
+            str(tmp_path),
+            "--outbox-file",
+            "open-pr-codex-example-aaaaaaaa.json",
+            "--json",
         ]
     )
 
