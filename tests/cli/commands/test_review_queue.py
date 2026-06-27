@@ -6386,6 +6386,7 @@ class TestCommandDispatch:
                 "90",
                 "--overall-timeout",
                 "150",
+                "--apply",
                 "--json",
             ]
         )
@@ -6396,7 +6397,7 @@ class TestCommandDispatch:
         assert ns_collect.author == "an0mium"
         assert ns_collect.reviewer_timeout == 90.0
         assert ns_collect.overall_timeout == 150.0
-        assert ns_collect.apply is False
+        assert ns_collect.apply is True
         assert ns_collect.json_output is True
         # run invocation parses
         ns_run = root.parse_args(["review-queue", "run", "--limit", "3", "--ready-only"])

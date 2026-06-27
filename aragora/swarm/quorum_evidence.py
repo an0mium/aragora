@@ -1339,7 +1339,7 @@ def _resolve_grok_build_bin() -> str:
 
 
 def _run_argv_cli_reviewer(
-    family: str, argv: list[str], harness: str, timeout: float = _REVIEWER_TIMEOUT
+    family: str, argv: list[str], harness: str, timeout: float | None = None
 ) -> ReviewerResult:
     """Run a headless single-prompt CLI reviewer (prompt passed as an argv value).
 
@@ -1348,13 +1348,18 @@ def _run_argv_cli_reviewer(
     the review body. Same exact-head composition + evidence-lint as every other
     reviewer decides whether the result can count.
     """
+    effective_timeout = (
+        _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT) if timeout is None else timeout
+    )
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
+        proc = subprocess.run(
+            argv, capture_output=True, text=True, timeout=effective_timeout, check=False
+        )
     except FileNotFoundError:
         return ReviewerResult(family, "", False, f"{family} CLI not found: {argv[0]}")
     except subprocess.TimeoutExpired:
         return ReviewerResult(
-            family, "", False, f"{family} CLI timed out after {_format_seconds(timeout)}s"
+            family, "", False, f"{family} CLI timed out after {_format_seconds(effective_timeout)}s"
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")

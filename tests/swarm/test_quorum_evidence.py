@@ -338,6 +338,52 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
+def test_run_argv_cli_reviewer_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(
+        argv: list[str],
+        *,
+        capture_output: bool,
+        text: bool,
+        timeout: float,
+        check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        seen.update(
+            {
+                "argv": argv,
+                "capture_output": capture_output,
+                "text": text,
+                "timeout": timeout,
+                "check": check,
+            }
+        )
+        raise subprocess.TimeoutExpired(cmd=argv, timeout=timeout)
+
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "2.5")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_argv_cli_reviewer(
+        "grok",
+        ["grok", "--sandbox", "read-only", "-p", "review prompt"],
+        "Grok Build CLI harness",
+    )
+
+    assert seen == {
+        "argv": ["grok", "--sandbox", "read-only", "-p", "review prompt"],
+        "capture_output": True,
+        "text": True,
+        "timeout": 2.5,
+        "check": False,
+    }
+    assert result == ReviewerResult(
+        "grok",
+        "",
+        False,
+        "grok CLI timed out after 2.5s",
+    )
+
+
 def test_run_claude_cli_uses_file_backed_mcp_config(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: dict[str, object] = {}
 
