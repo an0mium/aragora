@@ -153,7 +153,12 @@ backup_mtime() {
     printf '%s\n' "$mtime"
 }
 
-BACKUP_AGE=$(( ($(date +%s) - $(backup_mtime "$BACKUP_DIR/$LATEST_BACKUP")) / 3600 ))
+BACKUP_PATH="$BACKUP_DIR/$LATEST_BACKUP"
+BACKUP_MTIME=$(backup_mtime "$BACKUP_PATH") || {
+    echo "ERROR: Could not read backup mtime: $BACKUP_PATH"
+    exit 1
+}
+BACKUP_AGE=$(( ($(date +%s) - BACKUP_MTIME) / 3600 ))
 if [ $BACKUP_AGE -gt 24 ]; then
     echo "WARNING: Backup is $BACKUP_AGE hours old!"
 fi

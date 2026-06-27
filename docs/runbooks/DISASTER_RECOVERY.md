@@ -144,7 +144,11 @@ backup_mtime() {
     printf '%s\n' "$mtime"
 }
 
-BACKUP_AGE_HOURS=$(( ($(date +%s) - $(backup_mtime "${LATEST_BACKUP}")) / 3600 ))
+BACKUP_MTIME=$(backup_mtime "${LATEST_BACKUP}") || {
+    alert "Could not read backup mtime: ${LATEST_BACKUP}"
+    exit 1
+}
+BACKUP_AGE_HOURS=$(( ($(date +%s) - BACKUP_MTIME) / 3600 ))
 if [ ${BACKUP_AGE_HOURS} -gt 25 ]; then
     alert "Latest backup is ${BACKUP_AGE_HOURS} hours old - exceeds 24h RPO"
     exit 1
