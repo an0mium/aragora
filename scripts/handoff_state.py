@@ -1610,20 +1610,34 @@ def receipt_has_issue_reference(receipt: Mapping[str, Any]) -> bool:
     return False
 
 
+TARGET_PR_NUMBER_KEYS = ("target_pr", "target_open_pr", "pr_number", "pull_request_number")
+TARGET_PR_URL_KEYS = (
+    "created_pr_url",
+    "existing_pr_url",
+    "pr_url",
+    "pull_request_url",
+    "created_pull_request_url",
+    "existing_pull_request_url",
+)
+
+
 def target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
-    for key in ("target_pr", "target_open_pr", "pr_number", "pull_request_number"):
-        number = _pr_number_from_value(receipt.get(key))
+    number = _target_pr_number_from_mapping(receipt)
+    if number is not None:
+        return number
+    requested_action = _mapping_from_action(receipt.get("requested_action"))
+    if requested_action is not None:
+        return _target_pr_number_from_mapping(requested_action)
+    return None
+
+
+def _target_pr_number_from_mapping(mapping: Mapping[str, Any]) -> int | None:
+    for key in TARGET_PR_NUMBER_KEYS:
+        number = _pr_number_from_value(mapping.get(key))
         if number is not None:
             return number
-    for key in (
-        "created_pr_url",
-        "existing_pr_url",
-        "pr_url",
-        "pull_request_url",
-        "created_pull_request_url",
-        "existing_pull_request_url",
-    ):
-        number = _pr_number_from_value(receipt.get(key))
+    for key in TARGET_PR_URL_KEYS:
+        number = _pr_number_from_value(mapping.get(key))
         if number is not None:
             return number
     return None
