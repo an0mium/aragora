@@ -143,4 +143,4 @@ export default function DebateStream({ debateId }) {
 
 Deploy with [Vercel](https://vercel.com):
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/an0mium/aragora/tree/main/examples/nextjs-app-router)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/synaptent/aragora/tree/main/examples/nextjs-app-router)

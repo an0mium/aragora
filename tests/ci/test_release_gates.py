@@ -11,6 +11,7 @@ Validates:
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 import re
 import subprocess
@@ -19,6 +20,7 @@ import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from packaging.requirements import Requirement
 import pytest
 import yaml
 
@@ -48,6 +50,23 @@ def _get_triggers(data: dict) -> dict:
     if True in data:
         return data[True]
     raise KeyError("Workflow has no 'on' trigger key")
+
+
+def _shell_array_values(script: str, name: str) -> set[str]:
+    """Return quoted values from a simple bash array assignment."""
+    array_match = re.search(
+        rf"^(?:readonly\s+)?{re.escape(name)}=\((?P<body>[^\n]*)\)",
+        script,
+        re.MULTILINE,
+    )
+    if array_match is None:
+        array_match = re.search(
+            rf"^(?:readonly\s+)?{re.escape(name)}=\(\n(?P<body>.*?)^\)",
+            script,
+            re.MULTILINE | re.DOTALL,
+        )
+    assert array_match is not None
+    return set(re.findall(r'"([^"]+)"', array_match.group("body")))
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +189,24 @@ class TestReleaseReadinessWorkflow:
         run = install_step.get("run", "")
         assert "scripts/ci_install_project.sh" in run
         assert "--extras dev,test" in run
+
+
+class TestSharedCiInstaller:
+    """Validate shared CI installer package-name compatibility."""
+
+    def test_control_plane_root_names_include_renamed_package(self):
+        script = (PROJECT_ROOT / "scripts" / "ci_install_project.sh").read_text()
+        names = _shell_array_values(script, "LEGACY_CONTROL_PLANE_PACKAGE_NAMES")
+        assert {"aragora-debate", "aragora"} <= names
+        assert 'LEGACY_CONTROL_PLANE_MARKER_PATH="aragora/server"' in script
+
+    def test_control_plane_test_deps_install_real_anthropic_sdk(self):
+        script = (PROJECT_ROOT / "scripts" / "ci_install_project.sh").read_text()
+        deps = _shell_array_values(script, "LEGACY_CONTROL_PLANE_TEST_EXTRA_DEPS")
+        anthropic_dep = next(
+            Requirement(dep) for dep in deps if Requirement(dep).name == "anthropic"
+        )
+        assert str(anthropic_dep.specifier) == "<1.0,>=0.111"
 
 
 class TestAragoraReviewGateWorkflow:
@@ -570,6 +607,210 @@ class TestPreReleaseCheckScript:
             assert gate_name in module.ALL_GATES, (
                 f"gate '{gate_name}' in category but not in ALL_GATES"
             )
+
+    def test_pip_audit_gate_invokes_helper_by_absolute_repo_path(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("pre_release_check", str(self.script))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        with patch.object(module, "_run_cmd", return_value=(0, "")) as run_cmd:
+            assert module.gate_pip_audit() is True
+
+        cmd = run_cmd.call_args.args[0]
+        assert Path(cmd[1]).is_absolute()
+        assert Path(cmd[1]) == PROJECT_ROOT / "scripts" / "run_pip_audit_gate.py"
+
+
+class TestPipAuditGate:
+    """Validate the shared pip-audit gate helper."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.script = PROJECT_ROOT / "scripts" / "run_pip_audit_gate.py"
+        self.allowlist = PROJECT_ROOT / "scripts" / "security" / "pip_audit_ignored_vulns.txt"
+        self.uv_lock = PROJECT_ROOT / "uv.lock"
+
+    def test_script_exists(self):
+        assert self.script.exists(), "scripts/run_pip_audit_gate.py does not exist"
+
+    def _load_module(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("run_pip_audit_gate", str(self.script))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_allowlist_omits_resolved_pyjwt_debt(self):
+        content = self.allowlist.read_text()
+        assert "Format: VULN-ID YYYY-MM-DD" in content
+        assert "CVE-2025-14009" in content
+        assert "CVE-2026-3219" in content
+        assert "PYSEC-2025-183" not in content
+        lock_content = self.uv_lock.read_text()
+        assert "pyjwt-2.12.1" not in lock_content
+        assert "pyjwt-2.13.0" in lock_content
+        assert "starlette-1.0.0" not in lock_content
+        assert "starlette-1.3.1" in lock_content
+
+    def test_load_ignored_vulns_skips_comments(self, tmp_path):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text(
+            textwrap.dedent(
+                """
+                # comment
+                CVE-2025-14009 2026-08-31
+                PYSEC-2025-183 2026-09-15 # inline reason
+                """
+            )
+        )
+        module = self._load_module()
+
+        assert module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21)) == [
+            "CVE-2025-14009",
+            "PYSEC-2025-183",
+        ]
+
+    def test_load_ignored_vulns_rejects_bad_format_with_line_number(self, tmp_path):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("CVE 2025-14009 2026-08-31\n")
+        module = self._load_module()
+
+        with pytest.raises(SystemExit) as excinfo:
+            module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21))
+
+        assert f"{allowlist}:1:" in str(excinfo.value)
+        assert "expected 'VULN-ID YYYY-MM-DD # rationale'" in str(excinfo.value)
+
+    def test_load_ignored_vulns_rejects_invalid_vuln_id_with_line_number(self, tmp_path):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("pysec-2025-183 2026-08-31\n")
+        module = self._load_module()
+
+        with pytest.raises(SystemExit) as excinfo:
+            module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21))
+
+        assert f"{allowlist}:1:" in str(excinfo.value)
+        assert "invalid vulnerability ID 'pysec-2025-183'" in str(excinfo.value)
+
+    def test_load_ignored_vulns_rejects_invalid_expiry_with_line_number(self, tmp_path):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2026/08/31\n")
+        module = self._load_module()
+
+        with pytest.raises(SystemExit) as excinfo:
+            module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21))
+
+        assert f"{allowlist}:1:" in str(excinfo.value)
+        assert "invalid expiry date '2026/08/31'" in str(excinfo.value)
+
+    def test_load_ignored_vulns_drops_expired_entries(self, tmp_path, capsys):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2026-05-20 # expired\n")
+        module = self._load_module()
+
+        assert module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21)) == []
+
+        captured = capsys.readouterr()
+        assert "expired on 2026-05-20" in captured.err
+        assert "not passing it to pip-audit" in captured.err
+
+    def test_load_ignored_vulns_drops_entries_expiring_today(self, tmp_path, capsys):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2026-05-21 # expires today\n")
+        module = self._load_module()
+
+        assert module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21)) == []
+
+        captured = capsys.readouterr()
+        assert "expired on 2026-05-21" in captured.err
+        assert "not passing it to pip-audit" in captured.err
+
+    def test_load_ignored_vulns_warns_near_expiry(self, tmp_path, capsys):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2026-05-28 # expiring soon\n")
+        module = self._load_module()
+
+        assert module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21)) == [
+            "PYSEC-2025-183"
+        ]
+
+        captured = capsys.readouterr()
+        assert "expires in 7 day(s) on 2026-05-28" in captured.err
+
+    def test_build_command_audits_requirements_not_environment(self, tmp_path):
+        req = tmp_path / "requirements.txt"
+        req.write_text("pyjwt==2.12.1\n")
+        module = self._load_module()
+
+        cmd = module.build_pip_audit_command(
+            req,
+            ["PYSEC-2025-183"],
+            python_executable="python",
+        )
+
+        assert "--requirement" in cmd
+        assert str(req) in cmd
+        assert "--no-deps" in cmd
+        assert "--disable-pip" in cmd
+        assert "--ignore-vuln" in cmd
+        assert "PYSEC-2025-183" in cmd
+        assert "--path" not in cmd
+
+    def test_export_requirements_includes_all_dependency_groups(self, tmp_path):
+        module = self._load_module()
+        output = tmp_path / "requirements.txt"
+
+        with patch.object(module.subprocess, "run") as run:
+            module.export_requirements(output)
+
+        cmd = run.call_args.args[0]
+        assert "--frozen" in cmd
+        assert "--all-extras" in cmd
+        assert "--all-groups" in cmd
+        assert "--no-emit-project" in cmd
+        assert "--output-file" in cmd
+        assert str(output) in cmd
+        assert run.call_args.kwargs["cwd"] == module.PROJECT_ROOT
+        assert run.call_args.kwargs["capture_output"] is True
+        assert run.call_args.kwargs["text"] is True
+
+    def test_export_requirements_missing_uv_has_actionable_message(self, tmp_path):
+        module = self._load_module()
+
+        with patch.object(module.subprocess, "run", side_effect=FileNotFoundError):
+            with pytest.raises(SystemExit) as excinfo:
+                module.export_requirements(tmp_path / "requirements.txt")
+
+        assert "uv is not installed or is not on PATH" in str(excinfo.value)
+
+    def test_export_requirements_failure_includes_stderr(self, tmp_path):
+        module = self._load_module()
+        error = subprocess.CalledProcessError(2, ["uv", "export"], stderr="bad lockfile")
+
+        with patch.object(module.subprocess, "run", side_effect=error):
+            with pytest.raises(SystemExit) as excinfo:
+                module.export_requirements(tmp_path / "requirements.txt")
+
+        assert "exit code 2" in str(excinfo.value)
+        assert "bad lockfile" in str(excinfo.value)
+
+    def test_run_gate_returns_pip_audit_failure_code(self, tmp_path):
+        module = self._load_module()
+        req = tmp_path / "requirements.txt"
+        req.write_text("pyjwt==2.12.1\n")
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2099-01-01 # temporary\n")
+
+        completed = subprocess.CompletedProcess(["python", "-m", "pip_audit"], 7)
+        with patch.object(module.subprocess, "run", return_value=completed) as run:
+            assert module.run_gate(req, allowlist) == 7
+
+        cmd = run.call_args.args[0]
+        assert "--requirement" in cmd
+        assert str(req) in cmd
 
 
 # ---------------------------------------------------------------------------

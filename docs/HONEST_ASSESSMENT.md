@@ -3,12 +3,18 @@
 > A brutally honest evaluation of what works, what doesn't, and why it matters.
 > Based on verified code review and test execution across the full codebase.
 >
+> Last verified: 2026-06-10 (run-20260610 truth-refresh; B0 artifact .aragora/run-20260610/truth_artifact_20260610.json)
+>
 > **Written:** Early March 2026 (Run 001-003 era). **March 5 update:** Several blockers
 > described below have since been resolved — see update notes inline.
+> **June 10, 2026 update:** Quantified claims below refreshed against
+> [`docs/METRICS.md`](METRICS.md), [`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](status/B0_BENCHMARK_TRUTH_STATUS.md),
+> and [`docs/FOCUS.md`](FOCUS.md) Sprint 1/2 outcomes — see inline update notes.
 >
-> **Metrics note:** This document is a historical assessment. Current live scale
-> numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.md), and that file
-> wins over any stale numeric snapshot below.
+> **Metrics note:** Current live scale numbers are auto-regenerated in
+> [`docs/METRICS.md`](METRICS.md), and that file wins over any stale numeric
+> snapshot below. Dated numbers in this document are explicitly labeled as
+> point-in-time snapshots.
 
 ---
 
@@ -36,7 +42,7 @@ The debate engine is real, functional, and battle-tested.
 
 | Capability | Detail |
 |---|---|
-| Agent types | 43 across 8 categories: CLI (8), API Direct (7), OpenRouter (16), Fine-tuned (4), Framework (5), Demo (1), Local (2) |
+| Agent types | 35 allowlisted agent types (canonical count in [`docs/METRICS.md`](METRICS.md)); older marketing claimed 43 across 8 categories — the allowlist is the measured number |
 | Phase execution | 7 phases: Context Init, Proposals, Debate Rounds, Consensus, Verification, Analytics, Feedback |
 | Consensus modes | 5: judge, majority, supermajority, unanimous, ELO-weighted |
 | Cognitive roles | 9 rotations: Analyst, Skeptic, Lateral Thinker, Devil's Advocate, Synthesizer, Domain Expert, Red Team, Pragmatist, Visionary |
@@ -61,7 +67,7 @@ The pipeline converts raw ideas into executable multi-agent plans across four st
 | 4. Orchestration | Partially working | Generates multi-agent execution plans with ELO-ranked agent assignment. Real execution when engines available; returns "planned" status otherwise (graceful degradation, not failure) |
 
 - CLI: `aragora pipeline run "Build a rate limiter"` works.
-- Tests: All 9 pipeline smoke tests pass in 0.6s.
+- Tests: All 9 pipeline smoke tests pass in 0.6s (March 2026 snapshot).
 - Known gap: Pipeline results are in-memory only (not persisted across restarts).
 
 ### Enterprise Security and Compliance
@@ -70,21 +76,25 @@ This is production-grade infrastructure, not prototyping code.
 
 | Area | Scale | Key Capabilities |
 |---|---|---|
-| RBAC | 12,969 LOC | 390+ permissions, 165+ resource types |
-| Billing | 23,114 LOC | Stripe integration, metering, forecasting |
-| Observability | 17,280 LOC | Prometheus metrics, OpenTelemetry tracing, Grafana dashboards |
+| RBAC | 12,969 LOC (Mar 2026 snapshot) | 424 unique permission strings across 1,365 `@require_permission` call sites (canonical in [`docs/METRICS.md`](METRICS.md)) |
+| Billing | 23,114 LOC (Mar 2026 snapshot) | Stripe integration, metering, forecasting |
+| Observability | 17,280 LOC (Mar 2026 snapshot) | Prometheus metrics, OpenTelemetry tracing, Grafana dashboards |
 | Authentication | Production | OIDC/SAML SSO, MFA (TOTP/HOTP), SCIM 2.0 provisioning |
 | Encryption | Production | AES-256-GCM at rest, automated 90-day key rotation |
 | Compliance frameworks | 9 | HIPAA, GDPR, PCI-DSS, SOX, ISO 27001, OWASP, FDA 21 CFR Part 11, FedRAMP, NIST 800-53 |
 | EU AI Act | Production | Article 12/13/14 artifact generation |
-| Handler tests | 19,776 | 0 failures |
+| Handler tests | 19,776 (Feb 2026 snapshot) | 0 failures at snapshot time |
+
+**Open liability (unchanged as of June 2026):** SOC 2 Type II is *not* certified —
+the blocker remains an external penetration test that has not been commissioned.
+"Production-grade controls" is a code-review claim, not a third-party-attested one.
 
 ### Knowledge and Memory
 
 | System | What It Does |
 |---|---|
 | Continuum Memory | 4-tier (Google's Nested Learning): FAST 1h, MEDIUM 24h, SLOW 7d, GLACIAL 30d with surprise-driven tier transitions |
-| Knowledge Mound | 45 bidirectional adapters creating federated knowledge graph across subsystems |
+| Knowledge Mound | 41 registered adapter specs (46 adapter files; canonical in [`docs/METRICS.md`](METRICS.md)) creating a federated knowledge graph across subsystems |
 | ConsensusMemory | Cross-debate institutional learning |
 | CritiqueStore | Post-mortem critique-to-fix pattern extraction |
 
@@ -92,9 +102,9 @@ This is production-grade infrastructure, not prototyping code.
 
 | Component | Scale |
 |---|---|
-| Python SDK | 185 namespaces, 5,800+ methods |
-| TypeScript SDK | 183 namespaces, 3,700+ methods (99.3% parity) |
-| REST API | 3,000+ operations across 2,900+ paths |
+| Python SDK | 198 modules (canonical in [`docs/METRICS.md`](METRICS.md)) |
+| TypeScript SDK | 215 modules (canonical in [`docs/METRICS.md`](METRICS.md)); parity tracked by the SDK-parity CI gate, not a hand-counted percentage |
+| REST API | 3,297 API operations across 2,870 OpenAPI paths (canonical in [`docs/METRICS.md`](METRICS.md)) |
 | WebSocket events | 190+ event types for real-time streaming |
 
 ---
@@ -106,9 +116,9 @@ These capabilities exist and function in part, but have gaps between documented 
 ### Convergence Detection
 
 - **Documentation claims:** "3-tier similarity detection" (syntactic, semantic, domain).
-- **Reality:** Only tier 1 (syntactic text similarity via `difflib.SequenceMatcher`) is implemented in the core convergence path.
-- Semantic embeddings are lazy-loaded but not wired into the convergence pipeline.
-- **Impact:** Convergence detection works, but relies on surface-level text matching rather than deep semantic understanding. Debates may fail to detect convergence when agents agree in meaning but differ in phrasing.
+- **Reality (June 2026):** The earlier "syntactic-only" gap is closed. `aragora/debate/convergence/detector.py` now selects a similarity backend ladder: SentenceTransformer embeddings when the optional dependency is installed, TF-IDF vectors otherwise, with Jaccard pairwise comparison as the final fallback.
+- **Remaining qualification:** Semantic depth depends on an *optional* dependency. A default install without `sentence-transformers` silently degrades to TF-IDF/Jaccard, which is lexical, not semantic. There is no warning surfaced to the user when this degradation happens.
+- **Impact:** Convergence detection is meaningfully semantic in well-provisioned deployments and lexical in minimal ones. The honest claim is "semantic when configured," not "semantic by default."
 
 ### Self-Improvement System (Nomic Loop) -- Fully Wired & Operational
 
@@ -131,7 +141,38 @@ The self-improvement infrastructure is production-grade with all six phases full
 
 **Remaining gap:** Output quality consistency -- dogfood benchmark runs show variable pass rates (33-80%) depending on synthesis grounding quality. The loop runs but output quality needs stabilization for reliable autonomous cycles. **[March 5 update: Run 012 shows 8.38-9.39/10 composite scores (was 3.46-3.55). Practicality scoring resolved via prompt restructuring + threshold alignment + verb scoring fixes.]**
 
-**Assessment:** The wiring gap identified in Feb 2026 is closed. The binding constraint has shifted from integration to output quality.
+**[June 10, 2026 update — measured benchmark truth replaces dogfood scores.]** The
+authoritative quality surface is now the fixed B0 benchmark corpus
+([`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](status/B0_BENCHMARK_TRUTH_STATUS.md),
+corpus `tw-01-bounded-execution-v1` rev-6, success contract `mergeable_pr_or_merged_pr`):
+
+| B0 metric (2026-06-06 publication) | Value |
+|---|---|
+| Verified truth success rate (primary, verified-by-PR-link) | **100.0%** (5/5 verified expected issues) |
+| Full-corpus truth success rate (legacy/context) | **69.2%** (9/13) |
+| In-progress graduation rate | **50.0%** (4/8 graduated) |
+| Ungraduated cohort still open | #5182, #5183, #5184, #5186 |
+
+The 100% headline is real but narrow: it covers only the five strict
+verified entries. The honest whole-corpus number is 69.2%, and half the
+in-progress cohort has not graduated. Note the Sprint-1 measurement of this
+same surface was an honestly-published **0.0%** (2026-05-26 corpus snapshot) —
+the improvement is corpus advancement plus real fixes, not metric redefinition.
+
+**Settlement maturity (June 2026):** Autonomous settlement is no longer
+theoretical. Tier-4 settlement apply modes were split (PR #7756) and the
+redundant quorum status patch fixed (PR #7748). The post-#7496 proof sequence
+passed for both an operator run (`validate-env` → `doctor` → `ask
+--decision-integrity` → `receipt verify`, all exit 0) and a strict
+non-operator demo (`aragora demo --receipt` with no provider keys; receipt
+verified `VALID (3/3 checks passed)`) — see `docs/FOCUS.md` Sprint 2 goal 2.
+A boss-loop merge-gate resilience design draft is in flight but not yet on
+main, so it is deliberately not cited here as a repo artifact until it
+lands. Open governance liability: the operator
+design-review of #7472 (advisory-review recognizable headers) is still
+pending, so advisory reviews continue to resolve to `unknown_model_reviewer`.
+
+**Assessment:** The wiring gap identified in Feb 2026 is closed. The binding constraint has shifted from integration to output quality — and as of June 2026, from output quality to *graduating the remaining benchmark cohort* and closing the pending operator design review.
 
 ### Formal Verification
 
@@ -161,8 +202,8 @@ These are areas where claims need honest qualification. The code exists, but the
 
 | Claim | Reality |
 |---|---|
-| 43 agents running in parallel | All 43 types exist and work individually |
-| Massive parallelism | Running all 43 simultaneously hits provider rate limits |
+| 43 agents running in parallel | 35 allowlisted agent types exist (canonical in [`docs/METRICS.md`](METRICS.md)) and work individually; the "43" figure predates the allowlist |
+| Massive parallelism | Running all agent types simultaneously hits provider rate limits |
 | Practical limit | 2-6 agents per debate for real-time, up to 10 for batch |
 
 **Honest framing:** The value is heterogeneity -- different models from different providers challenge each other's reasoning, reducing correlated blind spots. The value is NOT raw parallelism. A debate with Claude + GPT-4 + Gemini + Mistral is more valuable than one with 43 copies of Claude.
@@ -176,6 +217,17 @@ These are areas where claims need honest qualification. The code exists, but the
 | Proven autonomous cycles | First proof run completed 2026-03-02: debate phase produced real multi-agent consensus (Claude Opus 4.6 + GPT-5.2, 80% agreement); design phase hit a 120s agent timeout; implement/verify/commit phases skipped due to upstream failure. The pipeline correctly detected and halted on failure. |
 
 **Honest framing:** Aragora has the most sophisticated self-improvement infrastructure of any open agent framework. The pieces individually work and are tested. The first autonomous proof run (2026-03-02) demonstrated that the debate phase produces high-quality multi-agent output, the pipeline stages chain correctly, and failure detection works as designed. The end-to-end cycle has not yet completed all 5 phases autonomously -- the design phase timeout and ChaosTheater noise leaking into design output are the immediate blockers. This is now a reliability tuning problem (agent timeouts, output filtering), not a wiring or architecture problem. **[March 5 update: Design phase timeout increased to 1800s (configurable via NOMIC_DESIGN_TIMEOUT). Run 012 composite score: 0.84 vs baseline 0.46.]**
+
+**[June 10, 2026 update]:** "Proven autonomous cycles" is no longer a scaffolding
+claim — the B0 benchmark corpus now measures end-to-end bounded-execution issue
+resolution at 100% verified / 69.2% full-corpus (see
+[`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](status/B0_BENCHMARK_TRUTH_STATUS.md)
+and the Nomic Loop section above). What *remains* honest qualification: the
+verified set is only 5 issues; 4 of the 8 in-progress cohort issues (#5182,
+#5183, #5184, #5186) have not graduated; and the dominant recorded failure
+class is `blocked_not_dispatch_bounded` (12 occurrences), meaning the loop
+still frequently stops because work cannot be dispatched within bounds, not
+because it chose not to act.
 
 ---
 
@@ -252,21 +304,21 @@ Be honest about where Aragora should NOT try to compete:
 
 ## How to Strengthen the Moat
 
-### Immediate (Next 30 Days)
+### Immediate (Next 30 Days) — refreshed June 10, 2026
 
-| Priority | Action | Effort | Impact |
-|---|---|---|---|
-| 1 | Fix design-phase reliability: increase agent timeout beyond 120s, filter ChaosTheater noise from phase outputs | ~20 LOC | Unblocks end-to-end autonomous cycles (debate phase already proven 2026-03-02) |
-| 2 | Ship PyPI package: `pip install aragora-debate` | Package config | Developer adoption wedge; standalone debate engine with zero configuration |
-| 3 | GitHub Actions integration: pre-built CI gate for PR review | ~200 LOC | Gets Aragora into developer workflows where decisions happen daily |
+| Priority | Action | Impact |
+|---|---|---|
+| 1 | Graduate the remaining B0 cohort (#5182, #5183, #5184, #5186) — lift in-progress graduation above 50% and full-corpus truth above 69.2% | Converts the narrow 100%-verified headline into a broad, defensible benchmark claim |
+| 2 | Close operator design-review #7472 (advisory-review recognizable headers) | Ends `unknown_model_reviewer` attribution; unblocks the implementation PR |
+| 3 | Commission the external penetration test | The single blocker between "98% SOC 2 ready" and an actual SOC 2 Type II certification (~10 weeks after test) |
 
 ### Near-Term (30-90 Days)
 
 | Priority | Action | Impact |
 |---|---|---|
-| 4 | Add real semantic convergence: replace difflib with sentence-transformer embeddings for tier-2 | Makes convergence detection meaningful rather than surface-level |
-| 5 | Case studies: run Aragora on real PRs in public repos, publish "before/after" comparisons | Demonstrates what adversarial debate catches that single-model review misses |
-| 6 | EU AI Act compliance package: bundle receipt generation + compliance artifacts into a single command | Positions Aragora as the compliance solution before enforcement date |
+| 4 | Reduce the dominant `blocked_not_dispatch_bounded` failure class (12 recorded occurrences in B0) | Directly raises no-rescue truth success (currently 69.2%) |
+| 5 | Case studies: run Aragora on real PRs in public repos, publish "before/after" comparisons | Demonstrates what adversarial debate catches that single-model review misses (one unmodified frontier adversarial review already survived on PR #7513) |
+| 6 | EU AI Act compliance package: bundle receipt generation + compliance artifacts into a single command | Positions Aragora as the compliance solution before the August 2, 2026 enforcement date |
 
 ### Medium-Term (90-180 Days)
 
@@ -293,16 +345,19 @@ Aragora's core value proposition is **real and defensible**: multi-agent adversa
 
 This combination is unique. No funded competitor does it. It represents a new category -- Decision Integrity -- not a feature added to an existing category.
 
-### What Needs Honest Qualification
+### What Needs Honest Qualification (refreshed June 10, 2026)
 
-| Gap | Severity | Fix Effort |
+| Gap | Severity | Current state |
 |---|---|---|
-| Self-improvement loop: debate works, design-phase timeouts block full cycle | Medium | Increase agent timeout + filter ChaosTheater from design output (~20 LOC) |
-| Convergence detection is syntactic only | Low | Swap difflib for sentence-transformers |
+| B0 benchmark: 100% verified rate covers only 5 issues; full-corpus is 69.2%; 4 of 8 in-progress cohort issues (#5182, #5183, #5184, #5186) ungraduated | Medium | Graduate the cohort; dominant failure class `blocked_not_dispatch_bounded` (12 occurrences) needs reduction |
+| No external penetration test; SOC 2 Type II not certified | Medium | Commission the pen test (~10 weeks to certification afterward) |
+| Tier-5 scope creep: ~25% of the codebase (~490 files / ~200K LOC per [`docs/FOCUS.md`](FOCUS.md)) does not serve the core product thesis | Medium | Deprioritize or extract; this share has not materially shrunk since the tiering was published |
+| Operator design-review #7472 pending — advisory reviews resolve to `unknown_model_reviewer` | Medium | Requires an operator yes/no on the Tier-4 design doc |
+| Semantic convergence degrades silently to TF-IDF/Jaccard without `sentence-transformers` installed | Low | Surface a degradation warning; document the dependency |
 | "Blockchain" receipts are SHA-256 hashing | Low | Reframe messaging; the audit trail is the value |
-| 43-agent parallelism is theoretical | Low | Reframe around heterogeneity, not parallelism |
+| Multi-agent parallelism is theoretical at full breadth (practical limit 2-6 agents real-time) | Low | Reframe around heterogeneity, not parallelism |
 
-These are fixable gaps, not fundamental flaws. The architecture supports all the claimed capabilities; the wiring needs to be completed in specific areas.
+These are fixable gaps, not fundamental flaws. The architecture supports the claimed capabilities; the remaining work is benchmark graduation, third-party attestation, and scope discipline — not wiring.
 
 ### The Strategic Insight
 

@@ -63,6 +63,18 @@ def _worktree(
     )
 
 
+def _allow_automation_guardrails(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        mod,
+        "evaluate_automation_guardrails",
+        lambda repo_root, open_pr_count, max_open_prs: mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={},
+        ),
+    )
+
+
 def test_duplicate_patch_branches_skips_older_candidate(tmp_path: Path) -> None:
     _git(tmp_path, "init", "-b", "main")
     _git(tmp_path, "config", "user.email", "codex@example.invalid")
@@ -92,6 +104,31 @@ def test_duplicate_patch_branches_skips_older_candidate(tmp_path: Path) -> None:
     assert duplicates == {"codex/older"}
 
 
+def test_branch_patch_equivalent_to_base_detects_squash_merged_content(
+    tmp_path: Path,
+) -> None:
+    _git(tmp_path, "init", "-b", "main")
+    _git(tmp_path, "config", "user.email", "codex@example.invalid")
+    _git(tmp_path, "config", "user.name", "Codex")
+    (tmp_path / "file.txt").write_text("base\n", encoding="utf-8")
+    _git(tmp_path, "add", "file.txt")
+    _git(tmp_path, "commit", "-m", "base")
+
+    _git(tmp_path, "checkout", "-b", "codex/already-squashed")
+    (tmp_path / "file.txt").write_text("base\nbranch change\n", encoding="utf-8")
+    _git(tmp_path, "commit", "-am", "branch change")
+
+    _git(tmp_path, "checkout", "main")
+    (tmp_path / "file.txt").write_text("base\nbranch change\n", encoding="utf-8")
+    _git(tmp_path, "commit", "-am", "squash merge equivalent")
+
+    assert mod._branch_patch_equivalent_to_base(
+        tmp_path,
+        "main",
+        "codex/already-squashed",
+    )
+
+
 def test_select_publishable_branches_marks_recent_clean_branch_eligible() -> None:
     decisions = select_publishable_branches(
         [_branch("codex/recent-fix")],
@@ -118,6 +155,109 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.outbox_dir is None
     assert args.allow_unhealthy_queue_publish is False
     assert args.receipt_dir is None
+    assert args.summary_only is False
+    assert args.draft is False
+
+
+def test_create_pr_adds_draft_flag_when_requested(monkeypatch: Any, tmp_path: Path) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    monkeypatch.setattr(mod, "_existing_pr_number", lambda *_args: 7001)
+
+    number = mod._create_pr(tmp_path, "owner/repo", "codex/draft-pr", "origin/main", draft=True)
+
+    assert number == 7001
+    assert commands == [
+        [
+            "gh",
+            "pr",
+            "create",
+            "--repo",
+            "owner/repo",
+            "--base",
+            "main",
+            "--head",
+            "codex/draft-pr",
+            "--fill",
+            "--draft",
+        ]
+    ]
+
+
+def test_main_summary_only_omits_decisions_and_unhealthy_pr_details(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    branch = _branch("codex/compact-publisher")
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_duplicate_open_pr_patch_branches", lambda *args: set())
+    monkeypatch.setattr(mod, "_branches_with_pr_history", lambda *args: set())
+    monkeypatch.setattr(mod, "_branches_with_resolved_related_work", lambda *args: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "evaluate_automation_guardrails",
+        lambda repo_root, open_pr_count, max_open_prs: mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={},
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: [
+            {
+                "number": 7001,
+                "title": "Failing automation PR",
+                "headRefName": "codex/failing",
+                "mergeStateStatus": "DIRTY",
+                "reviewDecision": None,
+                "statusCheckRollup": [],
+            }
+        ],
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--json", "--summary-only"])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "decisions" not in payload
+    assert payload["decision_count"] == 1
+    assert payload["eligible_decision_count"] == 1
+    assert payload["ineligible_decision_count"] == 0
+    assert payload["decision_reason_counts"] == {"eligible": 1}
+    assert payload["decisions_omitted"] is True
+    assert payload["details_omitted"] is True
+    assert payload["queue_health"]["unhealthy_open_pr_count"] == 1
+    assert "unhealthy_open_prs" not in payload["queue_health"]
+    assert payload["queue_health"]["unhealthy_open_prs_omitted"] == 1
 
 
 def test_parser_accepts_receipt_dir_for_shared_cli_compatibility(tmp_path: Path) -> None:
@@ -126,6 +266,12 @@ def test_parser_accepts_receipt_dir_for_shared_cli_compatibility(tmp_path: Path)
     args = _build_parser().parse_args(["--receipt-dir", str(receipt_dir)])
 
     assert args.receipt_dir == receipt_dir
+
+
+def test_parser_accepts_dry_run_alias_for_default_planning_mode() -> None:
+    args = _build_parser().parse_args(["--dry-run"])
+
+    assert args.apply is False
 
 
 def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() -> None:
@@ -238,6 +384,17 @@ def test_automation_guardrails_block_when_spend_caps_are_exhausted(
     assert report.ok is False
     assert report.metrics["spend_daily_usd"] == 51.25
     assert report.blockers == ["daily_spend_usd=51.25 at or above cap 50.00"]
+
+
+def test_codex_rss_probe_treats_blocked_process_census_as_unavailable(
+    monkeypatch: Any,
+) -> None:
+    def blocked_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise PermissionError("ps blocked by sandbox")
+
+    monkeypatch.setattr(mod, "_run", blocked_run)
+
+    assert mod._codex_rss_gib() is None
 
 
 def test_outbox_superseded_branches_reads_local_supersession_metadata(
@@ -461,6 +618,264 @@ def test_open_pr_heads_counts_only_codex_branches(monkeypatch: Any, tmp_path: Pa
     }
 
 
+def test_open_codex_prs_from_rest_filters_codex_branches(monkeypatch: Any, tmp_path: Path) -> None:
+    payload = json.dumps(
+        [
+            [
+                {
+                    "number": 7001,
+                    "title": "Automation fix",
+                    "head": {"ref": "codex/fix-one"},
+                    "draft": True,
+                    "mergeable_state": "clean",
+                },
+                {
+                    "number": 7002,
+                    "title": "Manual fix",
+                    "head": {"ref": "feature/manual"},
+                    "draft": False,
+                    "mergeable_state": "clean",
+                },
+            ],
+            [
+                {
+                    "number": 7003,
+                    "title": "Dependabot fix",
+                    "head": {"ref": "dependabot/npm/package"},
+                    "draft": False,
+                    "mergeable_state": "clean",
+                },
+                {
+                    "number": 7004,
+                    "title": "Automation repair",
+                    "head": {"ref": "codex/fix-two"},
+                    "draft": False,
+                },
+            ],
+        ]
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda args, cwd, check=False: subprocess.CompletedProcess(
+            args=args, returncode=0, stdout=payload, stderr=""
+        ),
+    )
+
+    prs = mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora")
+
+    assert [pr["headRefName"] for pr in prs] == ["codex/fix-one", "codex/fix-two"]
+    assert prs[0]["number"] == 7001
+    assert prs[0]["isDraft"] is True
+    assert prs[0]["mergeStateStatus"] == "CLEAN"
+    assert prs[1]["mergeStateStatus"] == "UNKNOWN"
+    assert all(pr["lookup_source"] == "rest" for pr in prs)
+
+
+def test_open_codex_prs_from_rest_flattens_mixed_rest_pages(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    payload = json.dumps(
+        [
+            {
+                "number": 7001,
+                "title": "Flat automation fix",
+                "head": {"ref": "codex/flat-fix"},
+                "draft": False,
+                "mergeable_state": "clean",
+            },
+            [
+                {
+                    "number": 7002,
+                    "title": "Nested automation fix",
+                    "head": {"ref": "codex/nested-fix"},
+                    "draft": True,
+                    "mergeable_state": "blocked",
+                }
+            ],
+        ]
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda args, cwd, check=False: subprocess.CompletedProcess(
+            args=args, returncode=0, stdout=payload, stderr=""
+        ),
+    )
+
+    prs = mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora")
+
+    assert [pr["headRefName"] for pr in prs] == ["codex/flat-fix", "codex/nested-fix"]
+
+
+def test_open_codex_prs_from_rest_rejects_unexpected_json_shape(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda args, cwd, check=False: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=json.dumps({"not": "a pull request list"}),
+            stderr="",
+        ),
+    )
+
+    try:
+        mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora")
+    except RuntimeError as exc:
+        assert "unexpected JSON shape" in str(exc)
+    else:  # pragma: no cover - assertion clarity
+        raise AssertionError("expected REST shape failure")
+
+
+def test_open_codex_prs_from_rest_skips_missing_head_metadata(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda args, cwd, check=False: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=json.dumps([[{"number": 7001, "title": "Malformed PR"}]]),
+            stderr="",
+        ),
+    )
+
+    assert mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora") == []
+
+
+def test_open_codex_prs_falls_back_to_rest_when_graphql_and_cache_fail(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("GraphQL 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_status_cache",
+        lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_rest",
+        lambda repo_root, repo, **kwargs: [{"headRefName": "codex/fix-one"}],
+    )
+
+    prs, meta = mod._open_codex_prs_with_cache_fallback(tmp_path, "synaptent/aragora")
+
+    assert prs == [
+        {
+            "headRefName": "codex/fix-one",
+            "lookup_degraded": True,
+            "lookup_source": "rest",
+        }
+    ]
+    assert meta["source"] == "rest"
+    assert meta["status"] == "degraded"
+    assert meta["fallback_error"] == "GraphQL 504"
+    assert meta["cache_reason"] == "cache_stale"
+    assert meta["lookup_degraded"] is True
+    assert meta["rest_result_count"] == 1
+    assert prs[0]["lookup_degraded"] is True
+
+
+def test_rest_fallback_prs_are_unhealthy_for_queue_health() -> None:
+    assert mod._open_codex_pr_unhealthy_reasons(
+        {
+            "headRefName": "codex/rest-only",
+            "mergeStateStatus": "UNKNOWN",
+            "reviewDecision": None,
+            "statusCheckRollup": [],
+            "lookup_degraded": True,
+        }
+    ) == ["lookup_degraded_queue_health_unknown"]
+
+
+def test_rest_fallback_skips_malformed_pr_entries(monkeypatch: Any, tmp_path: Path) -> None:
+    payload = [
+        [
+            {"number": 1, "head": None},
+            {"number": 2, "head": {"ref": None}},
+            {"number": 3, "head": {"ref": "feature/not-codex"}},
+            {
+                "number": 4,
+                "title": "valid codex PR",
+                "draft": False,
+                "mergeable_state": "clean",
+                "head": {"ref": "codex/valid"},
+            },
+        ]
+    ]
+
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        ),
+    )
+
+    meta: dict[str, Any] = {}
+
+    assert mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora", meta=meta) == [
+        {
+            "number": 4,
+            "title": "valid codex PR",
+            "headRefName": "codex/valid",
+            "isDraft": False,
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": None,
+            "statusCheckRollup": [],
+            "lookup_degraded": True,
+            "lookup_source": "rest",
+        }
+    ]
+    assert meta["rest_payload_count"] == 4
+    assert meta["rest_skipped_missing_head_count"] == 1
+    assert meta["rest_skipped_missing_head_ref_count"] == 1
+    assert meta["rest_skipped_non_codex_head_count"] == 1
+    assert meta["rest_skipped_total_count"] == 3
+
+
+def test_open_codex_prs_reports_rest_error_when_all_lookups_fail(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("GraphQL 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_status_cache",
+        lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_rest",
+        lambda repo_root, repo, **kwargs: (_ for _ in ()).throw(RuntimeError("REST 502")),
+    )
+
+    try:
+        mod._open_codex_prs_with_cache_fallback(tmp_path, "synaptent/aragora")
+    except mod.OpenCodexPrLookupError as exc:
+        assert exc.error == "GraphQL 504"
+        assert exc.cache_meta["cache_reason"] == "cache_stale"
+        assert exc.cache_meta["rest_error"] == "REST 502"
+    else:  # pragma: no cover - assertion helper
+        raise AssertionError("expected OpenCodexPrLookupError")
+
+
 def test_run_uses_env_overrides_for_git_timeout(monkeypatch: Any, tmp_path: Path) -> None:
     recorded: dict[str, Any] = {}
 
@@ -628,6 +1043,32 @@ branch refs/heads/codex/b
     assert dirty_checked == [str(Path("/tmp/codex-b").resolve())]
 
 
+def test_list_worktrees_tolerates_missing_worktree_path(monkeypatch: Any, tmp_path: Path) -> None:
+    missing = tmp_path / "missing-worktree"
+    payload = f"""
+worktree {missing}
+HEAD abc123
+branch refs/heads/codex/missing
+""".strip()
+
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False, env_overrides=None
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["git", "worktree", "list"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=payload, stderr="")
+        raise FileNotFoundError(str(cwd))
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    monkeypatch.setattr(mod, "_has_active_session", lambda path: False)
+
+    snapshots = mod._list_worktrees(tmp_path)
+
+    assert len(snapshots) == 1
+    assert snapshots[0].branch == "codex/missing"
+    assert snapshots[0].dirty is False
+    assert snapshots[0].active_session is False
+
+
 def test_main_treats_unavailable_github_with_empty_local_queue_as_noop(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
@@ -669,6 +1110,7 @@ def test_main_reports_github_health_failure_when_unavailable_with_local_candidat
     monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
     monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
     monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -688,7 +1130,10 @@ def test_main_reports_github_health_failure_when_unavailable_with_local_candidat
     out = capsys.readouterr().out
     assert '"mode": "connectivity_failed"' in out
     assert '"scanned_branch_count": 1' in out
-    assert '"decisions": []' in out
+    assert '"open_pr_lookup_skipped": true' in out
+    assert '"branch": "codex/ready"' in out
+    assert '"eligible": false' in out
+    assert '"reason": "github_unavailable"' in out
 
 
 def test_publish_decisions_respects_open_pr_cap(monkeypatch: Any, tmp_path: Path) -> None:
@@ -794,7 +1239,9 @@ def test_publish_decisions_uses_remaining_open_pr_capacity(
     )
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
     monkeypatch.setattr(
-        mod, "_create_pr", lambda repo_root, repo, branch, base: next(created_numbers)
+        mod,
+        "_create_pr",
+        lambda repo_root, repo, branch, base, draft=False: next(created_numbers),
     )
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
@@ -851,7 +1298,7 @@ def test_publish_decisions_records_publish_failures_and_continues(
     monkeypatch.setattr(mod, "_ensure_gh_auth", lambda repo_root: None)
     monkeypatch.setattr(mod, "_push_branch", fake_push)
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
-    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base: 2001)
+    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base, draft=False: 2001)
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
     )
@@ -934,6 +1381,7 @@ def test_main_pauses_apply_when_open_codex_queue_is_unhealthy(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
     )
     monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    _allow_automation_guardrails(monkeypatch)
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -998,8 +1446,10 @@ def test_main_can_override_unhealthy_queue_pause_for_preflighted_branch(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
     )
     monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
     monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
     monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    _allow_automation_guardrails(monkeypatch)
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -1079,6 +1529,7 @@ def test_main_does_not_pause_for_green_review_required_codex_pr(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
     )
     monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    _allow_automation_guardrails(monkeypatch)
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -1107,6 +1558,521 @@ def test_main_does_not_pause_for_green_review_required_codex_pr(
     out = capsys.readouterr().out
     assert '"publish_paused_reason"' not in out
     assert '"unhealthy_open_pr_count": 0' in out
+
+
+def test_main_falls_back_to_cached_open_pr_heads_when_live_listing_504s(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/already-open-from-cache",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="cached open branch",
+        unique_commit_count=1,
+    )
+    cache_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        json.dumps(
+            {
+                "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "github_repo": "synaptent/aragora",
+                "github_queue": {
+                    "available": True,
+                    "open_codex_pr_count": 1,
+                    "unhealthy_open_pr_count": 0,
+                    "all_open_prs_unhealthy": False,
+                    "merge_state_counts": {"UNSTABLE": 1},
+                    "open_pr_heads": ["codex/already-open-from-cache"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branches_with_pr_history", lambda repo_root, repo, branches: set())
+    monkeypatch.setattr(
+        mod,
+        "_branches_with_resolved_related_work",
+        lambda repo_root, repo, branches: set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("HTTP 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_rest",
+        lambda repo_root, repo, **kwargs: (_ for _ in ()).throw(RuntimeError("REST 502")),
+    )
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--json"])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert '"source": "cache"' in out
+    assert '"fallback_error": "HTTP 504"' in out
+    assert '"open_pr_exists"' in out
+    assert '"open_pr_count": 1' in out
+
+
+def test_main_falls_back_to_rest_but_pauses_apply_for_unknown_queue_health(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/rest-open",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="rest open branch",
+        unique_commit_count=1,
+    )
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branches_with_pr_history", lambda repo_root, repo, branches: set())
+    monkeypatch.setattr(
+        mod,
+        "_branches_with_resolved_related_work",
+        lambda repo_root, repo, branches: set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_duplicate_open_pr_patch_branches",
+        lambda repo_root, base, branches, open_codex_prs: set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("GraphQL 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_rest",
+        lambda repo_root, repo, **kwargs: [
+            {
+                "number": 9001,
+                "title": "REST open branch",
+                "headRefName": "codex/rest-open",
+                "isDraft": False,
+                "mergeStateStatus": "UNKNOWN",
+                "reviewDecision": None,
+                "statusCheckRollup": [],
+                "lookup_degraded": True,
+                "lookup_source": "rest",
+            },
+            {
+                "number": 9002,
+                "title": "REST sibling branch",
+                "headRefName": "codex/rest-sibling",
+                "isDraft": False,
+                "mergeStateStatus": "UNKNOWN",
+                "reviewDecision": None,
+                "statusCheckRollup": [],
+                "lookup_degraded": True,
+                "lookup_source": "rest",
+            },
+        ],
+    )
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "evaluate_automation_guardrails",
+        lambda repo_root, open_pr_count, max_open_prs: mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={},
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    publish_called = False
+
+    def fake_publish(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        nonlocal publish_called
+        publish_called = True
+        return []
+
+    monkeypatch.setattr(mod, "_publish_decisions", fake_publish)
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--apply", "--json"])
+
+    assert exit_code == 0
+    assert publish_called is False
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["open_pr_lookup"]["source"] == "rest"
+    assert payload["open_pr_lookup"]["fallback_error"] == "GraphQL 504"
+    assert payload["open_pr_lookup"]["publishable_decision_count"] == 0
+    assert payload["decisions"][0]["reason"] == "open_pr_exists"
+    assert payload["queue_health"]["unhealthy_open_pr_count"] == 2
+    assert payload["queue_health"]["all_open_prs_unhealthy"] is True
+    assert payload["queue_health"]["unhealthy_open_prs"][0]["reasons"] == [
+        "lookup_degraded_queue_health_unknown"
+    ]
+    assert payload["publish_paused_reason"] == "open_pr_lookup_degraded"
+
+
+def test_main_pauses_apply_when_rest_fallback_returns_no_codex_prs(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/rest-empty",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="rest empty branch",
+        unique_commit_count=1,
+    )
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branches_with_pr_history", lambda repo_root, repo, branches: set())
+    monkeypatch.setattr(
+        mod,
+        "_branches_with_resolved_related_work",
+        lambda repo_root, repo, branches: set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_duplicate_open_pr_patch_branches",
+        lambda repo_root, base, branches, open_codex_prs: set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("GraphQL 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_status_cache",
+        lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
+    )
+    monkeypatch.setattr(mod, "_open_codex_prs_from_rest", lambda repo_root, repo, **kwargs: [])
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "evaluate_automation_guardrails",
+        lambda repo_root, open_pr_count, max_open_prs: mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={},
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    publish_called = False
+
+    def fake_publish(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        nonlocal publish_called
+        publish_called = True
+        return []
+
+    monkeypatch.setattr(mod, "_publish_decisions", fake_publish)
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--apply", "--json"])
+
+    assert exit_code == 1
+    assert publish_called is False
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["open_pr_lookup"]["source"] == "rest"
+    assert payload["open_pr_lookup"]["lookup_degraded"] is True
+    assert payload["open_pr_lookup"]["rest_result_count"] == 0
+    assert payload["open_pr_lookup"]["publishable_decision_count"] == 1
+    assert payload["queue_health"]["open_codex_pr_count"] == 0
+    assert payload["queue_health"]["unhealthy_open_pr_count"] == 1
+    assert payload["queue_health"]["all_open_prs_unhealthy"] is True
+    assert payload["queue_health"]["unhealthy_open_prs"][0]["reasons"] == [
+        "lookup_degraded_queue_health_unknown"
+    ]
+    assert payload["publish_paused_reason"] == "open_pr_lookup_degraded"
+
+
+def test_main_degraded_rest_lookup_blocks_override_and_skips_history_search(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/rest-empty",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="rest empty branch",
+        unique_commit_count=1,
+    )
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+
+    def fail_history(*args: Any, **kwargs: Any) -> set[str]:
+        raise AssertionError("history lookup should be skipped for degraded open-PR lookup")
+
+    def fail_duplicate(*args: Any, **kwargs: Any) -> set[str]:
+        raise AssertionError("duplicate lookup should be skipped for degraded open-PR lookup")
+
+    monkeypatch.setattr(mod, "_duplicate_open_pr_patch_branches", fail_duplicate)
+    monkeypatch.setattr(mod, "_branches_with_pr_history", fail_history)
+    monkeypatch.setattr(mod, "_branches_with_resolved_related_work", fail_history)
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("GraphQL 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_status_cache",
+        lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
+    )
+    monkeypatch.setattr(mod, "_open_codex_prs_from_rest", lambda repo_root, repo, **kwargs: [])
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "evaluate_automation_guardrails",
+        lambda repo_root, open_pr_count, max_open_prs: mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={},
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    publish_called = False
+
+    def fake_publish(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        nonlocal publish_called
+        publish_called = True
+        return []
+
+    monkeypatch.setattr(mod, "_publish_decisions", fake_publish)
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--apply",
+            "--json",
+            "--allow-unhealthy-queue-publish",
+        ]
+    )
+
+    assert exit_code == 1
+    assert publish_called is False
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["open_pr_lookup"]["source"] == "rest"
+    assert payload["open_pr_lookup"]["publishable_decision_count"] == 1
+    assert payload["duplicate_open_pr_patch_lookup_skipped"] is True
+    assert payload["historical_pr_lookup_skipped"] is True
+    assert payload["related_work_lookup_skipped"] is True
+    assert payload["decisions"][0]["eligible"] is False
+    assert payload["decisions"][0]["reason"] == "open_pr_lookup_degraded"
+    assert payload["publish_paused_reason"] == "open_pr_lookup_degraded"
+
+
+def test_main_degraded_rest_lookup_dry_run_exits_nonzero_when_publishable_work_exists(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/rest-empty",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="rest empty branch",
+        unique_commit_count=1,
+    )
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+
+    def fail_degraded_lookup(*args: Any, **kwargs: Any) -> set[str]:
+        raise AssertionError("degraded mode should not run follow-up GitHub dedupe lookups")
+
+    monkeypatch.setattr(mod, "_duplicate_open_pr_patch_branches", fail_degraded_lookup)
+    monkeypatch.setattr(mod, "_branches_with_pr_history", fail_degraded_lookup)
+    monkeypatch.setattr(mod, "_branches_with_resolved_related_work", fail_degraded_lookup)
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("GraphQL 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_status_cache",
+        lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
+    )
+    monkeypatch.setattr(mod, "_open_codex_prs_from_rest", lambda repo_root, repo, **kwargs: [])
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "evaluate_automation_guardrails",
+        lambda repo_root, open_pr_count, max_open_prs: mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={},
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--json"])
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["open_pr_lookup"]["source"] == "rest"
+    assert payload["open_pr_lookup"]["publishable_decision_count"] == 1
+    assert payload["duplicate_open_pr_patch_lookup_skipped"] is True
+    assert payload["decisions"][0]["reason"] == "open_pr_lookup_degraded"
+    assert payload["publish_paused_reason"] == "open_pr_lookup_degraded"
+
+
+def test_main_reports_open_pr_lookup_failure_when_cache_is_unusable(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/needs-live-open-prs",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="needs live open prs",
+        unique_commit_count=1,
+    )
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("HTTP 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_rest",
+        lambda repo_root, repo, **kwargs: (_ for _ in ()).throw(RuntimeError("REST 502")),
+    )
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--json"])
+
+    assert exit_code == 1
+    out = capsys.readouterr().out
+    assert '"open_pr_lookup"' in out
+    assert '"status": "failed"' in out
+    assert '"error": "HTTP 504"' in out
+    assert '"cache_usable": false' in out
+    assert '"rest_error": "REST 502"' in out
+    assert '"decisions": []' in out
 
 
 def test_review_required_inflight_pr_does_not_pause_for_pending_or_advisory_cancelled() -> None:

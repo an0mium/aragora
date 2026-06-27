@@ -10,7 +10,7 @@ Covers argument parsing and command dispatch for:
 
 import argparse
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
 import pytest
@@ -48,6 +48,8 @@ from aragora.cli.commands.billing_ops import (
     _cmd_usage,
     _cmd_budget,
     _cmd_forecast,
+    _cmd_report,
+    _cmd_agents,
     add_billing_ops_parser,
     cmd_billing_ops,
 )
@@ -494,3 +496,122 @@ class TestBillingCommands:
         ):
             await _cmd_usage(args)
         assert "Could not connect" in capsys.readouterr().out
+
+
+class TestBillingLocalCostCommands:
+    """Regression tests for `costs report` / `costs agents`.
+
+    Both commands previously always printed a misleading
+    'CostTracker.<method>() not available.' error because they called the
+    async CostTracker methods with an unsupported ``days=`` kwarg and never
+    awaited the returned coroutine. These tests pin the corrected behavior:
+    the real (async) tracker methods are invoked with period bounds and the
+    results are rendered.
+    """
+
+    def _report_parser(self):
+        return _build_parser(add_billing_ops_parser, "costs")
+
+    def test_report_workspace_flag_parses(self):
+        args = self._report_parser().parse_args(
+            ["costs", "report", "--days", "7", "--workspace", "ws1"]
+        )
+        assert args.days == 7
+        assert args.workspace == "ws1"
+
+    def test_agents_workspace_flag_parses(self):
+        args = self._report_parser().parse_args(["costs", "agents", "--workspace", "ws2"])
+        assert args.workspace == "ws2"
+
+    def test_report_renders_async_costreport(self, capsys):
+        """generate_report is async + returns a CostReport; it must be awaited
+        and normalized via .to_dict(), not reported as 'not available'."""
+        report_obj = Mock()
+        report_obj.to_dict.return_value = {
+            "period_start": "2026-05-01",
+            "period_end": "2026-05-31",
+            "total_cost_usd": "1.2345",
+            "total_tokens_in": 1000,
+            "total_tokens_out": 500,
+            "total_api_calls": 3,
+            "cost_by_provider": {"anthropic": "1.2345"},
+            "top_agents_by_cost": [{"agent": "claude", "cost_usd": "1.2345"}],
+        }
+        tracker = Mock()
+        tracker.generate_report = AsyncMock(return_value=report_obj)
+
+        args = argparse.Namespace(json=False, days=30, workspace=None)
+        with patch("aragora.cli.commands.billing_ops._get_cost_tracker", return_value=tracker):
+            _cmd_report(args)
+
+        out = capsys.readouterr().out
+        assert "not available" not in out
+        assert "COST REPORT" in out
+        assert "1.2345" in out
+        assert "claude" in out
+        # The async method must actually have been called (and awaited).
+        tracker.generate_report.assert_awaited_once()
+        _, kwargs = tracker.generate_report.call_args
+        assert "days" not in kwargs  # the buggy kwarg must be gone
+        assert kwargs["period_start"] is not None
+        assert kwargs["period_end"] is not None
+
+    def test_agents_renders_async_agent_costs(self, capsys):
+        """get_agent_costs is async, requires a workspace_id, and returns a
+        mapping of agent -> {cost_usd, percentage}."""
+        tracker = Mock()
+        tracker.get_agent_costs = AsyncMock(
+            return_value={
+                "claude": {"cost_usd": "0.9000", "percentage": 75.0},
+                "gpt": {"cost_usd": "0.3000", "percentage": 25.0},
+            }
+        )
+
+        args = argparse.Namespace(json=False, days=30, workspace="ws1")
+        with patch("aragora.cli.commands.billing_ops._get_cost_tracker", return_value=tracker):
+            _cmd_agents(args)
+
+        out = capsys.readouterr().out
+        assert "not available" not in out
+        assert "AGENT COSTS" in out
+        assert "claude" in out
+        assert "0.9000" in out
+        tracker.get_agent_costs.assert_awaited_once()
+        # workspace_id passed positionally; days kwarg must be gone
+        call = tracker.get_agent_costs.call_args
+        assert call.args[0] == "ws1"
+        assert "days" not in call.kwargs
+
+    def test_agents_json_output(self, capsys):
+        tracker = Mock()
+        tracker.get_agent_costs = AsyncMock(
+            return_value={"claude": {"cost_usd": "0.9", "percentage": 100.0}}
+        )
+        args = argparse.Namespace(json=True, days=30, workspace=None)
+        with patch("aragora.cli.commands.billing_ops._get_cost_tracker", return_value=tracker):
+            _cmd_agents(args)
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed["claude"]["cost_usd"] == "0.9"
+        # default workspace used when none supplied
+        assert tracker.get_agent_costs.call_args.args[0] == "default"
+
+    def test_report_empty_tracker_still_succeeds(self, capsys):
+        """Empty data must render a real (zero) report, never the misleading
+        'not available' error."""
+        report_obj = Mock()
+        report_obj.to_dict.return_value = {
+            "period_start": "2026-05-01",
+            "period_end": "2026-05-31",
+            "total_cost_usd": "0",
+            "total_tokens_in": 0,
+            "total_tokens_out": 0,
+            "total_api_calls": 0,
+        }
+        tracker = Mock()
+        tracker.generate_report = AsyncMock(return_value=report_obj)
+        args = argparse.Namespace(json=False, days=30, workspace=None)
+        with patch("aragora.cli.commands.billing_ops._get_cost_tracker", return_value=tracker):
+            _cmd_report(args)
+        out = capsys.readouterr().out
+        assert "not available" not in out
+        assert "COST REPORT" in out

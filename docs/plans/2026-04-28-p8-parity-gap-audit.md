@@ -40,7 +40,7 @@ For each of six surfaces I record:
 | **Severity for P8** | `low` / `medium` / `high` / `critical`. High and critical means this gap, taken alone, falsifies P8 as a co-equal-consumer claim. |
 | **First deliverable proposal** | A bounded ~200–400 LOC change that closes the gap without expanding scope. Always one concrete change, never a roadmap. |
 
-`path:line` citations are pinned to the worktree at `/Users/armand/Development/aragora` on branch `docs/2026-04-28-overnight-planning` at the time of audit. When a path is referenced by directory only, that means the existence of the directory itself is the citation (e.g., `aragora/protocols/a2a/`).
+`path:line` citations are pinned to the worktree at `~/aragora` on branch `docs/2026-04-28-overnight-planning` at the time of audit. When a path is referenced by directory only, that means the existence of the directory itself is the citation (e.g., `aragora/protocols/a2a/`).
 
 The audit only **classifies and proposes**. It does not edit code, queue tickets, or trigger automation.
 
@@ -718,7 +718,7 @@ This audit does **not** propose:
 
 ## 7. Citations
 
-All `path:line` references below are pinned to the worktree at `/Users/armand/Development/aragora` on branch `docs/2026-04-28-overnight-planning` at the time of audit.
+All `path:line` references below are pinned to the worktree at `~/aragora` on branch `docs/2026-04-28-overnight-planning` at the time of audit.
 
 ### Surface 1 — Registration / identity
 

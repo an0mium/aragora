@@ -182,8 +182,12 @@ def cmd_memory(args: argparse.Namespace) -> None:
         print(f"Cleanup complete: {stats}")
 
 
-def cmd_elo(args: argparse.Namespace) -> None:
-    """Handle 'elo' command - view ELO ratings and history."""
+def cmd_elo(args: argparse.Namespace) -> int:
+    """Handle 'elo' command - view ELO ratings and history.
+
+    Returns a process exit code: ``0`` on success, non-zero on error paths
+    (missing required arguments, unknown agent) so scripts can detect failure.
+    """
     from aragora.persistence.db_config import DatabaseType, get_db_path
     from aragora.ranking.elo import EloSystem
 
@@ -219,7 +223,7 @@ def cmd_elo(args: argparse.Namespace) -> None:
         agent = getattr(args, "agent", None)
         if not agent:
             print("Error: --agent is required for history")
-            return
+            return 2
 
         limit = getattr(args, "limit", 20)
         history = elo.get_elo_history(agent, limit=limit)
@@ -229,7 +233,7 @@ def cmd_elo(args: argparse.Namespace) -> None:
 
         if not history:
             print("  No history found")
-            return
+            return 0
 
         for timestamp, elo_value in history:
             print(f"  {timestamp[:19]}  {elo_value:>7.0f}")
@@ -243,7 +247,7 @@ def cmd_elo(args: argparse.Namespace) -> None:
 
         if not matches:
             print("  No matches found")
-            return
+            return 0
 
         for match in matches:
             winner = match.get("winner_name", "?")
@@ -260,9 +264,17 @@ def cmd_elo(args: argparse.Namespace) -> None:
         agent = getattr(args, "agent", None)
         if not agent:
             print("Error: --agent is required")
-            return
+            return 2
 
         try:
+            # get_rating() is get-or-create: it synthesises a default 1500
+            # rating for unknown agents. Check for a real recorded rating first
+            # so a typo'd / never-seen agent is reported as not-found rather than
+            # shown a fabricated default record.
+            if not elo.has_rating(agent):
+                print(f"Agent not found: {agent}")
+                return 1
+
             rating = elo.get_rating(agent)
             print(f"\nAgent: {rating.agent_name}")
             print("=" * 40)
@@ -293,9 +305,13 @@ def cmd_elo(args: argparse.Namespace) -> None:
         except (KeyError, ValueError) as e:
             logger.warning("Agent lookup failed for '%s': %s", agent, e)
             print(f"Agent not found: {agent}")
+            return 1
         except (OSError, TypeError) as e:
             logger.warning("ELO database error for agent '%s': %s", agent, e)
             print(f"Agent not found: {agent}")
+            return 1
+
+    return 0
 
 
 def cmd_cross_pollination(args: argparse.Namespace) -> None:

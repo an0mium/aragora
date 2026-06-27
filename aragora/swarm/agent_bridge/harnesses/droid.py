@@ -38,7 +38,7 @@ class DroidTransport(Transport):
         self.home = home or Path.home()
 
     def _build_launch_command(self, prompt: str) -> tuple[list[str], str | None]:
-        auto_mode = str(self.harness_options.get("auto", "low"))
+        auto_mode = str(self.harness_options.get("auto", "high"))
         command = [self.harness, "exec", "--auto", auto_mode, "--output-format", "json"]
         if self.model:
             command.extend(["--model", self.model])
@@ -48,7 +48,7 @@ class DroidTransport(Transport):
         return command, None
 
     def _build_resume_command(self, session_id: str, prompt: str) -> list[str]:
-        auto_mode = str(self.harness_options.get("auto", "low"))
+        auto_mode = str(self.harness_options.get("auto", "high"))
         command = [
             self.harness,
             "exec",

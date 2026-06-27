@@ -164,6 +164,19 @@ class TestSecurityBarrierRedactDict:
         result = sb.redact_dict({"items": [{"key": "token = abc"}]})
         assert "[REDACTED]" in result["items"][0]["key"]
 
+    def test_nested_lists_are_redacted_recursively(self):
+        sb = SecurityBarrier()
+        result = sb.redact_dict(
+            {
+                "content": [[{"text": "nested sk-proj-abc123def456ghi789"}]],
+                "metadata": ["safe", ["Bearer ghp_FAKELEAK12345678901234"]],
+            }
+        )
+        serialized = str(result)
+        assert "sk-proj-abc123def456ghi789" not in serialized
+        assert "ghp_FAKELEAK12345678901234" not in serialized
+        assert serialized.count("[REDACTED]") >= 2
+
     def test_non_string_values_preserved(self):
         sb = SecurityBarrier()
         result = sb.redact_dict({"count": 42, "active": True, "ratio": 3.14})

@@ -54,6 +54,7 @@ Recommended ownership:
 
 - `benchmark-proof`
   `scripts/reconcile_b0_pr_truth.py`
+  `scripts/refresh_proof_surfaces.sh`
   `scripts/build_benchmark_truth_artifact.py`
   `scripts/render_benchmark_truth_status.py`
   focused tests under `tests/scripts/`
@@ -73,6 +74,18 @@ python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main --r
 ```
 
 Create prompt files under `~/.aragora/tmux-prompts/` so prompts are reusable and auditable.
+
+## Proof Surface Refresh
+
+Use the repo-native refresher as the first proof-surface command so check-only and scoped refresh behavior stays aligned with live tooling:
+
+```bash
+bash scripts/refresh_proof_surfaces.sh --check
+bash scripts/refresh_proof_surfaces.sh --surface b0 --check
+bash scripts/refresh_proof_surfaces.sh --surface tw03 --check
+```
+
+When a lane intentionally owns the refresh, run the same wrapper without `--check` for the scoped surface. Add `--commit` only when the lane is authorized to create a local commit; the wrapper does not push. B0 publisher runs remain owned by the benchmark lane and are not replaced by tmux babysitting.
 
 ## Launch
 

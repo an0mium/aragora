@@ -28,6 +28,8 @@ from typing import Optional
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from aragora.config.secrets import get_secret_presence  # noqa: E402
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
@@ -220,7 +222,9 @@ def check_ai_providers() -> CheckResult:
         "OPENROUTER_API_KEY": "OpenRouter",
     }
 
-    configured = [name for key, name in providers.items() if os.environ.get(key)]
+    configured = [
+        name for key, name in providers.items() if get_secret_presence(key).source in {"aws", "env"}
+    ]
 
     if not configured:
         return CheckResult(

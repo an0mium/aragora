@@ -247,6 +247,25 @@ def run_heuristic_decomposition(goal: str) -> TaskDecomposition:
     return decomposer.analyze(goal)
 
 
+def write_conductor_mission_from_decomposition(
+    *,
+    goal: str,
+    decomposition: TaskDecomposition,
+    output_path: str,
+) -> Path:
+    """Write a goal-conductor mission YAML from a self-develop decomposition."""
+    from aragora.nomic.mission_bridge import decomposition_to_mission, write_mission_yaml
+
+    mission = decomposition_to_mission(
+        decomposition,
+        objective=goal,
+        stop_condition=(
+            "Stop when every lane reaches a draft PR, a precise blocker report, or a handoff."
+        ),
+    )
+    return write_mission_yaml(mission, output_path)
+
+
 async def run_pipeline_execution(
     goal: str,
     use_debate: bool = False,
@@ -609,6 +628,9 @@ Examples:
   # Preview with debate decomposition (slower, abstract goals)
   %(prog)s --goal "Maximize utility for SME businesses" --dry-run --debate
 
+  # Convert a goal decomposition into a conductor mission without executing
+  %(prog)s --goal "Publish H1-01 rev-4 benchmark result" --to-mission /tmp/mission.yaml
+
   # Run with human approval at each checkpoint
   %(prog)s --goal "Improve test coverage" --require-approval
 
@@ -671,6 +693,10 @@ Examples:
         "--dry-run",
         action="store_true",
         help="Show goal decomposition without executing",
+    )
+    parser.add_argument(
+        "--to-mission",
+        help="Write a goal-conductor mission YAML file from the decomposition, without executing.",
     )
     parser.add_argument(
         "--debate",
@@ -955,6 +981,31 @@ Examples:
         except (ImportError, RuntimeError, ValueError) as e:
             print(f"\nDaemon failed: {e}")
             return 1
+
+    if args.to_mission:
+        if args.goal is None:
+            parser.error("--goal is required when --to-mission is used")
+        use_debate = args.debate
+        if use_debate:
+            try:
+                decomposition = asyncio.run(run_debate_decomposition(args.goal))
+            except RuntimeError as e:
+                if "No API agents available" in str(e):
+                    print(f"[!] Debate mode requires API keys: {e}")
+                    print("[!] Falling back to heuristic decomposition...\n")
+                    decomposition = run_heuristic_decomposition(args.goal)
+                else:
+                    raise
+        else:
+            decomposition = run_heuristic_decomposition(args.goal)
+        path = write_conductor_mission_from_decomposition(
+            goal=args.goal,
+            decomposition=decomposition,
+            output_path=args.to_mission,
+        )
+        print(f"Conductor mission saved to: {path}")
+        print(f"Run: python3 scripts/goal_conductor.py run-once --mission {path} --json")
+        return 0
 
     # Dry run: just show decomposition (unless --self-improve handles its own dry-run)
     if args.dry_run and not args.self_improve:

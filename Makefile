@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test test-e2e lint format typecheck check check-all ci ci-required guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs docs-check serve docker demo demo-docker demo-stop quickstart quickstart-live worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status worktree-inspect worktree-safe-remove codex-session branch-start pr-open
+.PHONY: help install dev test test-e2e lint format typecheck check check-all ci ci-required guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs docs-check serve docker demo demo-docker demo-stop quickstart quickstart-live worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status worktree-inspect worktree-safe-remove codex-session branch-start pr-open sweep-stale-lanes sweep-stale-lanes-apply
 
 # Default target
 help:
@@ -78,6 +78,10 @@ help:
 	@echo "  make clean-all    Remove all generated files"
 	@echo "  make clean-runtime Move runtime DB artifacts to ARAGORA_DATA_DIR"
 	@echo "  make clean-runtime-dry Preview runtime cleanup actions"
+	@echo ""
+	@echo "Hygiene:"
+	@echo "  make sweep-stale-lanes       Dry-run lane-registry staleness sweeper"
+	@echo "  make sweep-stale-lanes-apply Apply expirations to stale active lane rows"
 
 # Setup
 install:
@@ -294,6 +298,20 @@ clean-runtime:
 
 clean-runtime-dry:
 	python3 scripts/cleanup_runtime_artifacts.py
+
+# Hygiene
+# ---------------------------------------------------------------------------
+# `sweep-stale-lanes` is a dry-run audit of `.aragora/agent-bridge/lanes.json`:
+# it detects active claims whose owning branch/worktree/heartbeat indicate the
+# session has crashed, and reports them as candidates for expiration.
+# `sweep-stale-lanes-apply` is the mutating escalation (rewrites stale rows
+# in-place with status=expired). See `docs/dev/LANE_REGISTRY_SWEEP_CADENCE.md`
+# for the operating cadence and recovery procedure.
+sweep-stale-lanes:
+	python3 scripts/sweep_stale_lane_claims.py --dry-run
+
+sweep-stale-lanes-apply:
+	python3 scripts/sweep_stale_lane_claims.py --apply
 
 # Benchmarks
 bench:

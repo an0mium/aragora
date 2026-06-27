@@ -119,6 +119,21 @@ __pycache__/
 """
 
 
+def _gitignore_has_entry(existing: str, entry: str) -> bool:
+    """Return True if ``entry`` is already an active (non-comment) line.
+
+    Compares against stripped, non-comment lines so that a substring match
+    inside a comment or a longer path does not falsely suppress a needed entry.
+    """
+    for line in existing.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped == entry:
+            return True
+    return False
+
+
 def _detect_api_keys() -> list[str]:
     """Detect which API keys are available in the environment."""
     key_map = {
@@ -157,6 +172,7 @@ def init_project(
     """
     target = Path(directory) if directory else Path.cwd()
     created: dict[str, list[str]] = {"files": [], "directories": []}
+    warnings: list[str] = []
 
     # Create data directory
     data_dir = target / ".aragora"
@@ -172,16 +188,39 @@ def init_project(
     if not config_file.exists() or force:
         config_file.write_text(config_content)
         created["files"].append(str(config_file))
+    elif preset == "review" and "Code Review Preset" not in config_file.read_text():
+        # Config exists but does not match the requested preset and --force was
+        # not supplied. Writing is gated by not-exists-or-force, so the preset
+        # would otherwise be silently dropped. Surface this to the user instead
+        # of printing a misleading success.
+        warnings.append(
+            f"{config_file} already exists; the 'review' preset was NOT applied. "
+            "Re-run with --force to overwrite it."
+        )
 
     # Create/update .gitignore
     if with_git:
         gitignore = target / ".gitignore"
         if gitignore.exists():
             existing = gitignore.read_text()
-            if ".aragora/" not in existing:
+            # Add each required ignore entry that is genuinely missing. A single
+            # substring test on ".aragora/" is too coarse: if that token already
+            # appears (a prior init, a pre-existing entry, or even a comment),
+            # the whole block — including the .env secret-ignore entries — was
+            # being skipped, risking accidental credential commits.
+            missing = [
+                line
+                for line in GITIGNORE_CONTENT.splitlines()
+                if line.strip()
+                and not line.lstrip().startswith("#")
+                and not _gitignore_has_entry(existing, line.strip())
+            ]
+            if missing:
                 with gitignore.open("a") as f:
+                    if not existing.endswith("\n"):
+                        f.write("\n")
                     f.write("\n# Aragora\n")
-                    f.write(GITIGNORE_CONTENT)
+                    f.write("\n".join(missing) + "\n")
                 created["files"].append(str(gitignore) + " (updated)")
         else:
             gitignore.write_text(GITIGNORE_CONTENT)
@@ -204,6 +243,9 @@ def init_project(
         if not workflow_file.exists() or force:
             workflow_file.write_text(GITHUB_ACTIONS_WORKFLOW)
             created["files"].append(str(workflow_file))
+
+    if warnings:
+        created["warnings"] = warnings
 
     return created
 
@@ -229,6 +271,11 @@ def cmd_init(args) -> None:
         print("\nCreated files:")
         for f in result["files"]:
             print(f"  - {f}")
+
+    if result.get("warnings"):
+        print("\nWarnings:")
+        for w in result["warnings"]:
+            print(f"  ! {w}")
 
     # Detect available API keys
     detected = _detect_api_keys()

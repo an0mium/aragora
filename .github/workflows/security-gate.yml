@@ -12,6 +12,9 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - 'requirements*.txt'
+      - 'scripts/pre_release_check.py'
+      - 'scripts/run_pip_audit_gate.py'
+      - 'scripts/security/pip_audit_ignored_vulns.txt'
       - 'aragora/live/package.json'
       - 'aragora/live/package-lock.json'
       - 'sdk/typescript/package.json'
@@ -69,11 +72,10 @@ jobs:
           cache: 'pip'
           cache-dependency-path: pyproject.toml
 
-      - name: Install security tools and project
+      - name: Install security tools
         run: |
           python -m pip install --upgrade pip
-          python -m pip install bandit[toml] pip-audit safety
-          bash scripts/ci_install_project.sh
+          python -m pip install bandit[toml] pip-audit uv
 
       # ---------------------------------------------------------------
       # Bandit: static analysis for Python security issues
@@ -88,21 +90,11 @@ jobs:
           python -m bandit -r aragora/ -c pyproject.toml -lll
 
       # ---------------------------------------------------------------
-      # pip-audit: check installed Python packages for known CVEs
+      # pip-audit: check all locked project dependency groups for known CVEs
       # ---------------------------------------------------------------
       - name: "BLOCKING: Python dependency audit (pip-audit)"
         run: |
-          # CVE-2025-14009: legacy ignored pattern (pre-existing).
-          # CVE-2026-3219 (GHSA-58qw-9mgm-455v, medium 4.6): affects
-          # the pip package bundled in the CI image. Aragora does not
-          # import pip at runtime; this is a CI-image freshness issue
-          # and blocking all PRs on a pip-bundle advisory creates
-          # dashboard cancel-cascade noise with no product-risk signal.
-          # Re-audit when the runner image upgrades pip, then drop
-          # this ignore.
-          python -m pip_audit --strict --vulnerability-service osv \
-            --ignore-vuln CVE-2025-14009 \
-            --ignore-vuln CVE-2026-3219
+          python scripts/run_pip_audit_gate.py
 
       # ---------------------------------------------------------------
       # Lockfile freshness: ensure uv.lock matches pyproject.toml

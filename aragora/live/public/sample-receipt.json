@@ -1,0 +1,38 @@
+{
+  "receipt_id": "DR-MOCK-BCDFC27A",
+  "question": "Should we adopt microservices or keep our monolith?",
+  "verdict": "consensus",
+  "confidence": 0.74,
+  "agents": [
+    "Analyst",
+    "Critic",
+    "Synthesizer",
+    "Devil's Advocate"
+  ],
+  "rounds": 2,
+  "summary": "Proceed with a phased rollout, explicit success metrics, and a defined rollback trigger before scaling the change.",
+  "dissent": [],
+  "dissenting_views": [],
+  "consensus_proof": {
+    "reached": true,
+    "method": "majority",
+    "confidence": 0.74,
+    "supporting_agents": [
+      "Analyst",
+      "Critic",
+      "Synthesizer",
+      "Devil's Advocate"
+    ],
+    "dissenting_agents": []
+  },
+  "artifact_hash": "bcdfc27a428d4a72294cd4274c31e85f274756ddbc240f7df1e3953cba5f3218",
+  "signature_algorithm": "SHA-256-content-hash",
+  "elapsed_seconds": 0.0,
+  "mode": "demo (offline)",
+  "proposals": {
+    "Analyst": "Start with a narrow pilot so you learn before taking on system-wide risk.",
+    "Critic": "Avoid a broad rollout until you can quantify operational cost and rollback criteria.",
+    "Synthesizer": "Combine a limited pilot with measurable guardrails and a written review checkpoint.",
+    "Devil's Advocate": "Assume the first plan is wrong and add a hard stop if evidence turns against it."
+  }
+}

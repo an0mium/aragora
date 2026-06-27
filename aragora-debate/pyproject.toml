@@ -56,11 +56,11 @@ all = [
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 
 [project.urls]
-Homepage = "https://github.com/an0mium/aragora"
-Documentation = "https://github.com/an0mium/aragora/blob/main/docs/START_HERE.md"
-Repository = "https://github.com/an0mium/aragora/tree/main/aragora-debate"
-Changelog = "https://github.com/an0mium/aragora/blob/main/aragora-debate/CHANGELOG.md"
-"Bug Tracker" = "https://github.com/an0mium/aragora/issues"
+Homepage = "https://github.com/synaptent/aragora"
+Documentation = "https://github.com/synaptent/aragora/blob/main/docs/START_HERE.md"
+Repository = "https://github.com/synaptent/aragora/tree/main/aragora-debate"
+Changelog = "https://github.com/synaptent/aragora/blob/main/aragora-debate/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/synaptent/aragora/issues"
 
 [tool.hatch.build.targets.sdist]
 exclude = ["CLAUDE.md", "**/CLAUDE.md", ".nomic/", ".benchmarks/"]

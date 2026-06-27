@@ -15,12 +15,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.core import Environment
 from aragora.agents.cli_agents import ClaudeAgent, CodexAgent, GeminiCLIAgent
-import os
+from aragora.config import get_api_key
 
 
 async def main():
     # Set Gemini API key if available
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    gemini_key = get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY", required=False) or ""
 
     print("\n" + "=" * 70)
     print("META-DEBATE: How should phase_implement work?")

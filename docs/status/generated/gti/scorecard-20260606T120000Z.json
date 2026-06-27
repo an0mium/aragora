@@ -1,0 +1,40 @@
+{
+  "benchmark": "gti-ground-truth-integrity-v1",
+  "generated_at": "2026-06-06T12:00:00+00:00",
+  "scenario_count": 15,
+  "naive": {
+    "stale_belief_action_rate": 0.8666666666666667,
+    "detection_rate": 0.0,
+    "correction_rate": 0.0,
+    "false_green_rate": 0.8666666666666667
+  },
+  "gated": {
+    "stale_belief_action_rate": 0.06666666666666667,
+    "detection_rate": 0.9230769230769231,
+    "correction_rate": 0.9230769230769231,
+    "false_green_rate": 0.06666666666666667
+  },
+  "delta": {
+    "stale_belief_action_rate": 0.8,
+    "detection_rate": 0.9230769230769231,
+    "correction_rate": 0.9230769230769231,
+    "false_green_rate": 0.8
+  },
+  "scenario_ids": [
+    "GTI-F1-001",
+    "GTI-F1-002",
+    "GTI-F2-001",
+    "GTI-F2-002",
+    "GTI-F3-001",
+    "GTI-F3-002",
+    "GTI-F4-001",
+    "GTI-F4-002",
+    "GTI-F5-001",
+    "GTI-F6-001",
+    "GTI-F1-003",
+    "GTI-F2-003",
+    "GTI-MISS-001",
+    "GTI-CTRL-001",
+    "GTI-CTRL-002"
+  ]
+}

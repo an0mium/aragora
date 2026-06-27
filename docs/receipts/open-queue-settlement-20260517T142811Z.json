@@ -1,0 +1,257 @@
+{
+  "clusters": [
+    {
+      "conflict_files": [
+        "aragora/cli/commands/codex_sessions.py",
+        "aragora/cli/parser.py",
+        "aragora/codex/__init__.py",
+        "aragora/codex/desktop_inspector.py",
+        "aragora/codex/desktop_paths.py",
+        "aragora/codex/duration.py",
+        "aragora/codex/jsonl_stream.py",
+        "aragora/codex/sqlite_ro.py",
+        "aragora/module_tiers.yaml",
+        "docs-site/docs/api/cli.md",
+        "docs-site/docs/contributing/capability-matrix.md",
+        "docs/CAPABILITY_MATRIX.md",
+        "docs/METRICS.md",
+        "docs/reference/CLI_REFERENCE.md",
+        "tests/codex/__init__.py"
+      ],
+      "kind": "textual_conflict_parser_py",
+      "members": [
+        7215,
+        7240,
+        7245
+      ],
+      "note": "Each PR appends a subparser registration and a docs row; trivial conflicts but rebase needed for later PRs",
+      "recommended_order": "Land in order of stack depth: foundation first, dependents rebase"
+    },
+    {
+      "conflict_files": [
+        "scripts/codex_worktree_value_inventory.py",
+        "tests/scripts/test_codex_worktree_value_inventory.py"
+      ],
+      "kind": "operator_choice_inventory_script",
+      "members": [
+        7256,
+        7259
+      ],
+      "note": "Two PRs propose alternate approaches to the same change; should not both merge",
+      "recommended_order": "Operator chooses ONE; the other should close or rebase to subsume"
+    }
+  ],
+  "generated_at_utc": "2026-05-17T14:28:11.657846+00:00",
+  "hmac_sha256": null,
+  "holds_respected": [
+    "#7209 lane (untouchable)",
+    "#7173 (held \u2014 metadata only)",
+    "#7215 (read-only metadata only)",
+    "#4990 (held)",
+    "BC-12 soak (untouched)",
+    "AI provider key consumption",
+    "merge / label / mark-ready / launchd install / automation.toml edit"
+  ],
+  "pinned_state": [
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 7,
+      "head_sha": "29115c5e97b9cd0ab0c7910cb12e6fa09f6025b7",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7173,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 2 \u2192 admin squash allowed once green",
+      "successes": 14,
+      "tier": "2"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": false,
+      "failures": 0,
+      "files_touched_count": 8,
+      "head_sha": "0d148f13c1b281f74c207fd25560bafb11fa9186",
+      "in_flight": 1,
+      "merge_state": "BLOCKED",
+      "number": 7215,
+      "recommended_action": "WAIT: 1 check(s) still in flight; revisit when settled",
+      "successes": 11,
+      "tier": "3"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": false,
+      "failures": 0,
+      "files_touched_count": 20,
+      "head_sha": "7aa00774bf633ccd7b1a945eff427396a75e083a",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7240,
+      "recommended_action": "REQUIRES: explicit human Tier-3 risk acceptance comment at current head",
+      "successes": 71,
+      "tier": "3"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 1,
+      "head_sha": "7f9ecf28d5b9cf75df08281419104d74419c8917",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7243,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 0 \u2192 admin squash allowed once green",
+      "successes": 12,
+      "tier": "0"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 24,
+      "head_sha": "68c03eadd0762e9825293a1f28298e949a73bf28",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7245,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 3 \u2192 human risk acceptance required",
+      "successes": 16,
+      "tier": "3"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 2,
+      "files_touched_count": 2,
+      "head_sha": "7a4d310d618bfe62c90f3d76913ff2afe97b9434",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7249,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 1 \u2192 admin squash allowed once green",
+      "successes": 11,
+      "tier": "1"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 3,
+      "head_sha": "19f29eeef1fc4e72be58cdbd36064303ac14a7c4",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7251,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 1 \u2192 admin squash allowed once green",
+      "successes": 14,
+      "tier": "1"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 2,
+      "head_sha": "5961232a8231b77b9ba0e5f6a0bf689749710993",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7252,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 0 \u2192 admin squash allowed once green",
+      "successes": 11,
+      "tier": "0"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 2,
+      "head_sha": "e1b37b34853d769221644a4d4087d0205394c60d",
+      "in_flight": 6,
+      "merge_state": "BLOCKED",
+      "number": 7256,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 2 \u2192 admin squash allowed once green",
+      "successes": 1,
+      "tier": "2"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 2,
+      "head_sha": "a9b044ce7490eab1a838fcc2ba8e54fcdb42ace6",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7257,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 3 \u2192 human risk acceptance required",
+      "successes": 14,
+      "tier": "3"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 5,
+      "head_sha": "28a748d3f0c11708b95b212c84eba0d75077a2ca",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7258,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 2 \u2192 admin squash allowed once green",
+      "successes": 14,
+      "tier": "2"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 2,
+      "head_sha": "31192860afdd7f095080059f358fb16e8dccc846",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7259,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 2 \u2192 admin squash allowed once green",
+      "successes": 14,
+      "tier": "2"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 2,
+      "head_sha": "e53aa8157d00060c134993ff61584da409094083",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7260,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 2 \u2192 admin squash allowed once green",
+      "successes": 13,
+      "tier": "2"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 5,
+      "head_sha": "a5a4f130633a9cd93476474c304fb700407aff0f",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7261,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 2 \u2192 admin squash allowed once green",
+      "successes": 14,
+      "tier": "2"
+    },
+    {
+      "decision": "REVIEW_REQUIRED",
+      "draft": true,
+      "failures": 0,
+      "files_touched_count": 2,
+      "head_sha": "e8a962a2dd96670650938e5fbe145a73959fa04d",
+      "in_flight": 0,
+      "merge_state": "BLOCKED",
+      "number": 7262,
+      "recommended_action": "OPERATOR: mark ready when complete; Tier 1 \u2192 admin squash allowed once green",
+      "successes": 13,
+      "tier": "1"
+    }
+  ],
+  "pr_count_at_pin": 15,
+  "repo": "synaptent/aragora",
+  "schema_version": "aragora-open-queue-settlement/1.0",
+  "sha256": "b93358c76358bab8b1a41a2843bc4c7ee36446ce433ebab8ab301d0c359cf9a2",
+  "signed_at_utc": null
+}

@@ -25,13 +25,20 @@ from botocore.exceptions import BotoCoreError, ClientError
 from aragora.config.secrets import (
     CRITICAL_SECRETS,
     MANAGED_SECRETS,
+    SecretPresence,
     SecretManager,
     SecretsConfig,
+    _fail_fast_mfa_prompter,
+    _has_controlling_tty,
+    _mfa_prompt_allowed,
     SecretNotFoundError,
     clear_secret_cache,
     get_required_secret,
     get_secret,
+    get_secret_presence,
+    get_secret_presence_report,
     is_critical_secret,
+    is_secret_usable,
     is_strict_mode,
     get_secret_manager,
     reset_secret_manager,
@@ -256,6 +263,47 @@ class TestSecretManagerAWS:
             result = manager.get("ENV_ONLY_SECRET")
             assert result == "env_value"
 
+    def test_presence_reports_aws_precedence_without_value(self):
+        """Presence checks report AWS source without exposing values."""
+        config = SecretsConfig(use_aws=True)
+        manager = SecretManager(config)
+        manager._cached_secrets = {"OPENAI_API_KEY": "aws-secret-value"}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "env-secret-value"}, clear=True):
+            presence = manager.presence("OPENAI_API_KEY")
+
+        assert presence == SecretPresence(
+            name="OPENAI_API_KEY",
+            source="aws",
+            critical=True,
+            managed=True,
+        )
+
+    def test_presence_treats_blank_env_as_missing(self):
+        """Blank environment values are not usable secret presence."""
+        config = SecretsConfig(use_aws=False)
+        manager = SecretManager(config)
+        manager._initialized = True
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": ""}, clear=True):
+            presence = manager.presence("OPENAI_API_KEY", strict=False)
+
+        assert presence.source == "missing"
+
+    def test_is_usable_requires_non_placeholder_length(self):
+        """Provider readiness ignores blank and short placeholder values."""
+        config = SecretsConfig(use_aws=False)
+        manager = SecretManager(config)
+        manager._initialized = True
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "short"}, clear=True):
+            assert manager.is_usable("ANTHROPIC_API_KEY", strict=False) is False
+
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test-key-12345"}, clear=True):
+            assert manager.is_usable("ANTHROPIC_API_KEY", strict=False) is True
+
     def test_preseeded_initialized_cache_does_not_refresh_immediately(self):
         """Manually seeded cache state should not trigger an AWS refresh."""
         config = SecretsConfig(use_aws=True)
@@ -277,7 +325,12 @@ class TestSecretManagerAWS:
 
         assert manager._aws_clients == {}
 
-        with patch("boto3.client") as mock_boto:
+        # Force the interactive path so this exercises default-client config plumbing
+        # (the non-interactive MFA guard has its own dedicated tests).
+        with (
+            patch("boto3.client") as mock_boto,
+            patch("aragora.config.secrets._has_controlling_tty", return_value=True),
+        ):
             mock_boto.return_value = MagicMock()
             client = manager._get_aws_client(manager.config.aws_region)
             assert client is not None
@@ -329,6 +382,26 @@ class TestSecretManagerAWS:
         with patch.object(manager, "_get_aws_client", return_value=mock_client):
             secrets = manager._load_from_aws()
             assert secrets == {}
+
+    def test_access_denied_does_not_log_secret_values(self, caplog):
+        """Denied AWS access must not leak env values in logs."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+        config = SecretsConfig(use_aws=True)
+        manager = SecretManager(config)
+
+        mock_client = MagicMock()
+        mock_client.get_secret_value.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "Access denied"}},
+            "GetSecretValue",
+        )
+
+        with patch.object(manager, "_get_aws_client", return_value=mock_client):
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "do-not-log-this"}, clear=True):
+                assert manager._load_from_aws() == {}
+
+        assert "do-not-log-this" not in caplog.text
 
     def test_aws_handles_invalid_json(self):
         """Gracefully handles invalid JSON from AWS."""
@@ -483,6 +556,9 @@ class TestManagedSecrets:
             "REDIS_URL",
             "ANTHROPIC_API_KEY",
             "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+            "OPENROUTER_API_KEY",
             "SENTRY_DSN",
         ]
         for key in expected:
@@ -545,6 +621,7 @@ class TestStrictMode:
         assert is_critical_secret("ANTHROPIC_API_KEY") is True
         assert is_critical_secret("OPENROUTER_API_KEY") is True
         assert is_critical_secret("GEMINI_API_KEY") is True
+        assert is_critical_secret("GOOGLE_API_KEY") is True
         assert is_critical_secret("XAI_API_KEY") is True
         assert is_critical_secret("GROK_API_KEY") is True
         assert is_critical_secret("MISTRAL_API_KEY") is True
@@ -575,6 +652,25 @@ class TestStrictMode:
             assert "JWT_SECRET_KEY" in str(exc_info.value)
             assert "Secrets Manager" in str(exc_info.value)
 
+    def test_strict_mode_presence_blocks_env_fallback_for_critical_secret(self):
+        """Presence check marks env-only critical keys strict-blocked."""
+        config = SecretsConfig(use_aws=True)
+        manager = SecretManager(config)
+        manager._cached_secrets = {}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "production", "GEMINI_API_KEY": "env-only-gemini"},
+            clear=True,
+        ):
+            presence = manager.presence("GEMINI_API_KEY")
+
+        assert presence.source == "blocked_by_strict_mode"
+        assert presence.critical is True
+        assert presence.managed is True
+
     @pytest.mark.parametrize(
         "provider_key",
         [
@@ -582,6 +678,7 @@ class TestStrictMode:
             "ANTHROPIC_API_KEY",
             "OPENROUTER_API_KEY",
             "GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
             "XAI_API_KEY",
             "GROK_API_KEY",
             "MISTRAL_API_KEY",
@@ -679,6 +776,28 @@ class TestStrictMode:
         assert any("JWT_SECRET_KEY" in record.message for record in caplog.records)
         assert any("environment variable" in record.message for record in caplog.records)
 
+    def test_non_strict_presence_reports_env_for_critical_secret(self, caplog):
+        """Non-strict local fallback reports env and does not expose values."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+        config = SecretsConfig(use_aws=False)
+        manager = SecretManager(config)
+        manager._initialized = True
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "development", "GROK_API_KEY": "local-grok-value"},
+            clear=True,
+        ):
+            presence = manager.presence("GROK_API_KEY")
+            result = manager.get("GROK_API_KEY")
+
+        assert presence.source == "env"
+        assert result == "local-grok-value"
+        assert "local-grok-value" not in caplog.text
+        assert "GROK_API_KEY" in caplog.text
+
     def test_secret_not_found_error_message(self):
         """SecretNotFoundError has helpful message."""
 
@@ -699,3 +818,120 @@ class TestStrictMode:
 
         for secret in CRITICAL_SECRETS:
             assert secret in MANAGED_SECRETS, f"Critical secret {secret} not in MANAGED_SECRETS"
+
+    def test_google_api_key_alias_is_critical_and_managed(self):
+        """Gemini's GOOGLE_API_KEY alias follows the same strict path."""
+        assert "GOOGLE_API_KEY" in MANAGED_SECRETS
+        assert "GOOGLE_API_KEY" in CRITICAL_SECRETS
+
+    def test_global_presence_helpers(self):
+        """Module-level presence helpers report sources without values."""
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "router-secret"}, clear=True):
+            presence = get_secret_presence("OPENROUTER_API_KEY", strict=False)
+            report = get_secret_presence_report(("OPENROUTER_API_KEY",), strict=False)
+
+        assert presence.source == "env"
+        assert report == [presence]
+
+    def test_global_is_secret_usable_helper(self):
+        """Module-level usability helper does not count placeholders."""
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "short"}, clear=True):
+            assert is_secret_usable("OPENROUTER_API_KEY", strict=False) is False
+
+
+class TestNonInteractiveMfaGuard:
+    """The headless-hang fix: a non-interactive process must never block on an AWS
+    MFA getpass prompt — it must fail fast and fall back to env/.env secrets."""
+
+    def test_prompt_allowed_only_when_interactive(self):
+        assert _mfa_prompt_allowed(isatty=True, env={}) is True
+        assert _mfa_prompt_allowed(isatty=False, env={}) is False
+
+    def test_explicit_override_allows_prompt_even_headless(self):
+        for val in ("1", "true", "YES"):
+            assert (
+                _mfa_prompt_allowed(isatty=False, env={"ARAGORA_AWS_ALLOW_MFA_PROMPT": val}) is True
+            )
+
+    def test_fail_fast_prompter_raises_instead_of_blocking(self):
+        with pytest.raises(RuntimeError, match="no TTY"):
+            _fail_fast_mfa_prompter("Enter MFA code: ")
+
+    def test_build_client_uses_guarded_session_when_headless(self):
+        """Non-interactive => the assume-role MFA prompter is neutered via a custom
+        botocore session, never the default (hang-prone) client."""
+        manager = SecretManager(SecretsConfig())
+        fake_boto3 = MagicMock()
+        with (
+            patch("aragora.config.secrets._has_controlling_tty", return_value=False),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            manager._build_client(fake_boto3, "us-east-1", MagicMock())
+        fake_boto3.Session.assert_called_once()  # guarded session path
+        fake_boto3.client.assert_not_called()  # never the unguarded default
+
+    def test_build_client_uses_default_when_interactive(self):
+        manager = SecretManager(SecretsConfig())
+        fake_boto3 = MagicMock()
+        with patch("aragora.config.secrets._has_controlling_tty", return_value=True):
+            manager._build_client(fake_boto3, "us-east-1", MagicMock())
+        fake_boto3.client.assert_called_once()  # normal interactive path
+        fake_boto3.Session.assert_not_called()
+
+    def test_real_botocore_prompter_is_failfast_when_headless(self):
+        """End-to-end against real botocore: the assume-role provider's prompter is
+        replaced with the fail-fast one (so it can't getpass-hang). The guard reaches
+        the botocore session via boto3's ``_session`` wrapper."""
+        import botocore.session
+
+        manager = SecretManager(SecretsConfig())
+        real_botocore_session = botocore.session.get_session()
+
+        class _FakeSession:
+            _session = real_botocore_session
+
+            def client(self, **_kw):
+                return MagicMock()
+
+        fake_boto3 = MagicMock()
+        fake_boto3.Session = _FakeSession
+        with (
+            patch("aragora.config.secrets._has_controlling_tty", return_value=False),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            manager._build_client(fake_boto3, "us-east-1", MagicMock())
+
+        # `get_session()` returns a fresh, isolated session per call, so this mutation
+        # does not leak into other tests.
+        provider = real_botocore_session.get_component("credential_provider").get_provider(
+            "assume-role"
+        )
+        assert provider._prompter is _fail_fast_mfa_prompter
+
+    def test_guard_install_failure_fails_closed_not_back_to_default(self):
+        """grok [P2]: if the MFA guard can't be installed in a headless process, we
+        must NOT fall back to the unguarded boto3.client() — that would re-enter the
+        exact getpass hang. Returns None so the caller uses env/.env secrets."""
+        manager = SecretManager(SecretsConfig())
+        fake_boto3 = MagicMock()
+        fake_boto3.Session.side_effect = RuntimeError("botocore internals changed")
+        with (
+            patch("aragora.config.secrets._has_controlling_tty", return_value=False),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            result = manager._build_client(fake_boto3, "us-east-1", MagicMock())
+        assert result is None  # fail closed
+        fake_boto3.client.assert_not_called()  # never the hang-prone default
+
+    def test_controlling_tty_probe_matches_dev_tty_openability(self):
+        """grok [P2]: the gate probes /dev/tty (what getpass uses), not stdin —
+        independent of the test runner's own terminal state."""
+        with patch("aragora.config.secrets.os.open", side_effect=OSError):
+            assert _has_controlling_tty() is False
+        with (
+            patch("aragora.config.secrets.os.open", return_value=7) as op,
+            patch("aragora.config.secrets.os.close") as cl,
+        ):
+            assert _has_controlling_tty() is True
+            op.assert_called_once()
+            cl.assert_called_once_with(7)  # fd is closed, not leaked

@@ -5,7 +5,7 @@
 #   1. Add API key secrets (at least one): ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY
 #   2. Copy this file to: .github/workflows/aragora-review.yml
 #
-# Documentation: https://github.com/an0mium/aragora/blob/main/docs/GITHUB_ACTIONS.md
+# Documentation: https://github.com/synaptent/aragora/blob/main/docs/GITHUB_ACTIONS.md
 
 name: Aragora AI Code Review
 

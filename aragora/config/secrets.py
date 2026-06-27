@@ -37,10 +37,59 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, cast
 
 logger = logging.getLogger(__name__)
+
+
+def _mfa_prompt_allowed(*, isatty: bool, env: Mapping[str, str] | None = None) -> bool:
+    """Whether an interactive AWS MFA prompt is permissible in this process.
+
+    A non-interactive process (cron automation, headless conductor, a background
+    evidence pass) must NEVER block on ``getpass`` for an MFA code — it hangs
+    forever with no TTY to answer it. This is the silent failure that wedged every
+    automated Secrets Manager load: the process appears to "run" but is stuck on an
+    invisible prompt. Allowed only when attached to a TTY, or when explicitly
+    overridden via ``ARAGORA_AWS_ALLOW_MFA_PROMPT`` (escape hatch for odd setups).
+    """
+    resolved: Mapping[str, str] = os.environ if env is None else env
+    override = str(resolved.get("ARAGORA_AWS_ALLOW_MFA_PROMPT", "")).strip().lower()
+    if override in ("1", "true", "yes"):
+        return True
+    return isatty
+
+
+def _fail_fast_mfa_prompter(prompt: str = "") -> str:
+    """Replaces botocore's interactive ``getpass`` MFA prompter in non-interactive
+    processes so AWS assume-role-with-MFA *fails fast* (caught → fall back to env /
+    .env secrets) instead of blocking forever on a TTY that isn't there."""
+    raise RuntimeError(
+        "AWS assume-role needs an interactive MFA code but this process has no TTY; "
+        "skipping Secrets Manager and falling back to environment/.env secrets. "
+        "Run interactively, pre-export an AWS session, or set "
+        "ARAGORA_USE_SECRETS_MANAGER=false to silence."
+    )
+
+
+def _has_controlling_tty() -> bool:
+    """Whether a controlling terminal is reachable for an interactive prompt.
+
+    botocore's MFA prompt uses ``getpass``, which reads ``/dev/tty`` (the controlling
+    terminal), NOT stdin — so ``sys.stdin.isatty()`` is the wrong question: a process
+    with redirected stdin but a live terminal (``python app.py </dev/null`` in an SSH
+    shell) could still prompt successfully. Probe ``/dev/tty`` directly to match what
+    getpass will actually do, so we only fail-fast when there is genuinely no terminal
+    (cron, nohup, a detached daemon).
+    """
+    try:
+        fd = os.open("/dev/tty", os.O_RDWR)
+    except OSError:
+        return False
+    os.close(fd)
+    return True
+
 
 # Import botocore exceptions for proper error handling
 # These are optional - if not installed, we use Exception as fallback
@@ -114,6 +163,7 @@ MANAGED_SECRETS = frozenset(
         "ANTHROPIC_API_KEY",
         "OPENAI_API_KEY",
         "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
         "XAI_API_KEY",
         "OPENROUTER_API_KEY",
         "MISTRAL_API_KEY",
@@ -167,6 +217,7 @@ CRITICAL_SECRETS = frozenset(
         "OPENAI_API_KEY",
         "OPENROUTER_API_KEY",
         "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
         "XAI_API_KEY",
         "GROK_API_KEY",
         "MISTRAL_API_KEY",
@@ -192,6 +243,16 @@ class SecretNotFoundError(Exception):
             )
 
 
+@dataclass(frozen=True)
+class SecretPresence:
+    """Presence-only secret status for safe health reporting."""
+
+    name: str
+    source: str
+    critical: bool
+    managed: bool
+
+
 def is_strict_mode() -> bool:
     """
     Check if strict secrets mode is enabled.
@@ -204,14 +265,14 @@ def is_strict_mode() -> bool:
         True if strict mode is enabled
     """
     # Check explicit override first
-    explicit = os.environ.get("ARAGORA_SECRETS_STRICT", "").lower()
+    explicit = (os.environ.get("ARAGORA_SECRETS_STRICT") or "").lower()
     if explicit in ("false", "0", "no"):
         return False
     if explicit in ("true", "1", "yes"):
         return True
 
     # Default: strict in production/staging
-    env = os.environ.get("ARAGORA_ENV", "").lower()
+    env = (os.environ.get("ARAGORA_ENV") or "").lower()
     return env in ("production", "prod", "staging", "stage")
 
 
@@ -249,22 +310,35 @@ class SecretsConfig:
         Set ARAGORA_USE_SECRETS_MANAGER=true to force-enable it anywhere, or
         false to disable it explicitly.
         """
-        use_flag = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "")
+
+        def _env_text(name: str, default: str = "") -> str:
+            value = os.environ.get(name)
+            return value if isinstance(value, str) and value else default
+
+        def _env_float(name: str, default: float) -> float:
+            try:
+                return float(_env_text(name, str(default)))
+            except ValueError:
+                return default
+
+        def _env_int(name: str, default: int) -> int:
+            try:
+                return int(_env_text(name, str(default)))
+            except ValueError:
+                return default
+
+        use_flag = _env_text("ARAGORA_USE_SECRETS_MANAGER")
         if use_flag:
             use_aws = use_flag.lower() in ("true", "1", "yes")
         else:
-            env_name = (
-                os.environ.get("ARAGORA_ENV") or os.environ.get("ARAGORA_ENVIRONMENT") or ""
-            ).lower()
+            env_name = (_env_text("ARAGORA_ENV") or _env_text("ARAGORA_ENVIRONMENT")).lower()
             running_in_aws = bool(
-                os.environ.get("AWS_EXECUTION_ENV") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+                _env_text("AWS_EXECUTION_ENV") or _env_text("AWS_LAMBDA_FUNCTION_NAME")
             )
             use_aws = env_name in ("production", "prod", "staging", "stage") or running_in_aws
 
-        primary_region = (
-            os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
-        )
-        raw_regions = os.environ.get("ARAGORA_SECRET_REGIONS", "")
+        primary_region = _env_text("AWS_REGION") or _env_text("AWS_DEFAULT_REGION") or "us-east-1"
+        raw_regions = _env_text("ARAGORA_SECRET_REGIONS")
         explicit_regions = [r.strip() for r in raw_regions.split(",") if r.strip()]
         if explicit_regions:
             regions = []
@@ -280,18 +354,13 @@ class SecretsConfig:
         return cls(
             aws_region=primary_region,
             aws_regions=regions,
-            secret_name=os.environ.get("ARAGORA_SECRET_NAME", "aragora/production"),
+            secret_name=_env_text("ARAGORA_SECRET_NAME", "aragora/production"),
             use_aws=use_aws,
-            aws_connect_timeout_seconds=float(
-                os.environ.get("ARAGORA_AWS_SECRET_CONNECT_TIMEOUT_SECONDS", "2.0")
+            aws_connect_timeout_seconds=_env_float(
+                "ARAGORA_AWS_SECRET_CONNECT_TIMEOUT_SECONDS", 2.0
             ),
-            aws_read_timeout_seconds=float(
-                os.environ.get("ARAGORA_AWS_SECRET_READ_TIMEOUT_SECONDS", "2.0")
-            ),
-            aws_max_attempts=max(
-                1,
-                int(os.environ.get("ARAGORA_AWS_SECRET_MAX_ATTEMPTS", "1")),
-            ),
+            aws_read_timeout_seconds=_env_float("ARAGORA_AWS_SECRET_READ_TIMEOUT_SECONDS", 2.0),
+            aws_max_attempts=max(1, _env_int("ARAGORA_AWS_SECRET_MAX_ATTEMPTS", 1)),
         )
 
 
@@ -368,8 +437,13 @@ class SecretManager:
                     "mode": "standard",
                 },
             )
-            client = boto3.client("secretsmanager", region_name=region, config=config)
-            self._aws_clients[region] = client
+            client = self._build_client(boto3, region, config)
+            # Don't cache a fail-closed None: a later retry (e.g. after credentials
+            # become available, or in a different process state) must be able to
+            # re-attempt Secrets Manager rather than be pinned to None for the
+            # SecretManager instance's lifetime.
+            if client is not None:
+                self._aws_clients[region] = client
             return client
         except ImportError:
             logger.debug("boto3 not installed, AWS Secrets Manager unavailable")
@@ -384,6 +458,43 @@ class SecretManager:
             # Catch remaining non-boto exceptions (e.g., config errors, network)
             logger.warning(
                 "Failed to initialize AWS client (%s): %s: %s", region, type(e).__name__, e
+            )
+            return None
+
+    def _build_client(self, boto3: Any, region: str, config: Any) -> Any:
+        """Build the Secrets Manager client, neutering the interactive MFA prompt in
+        non-interactive processes.
+
+        A profile that requires assume-role-with-MFA (``AWS_PROFILE=aragora-secrets``)
+        otherwise blocks on ``getpass`` with no TTY to answer — the silent hang that
+        wedged every headless Secrets Manager load. Here, a non-interactive process
+        installs :func:`_fail_fast_mfa_prompter` so resolution fails fast and the
+        caller falls back to env/.env secrets. Interactive TTYs and MFA-free
+        credential paths (instance roles, OIDC) are unaffected.
+        """
+        if _mfa_prompt_allowed(isatty=_has_controlling_tty()):
+            return boto3.client("secretsmanager", region_name=region, config=config)
+        try:
+            # Reach botocore's session via boto3's own wrapper (``_session``) rather
+            # than importing botocore.session directly — keeps this off the typed
+            # import surface (boto3 is already an untyped/Any import).
+            boto_session = boto3.Session()
+            botocore_session = boto_session._session
+            provider = botocore_session.get_component("credential_provider").get_provider(
+                "assume-role"
+            )
+            provider._prompter = _fail_fast_mfa_prompter
+            return boto_session.client("secretsmanager", region_name=region, config=config)
+        except Exception:  # noqa: BLE001 - botocore internals vary by version
+            # Fail CLOSED, not back to the hang-prone default client: if the guard
+            # cannot be installed in a non-interactive process, returning
+            # boto3.client() here would re-enter the exact getpass MFA hang this
+            # exists to prevent. Returning None makes the caller fall back to
+            # env/.env secrets instead.
+            logger.warning(
+                "could not install non-interactive MFA guard for %s; refusing the "
+                "default client to avoid a getpass hang (using env/.env secrets)",
+                region,
             )
             return None
 
@@ -591,6 +702,73 @@ class SecretManager:
             self._log_access(name, "not_found", False)
         return default
 
+    def presence(self, name: str, strict: bool | None = None) -> SecretPresence:
+        """Return a presence-only secret source without exposing the value.
+
+        Sources are:
+        - ``aws``: available from the current Secrets Manager cache.
+        - ``env``: available from process environment and allowed by mode.
+        - ``blocked_by_strict_mode``: present in env but strict mode forbids using it.
+        - ``missing``: unavailable from both AWS cache and env.
+        """
+        self._initialize()
+
+        use_strict = strict if strict is not None else is_strict_mode()
+        is_critical = is_critical_secret(name)
+        aws_value = self._cached_secrets.get(name)
+        env_value = os.environ.get(name)
+
+        if aws_value is not None and aws_value.strip():
+            source = "aws"
+        elif use_strict and is_critical and env_value is not None and env_value.strip():
+            source = "blocked_by_strict_mode"
+        elif env_value is not None and env_value.strip():
+            source = "env"
+        else:
+            source = "missing"
+
+        self._log_access(name, f"presence_{source}", source in {"aws", "env"})
+        return SecretPresence(
+            name=name,
+            source=source,
+            critical=is_critical,
+            managed=name in MANAGED_SECRETS,
+        )
+
+    def presence_report(
+        self, names: list[str] | tuple[str, ...], strict: bool | None = None
+    ) -> list[SecretPresence]:
+        """Return presence-only statuses for multiple secrets."""
+        return [self.presence(name, strict=strict) for name in names]
+
+    def is_usable(self, name: str, min_length: int = 8, strict: bool | None = None) -> bool:
+        """Return whether a secret has a non-placeholder usable value.
+
+        This intentionally returns only a boolean so health checks can decide
+        provider readiness without exposing or logging secret values.
+        """
+        self._initialize()
+
+        use_strict = strict if strict is not None else is_strict_mode()
+        is_critical = is_critical_secret(name)
+        aws_value = self._cached_secrets.get(name)
+        if aws_value is not None:
+            usable = len(aws_value.strip()) >= min_length
+            self._log_access(name, "usable_aws", usable)
+            return usable
+
+        env_value = os.environ.get(name)
+        if use_strict and is_critical:
+            if env_value is not None and env_value.strip():
+                self._log_access(name, "usable_env_blocked", False)
+            else:
+                self._log_access(name, "usable_missing", False)
+            return False
+
+        usable = bool(env_value and len(env_value.strip()) >= min_length)
+        self._log_access(name, "usable_env" if usable else "usable_missing", usable)
+        return usable
+
     def get_required(self, name: str) -> str:
         """
         Get a required secret value.
@@ -704,6 +882,24 @@ def get_secret(
     return get_secret_manager().get(name, default, strict=strict)
 
 
+def get_secret_presence(name: str, strict: bool | None = None) -> SecretPresence:
+    """Get a presence-only secret status without returning the value."""
+    return get_secret_manager().presence(name, strict=strict)
+
+
+def is_secret_usable(name: str, min_length: int = 8, strict: bool | None = None) -> bool:
+    """Return whether a secret is present with a usable non-placeholder value."""
+    return get_secret_manager().is_usable(name, min_length=min_length, strict=strict)
+
+
+def get_secret_presence_report(
+    names: list[str] | tuple[str, ...],
+    strict: bool | None = None,
+) -> list[SecretPresence]:
+    """Get presence-only secret statuses without returning values."""
+    return get_secret_manager().presence_report(names, strict=strict)
+
+
 def hydrate_env_from_secrets(
     names: list[str] | None = None,
     overwrite: bool = False,
@@ -724,17 +920,19 @@ def hydrate_env_from_secrets(
     hydrated: dict[str, str] = {}
     try:
         manager = get_secret_manager()
+        manager._initialize()
         target_names = names or list(MANAGED_SECRETS)
         for name in target_names:
             if not overwrite and os.environ.get(name):
                 continue
-            try:
-                # Use strict=False so strict-mode environments don't raise here.
-                # hydrate_env_from_secrets is best-effort pre-loading; strict enforcement
-                # happens when the application actively calls get_secret() for the value.
-                value = manager.get(name, strict=False)
-            except Exception:  # noqa: BLE001
-                continue
+            value: str | None
+            if name in manager._cached_secrets:
+                value = manager._cached_secrets[name]
+            else:
+                # Use direct env lookup here to avoid noisy warning logs during
+                # best-effort bootstrap. Strict enforcement and local fallback
+                # warnings still happen when callers actively request a secret.
+                value = os.environ.get(name)
             if value:
                 os.environ[name] = value
                 hydrated[name] = value

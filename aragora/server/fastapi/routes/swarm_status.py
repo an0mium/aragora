@@ -13,7 +13,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from aragora.swarm.live_shift_status import _detect_benchmark_freshness
+from aragora.swarm.live_shift_status import _detect_benchmark_freshness, _detect_observer_state
 from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH as DEFAULT_SHIFT_LEDGER_PATH
 from aragora.swarm.shift_ledger import ShiftLedger
 
@@ -94,6 +94,15 @@ def swarm_status_summary(
     # All-None when the artifact is missing or unparseable; never errors.
     benchmark_freshness = _detect_benchmark_freshness(root)
 
+    # Observer truth on FastAPI sibling surface — closes the "Do now > Observer
+    # truth" item from docs/status/NEXT_STEPS_CANONICAL.md by exposing the same
+    # observer signals that `aragora swarm shift-status` already publishes.
+    # Reuses the canonical `_detect_observer_state` helper.  Always returns a
+    # dict; keys are only present when git metadata can be read, so consumers
+    # that hit a sandboxed (non-repo) checkout still get a degraded-but-valid
+    # response.
+    observer_state = _detect_observer_state(root)
+
     if not rows and not ledger_status:
         return {
             "status": "no_data",
@@ -101,6 +110,7 @@ def swarm_status_summary(
             "window": window,
             "total_ticks": 0,
             **benchmark_freshness,
+            **observer_state,
         }
 
     terminal_classes: Counter[str] = Counter()
@@ -206,6 +216,7 @@ def swarm_status_summary(
             "terminal_class": latest_tick.get("terminal_class", ""),
             "elapsed_seconds": latest_tick.get("elapsed_seconds"),
         },
+        **observer_state,
     }
 
 

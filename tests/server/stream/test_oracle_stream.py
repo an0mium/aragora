@@ -1257,3 +1257,62 @@ class TestFeatureFlag:
         assert flag is not None
         assert flag.default is True
         assert flag.flag_type is bool
+
+
+# =========================================================================
+# _get_oracle_models — ImportError fallback must mirror the primary path
+# =========================================================================
+
+
+class TestGetOracleModelsFallback:
+    """Regression: a missing playground import must NOT silently swap the
+    configured Anthropic model (Sonnet) for Opus in the deep-phase slot."""
+
+    def test_primary_path_uses_configured_constants(self):
+        """When playground imports succeed, the configured constants are returned."""
+        from aragora.server.stream.oracle_stream import _get_oracle_models
+        from aragora.server.handlers.playground import (
+            _ORACLE_MODEL_OPENROUTER,
+            _ORACLE_MODEL_ANTHROPIC,
+            _ORACLE_MODEL_OPENAI,
+        )
+
+        assert _get_oracle_models() == (
+            _ORACLE_MODEL_OPENROUTER,
+            _ORACLE_MODEL_ANTHROPIC,
+            _ORACLE_MODEL_OPENAI,
+        )
+
+    def test_importerror_fallback_matches_primary_anthropic_model(self):
+        """ImportError fallback must return the SAME Anthropic model as the
+        primary path — not swap Sonnet for Opus."""
+        from aragora.server.handlers.playground import _ORACLE_MODEL_ANTHROPIC
+
+        with patch.dict("sys.modules", {"aragora.server.handlers.playground": None}):
+            from aragora.server.stream.oracle_stream import _get_oracle_models
+
+            _, anthropic_model, _ = _get_oracle_models()
+
+        assert anthropic_model == _ORACLE_MODEL_ANTHROPIC
+        # Defensive: the fallback must not silently select an Opus model in the
+        # Anthropic deep-phase slot.
+        assert "opus" not in anthropic_model.lower()
+
+    def test_importerror_fallback_matches_all_primary_models(self):
+        """The full fallback tuple mirrors the configured primary-path tuple."""
+        from aragora.server.handlers.playground import (
+            _ORACLE_MODEL_OPENROUTER,
+            _ORACLE_MODEL_ANTHROPIC,
+            _ORACLE_MODEL_OPENAI,
+        )
+
+        with patch.dict("sys.modules", {"aragora.server.handlers.playground": None}):
+            from aragora.server.stream.oracle_stream import _get_oracle_models
+
+            fallback = _get_oracle_models()
+
+        assert fallback == (
+            _ORACLE_MODEL_OPENROUTER,
+            _ORACLE_MODEL_ANTHROPIC,
+            _ORACLE_MODEL_OPENAI,
+        )

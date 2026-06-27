@@ -202,7 +202,7 @@ agent = AnthropicAPIAgent(enable_fallback=True)
 OPENROUTER_FALLBACK_MODELS = {
     "qwen/qwen3-235b-a22b": "deepseek/deepseek-v4-pro",
     "deepseek/deepseek-v4-pro": "openai/gpt-5.3-chat",
-    "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.7",
+    "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.8",
     "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4o-mini",
     # ... more mappings
 }

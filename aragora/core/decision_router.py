@@ -744,7 +744,7 @@ class DecisionRouter:
             notify_origin = bool(cfg_raw.get("notify_origin", False))
 
         try:
-            from aragora.server.decision_integrity_utils import (
+            from aragora.pipeline.decision_integrity_utils import (
                 build_decision_integrity_payload,
             )
         except (ImportError, AttributeError) as exc:
@@ -774,7 +774,7 @@ class DecisionRouter:
 
         doc_ids: list[str] = []
         try:
-            from aragora.server.documents import ParsedDocument, parse_document, parse_text
+            from aragora.documents.parsing import ParsedDocument, parse_document, parse_text
             import base64
         except (ImportError, AttributeError) as e:
             logger.debug("Document ingestion unavailable: %s", e)

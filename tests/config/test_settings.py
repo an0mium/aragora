@@ -213,7 +213,7 @@ class TestAgentSettings:
         with patch.dict(os.environ, _clean_env(), clear=True):
             s = AgentSettings()
         assert "grok" in s.default_agents
-        assert s.openrouter_fallback_enabled is False
+        assert s.openrouter_fallback_enabled is True
         assert s.local_fallback_enabled is False
         assert s.stream_buffer_size == 10 * 1024 * 1024
         assert s.stream_chunk_timeout == 180.0

@@ -1035,7 +1035,13 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
     return {
         "question": question,
         "receipt_id": receipt_id,
-        "verdict": "consensus",
+        # Use a verdict value recognised by the bundled ``aragora verify``
+        # (aragora.cli.commands.verify._VALID_VERDICTS). The demo represents a
+        # successful consensus, so the canonical positive verdict is "approved".
+        # The consensus signal itself is carried independently via the
+        # ``consensus``/``consensus_reached`` flags below, so display and
+        # downstream consensus logic stay correct.
+        "verdict": "approved",
         "confidence": 0.85,
         "rounds": rounds,
         "agents": agent_names,
@@ -1759,9 +1765,9 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         emit(f"  Criteria:   {len(criteria)}")
         emit(f"  Risks:      {len(risks)}")
         emit(f"  Pipeline:   {spec_payload.get('pipeline', 'unknown')}")
-        fallback_reason = str(spec_payload.get("fallback_reason", "") or "").strip()
-        if fallback_reason:
-            emit(f"  Note:       Starter spec fallback ({fallback_reason})")
+        spec_fallback_reason = str(spec_payload.get("fallback_reason", "") or "").strip()
+        if spec_fallback_reason:
+            emit(f"  Note:       Starter spec fallback ({spec_fallback_reason})")
         emit(f"  Elapsed:    {elapsed:.1f}s")
         if run_id:
             emit(f"  Run:        {run_id}")

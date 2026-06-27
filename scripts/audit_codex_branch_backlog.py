@@ -27,6 +27,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from scripts import codex_worktree_autopilot as autopilot
 from scripts.github_cli_health import check_github_cli_health
 
 ACTIVE_SESSION_FILES = (
@@ -36,9 +37,13 @@ ACTIVE_SESSION_FILES = (
 )
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
+DEFAULT_GITHUB_STATUS_CACHE = Path(".aragora/automation-github-status/latest.json")
+DEFAULT_CACHED_OPEN_PR_HEADS_MAX_AGE_HOURS = 24
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
+DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = 5
+DEFAULT_CHANGED_PATH_EXAMPLE_LIMIT = 8
 SALVAGE_CATEGORIES = {
     "salvage_recent_unique",
     "salvage_stale_remote_unique",
@@ -55,15 +60,20 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "subject",
     "ahead_count",
     "behind_count",
+    "changed_path_count",
+    "changed_path_examples",
+    "changed_paths_truncated",
+    "divergence_lookup_failed",
     "patch_equivalence_skipped",
     "open_pr",
+    "open_pr_cached",
     "worktree_paths",
     "active_worktree_paths",
     "dirty_worktree_paths",
     "handoff_receipt_exists",
     "handoff_outbox_exists",
 )
-DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY = 3
+DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY = 0
 DIVERGENCE_REF_BATCH_SIZE = 200
 
 
@@ -74,13 +84,18 @@ class BranchRecord:
     head_sha: str
     committed_at: str
     subject: str
-    ahead_count: int
-    behind_count: int
+    ahead_count: int | None
+    behind_count: int | None
+    changed_path_count: int | None
+    changed_path_examples: list[str]
+    changed_paths_truncated: bool
+    divergence_lookup_failed: bool
     merged_to_base: bool
     patch_equivalent_to_base: bool
     patch_equivalence_skipped: bool
     remote_branch_exists: bool
     open_pr: int | None
+    open_pr_cached: bool
     worktree_paths: list[str]
     dirty_worktree_paths: list[str]
     active_worktree_paths: list[str]
@@ -203,21 +218,45 @@ def worktree_map(root: Path) -> dict[str, list[Path]]:
 
     by_branch: dict[str, list[Path]] = defaultdict(list)
     current_path: Path | None = None
+    current_head: str | None = None
     current_branch: str | None = None
 
     def flush() -> None:
-        if current_path is not None and current_branch:
+        if current_path is None:
+            return
+        if current_branch:
             by_branch[current_branch].append(current_path)
+        elif current_head and COMMIT_PREFIX_RE.fullmatch(current_head):
+            for prefix_len in range(7, len(current_head) + 1):
+                by_branch[current_head[:prefix_len]].append(current_path)
 
     for line in proc.stdout.splitlines():
         if line.startswith("worktree "):
             flush()
             current_path = Path(line.removeprefix("worktree ").strip()).resolve()
+            current_head = None
             current_branch = None
+        elif line.startswith("HEAD "):
+            current_head = line.removeprefix("HEAD ").strip()
         elif line.startswith("branch "):
             current_branch = line.removeprefix("branch refs/heads/").strip()
     flush()
     return by_branch
+
+
+def _worktree_paths_for_branch(
+    worktrees: Mapping[str, list[Path]], branch: str, head_sha: str
+) -> list[Path]:
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    normalized_head = head_sha.strip().lower()
+    for key in (branch, normalized_head):
+        for path in worktrees.get(key, []):
+            if path in seen:
+                continue
+            seen.add(path)
+            paths.append(path)
+    return paths
 
 
 def dirty_worktree(path: Path) -> bool:
@@ -233,7 +272,9 @@ def dirty_worktree(path: Path) -> bool:
 
 
 def active_worktree(path: Path) -> bool:
-    return any((path / marker).exists() for marker in ACTIVE_SESSION_FILES)
+    if not path.is_dir():
+        return False
+    return autopilot._has_active_session(path)
 
 
 def _repo_relative(root: Path, path: Path) -> Path:
@@ -349,6 +390,22 @@ def _local_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:
     return []
 
 
+def _nested_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:
+    mappings: list[Mapping[str, Any]] = []
+
+    def visit(item: Any) -> None:
+        if isinstance(item, Mapping):
+            mappings.append(item)
+            for child in item.values():
+                visit(child)
+        elif isinstance(item, Sequence) and not isinstance(item, (str, bytes, bytearray)):
+            for child in item:
+                visit(child)
+
+    visit(value)
+    return mappings
+
+
 def _outbox_payload_branch(payload: dict[str, Any]) -> str:
     for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
         branch = str(local_evidence.get("branch") or "").strip()
@@ -399,11 +456,12 @@ def _outbox_payload_branches(payload: dict[str, Any]) -> set[str]:
         _add_branch_reference(branches, requested_action.get("branch"))
 
     containers: list[Mapping[str, Any]] = [
-        *_local_evidence_mappings(payload.get("local_evidence")),
+        *_nested_evidence_mappings(payload.get("local_evidence")),
         payload,
     ]
 
     for container in containers:
+        _add_branch_reference(branches, container.get("branch"))
         _add_branch_reference(branches, container.get("supersedes_branch"))
         supersedes_branches = container.get("supersedes_branches")
         if isinstance(supersedes_branches, list):
@@ -446,7 +504,7 @@ def _outbox_payload_branch_heads(payload: dict[str, Any]) -> dict[str, set[str |
         if branch:
             refs[branch].add(head)
 
-    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+    for local_evidence in _nested_evidence_mappings(payload.get("local_evidence")):
         branch = str(local_evidence.get("branch") or "").strip()
         add(branch, _outbox_evidence_head(local_evidence))
 
@@ -704,20 +762,124 @@ def open_pr_heads(root: Path, repo: str, prefix: str) -> dict[str, int] | None:
     return heads
 
 
-def count_ahead(root: Path, base: str, branch: str) -> int:
-    ahead_count, _behind_count = branch_divergence(root, base, branch)
+def _github_status_cache_paths(
+    root: Path,
+    *,
+    outbox_dir: Path | None = None,
+    receipt_dir: Path | None = None,
+) -> list[Path]:
+    candidates: list[Path] = []
+    for state_path in (outbox_dir, receipt_dir):
+        if state_path is None:
+            continue
+        resolved = _repo_relative(root, state_path)
+        if resolved.name in {"automation-outbox", "automation-receipts"}:
+            candidates.append(resolved.parent / "automation-github-status" / "latest.json")
+    candidates.append(
+        _automation_state_default_path(_automation_state_root(root), DEFAULT_GITHUB_STATUS_CACHE)
+    )
+
+    deduped: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        try:
+            key = candidate.resolve()
+        except OSError:
+            key = candidate
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(candidate)
+    return deduped
+
+
+def _parse_cache_timestamp(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _cache_open_pr_heads_observed_at(payload: Mapping[str, Any]) -> datetime | None:
+    github_queue = payload.get("github_queue")
+    if isinstance(github_queue, Mapping):
+        cached_at = _parse_cache_timestamp(github_queue.get("open_pr_heads_cached_at"))
+        if cached_at is not None:
+            return cached_at
+    return _parse_cache_timestamp(payload.get("generated_at"))
+
+
+def _cache_open_pr_heads_fresh(
+    payload: Mapping[str, Any],
+    *,
+    max_age_hours: int,
+    now: datetime | None = None,
+) -> bool:
+    if max_age_hours <= 0:
+        return False
+    observed_at = _cache_open_pr_heads_observed_at(payload)
+    if observed_at is None:
+        return False
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return observed_at >= current - timedelta(hours=max_age_hours)
+
+
+def cached_open_pr_heads(
+    root: Path,
+    prefix: str,
+    *,
+    outbox_dir: Path | None = None,
+    receipt_dir: Path | None = None,
+    max_age_hours: int = DEFAULT_CACHED_OPEN_PR_HEADS_MAX_AGE_HOURS,
+) -> set[str]:
+    """Return cached open PR branch heads from local publisher status evidence."""
+
+    for cache_path in _github_status_cache_paths(
+        root, outbox_dir=outbox_dir, receipt_dir=receipt_dir
+    ):
+        payload = _json_mapping(cache_path)
+        if payload is None:
+            continue
+        if not _cache_open_pr_heads_fresh(payload, max_age_hours=max_age_hours):
+            continue
+        github_queue = payload.get("github_queue")
+        if not isinstance(github_queue, Mapping):
+            continue
+        open_pr_heads_value = github_queue.get("open_pr_heads")
+        if not isinstance(open_pr_heads_value, Sequence) or isinstance(
+            open_pr_heads_value, (str, bytes, bytearray)
+        ):
+            continue
+        return {
+            item
+            for item in open_pr_heads_value
+            if isinstance(item, str) and item.startswith(prefix)
+        }
+    return set()
+
+
+def count_ahead(root: Path, base: str, branch: str) -> int | None:
+    divergence = branch_divergence(root, base, branch)
+    if divergence is None:
+        return None
+    ahead_count, _behind_count = divergence
     return ahead_count
 
 
-def branch_divergence(root: Path, base: str, branch: str) -> tuple[int, int]:
+def branch_divergence(root: Path, base: str, branch: str) -> tuple[int, int] | None:
     proc = run_git(["rev-list", "--left-right", "--count", f"{base}...{branch}"], root)
     if proc.returncode != 0:
-        return (0, 0)
+        return None
     try:
         behind_count, ahead_count = (int(part) for part in proc.stdout.split())
         return (ahead_count, behind_count)
     except ValueError:
-        return (0, 0)
+        return None
 
 
 def branch_divergence_map(
@@ -792,6 +954,24 @@ def has_empty_branch_diff(
     timeout: int = 60,
 ) -> bool:
     return run_git(["diff", "--quiet", f"{base}...{branch}"], root, timeout=timeout).returncode == 0
+
+
+def branch_changed_paths(
+    root: Path,
+    base: str,
+    branch: str,
+    *,
+    example_limit: int = DEFAULT_CHANGED_PATH_EXAMPLE_LIMIT,
+    timeout: int = 60,
+) -> tuple[int | None, list[str], bool]:
+    """Return changed-path count plus compact examples for a branch diff."""
+
+    proc = run_git(["diff", "--name-only", "-z", f"{base}...{branch}"], root, timeout=timeout)
+    if proc.returncode != 0:
+        return None, [], False
+    paths = [path for path in proc.stdout.split("\0") if path]
+    limit = max(0, example_limit)
+    return len(paths), paths[:limit], len(paths) > limit
 
 
 def has_empty_changed_file_diff(
@@ -945,6 +1125,7 @@ def audit(
     include_patch_equivalence: bool,
     patch_equivalence_time_budget_seconds: float | None = None,
     publisher_backlog_limit: int,
+    github_health_timeout_seconds: int = DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS,
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
 ) -> dict[str, Any]:
@@ -963,7 +1144,11 @@ def audit(
     remotes = remote_branch_names(root, prefix)
     merged_branches = merged_branch_names(root, base, prefix)
     worktrees = worktree_map(root)
-    github_health = check_github_cli_health(root)
+    github_health = check_github_cli_health(
+        root,
+        timeout_seconds=github_health_timeout_seconds,
+        prefer_app=False,
+    )
     open_pr_lookup_failed = False
     if github_health.ready:
         open_pr_result = open_pr_heads(root, repo, prefix)
@@ -979,6 +1164,16 @@ def audit(
         open_pr_lookup_skipped = True
     resolved_outbox_dir = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
     resolved_receipt_dir = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
+    cached_prs = (
+        cached_open_pr_heads(
+            root,
+            prefix,
+            outbox_dir=resolved_outbox_dir,
+            receipt_dir=resolved_receipt_dir,
+        )
+        if open_pr_lookup_skipped
+        else set()
+    )
     handoff_receipted_branch_heads = terminal_receipted_handoff_branch_heads(
         root,
         outbox_dir=resolved_outbox_dir,
@@ -1007,19 +1202,24 @@ def audit(
     handoff_outbox_patch_ids: set[str] | None = None
 
     records: list[BranchRecord] = []
+    cached_open_pr_lookup_used = False
     patch_equivalence_skipped_branches = 0
     patch_equivalence_budget_exhausted = False
     for row in rows:
         branch = row["name"]
         committed_at = parse_dt(row["committed_at"])
-        paths = worktrees.get(branch, [])
+        paths = _worktree_paths_for_branch(worktrees, branch, row["head_sha"])
         dirty_paths = [str(path) for path in paths if dirty_worktree(path)]
         active_paths = [str(path) for path in paths if active_worktree(path)]
         open_pr = prs.get(branch) if prs is not None else None
+        open_pr_cached = open_pr is None and open_pr_lookup_skipped and branch in cached_prs
+        if open_pr_cached:
+            cached_open_pr_lookup_used = True
         handoff_receipted = branch in handoff_receipted_branches
         handoff_outbox = branch in handoff_outbox_branches
         protected_before_patch_check = (
             open_pr is not None
+            or open_pr_cached
             or bool(active_paths)
             or bool(dirty_paths)
             or handoff_receipted
@@ -1031,20 +1231,51 @@ def audit(
             divergence = divergence_by_branch.get(branch)
             if divergence is None:
                 divergence = branch_divergence(root, base, branch)
-            ahead_count, behind_count = divergence
+            if divergence is None:
+                ahead_count = None
+                behind_count = None
+                divergence_lookup_failed = True
+            else:
+                ahead_count, behind_count = divergence
+                divergence_lookup_failed = False
         else:
+            divergence_lookup_failed = False
             try:
                 behind_count = int(row.get("behind_count", "0"))
             except ValueError:
                 divergence = divergence_by_branch.get(branch)
                 if divergence is None:
                     divergence = branch_divergence(root, base, branch)
-                _ahead_count, behind_count = divergence
+                if divergence is None:
+                    ahead_count = None
+                    behind_count = None
+                    divergence_lookup_failed = True
+                else:
+                    ahead_count, behind_count = divergence
         merged_to_base = branch in merged_branches
+        changed_path_count: int | None = None
+        changed_path_examples: list[str] = []
+        changed_paths_truncated = False
+        if (
+            ahead_count is not None
+            and ahead_count > 0
+            and not merged_to_base
+            and not protected_before_patch_check
+        ):
+            (
+                changed_path_count,
+                changed_path_examples,
+                changed_paths_truncated,
+            ) = branch_changed_paths(root, base, branch, timeout=30)
         patch_equivalent = False
         patch_equivalence_skipped = False
         patch_id = None
-        if ahead_count > 0 and not merged_to_base and not protected_before_patch_check:
+        if (
+            ahead_count is not None
+            and ahead_count > 0
+            and not merged_to_base
+            and not protected_before_patch_check
+        ):
             if _patch_budget_exhausted(patch_deadline):
                 patch_equivalence_budget_exhausted = True
                 patch_equivalence_skipped_branches += 1
@@ -1107,24 +1338,29 @@ def audit(
                     deadline=patch_deadline,
                 )
             handoff_outbox = patch_id in handoff_outbox_patch_ids
-        category = classify(
-            open_pr=open_pr,
-            active_paths=active_paths,
-            dirty_paths=dirty_paths,
-            ahead_count=ahead_count,
-            behind_count=behind_count,
-            merged_to_base=merged_to_base,
-            patch_equivalent_to_base=patch_equivalent,
-            handoff_receipt_exists=handoff_receipted,
-            handoff_outbox_exists=handoff_outbox,
-            committed_at=committed_at,
-            recent_cutoff=recent_cutoff,
-            remote_branch_exists=remote_exists,
-        )
-        if open_pr_lookup_failed and (
-            category.startswith("cleanup_") or category in SALVAGE_CATEGORIES
-        ):
-            category = "protected_open_pr_lookup_unknown"
+        if divergence_lookup_failed:
+            category = "protected_divergence_lookup_unknown"
+        else:
+            assert ahead_count is not None
+            assert behind_count is not None
+            category = classify(
+                open_pr=open_pr if open_pr is not None else (0 if open_pr_cached else None),
+                active_paths=active_paths,
+                dirty_paths=dirty_paths,
+                ahead_count=ahead_count,
+                behind_count=behind_count,
+                merged_to_base=merged_to_base,
+                patch_equivalent_to_base=patch_equivalent,
+                handoff_receipt_exists=handoff_receipted,
+                handoff_outbox_exists=handoff_outbox,
+                committed_at=committed_at,
+                recent_cutoff=recent_cutoff,
+                remote_branch_exists=remote_exists,
+            )
+            if open_pr_lookup_failed and (
+                category.startswith("cleanup_") or category in SALVAGE_CATEGORIES
+            ):
+                category = "protected_open_pr_lookup_unknown"
         if (
             not include_patch_equivalence
             and not patch_equivalent
@@ -1142,8 +1378,10 @@ def audit(
                     timeout=_patch_timeout(patch_deadline, 60),
                 )
             if patch_equivalent:
+                assert ahead_count is not None
+                assert behind_count is not None
                 category = classify(
-                    open_pr=open_pr,
+                    open_pr=open_pr if open_pr is not None else (0 if open_pr_cached else None),
                     active_paths=active_paths,
                     dirty_paths=dirty_paths,
                     ahead_count=ahead_count,
@@ -1169,11 +1407,16 @@ def audit(
                 subject=row["subject"],
                 ahead_count=ahead_count,
                 behind_count=behind_count,
+                changed_path_count=changed_path_count,
+                changed_path_examples=changed_path_examples,
+                changed_paths_truncated=changed_paths_truncated,
+                divergence_lookup_failed=divergence_lookup_failed,
                 merged_to_base=merged_to_base,
                 patch_equivalent_to_base=patch_equivalent,
                 patch_equivalence_skipped=patch_equivalence_skipped,
                 remote_branch_exists=remote_exists,
                 open_pr=open_pr,
+                open_pr_cached=open_pr_cached,
                 worktree_paths=[str(path) for path in paths],
                 dirty_worktree_paths=dirty_paths,
                 active_worktree_paths=active_paths,
@@ -1192,6 +1435,7 @@ def audit(
         + counts["protected_handoff_receipt"]
         + counts["protected_handoff_outbox"]
         + counts["protected_open_pr_lookup_unknown"]
+        + counts["protected_divergence_lookup_unknown"]
     )
     salvage = (
         counts["salvage_recent_unique"]
@@ -1208,6 +1452,19 @@ def audit(
     )
     publishable_branch_backlog = (
         counts["salvage_recent_unique"] + counts["salvage_stale_remote_unique"]
+    )
+    direct_handoff_outbox_branches = sum(
+        1 for record in records if record.name in handoff_outbox_branches
+    )
+    audited_branch_names = {record.name for record in records}
+    unresolved_handoff_outbox_refs_outside_audit = len(
+        handoff_outbox_branches - audited_branch_names
+    )
+    patch_equivalent_handoff_outbox_branches = sum(
+        1
+        for record in records
+        if record.category == "protected_handoff_outbox"
+        and record.name not in handoff_outbox_branches
     )
     skipped_counts = Counter(
         record.category for record in records if record.patch_equivalence_skipped
@@ -1228,6 +1485,8 @@ def audit(
         "receipt_dir": str(resolved_receipt_dir),
         "github_health": github_health.to_dict(),
         "open_pr_lookup_skipped": open_pr_lookup_skipped,
+        "cached_open_pr_lookup_used": cached_open_pr_lookup_used,
+        "cached_open_pr_head_count": len(cached_prs),
         "branch_count": len(records),
         "summary": {
             "safe_cleanup_candidates": safe_cleanup,
@@ -1238,6 +1497,12 @@ def audit(
             "stale_local_only_salvage_candidates": counts["salvage_stale_local_unique"],
             "handoff_receipted_branches": counts["protected_handoff_receipt"],
             "handoff_outbox_branches": counts["protected_handoff_outbox"],
+            "unresolved_handoff_outbox_branch_refs": len(handoff_outbox_branches),
+            "direct_handoff_outbox_branches": direct_handoff_outbox_branches,
+            "unresolved_handoff_outbox_refs_outside_audit": (
+                unresolved_handoff_outbox_refs_outside_audit
+            ),
+            "patch_equivalent_handoff_outbox_branches": (patch_equivalent_handoff_outbox_branches),
             "writer_should_pause_for_branch_backlog": (
                 publishable_branch_backlog >= publisher_backlog_limit
             ),
@@ -1286,6 +1551,25 @@ def summary_only_payload(
     return compact
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     summary = payload["summary"]
     print("# Codex Branch Backlog Audit\n")
@@ -1300,6 +1584,20 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     print(f"- Diverged salvage candidates: `{summary['diverged_salvage_candidates']}`")
     print(f"- Handoff-receipted branches: `{summary['handoff_receipted_branches']}`")
     print(f"- Handoff-outbox branches: `{summary['handoff_outbox_branches']}`")
+    if "unresolved_handoff_outbox_branch_refs" in summary:
+        print(
+            "- Unresolved handoff-outbox branch refs: "
+            f"`{summary['unresolved_handoff_outbox_branch_refs']}`"
+        )
+        print(f"- Direct handoff-outbox branches: `{summary['direct_handoff_outbox_branches']}`")
+        print(
+            "- Unresolved handoff-outbox refs outside audit: "
+            f"`{summary['unresolved_handoff_outbox_refs_outside_audit']}`"
+        )
+        print(
+            "- Patch-equivalent handoff-outbox branches: "
+            f"`{summary['patch_equivalent_handoff_outbox_branches']}`"
+        )
     print(
         f"- Patch-equivalence budget exhausted: `{payload['patch_equivalence_budget_exhausted']}`"
     )
@@ -1413,6 +1711,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--github-health-timeout-seconds",
+        type=int,
+        default=DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS,
+        help=(
+            "Timeout for each GitHub CLI health probe before skipping open PR lookup "
+            f"(default: {DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS})."
+        ),
+    )
+    parser.add_argument(
         "--state-root",
         type=Path,
         default=None,
@@ -1479,6 +1786,7 @@ def main(argv: list[str] | None = None) -> int:
         include_patch_equivalence=args.include_patch_equivalence,
         patch_equivalence_time_budget_seconds=patch_budget,
         publisher_backlog_limit=args.publisher_backlog_limit,
+        github_health_timeout_seconds=args.github_health_timeout_seconds,
         outbox_dir=outbox_dir,
         receipt_dir=receipt_dir,
     )
@@ -1489,11 +1797,14 @@ def main(argv: list[str] | None = None) -> int:
                 DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY if args.examples is None else args.examples
             ),
         )
-    if args.markdown:
-        print_markdown(payload, examples=10 if args.examples is None else args.examples)
-    else:
-        # JSON is the default to make automation consumption explicit.
-        print(json.dumps(payload, indent=2 if args.json else None))
+    try:
+        if args.markdown:
+            print_markdown(payload, examples=10 if args.examples is None else args.examples)
+        else:
+            # JSON is the default to make automation consumption explicit.
+            _emit_output(json.dumps(payload, indent=2 if args.json else None))
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
     return 0
 
 

@@ -16,12 +16,12 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 async def call_claude(prompt: str, system: str = "") -> str:
-    """Direct Anthropic API call — Claude Opus 4.7."""
+    """Direct Anthropic API call — Claude Opus 4.8."""
     import anthropic
 
     client = anthropic.AsyncAnthropic()
     msgs = [{"role": "user", "content": prompt}]
-    kwargs = {"model": "claude-opus-4-7", "max_tokens": 16000, "messages": msgs}
+    kwargs = {"model": "claude-opus-4-8", "max_tokens": 16000, "messages": msgs}
     if system:
         kwargs["system"] = system
     resp = await client.messages.create(**kwargs)
@@ -29,37 +29,17 @@ async def call_claude(prompt: str, system: str = "") -> str:
 
 
 def _resolve_openrouter_key() -> str:
-    """Resolve OpenRouter API key: env → dedicated AWS secret → bundled secret."""
-    import os
-
-    # 1. Environment variable (fastest)
-    key = os.getenv("OPENROUTER_API_KEY", "")
-    if key and not key.startswith("new-key"):
-        return key
-
-    # 2. Dedicated AWS secret at aragora/api/openrouter
+    """Resolve OpenRouter API key through Aragora's secret provider."""
     try:
-        import boto3
+        from aragora.config import get_api_key
 
-        client = boto3.client("secretsmanager")
-        resp = client.get_secret_value(SecretId="aragora/api/openrouter")
-        key = resp["SecretString"].strip()
-        if key:
-            return key
-    except Exception:
-        pass
-
-    # 3. Bundled production secret
-    try:
-        from aragora.config.secrets import get_secret
-
-        key = get_secret("OPENROUTER_API_KEY") or ""
+        key = get_api_key("OPENROUTER_API_KEY", required=False) or ""
         if key and not key.startswith("new-key"):
             return key
     except Exception:
         pass
 
-    msg = "OPENROUTER_API_KEY not found in env, AWS (aragora/api/openrouter), or bundled secrets"
+    msg = "OPENROUTER_API_KEY not found through Aragora secret provider"
     raise RuntimeError(msg)
 
 
@@ -92,8 +72,8 @@ async def phase_debate(task: str) -> str:
 
     system = "You are a senior software architect. Be concrete: specify exact files and changes."
 
-    # Call three proposers in parallel: Claude Opus 4.7, GPT-5.2, Gemini 3.1 Pro
-    print("  Calling Claude Opus 4.7, GPT-5.2, and Gemini 3.1 Pro...")
+    # Call three proposers in parallel: Claude Opus 4.8, GPT-5.2, Gemini 3.1 Pro
+    print("  Calling Claude Opus 4.8, GPT-5.2, and Gemini 3.1 Pro...")
     claude_resp, gpt_resp, gemini_resp = await asyncio.gather(
         call_claude(task, system),
         call_openrouter(task, system, model="openai/gpt-5.3"),
@@ -103,7 +83,7 @@ async def phase_debate(task: str) -> str:
 
     proposals = []
     for name, resp in [
-        ("Claude Opus 4.7", claude_resp),
+        ("Claude Opus 4.8", claude_resp),
         ("GPT-5.2", gpt_resp),
         ("Gemini 3.1", gemini_resp),
     ]:
@@ -117,7 +97,7 @@ async def phase_debate(task: str) -> str:
         raise RuntimeError("All agents failed!")
 
     # Synthesize
-    print("  Calling Claude Opus 4.7 (synthesizer)...")
+    print("  Calling Claude Opus 4.8 (synthesizer)...")
     proposals_text = "\n\n".join(f"PROPOSAL ({name}):\n{text}" for name, text in proposals)
     synthesis_prompt = f"""{len(proposals)} software architects proposed improvements. Synthesize the best plan.
 

@@ -1,0 +1,346 @@
+name: Aragora Merge Quorum
+
+# Enforcing model-review-quorum gate.
+#
+# Unlike the advisory "Aragora Code Review" workflow (aragora-review-gate.yml),
+# this check CAN fail a PR and is intended to be a REQUIRED status check on
+# `main`. It is the GitHub-visible expression of the review authority defined in
+# docs/REVIEW_AUTHORITY_PRINCIPLES.md: a heterogeneous model quorum is the
+# technical reviewer; the human operator is the accountable risk settler for
+# Tier 3-4.
+#
+# It does NOT post a bot APPROVE review. It reports an honest pass/fail status.
+#
+# This file lives under .github/workflows/, so per REVIEW_AUTHORITY_PRINCIPLES.md
+# every change to it is a Tier 4 "merge-authority self-modification" and requires
+# explicit human preapproval before implementation and before merge.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # B1 (docs/specs/QUORUM_EVIDENCE_RETRIGGER.md): model-review evidence
+  # comments are posted AFTER the pull_request events above, so the
+  # ready-triggered evaluation always pre-dates the evidence and fails
+  # stale. When a comment that plausibly carries reviewer evidence is
+  # created, the evidence-retrigger job below re-runs the head-bound
+  # pull_request evaluation so the gate re-reads the now-complete evidence.
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to evaluate (debug; does not update PR check status)"
+        required: true
+        type: string
+
+concurrency:
+  # Dual-event PR resolution: pull_request events carry the PR number
+  # directly; issue_comment events carry it as github.event.issue.number.
+  # Including the issue number keeps comment-triggered runs serialized
+  # per-PR (and behind any in-flight evaluation for the same PR) instead
+  # of colliding in a single repo-wide group.
+  group: aragora-merge-quorum-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+  # cancel-in-progress is intentionally false. With true, two triggers for the
+  # same PR (e.g. synchronize + reopened, or rapid pushes) cancel each other;
+  # a cancelled run reports a "cancelled" conclusion, which turns this REQUIRED
+  # check red and blocks the PR until a human manually reruns and wins a green
+  # window. The repo already set cancel-in-progress:false on its other
+  # non-required workflows to "stop the doom loop"; we do the same here so
+  # concurrent runs run to completion instead of cancelling into a red status.
+  # GitHub still evaluates the latest completed run per head SHA, so the gate is
+  # not weakened — only the self-cancel race is removed.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: read
+
+jobs:
+  merge-quorum:
+    name: aragora-merge-quorum
+    # issue_comment events are handled by the evidence-retrigger job below.
+    # The enforcing evaluation only runs in pull_request / workflow_dispatch
+    # context, where its check run binds to the PR head SHA.
+    if: github.event_name != 'issue_comment'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The quorum evaluator is merge-authority tooling. Run the current
+          # default-branch implementation so old PR-event reruns do not execute
+          # stale packet logic from an outdated synthetic merge ref.
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+        continue-on-error: true
+
+      - name: Fallback to system Python
+        if: steps.setup-python.outcome == 'failure'
+        shell: bash
+        run: |
+          for cmd in python3.11 python3; do
+            if command -v "$cmd" &>/dev/null; then
+              sudo ln -sf "$(command -v "$cmd")" /usr/local/bin/python
+              sudo ln -sf "$(command -v "$cmd")" /usr/local/bin/python3
+              break
+            fi
+          done
+          python --version
+
+      - name: Install Aragora
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/ci_install_project.sh --extras dev
+          python -m pip install -e . "pydantic>=2,<3" pydantic-settings aiohttp defusedxml numpy
+
+      - name: Evaluate merge quorum
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+          IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft || 'false' }}
+          # Activate severity-gated dissent (FIPS #8574 / spec docs/specs/FINDING_SEVERITY_GATE.md):
+          # a [P2]/[P3]-only or finding-free CHANGES-REQUESTED becomes advisory (non-blocking,
+          # non-counting); [P0]/[P1] and populated Blocker labels still ALWAYS block. The gate-logic
+          # code + the disclosed bare-"no" Blocker security fix are already on main; this only sets
+          # the live (CI) side of the min(prepared, live) flag — the prepare side is set in operator env.
+          ARAGORA_ENABLE_SEVERITY_GATED_DISSENT: "1"
+          # Activate the tiered merge gate (operator Option A 2026-06-26, library/operator-approvals.md;
+          # spec docs/specs/TIERED_MERGE_GATE_QUORUM_POLICY.md, enablement note
+          # docs/governance/TIERED_MERGE_GATE_ENABLEMENT.md). With this ON, a Tier 1-2 PR settles on ONE
+          # western-frontier signal (claude/openai) instead of two distinct families, which unblocks the
+          # structurally-unreachable structural-refactor shim/move quorum. Tier 0 (already 1 signal) and
+          # Tier 3-4 are UNAFFECTED: Tier 3-4 still require two Western families plus human settlement. The
+          # gate reads this flag live; reverting is a single env flip back OFF (another Tier-4 edit).
+          ARAGORA_ENABLE_TIERED_MERGE_GATE: "1"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$IS_DRAFT" == "true" ]]; then
+            echo "Draft PR — merge-quorum gate deferred until ready_for_review."
+            exit 0
+          fi
+
+          # Build the read-only merge authorization packet for this PR.
+          # merge-packet does not approve, comment, merge, or write receipts.
+          set +e
+          python -m aragora.cli.main review-queue merge-packet \
+            --pr "$PR_NUMBER" --repo "$GH_REPO" --json \
+            > /tmp/merge_packet.json 2> /tmp/merge_packet.err
+          packet_exit=$?
+          set -e
+
+          if [[ "$packet_exit" -ne 0 ]]; then
+            echo "::error::merge-packet command failed (exit ${packet_exit}) — failing closed."
+            cat /tmp/merge_packet.err || true
+            exit 1
+          fi
+
+          # Decide pass/fail. Fail closed on anything unexpected.
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          pr_number = str(os.environ["PR_NUMBER"]).strip()
+          repo = os.environ["GH_REPO"]
+
+          try:
+              with open("/tmp/merge_packet.json", encoding="utf-8") as fh:
+                  packet = json.load(fh)
+          except Exception as exc:  # noqa: BLE001
+              print(f"::error::merge packet is not valid JSON: {exc}")
+              sys.exit(1)
+
+          entries = packet.get("entries") or []
+          entry = next(
+              (e for e in entries if str(e.get("pr_number")) == pr_number), None
+          )
+          if entry is None:
+              print(f"::error::merge packet has no entry for PR #{pr_number} — failing closed.")
+              sys.exit(1)
+
+          tier = entry.get("tier")
+          status = entry.get("status")
+          verdict = entry.get("verdict")
+          head_sha = str(entry.get("head_sha") or "").strip()
+          reasons = entry.get("reasons") or []
+
+          print(f"PR #{pr_number} | Tier {tier} | status={status} | verdict={verdict}")
+          for reason in reasons:
+              print(f"  - {reason}")
+
+          def fail(message: str) -> None:
+              print(f"::error::{message}")
+              sys.exit(1)
+
+          def human_settlement_present() -> bool:
+              # Tier 3-4 require a head-SHA-bound human settlement signal: a commit
+              # status with context 'aragora/human-settlement' = success, set by the
+              # operator AFTER recording the local settlement receipt. A new push
+              # changes the head SHA and drops the signal — settlement is bound to
+              # the exact reviewed state. See docs/governance/MERGE_GATE_RECONCILIATION.md.
+              if not head_sha:
+                  return False
+              result = subprocess.run(
+                  [
+                      "gh", "api", f"repos/{repo}/commits/{head_sha}/statuses",
+                      "--jq",
+                      '.[] | select(.context=="aragora/human-settlement") | .state',
+                  ],
+                  capture_output=True,
+                  text=True,
+                  check=False,
+              )
+              if result.returncode != 0:
+                  print(f"::warning::could not read commit statuses: {result.stderr.strip()}")
+                  return False
+              states = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+              # The statuses API returns most-recent first.
+              return bool(states) and states[0] == "success"
+
+          # Tier 0-2: model quorum alone authorizes the merge.
+          if status == "satisfied":
+              print("Model quorum satisfied; Tier 0-2 settlement authorized.")
+              sys.exit(0)
+
+          # Genuinely not ready: checks failing/pending, or not enough model signals.
+          if status in ("repair_or_wait", "needs_model_review_quorum"):
+              fail(f"Merge quorum not met (status={status}). Resolve the reasons above before merge.")
+
+          # Dissent always needs a human, regardless of tier.
+          if status == "unresolved_dissent" or entry.get("unresolved_dissent"):
+              fail("Unresolved model dissent — requires human attention before merge.")
+
+          # Tier 3-4: model quorum prepared the packet; a recorded human
+          # settlement signal must also be present for the exact head SHA.
+          if status in ("human_risk_settlement_required", "human_preapproval_required"):
+              if human_settlement_present():
+                  print(f"Tier {tier}: human settlement signal present for {head_sha[:12]}.")
+                  sys.exit(0)
+              fail(
+                  f"Tier {tier}: model quorum prepared the risk packet, but no human "
+                  f"settlement signal is recorded for head {head_sha[:12]}. The operator "
+                  "must record settlement and set the 'aragora/human-settlement' commit "
+                  "status. See docs/governance/MERGE_GATE_RECONCILIATION.md."
+              )
+
+          fail(f"Unrecognized merge-quorum status '{status}' — failing closed.")
+          PY
+
+  # B1 — evidence re-trigger (docs/specs/QUORUM_EVIDENCE_RETRIGGER.md).
+  #
+  # An issue_comment-triggered workflow run executes the DEFAULT-BRANCH
+  # workflow file and its check runs attach to the default-branch SHA, not
+  # the PR head (the same reason workflow_dispatch above is "debug; does not
+  # update PR check status"). So this job does NOT evaluate the packet
+  # inline — it re-runs the latest head-bound pull_request evaluation run,
+  # which re-reads the now-complete evidence and reports on the PR head.
+  # Re-running a read-only evaluation is always safe; it can never pass a
+  # genuinely failing PR (docs/governance/BOSS_LOOP_MERGE_GATE_RESILIENCE.md §6).
+  evidence-retrigger:
+    name: quorum-evidence-retrigger
+    # Cheap declarative guards: only PR comments, never comments authored by
+    # github-actions (the evidence parsers exclude that author, so such a
+    # comment can never change the quorum — and skipping it also prevents
+    # bot-comment retrigger loops). Non-matching events skip without
+    # scheduling a runner.
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      github.event.comment.user.login != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Job-scoped least privilege. actions:write is required ONLY to re-run
+    # this workflow's own prior evaluation run; it cannot approve, merge,
+    # push, comment, or alter statuses. The enforcing merge-quorum job above
+    # keeps the workflow-level read-only permissions unchanged.
+    permissions:
+      actions: write
+      pull-requests: read
+    # Debounce comment floods: a newer evidence comment for the same PR
+    # cancels an older still-pending retrigger. cancel-in-progress here is
+    # safe precisely because this job is NOT the required check — the
+    # required evaluation job's group above keeps cancel-in-progress: false,
+    # so comment activity can never cancel an enforcing run into a red
+    # "cancelled" conclusion.
+    concurrency:
+      group: quorum-evidence-retrigger-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Guard and re-trigger stale quorum evaluation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          # Attacker-controlled content enters ONLY via env (never inline
+          # ${{ }} inside run:), so comment markdown cannot inject shell.
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Guard 1: the comment's FIRST markdown heading must name a known
+          # reviewer family — the same convention the quorum evidence
+          # parsers key on (review_queue.py heading inference + canonical
+          # model-family markers). Anything else no-ops successfully.
+          heading="$(printf '%s\n' "$COMMENT_BODY" | grep -m1 -E '^[[:space:]]{0,3}#{1,6}[[:space:]]' || true)"
+          if [[ -z "$heading" ]]; then
+            echo "No markdown heading in comment — not evidence-shaped; no-op."
+            exit 0
+          fi
+          families='claude|anthropic|codex|tesla|harvey|factory|grok|xai|gemini|openai|gpt|mistral|codestral|deepseek|qwen|kimi|moonshot|yi|glm|zhipu|minimax|hermes'
+          heading_lower="$(printf '%s' "$heading" | tr '[:upper:]' '[:lower:]')"
+          if ! printf '%s' "$heading_lower" | grep -qE "(^|[^a-z0-9])(${families})([^a-z0-9]|$)"; then
+            echo "First heading names no known reviewer family — no-op."
+            exit 0
+          fi
+
+          # Guard 2: PR must be open and non-draft (drafts defer the gate).
+          pr_json="$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}")"
+          pr_state="$(jq -r '.state' <<<"$pr_json")"
+          pr_draft="$(jq -r '.draft' <<<"$pr_json")"
+          head_sha="$(jq -r '.head.sha' <<<"$pr_json")"
+          if [[ "$pr_state" != "open" || "$pr_draft" != "false" ]]; then
+            echo "PR #${PR_NUMBER} state=${pr_state} draft=${pr_draft} — gate not active; no-op."
+            exit 0
+          fi
+
+          # Guard 3: only re-run a COMPLETED, non-success evaluation bound to
+          # the CURRENT head SHA. In-flight runs will already see the new
+          # comment; a green gate needs no recount; runs for old heads are
+          # correctly superseded by the next pull_request event.
+          run_json="$(gh api "repos/${GH_REPO}/actions/workflows/aragora-merge-quorum.yml/runs?event=pull_request&head_sha=${head_sha}&per_page=1" \
+            --jq '.workflow_runs[0] // empty')"
+          if [[ -z "$run_json" ]]; then
+            echo "No prior head-bound evaluation run for ${head_sha} — no-op."
+            exit 0
+          fi
+          run_id="$(jq -r '.id' <<<"$run_json")"
+          run_status="$(jq -r '.status' <<<"$run_json")"
+          run_conclusion="$(jq -r '.conclusion' <<<"$run_json")"
+          if [[ "$run_status" != "completed" ]]; then
+            echo "Latest evaluation run ${run_id} is ${run_status} — it will see this comment; no-op."
+            exit 0
+          fi
+          if [[ "$run_conclusion" == "success" ]]; then
+            echo "Latest evaluation run ${run_id} already succeeded — no-op."
+            exit 0
+          fi
+
+          echo "Re-running stale evaluation run ${run_id} (conclusion=${run_conclusion}) for PR #${PR_NUMBER} head ${head_sha}."
+          # Tolerate rerun races (e.g. a manual rerun already in progress):
+          # failure to request a rerun must not turn comment activity into
+          # red noise. The A1 reconciler remains the safety net.
+          gh run rerun "$run_id" --repo "$GH_REPO" \
+            || echo "::warning::rerun request for run ${run_id} failed (possibly already re-running); no-op."

@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
@@ -131,3 +133,47 @@ def test_main_writes_output_from_latest_report(tmp_path: Path) -> None:
     rendered = output_path.read_text(encoding="utf-8")
     assert "No repeated rescue classes found in the current ledger window." in rendered
     assert "Last updated: 2026-04-14T18:42:00Z" in rendered
+
+
+def test_main_refuses_to_downgrade_existing_status_from_stale_report(tmp_path: Path) -> None:
+    report_root = tmp_path / "generated" / "rescue_productization"
+    report_root.mkdir(parents=True)
+    latest_path = report_root / "latest.json"
+    latest_path.write_text(
+        """{
+  "generated_at": "2026-06-04T13:31:36Z",
+  "ledger_path": "/Users/test/.aragora/rescue_events.jsonl",
+  "productization_map_path": "docs/benchmarks/rescue_productization.json",
+  "summary": {
+    "repeated_class_count": 0,
+    "linked_fixture_count": 0,
+    "linked_issue_count": 0,
+    "linked_other_count": 0,
+    "unlinked_repeated_class_count": 0,
+    "one_off_class_count": 0,
+    "below_threshold_class_count": 0
+  },
+  "repeated_classes": [],
+  "issue_linkage_results": [],
+  "issue_drafts": [],
+  "one_off_classes": [],
+  "below_threshold_classes": []
+}
+""",
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "TW03_RESCUE_PRODUCTIZATION_STATUS.md"
+    original = "# TW-03 Rescue Productization Status\n\nLast updated: 2026-06-14T03:48:49Z\n"
+    output_path.write_text(original, encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="refusing to render stale rescue productization report"):
+        mod.main(
+            [
+                "--report-root",
+                str(report_root),
+                "--output",
+                str(output_path),
+            ]
+        )
+
+    assert output_path.read_text(encoding="utf-8") == original

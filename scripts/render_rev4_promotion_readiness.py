@@ -87,6 +87,7 @@ def build_readiness(
     metrics_rows: list[dict[str, Any]],
     min_dispatched: int = DEFAULT_MIN_DISPATCHED,
     pr_records: list[dict[str, Any]] | None = None,
+    pr_lookup: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     issues = [
         dict(issue)
@@ -108,9 +109,14 @@ def build_readiness(
     # boss-loop's deterministic branch pattern is dispatch evidence
     # even when the metrics ledger has no row for the issue (e.g. the
     # row pre-dates the ledger or was lost in rotation).
+    pr_record_list = pr_records or []
     pr_evidence: dict[int, dict[str, Any]] = (
-        issues_dispatched_via_pr(list(issue_ids), pr_records=pr_records or []) if pr_records else {}
+        issues_dispatched_via_pr(list(issue_ids), pr_records=pr_record_list) if pr_records else {}
     )
+    pr_evidence_lookup = dict(pr_lookup or {})
+    if not pr_evidence_lookup:
+        pr_evidence_lookup["status"] = "checked" if pr_records is not None else "not_checked"
+    pr_evidence_lookup.setdefault("record_count", len(pr_record_list))
 
     metrics_dispatched_set = set(dispatch_rows_by_issue)
     pr_dispatched_set = {n for n, verdict in pr_evidence.items() if bool(verdict.get("dispatched"))}
@@ -187,6 +193,7 @@ def build_readiness(
             "latest_terminal_by_issue": latest_terminal_by_issue,
             "dispatch_source_by_issue": dispatch_source_by_issue,
             "pr_dispatched_only_ids": pr_dispatched_only_ids,
+            "pr_evidence_lookup": pr_evidence_lookup,
             "metrics_dispatched_only_ids": sorted(metrics_dispatched_set - pr_dispatched_set),
         },
         "execution_classes": {
@@ -206,6 +213,30 @@ def _format_issue_ids(issue_ids: list[int]) -> str:
     return ", ".join(f"`#{issue_id}`" for issue_id in issue_ids)
 
 
+def _format_pr_lookup_status(pr_lookup: dict[str, Any]) -> str:
+    status = str(pr_lookup.get("status") or "unknown").strip()
+    reason = str(pr_lookup.get("reason") or "").strip()
+    record_count = int(pr_lookup.get("record_count", 0) or 0)
+    if status == "checked":
+        return f"checked ({record_count} record(s))"
+    if status == "provided":
+        return f"provided ({record_count} record(s))"
+    if status == "not_checked":
+        return f"not checked{f' ({reason})' if reason else ''}"
+    if status == "unavailable":
+        return f"unavailable{f' ({reason})' if reason else ''}"
+    return status or "unknown"
+
+
+def _format_pr_dispatched_only_value(dispatch: dict[str, Any]) -> str:
+    pr_dispatched_only_ids = list(dispatch.get("pr_dispatched_only_ids") or [])
+    pr_lookup = dict(dispatch.get("pr_evidence_lookup") or {})
+    status = str(pr_lookup.get("status") or "").strip()
+    if not pr_dispatched_only_ids and status in {"not_checked", "unavailable"}:
+        return _format_pr_lookup_status(pr_lookup)
+    return str(len(pr_dispatched_only_ids))
+
+
 def render_markdown(
     *,
     readiness: dict[str, Any],
@@ -218,6 +249,7 @@ def render_markdown(
     dispatch = dict(readiness.get("dispatch") or {})
     classes = dict(readiness.get("execution_classes") or {})
     status = str(readiness.get("status") or "unknown")
+    pr_lookup = dict(dispatch.get("pr_evidence_lookup") or {})
     needed = int(readiness.get("needed_for_minimum", 0) or 0)
     min_dispatched = int(readiness.get("min_dispatched_for_first_slice", 0) or 0)
     verdict = (
@@ -259,7 +291,8 @@ def render_markdown(
         f"| Additional metrics-backed dispatches needed | {needed} |",
         f"| Advisory dispatch evidence from any source | {dispatch.get('advisory_any_source_dispatched_issue_count') or 0} |",
         f"| ...via metrics ledger only | {len(list(dispatch.get('metrics_dispatched_only_ids') or []))} |",
-        f"| ...via merged/open boss-harvest PR only (advisory) | {len(list(dispatch.get('pr_dispatched_only_ids') or []))} |",
+        f"| ...via merged/open boss-harvest PR only (advisory) | {_format_pr_dispatched_only_value(dispatch)} |",
+        f"| Boss-harvest PR evidence lookup | {_format_pr_lookup_status(pr_lookup)} |",
         "",
         "## Next Metrics Evidence Gaps",
         "",
@@ -311,16 +344,45 @@ def _load_pr_records(path: Path | None) -> list[dict[str, Any]]:
     return [item for item in payload if isinstance(item, dict)]
 
 
-def fetch_boss_harvest_pr_records(
+def _coerce_issue_ids(issue_ids: Iterable[int]) -> list[int]:
+    coerced: set[int] = set()
+    for raw_issue_id in issue_ids or []:
+        try:
+            issue_id = int(raw_issue_id)
+        except (TypeError, ValueError):
+            continue
+        if issue_id > 0:
+            coerced.add(issue_id)
+    return sorted(coerced)
+
+
+def _gh_failure_lookup(
+    reason: str,
+    error: str = "",
+    *,
+    record_count: int = 0,
+) -> dict[str, Any]:
+    lookup: dict[str, Any] = {
+        "status": "unavailable",
+        "reason": reason,
+        "record_count": int(record_count),
+    }
+    if error:
+        lookup["error"] = error[:500]
+    return lookup
+
+
+def fetch_boss_harvest_pr_records_with_status(
     issue_ids: Iterable[int],
     *,
     repo: str | None = None,
     per_issue_limit: int = 10,
     timeout_seconds: int = 15,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     records: list[dict[str, Any]] = []
     seen_prs: set[int] = set()
-    for issue_id in sorted({int(issue_id) for issue_id in issue_ids if int(issue_id) > 0}):
+    issue_id_list = _coerce_issue_ids(issue_ids)
+    for issue_id in issue_id_list:
         cmd = [
             "gh",
             "pr",
@@ -345,16 +407,34 @@ def fetch_boss_harvest_pr_records(
                 text=True,
                 timeout=timeout_seconds,
             )
-        except (OSError, subprocess.TimeoutExpired):
-            continue
+        except subprocess.TimeoutExpired:
+            return records, _gh_failure_lookup("gh_timeout", record_count=len(records))
+        except OSError as exc:
+            return records, _gh_failure_lookup(
+                "gh_unavailable",
+                str(exc),
+                record_count=len(records),
+            )
         if proc.returncode != 0:
-            continue
+            return records, _gh_failure_lookup(
+                "gh_failed",
+                (proc.stderr or proc.stdout or "").strip(),
+                record_count=len(records),
+            )
         try:
             payload = json.loads(proc.stdout)
         except json.JSONDecodeError:
-            continue
+            return records, _gh_failure_lookup(
+                "gh_invalid_json",
+                proc.stdout,
+                record_count=len(records),
+            )
         if not isinstance(payload, list):
-            continue
+            return records, _gh_failure_lookup(
+                "gh_invalid_json",
+                proc.stdout,
+                record_count=len(records),
+            )
         for item in payload:
             if not isinstance(item, dict):
                 continue
@@ -364,6 +444,27 @@ def fetch_boss_harvest_pr_records(
                     continue
                 seen_prs.add(number)
             records.append(item)
+    return records, {
+        "status": "checked",
+        "reason": "gh",
+        "record_count": len(records),
+        "issue_lookup_count": len(issue_id_list),
+    }
+
+
+def fetch_boss_harvest_pr_records(
+    issue_ids: Iterable[int],
+    *,
+    repo: str | None = None,
+    per_issue_limit: int = 10,
+    timeout_seconds: int = 15,
+) -> list[dict[str, Any]]:
+    records, _lookup = fetch_boss_harvest_pr_records_with_status(
+        issue_ids,
+        repo=repo,
+        per_issue_limit=per_issue_limit,
+        timeout_seconds=timeout_seconds,
+    )
     return records
 
 
@@ -428,9 +529,22 @@ def main(argv: list[str] | None = None) -> int:
     corpus_path = args.corpus.resolve()
     metrics_path = resolve_metrics_path(args.metrics)
     corpus = load_corpus(corpus_path)
-    pr_records = _load_pr_records(args.pr_records)
-    if args.pr_records is None and not args.no_gh_pr_records:
-        pr_records = fetch_boss_harvest_pr_records(
+    if args.pr_records is not None:
+        pr_records: list[dict[str, Any]] | None = _load_pr_records(args.pr_records)
+        pr_lookup = {
+            "status": "provided",
+            "reason": _repo_stable_path(args.pr_records),
+            "record_count": len(pr_records),
+        }
+    elif args.no_gh_pr_records:
+        pr_records = None
+        pr_lookup = {
+            "status": "not_checked",
+            "reason": "--no-gh-pr-records",
+            "record_count": 0,
+        }
+    else:
+        pr_records, pr_lookup = fetch_boss_harvest_pr_records_with_status(
             _corpus_issue_ids(corpus),
             repo=args.gh_repo,
             per_issue_limit=args.gh_per_issue_limit,
@@ -440,6 +554,7 @@ def main(argv: list[str] | None = None) -> int:
         metrics_rows=load_metrics(metrics_path),
         min_dispatched=args.min_dispatched,
         pr_records=pr_records,
+        pr_lookup=pr_lookup,
     )
     generated_at = _normalize_generated_at(args.generated_at)
 

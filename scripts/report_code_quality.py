@@ -45,6 +45,19 @@ RATCHET = {
     "max_noqa": 2800,  # Total across aragora/
 }
 
+# Per-file LOC exceptions: a small allowlist of known-large files with a TRACKED
+# extraction plan. These do NOT relax the global ratchet (max_file_loc stays 5400 for
+# every other file) — each is a conscious, issue-linked exception kept until the file
+# is split. Add a file here only with a tracking issue; remove it once extracted.
+MAX_FILE_LOC_EXCEPTIONS = {
+    # review_queue.py mixes the merge-quorum GATE subsystem (family/jurisdiction
+    # rules, _tier_requirement, _build_model_review_quorum, recognizer/verdict
+    # helpers) with the review-queue/settlement CLI. The gate logic belongs beside
+    # quorum_evidence.py/merge_quorum_reconcile.py; extraction tracked in #8553.
+    # Bridge ceiling until that lands (do not grow further; extract instead).
+    "aragora/cli/commands/review_queue.py": 6000,
+}
+
 LAST_RECORDED_BASELINE = {
     "date": "2026-04-12",
     "global_suppressions": {
@@ -59,6 +72,8 @@ _SUPPRESSION_PATTERNS = {
     "todo": re.compile(r"#\s*TODO\b", re.IGNORECASE),
     "fixme": re.compile(r"#\s*FIXME\b", re.IGNORECASE),
 }
+
+_INVALID_BOSS_ISSUE_REASON = "invalid issue_number in v2 prompt data"
 
 
 def count_lines(path: Path) -> int:
@@ -136,6 +151,10 @@ def scan_all_aragora() -> dict[str, int]:
     return totals
 
 
+def _is_positive_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
 def scan_boss_metrics() -> dict:
     """Analyze latest boss metrics for success rate."""
     metrics_path = REPO_ROOT / ".aragora" / "overnight" / "boss_metrics.jsonl"
@@ -163,6 +182,8 @@ def scan_boss_metrics() -> dict:
         num = r.get("issue_number")
         if not num:
             continue
+        if not _is_positive_int(num):
+            return {"available": False, "reason": _INVALID_BOSS_ISSUE_REASON}
         by_issue[num] = str(r.get("worker_status") or "")
 
     total = len(by_issue)
@@ -195,10 +216,9 @@ def check_ratchet(global_suppressions: dict[str, int], subsystems: list[dict]) -
 
     for sub in subsystems:
         for entry in sub.get("top5_largest", []):
-            if entry["loc"] > RATCHET["max_file_loc"]:
-                violations.append(
-                    f"{entry['file']}: {entry['loc']} LOC > {RATCHET['max_file_loc']}"
-                )
+            limit = MAX_FILE_LOC_EXCEPTIONS.get(entry["file"], RATCHET["max_file_loc"])
+            if entry["loc"] > limit:
+                violations.append(f"{entry['file']}: {entry['loc']} LOC > {limit}")
 
     return violations
 

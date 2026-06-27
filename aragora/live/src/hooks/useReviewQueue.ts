@@ -35,6 +35,14 @@ export interface ReviewQueuePR {
   verdict: string | null;
   confidence: number | null;
   deferred: boolean;
+  /**
+   * Optional tier classification per `docs/REVIEW_AUTHORITY_PRINCIPLES.md`
+   * (string '0'..'4'). When absent, downstream UI hides the badge. Set by
+   * `useReviewQueueFromPacket()` when sourcing the queue from a
+   * settlement-packet receipt. (Same field PR #7273 adds to support
+   * inline tier badges; both PRs converge on the same shape.)
+   */
+  tier?: string | null;
 }
 
 export interface ReviewQueueListResponse {

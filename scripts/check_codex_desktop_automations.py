@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import tomllib
@@ -23,6 +24,13 @@ PROMPT_WORDS_BY_ROLE = {
     "hygiene": ("local", "dirty", "worktree"),
     "steward": ("memory", "outbox", "receipts"),
 }
+
+
+def _default_automation_root() -> Path:
+    configured = os.environ.get("CODEX_HOME")
+    if configured:
+        return Path(configured).expanduser() / "automations"
+    return Path.home() / ".codex" / "automations"
 
 
 @dataclass(frozen=True)
@@ -214,19 +222,23 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
 def build_payload(root: Path) -> dict[str, Any]:
     records, load_issues = _load_records_with_issues(root)
     issues = [*load_issues, *audit(records)]
+    summary = {
+        "error_count": sum(1 for issue in issues if issue.severity == "error"),
+        "warning_count": sum(1 for issue in issues if issue.severity == "warning"),
+        "active_count": sum(1 for record in records if _normalized_status(record) == "ACTIVE"),
+    }
     return {
         "root": str(root),
         "automation_count": _automation_file_count(root),
+        "active_count": summary["active_count"],
+        "error_count": summary["error_count"],
+        "warning_count": summary["warning_count"],
         "core_writers": {
             writer_id: next((asdict(r) for r in records if r.id == writer_id), None)
             for writer_id in CORE_WRITERS
         },
         "issues": [asdict(issue) for issue in issues],
-        "summary": {
-            "error_count": sum(1 for issue in issues if issue.severity == "error"),
-            "warning_count": sum(1 for issue in issues if issue.severity == "warning"),
-            "active_count": sum(1 for record in records if _normalized_status(record) == "ACTIVE"),
-        },
+        "summary": summary,
     }
 
 
@@ -260,13 +272,32 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return compact
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path.home() / ".codex" / "automations",
-        help="Codex Desktop automation directory",
+        default=_default_automation_root(),
+        help="Codex Desktop automation directory (default: $CODEX_HOME/automations or ~/.codex/automations)",
     )
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
@@ -280,18 +311,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.summary_only:
         payload = summary_only_payload(payload)
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _emit_output(json.dumps(payload, indent=2, sort_keys=True))
     else:
         summary = payload["summary"]
-        print(
+        lines = [
             f"{payload['automation_count']} automations; "
             f"{summary['error_count']} error(s), {summary['warning_count']} warning(s)"
-        )
+        ]
         for issue in payload["issues"]:
-            print(
+            lines.append(
                 f"{issue['severity'].upper():<7} {issue['automation_id']:<30} "
                 f"{issue['code']}: {issue['message']}"
             )
+        _emit_output("\n".join(lines))
     return 1 if payload["summary"]["error_count"] else 0
 
 

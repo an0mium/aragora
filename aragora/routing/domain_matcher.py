@@ -12,10 +12,11 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 import time
 from typing import TYPE_CHECKING
+
+from aragora.config.secrets import get_secret_presence
 
 if TYPE_CHECKING:
     import anthropic
@@ -44,7 +45,7 @@ class _DomainCache:
         normalized = text.lower().strip()[:500]
         return hashlib.sha256(f"{normalized}:{top_n}".encode()).hexdigest()[:16]
 
-    def get(self, text: str, top_n: int) -> list[tuple[str, float] | None]:
+    def get(self, text: str, top_n: int) -> list[tuple[str, float]] | None:
         """Get cached result if valid."""
         key = self._make_key(text, top_n)
         entry = self._cache.get(key)
@@ -383,7 +384,7 @@ class DomainDetector:
 
     def __init__(
         self,
-        custom_keywords: dict[str, list[str] | None] = None,
+        custom_keywords: dict[str, list[str]] | None = None,
         use_llm: bool = True,
         client: anthropic.Anthropic | None = None,
         use_cache: bool = True,
@@ -402,8 +403,11 @@ class DomainDetector:
                 if domain in self.keywords:
                     self.keywords[domain].extend(words)
                 else:
-                    self.keywords[domain] = words
-        self.use_llm = use_llm and os.environ.get("ANTHROPIC_API_KEY")
+                    self.keywords[domain] = list(words)
+        self.use_llm = use_llm and get_secret_presence("ANTHROPIC_API_KEY").source in {
+            "aws",
+            "env",
+        }
         self._client = client
         self._use_cache = use_cache
 
@@ -420,7 +424,7 @@ class DomainDetector:
                 self.use_llm = False
         return self._client
 
-    def _detect_with_llm(self, task_text: str, top_n: int = 3) -> list[tuple[str, float] | None]:
+    def _detect_with_llm(self, task_text: str, top_n: int = 3) -> list[tuple[str, float]] | None:
         """Detect domains using Claude Haiku for accurate classification.
 
         Returns None if LLM classification fails (caller should use keyword fallback).
@@ -462,19 +466,20 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
 
         try:
             response = self.client.messages.create(
-                model="claude-opus-4-7",
+                model="claude-opus-4-8",
                 max_tokens=200,
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            # Extract text content from response
-            from anthropic.types import TextBlock
-
+            # Anthropic's SDK is optional in baseline environments; accept any
+            # response block that exposes text content instead of importing SDK
+            # classes purely for an isinstance check.
             first_block = response.content[0]
-            if not isinstance(first_block, TextBlock):
+            content_text = getattr(first_block, "text", None)
+            if not isinstance(content_text, str):
                 logger.warning("Response does not contain text content")
                 return []
-            content: str = first_block.text.strip()
+            content: str = content_text.strip()
 
             # Extract JSON from response
             if "```json" in content:
@@ -486,7 +491,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             domains = result.get("domains", [])
 
             # Validate and normalize
-            valid_results = []
+            valid_results: list[tuple[str, float]] = []
             for d in domains:
                 name = d.get("name", "").lower().replace(" ", "_")
                 conf = float(d.get("confidence", 0.5))

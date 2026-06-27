@@ -9,10 +9,10 @@ controls and full auditability.
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass
 from typing import Any
 
+from aragora.config import get_api_key
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,9 @@ class ComputerUseTaskStep(BaseStep):
         if not goal:
             return {"success": False, "error": "goal is required for computer_use_task"}
 
-        api_key = cfg.get("api_key", self._step_config.api_key) or os.getenv("ANTHROPIC_API_KEY")
+        api_key = cfg.get("api_key", self._step_config.api_key) or get_api_key(
+            "ANTHROPIC_API_KEY", required=False
+        )
 
         try:
             from aragora.computer_use.executor import ExecutorConfig, PlaywrightActionExecutor
@@ -168,6 +170,7 @@ class ComputerUseTaskStep(BaseStep):
 
             def _on_step_complete(step_result: Any) -> None:
                 try:
+                    step_status = getattr(step_result, "status", None)
                     context.emit_event(
                         StreamEventType.WORKFLOW_STEP_PROGRESS.value,
                         {
@@ -177,9 +180,7 @@ class ComputerUseTaskStep(BaseStep):
                             "step_name": self.name,
                             "computer_use_step": True,
                             "action_step": getattr(step_result, "step_number", None),
-                            "status": getattr(step_result, "status", None).value
-                            if getattr(step_result, "status", None)
-                            else None,
+                            "status": step_status.value if step_status is not None else None,
                             "action": step_result.action.to_dict()
                             if getattr(step_result, "action", None)
                             else None,

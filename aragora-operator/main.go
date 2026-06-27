@@ -29,9 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	aragorav1alpha1 "github.com/an0mium/aragora-operator/api/v1alpha1"
-	"github.com/an0mium/aragora-operator/controllers"
-	"github.com/an0mium/aragora-operator/internal/metrics"
+	aragorav1alpha1 "github.com/synaptent/aragora-operator/api/v1alpha1"
+	"github.com/synaptent/aragora-operator/controllers"
+	"github.com/synaptent/aragora-operator/internal/metrics"
 )
 
 var (

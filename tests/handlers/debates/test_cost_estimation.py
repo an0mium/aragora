@@ -248,6 +248,29 @@ class TestEstimateDebateCostProviderLookup:
         entry = result["breakdown_by_model"][0]
         assert entry["provider"] == "anthropic"
 
+    def test_opus_48_dotted_form_resolves(self):
+        """Dotted ``claude-opus-4.8`` must resolve like the hyphen form.
+
+        Regression: the map added the hyphen ``claude-opus-4-8`` but omitted the
+        dotted ``claude-opus-4.8``, so dotted cost requests silently fell through
+        to the openrouter default — even though dotted ``claude-opus-4.7`` worked.
+        """
+        assert MODEL_PROVIDER_MAP["claude-opus-4.8"] == ("anthropic", "claude-opus-4.8")
+        result = estimate_debate_cost(num_agents=1, model_types=["claude-opus-4.8"])
+        entry = result["breakdown_by_model"][0]
+        assert entry["provider"] == "anthropic"
+
+    def test_opus_dotted_and_hyphen_forms_agree(self):
+        """Dotted and hyphen Opus 4.8 forms resolve to the same provider tuple."""
+        assert MODEL_PROVIDER_MAP["claude-opus-4.8"] == MODEL_PROVIDER_MAP["claude-opus-4-8"]
+        dotted = estimate_debate_cost(num_agents=1, model_types=["claude-opus-4.8"])
+        hyphen = estimate_debate_cost(num_agents=1, model_types=["claude-opus-4-8"])
+        assert (
+            dotted["breakdown_by_model"][0]["provider"]
+            == hyphen["breakdown_by_model"][0]["provider"]
+            == "anthropic"
+        )
+
     def test_openai_provider(self):
         """gpt-4o resolves to openai provider."""
         result = estimate_debate_cost(num_agents=1, model_types=["gpt-4o"])
@@ -375,6 +398,7 @@ class TestEstimateDebateCostPricingAccuracy:
         "model,provider,price_key",
         [
             ("claude-opus-4", "anthropic", "claude-opus-4"),
+            ("claude-opus-4-8", "anthropic", "claude-opus-4.8"),
             ("claude-opus-4-7", "anthropic", "claude-opus-4.7"),
             ("claude-sonnet-4", "anthropic", "claude-sonnet-4"),
             ("claude-sonnet-4-6", "anthropic", "claude-sonnet-4.6"),
@@ -397,6 +421,7 @@ class TestEstimateDebateCostPricingAccuracy:
         "model,provider,price_key",
         [
             ("claude-opus-4", "anthropic", "claude-opus-4"),
+            ("claude-opus-4-8", "anthropic", "claude-opus-4.8"),
             ("claude-opus-4-7", "anthropic", "claude-opus-4.7"),
             ("claude-sonnet-4", "anthropic", "claude-sonnet-4"),
             ("claude-sonnet-4-6", "anthropic", "claude-sonnet-4.6"),

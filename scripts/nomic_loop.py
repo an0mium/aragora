@@ -85,6 +85,8 @@ logger = logging.getLogger(__name__)
 
 # Import config for database paths (consolidated persona database)
 from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.config import get_api_key
+from aragora.config.secrets import get_secret_presence
 
 # Import tracing for distributed observability (NoOp when OTel not configured)
 from aragora.observability.tracing import get_tracer
@@ -2466,7 +2468,7 @@ class NomicLoop:
         The nomic loop will still run without it, but rate-limiting
         recovery will be limited to retries only.
         """
-        openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
+        openrouter_key = get_api_key("OPENROUTER_API_KEY", required=False) or ""
 
         if not openrouter_key:
             self._log("⚠️  WARNING: OPENROUTER_API_KEY not set")
@@ -11245,7 +11247,7 @@ async def main():
     print()
 
     # Check for OpenRouter fallback configuration
-    if not os.environ.get("OPENROUTER_API_KEY"):
+    if get_secret_presence("OPENROUTER_API_KEY").source not in {"aws", "env"}:
         print("=" * 70)
         print("WARNING: OPENROUTER_API_KEY not set")
         print("=" * 70)

@@ -1,9 +1,33 @@
 # Aragora Project Status
 
-*Last updated: April 25, 2026*
+*Last updated: May 14, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
+
+## May 12-14, 2026 — Proof Loop Closed End-to-End, Initial Operating SLOs Set
+
+The proof loop reached its first end-to-end closure across three durable receipts:
+
+- **May 12** — first closure observation. H1-01 rev-4 promotion readiness rendered `promotion_ready`; first settlement receipt landed; `observe-outcomes` dry-run clean. Receipt: [PROOF_LOOP_FIRST_CLOSURE_2026-05-12.md](PROOF_LOOP_FIRST_CLOSURE_2026-05-12.md). Captured in [#7124](https://github.com/synaptent/aragora/pull/7124).
+- **May 13** — first `observe-outcomes --write` verified on the **negative case**. 10 settlement receipts written; 10/10 PASS independently verified by Claude Sonnet 4.5, Codex GPT-5.5, and Droid-Gemini latest. Receipt: [OBSERVE_OUTCOMES_FIRST_WRITE_VERIFIED_2026-05-13.md](OBSERVE_OUTCOMES_FIRST_WRITE_VERIFIED_2026-05-13.md). Captured in [#7131](https://github.com/synaptent/aragora/pull/7131).
+- **May 14** — `observe-outcomes` batch #2 verified the **positive case**. 18 receipts written, with `outcome_human_override_redo=true` correctly fired on PR [#7146](https://github.com/synaptent/aragora/pull/7146) triggered by a literal `Supersedes #7146` reference in PR [#7153](https://github.com/synaptent/aragora/pull/7153). Receipt: [OBSERVE_OUTCOMES_BATCH_2_2026-05-14.md](OBSERVE_OUTCOMES_BATCH_2_2026-05-14.md). The loop now has verified detection on both the noise-free and the real-positive case.
+
+**What changed in the canonical operating picture:** Aragora can now make a settlement decision, observe outcomes from the resulting GitHub timeline, and write the observed signals back into its own receipt store. Detection has been calibrated on both clean and fired cases. The May 6 "do not run `--write`" guidance is superseded by per-batch operator authorization. Unattended `--write` remains explicitly NOT authorized.
+
+**What did NOT change:** The thesis 5% invalidation threshold ([#6375](https://github.com/synaptent/aragora/issues/6375)) remains ungrounded — two batches across 28 receipts (27 clean readings plus 1 fired positive case) does not constitute a calibrated rate. H2 panel state is unchanged.
+
+### Initial operating SLOs — trial targets for the next cycle
+
+These are forward-looking operational targets adopted for the upcoming cycle. They are *not* measurements of historical performance and *not* claims that the proof loop has already met any of these bars. Each tier is the evidence threshold that must be met before the next tier becomes meaningful to discuss.
+
+| Tier | Target | Evidence source |
+| --- | --- | --- |
+| Tier 1 (current): per-batch `observe-outcomes --write` verification — each operator-authorized batch is independently verified before being treated as proof | 100% per batch | settlement receipts + observe-outcomes audit log; three-model cross-family verification per the May 13 protocol |
+| Tier 2 (next): proof-first shift runs 24h continuous without operator-required halt | ≥1 occurrence required | `.aragora/proof_first_shift/shift_ledger.jsonl` |
+| Tier 3 (gating before any expansion of the unattended `--write` cap): 7 days continuous shift + at least 20 settlement receipt samples for threshold grounding | not yet met; no expansion considered until met | shift ledger + insufficiency receipt schema + accumulated settlement evidence |
+
+The Tier 2 target reflects the Apr 26-27 failure mode (`RepeatedBossRestartFailure`, cyclic automation interference pattern) which has been addressed by [#6676](https://github.com/synaptent/aragora/pull/6676) and the launchd-throttle fix tranche. PR [#7150](https://github.com/synaptent/aragora/pull/7150) (`aragora review-queue health`, merged 2026-05-14) and open PR [#7156](https://github.com/synaptent/aragora/pull/7156) (edge-triggered alerter) provide the observability surface needed to measure these targets. Tier 3 is the standing precondition for any further automation latitude — until the 7-day soak and the 20-receipt sample threshold are both met, the unattended `--write` policy does not change.
 
 ## April 25, 2026 — v2.9.0 stable readiness after rc.1
 
@@ -15,7 +39,7 @@ Key landings since rc.1 cut (2026-04-24):
 - 2× CRITICAL trivy CVE-2026-33634 patched (#6557).
 - 6 chronic-red workflows now have associated fixes on main; next nightly is the validation signal.
 
-Readiness receipt: [2026-04-25-rc1-to-stable-receipt.md](2026-04-25-rc1-to-stable-receipt.md).
+Readiness receipt: rc1-to-stable readiness record (archived).
 
 ## April 24, 2026 — Auto-Handle Calibration Gate Ready On #6448
 
@@ -67,7 +91,7 @@ Readiness receipt: [2026-04-25-rc1-to-stable-receipt.md](2026-04-25-rc1-to-stabl
   - [#6372](https://github.com/synaptent/aragora/issues/6372) auto-handle calibration + drift gating — **CLOSED**
   - [#6373](https://github.com/synaptent/aragora/issues/6373) rolling-window triage metrics — **CLOSED**
   - [#6374](https://github.com/synaptent/aragora/issues/6374) source-of-truth alignment on PR-review path — **CLOSED**
-  - [#6375](https://github.com/synaptent/aragora/issues/6375) empirical threshold grounding — **CLOSED with insufficiency receipt** (threshold remains placeholder until enough settled decisions accumulate)
+  - [#6375](https://github.com/synaptent/aragora/issues/6375) empirical threshold grounding — **CLOSED with complete-coverage guard** (a non-insufficient threshold update now requires complete v2 outcome observation coverage across the counted human-settled window; partial or absent coverage remains an insufficiency/schema-gap state instead of a measured zero)
 
 ### What Recently Landed On `main`
 
@@ -87,7 +111,7 @@ The April merge stream maps directly to the thesis and review-queue execution pa
 
 The frontier is now (updated 2026-04-30 after #6375's insufficiency receipt path landed):
 
-- **collect enough settlement evidence to ground threshold claims empirically** — [#6375](https://github.com/synaptent/aragora/issues/6375) is closed as an implementation gap because the event-source adapter, scheduler, CLI, and receipt path landed, but the latest receipt is `insufficiency_receipt.v1` with `sample_count=0`. Per thesis Commitment 3, the 5% auto-handle invalidation cap remains a placeholder until a future non-insufficient receipt measures baseline + safety margin from accumulated settlement data.
+- **collect enough settlement evidence to ground threshold claims empirically** — [#6375](https://github.com/synaptent/aragora/issues/6375) is closed with a complete-coverage guard: a non-insufficient `threshold_update_receipt.v1` may only treat a zero human invalidation numerator as measured when every counted human-settled receipt in the window has v2 outcome observation fields populated. Until then, partial or absent coverage remains an insufficiency/schema-gap state rather than a measured zero.
 - **keep queue growth bounded** — continue the single-slice cadence in the PDB lane rather than opening large successor chains in parallel
 - **continue post-v2.9.0 threshold grounding** — v2.9.0 was tagged on 2026-04-25 after the empirical threshold framework substrate landed; #6375 remains the post-release work to convert that substrate into measured baselines and operating thresholds.
 
@@ -96,7 +120,7 @@ The frontier is now (updated 2026-04-30 after #6375's insufficiency receipt path
 The current bounded queue (updated 2026-04-25):
 
 1. ~~merge [#6448](https://github.com/synaptent/aragora/pull/6448) to close [#6372](https://github.com/synaptent/aragora/issues/6372)~~ — **DONE**
-2. ~~close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics and calibration substrates above~~ — **DONE as an insufficiency path; measurement still sample-blocked**
+2. ~~close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics and calibration substrates above~~ — **DONE with complete-coverage guard**
 3. ~~narrow and then close [#6374](https://github.com/synaptent/aragora/issues/6374)~~ — **DONE**
 4. ~~keep refining [#6373](https://github.com/synaptent/aragora/issues/6373) from rolling-window metrics~~ — **DONE** (rolling-window endpoint live)
 5. keep the agent-bridge lane scoped to bounded, observable increments rather than a parallel subsystem explosion
@@ -1941,7 +1965,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - "Recursive Langu
 **Installation:**
 ```bash
 # Install with real RLM support
-pip install aragora[rlm]
+pip install rlm
 ```
 
 **Usage:**

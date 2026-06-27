@@ -1,7 +1,7 @@
 {
   "corpus_id": "tw-01-bounded-execution-v1",
-  "revision": 4,
-  "recorded_on": "2026-04-26",
+  "revision": 6,
+  "recorded_on": "2026-06-05",
   "success_contract": "mergeable_pr_or_merged_pr",
   "run_cadence": "weekly_or_better",
   "change_control": "Issue membership stays fixed until an explicit corpus revision edits this file.",
@@ -17,6 +17,16 @@
   },
   "revision_log": [
     {
+      "revision": 6,
+      "recorded_on": "2026-06-05",
+      "change": "TW-02 restock (closes #5839): retire four in-progress entries (#5428, #5764, #5789, #5790) that were closed 2026-06-05 as superseded-by-sibling work rather than graduated by dedicated autonomous execution, and restock four criterion-valid OPEN B0-cohort test-coverage members (#5182, #5183, #5184, #5186) that have recorded boss_metrics dispatch history. Denominator-neutral: membership stays 13. The three real graduations this cycle (#5426->#7517, #5427->#7516, #5844->#7789) keep their existing in_progress membership and show as merged_pr on publish."
+    },
+    {
+      "revision": 5,
+      "recorded_on": "2026-05-28",
+      "change": "Graduate five rev-4 in-progress entries (#5185, #5187, #5197, #5198, #5200) to verified after strict closedByPullRequestsReferences proof showed merged PRs #7511, #7377, #7378, #7379, and #7380. Membership is unchanged; unresolved entries remain in_progress."
+    },
+    {
       "revision": 4,
       "recorded_on": "2026-05-14",
       "change": "H1-01 rev-4 first promotion slice: graduates 12 bounded OPEN entries from tests/benchmarks/corpus_rev4.json (staging) to canonical in_progress status. Each entry has at least one recorded worker_outcome row in .aragora/overnight/boss_metrics.jsonl as required by the rev-3 freshness invariant. 3 metrics-backed staging entries (#5176, #5180, #5765) were discovered to be silently CLOSED on GitHub without closedByPullRequestsReferences edges and are recorded in rev4_silent_closure_findings_2026-05-14 instead of being promoted. This brings the canonical promotion slice to 12, below the original 15-entry gate specified in corpus_rev4_staging.md; the gate definition explicitly says 'first bounded slice worth scoring' rather than a hard floor, and operator review may choose to lower the gate to 12 or wait for additional dispatches."
@@ -29,7 +39,7 @@
     {
       "revision": 3,
       "recorded_on": "2026-04-17",
-      "change": "Honesty pass: retire all five rev-2 entries (#873, #1064, #1641, #2712, #5756) \u2014 each was closed by a founder-driven Claude Code / Codex CLI PR or manually as stale, and none represent autonomous execution. The rev-2 headline `truth_success_rate: 1.0` was an artifact of lenient PR-linkage bookkeeping. Seed rev-3 with OPEN bounded issues that have been recorded as dispatched to the boss loop (at least one `worker_outcome` in .aragora/overnight/boss_metrics.jsonl). See docs/benchmarks/corpus_honesty_audit_2026-04-17.md for the full per-entry review."
+      "change": "Honesty pass: retire all five rev-2 entries (#873, #1064, #1641, #2712, #5756) — each was closed by a founder-driven Claude Code / Codex CLI PR or manually as stale, and none represent autonomous execution. The rev-2 headline `truth_success_rate: 1.0` was an artifact of lenient PR-linkage bookkeeping. Seed rev-3 with OPEN bounded issues that have been recorded as dispatched to the boss loop (at least one `worker_outcome` in .aragora/overnight/boss_metrics.jsonl). See docs/benchmarks/corpus_honesty_audit_2026-04-17.md for the full per-entry review."
     },
     {
       "revision": 2,
@@ -73,12 +83,30 @@
       "reason": "Retired during TW-02 restock after the rev-3 in-progress member went stale/closed; tracked by follow-up issue #5839."
     }
   ],
+  "retired_in_revision_6": [
+    {
+      "issue_id": 5428,
+      "reason": "Closed 2026-06-05 as superseded — annotation work landed via boss-harvest PR #5431 (merged), but the issue was closed manually as 'already satisfied on origin/main', not by a dedicated autonomous graduation of this bounded issue. Dispatch history: 1 worker_outcome row (deliverable_pr_created). Retired under the rev-3 honesty precedent: a satisfied-by-sibling close is not a benchmark success."
+    },
+    {
+      "issue_id": 5764,
+      "reason": "Closed 2026-06-05 as superseded — landed via #5763 (merged; decomposed duplicate of #5759) and closed manually as 'already satisfied', not a dedicated autonomous graduation. Dispatch history: 1 worker_outcome row (deliverable_pr_created). Retired under the rev-3 honesty precedent."
+    },
+    {
+      "issue_id": 5789,
+      "reason": "Closed 2026-06-05 as superseded — narrowing landed via #5964 (merged); the autonomous dispatch recorded terminal class blocked_auth_failure (runner outage) and the issue was then closed manually as 'already satisfied', not graduated. Dispatch history: 1 worker_outcome row (blocked_auth_failure). Retired under the rev-3 honesty precedent."
+    },
+    {
+      "issue_id": 5790,
+      "reason": "Closed 2026-06-05 as superseded — narrowing landed via commit b427aad5da; the autonomous dispatch recorded blocked_auth_failure + rescue_no_deliverable, then the issue was closed manually as 'already satisfied', not graduated. Dispatch history: 3 worker_outcome rows. Retired under the rev-3 honesty precedent."
+    }
+  ],
   "issues": [
     {
       "issue_id": 5185,
       "title": "[B0-cohort] Add unit tests for utils/sql_helpers.py",
       "execution_class": "missing_test_coverage",
-      "expected_status": "in_progress",
+      "expected_status": "verified",
       "scope_hint": [
         "aragora/utils/sql_helpers.py",
         "tests/utils/test_sql_helpers.py"
@@ -100,13 +128,13 @@
           "deliverable_pr_created"
         ]
       },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created."
+      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Graduated to verified in revision 5 after strict GitHub linkage showed merged PR #7511 closes this issue."
     },
     {
       "issue_id": 5187,
       "title": "[B0-cohort] Add unit tests for storage/governance/metrics.py",
       "execution_class": "missing_test_coverage",
-      "expected_status": "in_progress",
+      "expected_status": "verified",
       "scope_hint": [
         "aragora/storage/governance/metrics.py",
         "tests/storage/governance/test_metrics.py"
@@ -128,13 +156,13 @@
           "deliverable_pr_created"
         ]
       },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created."
+      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Graduated to verified in revision 5 after strict GitHub linkage showed merged PR #7377 closes this issue."
     },
     {
       "issue_id": 5197,
       "title": "[B0-cohort] Add unit tests for tournaments/database.py",
       "execution_class": "missing_test_coverage",
-      "expected_status": "in_progress",
+      "expected_status": "verified",
       "scope_hint": [
         "aragora/tournaments/database.py",
         "tests/tournaments/test_database.py"
@@ -156,13 +184,13 @@
           "deliverable_pr_created"
         ]
       },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created."
+      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Graduated to verified in revision 5 after strict GitHub linkage showed merged PR #7378 closes this issue."
     },
     {
       "issue_id": 5198,
       "title": "[B0-cohort] Add unit tests for server/debate_origin/models.py",
       "execution_class": "missing_test_coverage",
-      "expected_status": "in_progress",
+      "expected_status": "verified",
       "scope_hint": [
         "aragora/server/debate_origin/models.py",
         "tests/server/debate_origin/test_models.py"
@@ -184,13 +212,13 @@
           "deliverable_pr_created"
         ]
       },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created."
+      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Graduated to verified in revision 5 after strict GitHub linkage showed merged PR #7379 closes this issue."
     },
     {
       "issue_id": 5200,
       "title": "[B0-cohort] Add unit tests for server/handlers/admin/health/liveness.py",
       "execution_class": "missing_test_coverage",
-      "expected_status": "in_progress",
+      "expected_status": "verified",
       "scope_hint": [
         "aragora/server/handlers/admin/health/liveness.py",
         "tests/server/handlers/admin/health/test_liveness.py"
@@ -212,7 +240,7 @@
           "deliverable_pr_created"
         ]
       },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created."
+      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Graduated to verified in revision 5 after strict GitHub linkage showed merged PR #7380 closes this issue."
     },
     {
       "issue_id": 5426,
@@ -266,111 +294,6 @@
         ]
       },
       "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 1 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: deliverable_pr_created."
-    },
-    {
-      "issue_id": 5428,
-      "title": "Add type annotations to aragora/swarm/boss_loop_outcome.py public functions",
-      "execution_class": "small_refactor",
-      "expected_status": "in_progress",
-      "scope_hint": [
-        "aragora/swarm/boss_loop_outcome.py"
-      ],
-      "known_constraints": [
-        "single-PR scope refactor as described in the issue body",
-        "no behavioral change in callers"
-      ],
-      "source_reference": "github.com/synaptent/aragora/issues/5428",
-      "added_in_revision": 4,
-      "github_labels": [
-        "autonomous"
-      ],
-      "dispatch_provenance": {
-        "lease_id": "rev4-dispatch",
-        "tick_count": 1,
-        "terminal_classes": [
-          "deliverable_pr_created"
-        ]
-      },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 1 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: deliverable_pr_created."
-    },
-    {
-      "issue_id": 5764,
-      "title": "[from #5759] Update QualityPipelineConfig.from_dict() to validate boolean types",
-      "execution_class": "validation_tightening",
-      "expected_status": "in_progress",
-      "scope_hint": [
-        "aragora/quality/pipeline_config.py"
-      ],
-      "known_constraints": [
-        "add or tighten input validation per existing schema",
-        "preserve backwards compatibility for documented call sites"
-      ],
-      "source_reference": "github.com/synaptent/aragora/issues/5764",
-      "added_in_revision": 4,
-      "github_labels": [
-        "autonomous"
-      ],
-      "dispatch_provenance": {
-        "lease_id": "rev4-dispatch",
-        "tick_count": 1,
-        "terminal_classes": [
-          "deliverable_pr_created"
-        ]
-      },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 1 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: deliverable_pr_created."
-    },
-    {
-      "issue_id": 5789,
-      "title": "Narrow broad except Exception in mfa_enforcement.py",
-      "execution_class": "exception_narrowing",
-      "expected_status": "in_progress",
-      "scope_hint": [
-        "aragora/auth/mfa_enforcement.py"
-      ],
-      "known_constraints": [
-        "narrow the broad except Exception clauses to the documented expected exception classes",
-        "preserve current behavior on all currently-caught exception types"
-      ],
-      "source_reference": "github.com/synaptent/aragora/issues/5789",
-      "added_in_revision": 4,
-      "github_labels": [
-        "autonomous"
-      ],
-      "dispatch_provenance": {
-        "lease_id": "rev4-dispatch",
-        "tick_count": 1,
-        "terminal_classes": [
-          "blocked_auth_failure"
-        ]
-      },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 1 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_auth_failure."
-    },
-    {
-      "issue_id": 5790,
-      "title": "Narrow broad except Exception in swarm_status.py",
-      "execution_class": "exception_narrowing",
-      "expected_status": "in_progress",
-      "scope_hint": [
-        "aragora/swarm/swarm_status.py"
-      ],
-      "known_constraints": [
-        "narrow the broad except Exception clauses to the documented expected exception classes",
-        "preserve current behavior on all currently-caught exception types"
-      ],
-      "source_reference": "github.com/synaptent/aragora/issues/5790",
-      "added_in_revision": 4,
-      "github_labels": [
-        "autonomous"
-      ],
-      "dispatch_provenance": {
-        "lease_id": "rev4-dispatch",
-        "tick_count": 2,
-        "terminal_classes": [
-          "blocked_auth_failure",
-          "rescue_no_deliverable"
-        ]
-      },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_auth_failure, rescue_no_deliverable."
     },
     {
       "issue_id": 5839,
@@ -427,6 +350,118 @@
         ]
       },
       "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 5 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_auth_failure, blocked_not_dispatch_bounded."
+    },
+    {
+      "issue_id": 5182,
+      "title": "[B0-cohort] Add unit tests for server/handlers/orchestration/protocols.py",
+      "execution_class": "missing_test_coverage",
+      "expected_status": "in_progress",
+      "scope_hint": [
+        "aragora/server/handlers/orchestration/protocols.py",
+        "tests/server/handlers/orchestration/test_protocols.py"
+      ],
+      "known_constraints": [
+        "add unit tests covering happy and edge cases for the named module",
+        "do not modify production code under aragora/ unless strictly required by the test scaffold"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5182",
+      "added_in_revision": 6,
+      "github_labels": [
+        "autonomous"
+      ],
+      "dispatch_provenance": {
+        "lease_id": "rev6-restock",
+        "tick_count": 2,
+        "terminal_classes": [
+          "blocked_not_dispatch_bounded",
+          "deliverable_pr_created"
+        ]
+      },
+      "honesty_note": "Restocked in rev-6 (2026-06-05) to hold the corpus denominator at 13 after retiring four superseded-by-sibling closures. Open B0-cohort bounded test-coverage issue with 2 recorded worker_outcome rows in boss_metrics.jsonl (terminal classes blocked_not_dispatch_bounded, deliverable_pr_created); never graduated. Same execution_class as the graduated rev-5 verified cohort (#5185/#5187/#5197/#5198/#5200)."
+    },
+    {
+      "issue_id": 5183,
+      "title": "[B0-cohort] Add unit tests for control_plane/workers/testfixer_task_worker.py",
+      "execution_class": "missing_test_coverage",
+      "expected_status": "in_progress",
+      "scope_hint": [
+        "aragora/control_plane/workers/testfixer_task_worker.py",
+        "tests/control_plane/workers/test_testfixer_task_worker.py"
+      ],
+      "known_constraints": [
+        "add unit tests covering happy and edge cases for the named module",
+        "do not modify production code under aragora/ unless strictly required by the test scaffold"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5183",
+      "added_in_revision": 6,
+      "github_labels": [
+        "autonomous"
+      ],
+      "dispatch_provenance": {
+        "lease_id": "rev6-restock",
+        "tick_count": 2,
+        "terminal_classes": [
+          "blocked_not_dispatch_bounded",
+          "deliverable_pr_created"
+        ]
+      },
+      "honesty_note": "Restocked in rev-6 (2026-06-05) to hold the corpus denominator at 13 after retiring four superseded-by-sibling closures. Open B0-cohort bounded test-coverage issue with 2 recorded worker_outcome rows in boss_metrics.jsonl (terminal classes blocked_not_dispatch_bounded, deliverable_pr_created); never graduated. Same execution_class as the graduated rev-5 verified cohort (#5185/#5187/#5197/#5198/#5200)."
+    },
+    {
+      "issue_id": 5184,
+      "title": "[B0-cohort] Add unit tests for server/handlers/bots/slack/signature.py",
+      "execution_class": "missing_test_coverage",
+      "expected_status": "in_progress",
+      "scope_hint": [
+        "aragora/server/handlers/bots/slack/signature.py",
+        "tests/server/handlers/bots/slack/test_signature.py"
+      ],
+      "known_constraints": [
+        "add unit tests covering happy and edge cases for the named module",
+        "do not modify production code under aragora/ unless strictly required by the test scaffold"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5184",
+      "added_in_revision": 6,
+      "github_labels": [
+        "autonomous"
+      ],
+      "dispatch_provenance": {
+        "lease_id": "rev6-restock",
+        "tick_count": 2,
+        "terminal_classes": [
+          "blocked_not_dispatch_bounded",
+          "deliverable_pr_created"
+        ]
+      },
+      "honesty_note": "Restocked in rev-6 (2026-06-05) to hold the corpus denominator at 13 after retiring four superseded-by-sibling closures. Open B0-cohort bounded test-coverage issue with 2 recorded worker_outcome rows in boss_metrics.jsonl (terminal classes blocked_not_dispatch_bounded, deliverable_pr_created); never graduated. Same execution_class as the graduated rev-5 verified cohort (#5185/#5187/#5197/#5198/#5200)."
+    },
+    {
+      "issue_id": 5186,
+      "title": "[B0-cohort] Add unit tests for agents/errors.py",
+      "execution_class": "missing_test_coverage",
+      "expected_status": "in_progress",
+      "scope_hint": [
+        "aragora/agents/errors.py",
+        "tests/agents/test_errors.py"
+      ],
+      "known_constraints": [
+        "add unit tests covering happy and edge cases for the named module",
+        "do not modify production code under aragora/ unless strictly required by the test scaffold"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5186",
+      "added_in_revision": 6,
+      "github_labels": [
+        "autonomous"
+      ],
+      "dispatch_provenance": {
+        "lease_id": "rev6-restock",
+        "tick_count": 2,
+        "terminal_classes": [
+          "blocked_not_dispatch_bounded",
+          "deliverable_pr_created"
+        ]
+      },
+      "honesty_note": "Restocked in rev-6 (2026-06-05) to hold the corpus denominator at 13 after retiring four superseded-by-sibling closures. Open B0-cohort bounded test-coverage issue with 2 recorded worker_outcome rows in boss_metrics.jsonl (terminal classes blocked_not_dispatch_bounded, deliverable_pr_created); never graduated. Same execution_class as the graduated rev-5 verified cohort (#5185/#5187/#5197/#5198/#5200)."
     }
   ],
   "rev4_silent_closure_findings_2026-05-14": [

@@ -3,7 +3,7 @@
 # Run this on a fresh Ubuntu 22.04 Lightsail instance
 #
 # Usage:
-#   curl -sL https://raw.githubusercontent.com/an0mium/aragora/main/deploy/lightsail-setup.sh | bash
+#   curl -sL https://raw.githubusercontent.com/synaptent/aragora/main/deploy/lightsail-setup.sh | bash
 #
 # Or manually:
 #   chmod +x lightsail-setup.sh && ./lightsail-setup.sh
@@ -27,7 +27,7 @@ cd /home/ubuntu
 if [ -d "aragora" ]; then
     cd aragora && git pull
 else
-    git clone https://github.com/an0mium/aragora.git
+    git clone https://github.com/synaptent/aragora.git
     cd aragora
 fi
 

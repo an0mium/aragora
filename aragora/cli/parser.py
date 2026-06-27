@@ -8,6 +8,7 @@ Separated from command implementations for clarity and maintainability.
 import argparse
 import os
 
+from aragora.cli._mission_parser import add_mission_parser
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 DEFAULT_CAMPAIGN_MANIFEST = ".aragora/campaign_manifest.yaml"
@@ -146,10 +147,12 @@ Examples:
     _add_repl_parser(subparsers)
     _add_config_parser(subparsers)
     _add_api_key_parser(subparsers)
+    _add_secrets_parser(subparsers)
     _add_replay_parser(subparsers)
     _add_bench_parser(subparsers)
     _add_review_parser(subparsers)
     _add_review_pr_parser(subparsers)
+    _add_review_local_parser(subparsers)
     _add_review_queue_parser(subparsers)
     _add_codebase_audit_parser(subparsers)
     _add_external_parsers(subparsers)
@@ -161,6 +164,7 @@ Examples:
     _add_mcp_parser(subparsers)
     _add_marketplace_parser(subparsers)
     _add_skills_parser(subparsers)
+    add_mission_parser(subparsers, _lazy)
     _add_nomic_parser(subparsers)
     _add_workflow_parser(subparsers)
     _add_deploy_parser(subparsers)
@@ -188,6 +192,7 @@ Examples:
     _add_self_improve_parser(subparsers)
     _add_swarm_parser(subparsers)
     _add_tasks_parser(subparsers)
+    _add_work_parser(subparsers)
     _add_worktree_parser(subparsers)
     _add_outcome_parser(subparsers)
     _add_explain_parser(subparsers)
@@ -197,6 +202,8 @@ Examples:
     _add_ideacloud_parser(subparsers)
     _add_signing_parser(subparsers)
     _add_inbox_wedge_parser(subparsers)
+    _add_codex_parser(subparsers)
+    _add_factory_parser(subparsers)
     _add_triage_parser(subparsers)
     _add_ralph_parser(subparsers)
     _add_assess_parser(subparsers)
@@ -206,11 +213,24 @@ Examples:
     _add_build_parser(subparsers)
     _add_essay_parser(subparsers)
 
-    # AGT-* operator surfaces (read-only)
+    # AGT-* / DIC-* operator surfaces (read-only)
     _add_metrics_parser(subparsers)
     _add_markets_parser(subparsers)
     _add_calibration_parser(subparsers)
     _add_cruxset_parser(subparsers)
+    _add_crux_followup_parser(subparsers)
+    _add_proof_units_parser(subparsers)  # DIC-19 / #6030
+    _add_genealogy_parser(subparsers)  # DIC-24 / #6218
+    _add_coherence_scan_parser(subparsers)  # DIC-26 / #6220
+    _add_truth_map_parser(subparsers)  # DIC-18 / #6028
+    _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
+    _add_epistemic_check_parser(subparsers)  # DIC-14 / #6024
+
+    # DIC-27: operator crux arbitration surface
+    _add_crux_arbitrate_parser(subparsers)
+
+    # DIC-28: proactive crux gardening operator surface
+    _add_crux_garden_parser(subparsers)
 
     return parser
 
@@ -221,7 +241,7 @@ Examples:
 
 
 def _add_metrics_parser(subparsers) -> None:
-    """Add the 'metrics' subcommand group with a 'viah' verb."""
+    """Add the 'metrics' subcommand group with 'viah' and 'status' verbs."""
     metrics_parser = subparsers.add_parser(
         "metrics",
         help="AGT-06: read VIAH and other operator metrics",
@@ -264,9 +284,102 @@ def _add_metrics_parser(subparsers) -> None:
     viah.add_argument("--json", action="store_true", help="Emit the report as JSON")
     viah.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_viah"))
 
+    status = metrics_sub.add_parser(
+        "status",
+        help=("Print VIAH operator-truth Markdown report (gated: ARAGORA_VIAH_TREND_ENABLED=1)"),
+    )
+    status.add_argument(
+        "--ledger-path",
+        default=None,
+        help="Path to the ShiftLedger JSONL (default: DEFAULT_LEDGER_PATH)",
+    )
+    status.add_argument(
+        "--weeks",
+        type=int,
+        default=4,
+        help="Number of rolling weeks to include in the trend table (default: 4)",
+    )
+    status.add_argument(
+        "--output",
+        default=None,
+        help="Write the Markdown report to this file path instead of stdout",
+    )
+    status.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_status"))
+
+
+def _add_work_parser(subparsers) -> None:
+    """Add the read-only Aragora-native work board commands."""
+
+    def _nonnegative_int(raw: str) -> int:
+        value = int(raw)
+        if value < 0:
+            raise argparse.ArgumentTypeError("must be >= 0")
+        return value
+
+    work = subparsers.add_parser(
+        "work",
+        help="Inspect the read-only Aragora work board",
+        description=(
+            "Read-only Agent Flywheel kernel over PRs, automation, broker runs, "
+            "beads/convoys, and missions. This command never claims, launches, "
+            "closes, or mutates work."
+        ),
+    )
+
+    def _work_parent_help(_args: argparse.Namespace) -> int:
+        work.print_help()
+        return 2
+
+    # Running ``aragora work`` with no subcommand prints help and exits cleanly
+    # (mirrors the sibling ``codex`` parser) instead of raising AttributeError
+    # when main.py dispatches args.func.
+    work.set_defaults(func=_work_parent_help)
+    work_sub = work.add_subparsers(dest="work_cmd")
+
+    def add_common(p) -> None:
+        p.add_argument("--repo", default=".", help="Repository root to inspect (default: cwd)")
+        p.add_argument("--json", action="store_true", help="Emit stable JSON")
+
+    def add_limit(p) -> None:
+        p.add_argument(
+            "--limit",
+            type=_nonnegative_int,
+            default=None,
+            help="Maximum number of records to emit while preserving the total count",
+        )
+
+    list_cmd = work_sub.add_parser("list", help="List normalized work items")
+    add_common(list_cmd)
+    list_cmd.add_argument(
+        "--scope",
+        choices=("current", "all"),
+        default="current",
+        help="current excludes terminal/historical noise; all includes context records",
+    )
+    add_limit(list_cmd)
+    list_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_list"))
+
+    show_cmd = work_sub.add_parser("show", help="Show one normalized work item")
+    add_common(show_cmd)
+    show_cmd.add_argument("work_id", help="Work item id, e.g. pr:7210")
+    show_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_show"))
+
+    graph_cmd = work_sub.add_parser("graph", help="Show the work dependency/context graph")
+    add_common(graph_cmd)
+    graph_cmd.add_argument("work_id", nargs="?", help="Optional root work item id")
+    graph_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_graph"))
+
+    robot_cmd = work_sub.add_parser(
+        "robot",
+        help="Rank current work into read-only actionable recommendations",
+    )
+    add_common(robot_cmd)
+    add_limit(robot_cmd)
+    robot_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_robot"))
+
 
 def _add_markets_parser(subparsers) -> None:
-    """Add the 'markets' subcommand group with 'list' and 'predict' verbs."""
+    """Add the 'markets' subcommand group with list, predict, create, and resolve verbs."""
     markets_parser = subparsers.add_parser(
         "markets",
         help="AGT-04: inspect and interact with synthetic GitHub prediction markets",
@@ -317,6 +430,46 @@ def _add_markets_parser(subparsers) -> None:
     )
     pred.add_argument("--json", action="store_true", help="Emit the saved position as JSON")
     pred.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_predict"))
+
+    _store_arg = dict(
+        default=".aragora_markets", help="JSONL store directory (default: .aragora_markets)"
+    )
+    create = markets_sub.add_parser(
+        "create", help="Create a new synthetic GitHub prediction market"
+    )
+    create.add_argument(
+        "--type",
+        required=True,
+        choices=["pr_merge", "issue_close", "ci_pass"],
+        help="Question type",
+    )
+    create.add_argument("--repo", required=True, help="Repository in owner/name format")
+    create.add_argument(
+        "--number",
+        type=int,
+        metavar="INT",
+        help="PR/issue number (required for pr_merge and issue_close)",
+    )
+    create.add_argument("--ref", metavar="REF", help="Git ref (required for ci_pass)")
+    create.add_argument(
+        "--window-days",
+        type=int,
+        metavar="INT",
+        help="Resolution window in days (default: 7 for pr/ci, 30 for issues)",
+    )
+    create.add_argument("--store-dir", **_store_arg)
+    create.add_argument("--json", action="store_true", help="Emit created market as JSON")
+    create.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_create"))
+
+    resolve = markets_sub.add_parser("resolve", help="Manually resolve a market (operator action)")
+    resolve.add_argument("market_id", help="Market ID to resolve")
+    resolve.add_argument(
+        "--outcome", required=True, choices=["yes", "no", "inconclusive"], help="Resolution outcome"
+    )
+    resolve.add_argument("--evidence", default="", help="Optional free-text rationale")
+    resolve.add_argument("--store-dir", **_store_arg)
+    resolve.add_argument("--json", action="store_true", help="Emit resolution event as JSON")
+    resolve.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_resolve"))
 
 
 def _add_calibration_parser(subparsers) -> None:
@@ -464,6 +617,328 @@ def _add_cruxset_parser(subparsers) -> None:
         help="Re-emit the (verified) CruxSet as JSON instead of pretty-printing",
     )
     show.set_defaults(func=_lazy("aragora.cli.commands.agt_cruxset", "cmd_cruxset_show"))
+
+
+def _add_proof_units_parser(subparsers) -> None:
+    """Add the 'proof-units' subcommand for DIC-19 constraint graph surface.
+
+    Flag-gated: ARAGORA_PROOF_UNIT_SCAN_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "proof-units",
+        help="DIC-19: inspect proof-carrying code unit constraint graph",
+        description=(
+            "Read-only operator surface for the proof-carrying code unit constraint graph. "
+            "Requires ARAGORA_PROOF_UNIT_SCAN_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--proof-units-dir",
+        dest="proof_units_dir",
+        default=None,
+        help="Directory containing proof-unit YAML manifests (default: docs/status/proof_units)",
+    )
+    p.add_argument(
+        "--impact-of",
+        dest="impact_of",
+        nargs="+",
+        metavar="CLAIM_ID",
+        default=None,
+        help="Show units impacted by these claim IDs",
+    )
+    p.add_argument(
+        "--multi-hop",
+        dest="multi_hop",
+        action="store_true",
+        default=False,
+        help="Include transitively impacted units via dependency edges",
+    )
+    p.add_argument(
+        "--json",
+        dest="json",
+        action="store_true",
+        default=False,
+        help="Emit JSON output",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic19_proof_units", "cmd_proof_units"))
+
+
+def _add_genealogy_parser(subparsers) -> None:
+    """Add the 'genealogy' subcommand group (DIC-24 / #6218).
+
+    Flag-gated: ARAGORA_GENEALOGY_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    gp = subparsers.add_parser(
+        "genealogy",
+        help="DIC-24: inspect epistemic genealogy ledger for proof-carrying code units",
+        description=(
+            "Read-only operator surface for the epistemic genealogy ledger. "
+            "Requires ARAGORA_GENEALOGY_ENABLED=1."
+        ),
+    )
+    gp_sub = gp.add_subparsers(dest="genealogy_cmd")
+    show = gp_sub.add_parser("show", help="Show lineage for one proof-carrying code unit")
+    show.add_argument("code_unit_id", help="The code_unit_id to look up")
+    show.add_argument(
+        "--store-file",
+        dest="store_file",
+        default=".aragora_genealogy.jsonl",
+        help="Path to the genealogy JSONL store (default: .aragora_genealogy.jsonl)",
+    )
+    show.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    show.set_defaults(func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_show"))
+
+
+def _add_coherence_scan_parser(subparsers) -> None:
+    """Add the 'coherence-scan' subcommand (DIC-26 / #6220).
+
+    Flag-gated: ARAGORA_COHERENCE_MONITOR_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "coherence-scan",
+        help="DIC-26: scan a belief ledger for contradictions, evidence conflicts, and confidence rot",
+        description=(
+            "Read-only operator surface for the belief coherence monitor. "
+            "Requires ARAGORA_COHERENCE_MONITOR_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        metavar="JSON",
+        help="Path to a JSON file containing a list of BeliefEntry dicts",
+    )
+    p.add_argument(
+        "--contradiction-gap",
+        dest="contradiction_gap",
+        type=float,
+        default=0.5,
+        metavar="FLOAT",
+        help="Confidence gap threshold for contradiction detection (default: 0.5)",
+    )
+    p.add_argument(
+        "--min-confidence",
+        dest="min_confidence",
+        type=float,
+        default=0.3,
+        metavar="FLOAT",
+        help="Minimum confidence threshold for rot detection (default: 0.3)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic26_coherence", "cmd_coherence_scan"))
+
+
+def _add_truth_map_parser(subparsers) -> None:
+    """Add the 'truth-map' subcommand (DIC-18 / #6028).
+
+    Flag-gated: ARAGORA_TRUTH_MAP_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "truth-map",
+        help="DIC-18: read-only organizational truth map of claim and crux status",
+        description=(
+            "Reads DIC-13 claim manifests, verifies them (dry-run), and emits "
+            "a read-only report of claim and crux health. "
+            "Requires ARAGORA_TRUTH_MAP_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--claims-dir",
+        dest="claims_dir",
+        default="docs/status/claims",
+        metavar="PATH",
+        help="Directory of *.yaml claim manifests (default: docs/status/claims)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic18_truth_map", "cmd_truth_map"))
+
+
+def _add_decay_monitor_parser(subparsers) -> None:
+    """Add the 'decay-monitor' subcommand (DIC-20 / #6031).
+
+    Flag-gated: ARAGORA_DECAY_MONITOR_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "decay-monitor",
+        help="DIC-20: report epistemic decay for proof-carrying code units",
+        description=(
+            "Read-only decay assessment over proof-carrying code units. "
+            "Requires ARAGORA_DECAY_MONITOR_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--units-dir",
+        dest="units_dir",
+        default=".aragora_proof_units",
+        metavar="DIR",
+        help="Directory of proof-unit YAML manifests (default: .aragora_proof_units)",
+    )
+    p.add_argument(
+        "--claim-results",
+        dest="claim_results",
+        default=None,
+        metavar="JSONL",
+        help="Optional JSONL/JSON file of ClaimResult dicts (DIC-14 verifier output)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic20_decay_monitor", "cmd_decay_monitor"))
+
+
+def _add_crux_arbitrate_parser(subparsers) -> None:
+    """Add the 'crux-arbitrate' subcommand for DIC-27 operator arbitration."""
+    p = subparsers.add_parser(
+        "crux-arbitrate",
+        help="DIC-27: resolve persistent cruxes as reversible signed arbitration receipts",
+        description=(
+            "Load a JSON file of PersistentCrux records and either inspect "
+            "which ones qualify for arbitration (--dry-run) or create a signed "
+            "CruxArbitration record (requires ARAGORA_CRUX_ARBITRATION_ENABLED=1)."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        metavar="JSON",
+        help="Path to a JSON file containing a PersistentCrux or list of PersistentCrux dicts",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List qualifying/non-qualifying cruxes without creating an arbitration record",
+    )
+    p.add_argument(
+        "--crux-id",
+        metavar="ID",
+        help="ID of the crux to arbitrate (required in live mode)",
+    )
+    p.add_argument(
+        "--side",
+        choices=["accept", "reject", "defer", "split"],
+        help="Operator's chosen side (required in live mode)",
+    )
+    p.add_argument(
+        "--rationale",
+        metavar="TEXT",
+        help="Short operator rationale for the decision (required in live mode)",
+    )
+    p.add_argument(
+        "--operator",
+        default="operator",
+        metavar="NAME",
+        help="Operator identifier recorded in the arbitration (default: 'operator')",
+    )
+    p.add_argument(
+        "--expires-days",
+        type=int,
+        default=90,
+        metavar="N",
+        help="Days until this arbitration expires (default: 90)",
+    )
+    p.add_argument(
+        "--evidence",
+        nargs="*",
+        metavar="CITATION",
+        help="Optional evidence citations (URLs, doc paths) to attach to the arbitration",
+    )
+    p.add_argument(
+        "--output",
+        metavar="PATH",
+        help="Write the arbitration JSON to this file in addition to stdout",
+    )
+    p.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit output as JSON instead of human-readable text",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.crux_arbitrate", "cmd_crux_arbitrate"))
+
+
+def _add_crux_garden_parser(subparsers) -> None:
+    """DIC-28: proactive crux gardening operator surface (issue #6222).
+
+    Flag-gated: ARAGORA_CRUX_GARDENING_ENABLED. Live queue effect: none.
+    """
+    p = subparsers.add_parser(
+        "crux-garden",
+        help="DIC-28: proactive re-examination of cruxes for staleness and contradictions",
+        description=(
+            "Load a JSONL or JSON-array of CruxReceipt dicts and run a gardening pass. "
+            "Report-only; no debates started, no issues created. "
+            "Requires ARAGORA_CRUX_GARDENING_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        help="Path to a JSONL or JSON-array file of CruxReceipt dicts.",
+    )
+    p.add_argument("--json", action="store_true", help="Emit report as JSON.")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic28_crux_garden", "cmd_crux_garden"))
+
+
+def _add_epistemic_check_parser(subparsers) -> None:
+    """Add the 'epistemic-check' subcommand for DIC-14 claim verification."""
+    p = subparsers.add_parser(
+        "epistemic-check",
+        help="DIC-14: verify executable claim manifests and emit a status report",
+        description=(
+            "Load *.yaml claim manifests from docs/status/claims/ (or a path you\n"
+            "supply) and verify each claim via the DIC-14 ClaimVerifier.  Outputs\n"
+            "a human-readable table or JSON.  No queue mutation, no issue creation.\n\n"
+            "Read-only by default: manifest-provided verification commands are NOT\n"
+            "executed unless you pass --execute (command-kind claims are reported\n"
+            "UNSUPPORTED). Only pass --execute for manifests you trust.\n\n"
+            "Requires ARAGORA_EPISTEMIC_CLAIMS_ENABLED=1 to execute; otherwise exits\n"
+            "0 with an informational message."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        metavar="PATH",
+        help=("YAML manifest file or directory of manifests. Defaults to docs/status/claims/"),
+    )
+    p.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Emit machine-readable JSON (schema_version, results, summary)",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip command execution; return UNSUPPORTED for command-kind claims. "
+            "This is already the DEFAULT behavior — the flag is accepted for "
+            "explicitness and backward compatibility."
+        ),
+    )
+    p.add_argument(
+        "--execute",
+        action="store_true",
+        default=False,
+        help=(
+            "Opt in to running manifest-provided verification commands as "
+            "subprocesses. Off by default: command-kind claims are skipped "
+            "(reported UNSUPPORTED) unless this flag is set. Only pass --execute "
+            "for manifests you trust, since commands run with your shell privileges."
+        ),
+    )
+    p.add_argument(
+        "--repo-root",
+        default=None,
+        metavar="DIR",
+        help="Repository root for resolving relative evidence paths (defaults to cwd)",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.epistemic_check", "cmd_epistemic_check"))
 
 
 def _add_ask_parser(subparsers) -> None:
@@ -1022,7 +1497,16 @@ def _add_doctor_parser(subparsers) -> None:
 def _add_validate_parser(subparsers) -> None:
     """Add the 'validate' subcommand parser."""
     validate_parser = subparsers.add_parser(
-        "validate", help="Validate API keys by making test calls"
+        "validate",
+        help="Run a full health check, including live API-key validation",
+        description=(
+            "Run Aragora's health check (Environment, Packages, API Keys, "
+            "Storage, and Server sections) with live API-key validation enabled. "
+            "Configured provider keys are probed against the provider where "
+            "possible; a key that cannot be verified is reported as present but "
+            "unverified rather than as a passing check. Exits 0 only when all "
+            "checks pass."
+        ),
     )
     validate_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_validate"))
 
@@ -1046,6 +1530,22 @@ def _add_validate_env_parser(subparsers) -> None:
     )
     validate_env_parser.add_argument(
         "--strict", "-s", action="store_true", help="Fail on warnings (for CI/CD enforcement)"
+    )
+    validate_env_parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Run a tiny live provider answer smoke test for selected agents",
+    )
+    validate_env_parser.add_argument(
+        "--agents",
+        default="",
+        help="Comma-separated agents to smoke-test, for example: gemini,grok",
+    )
+    validate_env_parser.add_argument(
+        "--smoke-timeout",
+        type=float,
+        default=20.0,
+        help="Per-agent smoke-test timeout in seconds",
     )
     validate_env_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_validate_env"))
 
@@ -1341,6 +1841,54 @@ def _add_api_key_parser(subparsers) -> None:
     validate_parser.add_argument("provider", help="Provider name to validate")
 
 
+def _add_secrets_parser(subparsers) -> None:
+    """Add the `secrets` subcommand parser."""
+    secrets_parser = subparsers.add_parser(
+        "secrets",
+        help="Inspect AWS Secrets Manager-backed secret presence",
+        description="Presence-only secret health checks and process bootstrap helpers.",
+    )
+    secrets_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.secrets", "cmd_secrets"),
+        parser=secrets_parser,
+    )
+    secrets_subparsers = secrets_parser.add_subparsers(dest="secrets_command")
+
+    health_parser = secrets_subparsers.add_parser(
+        "health",
+        help="Report secret source status without printing values",
+    )
+    health_parser.add_argument(
+        "--name",
+        action="append",
+        help="Secret name to check; repeat for multiple names",
+    )
+    health_parser.add_argument(
+        "--require-all",
+        action="store_true",
+        help="Exit non-zero when any requested secret is missing or strict-blocked",
+    )
+    health_parser.add_argument("--json", action="store_true", help="Emit JSON output")
+    health_parser.set_defaults(func=_lazy("aragora.cli.commands.secrets", "cmd_secrets_health"))
+
+    hydrate_parser = secrets_subparsers.add_parser(
+        "hydrate",
+        help="Hydrate this process env from Secrets Manager and report key names only",
+    )
+    hydrate_parser.add_argument(
+        "--name",
+        action="append",
+        help="Secret name to hydrate; repeat for multiple names",
+    )
+    hydrate_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite existing environment values in this process",
+    )
+    hydrate_parser.add_argument("--json", action="store_true", help="Emit JSON output")
+    hydrate_parser.set_defaults(func=_lazy("aragora.cli.commands.secrets", "cmd_secrets_hydrate"))
+
+
 def _add_replay_parser(subparsers) -> None:
     """Add the 'replay' subcommand parser."""
     replay_parser = subparsers.add_parser("replay", help="Replay stored debates")
@@ -1531,6 +2079,56 @@ def _add_review_pr_parser(subparsers) -> None:
     create_document_audit_parser(subparsers)
 
 
+def _add_review_local_parser(subparsers) -> None:
+    """Register the offline local-diff review parser without heavy imports."""
+    parser = subparsers.add_parser(
+        "review-local",
+        help="Run a non-OpenAI (Claude Max pool) review on a LOCAL diff, no GitHub required",
+        description=(
+            "Read a local diff (file or stdin), route it to a non-worker reviewer family "
+            "(default: claude via the Max profile pool), and write a review receipt. Works "
+            "fully offline so OpenAI/codex sessions can attach a heterogeneous, non-OpenAI "
+            "verdict even when GitHub is degraded."
+        ),
+    )
+    parser.add_argument(
+        "--diff",
+        default="-",
+        help="Path to a unified diff, or - to read from stdin (default: -)",
+    )
+    parser.add_argument(
+        "--spec",
+        default=None,
+        help="Optional path to spec/context text to include in the review prompt",
+    )
+    parser.add_argument("--title", default=None, help="Optional short title for the change")
+    parser.add_argument(
+        "--worker-model",
+        dest="worker_model",
+        default="codex",
+        help="Model family that produced the change (excluded from review; default: codex)",
+    )
+    parser.add_argument(
+        "--review-model",
+        "--reviewer",
+        dest="reviewer",
+        default="claude",
+        help="Preferred non-worker review family (default: claude)",
+    )
+    parser.add_argument(
+        "--artifact-dir",
+        default=None,
+        help="Directory for run artifacts (default: .aragora/review-local under repo root)",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Print the review result as JSON",
+    )
+    parser.set_defaults(func=_lazy("aragora.cli.commands.review_pr", "cmd_review_local"))
+
+
 def _add_review_queue_parser(subparsers) -> None:
     """Register review-queue lazily so unrelated CLI paths stay lightweight."""
     parser = subparsers.add_parser(
@@ -1670,12 +2268,139 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Override the review-queue root used for settlement receipts.",
     )
     record_parser.add_argument(
+        "--apply-post-merge-lane-audit",
+        action="store_true",
+        help=(
+            "For admin_squash_merge records, apply merged-PR lane supersession "
+            "using the live merge commit guard. Default is dry-run/report only."
+        ),
+    )
+    record_parser.add_argument(
         "--json",
         dest="json_output",
         action="store_true",
         help="Output local receipt as JSON.",
     )
     record_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
+    evidence_lint_parser = queue_subparsers.add_parser(
+        "evidence-lint",
+        help="Dry-run whether a proposed evidence comment will count for model quorum",
+        description=(
+            "Lint a proposed PR comment against the same current-head evidence "
+            "parsers used by review-queue merge-packet. This is read-only."
+        ),
+    )
+    evidence_lint_parser.add_argument("--pr", required=True, help="PR number the evidence targets")
+    evidence_lint_parser.add_argument(
+        "--head-sha",
+        required=True,
+        help="Exact PR head SHA the proposed comment must cite.",
+    )
+    evidence_lint_parser.add_argument(
+        "--head-committed-at",
+        default="",
+        help="Optional current head committedDate for stricter current-head grounding.",
+    )
+    body_group = evidence_lint_parser.add_mutually_exclusive_group(required=True)
+    body_group.add_argument("--body", help="Proposed evidence comment body to lint")
+    body_group.add_argument("--body-file", help="Read proposed evidence comment body from file")
+    evidence_lint_parser.add_argument(
+        "--author",
+        default="local",
+        help="GitHub author login to simulate for the proposed comment.",
+    )
+    evidence_lint_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    evidence_lint_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
+    collect_evidence_parser = queue_subparsers.add_parser(
+        "collect-evidence",
+        help="Run genuine model reviewers, lint their evidence, post only if tier allows",
+        description=(
+            "Run >=2 genuine heterogeneous model reviewers against a PR's exact head, "
+            "compose evidence comments the quorum parsers recognize, and validate each "
+            "with evidence-lint before posting. Only Tier 0-2 PRs auto-post (with "
+            "--apply); Tier 3-4 always prepare evidence for operator settlement. "
+            "Defaults to a dry run that posts nothing."
+        ),
+    )
+    collect_evidence_parser.add_argument(
+        "--pr", required=True, type=int, help="PR number to collect evidence for"
+    )
+    collect_evidence_parser.add_argument(
+        "--repo", default="", help="owner/name of the target repo (default: current gh context)"
+    )
+    collect_evidence_parser.add_argument(
+        "--reviewers",
+        nargs="+",
+        default=None,
+        help="reviewer model families to run (default: claude grok)",
+    )
+    collect_evidence_parser.add_argument(
+        "--author",
+        default=None,
+        help="GitHub login to simulate for evidence-lint (default: gh authenticated user)",
+    )
+    collect_evidence_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
+    )
+    collect_evidence_parser.add_argument(
+        "--json", dest="json_output", action="store_true", help="Output as JSON"
+    )
+    collect_evidence_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
+    lint_comment_parser = queue_subparsers.add_parser(
+        "lint-comment",
+        help="Dry-run whether a proposed reviewer comment will count before posting",
+        description=(
+            "Lint a proposed PR reviewer comment against the same current-head evidence "
+            "parsers used by review-queue merge-packet. This is read-only."
+        ),
+    )
+    lint_comment_parser.add_argument("--pr", required=True, help="PR number the comment targets")
+    lint_comment_parser.add_argument(
+        "--head",
+        "--head-sha",
+        dest="head_sha",
+        required=True,
+        help="Exact PR head SHA the proposed comment must cite.",
+    )
+    lint_comment_parser.add_argument(
+        "--head-committed-at",
+        default="",
+        help="Optional current head committedDate for stricter current-head grounding.",
+    )
+    lint_body_group = lint_comment_parser.add_mutually_exclusive_group(required=True)
+    lint_body_group.add_argument("--body", help="Proposed reviewer comment body to lint")
+    lint_body_group.add_argument(
+        "--body-file",
+        help="Read proposed reviewer comment body from file",
+    )
+    lint_comment_parser.add_argument(
+        "--author",
+        default="local",
+        help="GitHub author login to simulate for the proposed comment.",
+    )
+    lint_comment_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    lint_comment_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
 
     baseline_parser = queue_subparsers.add_parser(
         "baseline",
@@ -1757,9 +2482,24 @@ def _add_review_queue_parser(subparsers) -> None:
         help="GitHub repo slug override (owner/name). Defaults to current repo context.",
     )
     merge_packet_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root used for settlement receipt lookups.",
+    )
+    merge_packet_parser.add_argument(
         "--execute-reviewers",
         action="store_true",
         help="Attempt live heterogeneous reviewer execution for each packet.",
+    )
+    merge_packet_parser.add_argument(
+        "--ignore-own-quorum-check",
+        action="store_true",
+        help=(
+            "Diagnostic only: exclude the aragora-merge-quorum check (any state) from "
+            "the packet's check gating so out-of-CI callers can observe the real "
+            "model-quorum state instead of short-circuiting on a stale self-failure. "
+            "The enforcing CI gate never sets this; it does not weaken the gate."
+        ),
     )
     merge_packet_parser.add_argument(
         "--json",
@@ -1768,6 +2508,62 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Output as JSON",
     )
     merge_packet_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
+    conductor_parser = queue_subparsers.add_parser(
+        "conductor",
+        help="Build an owner-aware queue conductor packet and next prompt",
+        description=(
+            "Read-only queue conductor that combines open PR metadata, required checks, "
+            "branch owner lookup, operator steering, merge-packet status, head-change "
+            "detection, and supersession hints into one JSON packet plus one next prompt."
+        ),
+    )
+    conductor_parser.add_argument(
+        "--limit",
+        type=int,
+        default=30,
+        help="Max open PRs to inspect when --pr is not supplied",
+    )
+    conductor_parser.add_argument(
+        "--pr",
+        action="append",
+        default=[],
+        help="Specific PR number/ref to include. Repeatable. Defaults to open queue.",
+    )
+    conductor_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    conductor_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root used for settlement receipt lookups.",
+    )
+    conductor_parser.add_argument(
+        "--owner-timeout-seconds",
+        type=float,
+        default=8.0,
+        help="Timeout for owner and steering helper lookup. Timeout means preserve/no-mutate.",
+    )
+    conductor_parser.add_argument(
+        "--mode",
+        choices=("queue", "ready-boundary"),
+        default="queue",
+        help=(
+            "Conductor routing mode. ready-boundary emits mark-ready authorization "
+            "classification for draft PRs that are otherwise ready."
+        ),
+    )
+    conductor_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    conductor_parser.set_defaults(
         func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
     )
 
@@ -1870,6 +2666,59 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Output the report as JSON.",
     )
     health_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
+    # Edge-triggered alerter that runs the health check, records state, and
+    # writes one JSON event whenever the set of stale/missing surfaces changes.
+    # Designed for periodic launchd execution.
+    alert_parser = queue_subparsers.add_parser(
+        "health-alert",
+        help="Edge-triggered alerter: writes an event when proof-loop health changes state",
+        description=(
+            "Runs the same checks as 'review-queue health', persists state under "
+            ".aragora/proof-loop-alerts/, and writes one JSON event per state "
+            "transition (opens, set-change, recovers). Designed to be invoked on "
+            "a schedule (e.g. launchd every 15 minutes) without producing repeat "
+            "alerts while a surface stays stale. Exits 1 if any surface is "
+            "currently stale or missing so launchd can surface failure."
+        ),
+    )
+    alert_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Override repo root used for status doc + overnight + state lookups.",
+    )
+    alert_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root.",
+    )
+    alert_parser.add_argument(
+        "--overnight-root",
+        default=None,
+        help="Override the .aragora/overnight directory.",
+    )
+    alert_parser.add_argument(
+        "--automation-receipts-root",
+        default=None,
+        help="Override the .aragora/automation-receipts directory.",
+    )
+    alert_parser.add_argument(
+        "--state-dir",
+        default=None,
+        help="Override the alert state directory (default: <repo>/.aragora/proof-loop-alerts).",
+    )
+    alert_parser.add_argument(
+        "--heartbeat",
+        action="store_true",
+        help="Emit a heartbeat event even when state is unchanged (useful for liveness checks).",
+    )
+    alert_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output the result as JSON (kind, paths, alerting surfaces).",
+    )
+    alert_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
 
 
 def _add_codebase_audit_parser(subparsers) -> None:
@@ -2879,6 +3728,363 @@ def _add_triage_parser(subparsers) -> None:
     add_triage_parser(subparsers)
 
 
+def _add_codex_parser(subparsers) -> None:
+    """Add the 'codex' read-only inspector commands for Codex Desktop state."""
+
+    def parent_help(p: argparse.ArgumentParser):
+        def _cmd_parent_help(_args):
+            p.print_help()
+            return 2
+
+        return _cmd_parent_help
+
+    codex = subparsers.add_parser(
+        "codex",
+        help="Read-only inspector for Codex Desktop local state",
+        description=(
+            "Surface Codex Desktop sessions/threads from ~/.codex/ as redacted, "
+            "read-only data. Never writes to ~/.codex/ and consumes no AI "
+            "provider keys. The sessions brief command may query GitHub/repo "
+            "state for queue context unless --repo-root '' disables it."
+        ),
+    )
+    codex.set_defaults(func=parent_help(codex))
+    codex_sub = codex.add_subparsers(dest="codex_cmd")
+
+    sessions = codex_sub.add_parser(
+        "sessions",
+        help="Inspect Codex Desktop sessions/threads",
+        description="List, brief, summarize, or tail Codex Desktop sessions (read-only).",
+    )
+    sessions.set_defaults(func=parent_help(sessions))
+    sessions_sub = sessions.add_subparsers(dest="codex_sessions_cmd")
+
+    def add_common(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--codex-home",
+            default=None,
+            help="Override Codex Desktop home dir (default: $ARAGORA_CODEX_HOME or ~/.codex)",
+        )
+        p.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
+
+    list_cmd = sessions_sub.add_parser("list", help="List threads updated within --since window")
+    add_common(list_cmd)
+    list_cmd.add_argument(
+        "--since",
+        default="4h",
+        help="Time window (e.g. 30m, 4h, 1d, 90s). Default: 4h.",
+    )
+    list_cmd.add_argument(
+        "--include-archived",
+        action="store_true",
+        help="Include archived threads (default: exclude)",
+    )
+    list_cmd.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="Maximum number of threads to return (default: 50, 0 = no limit)",
+    )
+    list_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_list")
+    )
+
+    brief_cmd = sessions_sub.add_parser(
+        "brief",
+        help="Brief recent sessions and route conservative next prompts",
+        description=(
+            "Build redacted Codex Desktop session briefings from local JSONL/session "
+            "metadata, then classify each session into pause/watch/review/settle/"
+            "repair/paste-needed. Raw transcript text is not emitted."
+        ),
+    )
+    add_common(brief_cmd)
+    brief_cmd.add_argument(
+        "--since",
+        default="4h",
+        help="Time window (e.g. 30m, 4h, 1d, 90s). Default: 4h.",
+    )
+    brief_cmd.add_argument(
+        "--include-archived",
+        action="store_true",
+        help="Include archived threads (default: exclude)",
+    )
+    brief_cmd.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="Maximum number of threads to brief (default: 50, 0 = no limit)",
+    )
+    brief_cmd.add_argument(
+        "--include-last-turns",
+        type=int,
+        default=0,
+        help="Include this many recent safe turn summaries, never raw transcript text.",
+    )
+    brief_cmd.add_argument(
+        "--compact",
+        action="store_true",
+        help="Emit compact prompt-router rows instead of full briefing objects.",
+    )
+    brief_cmd.add_argument(
+        "--awaiting-prompts",
+        action="store_true",
+        help="Return only sessions whose redacted signal suggests an operator prompt is needed.",
+    )
+    brief_cmd.add_argument(
+        "--group-by",
+        choices=("cwd", "branch", "title"),
+        default=None,
+        help="Group returned session ids by cwd, branch, or title.",
+    )
+    brief_cmd.add_argument(
+        "--session",
+        default=None,
+        help="Restrict to one thread id or id prefix; returns paste-needed if invisible.",
+    )
+    brief_cmd.add_argument(
+        "--repo-root",
+        default=".",
+        help="Repo root used for queue/lane context (default: current directory; '' disables).",
+    )
+    brief_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_brief")
+    )
+
+    show_cmd = sessions_sub.add_parser(
+        "show",
+        help="Summarize one session by thread id (or 8+ char prefix) or rollout path",
+    )
+    add_common(show_cmd)
+    show_cmd.add_argument(
+        "target",
+        help="Thread id, id prefix (>=8 chars), or path to a rollout JSONL file",
+    )
+    show_cmd.add_argument(
+        "--full",
+        action="store_true",
+        help=(
+            "Write the full redacted transcript. Default writes to a file under "
+            ".aragora/codex_sessions/<id>.jsonl; use --out - to force stdout."
+        ),
+    )
+    show_cmd.add_argument(
+        "--out",
+        default="",
+        help=(
+            "Output destination for --full. '-' for stdout, '' (default) for "
+            ".aragora/codex_sessions/<id>.jsonl, or an explicit path outside "
+            "the Codex Desktop home."
+        ),
+    )
+    show_cmd.add_argument(
+        "--max-events",
+        type=int,
+        default=2000,
+        help="Max events to scan when summarizing (default: 2000; ignored when --full).",
+    )
+    show_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_show")
+    )
+
+    tail_cmd = sessions_sub.add_parser(
+        "tail",
+        help="Poll active sessions and print new redacted events as they arrive",
+    )
+    add_common(tail_cmd)
+    tail_cmd.add_argument(
+        "--since",
+        default="4h",
+        help="Time window selecting which sessions to watch (default: 4h)",
+    )
+    tail_cmd.add_argument(
+        "--interval",
+        type=float,
+        default=5.0,
+        help="Polling interval in seconds (default: 5.0)",
+    )
+    tail_cmd.add_argument(
+        "--from-start",
+        action="store_true",
+        help="On startup, replay all events from each active session (default: tail-only).",
+    )
+    tail_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_tail")
+    )
+
+    insights = codex_sub.add_parser(
+        "insights",
+        help="Analyze Codex Desktop activity (patterns, anomalies, digests)",
+        description=(
+            "Read-only analysis over the inspector: aggregate patterns, detect "
+            "anomalies (runaway / stuck / over-budget), cross-reference work, "
+            "and emit signed daily digest receipts."
+        ),
+    )
+    insights_sub = insights.add_subparsers(dest="codex_insights_cmd")
+
+    def add_insights_common(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--codex-home",
+            default=None,
+            help="Override Codex Desktop home dir (default: $ARAGORA_CODEX_HOME or ~/.codex)",
+        )
+        p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+        p.add_argument(
+            "--since",
+            default="4h",
+            help="Time window (e.g. 30m, 4h, 1d). Default: 4h.",
+        )
+        p.add_argument(
+            "--include-archived",
+            action="store_true",
+            help="Include archived threads (default: exclude)",
+        )
+
+    summary_cmd = insights_sub.add_parser(
+        "summary",
+        help="Aggregate session patterns (models, tool calls, durations, abandoned count)",
+    )
+    add_insights_common(summary_cmd)
+    summary_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_insights", "cmd_codex_insights_summary")
+    )
+
+    anomalies_cmd = insights_sub.add_parser(
+        "anomalies",
+        help="Flag stuck / runaway / over-budget sessions",
+    )
+    add_insights_common(anomalies_cmd)
+    anomalies_cmd.add_argument(
+        "--token-cap",
+        type=int,
+        default=100_000,
+        help="Flag sessions with tokens_used >= this value (default: 100000)",
+    )
+    anomalies_cmd.add_argument(
+        "--runaway-tool-calls",
+        type=int,
+        default=200,
+        help="Flag sessions with >= this many tool calls in the scanned window (default: 200)",
+    )
+    anomalies_cmd.add_argument(
+        "--stuck-turn-minutes",
+        type=int,
+        default=5,
+        help="Flag sessions whose last event is a turn_start silent for > N minutes (default: 5)",
+    )
+    anomalies_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_insights", "cmd_codex_insights_anomalies")
+    )
+
+    crossref_cmd = insights_sub.add_parser(
+        "crossref",
+        help="Map sessions to PR/issue references found in their metadata",
+    )
+    add_insights_common(crossref_cmd)
+    crossref_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_insights", "cmd_codex_insights_crossref")
+    )
+
+    digest_cmd = insights_sub.add_parser(
+        "digest",
+        help="Build (and optionally persist + KM-ingest) a full daily digest",
+    )
+    add_insights_common(digest_cmd)
+    digest_cmd.add_argument(
+        "--emit-receipt",
+        action="store_true",
+        help="Write the digest JSON to .aragora/codex_insights/digest-<ts>.json",
+    )
+    digest_cmd.add_argument(
+        "--receipt-dir",
+        default=None,
+        help="Override receipt output directory (default: .aragora/codex_insights/)",
+    )
+    digest_cmd.add_argument(
+        "--ingest-km",
+        action="store_true",
+        help="After --emit-receipt, ingest into Aragora KM via 'aragora km store' (best-effort)",
+    )
+    digest_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_insights", "cmd_codex_insights_digest")
+    )
+
+
+def _add_factory_parser(subparsers) -> None:
+    """Add the 'factory' read-only inspector commands for Factory/Droid metadata."""
+
+    def parent_help(p: argparse.ArgumentParser):
+        def _cmd_parent_help(_args):
+            p.print_help()
+            return 2
+
+        return _cmd_parent_help
+
+    factory = subparsers.add_parser(
+        "factory",
+        help="Read-only inspector for Factory/Droid local session metadata",
+        description=(
+            "Surface Factory/Droid sessions from ~/.factory/ as redacted, read-only "
+            "metadata. Raw transcripts, prompts, logs, and history are not read."
+        ),
+    )
+    factory.set_defaults(func=parent_help(factory))
+    factory_sub = factory.add_subparsers(dest="factory_cmd")
+
+    sessions = factory_sub.add_parser(
+        "sessions",
+        help="Inspect Factory/Droid session metadata",
+        description="Brief Factory/Droid sessions from local metadata (read-only).",
+    )
+    sessions.set_defaults(func=parent_help(sessions))
+    sessions_sub = sessions.add_subparsers(dest="factory_sessions_cmd")
+
+    brief_cmd = sessions_sub.add_parser(
+        "brief",
+        help="Brief recent Factory/Droid sessions and route conservative next prompts",
+        description=(
+            "Build redacted Factory/Droid session briefings from local metadata. "
+            "Raw transcript text, prompt logs, history, and session logs are not emitted."
+        ),
+    )
+    brief_cmd.add_argument(
+        "--factory-home",
+        default=None,
+        help="Factory home directory (default: ~/.factory).",
+    )
+    brief_cmd.add_argument(
+        "--since",
+        default="4h",
+        help="Time window (e.g. 30m, 4h, 1d, 90s). Default: 4h.",
+    )
+    brief_cmd.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="Maximum number of sessions to brief (default: 50, 0 = no limit).",
+    )
+    brief_cmd.add_argument(
+        "--session",
+        default=None,
+        help="Restrict to one Factory/Droid session id or id prefix.",
+    )
+    brief_cmd.add_argument(
+        "--compact",
+        action="store_true",
+        help="Emit compact prompt-router rows instead of full briefing objects.",
+    )
+    brief_cmd.add_argument(
+        "--repo-root",
+        default=".",
+        help="Repo root used for queue/lane context (default: current directory; '' disables).",
+    )
+    brief_cmd.add_argument("--json", action="store_true", help="Emit JSON output.")
+    brief_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.factory_sessions", "cmd_factory_sessions_brief")
+    )
+
+
 def _add_swarm_parser(subparsers) -> None:
     """Add the 'swarm' subcommand for swarm commander."""
     swarm_parser = subparsers.add_parser(
@@ -3631,6 +4837,7 @@ Examples:
   aragora spec "Make our onboarding flow better"
   aragora spec "Add dark mode" --depth thorough --profile cto
   aragora spec "Improve test coverage" --format json --output spec.json
+  aragora spec "Publish H1-01 rev-4 benchmark result" --to-mission /tmp/mission.yaml
   aragora spec "Design a rate limiter" --dry-run
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -3668,6 +4875,10 @@ Examples:
         "--output",
         "-o",
         help="Save spec to file",
+    )
+    spec_parser.add_argument(
+        "--to-mission",
+        help="Write a goal-conductor mission YAML file from the generated spec, without dispatching agents.",
     )
     spec_parser.add_argument(
         "--dry-run",
@@ -3753,6 +4964,54 @@ Examples:
         help="Preview parameters without running the debate",
     )
     crux_parser.set_defaults(func=_lazy("aragora.cli.commands.crux", "cmd_crux"))
+
+
+def _add_crux_followup_parser(subparsers) -> None:
+    """Add the 'crux-followup' subcommand for DIC-17 follow-up proposals."""
+    from aragora.epistemic.followup import DEFAULT_CRUX_LOAD_BEARING_THRESHOLD
+
+    p = subparsers.add_parser(
+        "crux-followup",
+        help="Generate DIC-17 follow-up proposals from a CruxSet (flag-gated filing)",
+        description="""
+Read a signed CruxSet JSON file and emit bounded DIC-17 FollowupProposals for
+load-bearing cruxes above --threshold.  Default: dry-run (print proposals only).
+Filing via --file-issues requires ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1.
+
+Examples:
+  aragora crux-followup cruxset.json
+  aragora crux-followup cruxset.json --threshold 0.7 --json
+  aragora crux-followup cruxset.json --file-issues --repo owner/repo
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("cruxset_file", help="Path to CruxSet JSON file (- for stdin)")
+    p.add_argument(
+        "--threshold",
+        type=float,
+        default=DEFAULT_CRUX_LOAD_BEARING_THRESHOLD,
+        help=f"Minimum load_bearing_score for a crux to qualify (default: {DEFAULT_CRUX_LOAD_BEARING_THRESHOLD})",
+    )
+    p.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        dest="top_k",
+        help="Maximum proposals to emit (default: 5)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of human-readable text")
+    p.add_argument(
+        "--file-issues",
+        action="store_true",
+        dest="file_issues",
+        help="Print gh issue create commands for proposals (requires ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1)",
+    )
+    p.add_argument(
+        "--repo",
+        default="",
+        help="GitHub repo (owner/name) for --file-issues",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.crux_followup", "cmd_crux_followup"))
 
 
 def _add_build_parser(subparsers) -> None:

@@ -8,7 +8,7 @@ description: Aragora Project Status
 *Last updated: May 14, 2026*
 
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](./status).
-> The thesis settlement ledger lives at [status/2026-04-21-thesis-settlement-session.md](status/2026-04-21-thesis-settlement-session.md).
+> The thesis settlement ledger has been archived at [archive/status/2026-04-21-thesis-settlement-session.md](archive/status/2026-04-21-thesis-settlement-session.md).
 > Historical sections below are retained for continuity, but the active source of truth for current project status is `docs/status/STATUS.md`.
 > See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
 
@@ -32,6 +32,20 @@ Surfaces that remain aging or not-yet-refreshed (visible via `review-queue healt
 - **TW-03 rescue ledger** last refreshed 2026-04-17 (~27 days).
 
 These are operator/automation refresh tasks; none requires new substrate.
+
+**Batch #2 added evidence of the positive case (2026-05-14).** Receipt [OBSERVE_OUTCOMES_BATCH_2_2026-05-14.md](status/OBSERVE_OUTCOMES_BATCH_2_2026-05-14.md) records 18 receipts written with **the first fired outcome signal** — `outcome_human_override_redo=true` on PR [#7146](https://github.com/synaptent/aragora/pull/7146), correctly triggered by a literal `Supersedes #7146` reference in PR [#7153](https://github.com/synaptent/aragora/pull/7153). Batch #1 (May 13) had verified the negative case (10 clean PRs, three-model consensus); batch #2 verifies the positive case on a real follow-on remediation. The detection is conservative (literal-phrase match).
+
+### Initial operating SLOs — trial targets for the next cycle
+
+These are forward-looking operational targets adopted for the upcoming cycle. They are *not* measurements of historical performance and *not* claims that the proof loop has already met any of these bars. Each tier is the evidence threshold that must be met before the next tier becomes meaningful to discuss.
+
+| Tier | Target | Evidence source |
+| --- | --- | --- |
+| Tier 1 (current): per-batch `observe-outcomes --write` verification — each operator-authorized batch is independently verified before being treated as proof | 100% per batch | settlement receipts + observe-outcomes audit log; three-model cross-family verification per the May 13 protocol |
+| Tier 2 (next): proof-first shift runs 24h continuous without operator-required halt | ≥1 occurrence required | `.aragora/proof_first_shift/shift_ledger.jsonl` |
+| Tier 3 (gating before any expansion of the unattended `--write` cap): 7 days continuous shift + at least 20 settlement receipt samples for threshold grounding | not yet met; no expansion considered until met | shift ledger + insufficiency receipt schema + accumulated settlement evidence |
+
+The Tier 2 target reflects the Apr 26-27 failure mode (`RepeatedBossRestartFailure`, cyclic automation interference pattern) which has been addressed by [#6676](https://github.com/synaptent/aragora/pull/6676) and the launchd-throttle fix tranche. The observability surface from [#7150](https://github.com/synaptent/aragora/pull/7150) (`aragora review-queue health`, merged 2026-05-14) and open PR [#7156](https://github.com/synaptent/aragora/pull/7156) (edge-triggered alerter) give operators the surface needed to measure these targets. Tier 3 is the standing precondition for any further automation latitude — until the 7-day soak and the 20-receipt sample threshold are both met, the unattended `--write` policy does not change.
 
 ## May 6, 2026 — Proof Loop Operation Snapshot
 
@@ -73,7 +87,7 @@ The current bounded queue (updated 2026-04-25):
 1. ~~close [#6374](https://github.com/synaptent/aragora/issues/6374) on the canonical PR-review path~~ — **CLOSED**
 2. ~~close [#6373](https://github.com/synaptent/aragora/issues/6373) with rolling-window triage metrics~~ — **CLOSED**
 3. ~~close [#6372](https://github.com/synaptent/aragora/issues/6372) with auto-handle calibration + drift gating~~ — **CLOSED**
-4. close [#6375](https://github.com/synaptent/aragora/issues/6375) with empirical threshold grounding — **OPEN, sole remaining H1 gap**
+4. ~~close [#6375](https://github.com/synaptent/aragora/issues/6375) with empirical threshold grounding~~ — **CLOSED with complete-coverage guard; non-insufficient threshold updates require full v2 outcome observation coverage**
 
 For the full current-status narrative, use the canonical doc:
 
@@ -1933,8 +1947,9 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - "Recursive Langu
 
 **Installation:**
 ```bash
-# Install with real RLM support
-pip install aragora[rlm]
+# Base install includes a compression fallback; add the official `rlm` package for TRUE RLM
+pip install aragora
+pip install rlm
 ```
 
 **Usage:**

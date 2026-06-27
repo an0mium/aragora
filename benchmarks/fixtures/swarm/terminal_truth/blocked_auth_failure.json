@@ -25,5 +25,23 @@
     "has_deliverable": false,
     "publish_action": "",
     "expected_class": "blocked_auth_failure"
+  },
+  {
+    "worker_status": "needs_human",
+    "worker_outcome": "blocked_auth_failure",
+    "elapsed_seconds": 0.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_auth_failure"
+  },
+  {
+    "worker_status": "failed",
+    "worker_outcome": "provider_auth_required",
+    "elapsed_seconds": 8.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_auth_failure"
   }
 ]

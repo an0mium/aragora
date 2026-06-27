@@ -3,7 +3,7 @@
 
 # Operator image settings
 image:
-  repository: ghcr.io/an0mium/aragora-operator
+  repository: ghcr.io/synaptent/aragora-operator
   pullPolicy: IfNotPresent
   tag: ""  # Overrides the image tag whose default is the chart appVersion
 

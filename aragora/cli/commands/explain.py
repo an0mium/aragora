@@ -107,6 +107,7 @@ def _try_api_explanation(debate_id: str, args: argparse.Namespace) -> dict[str, 
         import os
 
         from aragora.client.client import AragoraClient
+        from aragora.client.errors import AragoraAPIError
 
         api_url = getattr(args, "api_url", None) or os.environ.get(
             "ARAGORA_API_URL", "http://localhost:8080"
@@ -166,7 +167,11 @@ def _try_api_explanation(debate_id: str, args: argparse.Namespace) -> dict[str, 
     except ImportError:
         logger.debug("AragoraClient not available")
         return None
-    except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:
+    except (AragoraAPIError, OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:
+        # AragoraAPIError covers the SDK client's connection/HTTP failures
+        # (URLError re-raised in client._get, NotFoundError/etc. via _handle_http_error).
+        # It derives from AragoraError(Exception), not OSError, so it must be caught
+        # explicitly to reach the local fallback in cmd_explain.
         logger.debug("API explanation failed: %s", e)
         return None
 

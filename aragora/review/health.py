@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -39,6 +40,8 @@ DEFAULT_BOSS_LOG_REL = DEFAULT_OVERNIGHT_REL / "boss-loop-launchd.log"
 DEFAULT_WATCHDOG_LOG_REL = DEFAULT_OVERNIGHT_REL / "watchdog.log"
 DEFAULT_B0_STATUS_REL = Path("docs") / "status" / "B0_BENCHMARK_TRUTH_STATUS.md"
 DEFAULT_TW03_STATUS_REL = Path("docs") / "status" / "TW03_RESCUE_PRODUCTIZATION_STATUS.md"
+GIT_SHOW_TIMEOUT_SECONDS = 5
+GIT_STATUS_TIMEOUT_SECONDS = 5
 
 # Status severities (ordered ascending so max() returns worst).
 STATUS_FRESH = "fresh"
@@ -158,15 +161,24 @@ def _check_directory_freshness(
     crit_h: float,
     expect_nonempty: bool = True,
     glob: str = "*",
+    max_status: str | None = None,
+    informational: bool = False,
 ) -> SurfaceCheck:
     """Build a SurfaceCheck for a directory containing dated artifacts."""
     if not directory.exists():
+        status = STATUS_MISSING
+        missing_extra: dict[str, object] = {}
+        if informational and directory.parent.exists():
+            if max_status is not None and _SEVERITY_RANK[status] > _SEVERITY_RANK[max_status]:
+                status = max_status
+            missing_extra["informational"] = True
         return SurfaceCheck(
             name=name,
-            status=STATUS_MISSING,
+            status=status,
             count=0,
             path=str(directory),
             detail=f"directory does not exist: {directory}",
+            extra=missing_extra,
         )
     newest_path, newest_mtime, count = _newest_in_dir(directory, glob=glob)
     if count == 0:
@@ -180,6 +192,11 @@ def _check_directory_freshness(
     now = _now()
     age = _age_hours(newest_mtime, now) if newest_mtime is not None else None
     status = _classify_age(age, warn_h, crit_h) if age is not None else STATUS_AGING
+    if max_status is not None and _SEVERITY_RANK[status] > _SEVERITY_RANK[max_status]:
+        status = max_status
+    extra: dict[str, object] = {}
+    if informational:
+        extra["informational"] = True
     return SurfaceCheck(
         name=name,
         status=status,
@@ -188,6 +205,7 @@ def _check_directory_freshness(
         age_hours=age,
         path=str(directory),
         detail=f"newest: {newest_path.name}" if newest_path is not None else None,
+        extra=extra,
     )
 
 
@@ -261,12 +279,8 @@ def _count_jsonl_rows(path: Path) -> dict[str, object]:
 _LAST_UPDATED_RE = re.compile(r"^Last updated:\s*(\S+)", re.MULTILINE)
 
 
-def _parse_status_doc_last_updated(path: Path) -> datetime | None:
-    """Read the 'Last updated:' line from a status markdown doc."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return None
+def _parse_status_doc_last_updated_text(text: str) -> datetime | None:
+    """Parse the 'Last updated:' line from a status markdown doc body."""
     match = _LAST_UPDATED_RE.search(text)
     if not match:
         return None
@@ -281,12 +295,47 @@ def _parse_status_doc_last_updated(path: Path) -> datetime | None:
         return None
 
 
+def _parse_status_doc_last_updated(path: Path) -> datetime | None:
+    """Read the 'Last updated:' line from a status markdown doc."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return _parse_status_doc_last_updated_text(text)
+
+
+def _status_doc_last_updated_from_origin_main(repo: Path, rel_path: Path) -> datetime | None:
+    """Best-effort parse of a status doc from the local ``origin/main`` ref.
+
+    This is intentionally local and timeout-bounded: no fetch, no network, no
+    mutation. Missing refs or non-git fixture repos simply return ``None``.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "show", f"origin/main:{rel_path.as_posix()}"],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=GIT_SHOW_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return _parse_status_doc_last_updated_text(proc.stdout)
+
+
 def _check_status_doc(
     *,
     name: str,
     path: Path,
     warn_h: float,
     crit_h: float,
+    repo_root: Path | None = None,
+    rel_path: Path | None = None,
 ) -> SurfaceCheck:
     if not path.exists():
         return SurfaceCheck(
@@ -306,21 +355,116 @@ def _check_status_doc(
     now = _now()
     age = _age_hours(last, now)
     status = _classify_age(age, warn_h, crit_h)
+    extra: dict[str, object] = {}
+    detail: str | None = None
+    if status != STATUS_FRESH and repo_root is not None and rel_path is not None:
+        origin_last = _status_doc_last_updated_from_origin_main(repo_root, rel_path)
+        if origin_last is not None and origin_last > last:
+            origin_age = _age_hours(origin_last, now)
+            origin_status = _classify_age(origin_age, warn_h, crit_h)
+            extra.update(
+                {
+                    "checkout_stale_possible": True,
+                    "origin_main_last_updated": origin_last.isoformat(),
+                    "origin_main_age_hours": round(origin_age, 2),
+                    "origin_main_status": origin_status,
+                    "origin_main_fresh": origin_status == STATUS_FRESH,
+                }
+            )
+            detail = (
+                "origin/main has fresher Last updated "
+                f"({origin_last.isoformat()}); observer checkout may be stale"
+            )
     return SurfaceCheck(
         name=name,
         status=status,
         latest_mtime=last,
         age_hours=age,
         path=str(path),
+        detail=detail,
+        extra=extra,
     )
 
 
-_CRASH_PATTERN = re.compile(r"ModuleNotFoundError")
+_TRACEBACK_PATTERN = re.compile(r"Traceback \(most recent call last\):")
+_CRASH_PATTERN = re.compile(
+    r"\b(?:AttributeError|ImportError|ModuleNotFoundError|RuntimeError|ValueError|TypeError):"
+)
 _EXIT_OK_PATTERN = re.compile(r"Boss loop exited with status 0")
 _EXIT_FAIL_PATTERN = re.compile(r"Boss loop exited with status 1")
+_PYTHON_WARNING_PATTERN = re.compile(r"ARAGORA_PYTHON is set but not executable: .+")
+_PYTHON_INTERPRETER_PATTERN = re.compile(r"Using Python interpreter: .+")
 
 
-def _check_boss_loop_log(path: Path, warn_h: float, crit_h: float) -> SurfaceCheck:
+def _git_output(repo: Path, *args: str) -> str | None:
+    """Run a local read-only git command and return stripped stdout."""
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=GIT_STATUS_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip()
+
+
+def _runtime_checkout_extra(repo: Path) -> dict[str, object]:
+    """Return local checkout drift diagnostics for a daemon runtime repo."""
+    if not (repo / ".git").exists():
+        return {"runtime_repo": str(repo), "runtime_checkout_status": "not_git"}
+
+    head = _git_output(repo, "rev-parse", "HEAD")
+    origin_main = _git_output(repo, "rev-parse", "origin/main")
+    merge_base = (
+        _git_output(repo, "merge-base", "HEAD", "origin/main") if head and origin_main else None
+    )
+    status_text = _git_output(repo, "status", "--short", "--untracked-files=all")
+    dirty_count = len(status_text.splitlines()) if status_text else 0
+
+    if not head:
+        checkout_status = "unknown"
+    elif not origin_main:
+        checkout_status = "no_origin_main"
+    elif head == origin_main:
+        checkout_status = "current"
+    elif merge_base == head:
+        checkout_status = "behind_origin_main"
+    elif merge_base == origin_main:
+        checkout_status = "ahead_of_origin_main"
+    elif merge_base:
+        checkout_status = "diverged_from_origin_main"
+    else:
+        checkout_status = "unknown"
+
+    extra: dict[str, object] = {
+        "runtime_repo": str(repo),
+        "runtime_checkout_status": checkout_status,
+        "runtime_checkout_dirty_count": dirty_count,
+    }
+    if head:
+        extra["runtime_head"] = head
+    if origin_main:
+        extra["runtime_origin_main"] = origin_main
+    if merge_base:
+        extra["runtime_merge_base"] = merge_base
+    return extra
+
+
+def _check_boss_loop_log(
+    path: Path,
+    warn_h: float,
+    crit_h: float,
+    *,
+    runtime_repo_root: Path | None = None,
+) -> SurfaceCheck:
     if not path.exists():
         return SurfaceCheck(
             name="boss_loop_log",
@@ -333,27 +477,76 @@ def _check_boss_loop_log(path: Path, warn_h: float, crit_h: float) -> SurfaceChe
     age = _age_hours(mtime, now) if mtime is not None else None
     status = _classify_age(age, warn_h, crit_h) if age is not None else STATUS_AGING
 
+    tracebacks_total = 0
     crashes_total = 0
     exits_ok_total = 0
     exits_fail_total = 0
+    last_terminal_event = ""
+    latest_failure = ""
+    latest_failure_signature = ""
+    latest_python_warning = ""
+    latest_python_interpreter = ""
     try:
         with path.open("r", encoding="utf-8", errors="replace") as handle:
             for line in handle:
-                if _CRASH_PATTERN.search(line):
+                stripped = line.strip()
+                if _PYTHON_WARNING_PATTERN.search(line):
+                    latest_python_warning = stripped
+                elif _PYTHON_INTERPRETER_PATTERN.search(line):
+                    latest_python_interpreter = stripped
+                elif _TRACEBACK_PATTERN.search(line):
+                    tracebacks_total += 1
+                    last_terminal_event = "traceback"
+                    latest_failure = stripped
+                elif _CRASH_PATTERN.search(line):
                     crashes_total += 1
+                    last_terminal_event = "crash"
+                    latest_failure = stripped
+                    latest_failure_signature = stripped
                 elif _EXIT_OK_PATTERN.search(line):
                     exits_ok_total += 1
+                    last_terminal_event = "exit_ok"
+                    latest_failure = ""
+                    latest_failure_signature = ""
                 elif _EXIT_FAIL_PATTERN.search(line):
                     exits_fail_total += 1
+                    last_terminal_event = "exit_fail"
+                    latest_failure = stripped
     except OSError:
         pass
 
+    active_failure = last_terminal_event in {"traceback", "crash", "exit_fail"}
+    if active_failure:
+        status = STATUS_STALE
+
     extra: dict[str, object] = {
+        "tracebacks_total": tracebacks_total,
         "crashes_total": crashes_total,
         "exits_ok_total": exits_ok_total,
         "exits_fail_total": exits_fail_total,
+        "last_terminal_event": last_terminal_event or None,
     }
-    detail = f"crashes={crashes_total} ok={exits_ok_total} fail={exits_fail_total}"
+    if active_failure and latest_failure:
+        extra["latest_failure"] = latest_failure[-240:]
+    if active_failure and latest_failure_signature:
+        extra["latest_failure_signature"] = latest_failure_signature[-240:]
+    if latest_python_warning:
+        extra["latest_python_warning"] = latest_python_warning[-240:]
+    if latest_python_interpreter:
+        extra["latest_python_interpreter"] = latest_python_interpreter[-240:]
+    if last_terminal_event in {"traceback", "crash", "exit_fail"} and runtime_repo_root is not None:
+        extra.update(_runtime_checkout_extra(runtime_repo_root))
+    detail = (
+        f"tracebacks={tracebacks_total} crashes={crashes_total} "
+        f"ok={exits_ok_total} fail={exits_fail_total}"
+    )
+    if active_failure and latest_failure:
+        detail = f"{detail}; latest_failure={latest_failure[-120:]}"
+    if active_failure and latest_failure_signature and latest_failure_signature != latest_failure:
+        detail = f"{detail}; failure_signature={latest_failure_signature[-120:]}"
+    checkout_status = extra.get("runtime_checkout_status")
+    if checkout_status and checkout_status != "current":
+        detail = f"{detail}; runtime_checkout={checkout_status}"
     return SurfaceCheck(
         name="boss_loop_log",
         status=status,
@@ -465,6 +658,8 @@ def gather_health(
             crit_h=warn_hours_briefs * crit_multiplier,
             expect_nonempty=False,
             glob="pr-*.json",
+            max_status=STATUS_AGING,
+            informational=True,
         )
     )
 
@@ -496,6 +691,7 @@ def gather_health(
             on_root / "boss-loop-launchd.log",
             warn_h=warn_hours_boss_log,
             crit_h=warn_hours_boss_log * crit_multiplier,
+            runtime_repo_root=state_dir.parent,
         )
     )
 
@@ -516,6 +712,8 @@ def gather_health(
             path=repo / DEFAULT_B0_STATUS_REL,
             warn_h=warn_hours_status_doc,
             crit_h=warn_hours_status_doc * crit_multiplier,
+            repo_root=repo,
+            rel_path=DEFAULT_B0_STATUS_REL,
         )
     )
 
@@ -526,6 +724,8 @@ def gather_health(
             path=repo / DEFAULT_TW03_STATUS_REL,
             warn_h=warn_hours_status_doc,
             crit_h=warn_hours_status_doc * crit_multiplier,
+            repo_root=repo,
+            rel_path=DEFAULT_TW03_STATUS_REL,
         )
     )
 

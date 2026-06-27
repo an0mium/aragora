@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
@@ -22,6 +24,19 @@ def _write_metrics(path: Path, rows: list[dict[str, object]]) -> Path:
 def _write_json(path: Path, payload: dict[str, object]) -> Path:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
+
+
+def test_repo_stable_path_relativizes_git_common_root(tmp_path: Path, monkeypatch) -> None:
+    worktree_root = tmp_path / "worktree"
+    shared_root = tmp_path / "shared"
+    metrics_path = shared_root / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    metrics_path.parent.mkdir(parents=True)
+    metrics_path.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(mod, "REPO_ROOT", worktree_root)
+    monkeypatch.setattr(mod, "git_common_repo_root", lambda _repo_root: shared_root)
+
+    assert mod._repo_stable_path(metrics_path) == ".aragora/overnight/boss_metrics.jsonl"
 
 
 def test_main_ci_passes_at_threshold(tmp_path: Path, capsys) -> None:
@@ -80,6 +95,30 @@ def test_main_json_mode_keeps_json_output(tmp_path: Path, capsys) -> None:
     assert payload["status"] == "active"
     assert payload["no_rescue_success_rate"] == 1.0
     assert payload["unique_issues_attempted"] == 1
+
+
+def test_load_metrics_rejects_malformed_jsonl_row(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"issue_number": 1001, "terminal_class": "deliverable_pr_created"}),
+                "{not json}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"malformed JSONL row at .*boss_metrics\.jsonl:2"):
+        mod.load_metrics(metrics_path)
+
+
+def test_load_metrics_rejects_non_object_jsonl_row(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(json.dumps([{"issue_number": 1001}]), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"JSONL row at .*boss_metrics\.jsonl:1 must be an object"):
+        mod.load_metrics(metrics_path)
 
 
 def test_main_uses_resolved_metrics_path_for_default_metrics(

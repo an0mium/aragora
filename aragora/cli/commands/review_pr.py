@@ -10,13 +10,15 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Awaitable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.agents.api_agents.common import close_shared_connector
 from aragora.connectors.github import GitHubConnector
-from aragora.swarm.review_routing import generate_review_response
+from aragora.swarm.review_routing import ReviewRoutingError, generate_review_response
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher
 from aragora.worktree.fleet import resolve_repo_root
 
@@ -24,12 +26,26 @@ logger = logging.getLogger(__name__)
 
 UTC = timezone.utc
 MAX_DIFF_CHARS = 60000
+MAX_SPEC_CHARS = 60000
 _VALID_REVIEW_STATUSES = {"passed", "changes_requested", "blocked_nonreviewable"}
 _STATUS_REVIEW_EVENT_BY_STATUS = {
     "passed": "APPROVE",
     "changes_requested": "REQUEST_CHANGES",
     "blocked_nonreviewable": "COMMENT",
 }
+_OPTIONAL_AGENT_PLACEHOLDERS = {"", "none", "null"}
+_REVIEWER_FAMILY_MARKERS = (
+    ("codex", ("codex", "openai", "gpt")),
+    ("claude", ("claude", "anthropic")),
+    ("grok", ("grok", "xai")),
+    ("gemini", ("gemini", "google")),
+    ("openrouter", ("openrouter",)),
+    ("mistral", ("mistral", "codestral")),
+    ("deepseek", ("deepseek",)),
+    ("qwen", ("qwen",)),
+    ("kimi", ("kimi", "moonshot")),
+    ("factory", ("factory", "droid")),
+)
 
 
 @dataclass(slots=True)
@@ -132,21 +148,30 @@ def add_review_pr_parser(subparsers) -> None:
     parser.set_defaults(func=cmd_review_pr)
 
 
+def _normalize_optional_agent(value: object) -> str | None:
+    normalized = str(value or "").strip()
+    if normalized.lower() in _OPTIONAL_AGENT_PLACEHOLDERS:
+        return None
+    return normalized
+
+
 def cmd_review_pr(args: argparse.Namespace) -> int:
     repo_root = resolve_repo_root(Path.cwd())
     result = asyncio.run(
-        run_review_pr_loop(
-            pr_ref=str(args.pr),
-            repo_root=repo_root,
-            repo_override=getattr(args, "repo", None),
-            reviewer=str(getattr(args, "reviewer", "claude") or "claude"),
-            fixer=str(getattr(args, "fixer", "")).strip() or None,
-            auto_rerun=bool(getattr(args, "auto_rerun", False)),
-            artifact_root=Path(getattr(args, "artifact_dir", "")).resolve()
-            if getattr(args, "artifact_dir", None)
-            else None,
-            keep_worktree=bool(getattr(args, "keep_worktree", False)),
-            publish_review=bool(getattr(args, "publish_review", True)),
+        _await_with_api_cleanup(
+            run_review_pr_loop(
+                pr_ref=str(args.pr),
+                repo_root=repo_root,
+                repo_override=getattr(args, "repo", None),
+                reviewer=str(getattr(args, "reviewer", "claude") or "claude"),
+                fixer=_normalize_optional_agent(getattr(args, "fixer", None)),
+                auto_rerun=bool(getattr(args, "auto_rerun", False)),
+                artifact_root=Path(getattr(args, "artifact_dir", "")).resolve()
+                if getattr(args, "artifact_dir", None)
+                else None,
+                keep_worktree=bool(getattr(args, "keep_worktree", False)),
+                publish_review=bool(getattr(args, "publish_review", True)),
+            )
         )
     )
     if getattr(args, "json_output", False):
@@ -159,6 +184,155 @@ def cmd_review_pr(args: argparse.Namespace) -> int:
     if final_status == "changes_requested":
         return 2
     return 1
+
+
+async def _await_with_api_cleanup(awaitable: Awaitable[dict[str, Any]]) -> dict[str, Any]:
+    try:
+        return await awaitable
+    finally:
+        await close_shared_connector()
+
+
+def cmd_review_local(args: argparse.Namespace) -> int:
+    repo_root = resolve_repo_root(Path.cwd())
+    reviewer = str(getattr(args, "reviewer", "claude") or "claude")
+    worker_model = str(getattr(args, "worker_model", "codex") or "codex")
+    if _reviewer_family(reviewer) == _reviewer_family(worker_model):
+        print(
+            "review-local: reviewer must be a non-worker model family "
+            f"(reviewer={reviewer!r}, worker-model={worker_model!r})",
+            file=sys.stderr,
+        )
+        return 1
+    diff_source = str(getattr(args, "diff", "-") or "-")
+    if diff_source == "-":
+        diff_text = sys.stdin.read()
+    else:
+        try:
+            diff_text = Path(diff_source).expanduser().read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"review-local: cannot read diff {diff_source!r}: {exc}", file=sys.stderr)
+            return 1
+    if not diff_text.strip():
+        print("review-local: empty diff input", file=sys.stderr)
+        return 1
+    if len(diff_text) > MAX_DIFF_CHARS:
+        diff_text = diff_text[:MAX_DIFF_CHARS] + f"\n\n... [truncated at {MAX_DIFF_CHARS} chars]"
+    spec_text = ""
+    spec_path = getattr(args, "spec", None)
+    if spec_path:
+        try:
+            spec_text = Path(spec_path).expanduser().read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"review-local: cannot read spec {spec_path!r}: {exc}", file=sys.stderr)
+            return 1
+    if len(spec_text) > MAX_SPEC_CHARS:
+        spec_text = spec_text[:MAX_SPEC_CHARS] + f"\n\n... [truncated at {MAX_SPEC_CHARS} chars]"
+    result = asyncio.run(
+        _await_with_api_cleanup(
+            run_review_local(
+                diff_text=diff_text,
+                repo_root=repo_root,
+                reviewer=reviewer,
+                worker_model=worker_model,
+                spec_text=spec_text,
+                title=str(getattr(args, "title", "") or ""),
+                artifact_root=Path(getattr(args, "artifact_dir", "")).resolve()
+                if getattr(args, "artifact_dir", None)
+                else None,
+            )
+        )
+    )
+    if getattr(args, "json_output", False):
+        print(json.dumps(result, indent=2))
+    else:
+        _print_local_review_summary(result)
+    final_status = str(result.get("final_status", "")).strip().lower()
+    if final_status == "passed":
+        return 0
+    if final_status == "changes_requested":
+        return 2
+    return 1
+
+
+async def run_review_local(
+    *,
+    diff_text: str,
+    repo_root: Path,
+    reviewer: str = "claude",
+    worker_model: str = "codex",
+    spec_text: str = "",
+    title: str = "",
+    artifact_root: Path | None = None,
+) -> dict[str, Any]:
+    prompt = _build_local_review_prompt(diff_text=diff_text, spec_text=spec_text, title=title)
+    try:
+        routing = await generate_review_response(
+            prompt,
+            worker_model=worker_model,
+            preferred_review_model=reviewer,
+            repo_root=repo_root,
+            candidate_blocker=_review_candidate_blocker(reviewer),
+        )
+    except ReviewRoutingError as exc:
+        review = _review_pass_from_routing_error(reviewer, exc)
+    else:
+        review = _review_pass_from_routing(reviewer, routing)
+
+    run_dir = _local_artifact_run_dir(repo_root, artifact_root=artifact_root)
+    payload: dict[str, Any] = {
+        "kind": "review_local",
+        "generated_at": _now_iso(),
+        "worker_model": worker_model,
+        "reviewer": reviewer,
+        "final_status": review.status,
+        "review": asdict(review),
+    }
+    _write_text(run_dir / "input.diff", diff_text)
+    _write_json(run_dir / "review.json", payload)
+    payload["artifact_dir"] = str(run_dir)
+    return payload
+
+
+def _build_local_review_prompt(*, diff_text: str, spec_text: str = "", title: str = "") -> str:
+    header = title.strip() or "Local change under review"
+    spec_block = f"\nContext / spec:\n{spec_text.strip()}\n" if spec_text.strip() else ""
+    return (
+        "You are an independent reviewer providing a NON-OpenAI second opinion on a LOCAL change. "
+        "There is no GitHub context; review only the provided diff (and context if given).\n\n"
+        "Respond with strict JSON only using this schema:\n"
+        '{"status":"passed|changes_requested|blocked_nonreviewable",'
+        '"summary":"short summary",'
+        '"findings":[{"title":"...", "body":"...", "file":"optional/path", "priority":"P0|P1|P2|P3"}]}\n\n'
+        "Focus on bugs, regressions, security issues, missing tests, and truthfulness gaps. "
+        "Avoid style-only nits.\n\n"
+        f"Change: {header}\n"
+        f"{spec_block}\n"
+        f"--- DIFF START ---\n{diff_text}\n--- DIFF END ---"
+    )
+
+
+def _local_artifact_run_dir(repo_root: Path, *, artifact_root: Path | None) -> Path:
+    root = artifact_root or (repo_root / ".aragora" / "review-local")
+    run_dir = root / _timestamp_slug()
+    run_dir.mkdir(parents=True, exist_ok=True)
+    return run_dir
+
+
+def _print_local_review_summary(result: dict[str, Any]) -> None:
+    review = result.get("review", {}) or {}
+    print(f"review-local: {result.get('final_status', 'unknown')}")
+    candidate = review.get("candidate") or {}
+    if candidate:
+        print(f"  reviewer: {candidate.get('label', result.get('reviewer'))}")
+    summary = str(review.get("summary", "")).strip()
+    if summary:
+        print(f"  summary: {summary}")
+    for finding in review.get("findings", []) or []:
+        print(f"  - [{finding.get('priority', '')}] {finding.get('title', '')}")
+    artifact_dir = str(result.get("artifact_dir", "")).strip()
+    if artifact_dir:
+        print(f"  artifact: {artifact_dir}")
 
 
 async def run_review_pr_loop(
@@ -174,10 +348,15 @@ async def run_review_pr_loop(
     advisory_only: bool = True,
     publish_review: bool = True,
 ) -> dict[str, Any]:
+    fixer = _normalize_optional_agent(fixer)
     target = _fetch_pr_target(pr_ref, repo_override=repo_override, repo_root=repo_root)
     run_dir = _artifact_run_dir(repo_root, target.number, artifact_root=artifact_root)
     review_runs: list[dict[str, Any]] = []
     fix_run: dict[str, Any] | None = None
+    observed_head_sha_before = target.head_sha
+    observed_head_sha_after = target.head_sha
+    head_sha_stale = False
+    stale_reason: str | None = None
 
     diff_text = _fetch_pr_diff(target)
     _write_text(run_dir / "review-1.diff", diff_text)
@@ -192,7 +371,25 @@ async def run_review_pr_loop(
     _write_json(run_dir / "review-1.json", asdict(review))
 
     final_status = review.status
-    if fixer and review.status == "changes_requested":
+    refreshed_after_review = _fetch_pr_target(
+        str(target.number),
+        repo_override=target.repo,
+        repo_root=repo_root,
+    )
+    observed_head_sha_after = refreshed_after_review.head_sha
+    if (
+        observed_head_sha_before
+        and observed_head_sha_after
+        and observed_head_sha_before != observed_head_sha_after
+    ):
+        head_sha_stale = True
+        final_status = "blocked_nonreviewable"
+        stale_reason = (
+            f"PR head changed during review: {observed_head_sha_before} -> "
+            f"{observed_head_sha_after}"
+        )
+
+    if not head_sha_stale and fixer and review.status == "changes_requested":
         fix = await _run_fix_pass(
             target=target,
             review=review,
@@ -228,6 +425,7 @@ async def run_review_pr_loop(
         "pr": asdict(target),
         "reviewer": reviewer,
         "fixer": fixer,
+        "fixer_requested": fixer is not None,
         "auto_rerun": auto_rerun,
         "github_review_mode": "advisory" if advisory_only else "status",
         "artifact_dir": str(run_dir),
@@ -235,8 +433,28 @@ async def run_review_pr_loop(
         "fix_run": fix_run,
         "final_status": final_status,
         "publish_review": publish_review,
+        "observed_head_sha_before": observed_head_sha_before,
+        "observed_head_sha_after": observed_head_sha_after,
+        "head_sha_stale": head_sha_stale,
+        "stale_reason": stale_reason,
     }
-    if publish_review:
+    if head_sha_stale:
+        payload["github_review"] = {
+            "posted": False,
+            "event": None,
+            "mode": "advisory" if advisory_only else "status",
+            "url": None,
+            "error": stale_reason,
+        }
+    elif _has_codex_route_blocker(review_runs):
+        payload["github_review"] = {
+            "posted": False,
+            "event": None,
+            "mode": "advisory" if advisory_only else "status",
+            "url": None,
+            "error": "Requested non-Codex reviewer routed to Codex before review generation.",
+        }
+    elif publish_review:
         payload["github_review"] = await _publish_review_outcome(
             target=target,
             review_runs=review_runs,
@@ -307,16 +525,97 @@ def _fetch_pr_target(
     )
 
 
+# Generated / lock / vendored files add no review signal but can dominate a PR
+# diff and crowd out human-authored changes. Concretely, a ~450KB `.mypy-baseline`
+# resync pushed the actual 8-line code change past MAX_DIFF_CHARS, so the model
+# reviewer only saw noise and returned `blocked_nonreviewable`. These are dropped
+# from the diff *before* truncation so real source changes always survive.
+_GENERATED_DIFF_BASENAMES = frozenset(
+    {
+        ".mypy-baseline",
+        "package-lock.json",
+        "poetry.lock",
+        "pnpm-lock.yaml",
+        "yarn.lock",
+        "Cargo.lock",
+        "uv.lock",
+        "Pipfile.lock",
+        "go.sum",
+        "composer.lock",
+        "Gemfile.lock",
+    }
+)
+_GENERATED_DIFF_SUFFIXES = (".lock", ".snap")
+_GENERATED_DIFF_PATH_RE = re.compile(
+    r"(?:^|/)generated_types\.py$|(?:^|/)[^/]*\.generated\.[^/]*$|/(?:__generated__|generated)/"
+)
+
+
+def _is_generated_diff_path(path: str) -> bool:
+    """True if ``path`` is a generated/lock/vendored file with no review signal."""
+    name = path.rsplit("/", 1)[-1]
+    if name in _GENERATED_DIFF_BASENAMES:
+        return True
+    if any(name.endswith(suffix) for suffix in _GENERATED_DIFF_SUFFIXES):
+        return True
+    return bool(_GENERATED_DIFF_PATH_RE.search(path))
+
+
+def _strip_generated_file_diffs(diff_text: str) -> tuple[str, list[str]]:
+    """Drop per-file sections for generated/lock files from a unified diff.
+
+    Returns ``(filtered_diff, dropped_paths)``. Splitting on ``diff --git``
+    headers keeps each file's hunks intact; a section is dropped when its target
+    path matches :func:`_is_generated_diff_path`.
+    """
+    if "diff --git " not in diff_text:
+        return diff_text, []
+    sections = re.split(r"(?m)(?=^diff --git )", diff_text)
+    kept: list[str] = []
+    dropped: list[str] = []
+    for section in sections:
+        if not section.strip():
+            continue
+        header = section.splitlines()[0]
+        match = re.match(r"diff --git a/(.+?) b/(.+)", header)
+        path = match.group(2) if match else ""
+        if path and _is_generated_diff_path(path):
+            dropped.append(path)
+            continue
+        kept.append(section)
+    return "".join(kept), dropped
+
+
 def _fetch_pr_diff(target: PullRequestTarget) -> str:
     gh_cmd = ["gh", "pr", "diff", str(target.number)]
     if target.repo:
         gh_cmd.extend(["--repo", target.repo])
     proc = _run_command(gh_cmd, cwd=Path.cwd())
-    diff_text = proc.stdout
+    raw_diff = proc.stdout
+    if not raw_diff.strip():
+        raise RuntimeError(f"PR #{target.number} has no diff to review")
+
+    diff_text, dropped = _strip_generated_file_diffs(raw_diff)
+    unique_dropped = sorted(set(dropped))
+
+    if not diff_text.strip():
+        # PR touches only generated/lock files — nothing human-authored to review.
+        listed = ", ".join(unique_dropped[:10]) + ("..." if len(unique_dropped) > 10 else "")
+        return (
+            f"[All changes in PR #{target.number} are generated/lock files "
+            f"({listed}); no human-authored source changes to review.]"
+        )
+
     if len(diff_text) > MAX_DIFF_CHARS:
         diff_text = diff_text[:MAX_DIFF_CHARS] + f"\n\n... [truncated at {MAX_DIFF_CHARS} chars]"
-    if not diff_text.strip():
-        raise RuntimeError(f"PR #{target.number} has no diff to review")
+
+    if unique_dropped:
+        listed = ", ".join(unique_dropped[:10]) + ("..." if len(unique_dropped) > 10 else "")
+        diff_text += (
+            f"\n\n[note: omitted {len(unique_dropped)} generated/lock file(s) "
+            f"from review to preserve reviewable source: {listed}]"
+        )
+
     return diff_text
 
 
@@ -329,12 +628,54 @@ async def _run_review_pass(
     repo_root: Path,
 ) -> ReviewPass:
     prompt = _build_review_prompt(target=target, diff_text=diff_text)
-    routing = await generate_review_response(
-        prompt,
-        worker_model=worker_model,
-        preferred_review_model=reviewer,
-        repo_root=repo_root,
+    try:
+        routing = await generate_review_response(
+            prompt,
+            worker_model=worker_model,
+            preferred_review_model=reviewer,
+            repo_root=repo_root,
+            candidate_blocker=_review_candidate_blocker(reviewer),
+        )
+    except ReviewRoutingError as exc:
+        return _review_pass_from_routing_error(reviewer, exc)
+    return _review_pass_from_routing(reviewer, routing)
+
+
+def _review_pass_from_routing_error(reviewer: str, exc: ReviewRoutingError) -> ReviewPass:
+    return ReviewPass(
+        reviewer=reviewer,
+        reviewed_at=_now_iso(),
+        status="blocked_nonreviewable",
+        summary=exc.public_message,
+        findings=[
+            {
+                "title": "Review routing failed",
+                "body": exc.public_message,
+                "priority": "P1",
+                "category": exc.category,
+            }
+        ],
+        attempts=[dict(item) for item in exc.attempts if isinstance(item, dict)],
+        raw_response="",
     )
+
+
+def _review_pass_from_routing(reviewer: str, routing: dict[str, Any]) -> ReviewPass:
+    candidate = dict(routing.get("candidate") or {})
+    attempts = [dict(item) for item in routing.get("attempts", []) if isinstance(item, dict)]
+    blocked = routing.get("blocked")
+    if isinstance(blocked, dict):
+        finding = _normalize_route_blocker(blocked)
+        return ReviewPass(
+            reviewer=reviewer,
+            reviewed_at=_now_iso(),
+            status="blocked_nonreviewable",
+            summary=finding["body"],
+            findings=[finding],
+            candidate=candidate,
+            attempts=attempts,
+            raw_response="",
+        )
     raw_response = str(routing.get("response", "")).strip()
     parsed = _extract_first_json_object(raw_response)
     status = str(parsed.get("status", "")).strip().lower()
@@ -342,6 +683,11 @@ async def _run_review_pass(
         status = "blocked_nonreviewable"
     findings = _normalize_findings(parsed.get("findings", []))
     summary = str(parsed.get("summary", "")).strip()
+    route_blocker = _codex_fallback_blocker(reviewer, candidate)
+    if route_blocker:
+        status = "blocked_nonreviewable"
+        summary = route_blocker["body"]
+        findings = [route_blocker]
     if status == "changes_requested" and not findings:
         findings = [{"title": "Blocking changes requested", "body": raw_response, "priority": "P1"}]
     if status == "blocked_nonreviewable" and not findings:
@@ -357,9 +703,86 @@ async def _run_review_pass(
         status=status,
         summary=summary,
         findings=findings,
-        candidate=dict(routing.get("candidate") or {}),
-        attempts=[dict(item) for item in routing.get("attempts", []) if isinstance(item, dict)],
+        candidate=candidate,
+        attempts=attempts,
         raw_response=raw_response,
+    )
+
+
+def _reviewer_family(value: object) -> str:
+    lower = str(value or "").strip().lower()
+    if not lower:
+        return ""
+    for family, markers in _REVIEWER_FAMILY_MARKERS:
+        if any(marker in lower for marker in markers):
+            return family
+    return lower
+
+
+def _candidate_family(candidate: dict[str, Any]) -> str:
+    provider = str(candidate.get("provider", "") or "").strip()
+    if provider:
+        return _reviewer_family(provider)
+    label = str(candidate.get("label", "") or "").strip()
+    return _reviewer_family(label)
+
+
+def _codex_fallback_blocker(
+    requested_reviewer: str,
+    candidate: dict[str, Any],
+) -> dict[str, str] | None:
+    requested_family = _reviewer_family(requested_reviewer)
+    if not requested_family or requested_family == "codex":
+        return None
+    if _candidate_family(candidate) != "codex":
+        return None
+    candidate_label = str(candidate.get("label", "") or "").strip() or "codex"
+    return {
+        "title": "Requested reviewer routed to Codex",
+        "body": (
+            f"Requested reviewer `{requested_reviewer}` requires non-Codex evidence, but "
+            f"review-pr selected Codex candidate `{candidate_label}`. Re-run with a real "
+            "non-Codex reviewer or do not count this result as non-Codex quorum evidence."
+        ),
+        "priority": "P1",
+    }
+
+
+def _review_candidate_blocker(requested_reviewer: str):
+    def _block(candidate: object) -> dict[str, str] | None:
+        to_dict = getattr(candidate, "to_dict", None)
+        if callable(to_dict):
+            payload = to_dict()
+        elif isinstance(candidate, dict):
+            payload = candidate
+        else:
+            payload = {}
+        return _codex_fallback_blocker(requested_reviewer, dict(payload))
+
+    return _block
+
+
+def _normalize_route_blocker(blocked: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "title": str(blocked.get("title") or "Requested reviewer routed to Codex"),
+        "body": str(blocked.get("body") or "Requested non-Codex reviewer routed to Codex."),
+        "priority": str(blocked.get("priority") or "P1"),
+    }
+
+
+def _has_codex_route_blocker(review_runs: list[dict[str, Any]]) -> bool:
+    if not review_runs:
+        return False
+    latest_review = review_runs[-1]
+    if str(latest_review.get("status") or "").strip().lower() != "blocked_nonreviewable":
+        return False
+    findings = latest_review.get("findings")
+    if not isinstance(findings, list):
+        return False
+    return any(
+        isinstance(item, dict)
+        and str(item.get("title") or "").strip() == "Requested reviewer routed to Codex"
+        for item in findings
     )
 
 

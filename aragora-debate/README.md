@@ -31,7 +31,7 @@ asyncio.run(demo())
 "
 ```
 
-> Part of the [Aragora Decision Integrity Platform](https://github.com/an0mium/aragora).
+> Part of the [Aragora Decision Integrity Platform](https://github.com/synaptent/aragora).
 > This standalone package gives you the debate engine with no framework lock-in.
 
 ## Why adversarial debate?
@@ -381,13 +381,13 @@ Decision receipts help satisfy:
 - **SOC 2 CC6.1** — Audit logging
 - **HIPAA 164.312(b)** — Audit controls
 
-See [EU_AI_ACT_COMPLIANCE.md](https://github.com/an0mium/aragora/blob/main/docs/EU_AI_ACT_COMPLIANCE.md)
+See [EU_AI_ACT_COMPLIANCE.md](https://github.com/synaptent/aragora/blob/main/docs/EU_AI_ACT_COMPLIANCE.md)
 for the full mapping.
 
 ## Full platform
 
 `aragora-debate` is the standalone debate engine extracted from the
-[Aragora Decision Integrity Platform](https://github.com/an0mium/aragora).
+[Aragora Decision Integrity Platform](https://github.com/synaptent/aragora).
 The full platform adds 42+ agent types, knowledge management, enterprise auth,
 compliance frameworks, and the Nomic Loop for autonomous self-improvement.
 

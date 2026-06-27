@@ -317,7 +317,16 @@ Honest edges — regions the thesis does not claim to cover today:
 - **Low-consequence, high-volume decisions** where the overhead of
   structural decomposition exceeds the value of the decision. The
   product's internal rule: structure-first applies to consequential
-  decisions; trivial decisions get a fast path.
+  decisions; trivial decisions get a fast path. *Experimental
+  extension under test:* per-operator local advocate models (small,
+  open-weight, locally finetuned on the operator's revealed-preference
+  decision history) as a candidate fast-path proposer that escalates
+  to the full debate substrate when its calibrated confidence falls
+  below threshold. The hypothesis is falsifiable; see
+  `docs/specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md` and the
+  pre-registered Advocate Feasibility Test in `scripts/aft_harness.py`.
+  This does not weaken the structure-first rule; it adds a measured
+  pre-filter for the bucket the rule already excludes.
 - **Closed belief systems that maintain surprise-reduction through
   hermeneutic reinterpretation rather than prediction.** A framework
   that explains away anomalies after they occur is not the same as a
@@ -453,12 +462,14 @@ evaluated against the target, not the current implementation.
   surfaces so they treat the PDB execution path as the canonical PR
   review realization.
 
-- **Empirical threshold grounding.** Commitment 3's 5% auto-handle
-  outcome-invalidation threshold is a placeholder for "substantially
-  lower than baseline human-settled invalidation rate." Work needed:
-  measure the baseline once enough settled decisions accumulate;
-  replace the placeholder with baseline + safety margin; recalibrate
-  per rolling window.
+- **Empirical threshold grounding.** Commitment 3's invalidation threshold now requires
+  complete v2 outcome observation coverage across the counted human-settled
+  window before a zero invalidation numerator can emit a non-insufficient
+  threshold update. When coverage is complete and zero invalidations are
+  observed, the threshold uses the 1.0% minimum-meaningful floor
+  (`max(0 * 0.5, 0.01)` = 0.01) and recalibrates upward as real invalidation
+  events accrue; partial or absent coverage remains an insufficiency/schema-gap
+  state instead of a measured zero.
 
 Each gap is a tracked product backlog item. The gap-closing work is
 what the product roadmap is for; it is not a reason to update the
@@ -551,11 +562,12 @@ Five concrete commitments follow from taking the thesis seriously:
      drops below 15% (suggesting the panel is converging on the human's
      prior rather than adding independent signal); or
    - if, among decisions the triage layer *auto-handles*, the
-     outcome-invalidation rate rises above 5% — a placeholder for
-     "substantially lower than baseline human-settled invalidation
-     rate," pending empirical baseline measurement per § Implementation
-     gaps — suggesting auto-handling has drifted outside its
-     validated scope,
+     outcome-invalidation rate rises above the current grounded threshold —
+     provisionally the 1.0% minimum-meaningful floor only after complete v2
+     outcome observation coverage over the counted human-settled window shows
+     zero invalidations, and otherwise held in an insufficiency/schema-gap state
+     until coverage is complete — suggesting auto-handling has drifted outside
+     its validated scope,
    the product has failed its own test on that window and must be
    revised (architecturally via input-diversification; operationally
    via expanded panel heterogeneity; or in triage policy via tighter
