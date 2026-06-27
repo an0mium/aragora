@@ -12,7 +12,7 @@ import jsonschema
 from aragora.gauntlet.odr_export import load_odr_schema
 from aragora.swarm.quorum_evidence import CollectOutcome, EvidenceItem
 
-from scripts.emit_pr_receipt import build_receipt, main
+from scripts.emit_pr_receipt import build_receipt, main, verify_receipt
 
 
 def _outcome_dict() -> dict:
@@ -37,6 +37,44 @@ def test_build_receipt_is_schema_conformant():
     jsonschema.validate(odr, load_odr_schema())
     assert odr["source"]["system"] == "aragora"
     assert "8667" in odr["receipt_id"]
+
+
+def test_verify_degrades_without_jsonschema(monkeypatch):
+    # Regression for the live-CI crash: a slim runtime without jsonschema must
+    # degrade to digest-only, never raise ModuleNotFoundError.
+    import builtins
+
+    odr = build_receipt(_outcome_dict())
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "jsonschema":
+            raise ModuleNotFoundError("No module named 'jsonschema'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    digest, fully = verify_receipt(odr)
+    assert len(digest) == 64
+    assert fully is False
+
+
+def test_main_writes_receipt_even_when_verify_degrades(tmp_path: Path, monkeypatch):
+    import builtins
+
+    outcome_path = tmp_path / "outcome.json"
+    outcome_path.write_text(json.dumps(_outcome_dict()), encoding="utf-8")
+    out_path = tmp_path / "receipt.odr.json"
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "jsonschema":
+            raise ModuleNotFoundError("No module named 'jsonschema'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    rc = main(["--outcome", str(outcome_path), "--out", str(out_path), "--verify"])
+    assert rc == 0
+    assert out_path.is_file()  # receipt written despite no jsonschema
 
 
 def test_main_writes_receipt_and_github_outputs(tmp_path: Path):

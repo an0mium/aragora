@@ -43,16 +43,23 @@ def build_receipt(outcome_dict: dict[str, Any]) -> dict[str, Any]:
     return decision_receipt_to_odr(receipt)
 
 
-def verify_receipt(odr: dict[str, Any]) -> str:
-    """Validate schema and recompute the JCS digest; return the digest hex.
+def verify_receipt(odr: dict[str, Any]) -> tuple[str, bool]:
+    """Recompute the JCS digest (always) and validate the schema when possible.
 
-    Uses only in-repo tooling so the emitter has no dependency on the separately
-    published ``aragora-verify`` package. Raises on any conformance failure.
+    Returns ``(digest_hex, fully_validated)``. The digest is the cryptographic
+    content check and needs no third-party dependency. Full JSON-Schema
+    validation additionally requires ``jsonschema``; when that package is absent
+    (e.g. a slim CI runtime) verification degrades to digest-only with
+    ``fully_validated=False`` rather than crashing. A genuine schema violation
+    still raises.
     """
-    import jsonschema
-
+    digest = odr_content_digest(odr)
+    try:
+        import jsonschema
+    except ModuleNotFoundError:
+        return digest, False
     jsonschema.validate(odr, load_odr_schema())
-    return odr_content_digest(odr)
+    return digest, True
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -82,14 +89,14 @@ def main(argv: list[str] | None = None) -> int:
     outcome_dict = json.loads(args.outcome.read_text(encoding="utf-8"))
     odr = build_receipt(outcome_dict)
 
+    # Write the receipt FIRST so a verification hiccup never loses the artifact.
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(odr, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
     digest = odr_content_digest(odr)
     verified = False
     if args.verify:
-        digest = verify_receipt(odr)
-        verified = True
-
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(odr, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        digest, verified = verify_receipt(odr)
 
     verdict = odr.get("claim", {}).get("verdict", "")
     receipt_id = odr.get("receipt_id", "")
