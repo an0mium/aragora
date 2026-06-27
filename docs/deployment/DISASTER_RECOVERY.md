@@ -141,11 +141,11 @@ echo "Latest backup: $LATEST_BACKUP"
 
 # 2. Verify backup age (should be < 24 hours old)
 backup_mtime() {
-    if stat -f %m "$1" >/dev/null 2>&1; then
-        stat -f %m "$1"
-    else
-        stat -c %Y "$1"
-    fi
+    mtime=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || true)
+    case "$mtime" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    printf '%s\n' "$mtime"
 }
 
 BACKUP_AGE=$(( ($(date +%s) - $(backup_mtime "$BACKUP_DIR/$LATEST_BACKUP")) / 3600 ))
