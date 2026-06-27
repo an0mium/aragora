@@ -259,17 +259,23 @@ def test_passive_anchor_scan_reports_mixed_residue_without_only_proof(tmp_path: 
     assert candidate.cleanup_safety.safe_to_delete is False
 
 
-def test_passive_anchor_scan_rejects_symlink_candidate_root(tmp_path: Path) -> None:
+def test_passive_anchor_scan_rejects_symlink_candidate_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import codex_worktree_value_inventory as mod
 
-    target = tmp_path / "outside"
-    target.mkdir()
-    (target / ".session-anchor").write_text("anchor\n")
     root = tmp_path / "residue-link"
-    try:
-        root.symlink_to(target, target_is_directory=True)
-    except OSError as exc:
-        pytest.skip(f"symlinks unavailable: {exc}")
+    root.mkdir()
+    (root / ".session-anchor").write_text("anchor\n")
+
+    original_is_symlink = mod.Path.is_symlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == root:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(mod.Path, "is_symlink", fake_is_symlink)
 
     scan = mod.passive_session_anchor_scan(root)
 
