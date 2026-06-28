@@ -10,7 +10,7 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-The immediate gate is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop and focusing existing receipt work, not adding unrelated roadmap scope.
+The immediate gate is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop and focusing existing receipt work. Strategy mission [#8665](https://github.com/synaptent/aragora/issues/8665) is the single registered sequence for that existing ODR/receipt proof work; it is not permission to add other roadmap scope.
 
 The active strategy mission that turns this proof-first loop into an outsider-legible
 product wedge is [#8665](https://github.com/synaptent/aragora/issues/8665).
@@ -23,6 +23,10 @@ and its design lives in
 This does not widen the autonomy gate; it narrows the proof loop onto the receipt
 wedge target: multi-model PR review in, signed DecisionReceipt out once the ODR
 spine and Action artifact gates have proof.
+The Governance-substrate freeze below still applies: #8665 may prepare the
+quorum-to-receipt bridge only as the named M2 receipt-proof sub-mission after M1
+has verified the ODR spine, and protected workflow or merge-authority changes
+still require their normal exact-head approval.
 
 Current proof-loop state for `CS-01..03` reconciliation is delegated to the live recurring `B0`/`TW-03` proof surfaces:
 

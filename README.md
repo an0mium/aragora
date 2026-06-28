@@ -4,12 +4,6 @@ Aragora is an auditable execution control plane for AI-assisted work. It
 governs consequential decisions and execution with multi-model review,
 receipts, provenance, and truthful gates.
 
-### Govern AI-Assisted Work With Receipts, Review, and Truthful Gates
-
-Near-term product wedge: Aragora acts as the audit layer for AI-assisted PRs.
-Multi-model review goes in; the current mission is to make a signed,
-independently verifiable DecisionReceipt come out.
-
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![Tests](https://github.com/synaptent/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/test.yml)
 [![Smoke Tests](https://github.com/synaptent/aragora/actions/workflows/smoke.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/smoke.yml)

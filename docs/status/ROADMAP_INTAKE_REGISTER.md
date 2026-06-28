@@ -84,6 +84,10 @@ the audit layer for AI-assisted decisions: multi-model review in, signed Decisio
 after the ODR offline-verifier and Action artifact gates are proven.
 Only one sub-mission should be active at a time, and the next one starts only after the prior
 proof artifact exists and verifies.
+The queue is layered on the canonical native mission engine, not parallel to it:
+if `codex/native-mission-engine` and this strategy queue both look actionable,
+finish or use the native mission engine as the substrate first, then run this
+queue's single active sub-mission through that spine.
 
 | Mission | Status | Canonical destination | Terminal gate |
 |---|---|---|---|

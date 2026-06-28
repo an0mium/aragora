@@ -58,7 +58,7 @@ Gate output shape:
   "sub_mission": "M1",
   "verdict": "pass",
   "artifact": "docs/status/generated/odr_v1/example-live-receipt.odr.json",
-  "verification": "python3 -m aragora_verify docs/status/generated/odr_v1/example-live-receipt.odr.json",
+  "verification": "aragora-verify docs/status/generated/odr_v1/example-live-receipt.odr.json",
   "evidence": [
     "ODR schema version is v1.0",
     "native DecisionReceipt mapping documented",
@@ -116,7 +116,7 @@ Steps:
 
 - [ ] Generate one ODR receipt from a live Aragora `DecisionReceipt` path, not a hand-written JSON object.
 - [ ] Store the artifact under `docs/status/generated/odr_v1/` with a short README naming the command that produced it.
-- [ ] Verify it with `python3 -m aragora_verify docs/status/generated/odr_v1/example-live-receipt.odr.json` or the in-repo equivalent used by existing tests.
+- [ ] Verify it with `aragora-verify docs/status/generated/odr_v1/example-live-receipt.odr.json` after installing the `aragora-verify` package, or the in-repo equivalent used by existing tests.
 - [ ] Run `python3 -m pytest tests/gauntlet/test_odr_signing.py tests/gauntlet/test_odr_export.py -q`.
 
 ### Task 4: Gate Receipt Proof
