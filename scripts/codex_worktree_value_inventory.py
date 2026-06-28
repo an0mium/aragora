@@ -734,15 +734,24 @@ def has_active_session(candidate_root: Path, repo_path: Path | None) -> bool:
 
 
 def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorScanResult:
-    """Return passive wrapper anchors from a bounded, non-symlink scan."""
+    """Return passive wrapper anchors from a bounded scan that never follows symlinked dirs."""
     try:
         if candidate_root.is_symlink():
             return PassiveSessionAnchorScanResult([])
     except OSError:
         return PassiveSessionAnchorScanResult([])
+
     anchors: list[str] = []
     scanned_entries = 0
     anchor_only = True
+
+    def result(*, truncated: bool = False) -> PassiveSessionAnchorScanResult:
+        return PassiveSessionAnchorScanResult(
+            sorted(anchors),
+            truncated=truncated,
+            anchor_only=bool(anchors) and anchor_only,
+        )
+
     pending = [candidate_root]
     while pending:
         root = pending.pop()
@@ -751,16 +760,19 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
                 for entry in entries:
                     scanned_entries += 1
                     if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
-                        return PassiveSessionAnchorScanResult([], truncated=True)
+                        return result(truncated=True)
                     try:
                         if entry.is_dir(follow_symlinks=False):
                             pending.append(Path(entry.path))
                             continue
-                        if not entry.is_file(follow_symlinks=False):
+                        is_regular_file = entry.is_file(follow_symlinks=False)
+                        is_symlink = entry.is_symlink()
+                        if not is_regular_file and not is_symlink:
                             anchor_only = False
                             continue
                     except OSError:
-                        return PassiveSessionAnchorScanResult([])
+                        anchor_only = False
+                        continue
                     if entry.name in PASSIVE_SESSION_ANCHOR_IGNORED_FILES:
                         continue
                     if entry.name not in PASSIVE_SESSION_ANCHOR_FILES:
@@ -768,11 +780,9 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
                         continue
                     anchors.append(entry.path)
         except OSError:
-            return PassiveSessionAnchorScanResult([])
-    return PassiveSessionAnchorScanResult(
-        sorted(anchors),
-        anchor_only=bool(anchors) and anchor_only,
-    )
+            anchor_only = False
+            continue
+    return result()
 
 
 def passive_session_anchor_files(candidate_root: Path) -> list[str]:

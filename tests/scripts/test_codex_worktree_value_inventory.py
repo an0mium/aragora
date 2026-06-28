@@ -292,9 +292,22 @@ def test_passive_anchor_scan_handles_per_entry_oserror(
     root = tmp_path / "residue"
     root.mkdir()
 
-    class RaisingEntry:
+    class AnchorEntry:
         name = ".session-anchor"
         path = str(root / ".session-anchor")
+
+        def is_dir(self, *, follow_symlinks: bool = True) -> bool:
+            return False
+
+        def is_file(self, *, follow_symlinks: bool = True) -> bool:
+            return True
+
+        def is_symlink(self) -> bool:
+            return False
+
+    class RaisingEntry:
+        name = "blocked"
+        path = str(root / "blocked")
 
         def is_dir(self, *, follow_symlinks: bool = True) -> bool:
             raise OSError("permission denied")
@@ -302,9 +315,12 @@ def test_passive_anchor_scan_handles_per_entry_oserror(
         def is_file(self, *, follow_symlinks: bool = True) -> bool:
             return True
 
+        def is_symlink(self) -> bool:
+            return False
+
     class FakeScandir:
-        def __enter__(self) -> list[RaisingEntry]:
-            return [RaisingEntry()]
+        def __enter__(self) -> list[object]:
+            return [AnchorEntry(), RaisingEntry()]
 
         def __exit__(self, *_args: object) -> bool:
             return False
@@ -313,9 +329,29 @@ def test_passive_anchor_scan_handles_per_entry_oserror(
 
     scan = mod.passive_session_anchor_scan(root)
 
-    assert scan.anchors == []
+    assert scan.anchors == [str(root / ".session-anchor")]
     assert scan.truncated is False
     assert scan.anchor_only is False
+
+
+def test_passive_anchor_scan_counts_symlinked_anchor_file(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = tmp_path / "residue"
+    root.mkdir()
+    target = tmp_path / "anchor-target"
+    target.write_text("anchor\n")
+    anchor = root / ".session-anchor"
+    try:
+        anchor.symlink_to(target)
+    except OSError as exc:  # pragma: no cover - platform permission guard
+        pytest.skip(f"symlink creation unavailable: {exc}")
+
+    scan = mod.passive_session_anchor_scan(root)
+
+    assert scan.anchors == [str(anchor)]
+    assert scan.truncated is False
+    assert scan.anchor_only is True
 
 
 def test_passive_anchor_scan_ignores_platform_detritus(tmp_path: Path) -> None:
@@ -343,6 +379,55 @@ def test_passive_anchor_scan_caps_large_anchor_only_tree(tmp_path: Path) -> None
     assert scan.truncated is True
     assert scan.anchors == []
     assert scan.anchor_only is False
+
+
+def test_no_git_cache_residue_preserves_anchor_signal_when_scan_truncated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path, repo=False)
+
+    class FileEntry:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.path = str(root / name)
+
+        def is_dir(self, *, follow_symlinks: bool = True) -> bool:
+            return False
+
+        def is_file(self, *, follow_symlinks: bool = True) -> bool:
+            return True
+
+        def is_symlink(self) -> bool:
+            return False
+
+    class FakeScandir:
+        def __enter__(self) -> list[FileEntry]:
+            return [
+                FileEntry(".session-anchor"),
+                FileEntry("debug.log"),
+                FileEntry("extra.log"),
+            ]
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
+    monkeypatch.setattr(mod, "PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT", 2)
+    monkeypatch.setattr(mod.os, "scandir", lambda _path: FakeScandir())
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.links["passive_session_anchors"] == [str(root / ".session-anchor")]
+    assert candidate.links["passive_session_anchor_mixed_residue"] is True
+    assert candidate.links["passive_session_anchor_scan_truncated"] is True
+    assert "passive_session_anchor" in candidate.cleanup_safety.signals
+    assert candidate.cleanup_safety.safe_to_delete is False
 
 
 def test_no_git_cache_residue_reports_truncated_anchor_scan(tmp_path: Path) -> None:
