@@ -217,31 +217,36 @@ def get_redis_client() -> Any | None:
 def close_redis_pool() -> None:
     """Close the Redis connection pool.
 
-    Call during graceful shutdown to release connections.
-    Safe to call even if pool was never initialized.
+    Call during graceful shutdown to release connections. Safe to call even if
+    the pool was never initialized. Takes ``_redis_lock`` so teardown cannot
+    race a concurrent ``get_redis_pool`` first-use init on the shared globals.
     """
     global _redis_pool, _redis_available
 
-    if _redis_pool is not None:
-        try:
-            _redis_pool.disconnect()
-            logger.debug("Redis connection pool closed")
-        except (ConnectionError, OSError, RuntimeError, TimeoutError) as e:
-            logger.warning("Error closing Redis pool: %s", e)
-        finally:
-            _redis_pool = None
+    with _redis_lock:
+        if _redis_pool is not None:
+            try:
+                _redis_pool.disconnect()
+                logger.debug("Redis connection pool closed")
+            except (ConnectionError, OSError, RuntimeError, TimeoutError) as e:
+                logger.warning("Error closing Redis pool: %s", e)
+            finally:
+                _redis_pool = None
 
-    _redis_available = None
+        _redis_available = None
 
 
 def reset_redis_state() -> None:
     """Reset Redis state for testing.
 
-    Clears cached pool and availability flag to allow re-initialization.
+    Clears cached pool and availability flag to allow re-initialization. Takes
+    ``_redis_lock`` so the reset is atomic against a concurrent
+    ``get_redis_pool`` init on the shared globals.
     """
     global _redis_pool, _redis_available
-    _redis_pool = None
-    _redis_available = None
+    with _redis_lock:
+        _redis_pool = None
+        _redis_available = None
 
 
 async def get_async_redis_client() -> Any | None:
