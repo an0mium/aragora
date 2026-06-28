@@ -142,5 +142,5 @@ See [ADR-017: RBAC and ABAC Unification](./adr-017-rbac-abac-unification.md) for
 ## Related Documentation
 
 - [ADR-017: RBAC and ABAC Unification](./adr-017-rbac-abac-unification.md)
-- [Enterprise Features: RBAC](../ENTERPRISE_FEATURES.md#authorization-rbac)
+- [Enterprise Features: RBAC](../ENTERPRISE_FEATURES.md#authorization-rbac-v2)
 - [Security Overview](../enterprise/SECURITY.md)

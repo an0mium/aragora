@@ -113,6 +113,14 @@ jobs:
           # code + the disclosed bare-"no" Blocker security fix are already on main; this only sets
           # the live (CI) side of the min(prepared, live) flag — the prepare side is set in operator env.
           ARAGORA_ENABLE_SEVERITY_GATED_DISSENT: "1"
+          # Activate the tiered merge gate (operator Option A 2026-06-26, library/operator-approvals.md;
+          # spec docs/specs/TIERED_MERGE_GATE_QUORUM_POLICY.md, enablement note
+          # docs/governance/TIERED_MERGE_GATE_ENABLEMENT.md). With this ON, a Tier 1-2 PR settles on ONE
+          # western-frontier signal (claude/openai) instead of two distinct families, which unblocks the
+          # structurally-unreachable structural-refactor shim/move quorum. Tier 0 (already 1 signal) and
+          # Tier 3-4 are UNAFFECTED: Tier 3-4 still require two Western families plus human settlement. The
+          # gate reads this flag live; reverting is a single env flip back OFF (another Tier-4 edit).
+          ARAGORA_ENABLE_TIERED_MERGE_GATE: "1"
         shell: bash
         run: |
           set -euo pipefail
