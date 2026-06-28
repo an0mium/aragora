@@ -1006,7 +1006,8 @@ def build_review_prompt(
 def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     """Run a genuine reviewer, preferring subscription CLIs over metered APIs.
 
-    ``claude`` -> claude CLI; ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
+    ``claude`` -> claude CLI (or Anthropic API if ANTHROPIC_API_KEY);
+    ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
     ``grok`` -> Grok Build CLI when installed (else API); ``gemini`` -> Antigravity
     CLI when installed (else API); everything else -> API agent. The CLI-first
     routing for grok/gemini lets the merge gate form a 2-family quorum from any
@@ -1014,7 +1015,7 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     """
     fam = canonical_family(family)
     if fam == "claude":
-        result = _run_claude_cli(prompt)
+        result = _run_claude_reviewer(prompt)
     elif fam == "openai":
         result = _run_openai_reviewer(prompt)
     elif fam == "grok":
@@ -1101,6 +1102,29 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
             f"claude CLI exit {proc.returncode}: {(proc.stderr or '').strip()[:200]}",
         )
     return ReviewerResult("claude", _cap_text(text), True)
+
+
+def _run_claude_reviewer(prompt: str) -> ReviewerResult:
+    """Run Claude evidence via the subscription CLI, then the direct Anthropic API.
+
+    The claude subscription CLI is preferred (no metered cost). When it is
+    unavailable or fails — e.g. CI runners and other keyless-CLI environments —
+    fall back to the direct Anthropic API if ``ANTHROPIC_API_KEY`` is set, so the
+    merge gate can still form a western-family quorum from API keys alone rather
+    than depending solely on OpenRouter. If neither path works the original CLI
+    failure is returned, so the generic OpenRouter fallback in
+    :func:`default_reviewer_runner` still applies.
+    """
+    result = _run_claude_cli(prompt)
+    if result.ok:
+        return result
+    if os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        # Use the Anthropic *API* agent type ("claude" maps to the CLI agent);
+        # relabel the result to the "claude" family so it counts in the quorum.
+        api = _run_api_agent("anthropic-api", prompt)
+        if api.ok:
+            return replace(api, family="claude")
+    return result
 
 
 def _run_openai_reviewer(prompt: str) -> ReviewerResult:
