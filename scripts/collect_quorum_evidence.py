@@ -36,7 +36,26 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.quorum_evidence import DEFAULT_FAMILIES, run_collect_cli  # noqa: E402
 
 
+def _hydrate_provider_secrets() -> None:
+    """Load provider API keys from AWS Secrets Manager when enabled.
+
+    Mirrors the ``aragora`` CLI startup hydration so the collector — which runs
+    as a standalone script, not via the CLI — also honors the org's secrets
+    architecture (keys live in Secrets Manager, not standing env vars). No-op
+    unless ``ARAGORA_USE_SECRETS_MANAGER`` is set with AWS credentials present;
+    ``overwrite=False`` preserves any keys a caller passed explicitly.
+    """
+    try:
+        from aragora.config.secrets import hydrate_env_from_secrets
+
+        hydrate_env_from_secrets(overwrite=False)
+    except (AttributeError, ImportError, OSError, RuntimeError, ValueError):
+        # Best-effort: never block evidence collection on secrets hydration.
+        pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _hydrate_provider_secrets()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True, help="owner/name of the target repo")
     parser.add_argument("--pr", required=True, type=int, help="PR number to collect evidence for")

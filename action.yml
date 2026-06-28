@@ -63,6 +63,18 @@ inputs:
     description: 'Space-separated model families for the receipt quorum (keys must be provided)'
     required: false
     default: 'claude openai'
+  use-secrets-manager:
+    description: >-
+      Load provider API keys from AWS Secrets Manager instead of inputs (the
+      org's keyless pattern). Requires AWS credentials in the job env (e.g. via
+      aws-actions/configure-aws-credentials with OIDC). When "true", the receipt
+      quorum hydrates keys from Secrets Manager.
+    required: false
+    default: 'false'
+  aws-region:
+    description: 'AWS region for Secrets Manager (when use-secrets-manager is true)'
+    required: false
+    default: 'us-east-2'
 
 outputs:
   review-path:
@@ -279,6 +291,8 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}
         OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
+        ARAGORA_USE_SECRETS_MANAGER: ${{ inputs.use-secrets-manager }}
+        AWS_REGION: ${{ inputs.aws-region }}
 
     - name: Post PR comment
       if: inputs.post-comment == 'true' && steps.review.outputs.review_generated == 'true'

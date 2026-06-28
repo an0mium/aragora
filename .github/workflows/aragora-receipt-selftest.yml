@@ -10,13 +10,11 @@ name: Aragora Receipt Self-Test
 # action is validated and merged.
 
 on:
-  # Manual-dispatch only. The action+receipt pipeline is validated (runs green,
-  # emits an independently-verifiable receipt). A STRONG quorum is currently
-  # blocked on dead CI model keys: ANTHROPIC fails -> OpenAI 429, OpenRouter 403.
-  # After refreshing those secrets, dispatch this against a tier-0/1 PR to
-  # capture a strong-quorum receipt (workflow_dispatch lacks PR context, so the
-  # action's diff/collect steps need a real PR — re-add a pull_request trigger
-  # temporarily, or dispatch from a PR-scoped wrapper).
+  # Runs on this PR (provides the pull_request context the action needs) and on
+  # manual dispatch. Model keys come from AWS Secrets Manager via OIDC (the org's
+  # keyless pattern), NOT from GitHub env secrets.
+  pull_request:
+    branches: [worktree-strategy-mission-cadence]
   workflow_dispatch:
 
 concurrency:
@@ -24,6 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  id-token: write       # assume the AWS role via OIDC for Secrets Manager
   contents: read
   pull-requests: read
 
@@ -32,6 +31,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_CI_ROLE_NAME }}
+          role-session-name: receipt-selftest-${{ github.run_id }}
+          aws-region: us-east-2
 
       - name: Run Aragora action (emit receipt)
         id: review
@@ -42,9 +48,8 @@ jobs:
           post-comment: 'false'        # self-test: never comment on the PR
           emit-receipt: 'true'
           receipt-reviewers: 'claude openai'
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          use-secrets-manager: 'true'  # keys from AWS Secrets Manager, not env
+          aws-region: us-east-2
 
       - name: Report receipt outcome
         if: always()
