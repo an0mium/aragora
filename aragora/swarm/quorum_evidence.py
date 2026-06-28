@@ -48,6 +48,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,47 @@ def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
     signal) is active. Default OFF; see :data:`_TIERED_GATE_ENV`."""
     source = os.environ if env is None else env
     return str(source.get(_TIERED_GATE_ENV, "")).strip().lower() in _TIERED_GATE_TRUE
+
+
+# Opt-in flag for severity-gated dissent. When OFF (default), a reviewer
+# ``Verdict: CHANGES-REQUESTED`` line promotes a *blocking* dissent regardless of
+# finding severity — even a `[P2]`/`[P3]`-only or finding-free comment blocks the
+# merge as hard as a `[P0]` defect (today's behavior). When ON, a CHANGES-REQUESTED
+# comment promotes a blocking dissent ONLY when it carries a real `[P0]`/`[P1]`
+# finding or a populated Blocker label; a `[P2]`/`[P3]`-only or finding-free
+# CHANGES-REQUESTED becomes *advisory* — non-blocking AND non-counting (it still
+# posts and stays visible on the PR; it just no longer blocks). `[P0]`/`[P1]`
+# findings and populated Blocker labels ALWAYS block, flag ON or OFF.
+#
+# Gating this behind the flag keeps it revertible WITHOUT a code change and is the
+# in-tree audit point for the operator's approval. See
+# docs/specs/FINDING_SEVERITY_GATE.md and
+# docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance.
+_SEVERITY_GATED_DISSENT_ENV = "ARAGORA_ENABLE_SEVERITY_GATED_DISSENT"
+_SEVERITY_GATED_DISSENT_TRUE = frozenset(("1", "true", "yes", "on"))
+
+
+def severity_gated_dissent_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in severity-gated dissent gate is active. Default OFF; a
+    `[P2]`/`[P3]`-only CHANGES-REQUESTED only becomes advisory (non-blocking,
+    non-counting) when this is ON. See :data:`_SEVERITY_GATED_DISSENT_ENV`."""
+    source = os.environ if env is None else env
+    return (
+        str(source.get(_SEVERITY_GATED_DISSENT_ENV, "")).strip().lower()
+        in _SEVERITY_GATED_DISSENT_TRUE
+    )
+
+
+def _coerce_relaxed_flag(value: Any) -> bool:
+    """Coerce a serialized gate-regime flag (``severity_gated`` / ``tiered_gate``) to
+    bool, fail-closed. A real bool passes through; a string counts as relaxed ONLY for
+    the explicit relaxed tokens, so a stringly serialized ``"false"`` — which ``bool()``
+    would truthify — cannot accidentally enable the relaxed regime (claude/grok #8574 P2)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in _SEVERITY_GATED_DISSENT_TRUE
+    return bool(value)
 
 
 @dataclass(frozen=True)
@@ -376,14 +418,36 @@ class EvidenceItem:
     counted_reviewer_ids: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     verdict: str = "unknown"
+    # Captured ONCE at construction (not re-read per property access) so a
+    # security-relevant gate decision stays deterministic within a single
+    # settlement flow even if the process env mutates mid-run. Uses the same
+    # capture-once pattern as ``CollectOutcome.tiered_gate`` (a different flag —
+    # ``severity_gated_dissent_enabled`` here vs ``tiered_merge_gate_enabled`` there).
+    severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
     @property
     def supportive(self) -> bool:
+        # Unchanged by the severity gate: advisory ≠ supportive. A downgraded
+        # `[P2]`/`[P3]`-only changes_requested stays non-counting; it just stops
+        # blocking. ``supportive`` requires would_count AND a pass verdict.
         return self.would_count and self.verdict == "pass"
 
     @property
     def dissenting(self) -> bool:
-        return self.verdict == "changes_requested"
+        if self.verdict != "changes_requested":
+            return False
+        if not self.severity_gated:
+            # Default (flag OFF): any changes_requested is a blocking dissent —
+            # byte-identical to historical behavior.
+            return True
+        # Flag ON: a changes_requested is dissenting (blocks / trips prepare-only)
+        # ONLY when backed by a real [P0]/[P1] finding OR a populated Blocker label
+        # (``has_blocking_finding_or_label`` — the SAME helper the review-queue gate
+        # half consults, so the two halves stay in lockstep and Blocker labels always
+        # block per the invariant). A [P2]/[P3]-only or finding-free changes_requested
+        # is advisory — non-blocking, and (because ``supportive`` is unchanged) still
+        # non-counting.
+        return has_blocking_finding_or_label(self.body)
 
 
 @dataclass
@@ -500,6 +564,11 @@ class CollectOutcome:
                     "counted_reviewer_ids": item.counted_reviewer_ids,
                     "problems": item.problems,
                     "body": item.body,
+                    # The prepare-time severity-gate regime, persisted so apply can
+                    # reconcile it under min(prepared, live) — the SAME treatment as
+                    # ``tiered_gate``. This is also the audit trail of which regime
+                    # prepared the artifact (claude/grok #8574 P2).
+                    "severity_gated": item.severity_gated,
                 }
                 for item in self.items
             ],
@@ -584,6 +653,13 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         counted_reviewer_ids=_string_list(raw.get("counted_reviewer_ids")),
         problems=_string_list(raw.get("problems")),
         verdict=str(raw.get("verdict") or "unknown"),
+        # Restore the prepare-time regime; default fail-CLOSED (strict — every
+        # changes_requested blocks) when an older/forged artifact omits it, so a
+        # missing field can never RELAX the gate. apply_prepared_evidence then
+        # AND-reconciles this with the live flag (min(prepared, live)), mirroring
+        # ``tiered_gate`` (claude/grok #8574 P2). Coerced fail-closed so a stringly
+        # serialized ``"false"`` cannot truthify into the relaxed regime.
+        severity_gated=_coerce_relaxed_flag(raw.get("severity_gated", False)),
     )
 
 
@@ -1059,27 +1135,43 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     return result
 
 
-def _claude_reviewer_command() -> list[str]:
+@contextmanager
+def _claude_empty_mcp_config_file() -> Iterator[Path]:
+    """Write Claude's empty MCP config to a real file for CLI compatibility."""
+
+    fd, path_text = tempfile.mkstemp(prefix="aragora-claude-mcp-", suffix=".json")
+    path = Path(path_text)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump({"mcpServers": {}}, handle)
+            handle.write("\n")
+        yield path
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
     """Argv for the merge-gate claude reviewer with MCP servers disabled.
 
     The reviewer only reads a diff to emit a verdict, so it needs no MCP
     servers. Disabling them avoids claude's startup MCP handshake, which blocks
     until the full timeout when a local MCP server is wedged.
     """
-    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
+    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", str(mcp_config_path)]
 
 
 def _run_claude_cli(prompt: str) -> ReviewerResult:
     timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
-        proc = subprocess.run(
-            _claude_reviewer_command(),
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
+        with _claude_empty_mcp_config_file() as mcp_config_path:
+            proc = subprocess.run(
+                _claude_reviewer_command(mcp_config_path),
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
     except FileNotFoundError:
         return ReviewerResult("claude", "", False, "claude CLI not found on PATH")
     except subprocess.TimeoutExpired:
@@ -1892,7 +1984,14 @@ def collect_evidence(
     return outcome
 
 
-def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
+def _clone_prepared_items(
+    items: Sequence[EvidenceItem], *, live_severity_gated: bool | None = None
+) -> list[EvidenceItem]:
+    # ``live_severity_gated`` None preserves the prepared regime verbatim; at apply
+    # the caller passes the live flag so the clone carries the reconciled
+    # ``effective = prepared.severity_gated AND live`` (min(prepared, live)) — the
+    # same fail-closed reconciliation ``tiered_gate`` gets, so a forged or stale
+    # ``severity_gated=true`` cannot relax dissent while the live flag is OFF.
     return [
         EvidenceItem(
             family=item.family,
@@ -1901,6 +2000,11 @@ def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
             counted_reviewer_ids=list(item.counted_reviewer_ids),
             problems=list(item.problems),
             verdict=item.verdict,
+            severity_gated=(
+                item.severity_gated
+                if live_severity_gated is None
+                else (item.severity_gated and live_severity_gated)
+            ),
         )
         for item in items
     ]
@@ -2048,6 +2152,10 @@ def apply_prepared_evidence(
     # boundary — this field grants no authority beyond what the live flag already does.
     live_gate = tiered_merge_gate_enabled()
     effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
+    # Reconcile the severity-gate regime the same way: a relaxed-prepared artifact
+    # only stays relaxed when the live flag also relaxes; otherwise dissent is
+    # re-evaluated under the strict regime. Mirrors effective_tiered_gate.
+    live_severity_gated = severity_gated_dissent_enabled()
 
     tier = tier_fetcher(repo, pr)
     action, action_reason = decide_action(tier, apply)
@@ -2059,7 +2167,7 @@ def apply_prepared_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
-        items=_clone_prepared_items(prepared.items),
+        items=_clone_prepared_items(prepared.items, live_severity_gated=live_severity_gated),
         failures=_clone_reviewer_failures(prepared.failures),
         tiered_gate=effective_tiered_gate,
     )
@@ -2100,6 +2208,12 @@ def apply_prepared_evidence(
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
                 verdict=_reviewer_verdict(item.body),
+                # Preserve the regime already reconciled by _clone_prepared_items
+                # (effective = prepared AND live). Re-running the linter must NOT
+                # let EvidenceItem.default_factory re-read the live env and undo
+                # min(prepared, live) — a strict-prepared artifact stays strict even
+                # when the live flag is ON (claude/grok #8574 P1).
+                severity_gated=item.severity_gated,
             )
         )
     outcome.items = relinted_items

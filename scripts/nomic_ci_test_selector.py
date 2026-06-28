@@ -16,42 +16,18 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# Auto-generated from the three P1 tests-migration commits (PRs #8387, #8404,
-# #8415).  Maps the pre-migration root test path to its post-migration
-# subdirectory home.  Used to resolve a top-level ``aragora/<x>.py`` whose
-# legacy ``tests/test_<x>.py`` was relocated.
+# Derived from the three P1 tests-migration commits (PRs #8387, #8404, #8415)
+# by ``scripts/ci/generate_migrated_test_map.py`` and guarded against drift by
+# ``tests/ci/test_generate_migrated_test_map.py``.  Maps a pre-migration root
+# test path to its post-migration subdirectory home, but ONLY for relocations
+# whose top-level source ``aragora/<x>.py`` still exists -- those are the only
+# entries ``infer_test_paths`` can ever consult, because a subdirectory source
+# takes the ``len(parts) == 2`` branch and never reads this map.  Every other
+# relocated root test (the bulk of the migration) resolves via that branch, so
+# listing it here would be dead weight.  Regenerate with
+# ``python3 scripts/ci/generate_migrated_test_map.py``.
 _MIGRATED_TEST_MAP = {  # {old_root_path: new_subdir_path}
-    "tests/test_agent_anthropic.py": "tests/agents/test_agent_anthropic.py",
-    "tests/test_agent_api_common.py": "tests/agents/test_agent_api_common.py",
-    "tests/test_agent_error_classifier.py": "tests/agents/test_agent_error_classifier.py",
-    "tests/test_agent_error_decorators.py": "tests/agents/test_agent_error_decorators.py",
-    "tests/test_agent_fallback_integration.py": "tests/agents/test_agent_fallback_integration.py",
-    "tests/test_agent_gemini.py": "tests/agents/test_agent_gemini.py",
-    "tests/test_agent_grok.py": "tests/agents/test_agent_grok.py",
-    "tests/test_agent_laboratory.py": "tests/agents/test_agent_laboratory.py",
-    "tests/test_agent_lm_studio.py": "tests/agents/test_agent_lm_studio.py",
-    "tests/test_agent_local.py": "tests/agents/test_agent_local.py",
-    "tests/test_agent_mistral.py": "tests/agents/test_agent_mistral.py",
-    "tests/test_agent_ollama.py": "tests/agents/test_agent_ollama.py",
-    "tests/test_agent_openai.py": "tests/agents/test_agent_openai.py",
-    "tests/test_agent_openrouter.py": "tests/agents/test_agent_openrouter.py",
-    "tests/test_agent_performance_monitor.py": "tests/agents/test_agent_performance_monitor.py",
-    "tests/test_agent_positions.py": "tests/agents/test_agent_positions.py",
-    "tests/test_agents_airlock.py": "tests/agents/test_agents_airlock.py",
-    "tests/test_agents_telemetry.py": "tests/agents/test_agents_telemetry.py",
-    "tests/test_agents_unit.py": "tests/agents/test_agents_unit.py",
-    "tests/test_api_agent_base.py": "tests/agents/test_api_agent_base.py",
-    "tests/test_api_agents.py": "tests/agents/test_api_agents.py",
-    "tests/test_api_agents_extended.py": "tests/agents/test_api_agents_extended.py",
-    "tests/test_api_agents_rate_limiter.py": "tests/agents/test_api_agents_rate_limiter.py",
-    "tests/test_cli_agents_sanitization.py": "tests/agents/test_cli_agents_sanitization.py",
-    "tests/test_cli_fallback.py": "tests/agents/test_cli_fallback.py",
-    "tests/test_error_classification.py": "tests/agents/test_error_classification.py",
-    "tests/test_error_classifier.py": "tests/agents/test_error_classifier.py",
     "tests/test_exceptions.py": "tests/agents/test_exceptions.py",
-    "tests/test_fallback_chain.py": "tests/agents/test_fallback_chain.py",
-    "tests/test_moment_detector.py": "tests/agents/test_moment_detector.py",
-    "tests/test_tournament.py": "tests/ranking/test_tournament.py",
 }
 
 

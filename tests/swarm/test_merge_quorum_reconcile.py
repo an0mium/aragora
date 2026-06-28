@@ -140,6 +140,30 @@ class TestPlanRerun:
         assert decision.should_rerun is False
         assert "max reruns" in decision.reason
 
+    def test_pr_budget_disabled_by_default(self) -> None:
+        # pr_round_budget defaults to 0 (disabled); a high consumed count is ignored.
+        decision = self._call(pr_rounds_consumed=99)
+        assert decision.should_rerun is True
+
+    def test_pr_budget_under_limit_allows(self) -> None:
+        decision = self._call(pr_rounds_consumed=2, pr_round_budget=6)
+        assert decision.should_rerun is True
+
+    def test_pr_budget_exhausted_demands_adjudication(self) -> None:
+        decision = self._call(pr_rounds_consumed=6, pr_round_budget=6)
+        assert decision.should_rerun is False
+        assert "round budget exhausted" in decision.reason
+        assert "net-value adjudication" in decision.reason
+
+    def test_pr_budget_bites_even_when_per_head_cap_is_fresh(self) -> None:
+        # THE fix: a repair push creates a new head, so the per-head cap resets
+        # (reruns_this_head=0). The per-PR budget must still bite across that drift.
+        decision = self._call(
+            reruns_this_head=0, max_reruns_per_head=3, pr_rounds_consumed=6, pr_round_budget=6
+        )
+        assert decision.should_rerun is False
+        assert "round budget exhausted" in decision.reason
+
     def test_within_cooldown(self) -> None:
         decision = self._call(last_rerun_at=NOW - timedelta(seconds=120), cooldown_seconds=600)
         assert decision.should_rerun is False

@@ -46,6 +46,10 @@ from typing import Final
 # import. Drift from the policy is prevented by test_tiered_merge_gate_quorum_policy::
 # test_reconcile_diagnostic_matches_policy, which asserts equality against
 # tier_quorum_rule(tier, tiered_gate=False) (claude/Codex #8507 single-source).
+# NOTE: summarize_settlement sources the LIVE signal *count* (and the western-frontier
+# constraint) from the flag-aware tier_quorum_rule so the diagnostic mirrors the gate
+# under ARAGORA_ENABLE_TIERED_MERGE_GATE; this table supplies only the flag-independent
+# dogfood/human-settlement requirements and serves as the strict-regime pin.
 TIER_REQUIREMENTS: Final[dict[int, tuple[int, bool, bool]]] = {
     0: (1, False, False),
     1: (2, True, False),
@@ -187,11 +191,20 @@ def plan_rerun(
     cooldown_seconds: int = 600,
     max_reruns_per_head: int = 3,
     has_real_required_failure: bool = False,
+    pr_rounds_consumed: int = 0,
+    pr_round_budget: int = 0,
 ) -> RerunDecision:
     """Decide whether to re-run the gate so it re-reads current-head evidence.
 
     All checks fail safe (a ``False`` decision) when an input is missing or
     ambiguous. See module docstring for the safety invariants.
+
+    ``pr_round_budget`` is the per-PR convergence budget that survives head drift
+    (``max_reruns_per_head`` resets every new head, so it never bounds a churning
+    PR — see :mod:`aragora.swarm.convergence_ledger`). When ``pr_rounds_consumed``
+    reaches it, this stops re-running and signals that the PR needs a *decision*
+    (net-value adjudication), not another round. ``pr_round_budget=0`` disables the
+    check, so existing callers are unaffected until they opt in.
     """
 
     def decide(should: bool, reason: str) -> RerunDecision:
@@ -221,6 +234,12 @@ def plan_rerun(
     if not (run_created < newest):
         return decide(False, "quorum run already postdates the newest countable evidence")
 
+    if pr_round_budget and pr_rounds_consumed >= pr_round_budget:
+        return decide(
+            False,
+            f"PR round budget exhausted ({pr_rounds_consumed}/{pr_round_budget} repair "
+            "rounds across head drift); net-value adjudication required, not another rerun",
+        )
     if reruns_this_head >= max_reruns_per_head:
         return decide(False, f"max reruns reached for this head ({max_reruns_per_head})")
     if last_rerun_at is not None:
@@ -375,26 +394,51 @@ def summarize_settlement(
     ids = counted_reviewer_ids(comments)
     has_dogfood = any(c.would_count and c.is_dogfood for c in comments)
 
-    required_signals, requires_dogfood, requires_human = TIER_REQUIREMENTS.get(
+    # requires_dogfood / requires_human are tier-derived and flag-independent (dogfood for
+    # Tier 1+, human settlement for Tier 3+); only the signal *count* and the
+    # western-frontier constraint change with the tiered merge gate, so source those two
+    # from the strict TIER_REQUIREMENTS projection and the signal bar from the flag-aware
+    # rule below.
+    _, requires_dogfood, requires_human = TIER_REQUIREMENTS.get(
         tier if tier is not None else -1, (2, True, True)
     )
-    # Apply the canonical jurisdiction rules so this diagnostic cannot tell an
-    # operator "settle-ready" for a pair the live gate would block (e.g. a
-    # claude+deepseek Tier 3-4 PR, where deepseek is advisory-only). The reconcile
-    # table is the strict/default-OFF projection, so evaluate the rule with
-    # tiered_gate=False to match that regime. Function-level import avoids a
-    # circular import (quorum_evidence imports this module via merge_quorum_io).
-    from aragora.swarm.quorum_evidence import WESTERN_FAMILIES, tier_quorum_rule
+    # Mirror the LIVE merge gate exactly: read the tiered-gate flag via the same accessor
+    # the gate uses (tiered_merge_gate_enabled) rather than hardcoding the strict regime, so
+    # when the flag is ON this diagnostic reports the relaxed Tier 1-2 bar (one
+    # western-frontier signal) and when OFF the strict bar — it never tells an operator a
+    # different requirement than what CI would actually enforce. Deriving from the same
+    # tier_quorum_rule means it can only ever match or be stricter than the gate, so it can
+    # never falsely green-light. Function-level import avoids a circular import
+    # (quorum_evidence imports this module via merge_quorum_io).
+    from aragora.swarm.quorum_evidence import (
+        WESTERN_FAMILIES,
+        WESTERN_FRONTIER_FAMILIES,
+        tier_quorum_rule,
+        tiered_merge_gate_enabled,
+    )
 
-    rule = tier_quorum_rule(tier, tiered_gate=False)
+    rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())
+    required_signals = rule.required_signals
     # Jurisdiction-eligible count: drops Chinese-routed families at Tier 3-4. This
     # is what actually drives the gate's quorum decision, not the raw id count.
     counted = rule.counted_families(ids)
     advisory_only = bool(set(ids) - counted)
+    # Tiered gate ON: a Tier 1-2 PR settles on ONE western-frontier signal (claude/openai),
+    # so a lone non-frontier signal must not be reported as sufficient (mirrors the gate's
+    # western_frontier_satisfied check).
+    needs_western_frontier = rule.requires_western_frontier and not (
+        counted & WESTERN_FRONTIER_FAMILIES
+    )
     needs_western = rule.requires_at_least_one_western and not (counted & WESTERN_FAMILIES)
 
     if quorum_conclusion.upper() == _SUCCESS:
         next_action = "none — quorum check is green; PR is ready to merge"
+    elif needs_western_frontier:
+        next_action = (
+            "collect one western-frontier model signal (claude/openai) on the current "
+            "head; under the tiered merge gate a Tier 1-2 PR settles on a single "
+            "western-frontier signal, which the counted families do not yet include"
+        )
     elif len(counted) < required_signals:
         missing = required_signals - len(counted)
         if advisory_only:

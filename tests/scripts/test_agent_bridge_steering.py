@@ -91,6 +91,8 @@ class TestCollectPendingSteeringMessages:
         assert result == {
             "count": 0,
             "latest_three": [],
+            "unresolved_count": 0,
+            "latest_unresolved_three": [],
             "read_receipt_count": 0,
             "unread_message_count": 0,
             "latest_read_receipt": None,
@@ -102,6 +104,9 @@ class TestCollectPendingSteeringMessages:
             "count": 0,
             "by_recipient": {},
             "latest_three": [],
+            "unresolved_count": 0,
+            "unresolved_by_recipient": {},
+            "latest_unresolved_three": [],
             "read_receipt_count": 0,
             "unread_message_count": 0,
             "read_receipts_by_recipient": {},
@@ -113,11 +118,23 @@ class TestCollectPendingSteeringMessages:
         result = ab._collect_pending_steering_messages(
             "fixture", steering_root=tmp_path / "no-root"
         )
-        assert result == {"count": 0, "latest_three": []}
+        assert result == {
+            "count": 0,
+            "latest_three": [],
+            "unresolved_count": 0,
+            "latest_unresolved_three": [],
+        }
         result_rollup = ab._collect_pending_steering_messages(
             None, steering_root=tmp_path / "no-root"
         )
-        assert result_rollup == {"count": 0, "by_recipient": {}, "latest_three": []}
+        assert result_rollup == {
+            "count": 0,
+            "by_recipient": {},
+            "latest_three": [],
+            "unresolved_count": 0,
+            "unresolved_by_recipient": {},
+            "latest_unresolved_three": [],
+        }
 
     def test_single_message_scoped_surfaces_metadata(self, tmp_path: Path) -> None:
         _write_message(
@@ -275,6 +292,17 @@ class TestCollectAgentHeartbeats:
                         "pid": 222,
                         "last_seen_at": "2026-05-22T00:00:00Z",
                     },
+                    {
+                        "schema_version": "aragora-agent-heartbeat/1.0",
+                        "lane_id": "terminal-lane",
+                        "owner_session": "codex-terminal",
+                        "pid": 333,
+                        "last_seen_at": "2026-05-22T00:19:30Z",
+                        "terminal": True,
+                        "terminal_outcome": "completed",
+                        "terminal_reason": "published draft PR",
+                        "terminal_finalized_at": "2026-05-22T00:19:35Z",
+                    },
                 ]
             ),
             encoding="utf-8",
@@ -285,13 +313,52 @@ class TestCollectAgentHeartbeats:
             now="2026-05-22T00:20:00Z",
         )
 
-        assert result["count"] == 2
+        assert result["count"] == 3
         assert result["fresh_count"] == 1
         assert result["stale_count"] == 1
+        assert result["terminal_count"] == 1
         assert result["latest_by_owner"]["codex-fresh"]["fresh"] is True
         assert result["latest_by_owner"]["codex-fresh"]["age_seconds"] == 600
         assert result["latest_by_owner"]["codex-fresh"]["cwd"] == "/tmp/fresh"
         assert result["latest_by_owner"]["codex-stale"]["fresh"] is False
+        terminal = result["latest_by_owner"]["codex-terminal"]
+        assert terminal["fresh"] is False
+        assert terminal["terminal"] is True
+        assert terminal["terminal_outcome"] == "completed"
+
+    def test_collect_agent_heartbeats_treats_terminal_outcome_as_terminal(
+        self, tmp_path: Path
+    ) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "schema_version": "aragora-agent-heartbeat/1.0",
+                        "lane_id": "terminal-lane",
+                        "owner_session": "codex-terminal",
+                        "pid": 333,
+                        "last_seen_at": "2026-05-22T00:19:30Z",
+                        "terminal_outcome": "completed",
+                        "terminal_reason": "published draft PR",
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = ab._collect_agent_heartbeats(
+            heartbeat_path=heartbeat_path,
+            now="2026-05-22T00:20:00Z",
+        )
+
+        assert result["fresh_count"] == 0
+        assert result["stale_count"] == 0
+        assert result["terminal_count"] == 1
+        terminal = result["latest_by_owner"]["codex-terminal"]
+        assert terminal["fresh"] is False
+        assert terminal["terminal"] is True
+        assert terminal["terminal_outcome"] == "completed"
 
     def test_collect_agent_heartbeats_compares_parsed_timestamps(self, tmp_path: Path) -> None:
         heartbeat_path = tmp_path / "heartbeats.json"

@@ -1,5 +1,5 @@
 """
-Tests for aragora.server.storage module.
+Tests for the aragora.storage.debate_storage module.
 
 Tests DebateStorage class including slug generation, save/retrieve,
 and SQL injection prevention.
@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.server.storage import (
+from aragora.storage.debate_storage import (
     DB_TIMEOUT,
     DebateMetadata,
     DebateStorage,
@@ -75,7 +75,7 @@ class TestSlugGeneration:
 
     def test_simple_task_generates_slug(self, storage):
         """Simple task should generate correct slug."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
             slug = storage.generate_slug("Rate limiter system")
 
@@ -85,7 +85,7 @@ class TestSlugGeneration:
 
     def test_stop_words_filtered(self, storage):
         """Stop words should be filtered out."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
             slug = storage.generate_slug("Design a rate limiter for the system")
 
@@ -98,7 +98,7 @@ class TestSlugGeneration:
 
     def test_punctuation_removed(self, storage):
         """Punctuation should be removed."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
             slug = storage.generate_slug("What's the best API? Create one!")
 
@@ -108,7 +108,7 @@ class TestSlugGeneration:
 
     def test_short_task_falls_back_to_debate(self, storage):
         """Task with only stop words should fall back to 'debate'."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
             slug = storage.generate_slug("The a an")
 
@@ -116,7 +116,7 @@ class TestSlugGeneration:
 
     def test_uppercase_converted(self, storage):
         """Uppercase should be converted to lowercase."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
             slug = storage.generate_slug("API Gateway SERVICE")
 
@@ -127,7 +127,7 @@ class TestSlugGeneration:
 
     def test_collision_handling(self, storage, mock_artifact):
         """Collisions should append counter."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
 
             # First save
@@ -147,7 +147,7 @@ class TestSlugGeneration:
 
     def test_unicode_preserved(self, storage):
         """Unicode characters should be preserved."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
             slug = storage.generate_slug("日本語 API")
 
@@ -155,7 +155,7 @@ class TestSlugGeneration:
 
     def test_max_4_keywords(self, storage):
         """Only first 4 keywords should be used."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
             slug = storage.generate_slug("one two three four five six seven")
 
@@ -167,7 +167,7 @@ class TestSlugGeneration:
 
     def test_date_format(self, storage):
         """Date should be in YYYY-MM-DD format."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-12-31"
             slug = storage.generate_slug("Test task")
 
@@ -175,7 +175,7 @@ class TestSlugGeneration:
 
     def test_empty_task(self, storage):
         """Empty task should fall back to 'debate'."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
             slug = storage.generate_slug("")
 
@@ -810,7 +810,7 @@ class TestSlugEdgeCases:
 
     def test_task_with_only_punctuation(self, storage):
         """Task with only punctuation should fall back to 'debate'."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
             slug = storage.generate_slug("!@#$%^&*()")
 
@@ -1145,7 +1145,7 @@ class TestDatabaseErrors:
 
     def test_duplicate_slug_handled(self, storage):
         """Duplicate slugs should be handled by counter."""
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
 
             slug1 = storage.save_dict({"id": "first", "task": "same words", "agents": []})
