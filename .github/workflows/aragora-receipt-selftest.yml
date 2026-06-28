@@ -10,9 +10,13 @@ name: Aragora Receipt Self-Test
 # action is validated and merged.
 
 on:
-  # Manual-dispatch only: auto-running on every push wastes CI while CI model
-  # transport is unavailable (no reviewer CLIs; OpenRouter 403). Trigger this
-  # by hand once model access is configured, to capture a strong-quorum receipt.
+  # Manual-dispatch only. The action+receipt pipeline is validated (runs green,
+  # emits an independently-verifiable receipt). A STRONG quorum is currently
+  # blocked on dead CI model keys: ANTHROPIC fails -> OpenAI 429, OpenRouter 403.
+  # After refreshing those secrets, dispatch this against a tier-0/1 PR to
+  # capture a strong-quorum receipt (workflow_dispatch lacks PR context, so the
+  # action's diff/collect steps need a real PR — re-add a pull_request trigger
+  # temporarily, or dispatch from a PR-scoped wrapper).
   workflow_dispatch:
 
 concurrency:
