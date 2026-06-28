@@ -741,7 +741,7 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
     except OSError:
         return PassiveSessionAnchorScanResult([])
 
-    anchors: list[str] = []
+    anchors: set[str] = set()
     scanned_entries = 0
     anchor_only = True
 
@@ -749,8 +749,20 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
         return PassiveSessionAnchorScanResult(
             sorted(anchors),
             truncated=truncated,
-            anchor_only=bool(anchors) and anchor_only,
+            anchor_only=bool(anchors) and anchor_only and not truncated,
         )
+
+    def record_direct_anchor(path: Path) -> None:
+        nonlocal anchor_only
+        try:
+            if path.is_file() or path.is_symlink():
+                anchors.add(str(path))
+        except OSError:
+            anchor_only = False
+
+    def record_direct_child_anchors(root: Path) -> None:
+        for name in PASSIVE_SESSION_ANCHOR_FILES:
+            record_direct_anchor(root / name)
 
     pending = [candidate_root]
     while pending:
@@ -763,7 +775,9 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
                         return result(truncated=True)
                     try:
                         if entry.is_dir(follow_symlinks=False):
-                            pending.append(Path(entry.path))
+                            child_root = Path(entry.path)
+                            record_direct_child_anchors(child_root)
+                            pending.append(child_root)
                             continue
                         is_regular_file = entry.is_file(follow_symlinks=False)
                         is_symlink = entry.is_symlink()
@@ -778,7 +792,7 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
                     if entry.name not in PASSIVE_SESSION_ANCHOR_FILES:
                         anchor_only = False
                         continue
-                    anchors.append(entry.path)
+                    anchors.add(entry.path)
         except OSError:
             anchor_only = False
             continue
@@ -788,6 +802,27 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
 def passive_session_anchor_files(candidate_root: Path) -> list[str]:
     """Return passive wrapper anchor files under an otherwise no-git residue path."""
     return passive_session_anchor_scan(candidate_root).anchors
+
+
+def record_passive_session_anchor_findings(
+    candidate_root: Path,
+    *,
+    links: dict[str, Any],
+    proof: list[str],
+    anchor_only_proof: str | None,
+    mixed_residue_proof: str,
+) -> None:
+    passive_scan = passive_session_anchor_scan(candidate_root)
+    if passive_scan.anchors:
+        links["passive_session_anchors"] = passive_scan.anchors
+        if passive_scan.anchor_only and anchor_only_proof:
+            proof.append(anchor_only_proof)
+        else:
+            links["passive_session_anchor_mixed_residue"] = True
+            proof.append(mixed_residue_proof)
+    if passive_scan.truncated:
+        links["passive_session_anchor_scan_truncated"] = True
+        proof.append("passive session anchor scan truncated before cleanup authority")
 
 
 def git_status_dirty(repo_path: Path, *, timeout: int) -> tuple[bool, bool, str | None]:
@@ -1366,17 +1401,13 @@ def classify_candidate(
         else:
             classification = "no_git_cache_residue"
             proof.append("no git metadata at candidate root or candidate/aragora path")
-            passive_scan = passive_session_anchor_scan(candidate_root)
-            if passive_scan.anchors:
-                links["passive_session_anchors"] = passive_scan.anchors
-                if passive_scan.anchor_only:
-                    proof.append("passive session anchor residue only")
-                else:
-                    links["passive_session_anchor_mixed_residue"] = True
-                    proof.append("passive session anchors present with additional residue")
-            if passive_scan.truncated:
-                links["passive_session_anchor_scan_truncated"] = True
-                proof.append("passive session anchor scan truncated before cleanup authority")
+            record_passive_session_anchor_findings(
+                candidate_root,
+                links=links,
+                proof=proof,
+                anchor_only_proof="passive session anchor residue only",
+                mixed_residue_proof="passive session anchors present with additional residue",
+            )
         return build_candidate(
             candidate_root,
             repo_path,
@@ -1627,6 +1658,13 @@ def classify_candidate(
     else:
         classification = "unregistered_git_residue"
         proof.append("git checkout is not registered in git worktree list")
+        record_passive_session_anchor_findings(
+            candidate_root,
+            links=links,
+            proof=proof,
+            anchor_only_proof=None,
+            mixed_residue_proof="passive session anchors present on unregistered git residue",
+        )
 
     if any(_TIMEOUT_ERROR_MARKER in error for error in git.lookup_errors):
         # A timed-out lookup is never authoritative: the candidate is already

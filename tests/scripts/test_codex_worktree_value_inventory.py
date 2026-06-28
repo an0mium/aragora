@@ -158,6 +158,44 @@ def test_explicit_root_scan_allows_foreign_repo_for_backwards_compat(
     assert candidate.cleanup_candidate is True
 
 
+def test_passive_anchor_sentinel_set_matches_cleanup_helper() -> None:
+    import codex_worktree_value_inventory as mod
+    import safe_worktree_cleanup
+
+    assert mod.PASSIVE_SESSION_ANCHOR_FILES == safe_worktree_cleanup._WRAPPER_SENTINEL_FILENAMES
+
+
+def test_unregistered_git_residue_reports_passive_anchor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    (root / ".session-anchor").write_text("anchor\n")
+    _stub_clean_git(monkeypatch, ahead=0)
+    monkeypatch.setattr(
+        mod, "repo_remote_urls", lambda *_args, **_kwargs: {"https://example.test/other"}
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            strict_repo_identity=False,
+            repo_remote_urls={"https://example.test/target"},
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unregistered_git_residue"
+    assert candidate.links["passive_session_anchors"] == [str(root / ".session-anchor")]
+    assert candidate.links["passive_session_anchor_mixed_residue"] is True
+    assert "passive session anchors present on unregistered git residue" in candidate.proof
+    assert "passive_session_anchor" in candidate.cleanup_safety.signals
+    assert candidate.cleanup_safety.safe_to_delete is False
+
+
 def test_no_git_cache_residue_is_cleanup_candidate(tmp_path: Path) -> None:
     import codex_worktree_value_inventory as mod
 
@@ -377,7 +415,7 @@ def test_passive_anchor_scan_caps_large_anchor_only_tree(tmp_path: Path) -> None
 
     scan = mod.passive_session_anchor_scan(root)
     assert scan.truncated is True
-    assert scan.anchors == []
+    assert scan.anchors
     assert scan.anchor_only is False
 
 
@@ -426,8 +464,53 @@ def test_no_git_cache_residue_preserves_anchor_signal_when_scan_truncated(
     assert candidate.links["passive_session_anchors"] == [str(root / ".session-anchor")]
     assert candidate.links["passive_session_anchor_mixed_residue"] is True
     assert candidate.links["passive_session_anchor_scan_truncated"] is True
+    assert "passive session anchor residue only" not in candidate.proof
     assert "passive_session_anchor" in candidate.cleanup_safety.signals
     assert candidate.cleanup_safety.safe_to_delete is False
+
+
+def test_truncated_scan_never_reports_anchor_only_for_unvisited_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path, repo=False)
+
+    class FileEntry:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.path = str(root / name)
+
+        def is_dir(self, *, follow_symlinks: bool = True) -> bool:
+            return False
+
+        def is_file(self, *, follow_symlinks: bool = True) -> bool:
+            return True
+
+        def is_symlink(self) -> bool:
+            return False
+
+    class FakeScandir:
+        def __enter__(self) -> list[FileEntry]:
+            return [FileEntry(".session-anchor"), FileEntry("debug.log")]
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
+    monkeypatch.setattr(mod, "PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT", 1)
+    monkeypatch.setattr(mod.os, "scandir", lambda _path: FakeScandir())
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.links["passive_session_anchors"] == [str(root / ".session-anchor")]
+    assert candidate.links["passive_session_anchor_mixed_residue"] is True
+    assert candidate.links["passive_session_anchor_scan_truncated"] is True
+    assert "passive session anchor residue only" not in candidate.proof
 
 
 def test_no_git_cache_residue_reports_truncated_anchor_scan(tmp_path: Path) -> None:
@@ -448,8 +531,10 @@ def test_no_git_cache_residue_reports_truncated_anchor_scan(tmp_path: Path) -> N
 
     assert candidate.classification == "no_git_cache_residue"
     assert candidate.links["passive_session_anchor_scan_truncated"] is True
-    assert "passive_session_anchors" not in candidate.links
-    assert "passive_session_anchor" not in candidate.cleanup_safety.signals
+    assert candidate.links["passive_session_anchors"]
+    assert candidate.links["passive_session_anchor_mixed_residue"] is True
+    assert "passive session anchor residue only" not in candidate.proof
+    assert "passive_session_anchor" in candidate.cleanup_safety.signals
     assert candidate.cleanup_safety.safe_to_delete is False
 
 
