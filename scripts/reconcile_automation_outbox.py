@@ -42,6 +42,12 @@ from audit_codex_branch_backlog import (  # noqa: E402
     run_git,
 )
 from github_cli_health import check_github_cli_health  # noqa: E402
+from handoff_state import (  # noqa: E402
+    NarrowGitHubClient,
+    full_heads_match,
+    github_evidence_for_branch,
+    target_pr_number_from_receipt,
+)
 from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
 
 UTC = timezone.utc
@@ -59,6 +65,7 @@ DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
 DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
 TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
+TERMINAL_DISPOSITION_EXACT_OPEN_PR = "represented_by_exact_open_pr"
 LOCAL_WORK_MARKER_KEYS = (
     "uncommitted_changes",
     "has_uncommitted_changes",
@@ -650,22 +657,7 @@ def _pr_number_from_value(value: Any) -> int | None:
 
 
 def _target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
-    for key in ("target_pr", "pr_number", "pull_request_number"):
-        number = _pr_number_from_value(receipt.get(key))
-        if number is not None:
-            return number
-    for key in (
-        "created_pr_url",
-        "existing_pr_url",
-        "pr_url",
-        "pull_request_url",
-        "created_pull_request_url",
-        "existing_pull_request_url",
-    ):
-        number = _pr_number_from_value(receipt.get(key))
-        if number is not None:
-            return number
-    return None
+    return target_pr_number_from_receipt(receipt)
 
 
 def _target_pr_state(
@@ -961,6 +953,72 @@ def _existing_issue_terminal_candidate(
     return terminal_info, None
 
 
+def _exact_open_pr_terminal_candidate(
+    *,
+    root: Path,
+    repo_name: str,
+    payload: dict[str, Any],
+    branch: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Return terminal disposition when an exact open PR already represents a handoff.
+
+    This path is intentionally stricter than the legacy open_pr_heads cache:
+    it uses narrow REST evidence and requires branch, base, and full desired
+    head to match before an outbox item can be archived.
+    """
+
+    desired_head = _desired_head_from_payload(payload)
+    if not desired_head:
+        return None, None
+    desired_base = _requested_base_from_payload(payload)
+    github_client = NarrowGitHubClient(repo_root=root, github_repo=repo_name)
+    github = github_evidence_for_branch(
+        github_client,
+        branch,
+        desired_head,
+        desired_base,
+        target_pr=target_pr_number_from_receipt(payload),
+    )
+    exact_open_pr = github.exact_open_pr
+    if exact_open_pr is not None:
+        pr_number = _pr_number_from_value(exact_open_pr.get("number"))
+        pr_head = str(exact_open_pr.get("head_sha") or "").strip()
+        pr_branch = str(exact_open_pr.get("head") or "").strip()
+        if pr_number is None:
+            return None, "exact open PR evidence is missing a PR number"
+        if pr_branch != branch:
+            return None, (
+                f"exact open PR #{pr_number} is for branch {pr_branch or 'unknown'}, not {branch}"
+            )
+        if not full_heads_match(desired_head, pr_head):
+            return None, (
+                f"exact open PR #{pr_number} head {pr_head[:12] or 'unknown'} "
+                f"does not fully match desired head {desired_head[:12]}"
+            )
+        return {
+            "archived_by": "scripts/reconcile_automation_outbox.py",
+            "decision_evidence": {
+                "base": exact_open_pr.get("base"),
+                "branch": branch,
+                "desired_head_sha": desired_head,
+                "github_mode": github.mode,
+                "pr_head_sha": pr_head,
+                "pr_number": pr_number,
+                "pr_url": exact_open_pr.get("html_url"),
+            },
+            "disposition": TERMINAL_DISPOSITION_EXACT_OPEN_PR,
+            "receipt_reason": TERMINAL_DISPOSITION_EXACT_OPEN_PR,
+            "receipt_status": "already_satisfied",
+        }, None
+    if github.open_prs:
+        numbers = ", ".join(
+            f"#{item.get('number')}" for item in github.open_prs if item.get("number")
+        )
+        suffix = f" ({numbers})" if numbers else ""
+        return None, f"branch has open PR(s){suffix}, but no open PR at desired head"
+    return None, None
+
+
 def _archive_with_terminal_disposition(
     path: Path,
     archive_dir: Path,
@@ -1156,6 +1214,65 @@ def _write_synthetic_receipt(
     if apply:
         path.write_text(json.dumps(body, indent=2, sort_keys=True))
     return path
+
+
+def _handle_exact_open_pr_terminal_candidate(
+    *,
+    root: Path,
+    repo_name: str,
+    path: Path,
+    archive_dir: Path,
+    receipt_dir: Path,
+    payload: dict[str, Any],
+    branch: str,
+    counts: dict[str, int],
+    actions: list[dict[str, Any]],
+    apply: bool,
+) -> bool:
+    terminal_info, keep_reason = _exact_open_pr_terminal_candidate(
+        root=root,
+        repo_name=repo_name,
+        payload=payload,
+        branch=branch,
+    )
+    if terminal_info is not None:
+        pr_number = terminal_info["decision_evidence"]["pr_number"]
+        reason = f"represented by exact open PR #{pr_number}"
+        counts["satisfied_by_exact_open_pr"] += 1
+        actions.append(
+            {
+                "path": str(path),
+                "branch": branch,
+                "decision": "archive",
+                "reason": reason,
+                "terminal_disposition": terminal_info,
+                "synthetic_receipt": True,
+                "pr_number": pr_number,
+            }
+        )
+        if apply:
+            _write_synthetic_receipt(
+                receipt_dir=receipt_dir,
+                outbox_payload=payload,
+                reason=TERMINAL_DISPOSITION_EXACT_OPEN_PR,
+                pr_number=pr_number,
+                apply=True,
+            )
+            _archive_with_terminal_disposition(path, archive_dir, payload, terminal_info)
+        return True
+    if keep_reason is not None:
+        counts["still_protecting_active_work"] += 1
+        actions.append(
+            {
+                "path": str(path),
+                "branch": branch,
+                "decision": "keep",
+                "reason": keep_reason,
+                "synthetic_receipt": False,
+            }
+        )
+        return True
+    return False
 
 
 def _github_open_pr_state(root: Path, repo_name: str) -> tuple[dict[str, int], bool, str]:
@@ -1412,6 +1529,7 @@ def main(argv: list[str] | None = None) -> int:
         "blocked_receipt_issue_only": 0,
         "satisfied_by_superseded_handoff": 0,
         "satisfied_by_landed_on_main": 0,
+        "satisfied_by_exact_open_pr": 0,
         "satisfied_by_open_pr_merged": 0,  # placeholder; we only know open PRs
         "satisfied_by_merged_pr_commit_proof": 0,
         "still_protecting_active_work": 0,
@@ -1678,6 +1796,19 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:
             ref_proc = None
         if ref_proc is None or ref_proc.returncode != 0:
+            if _handle_exact_open_pr_terminal_candidate(
+                root=root,
+                repo_name=args.repo_name,
+                path=path,
+                archive_dir=archive_dir,
+                receipt_dir=receipt_dir,
+                payload=payload,
+                branch=branch,
+                counts=counts,
+                actions=actions,
+                apply=args.apply,
+            ):
+                continue
             open_prs, open_pr_state_available = load_open_pr_state()
             if branch in open_prs:
                 counts["still_protecting_active_work"] += 1
@@ -1747,6 +1878,20 @@ def main(argv: list[str] | None = None) -> int:
                     apply=True,
                 )
                 shutil.move(str(path), str(archive_dir / path.name))
+            continue
+
+        if _handle_exact_open_pr_terminal_candidate(
+            root=root,
+            repo_name=args.repo_name,
+            path=path,
+            archive_dir=archive_dir,
+            receipt_dir=receipt_dir,
+            payload=payload,
+            branch=branch,
+            counts=counts,
+            actions=actions,
+            apply=args.apply,
+        ):
             continue
 
         open_prs, open_pr_state_available = load_open_pr_state()
