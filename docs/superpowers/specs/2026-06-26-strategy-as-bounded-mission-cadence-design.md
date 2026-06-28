@@ -129,7 +129,7 @@ Steps:
 
 - [ ] Record the M1 proof artifact path and verifier command in the register, preserving the existing ODR completion mission as the authoritative execution spine.
 - [ ] Update the GitHub issue with the exact command output and the commit SHA that produced the verified receipt.
-- [ ] Keep any signing-key, server endpoint, or protected deployment change parked as `needs_human`; those are not required for the M1 doc/schema proof to land.
+- [ ] Keep any external signing-key custody, server endpoint, or protected deployment change parked as `needs_human`; local/in-repo detached-signature verification is still required before the M1 terminal proof gate can pass.
 
 ## M2 Implementation Plan: GitHub Action Wedge
 
@@ -152,7 +152,7 @@ Steps:
 
 **Files:**
 - Modify: `aragora/cli/commands/review_queue.py` or the existing review-queue command module
-- Test: `tests/cli/test_review_queue.py` or the nearest existing review-queue test file
+- Test: `tests/cli/commands/test_review_queue.py` or the nearest existing review-queue test file
 
 Steps:
 
@@ -211,7 +211,7 @@ One tick does exactly this:
 1. Read `docs/status/ROADMAP_INTAKE_REGISTER.md`.
 2. Find the single active sub-mission in this strategy queue.
 3. Run that sub-mission's proof command from a clean current-main observer.
-4. If the proof passes, mark the sub-mission done and stop.
+4. If the proof passes, update `docs/status/ROADMAP_INTAKE_REGISTER.md` with the proof artifact path, verifier command, and commit SHA for that sub-mission, then stop.
 5. If the proof fails and the next action is safe, run one bounded worker batch through the existing mission/worker substrate and stop.
 6. If the next action is Tier 3/4, workflow, release, protected, signing-key, or product-positioning risk, park with an operator receipt and stop.
 
