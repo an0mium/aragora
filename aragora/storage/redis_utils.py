@@ -28,7 +28,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aragora.type_protocols import RedisClientProtocol
+    from aragora.protocols import RedisClientProtocol
 
 logger = logging.getLogger(__name__)
 
