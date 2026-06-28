@@ -1,9 +1,16 @@
 """Deprecated import location for Aragora's caching substrate.
 
 The unified caching implementation now lives under :mod:`aragora.caching`.
-Importing from ``aragora.cache`` still works but is deprecated; import from
-``aragora.caching`` (and its submodules ``aragora.caching.registry`` /
-``aragora.caching.redis``) instead.
+Importing from ``aragora.cache`` still works but is deprecated. Migrate to the
+matching ``aragora.caching`` submodules: ``aragora.caching.ttl`` (``cached``,
+``TTLCache``, ``clear_all_caches`` and the TTL primitives),
+``aragora.caching.registry`` (``get_cache``, ``CacheStats``, ``register_cache``),
+and ``aragora.caching.redis`` (``RedisTTLCache``, ``HybridTTLCache``).
+
+Note: the top-level ``aragora.caching`` names ``cached`` / ``CacheStats`` /
+``clear_all_caches`` are the decorator-layer API and are *not* drop-in
+replacements for the same names re-exported here (which preserve the historical
+``aragora.cache`` behaviour). Import from the submodules above to migrate safely.
 """
 
 from __future__ import annotations
@@ -36,7 +43,12 @@ from aragora.caching.ttl import (
 )
 
 warnings.warn(
-    "aragora.cache is deprecated; import from aragora.caching instead.",
+    "aragora.cache is deprecated; import from the matching aragora.caching "
+    "submodules instead (aragora.caching.ttl for cached/TTLCache/clear_all_caches, "
+    "aragora.caching.registry for get_cache/CacheStats, aragora.caching.redis for "
+    "RedisTTLCache/HybridTTLCache). The aragora.caching top-level "
+    "cached/CacheStats/clear_all_caches are the decorator-layer API and are not "
+    "drop-in replacements for these names.",
     DeprecationWarning,
     stacklevel=2,
 )
