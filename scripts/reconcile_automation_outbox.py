@@ -637,19 +637,6 @@ def _receipt_has_pr_reference(receipt: Mapping[str, Any]) -> bool:
     return False
 
 
-def _pr_number_from_value(value: Any) -> int | None:
-    text = str(value or "").strip().rstrip("/")
-    if not text:
-        return None
-    if text.isdigit():
-        return int(text)
-    marker = "/pull/"
-    if marker not in text:
-        return None
-    candidate = text.rsplit(marker, 1)[1].split("/", 1)[0]
-    return int(candidate) if candidate.isdigit() else None
-
-
 def _target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
     return target_pr_number_from_receipt(receipt)
 

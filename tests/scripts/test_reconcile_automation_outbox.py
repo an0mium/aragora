@@ -1059,15 +1059,27 @@ def test_reconcile_archives_target_pr_receipt_when_pr_merged_at_desired_head(
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(
-        mod,
-        "_target_pr_state",
-        lambda *_args: {
-            "number": 7105,
-            "state": "MERGED",
-            "headRefOid": desired_head,
-        },
-    )
+    gh_commands: list[list[str]] = []
+
+    def fake_subprocess_run(
+        command: list[str],
+        **_kwargs: Any,
+    ) -> SimpleNamespace:
+        gh_commands.append(command)
+        assert command[:4] == ["gh", "pr", "view", "7105"]
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "number": 7105,
+                    "state": "MERGED",
+                    "headRefOid": desired_head,
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
     monkeypatch.setattr(
         mod,
         "run_git",
@@ -1093,6 +1105,7 @@ def test_reconcile_archives_target_pr_receipt_when_pr_merged_at_desired_head(
     assert payload["actions"][0]["reason"] == "matching receipt exists"
     assert handoff.exists()
     assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
+    assert gh_commands
 
 
 def test_reconcile_archives_requested_action_target_open_pr_receipt_when_merged(
@@ -1129,15 +1142,27 @@ def test_reconcile_archives_requested_action_target_open_pr_receipt_when_merged(
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(
-        mod,
-        "_target_pr_state",
-        lambda *_args: {
-            "number": 7105,
-            "state": "MERGED",
-            "headRefOid": desired_head,
-        },
-    )
+    gh_commands: list[list[str]] = []
+
+    def fake_subprocess_run(
+        command: list[str],
+        **_kwargs: Any,
+    ) -> SimpleNamespace:
+        gh_commands.append(command)
+        assert command[:4] == ["gh", "pr", "view", "7105"]
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "number": 7105,
+                    "state": "MERGED",
+                    "headRefOid": desired_head,
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
     monkeypatch.setattr(
         mod,
         "run_git",
@@ -1163,6 +1188,7 @@ def test_reconcile_archives_requested_action_target_open_pr_receipt_when_merged(
     assert payload["actions"][0]["reason"] == "matching receipt exists"
     assert handoff.exists()
     assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
+    assert gh_commands
 
 
 def test_reconcile_keeps_target_pr_receipt_when_merged_pr_head_differs(
