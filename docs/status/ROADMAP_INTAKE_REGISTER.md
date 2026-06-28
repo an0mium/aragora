@@ -88,11 +88,14 @@ The queue is layered on the canonical native mission engine, not parallel to it:
 if `codex/native-mission-engine` and this strategy queue both look actionable,
 finish or use the native mission engine as the substrate first, then run this
 queue's single active sub-mission through that spine.
+Until PR #8655 is settled or its native mission engine surfaces are otherwise on
+`main`, this queue may only register M0 and preserve proof requirements; it must
+not start M1 worker execution.
 
 | Mission | Status | Canonical destination | Terminal gate |
 |---|---|---|---|
 | **M0 — Register the strategy mission** | **merge-gated in PR #8666** | `docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md`; this register row; epic #8665 | Spec, register row, and #8665 are on `main`; until PR #8666 merges, M0 is not complete and M1 must not start. |
-| **M1 — ODR spine to v1.0 candidate** | queued | ODR epic [#8223](https://github.com/synaptent/aragora/issues/8223); existing plan `docs/superpowers/plans/2026-06-13-odr-completion-mission.md`; `docs/specs/OPEN_DECISION_RECEIPT.md`; `aragora/gauntlet/odr_schema.json`; `aragora-verify/` | The existing ODR-2 -> ODR-3 spine remains authoritative; `aragora-verify` verifies a live Aragora-produced ODR receipt before any v1.0 stability claim becomes GA. |
+| **M1 — ODR spine to v1.0 candidate** | queued; blocked until #8655 substrate is on `main` or explicitly settled | ODR epic [#8223](https://github.com/synaptent/aragora/issues/8223); existing plan `docs/superpowers/plans/2026-06-13-odr-completion-mission.md`; `docs/specs/OPEN_DECISION_RECEIPT.md`; `aragora/gauntlet/odr_schema.json`; `aragora-verify/` | The existing ODR-2 -> ODR-3 spine remains authoritative; `aragora-verify` verifies a live Aragora-produced ODR receipt before any v1.0 stability claim becomes GA. |
 | **M2 — GitHub Action receipt wedge** | queued | #8665 child issue to be opened after M1; `action.yml` only with exact-head operator approval | A real PR run uploads a DecisionReceipt/ODR artifact that `aragora-verify` accepts. |
 | **M3 — Proof corpus and legibility** | queued | #8257 plus proof-corpus child issue; `docs/status/DECISION_RECEIPT_PROOF.md` | Public proof corpus exists and front-door docs make the receipt wedge legible. |
 

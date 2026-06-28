@@ -19,7 +19,7 @@ This design extends live repo primitives instead of inventing another runtime.
 | Roadmap intake | `docs/status/ROADMAP_INTAKE_REGISTER.md` exists and is the single-register rule. | Register this mission there; do not create a parallel index. |
 | ODR | `docs/specs/OPEN_DECISION_RECEIPT.md`, `aragora/gauntlet/odr_schema.json`, `aragora/gauntlet/odr_export.py`, `aragora/gauntlet/odr_signing.py`, `aragora-verify/`, and the existing ODR completion plan `docs/superpowers/plans/2026-06-13-odr-completion-mission.md` already exist. | M1 extends the ODR-2 -> ODR-3 offline-verifier spine; it does not create a competing ODR executor or freeze v1.0 before the verifier proof lands. |
 | GitHub Action | `action.yml` runs advisory `aragora review`, but does not emit ODR/DecisionReceipt artifacts. | M2 is a bridge from quorum evidence to a receipt artifact, then an approval-gated Action change. |
-| Mission runtime | `aragora/cli/commands/mission.py`, `aragora/missions/`, and `aragora/swarm/mission.py` exist; native-mission work is being integrated. | Use the mission spine and `GateEvaluation`; do not add a parallel orchestrator. |
+| Mission runtime | `aragora/cli/commands/mission.py`, `aragora/missions/`, and `aragora/swarm/mission.py` exist; the canonical native mission engine remains merge-gated in PR #8655 until it lands or is explicitly settled. | Register M0 now; run later sub-missions through the mission spine only after the #8655 substrate is available on `main` or otherwise settled. Do not add a parallel orchestrator. |
 | External proof | Existing docs already insist that claims trail measured proof. | The mission exits only when a public/verifiable artifact exists. |
 
 ## Non-Goals
@@ -36,7 +36,7 @@ Only one sub-mission is active at a time. The next sub-mission cannot start unti
 
 | Mission | Scope | Existing tracker(s) | Terminal proof gate |
 |---|---|---|---|
-| M0: Durable strategy registration | Add this spec, register #8665, and expose the mission queue in the intake register. | #8665, #8650 | Spec and register row are on main; #8665 links the queue and existing epics. |
+| M0: Durable strategy registration | Add this spec, register #8665, and expose the mission queue in the intake register. | #8665 | Spec and register row are on main; #8665 links the queue and existing epics. |
 | M1: ODR spine to v1.0 candidate | Extend the existing ODR completion mission: finish the ODR-2 signing dependency, make the ODR-3 offline verifier prove a live receipt, then promote ODR v0.1 toward a stable v1 candidate with versioning policy, native `DecisionReceipt` mapping, independent verifier fixture, and signing proof. | #8223; existing plan `docs/superpowers/plans/2026-06-13-odr-completion-mission.md` | `aragora-verify` verifies a live Aragora-produced ODR receipt against a checked-in v1 candidate fixture and spec; only then can a GA stability claim be made. |
 | M2: GitHub Action wedge | Convert PR quorum/CollectOutcome evidence into a DecisionReceipt/ODR artifact; prepare the approval-required Action update separately. | #8665 plus follow-up issue | A real PR run uploads a receipt artifact that `aragora-verify` accepts. |
 | M3: Proof corpus and legibility | Publish a small corpus of real PR governance receipts and trim the front-door story to the Action/receipt wedge. | #8257 plus follow-up issue | Public proof page/release exists with receipt corpus and a README path a newcomer can understand in one sitting. |
@@ -50,7 +50,8 @@ Target integration point:
 - Extend `aragora/swarm/mission.py::GateEvaluation` with a proof-gate payload when the native mission spine is ready for this mission class.
 - Until that lands, the Roadmap Intake Register is the durable queue and each sub-mission uses explicit verification commands in its issue body and PR description.
 
-Gate output shape:
+Illustrative future gate output shape, to be implemented when
+`GateEvaluation` grows this proof-gate payload:
 
 ```json
 {
@@ -212,8 +213,9 @@ One tick does exactly this:
 2. Find the single active sub-mission in this strategy queue.
 3. Run that sub-mission's proof command from a clean current-main observer.
 4. If the proof passes, update `docs/status/ROADMAP_INTAKE_REGISTER.md` with the proof artifact path, verifier command, and commit SHA for that sub-mission, then stop.
-5. If the proof fails and the next action is safe, run one bounded worker batch through the existing mission/worker substrate and stop.
-6. If the next action is Tier 3/4, workflow, release, protected, signing-key, or product-positioning risk, park with an operator receipt and stop.
+5. If the proof fails because M0 is still open or the #8655 substrate is not on `main`, stop and report that gate; do not launch worker batches.
+6. If the proof fails and the next action is safe, run one bounded worker batch through the existing mission/worker substrate and stop.
+7. If the next action is Tier 3/4, workflow, release, protected, signing-key, or product-positioning risk, park with an operator receipt and stop.
 
 Circuit breaker: if no external proof progresses for three consecutive ticks, halt the strategy mission and open a human-readable blocker on #8665.
 

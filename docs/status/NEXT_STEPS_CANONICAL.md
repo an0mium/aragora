@@ -11,13 +11,15 @@ This is the single source of truth for short-horizon execution priorities.
 ## Current Gate
 
 The immediate gate is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop and focusing existing receipt work, not adding other roadmap scope.
+If B0/TW-03 recurring proof freshness and the #8665 receipt track conflict,
+B0/TW-03 freshness wins until the proof surfaces are complete and current.
 
 The active strategy mission that narrows this proof-first loop onto the existing
 ODR/receipt proof path is [#8665](https://github.com/synaptent/aragora/issues/8665).
 It focuses the existing ODR and receipt work into one sequence: finish the ODR
 offline-verifier spine, then prepare a GitHub Action receipt artifact, then publish a
 public proof corpus. Its durable queue lives in
-[`ROADMAP_INTAKE_REGISTER.md`](ROADMAP_INTAKE_REGISTER.md#active-mission-queue--strategy-mission-cadence-8665),
+[`ROADMAP_INTAKE_REGISTER.md`](ROADMAP_INTAKE_REGISTER.md#active-mission-queue-strategy-mission-cadence-8665),
 and its design lives in
 [`docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md`](../superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md).
 This does not widen the autonomy gate. The canonical native mission engine in
