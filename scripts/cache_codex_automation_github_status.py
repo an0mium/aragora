@@ -28,6 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.github_cli_health import check_github_cli_health
+from scripts.handoff_state import target_pr_number_from_receipt
 from scripts.publish_automation_handoffs import _open_boss_ready_count
 from scripts.publish_codex_automation_branches import (
     CODEX_BRANCH_PREFIX,
@@ -252,12 +253,7 @@ def _head_from_receipt(payload: Mapping[str, Any]) -> str:
 
 
 def _requests_target_pr(payload: Mapping[str, Any]) -> bool:
-    if str(payload.get("target_pr") or "").strip():
-        return True
-    requested_action = _mapping_from_action(payload.get("requested_action"))
-    if requested_action is None:
-        return False
-    return bool(str(requested_action.get("target_pr") or "").strip())
+    return target_pr_number_from_receipt(payload) is not None
 
 
 def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:

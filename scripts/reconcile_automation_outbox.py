@@ -42,6 +42,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
     run_git,
 )
 from github_cli_health import check_github_cli_health  # noqa: E402
+from handoff_state import target_pr_number_from_receipt  # noqa: E402
 from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
 
 UTC = timezone.utc
@@ -650,22 +651,7 @@ def _pr_number_from_value(value: Any) -> int | None:
 
 
 def _target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
-    for key in ("target_pr", "pr_number", "pull_request_number"):
-        number = _pr_number_from_value(receipt.get(key))
-        if number is not None:
-            return number
-    for key in (
-        "created_pr_url",
-        "existing_pr_url",
-        "pr_url",
-        "pull_request_url",
-        "created_pull_request_url",
-        "existing_pull_request_url",
-    ):
-        number = _pr_number_from_value(receipt.get(key))
-        if number is not None:
-            return number
-    return None
+    return target_pr_number_from_receipt(receipt)
 
 
 def _target_pr_state(
