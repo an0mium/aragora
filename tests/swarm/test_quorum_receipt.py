@@ -23,7 +23,7 @@ def _outcome(*, tier: int = 1) -> CollectOutcome:
         head_committed_at="2026-06-27T08:00:00+00:00",
         tier=tier,
         action="prepare",
-        action_reason="supportive quorum reached",
+        action_reason="reviewer dissent present (grok); prepared evidence only",
         items=[
             EvidenceItem(
                 family="claude", body="PASS: looks correct", would_count=True, verdict="pass"
@@ -51,6 +51,33 @@ def test_bridge_preserves_quorum_families():
     assert proof is not None
     assert set(proof.supporting_agents) == {"claude", "openai"}
     assert "grok" in proof.dissenting_agents
+
+
+def test_bridge_fails_closed_when_supportive_quorum_has_dissent():
+    receipt = collect_outcome_to_decision_receipt(_outcome())
+
+    assert receipt.verdict == "CHANGES_REQUESTED"
+    assert receipt.consensus_proof is not None
+    assert receipt.consensus_proof.reached is False
+
+
+def test_bridged_odr_fails_closed_when_supportive_quorum_has_dissent():
+    odr = decision_receipt_to_odr(collect_outcome_to_decision_receipt(_outcome()))
+
+    assert odr["claim"]["verdict"] == "CHANGES_REQUESTED"
+    assert odr["quorum"]["reached"] is False
+    assert odr["quorum"]["dissent"]["present"] is True
+
+
+def test_bridged_odr_discloses_provider_lineage_for_participants():
+    odr = decision_receipt_to_odr(collect_outcome_to_decision_receipt(_outcome()))
+    participants = {row["agent"]: row["model_family"] for row in odr["quorum"]["participants"]}
+
+    assert participants == {
+        "claude": "anthropic",
+        "grok": "xai",
+        "openai": "openai",
+    }
 
 
 def test_bridged_receipt_exports_to_conformant_odr():

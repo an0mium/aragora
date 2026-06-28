@@ -11,8 +11,9 @@ Design rules (mirroring the emitter's "never fabricate" contract):
 - **Pure and side-effect-free.** It copies fields off the outcome; it makes no
   network calls and mutates nothing. The Action / settlement layer decides what
   to do with the receipt.
-- **No invented verdicts.** The verdict and quorum reflect the outcome's own
-  ``has_supportive_quorum`` and per-family verdicts, nothing more.
+- **No invented clearance.** The verdict and quorum reflect the outcome's own
+  supportive quorum only when no reviewer dissent is present. A prepared
+  dissent outcome must remain merge-blocking in the portable receipt.
 - **Internally consistent quorum.** Supporting and dissenting families are
   carried into ``consensus_proof``; ``odr_export`` records them as participants,
   so the verifier's quorum-consistency check holds (supporting/dissenting agents
@@ -31,7 +32,7 @@ from aragora.gauntlet.receipt_models import (
     ConsensusProof,
     DecisionReceipt,
 )
-from aragora.swarm.quorum_evidence import CollectOutcome
+from aragora.swarm.quorum_evidence import FAMILY_PROVIDERS, CollectOutcome
 
 __all__ = ["collect_outcome_to_decision_receipt"]
 
@@ -45,7 +46,8 @@ def collect_outcome_to_decision_receipt(outcome: CollectOutcome) -> DecisionRece
     supportive = list(outcome.supportive_families)
     dissenting = list(outcome.dissenting_families)
     counting = list(outcome.counting_families)
-    reached = bool(outcome.has_supportive_quorum)
+    dissent_reason = "reviewer dissent" in str(outcome.action_reason or "").lower()
+    reached = bool(outcome.has_supportive_quorum) and not dissenting and not dissent_reason
 
     confidence = (len(supportive) / len(counting)) if counting else 0.0
     verdict = "PASS" if reached else "CHANGES_REQUESTED"
@@ -57,7 +59,7 @@ def collect_outcome_to_decision_receipt(outcome: CollectOutcome) -> DecisionRece
         AgentResponseRecord(
             agent=item.family,
             response=item.body,
-            provider=item.family,  # model family is the disclosed independence axis
+            provider=FAMILY_PROVIDERS.get(item.family, item.family),
         )
         for item in outcome.items
         if (item.family or "").strip()
