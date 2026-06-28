@@ -1191,6 +1191,91 @@ def test_reconcile_archives_requested_action_target_open_pr_receipt_when_merged(
     assert gh_commands
 
 
+def test_reconcile_archives_outbox_requested_action_target_open_pr_receipt_when_merged(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-target-pr-merged"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/target-pr-merged",
+        key=key,
+        local_evidence={
+            "branch": "codex/target-pr-merged",
+            "desired_head_sha": desired_head,
+        },
+    )
+    handoff_payload = json.loads(handoff.read_text(encoding="utf-8"))
+    handoff_payload["requested_action"]["target_open_pr"] = (
+        "https://github.com/synaptent/aragora/pull/7105"
+    )
+    handoff.write_text(json.dumps(handoff_payload), encoding="utf-8")
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "already_satisfied",
+                "reason": "target_open_pr",
+                "repo": "synaptent/aragora",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    gh_commands: list[list[str]] = []
+
+    def fake_subprocess_run(
+        command: list[str],
+        **_kwargs: Any,
+    ) -> SimpleNamespace:
+        gh_commands.append(command)
+        assert command[:4] == ["gh", "pr", "view", "7105"]
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "number": 7105,
+                    "state": "MERGED",
+                    "headRefOid": desired_head,
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("git ref checks should not run for merged target PR receipts")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("open PR fetch should not run for matched target PR receipts")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 1
+    assert payload["counts"]["blocked_receipt_pr_head_mismatch"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 0
+    assert payload["actions"][0]["decision"] == "archive"
+    assert payload["actions"][0]["reason"] == "matching receipt exists"
+    assert handoff.exists()
+    assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
+    assert gh_commands
+
+
 def test_reconcile_keeps_target_pr_receipt_when_merged_pr_head_differs(
     tmp_path: Path,
     monkeypatch: Any,

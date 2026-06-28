@@ -645,8 +645,11 @@ def _target_pr_state(
     root: Path,
     repo_name: str,
     receipt: Mapping[str, Any],
+    outbox_payload: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any] | None:
     number = _target_pr_number_from_receipt(receipt)
+    if number is None and outbox_payload is not None:
+        number = _target_pr_number_from_receipt(outbox_payload)
     if number is None:
         return None
     repo = str(receipt.get("repo") or repo_name).strip() or repo_name
@@ -701,7 +704,7 @@ def _merged_target_pr_receipt_resolution(
     if not desired_head:
         return False, None
 
-    target_pr_state = _target_pr_state(root, repo_name, receipt)
+    target_pr_state = _target_pr_state(root, repo_name, receipt, payload)
     if str((target_pr_state or {}).get("state") or "").strip().upper() != "MERGED":
         return False, None
 
