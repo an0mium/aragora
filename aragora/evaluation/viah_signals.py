@@ -1,6 +1,6 @@
 """AGT-06 sidecar signal bridge: ReputationStore → VIAH counters (AGT-05 → AGT-06).
 
-Supplies the two integer sidecar parameters that :func:`aragora.metrics.viah.compute_viah`
+Supplies the two integer sidecar parameters that :func:`aragora.evaluation.viah.compute_viah`
 accepts as defaults-to-zero until AGT-05 settlement is live:
 
 - :func:`count_crux_resolutions_correct` — SD-2: cruxes correctly resolved (positive delta)
