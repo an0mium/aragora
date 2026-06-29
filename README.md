@@ -5,8 +5,8 @@ multi-model review in, a verifiable Decision Receipt out.**
 
 It coordinates heterogeneous models to adversarially review a change or a
 decision, preserves the dissent and provenance, stops truthfully when evidence
-is thin, and emits a portable receipt anyone can verify — with no Aragora
-install required.
+is thin, and emits a portable receipt anyone can verify offline with the
+standalone verifier. PyPI publishing for the verifier is pending.
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -18,7 +18,7 @@ install required.
 | I want to… | Command |
 |------------|---------|
 | Try a debate in 30 seconds | `pip install aragora-debate` |
-| Verify a Decision Receipt (no Aragora install) | `PYTHONPATH=src python -m aragora_verify <receipt>` from `aragora-verify/`; PyPI publish pending |
+| Verify a Decision Receipt with the standalone verifier | `PYTHONPATH=src python -m aragora_verify <receipt>` from `aragora-verify/`; PyPI publish pending |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
@@ -76,9 +76,9 @@ PYTHONPATH=src python -m aragora_verify ../decision-receipt.odr.json
 
 ```bash
 pip install aragora
-export ANTHROPIC_API_KEY=...        # at least one provider key (or use AWS Secrets Manager)
+aragora demo --offline              # zero-key debate, opens the receipt in your browser
 
-aragora demo                        # zero-config debate, opens the receipt in your browser
+export ANTHROPIC_API_KEY=...        # provider credential for live model review
 aragora review-pr 123               # multi-agent review of a GitHub PR
 aragora receipt export <id> --format odr -o receipt.odr.json   # portable receipt
 ```
