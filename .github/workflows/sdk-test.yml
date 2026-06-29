@@ -240,6 +240,21 @@ jobs:
           bash scripts/ci_install_project.sh --extras dev
           python -m pip install -e sdk/python/
 
+      # tests/sdk/test_typescript_exports.py::test_sdk_compiles_cleanly shells out
+      # to `npx tsc --noEmit` in sdk/typescript, which needs the pinned TypeScript
+      # and @types/node from node_modules. Without npm ci, npx resolves an
+      # unpinned tsc and @types/node is absent (TS2688/TS5103).
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sdk/typescript/package-lock.json
+
+      - name: Install TypeScript SDK dependencies
+        working-directory: sdk/typescript
+        run: npm ci
+
       - name: Run SDK integration tests
         run: |
           python -m pytest tests/sdk/ -v --tb=short --timeout=60
