@@ -471,4 +471,3 @@ class TestRollingViahTrend:
         ledger = _seed_ledger(tmp_path, [])
         with pytest.raises(ValueError, match="weeks"):
             rolling_viah_trend(ledger=ledger, weeks=0)
-        assert report.window_start.endswith("Z")
