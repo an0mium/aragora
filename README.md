@@ -191,7 +191,7 @@ Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed
 
 ---
 
-<a name="full-vision"></a>
+<a id="full-vision"></a>
 
 ## Postscript — The Full Vision
 
@@ -210,7 +210,7 @@ Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed
 > across docs it is rounded here on purpose. Every major claim below carries a proof
 > link, a status marker, or an explicit aspirational label — start with the proof ladder.
 
-<a name="proof-ladder"></a>
+<a id="proof-ladder"></a>
 
 ### Proof ladder — how to verify every claim here
 
@@ -306,7 +306,7 @@ truth. *(docs/CANONICAL_GOALS.md)*
 
 > Scale (canonical counts in [`docs/METRICS.md`](docs/METRICS.md), rounded):
 > **~4,200 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test
-> functions across ~5,400 files · ~3,300 API operations over ~2,870 paths ·
+> functions across ~5,400 files · 3,386 API operations across 2,928 paths ·
 > 35+ allowlisted agent types across 12+ providers · 41 Knowledge Mound adapter specs
 > (46 files) · 360+ RBAC permissions · Python + TypeScript SDKs · v2.9.0.**
 > (Practical real-time debate uses 2–6 agents; the value is *heterogeneity*, not raw
@@ -448,7 +448,7 @@ metric. *(docs/plans/ agent-civilization designs)*
   assumptions decay, epistemic decay signals proposing bounded repair, and a read-only
   organizational truth map. Initial shape is manifest-based and read-only.
 - **Trust-Compound plan (🔄 TCP-1..7).** Make the large surface *legible without
-  deletion*: a canonical-metrics manifest verified in CI (so a claim like "40+ adapters"
+  deletion*: a canonical-metrics manifest verified in CI (so a claim like "46 adapters"
   passes or fails the build), packaging clarity, hotspot-file splits, wire/showcase/
   shelve classification per subsystem, generated artifacts as build outputs, this README
   rewrite, and public CruxSets at `aragora.ai/cruxes`.
@@ -498,7 +498,7 @@ canvas — move to `contrib/` or shelve until customer demand). The standalone
 `aragora-debate` library extracts Tier 1 so anyone can run an adversarial debate in ~10
 lines with zero infra dependencies.
 
-<a name="honest-current-state"></a>
+<a id="honest-current-state"></a>
 
 ### Honest current state *(docs/HONEST_ASSESSMENT.md, docs/GA_CHECKLIST.md)*
 
