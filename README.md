@@ -18,7 +18,7 @@ install required.
 | I want to… | Command |
 |------------|---------|
 | Try a debate in 30 seconds | `pip install aragora-debate` |
-| Verify a Decision Receipt (zero Aragora dep) | `aragora-verify <receipt>` — in repo at `aragora-verify/`; PyPI publish pending |
+| Verify a Decision Receipt (no Aragora install) | `PYTHONPATH=src python -m aragora_verify <receipt>` from `aragora-verify/`; PyPI publish pending |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
@@ -33,28 +33,43 @@ instead of asking you to trust one model's say-so.
 - **Disagreement becomes evidence.** Heterogeneous models challenge each other before work advances; dissent is preserved, not averaged away.
 - **Every decision has a receipt.** Verdict, the reviewing models and their independence, dissent, confidence, and provenance stay inspectable.
 - **It stops truthfully.** When the quorum can't be formed or evidence is thin, the receipt says so — it never fabricates a consensus.
-- **Receipts are portable and verifiable.** A receipt is a schema-conformant artifact (the [Open Decision Receipt](docs/specs/OPEN_DECISION_RECEIPT.md)) that `aragora-verify` checks offline, with zero dependency on Aragora.
+- **Receipts are portable and verifiable.** A receipt is a schema-conformant artifact (the [Open Decision Receipt](docs/specs/OPEN_DECISION_RECEIPT.md)) that `aragora-verify` checks offline, with no dependency on Aragora.
 
 ## The wedge: a governance gate for AI-written code
 
-Drop Aragora into CI. A multi-model quorum reviews each PR and emits a
-**Decision Receipt** as a build artifact and PR comment — your second opinion,
-signed.
+Drop Aragora into CI. A multi-model quorum reviews each PR and posts a grounded
+PR comment — your second opinion, with the same review surface that feeds the
+Decision Receipt path.
 
 ```yaml
 # .github/workflows/aragora-review.yml
-- uses: synaptent/aragora@v2
-  with:
-    emit-receipt: 'true'   # uploads a verifiable decision-receipt.odr.json
+name: Aragora Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: synaptent/aragora@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          post-comment: 'true'
+          output-format: json
 ```
 
 Anyone — a teammate, an auditor, a customer — can then verify it independently
-with the standalone `aragora-verify` (zero Aragora dependency):
+with the standalone `aragora-verify` package (no Aragora dependency):
 
 ```bash
 # PyPI publish pending; today it lives in this repo under aragora-verify/:
-#   (cd aragora-verify && PYTHONPATH=src python -m aragora_verify <receipt>)
-aragora-verify decision-receipt.odr.json   # schema + digest + signature + quorum checks
+cd aragora-verify
+PYTHONPATH=src python -m aragora_verify ../decision-receipt.odr.json
+
+# After PyPI publish:
+# aragora-verify decision-receipt.odr.json
 ```
 
 ## Try it now
@@ -86,9 +101,10 @@ Aragora is large, but five modules carry the product. Start here:
 | `aragora/swarm/` | The merge-quorum gate — collects model-review evidence and tiers settlement. |
 | `aragora/server/` | The HTTP/WebSocket API and handlers. |
 
-`aragora-verify/` is a separate, zero-dependency package: the public verifier
-for receipts. Everything else under `aragora/` is supporting or experimental
-surface — treat it as such until it's documented here.
+`aragora-verify/` is a separate verifier package with no Aragora dependency:
+the public verifier for receipts. Everything else under `aragora/` is
+supporting or experimental surface — treat it as such until it's documented
+here.
 
 ## Product boundary
 
