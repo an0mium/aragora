@@ -1,7 +1,7 @@
 # Aragora
 
-**Aragora is an auditable control plane for AI-assisted decisions: multi-model
-review in, a verifiable Decision Receipt out.**
+**Aragora is an auditable execution control plane for AI-assisted decisions:
+multi-model review in, a verifiable Decision Receipt out.**
 
 It coordinates heterogeneous models to adversarially review a change or a
 decision, preserves the dissent and provenance, stops truthfully when evidence
