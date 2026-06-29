@@ -17,6 +17,11 @@ on:
   # "mkdir: /Users/runner: Permission denied"). Until the runner has 3.11
   # staged, validate the subscription quorum locally (see PR description).
   workflow_dispatch:
+    inputs:
+      pr-number:
+        description: 'Pull request number to review when manually dispatching this self-test'
+        required: true
+        type: string
 
 concurrency:
   group: receipt-selftest-${{ github.event.pull_request.number || github.ref }}
@@ -52,6 +57,7 @@ jobs:
         with:
           agents: claude,codex          # subscription CLI agents (no API keys)
           rounds: '1'
+          pr-number: ${{ inputs.pr-number }}
           post-comment: 'false'         # self-test: never comment on the PR
           emit-receipt: 'true'
           receipt-reviewers: 'claude openai'  # collector: claude CLI + codex CLI

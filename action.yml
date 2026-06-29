@@ -39,6 +39,10 @@ inputs:
     description: 'Maximum diff size in bytes'
     required: false
     default: '50000'
+  pr-number:
+    description: 'Pull request number override for manual/self-test runs'
+    required: false
+    default: ''
   failure-threshold:
     description: 'Fail workflow if total issues exceed this count (0 = disabled)'
     required: false
@@ -56,9 +60,9 @@ inputs:
       Emit a portable, verifiable Open Decision Receipt (ODR) for the review and
       upload it as a build artifact. Runs a heterogeneous-model merge-quorum
       collection (dry-run, never posts) and bridges it to a signed-off-able
-      receipt. Set to "false" to skip (avoids a second model pass).
+      receipt. Set to "true" to opt in; this performs a second model pass.
     required: false
-    default: 'true'
+    default: 'false'
   receipt-reviewers:
     description: 'Space-separated model families for the receipt quorum (keys must be provided)'
     required: false
@@ -151,14 +155,22 @@ runs:
       id: diff
       shell: bash
       run: |
-        PR_NUMBER=${{ github.event.pull_request.number }}
-        gh pr diff $PR_NUMBER > pr.diff
+        PR_NUMBER="${INPUT_PR_NUMBER:-$EVENT_PR_NUMBER}"
+        if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+          echo "::error::A pull request number is required for Aragora review"
+          exit 1
+        fi
+        if [[ ! "$MAX_DIFF_SIZE" =~ ^[0-9]+$ ]]; then
+          echo "::error::max-diff-size must be numeric"
+          exit 1
+        fi
+        gh pr diff "$PR_NUMBER" > pr.diff
 
         # Truncate if needed
         DIFF_SIZE=$(wc -c < pr.diff)
-        MAX_SIZE=${{ inputs.max-diff-size }}
+        MAX_SIZE="$MAX_DIFF_SIZE"
         if [ "$DIFF_SIZE" -gt "$MAX_SIZE" ]; then
-          head -c $MAX_SIZE pr.diff > pr_truncated.diff
+          head -c "$MAX_SIZE" pr.diff > pr_truncated.diff
           echo -e "\n[... diff truncated ...]" >> pr_truncated.diff
           mv pr_truncated.diff pr.diff
         fi
@@ -166,6 +178,9 @@ runs:
         echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
       env:
         GH_TOKEN: ${{ github.token }}
+        EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+        INPUT_PR_NUMBER: ${{ inputs.pr-number }}
+        MAX_DIFF_SIZE: ${{ inputs.max-diff-size }}
 
     - name: Run Aragora review
       id: review
@@ -242,6 +257,13 @@ runs:
         set +e
         mkdir -p ./aragora-artifacts
         LOG=./aragora-artifacts/receipt.log
+        RECEIPT_REVIEWERS="${RECEIPT_REVIEWERS:-claude openai}"
+        if [[ ! "$RECEIPT_REVIEWERS" =~ ^[A-Za-z0-9._-]+([[:space:]]+[A-Za-z0-9._-]+)*$ ]]; then
+          echo "invalid receipt-reviewers input; receipt skipped" >> "$LOG"
+          echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        read -r -a RECEIPT_REVIEWER_ARGS <<< "$RECEIPT_REVIEWERS"
 
         # The bridge/emitter may be newer than the published PyPI 'aragora', so
         # install the action's own pinned source for the receipt tooling.
@@ -256,7 +278,7 @@ runs:
         # never posts (no --apply), Tier-gated regardless.
         python3 "$GITHUB_ACTION_PATH/scripts/collect_quorum_evidence.py" \
           --repo "$REPO" --pr "$PR" \
-          --reviewers ${{ inputs.receipt-reviewers }} \
+          --reviewers "${RECEIPT_REVIEWER_ARGS[@]}" \
           --json > ./aragora-artifacts/outcome.json 2>> "$LOG"
 
         if [ -s ./aragora-artifacts/outcome.json ]; then
@@ -291,6 +313,7 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}
         OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
+        RECEIPT_REVIEWERS: ${{ inputs.receipt-reviewers }}
         ARAGORA_USE_SECRETS_MANAGER: ${{ inputs.use-secrets-manager }}
         AWS_REGION: ${{ inputs.aws-region }}
 
