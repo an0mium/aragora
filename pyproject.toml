@@ -35,7 +35,7 @@ dependencies = [
     # ``aragora --help`` time — click/httpx/typer via cli/ submodules, plus
     # config/settings which need pydantic + PyYAML). Declared in base so any
     # install yields a working CLI, not just ``[test]``.
-    "click>=8.4.1,<9.0",
+    "click>=8.4.2,<9.0",
     "httpx>=0.27,<1.0",
     "typer>=0.26.7,<1.0",
     "PyYAML>=6.0.3,<7.0",
