@@ -17,7 +17,7 @@ standalone verifier. PyPI publishing for the verifier is pending.
 
 | I want to… | Command |
 |------------|---------|
-| Try a debate in 30 seconds | `pip install aragora-debate` |
+| Run the standalone debate engine | `pip install aragora-debate` |
 | Verify a Decision Receipt with the standalone verifier | `PYTHONPATH=src python -m aragora_verify <receipt>` from `aragora-verify/`; PyPI publish pending |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: synaptent/aragora@main
+      - uses: synaptent/aragora@v2.9.0
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
