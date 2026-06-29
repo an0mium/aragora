@@ -251,9 +251,8 @@ runs:
       if: inputs.emit-receipt == 'true'
       shell: bash
       run: |
-        # Failure-tolerant by design: a receipt problem must never break the
-        # workflow. All work is best-effort; the step always exits 0 and logs
-        # to ./aragora-artifacts/receipt.log.
+        # Receipt emission is explicit opt-in. If enabled, failure to produce a
+        # verified receipt is a real failure; details go to receipt.log.
         set +e
         mkdir -p ./aragora-artifacts
         LOG=./aragora-artifacts/receipt.log
@@ -261,7 +260,7 @@ runs:
         if [[ ! "$RECEIPT_REVIEWERS" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*([[:space:]]+[A-Za-z0-9][A-Za-z0-9._-]*)*$ ]]; then
           echo "invalid receipt-reviewers input; receipt skipped" >> "$LOG"
           echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
-          exit 0
+          exit 1
         fi
         read -r -a RECEIPT_REVIEWER_ARGS <<< "$RECEIPT_REVIEWERS"
 
@@ -274,14 +273,14 @@ runs:
         if [ ! -x "$RECEIPT_PY" ]; then
           echo "receipt venv creation failed; receipt skipped" >> "$LOG"
           echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
-          exit 0
+          exit 1
         fi
         "$RECEIPT_PY" -m pip install --upgrade pip >> "$LOG" 2>&1
         "$RECEIPT_PY" -m pip install "$GITHUB_ACTION_PATH" jsonschema >> "$LOG" 2>&1
         if [ "$?" -ne 0 ]; then
           echo "receipt tooling install failed; receipt skipped" >> "$LOG"
           echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
-          exit 0
+          exit 1
         fi
 
         REPO="${{ github.repository }}"
@@ -307,10 +306,12 @@ runs:
             echo "receipt emission or verification failed; dropping partial receipt" >> "$LOG"
             rm -f ./aragora-artifacts/decision-receipt.odr.json
             echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
+            exit 1
           fi
         else
           echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
           echo "no outcome collected; receipt skipped" >> "$LOG"
+          exit 1
         fi
 
         # Append a receipt summary to the PR comment if both exist.

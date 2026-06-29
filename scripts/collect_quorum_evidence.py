@@ -33,8 +33,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from aragora.swarm.quorum_evidence import DEFAULT_FAMILIES, run_collect_cli  # noqa: E402
-
 
 def _hydrate_provider_secrets() -> None:
     """Load provider API keys from AWS Secrets Manager when enabled.
@@ -56,6 +54,8 @@ def _hydrate_provider_secrets() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     _hydrate_provider_secrets()
+    from aragora.swarm.quorum_evidence import DEFAULT_FAMILIES, run_collect_cli
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True, help="owner/name of the target repo")
     parser.add_argument("--pr", required=True, type=int, help="PR number to collect evidence for")
