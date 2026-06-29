@@ -49,7 +49,7 @@ def _hydrate_provider_secrets() -> None:
         from aragora.config.secrets import hydrate_env_from_secrets
 
         hydrate_env_from_secrets(overwrite=False)
-    except (AttributeError, ImportError, OSError, RuntimeError, ValueError):
+    except Exception:  # noqa: BLE001 - secret hydration is optional and best-effort.
         # Best-effort: never block evidence collection on secrets hydration.
         pass
 

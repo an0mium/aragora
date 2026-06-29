@@ -258,7 +258,7 @@ runs:
         mkdir -p ./aragora-artifacts
         LOG=./aragora-artifacts/receipt.log
         RECEIPT_REVIEWERS="${RECEIPT_REVIEWERS:-claude openai}"
-        if [[ ! "$RECEIPT_REVIEWERS" =~ ^[A-Za-z0-9._-]+([[:space:]]+[A-Za-z0-9._-]+)*$ ]]; then
+        if [[ ! "$RECEIPT_REVIEWERS" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*([[:space:]]+[A-Za-z0-9][A-Za-z0-9._-]*)*$ ]]; then
           echo "invalid receipt-reviewers input; receipt skipped" >> "$LOG"
           echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
           exit 0
