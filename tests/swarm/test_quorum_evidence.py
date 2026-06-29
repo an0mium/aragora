@@ -314,6 +314,7 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
         raise subprocess.TimeoutExpired(cmd=args[0], timeout=timeout)
 
     monkeypatch.setenv(qe._CLAUDE_TIMEOUT_ENV, "7")
+    monkeypatch.setenv(qe._CLI_PROBE_TIMEOUT_ENV, "0")  # isolate the real-review timeout
     monkeypatch.setattr(qe.subprocess, "run", fake_run)
 
     result = qe._run_claude_cli("review prompt")
