@@ -1140,7 +1140,7 @@ class TestMultiProviderFallbackStream:
 
         async def failing_stream(*args, **kwargs):
             raise RuntimeError("Rate limit")
-            yield  # noqa: unreachable - makes this an async generator
+            yield  # makes this an async generator
 
         async def successful_stream(*args, **kwargs):
             for token in ["Hello", " world"]:
@@ -1182,7 +1182,7 @@ class TestMultiProviderFallbackStream:
 
         async def policy_error_stream(*args, **kwargs):
             raise RuntimeError("Blocked by content policy filter")
-            yield  # noqa: unreachable - makes this an async generator
+            yield  # makes this an async generator
 
         async def successful_stream(*args, **kwargs):
             for token in ["Hello"]:

@@ -9,7 +9,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 > freely; never break main / public API / release flow / CI" rule, and main-red
 > incident mode. That contract governs *how* agents execute against the repo. This
 > document describes *what* agents are registered as runtime debate participants
-> (the 43-agent registry).
+> (the 46-agent registry).
 
 ## Worktree Autopilot (High-Churn Sessions)
 
@@ -90,7 +90,7 @@ commit") from the v12/v13 lessons; soft-reset and re-commit instead.
 
 ## Agent Types
 
-Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 35 types as of 2026-06-06). Entries marked **opt-in** are registered but not allowlisted by default.
+Aragora currently registers 46 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 35 types as of 2026-06-06). Entries marked **opt-in** are registered but not allowlisted by default.
 
 ### CLI-Based Agents (allowlisted)
 
@@ -101,6 +101,8 @@ Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, l
 | `openai` | `openai` | gpt-4.1 | GPT-4.1, 1M context |
 | `gemini-cli` | `gemini` | gemini-3.1-pro-preview | Gemini 3.1 Pro, 1M context |
 | `grok-cli` | `grok` | grok-4-latest | Grok 4, 256K context |
+| `grok-build` | `grok` (Grok Build CLI) | grok-build | Opt-in subscription CLI; resolves `~/.grok/bin/grok` or `ARAGORA_GROK_BUILD_BIN` |
+| `antigravity` | `agy` | gemini-3.5-flash | Opt-in subscription CLI; resolves `~/.antigravity/bin/agy` or `ARAGORA_ANTIGRAVITY_BIN` |
 | `qwen-cli` | `qwen` | qwen3-coder | |
 | `deepseek-cli` | `deepseek` | deepseek-v4-pro | Requires `DEEPSEEK_API_KEY` |
 | `kilocode` | `kilocode` | provider-specific | Defaults to `openrouter/google/gemini-3.1-pro-preview` via `provider_id` |
@@ -145,6 +147,7 @@ All OpenRouter agents require `OPENROUTER_API_KEY`.
 | `sonar` | perplexity/sonar-reasoning | Sonar (reasoning + web search) |
 | `command-r` | cohere/command-r-plus | Command R+ (RAG-optimized) |
 | `jamba` | ai21/jamba-1.6-large | Jamba (SSM-Transformer hybrid) |
+| `fusion` | openrouter/fusion | OpenRouter Fusion multi-model council+judge endpoint (opt-in, not a quorum family) |
 | `openrouter` | deepseek/deepseek-v4-pro | Generic OpenRouter default |
 
 ### External Framework Proxies
