@@ -43,7 +43,7 @@
     "blocked_not_dispatch_bounded": 12,
     "blocked_sanitation_failed": 1
   },
-  "generated_at": "2026-06-14T03:40:34Z",
+  "generated_at": "2026-06-14T03:52:10Z",
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "previous_artifact": {
     "generated_at": "2026-06-06T11:42:57Z",
@@ -90,8 +90,8 @@
     "unique_issues_succeeded": 12
   },
   "rescue_counts_by_type": {},
-  "truth_artifact_generated_at": "2026-06-12T03:49:15Z",
-  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-6/truth-20260612T034915Z.json",
+  "truth_artifact_generated_at": "2026-06-14T03:51:53Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-6/truth-20260614T035153Z.json",
   "truth_metrics": {
     "merged_only_rate": 1.0,
     "no_rescue_truth_success_rate": 1.0,

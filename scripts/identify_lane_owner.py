@@ -41,13 +41,25 @@ Lookup sources (read-only, in this precedence):
 Owner-lease liveness (issue #8318): when ``--liveness`` is enabled
 (default), the JSON output is additionally enriched with an
 ``owner_liveness`` object (lease age, last heartbeat, lane-ledger
-status, assessment) and — only for stale/terminal owners with no
-indication of local unpushed work — a machine-readable
-``stale_claim_advisory`` codifying the manual stale-claim override
-protocol exercised on #8125. This is VISIBILITY + ADVISORY only: it
-never changes a go/no-go decision by itself, and it fails closed
-(``advisory_withheld: "possible_unpushed_work"``) whenever
+status, assessment), a consumer-facing ``owner_blocking_state``, and
+— only for stale/terminal owners with no indication of local unpushed
+work — a machine-readable ``stale_claim_advisory`` codifying the
+manual stale-claim override protocol exercised on #8125. This is
+VISIBILITY + ADVISORY only: it may reconcile displayed owner-state
+labels when current lease evidence proves a live owner, but it never
+authorizes cleanup or stale-claim override by itself and it fails
+closed (``advisory_withheld: "possible_unpushed_work"``) whenever
 uncommitted/unpushed work might exist.
+
+``owner_liveness.assessed`` and legacy ``liveness_state`` are deliberately
+separate signals. ``owner_liveness.assessed`` uses the lane lease and the
+``--stale-hours`` threshold. ``liveness_state`` remains the older direct
+process / harness-heartbeat summary, including the fixed heartbeat freshness
+window, so a live lease can coexist with ``missing_heartbeat`` or
+``stale_heartbeat``. In that case ``owner_blocking_state`` is authoritative for
+dispatch/reassignment, while ``cleanup_state`` and
+``recommended_operator_action`` remain authoritative for mutation/cleanup. The
+JSON ``owner_liveness_alignment`` object exposes that precedence explicitly.
 
 Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
 GitHub state, lane registry, mailboxes, or any other on-disk file.
@@ -67,7 +79,7 @@ import time
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 # ---------------------------------------------------------------------------
 # Paths (overridable for tests)
@@ -149,7 +161,7 @@ ACTIVE_STATUSES = {
     "blocked",
 }
 CONFLICT_STATUSES = {"conflict", "conflicting"}
-COMPLETED_STATUSES = {"completed", "released", "superseded"}
+COMPLETED_STATUSES = {"completed", "released", "superseded", "expired"}
 
 # Subprocess timeout for ``agent_bridge operator-snapshot``.
 SNAPSHOT_TIMEOUT_SECONDS = 30
@@ -900,9 +912,10 @@ def _heartbeat_summary(
     seen = _parse_iso_utc(row.get("last_seen_at"))
     age_seconds: int | None = None
     fresh = False
+    terminal = bool(row.get("terminal") is True or row.get("terminal_outcome"))
     if seen is not None:
         age_seconds = max(0, int((now - seen).total_seconds()))
-        fresh = age_seconds <= freshness_seconds
+        fresh = not terminal and age_seconds <= freshness_seconds
     return {
         "lane_id": row.get("lane_id"),
         "owner_session": row.get("owner_session"),
@@ -915,6 +928,10 @@ def _heartbeat_summary(
         "last_seen_at": row.get("last_seen_at"),
         "age_seconds": age_seconds,
         "fresh": fresh,
+        "terminal": terminal,
+        "terminal_outcome": row.get("terminal_outcome"),
+        "terminal_reason": row.get("terminal_reason"),
+        "terminal_finalized_at": row.get("terminal_finalized_at"),
     }
 
 
@@ -1205,12 +1222,17 @@ def build_owner_info(
 STALE_HOURS_DEFAULT = 6.0
 LANE_RUNS_GLOB_DEFAULT = str(STATE_ROOT_DEFAULT / "run-*" / "lanes")
 
-# Lane-ledger statuses meaning the owning lane can no longer be working.
-TERMINAL_LANE_STATUSES = {"completed", "failed", "cancelled", "dead"}
+# Lane-ledger/status rows meaning the owning lane can no longer be working.
+TERMINAL_LANE_STATUSES = COMPLETED_STATUSES | {"failed", "cancelled", "dead"}
 
 STALE_CLAIM_PROTOCOL = "stale-claim-override"
 ADVISORY_WITHHELD_UNPUSHED = "possible_unpushed_work"
 REQUIRED_LEDGER_RECORD = "overriding lane must write an override entry naming the stale lane id"
+
+OWNER_BLOCKING_LIVE = "live_owner"
+OWNER_BLOCKING_UNKNOWN = "unknown_owner"
+OWNER_BLOCKING_STALE = "stale_owner"
+OWNER_BLOCKING_STALE_TERMINAL = "stale_terminal_owner"
 
 # Timestamp fields on the owner (lane-registry) record; newest wins.
 _OWNER_RECORD_TIMESTAMP_KEYS = (
@@ -1244,6 +1266,36 @@ _LOCAL_WORK_CLAIM_KEYS = (
     "local_work",
     "dirty",
 )
+
+_SHA_RE = re.compile(r"\b[0-9a-f]{40}\b")
+_PRESERVATION_GIT_TIMEOUT_SECONDS = 10.0
+_PRESERVATION_GH_TIMEOUT_SECONDS = 20.0
+_SAFE_WORKTREE_INSPECT_TIMEOUT_SECONDS = 30.0
+_PRESERVATION_OUTBOX_DIRS = ("automation-outbox", "automation-receipts")
+_PRESERVATION_SHA_KEYS = (
+    "desired_head_sha",
+    "head_sha",
+    "headRefOid",
+    "merge_head_sha",
+    "commit_sha",
+)
+
+CommandRunner = Callable[[list[str], Path, float], subprocess.CompletedProcess[str]]
+
+
+def _run_preservation_command(
+    cmd: list[str],
+    cwd: Path,
+    timeout: float,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        cmd,
+        cwd=cwd,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=timeout,
+    )
 
 
 def _ledger_entry_timestamp(entry: dict[str, Any]) -> float:
@@ -1293,21 +1345,471 @@ def find_lane_ledger_entry(
     return best
 
 
-def _local_work_indication(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> str | None:
-    """Reason to suspect local (possibly unpushed/uncommitted) work, or None.
+def _normal_state_root(path: Path) -> Path:
+    return path if path.name == ".aragora" else path / ".aragora"
 
-    Fail closed: a worktree reference alone is enough — metadata cannot
-    prove that work in a worktree was pushed.
-    """
 
-    if lane.get("worktree"):
-        return "owner record references a worktree path"
+def _local_work_claim_indication(
+    lane: dict[str, Any], ledger_entry: dict[str, Any] | None
+) -> str | None:
     for source_name, record in (("owner record", lane), ("lane ledger", ledger_entry or {})):
         for key in _LOCAL_WORK_CLAIM_KEYS:
             if record.get(key):
                 return f"{source_name} claims local work ({key})"
-    if (ledger_entry or {}).get("worktree"):
-        return "lane ledger references a worktree path"
+    return None
+
+
+def _worktree_reference_paths(
+    lane: dict[str, Any], ledger_entry: dict[str, Any] | None
+) -> list[tuple[str, str]]:
+    paths: list[tuple[str, str]] = []
+    for source_name, record in (("owner record", lane), ("lane ledger", ledger_entry or {})):
+        worktree = str(record.get("worktree") or "").strip()
+        if worktree:
+            paths.append((source_name, worktree))
+    return paths
+
+
+def _proof_covers_worktree_paths(
+    proof: dict[str, Any] | None,
+    paths: list[tuple[str, str]],
+) -> bool:
+    if not proof or proof.get("available") is not True:
+        return False
+    proven_paths = {str(path) for path in proof.get("worktree_paths") or []}
+    return all(path in proven_paths for _, path in paths)
+
+
+def _json_payload(stdout: str) -> Any:
+    try:
+        return json.loads(stdout or "null")
+    except json.JSONDecodeError:
+        return None
+
+
+def _safe_worktree_absent_noop_proof(
+    path: str,
+    *,
+    repo_root: Path,
+    runner: CommandRunner,
+) -> dict[str, Any]:
+    cmd = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "safe_worktree_cleanup.py"),
+        "inspect",
+        path,
+        "--json",
+    ]
+    try:
+        proc = runner(cmd, repo_root, _SAFE_WORKTREE_INSPECT_TIMEOUT_SECONDS)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"path": path, "absent_noop": False, "reason": f"inspect_failed: {exc}"}
+
+    payload = _json_payload(proc.stdout)
+    if not isinstance(payload, dict):
+        return {
+            "path": path,
+            "absent_noop": False,
+            "reason": "safe_worktree_inspect_json_unavailable",
+        }
+
+    safety = payload.get("cleanup_safety")
+    classification = safety.get("classification") if isinstance(safety, dict) else None
+    blockers = payload.get("blockers") if isinstance(payload.get("blockers"), list) else []
+    absent_noop = (
+        payload.get("exists") is False
+        and payload.get("dirty") is not True
+        and payload.get("active_session") is not True
+        and "missing_path" in blockers
+        and classification == "absent_noop"
+    )
+    if absent_noop:
+        return {
+            "path": path,
+            "absent_noop": True,
+            "source": "safe_worktree_cleanup.inspect",
+            "classification": classification,
+        }
+    return {
+        "path": path,
+        "absent_noop": False,
+        "reason": "worktree_not_absent_noop",
+        "exists": payload.get("exists"),
+        "classification": classification,
+        "blockers": blockers,
+    }
+
+
+def _record_matches_lane(record: dict[str, Any], *, lane_id: str, branch: str) -> bool:
+    for candidate in (record, record.get("metadata"), record.get("payload")):
+        if not isinstance(candidate, dict):
+            continue
+        if lane_id and str(candidate.get("lane_id") or "") == lane_id:
+            return True
+        if branch and str(candidate.get("branch") or "") == branch:
+            return True
+    return False
+
+
+def _matching_state_records(
+    *,
+    lane_id: str,
+    branch: str,
+    state_root: Path,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    root = _normal_state_root(state_root)
+    for dirname in _PRESERVATION_OUTBOX_DIRS:
+        directory = root / dirname
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("*.json")):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(payload, dict) and _record_matches_lane(
+                payload, lane_id=lane_id, branch=branch
+            ):
+                payload = dict(payload)
+                payload["_source_path"] = str(path)
+                records.append(payload)
+    return records
+
+
+def _first_sha_from_record(record: dict[str, Any] | None) -> str | None:
+    if not isinstance(record, dict):
+        return None
+    for key in _PRESERVATION_SHA_KEYS:
+        value = record.get(key)
+        if isinstance(value, str) and _SHA_RE.fullmatch(value.strip()):
+            return value.strip()
+    for key in ("metadata", "payload", "details", "handoff"):
+        nested = record.get(key)
+        if isinstance(nested, dict):
+            value = _first_sha_from_record(nested)
+            if value:
+                return value
+    return None
+
+
+def _desired_head_for_preservation(
+    lane: dict[str, Any],
+    ledger_entry: dict[str, Any] | None,
+    *,
+    state_root: Path,
+) -> tuple[str | None, dict[str, Any] | None]:
+    branch = str(lane.get("branch") or (ledger_entry or {}).get("branch") or "")
+    lane_id = str(lane.get("lane_id") or (ledger_entry or {}).get("lane") or "")
+    records: list[dict[str, Any]] = [lane]
+    if ledger_entry is not None:
+        records.append(ledger_entry)
+    records.extend(_matching_state_records(lane_id=lane_id, branch=branch, state_root=state_root))
+
+    for record in records:
+        sha = _first_sha_from_record(record)
+        if sha:
+            return sha, record
+    return None, None
+
+
+def _remote_branch_head(
+    branch: str,
+    *,
+    repo_root: Path,
+    runner: CommandRunner,
+) -> dict[str, Any]:
+    try:
+        proc = runner(
+            ["git", "ls-remote", "origin", f"refs/heads/{branch}"],
+            repo_root,
+            _PRESERVATION_GIT_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"status": "lookup_failed", "reason": str(exc)}
+    if proc.returncode != 0:
+        return {"status": "lookup_failed", "reason": proc.stderr.strip()}
+    line = (proc.stdout or "").strip().splitlines()
+    if not line:
+        return {"status": "missing"}
+    head = line[0].split()[0] if line[0].split() else ""
+    if not _SHA_RE.fullmatch(head):
+        return {"status": "lookup_failed", "reason": "unexpected ls-remote output"}
+    return {"status": "exists", "head_sha": head}
+
+
+def _repo_slug_from_origin(repo_root: Path, *, runner: CommandRunner) -> str | None:
+    try:
+        proc = runner(
+            ["git", "remote", "get-url", "origin"], repo_root, _PRESERVATION_GIT_TIMEOUT_SECONDS
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    url = proc.stdout.strip()
+    if url.endswith(".git"):
+        url = url[:-4]
+    if url.startswith("git@github.com:"):
+        return url.removeprefix("git@github.com:")
+    marker = "github.com/"
+    if marker in url:
+        return url.split(marker, 1)[1].strip("/")
+    return None
+
+
+def _gh_api_json(
+    api_path: str,
+    *,
+    repo_root: Path,
+    runner: CommandRunner,
+) -> Any:
+    try:
+        proc = runner(
+            ["gh", "api", "-H", "Accept: application/vnd.github+json", api_path],
+            repo_root,
+            _PRESERVATION_GH_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    return _json_payload(proc.stdout)
+
+
+def _gh_api_paginated_json_list(
+    api_path: str,
+    *,
+    repo_root: Path,
+    runner: CommandRunner,
+    per_page: int = 100,
+    max_pages: int = 20,
+) -> list[Any] | None:
+    """Fetch a small GitHub REST list endpoint without silently truncating it."""
+
+    values: list[Any] = []
+    separator = "&" if "?" in api_path else "?"
+    for page in range(1, max_pages + 1):
+        payload = _gh_api_json(
+            f"{api_path}{separator}per_page={per_page}&page={page}",
+            repo_root=repo_root,
+            runner=runner,
+        )
+        if not isinstance(payload, list):
+            return None
+        values.extend(payload)
+        if len(payload) < per_page:
+            return values
+    return None
+
+
+def _pull_base_ref(pull: Mapping[str, Any]) -> str:
+    base = pull.get("base")
+    if isinstance(base, Mapping):
+        ref = str(base.get("ref") or "").strip()
+        if ref:
+            return ref
+    for key in ("baseRefName", "base_ref_name", "base_ref"):
+        ref = str(pull.get(key) or "").strip()
+        if ref:
+            return ref
+    return ""
+
+
+def _merged_pr_commit_list_proof(
+    desired_head: str,
+    *,
+    repo_root: Path,
+    runner: CommandRunner,
+) -> dict[str, Any]:
+    repo_slug = _repo_slug_from_origin(repo_root, runner=runner)
+    if not repo_slug:
+        return {
+            "proven": False,
+            "method": "merged_pr_commit_list",
+            "reason": "repo_slug_unavailable",
+        }
+
+    pulls = _gh_api_json(
+        f"repos/{repo_slug}/commits/{desired_head}/pulls", repo_root=repo_root, runner=runner
+    )
+    if not isinstance(pulls, list):
+        return {
+            "proven": False,
+            "method": "merged_pr_commit_list",
+            "reason": "commit_pulls_unavailable",
+        }
+
+    for pull in pulls:
+        if not isinstance(pull, dict) or not pull.get("merged_at"):
+            continue
+        number = pull.get("number")
+        if not isinstance(number, int):
+            continue
+        commits = _gh_api_paginated_json_list(
+            f"repos/{repo_slug}/pulls/{number}/commits",
+            repo_root=repo_root,
+            runner=runner,
+        )
+        if not isinstance(commits, list):
+            continue
+        if any(isinstance(item, dict) and item.get("sha") == desired_head for item in commits):
+            base_ref = _pull_base_ref(pull)
+            return {
+                "proven": True,
+                "method": "merged_pr_commit_list",
+                "pr_number": number,
+                "repo": repo_slug,
+                "base_ref": base_ref or None,
+            }
+    return {
+        "proven": False,
+        "method": "merged_pr_commit_list",
+        "reason": "no_merged_pr_commit_contains_desired_head",
+    }
+
+
+def build_worktree_reference_preservation_proof(
+    lane: dict[str, Any],
+    *,
+    ledger_entry: dict[str, Any] | None = None,
+    repo_root: Path = REPO_ROOT,
+    state_root: Path = STATE_ROOT_DEFAULT,
+    runner: CommandRunner = _run_preservation_command,
+) -> dict[str, Any] | None:
+    """Prove a bare worktree reference is not evidence of local-only work.
+
+    Fail closed unless the recorded worktree is absent/noop by
+    ``safe_worktree_cleanup.py inspect`` and the desired head is
+    preserved upstream by an exact remote branch or merged PR commit
+    list. Dirty/local-work markers are never discounted.
+    """
+
+    paths = _worktree_reference_paths(lane, ledger_entry)
+    if not paths:
+        return None
+
+    local_claim = _local_work_claim_indication(lane, ledger_entry)
+    if local_claim:
+        return {
+            "available": False,
+            "reason": "local_work_claim_present",
+            "detail": local_claim,
+            "worktree_paths": [path for _, path in paths],
+        }
+
+    inspections = [
+        _safe_worktree_absent_noop_proof(path, repo_root=repo_root, runner=runner)
+        for _, path in paths
+    ]
+    if not all(item.get("absent_noop") is True for item in inspections):
+        return {
+            "available": False,
+            "reason": "worktree_not_absent_noop",
+            "worktree_paths": [path for _, path in paths],
+            "worktree_inspections": inspections,
+        }
+
+    branch = str(lane.get("branch") or (ledger_entry or {}).get("branch") or "").strip()
+    desired_head, source_record = _desired_head_for_preservation(
+        lane, ledger_entry, state_root=state_root
+    )
+    if not branch:
+        return {
+            "available": False,
+            "reason": "branch_unavailable",
+            "worktree_paths": [path for _, path in paths],
+            "worktree_inspections": inspections,
+        }
+    if not desired_head:
+        return {
+            "available": False,
+            "reason": "desired_head_unavailable",
+            "branch": branch,
+            "worktree_paths": [path for _, path in paths],
+            "worktree_inspections": inspections,
+        }
+
+    remote = _remote_branch_head(branch, repo_root=repo_root, runner=runner)
+    if remote.get("status") == "exists":
+        if remote.get("head_sha") == desired_head:
+            return {
+                "available": True,
+                "branch": branch,
+                "desired_head_sha": desired_head,
+                "desired_head_source": (source_record or {}).get("_source_path", "lane_or_ledger"),
+                "worktree_paths": [path for _, path in paths],
+                "worktree_inspections": inspections,
+                "upstream_preservation": {
+                    "proven": True,
+                    "method": "remote_branch_exact_head",
+                    "remote_head_sha": remote.get("head_sha"),
+                },
+            }
+        return {
+            "available": False,
+            "reason": "remote_branch_head_mismatch",
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "remote": remote,
+            "worktree_paths": [path for _, path in paths],
+            "worktree_inspections": inspections,
+        }
+    if remote.get("status") != "missing":
+        return {
+            "available": False,
+            "reason": "remote_branch_lookup_failed",
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "remote": remote,
+            "worktree_paths": [path for _, path in paths],
+            "worktree_inspections": inspections,
+        }
+
+    merged_pr = _merged_pr_commit_list_proof(desired_head, repo_root=repo_root, runner=runner)
+    if merged_pr.get("proven") is True:
+        return {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "desired_head_source": (source_record or {}).get("_source_path", "lane_or_ledger"),
+            "worktree_paths": [path for _, path in paths],
+            "worktree_inspections": inspections,
+            "upstream_preservation": merged_pr,
+        }
+    return {
+        "available": False,
+        "reason": "upstream_preservation_unproven",
+        "branch": branch,
+        "desired_head_sha": desired_head,
+        "remote": remote,
+        "merged_pr": merged_pr,
+        "worktree_paths": [path for _, path in paths],
+        "worktree_inspections": inspections,
+    }
+
+
+def _local_work_indication(
+    lane: dict[str, Any],
+    ledger_entry: dict[str, Any] | None,
+    *,
+    local_work_preservation: dict[str, Any] | None = None,
+) -> str | None:
+    """Reason to suspect local (possibly unpushed/uncommitted) work, or None.
+
+    Fail closed: a worktree reference alone is enough — metadata cannot
+    prove that work in a worktree was pushed. The only exception is an
+    explicit preservation proof for a bare worktree reference.
+    """
+
+    local_claim = _local_work_claim_indication(lane, ledger_entry)
+    if local_claim:
+        return local_claim
+    worktree_paths = _worktree_reference_paths(lane, ledger_entry)
+    if worktree_paths:
+        if _proof_covers_worktree_paths(local_work_preservation, worktree_paths):
+            return None
+        return f"{worktree_paths[0][0]} references a worktree path"
     return None
 
 
@@ -1318,29 +1820,60 @@ def assess_owner_liveness(
     heartbeat: dict[str, Any] | None = None,
     now: datetime | None = None,
     stale_hours: float = STALE_HOURS_DEFAULT,
+    local_work_preservation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Advisory-only owner-lease liveness assessment (issue #8318).
 
     Returns a dict with ``owner_liveness``, ``stale_claim_advisory``
     and ``advisory_withheld`` keys, merged additively into the JSON
-    output. Pure visibility: this never changes a go/no-go decision
-    by itself. ``assessed == "unknown"`` NEVER produces an advisory,
-    and any hint of local work withholds it
+    output. Pure visibility: this may reconcile displayed owner-state
+    labels when a current lease proves a live owner, but it never
+    authorizes cleanup or stale-claim override by itself.
+    ``owner_liveness.assessed`` uses ``stale_hours`` for lane-lease
+    age. The legacy ``liveness_state`` field is computed earlier from
+    direct process / harness-heartbeat evidence and may still report a
+    missing or stale heartbeat; callers should use the aligned
+    cleanup/action fields for operator routing.
+    ``assessed == "unknown"`` NEVER produces an advisory, and any hint
+    of local work withholds it
     (``advisory_withheld: "possible_unpushed_work"``).
     """
 
     now_dt = now or datetime.now(timezone.utc)
     threshold_seconds = max(0.0, stale_hours) * 3600.0
 
-    # lane_status: the lane ledger's view of the owning lane.
+    # lane_status: the lane ledger's view of the owning lane. When no ledger
+    # exists, a terminal registry status is still enough to avoid treating the
+    # row as an active owner lease.
     lane_status = "unknown"
+    registry_status = str(lane.get("status") or "").strip().lower()
     if ledger_entry is not None:
         lane_status = str(ledger_entry.get("status") or "").strip().lower() or "unknown"
+    elif registry_status in COMPLETED_STATUSES:
+        lane_status = registry_status
 
     # last_heartbeat_at: matched heartbeat row first, then owner record,
     # then ledger heartbeat fields; null when nothing carries one.
     last_heartbeat_at: str | None = None
-    if heartbeat and heartbeat.get("last_seen_at"):
+    heartbeat_terminal = bool(
+        heartbeat
+        and (
+            heartbeat.get("terminal") is True
+            or heartbeat.get("terminal_outcome")
+            or heartbeat.get("terminal_finalized_at")
+        )
+    )
+    terminal_heartbeat_outcome = (
+        str(heartbeat.get("terminal_outcome") or "") if heartbeat_terminal and heartbeat else ""
+    )
+    terminal_heartbeat_at = (
+        str(heartbeat.get("terminal_finalized_at") or "")
+        if heartbeat_terminal and heartbeat
+        else ""
+    )
+    if heartbeat_terminal:
+        last_heartbeat_at = None
+    elif heartbeat and heartbeat.get("last_seen_at"):
         last_heartbeat_at = str(heartbeat["last_seen_at"])
     elif lane.get("last_heartbeat_at"):
         last_heartbeat_at = str(lane["last_heartbeat_at"])
@@ -1353,11 +1886,24 @@ def assess_owner_liveness(
     # Lease anchor: the most recent timestamp across the owner record,
     # the matched heartbeat, and the ledger entry. Conservative — any
     # recent signal keeps the owner "live".
-    candidates = [_updated_at_timestamp(lane.get(key)) for key in _OWNER_RECORD_TIMESTAMP_KEYS]
+    owner_timestamp_keys = _OWNER_RECORD_TIMESTAMP_KEYS
+    ledger_timestamp_keys = _LEDGER_TIMESTAMP_KEYS
+    if heartbeat_terminal:
+        owner_timestamp_keys = tuple(
+            key for key in _OWNER_RECORD_TIMESTAMP_KEYS if key != "last_heartbeat_at"
+        )
+        ledger_timestamp_keys = tuple(
+            key
+            for key in _LEDGER_TIMESTAMP_KEYS
+            if key not in {"heartbeat_at", "last_heartbeat_at"}
+        )
+    candidates = [_updated_at_timestamp(lane.get(key)) for key in owner_timestamp_keys]
     if last_heartbeat_at:
         candidates.append(_updated_at_timestamp(last_heartbeat_at))
     if ledger_entry is not None:
-        candidates.append(_ledger_entry_timestamp(ledger_entry))
+        candidates.append(
+            max(_updated_at_timestamp(ledger_entry.get(key)) for key in ledger_timestamp_keys)
+        )
     anchor_ts = max(candidates)
 
     lease_age_seconds: int | None = None
@@ -1381,6 +1927,8 @@ def assess_owner_liveness(
     owner_liveness = {
         "lease_age_seconds": lease_age_seconds,
         "last_heartbeat_at": last_heartbeat_at,
+        "terminal_heartbeat_outcome": terminal_heartbeat_outcome or None,
+        "terminal_heartbeat_at": terminal_heartbeat_at or None,
         "lane_status": lane_status,
         "assessed": assessed,
         "stale_threshold_hours": stale_hours,
@@ -1389,7 +1937,11 @@ def assess_owner_liveness(
     advisory: dict[str, Any] | None = None
     advisory_withheld: str | None = None
     if assessed in ("stale", "terminal"):
-        indication = _local_work_indication(lane, ledger_entry)
+        indication = _local_work_indication(
+            lane,
+            ledger_entry,
+            local_work_preservation=local_work_preservation,
+        )
         if indication is not None:
             # Fail closed: possible unpushed/uncommitted work → no
             # advisory; escalate to an operator instead.
@@ -1404,7 +1956,16 @@ def assess_owner_liveness(
                     f"of {stale_hours}h"
                 )
                 conditions.append("no heartbeat newer than the stale window")
-            conditions.append("no worktree or local-work claim on the owner record")
+            if _worktree_reference_paths(lane, ledger_entry):
+                method = (
+                    (local_work_preservation or {}).get("upstream_preservation", {}).get("method")
+                )
+                conditions.append(
+                    "recorded worktree reference is absent/noop and preserved upstream"
+                    + (f" via {method}" if method else "")
+                )
+            else:
+                conditions.append("no worktree or local-work claim on the owner record")
             advisory = {
                 "available": True,
                 "protocol": STALE_CLAIM_PROTOCOL,
@@ -1412,10 +1973,43 @@ def assess_owner_liveness(
                 "required_ledger_record": REQUIRED_LEDGER_RECORD,
             }
 
+    if assessed == "live":
+        owner_blocking_state = OWNER_BLOCKING_LIVE
+        owner_blocking_state_reason = "owner has current lease or heartbeat evidence"
+    elif assessed == "unknown":
+        owner_blocking_state = OWNER_BLOCKING_UNKNOWN
+        owner_blocking_state_reason = "owner lease age could not be established"
+    elif (
+        assessed == "terminal"
+        and advisory is not None
+        and advisory.get("available") is True
+        and advisory_withheld is None
+    ):
+        owner_blocking_state = OWNER_BLOCKING_STALE_TERMINAL
+        owner_blocking_state_reason = (
+            "terminal stale owner has no local-work claim and is eligible for guarded "
+            "stale-claim handling"
+        )
+    else:
+        owner_blocking_state = OWNER_BLOCKING_STALE
+        if advisory_withheld:
+            owner_blocking_state_reason = (
+                f"stale owner remains blocking because advisory is withheld: {advisory_withheld}"
+            )
+        else:
+            owner_blocking_state_reason = "stale owner is not proven terminal-safe"
+
     return {
         "owner_liveness": owner_liveness,
+        "owner_blocking_state": owner_blocking_state,
+        "owner_blocking_state_reason": owner_blocking_state_reason,
+        "owner_liveness_precedence": (
+            "owner_blocking_state controls dispatch/reassignment; cleanup_state and "
+            "recommended_operator_action control mutation/cleanup"
+        ),
         "stale_claim_advisory": advisory,
         "advisory_withheld": advisory_withheld,
+        "local_work_preservation": local_work_preservation,
     }
 
 
@@ -1433,11 +2027,107 @@ def _print_liveness_summary(payload: dict[str, Any]) -> None:
     print(
         "owner_liveness: "
         f"assessed={liveness['assessed']} "
+        f"owner_blocking_state={payload['owner_blocking_state']} "
         f"lease_age_seconds={lease if lease is not None else '-'} "
         f"lane_status={liveness['lane_status']} "
         f"last_heartbeat_at={liveness['last_heartbeat_at'] or '-'} "
         f"stale_claim_advisory={advisory}"
     )
+
+
+def _align_owner_state_with_liveness(payload: dict[str, Any]) -> None:
+    """Keep legacy owner fields truthful after adding advisory liveness.
+
+    ``build_owner_info`` predates the richer liveness assessment and can only
+    classify direct process/heartbeat evidence. The later ``owner_liveness``
+    pass also considers current lease timestamps and lane-ledger state. When
+    that pass proves a live owner but direct heartbeat evidence is missing or
+    stale, keep the conservative cleanup/action guidance while clarifying that
+    the lane has current owner-lease evidence.
+    """
+
+    liveness = payload.get("owner_liveness") or {}
+    if (
+        payload.get("owner_state") != "owned"
+        or payload.get("owner_blocking_state") != OWNER_BLOCKING_LIVE
+        or liveness.get("assessed") != "live"
+    ):
+        payload["owner_liveness_alignment"] = {
+            "applied": False,
+            "dispatch_field": "owner_blocking_state",
+            "cleanup_field": "cleanup_state",
+            "action_field": "recommended_operator_action",
+            "reason": "owner lease did not prove a live owner needing legacy-field alignment",
+        }
+        return
+
+    liveness_state = str(payload.get("liveness_state") or "")
+    if liveness_state == "missing_heartbeat":
+        payload["owner_state_reason"] = (
+            "active lane has current owner lease evidence but no matched harness heartbeat row"
+        )
+    elif liveness_state == "stale_heartbeat":
+        payload["owner_state_reason"] = (
+            "active lane has current owner lease evidence but matched harness heartbeat is stale"
+        )
+    else:
+        payload["owner_liveness_alignment"] = {
+            "applied": False,
+            "dispatch_field": "owner_blocking_state",
+            "cleanup_field": "cleanup_state",
+            "action_field": "recommended_operator_action",
+            "reason": "legacy liveness_state already carries current heartbeat or process evidence",
+        }
+        return
+
+    payload["owner_liveness_alignment"] = {
+        "applied": True,
+        "dispatch_field": "owner_blocking_state",
+        "dispatch_value": payload.get("owner_blocking_state"),
+        "cleanup_field": "cleanup_state",
+        "cleanup_value": payload.get("cleanup_state"),
+        "action_field": "recommended_operator_action",
+        "action_value": payload.get("recommended_operator_action"),
+        "legacy_liveness_state": liveness_state,
+        "lease_assessment": liveness.get("assessed"),
+        "reason": (
+            "dispatch/reassignment follows live owner lease evidence; mutation/cleanup "
+            "keeps conservative heartbeat-derived guidance"
+        ),
+    }
+
+
+def owner_info_with_aligned_liveness(
+    info: LaneOwnerInfo, liveness_payload: dict[str, Any] | None
+) -> tuple[LaneOwnerInfo, dict[str, Any]]:
+    """Return display-ready owner fields after liveness alignment.
+
+    Direct library consumers should use this helper after combining
+    ``build_owner_info`` with ``assess_owner_liveness``; otherwise they can
+    produce a raw merge that lacks the same precedence/alignment metadata as
+    the CLI JSON output.
+    """
+
+    payload = dataclasses.asdict(info)
+    if liveness_payload is not None:
+        payload.update(liveness_payload)
+        _align_owner_state_with_liveness(payload)
+
+    aligned_info = dataclasses.replace(
+        info,
+        cleanup_state=payload["cleanup_state"],
+        owner_state_reason=payload["owner_state_reason"],
+        recommended_operator_action=payload["recommended_operator_action"],
+    )
+    return aligned_info, payload
+
+
+def _info_with_aligned_owner_state(
+    info: LaneOwnerInfo, liveness_payload: dict[str, Any] | None
+) -> tuple[LaneOwnerInfo, dict[str, Any]]:
+    """Compatibility wrapper for the public alignment helper."""
+
+    return owner_info_with_aligned_liveness(info, liveness_payload)
 
 
 # ---------------------------------------------------------------------------
@@ -1558,7 +2248,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=STALE_HOURS_DEFAULT,
         help=(
             "Owner-lease age (hours) beyond which a lane with no fresher "
-            f"heartbeat is assessed stale (default {STALE_HOURS_DEFAULT})."
+            f"heartbeat is assessed stale (default {STALE_HOURS_DEFAULT}); "
+            "legacy liveness_state still reflects process/heartbeat freshness."
         ),
     )
     p.add_argument(
@@ -1637,23 +2328,39 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     liveness_payload: dict[str, Any] | None = None
     if args.liveness:
+        ledger_entry = find_lane_ledger_entry(lane, runs_glob=args.runs_glob)
         liveness_payload = assess_owner_liveness(
             lane,
-            ledger_entry=find_lane_ledger_entry(lane, runs_glob=args.runs_glob),
+            ledger_entry=ledger_entry,
             heartbeat=info.latest_heartbeat,
             now=_parse_iso_utc(args.now) if args.now else None,
             stale_hours=args.stale_hours,
         )
+        if liveness_payload.get("advisory_withheld") == ADVISORY_WITHHELD_UNPUSHED:
+            local_work_preservation = build_worktree_reference_preservation_proof(
+                lane,
+                ledger_entry=ledger_entry,
+                repo_root=REPO_ROOT,
+                state_root=STATE_ROOT_DEFAULT,
+            )
+            if local_work_preservation is not None:
+                liveness_payload = assess_owner_liveness(
+                    lane,
+                    ledger_entry=ledger_entry,
+                    heartbeat=info.latest_heartbeat,
+                    now=_parse_iso_utc(args.now) if args.now else None,
+                    stale_hours=args.stale_hours,
+                    local_work_preservation=local_work_preservation,
+                )
+
+    output_info, payload = _info_with_aligned_owner_state(info, liveness_payload)
 
     if args.json:
-        payload = dataclasses.asdict(info)
-        if liveness_payload is not None:
-            payload.update(liveness_payload)
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
-        _print_human(info)
+        _print_human(output_info)
         if liveness_payload is not None:
-            _print_liveness_summary(liveness_payload)
+            _print_liveness_summary(payload)
 
     return 0
 

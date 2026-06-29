@@ -41,6 +41,11 @@ from aragora.cli.commands.review_queue_parsers import (
     add_observe_outcomes_parser,
     add_record_settlement_parser,
 )
+from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_finding_or_label as _has_blocking_finding_or_label,
+    has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
+    highest_blocking_severity as _highest_blocking_severity,
+)
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
     _gh_error_kind,
@@ -130,6 +135,19 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "minimax",
     "hermes",
 )
+# Western-frontier families (Tier 1-2 single-signal bar must be one of these).
+# Single canonical definition lives in aragora.swarm.quorum_evidence and is
+# re-exported here so the merge-gate (this module) and the auto-settle path
+# (quorum_evidence) reference the *same* frozenset object and cannot drift —
+# replacing the prior test-only parity guard (claude #8507 P2).
+from aragora.swarm.quorum_evidence import (  # noqa: E402
+    WESTERN_FAMILIES as WESTERN_FAMILIES,
+    WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
+    severity_gated_dissent_enabled as severity_gated_dissent_enabled,
+    tier_quorum_rule as tier_quorum_rule,
+    tiered_merge_gate_enabled as tiered_merge_gate_enabled,
+)
+
 DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "claude": ("claude", "anthropic"),
     "openai": ("openai",),
@@ -238,6 +256,14 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     # registration surface follow the same human-chain-of-trust rule as
     # ``review_queue.py`` itself.
     "aragora/cli/parser.py",
+    # ``aragora/swarm/quorum_evidence.py`` composes and verdict-classifies the
+    # model-quorum evidence this gate counts (supportive / dissenting / abstain).
+    # A change there directly alters what evidence the gate trusts, so — like
+    # review_queue.py itself — it must follow the human-chain-of-trust rule
+    # (operator preapproval + head-bound settlement) rather than be auto-settled
+    # by the tier-2 path. The drain merge-authority guard already treats it as
+    # such; this aligns the settlement classifier with that guard and the policy.
+    "aragora/swarm/quorum_evidence.py",
     # Settlement and merge helpers can mark human-settlement status, reconcile
     # branch protection, or merge/admin-merge PRs. A PR changing those helpers
     # is changing the authority surface that future settlement runs trust.
@@ -1883,6 +1909,19 @@ def _effective_required_pr_check_count(
     )
 
 
+def _effective_required_pr_checks(
+    checks: list[dict[str, Any]], *, ignore_quorum_check: bool = False
+) -> list[dict[str, Any]]:
+    """Return required PR checks after excluding current/self quorum rows."""
+    return [
+        check
+        for check in checks
+        if isinstance(check, dict)
+        and not _is_required_pr_check_current_merge_quorum_self_check(check)
+        and not (ignore_quorum_check and _is_merge_quorum_check(check))
+    ]
+
+
 def _status_check_display_name(check: dict[str, Any]) -> str:
     workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
     name = str(check.get("name") or check.get("context") or "").strip()
@@ -2522,6 +2561,26 @@ def _build_packet(
             if ignore_own_quorum_check
             else 0
         )
+        effective_required_checks = _effective_required_pr_checks(
+            required_pr_checks, ignore_quorum_check=ignore_own_quorum_check
+        )
+        required_failing_or_cancelled_checks = [
+            check
+            for check in effective_required_checks
+            if _required_pr_check_bucket(check) in {"fail", "cancel"}
+        ]
+        required_pending_checks = [
+            check
+            for check in effective_required_checks
+            if _required_pr_check_bucket(check) == "pending"
+        ]
+        required_quorum_only_failure = (
+            required_available
+            and effective_required_count > 0
+            and bool(required_failing_or_cancelled_checks)
+            and not required_pending_checks
+            and all(_is_merge_quorum_check(check) for check in required_failing_or_cancelled_checks)
+        )
         # _rollup_non_green_diagnostics reports the raw GitHub rollup counts/sample
         # and is intentionally not filtered by ignore_own_quorum_check. The flag's
         # effect on the rollup is limited to the summary text computed above; the
@@ -2567,18 +2626,12 @@ def _build_packet(
             "gate_blocked_reason": gate_blocked_reason,
             "failing_or_cancelled": [
                 str(check.get("name") or "").strip()
-                for check in required_pr_checks
-                if _required_pr_check_bucket(check) in {"fail", "cancel"}
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
+                for check in required_failing_or_cancelled_checks
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
-            "pending": [
-                str(check.get("name") or "").strip()
-                for check in required_pr_checks
-                if _required_pr_check_bucket(check) == "pending"
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
-            ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+            "pending": [str(check.get("name") or "").strip() for check in required_pending_checks][
+                :CHECK_SURFACE_DIAGNOSTIC_LIMIT
+            ],
+            "quorum_only_failure": required_quorum_only_failure,
         }
         if required_surface.get("error"):
             check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
@@ -2612,6 +2665,26 @@ def _build_packet(
             check_surfaces["remediation_prompt"] = (
                 "Continue gating on branch-protection required checks; keep "
                 "non-required shadow/advisory check failures visible but non-blocking."
+            )
+        elif required_quorum_only_failure:
+            check_surfaces["required_pr_checks"]["gate_selected"] = True
+            check_surfaces["required_pr_checks"]["gate_blocked_reason"] = ""
+            checks_summary = f"{required_summary} (required PR checks; only merge-quorum failing)"
+            has_pending = False
+            checks_unavailable = False
+            check_surfaces["effective_gate"] = {
+                "source": "required_pr_checks",
+                "summary": checks_summary,
+            }
+            check_surfaces["diagnosis"] = (
+                "The PR check rollup includes non-required non-green checks, "
+                "and GitHub reports every non-quorum branch-protection required "
+                "check green; merge-packet leaves aragora-merge-quorum to the "
+                "model quorum evidence gate."
+            )
+            check_surfaces["remediation_prompt"] = (
+                "Collect missing model quorum evidence or rerun aragora-merge-quorum "
+                "after evidence is counted; keep non-required rollup failures advisory."
             )
         elif gate_blocked_reason:
             check_surfaces["diagnosis"] = (
@@ -3056,9 +3129,21 @@ def _build_model_review_quorum(
         head_sha=head_sha,
         head_committed_at=head_committed_at,
     )
+    advisory_views: list[dict[str, Any]] = []
+    comment_dissenting_views = _dissenting_views_from_comments(
+        pr.get("comments") or [],
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+        advisory_views=advisory_views,
+    )
+    # Bound advisory_views symmetrically with the dissent list (which returns [:5]),
+    # so a PR with many recognized comments cannot flood the merge packet's
+    # advisory_views field or its `reasons` notes (claude #8574 P3).
+    del advisory_views[5:]
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]
+    dissenting_views.extend(comment_dissenting_views)
     blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
     blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
@@ -3069,12 +3154,63 @@ def _build_model_review_quorum(
         head_sha=head_sha,
         head_committed_at=head_committed_at,
     )
-    signal_count = len(counted_reviewer_ids)
+    # Jurisdiction-counted signals (docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-
+    # eligibility). At Tier 3-4 only Western families count toward the quorum;
+    # Chinese-routed families remain advisory — they still post and stay in
+    # counted_reviewer_ids for the audit trail, but do not satisfy the count. So
+    # signal_count is the jurisdiction-eligible count that drives the gate decision
+    # and the reasons (not the raw recognized-family count).
+    #
+    # The Western-only filter and the at-least-one-Western check are NOT
+    # re-implemented here; they come from the canonical policy object so the live
+    # gate and the auto-settle path share one jurisdiction implementation and
+    # cannot drift (claude/grok #8507 P2/P3). Build the rule once with the same
+    # regime _tier_requirement reads.
+    rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())
+    counted_family_set = {str(rid).strip().lower() for rid in counted_reviewer_ids}
+    jurisdiction_counted = rule.counted_families(counted_reviewer_ids)
+    signal_count = len(jurisdiction_counted)
+    # The western-frontier check is derived from the model-review signals ONLY (empty
+    # dogfood list). _counted_model_reviewer_ids only ever ADDS dogfood-attributable
+    # ids, so the signal-only set is a guaranteed subset of counted_reviewer_ids —
+    # any western-frontier signal that satisfies the WF requirement is therefore also
+    # counted toward signal_count (claude #8507 P2). Pinned by
+    # test_western_frontier_signal_set_is_subset_of_counted.
+    counted_reviewer_signal_ids = _counted_model_reviewer_ids(reviewer_signals, [])
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence
     )
+    # The WF requirement must be met by a model-review signal, not by dogfood-only
+    # metadata. Dogfood remains separately required for Tier 1+.
+    has_western_frontier_signal = bool(
+        {str(rid).strip().lower() for rid in counted_reviewer_signal_ids}
+        & WESTERN_FRONTIER_FAMILIES
+    )
+    western_frontier_satisfied = (
+        not requirement.get("requires_western_frontier_signal") or has_western_frontier_signal
+    )
+    # Tier 2: at least one counted family must be Western (rule-derived flag).
+    at_least_one_western_satisfied = not rule.requires_at_least_one_western or bool(
+        jurisdiction_counted & WESTERN_FAMILIES
+    )
     quorum_satisfied = (
-        signal_count >= requirement["required_model_signals"] and has_required_dogfood
+        signal_count >= requirement["required_model_signals"]
+        and has_required_dogfood
+        and western_frontier_satisfied
+        and at_least_one_western_satisfied
+    )
+    required_pr_check_surface = (
+        check_surfaces.get("required_pr_checks") if isinstance(check_surfaces, dict) else {}
+    )
+    quorum_only_required_failure = bool(
+        isinstance(required_pr_check_surface, dict)
+        and required_pr_check_surface.get("quorum_only_failure")
+    )
+    missing_quorum_is_active_check_blocker = (
+        quorum_only_required_failure and not quorum_satisfied and not settlement_recorded
+    )
+    stale_quorum_check_after_satisfied_evidence = (
+        quorum_only_required_failure and quorum_satisfied and not settlement_recorded
     )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
     human_preapproval_recorded = (
@@ -3107,8 +3243,12 @@ def _build_model_review_quorum(
         reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
-    if has_failures and not settlement_recorded:
+    if has_failures and not settlement_recorded and not missing_quorum_is_active_check_blocker:
         reasons.append("checks are failing; repair before settlement")
+    elif missing_quorum_is_active_check_blocker:
+        reasons.append(
+            "required aragora-merge-quorum is failing because model quorum is incomplete"
+        )
     if checks_unavailable and not settlement_recorded:
         reasons.append("checks are unavailable; wait for GitHub check rollup before settlement")
         if isinstance(check_surfaces, dict) and (
@@ -3124,13 +3264,35 @@ def _build_model_review_quorum(
         reasons.extend(blocking_workflow_reasons)
     if unresolved_dissent and not settlement_recorded:
         reasons.append("unresolved model dissent is present")
-    if not quorum_satisfied and not settlement_recorded:
+    for advisory in advisory_views:
+        family = str(advisory.get("agent", "") or "unknown")
+        severity = advisory.get("highest_severity")
+        # ``highest_severity`` is None both for a [P2]/[P3]-only CR and for a
+        # finding-free CR, so don't assert "[P2]/[P3] only" — report the accurate
+        # invariant (no blocking [P0]/[P1] finding) in the audit packet.
+        sev_note = severity if severity else "no blocking [P0]/[P1] finding"
         reasons.append(
-            "model quorum incomplete: "
-            f"{signal_count}/{requirement['required_model_signals']} signal(s)"
+            f"advisory finding from {family}: {sev_note} — not blocking (severity-gated dissent)"
         )
+    if not quorum_satisfied and not settlement_recorded:
+        if signal_count < requirement["required_model_signals"]:
+            reasons.append(
+                "model quorum incomplete: "
+                f"{signal_count}/{requirement['required_model_signals']} signal(s)"
+            )
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
+        if not western_frontier_satisfied:
+            reasons.append(
+                "a western-frontier model signal (claude/openai) is required to settle this tier"
+            )
+        if rule.western_only_counted and (counted_family_set - jurisdiction_counted):
+            reasons.append(
+                "Tier 3-4 requires a Western-only counted quorum; Chinese-routed "
+                "families are advisory-only and do not count toward the quorum"
+            )
+        if not at_least_one_western_satisfied:
+            reasons.append("at least one counted model signal must be from a Western family")
         reasons.extend(review_object_warnings)
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
@@ -3139,10 +3301,11 @@ def _build_model_review_quorum(
         verdict = "already_merged_settlement_recorded"
         requires_human_risk_settlement = False
     elif (
-        has_failures
+        (has_failures and not missing_quorum_is_active_check_blocker)
         or has_pending
         or checks_unavailable
-        or machine_recommendation == "repair_first"
+        or (machine_recommendation == "repair_first" and not missing_quorum_is_active_check_blocker)
+        or stale_quorum_check_after_satisfied_evidence
         or blocking_workflow_state
     ):
         status = "repair_or_wait"
@@ -3183,6 +3346,10 @@ def _build_model_review_quorum(
         "tier_name": tier_name,
         "tier_reason": tier_reason,
         "required_model_signals": requirement["required_model_signals"],
+        "requires_western_frontier_signal": bool(
+            requirement.get("requires_western_frontier_signal")
+        ),
+        "has_western_frontier_signal": has_western_frontier_signal,
         "requires_adversarial_dogfood": requirement["requires_adversarial_dogfood"],
         "requires_human_risk_settlement": requires_human_risk_settlement,
         "human_risk_settlement_recorded": human_risk_settlement_recorded,
@@ -3197,6 +3364,7 @@ def _build_model_review_quorum(
         "counted_reviewer_ids": counted_reviewer_ids,
         "counted_model_families": counted_reviewer_ids,
         "dissenting_views": dissenting_views,
+        "advisory_views": advisory_views,
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
     }
@@ -3235,39 +3403,32 @@ def _classify_model_review_tier(
 
 
 def _tier_requirement(tier: int) -> dict[str, Any]:
-    if tier <= 0:
-        return {
-            "required_model_signals": 1,
-            "requires_adversarial_dogfood": False,
-            "requires_human_risk_settlement": False,
-            "requires_human_preapproval": False,
-        }
-    if tier == 1:
-        return {
-            "required_model_signals": 2,
-            "requires_adversarial_dogfood": True,
-            "requires_human_risk_settlement": False,
-            "requires_human_preapproval": False,
-        }
-    if tier == 2:
-        return {
-            "required_model_signals": 2,
-            "requires_adversarial_dogfood": True,
-            "requires_human_risk_settlement": False,
-            "requires_human_preapproval": False,
-        }
-    if tier == 3:
-        return {
-            "required_model_signals": 2,
-            "requires_adversarial_dogfood": True,
-            "requires_human_risk_settlement": True,
-            "requires_human_preapproval": False,
-        }
+    # Single source of truth for the model-quorum bar: the shared tier_quorum_rule
+    # (also used by the auto-settle path's CollectOutcome.has_supportive_quorum) so the
+    # merge gate and the collector share one tier→requirement mapping and one WF
+    # allowlist; they cannot drift on WHAT each tier requires.
+    #
+    # The two paths intentionally differ on regime SELECTION, and the asymmetry is by
+    # design (claude #8507 P1; full rationale in docs/specs/TIERED_MERGE_GATE_QUORUM_POLICY.md):
+    #   * This live merge gate is evaluated fresh on every CI run against the PR's
+    #     current evidence, so there is no prepare→apply staleness window to reconcile.
+    #     It reads the live flag directly. The flag is default OFF, and enabling it is
+    #     itself the operator's deliberate, Tier-4-gated audit point — the global flag
+    #     *is* the revocation control (flip OFF to revoke everywhere).
+    #   * The auto-settle apply path stores a prepared artifact with a real time gap
+    #     between prepare and apply, so it additionally reconciles via min(prepared,
+    #     live) to stop a flag flip from retroactively relaxing a stale artifact.
+    # Both are strict-by-default; only the apply path needs the extra reconciliation
+    # because only it has stored, deferrable state.
+    rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())
     return {
-        "required_model_signals": 2,
-        "requires_adversarial_dogfood": True,
-        "requires_human_risk_settlement": True,
-        "requires_human_preapproval": True,
+        "required_model_signals": rule.required_signals,
+        "requires_western_frontier_signal": rule.requires_western_frontier,
+        "western_only_counted": rule.western_only_counted,
+        "requires_at_least_one_western": rule.requires_at_least_one_western,
+        "requires_adversarial_dogfood": tier > 0,
+        "requires_human_risk_settlement": tier >= 3,
+        "requires_human_preapproval": tier >= 4,
     }
 
 
@@ -3694,104 +3855,6 @@ def _is_github_actions_author(author: str) -> bool:
     return str(author or "").strip().lower() in {"github-actions", "github-actions[bot]"}
 
 
-def _has_blocking_or_negative_verdict(body: str) -> bool:
-    """Return True for explicit evidence comments that report blockers.
-
-    Merge quorum should count independent evidence that can support readiness,
-    not a comment that visibly says the reviewer failed or blocked the PR.
-    Keep the parser deliberately label-based so ordinary prose such as
-    "no blocking findings" remains countable.
-    """
-    negative_verdict_prefixes = (
-        "fail",
-        "failed",
-        "failing",
-        "fails",
-        "failure",
-        "block",
-        "blocked",
-        "blocking",
-        "request changes",
-        "request_changes",
-        "changes requested",
-        "reject",
-        "rejected",
-        "not ready",
-        "needs repair",
-    )
-    non_blocking_prefixes = (
-        "none",
-        "none found",
-        "no",
-        "no blockers",
-        "no blocking findings",
-        "not found",
-        "0",
-        "zero",
-        "false",
-        "n/a",
-        "not applicable",
-        "[]",
-    )
-
-    def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
-        # Word-boundary matching, not raw prefixes: "no" must cover "no" /
-        # "no blockers" but never "node crashes" or "not working", and
-        # "block" must never cover "blockchain".
-        return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
-
-    def _strip_decoration(text: str) -> str:
-        # Markdown list/heading/quote decoration and numbered-list markers:
-        # "### Verdict", "1. Verdict", "> **Verdict**" all expose the label.
-        return re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", text.strip())
-
-    def _normalize_value(text: str) -> str:
-        text = text.replace("**", "").replace("__", "")
-        return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
-
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
-    for idx, stripped in enumerate(lines):
-        if not stripped:
-            continue
-        line = _strip_decoration(stripped)
-        line = line.replace("**", "").replace("__", "")
-        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
-        if not match:
-            continue
-        normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
-        normalized_label = normalized_label.strip("*_ ")
-        normalized_value = _normalize_value(match.group("value"))
-        if normalized_label in {"verdict", "decision", "recommendation"} and _starts_with_phrase(
-            normalized_value, negative_verdict_prefixes
-        ):
-            return True
-        if normalized_label in {"blocking finding", "blocking findings", "blocker", "blockers"}:
-            candidate = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", normalized_value)
-            if candidate in {"-", "*", "[]", "[ ]", "—", "–"}:
-                # An inline empty marker ("Blockers: []", "Blockers: -") is an
-                # explicit "no blockers"; never read the next line as a blocker.
-                continue
-            if not candidate:
-                # The blockers may be listed on the following lines:
-                # "Blocking findings:\n- crash on startup" must stay blocking,
-                # while "Blockers:\nNone found." must stay countable.
-                follow = next((entry for entry in lines[idx + 1 :] if entry), "")
-                is_list_item = bool(re.match(r"^(?:[-*+]\s+|\d+[.)]\s+)", follow))
-                if not is_list_item:
-                    if follow.startswith("#"):
-                        # An empty blockers section followed by a heading.
-                        continue
-                    if re.match(r"^[^:]+?:\s+\S", follow):
-                        # An empty blockers section followed by a new labeled
-                        # section ("Verdict: PASS") is not a blocker entry.
-                        continue
-                candidate = _normalize_value(_strip_decoration(follow))
-            if not candidate or _starts_with_phrase(candidate, non_blocking_prefixes):
-                continue
-            return True
-    return False
-
-
 def _normalize_model_reviewer_id(value: str) -> str:
     lower = str(value).lower()
     if not lower or "unknown_model_reviewer" in lower:
@@ -3830,6 +3893,13 @@ def _normalize_model_family(value: str) -> str:
         "z-ai": "glm",
         "nous-hermes": "hermes",
         "nous hermes": "hermes",
+        # OpenAI-family CLI/product names so a disclosed "Model family: codex"
+        # still counts at the gate (mirrors canonical_family in quorum_evidence).
+        "codex": "openai",
+        "gpt": "openai",
+        "gpt-5": "openai",
+        "gpt5": "openai",
+        "chatgpt": "openai",
     }
 
     def _lookup(token: str) -> str:
@@ -4126,6 +4196,120 @@ def _dogfood_evidence_from_comments(
             }
         )
     return evidence[:5]
+
+
+def _dissenting_views_from_comments(
+    comments: list[Any],
+    *,
+    head_sha: str = "",
+    head_committed_at: str = "",
+    advisory_views: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Extract exact-head model-review comments that visibly request changes.
+
+    When ``ARAGORA_ENABLE_SEVERITY_GATED_DISSENT`` is OFF (default) a comment that
+    ``_has_blocking_or_negative_verdict`` — a real ``[P0]``/``[P1]`` finding, a
+    populated Blocker label, OR a bare negative ``Verdict:`` line — promotes a
+    blocking dissent, byte-identical to historical behavior.
+
+    When the flag is ON, only a comment backed by a real ``[P0]``/``[P1]`` finding
+    or a populated Blocker label (``_has_blocking_finding_or_label``) promotes a
+    blocking dissent. A ``[P2]``/``[P3]``-only or finding-free CHANGES-REQUESTED is
+    downgraded to *advisory*: non-blocking, and — because it is excluded from the
+    returned blocking-dissent list and never marked supportive — non-counting. The
+    downgraded comment is still recorded (in ``advisory_views`` when provided) so the
+    review quality stays visible on the PR / in the audit packet.
+    """
+    markers = (
+        "dogfood",
+        "adversarial",
+        "cross-author",
+        "recheck",
+        "codex review",
+        "claude review",
+        "grok independent",
+        "gemini independent",
+        "independent semantic review",
+        "independent model review",
+        "model-family semantic signal",
+    )
+    severity_gated = severity_gated_dissent_enabled()
+    dissent: list[dict[str, Any]] = []
+    for comment in comments:
+        if not isinstance(comment, dict) or not _is_comment_grounded_on_head(
+            comment, head_sha, head_committed_at
+        ):
+            continue
+        body = str(comment.get("body", "") or "")
+        lower = body.lower()
+        if not any(token in lower for token in markers):
+            continue
+        # Flag OFF: a bare negative Verdict line still blocks (historical behavior).
+        # Flag ON: only a real [P0]/[P1] finding or a populated Blocker label blocks;
+        # a [P2]/[P3]-only or finding-free CHANGES-REQUESTED becomes advisory.
+        blocks = (
+            _has_blocking_finding_or_label(body)
+            if severity_gated
+            else _has_blocking_or_negative_verdict(body)
+        )
+        if not blocks:
+            if severity_gated and advisory_views is not None:
+                advisory = _build_advisory_view(comment, body)
+                if advisory is not None:
+                    advisory_views.append(advisory)
+            continue
+        identity = _resolve_model_review_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
+            identity = _resolve_dogfood_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
+            continue
+        author_payload = comment.get("author")
+        github_author = ""
+        if isinstance(author_payload, dict):
+            github_author = str(author_payload.get("login", "") or "")
+        dissent.append(
+            {
+                "agent": identity.model_family or identity.surface_reviewer_id,
+                "position": "changes_requested",
+                "reason": _first_nonempty_line(body)[:240],
+                "source": "pr_comment",
+                "github_author": github_author,
+                **identity.as_packet_fields(),
+            }
+        )
+    return dissent[:5]
+
+
+def _build_advisory_view(comment: dict[str, Any], body: str) -> dict[str, Any] | None:
+    """Build the advisory (non-blocking, non-counting) record for a CHANGES-REQUESTED
+    comment that, under the severity gate, carries only ``[P2]``/``[P3]`` (or no)
+    findings. Returns ``None`` if the reviewer identity is unrecognized.
+    """
+    # The comment WOULD have blocked under the strict (flag-OFF) regime: it is a
+    # genuine negative verdict, just not backed by a real [P0]/[P1] finding or a
+    # populated Blocker label. Recording it preserves the reviewer's signal.
+    if not _has_blocking_or_negative_verdict(body):
+        return None
+    identity = _resolve_model_review_identity(body)
+    if identity.surface_reviewer_id == "unknown_model_reviewer":
+        identity = _resolve_dogfood_identity(body)
+    if identity.surface_reviewer_id == "unknown_model_reviewer":
+        return None
+    author_payload = comment.get("author")
+    github_author = ""
+    if isinstance(author_payload, dict):
+        github_author = str(author_payload.get("login", "") or "")
+    severity = _highest_blocking_severity(body)
+    return {
+        "agent": identity.model_family or identity.surface_reviewer_id,
+        "position": "advisory_changes_requested",
+        "blocking": False,
+        "highest_severity": severity,  # None for finding-free, never P0/P1 here
+        "reason": _first_nonempty_line(body)[:240],
+        "source": "pr_comment",
+        "github_author": github_author,
+        **identity.as_packet_fields(),
+    }
 
 
 def _model_review_signals_from_comments(

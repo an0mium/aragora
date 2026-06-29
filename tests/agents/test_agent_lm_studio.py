@@ -381,7 +381,8 @@ class TestLMStudioGenerateStream:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.content = mock_content_iter()
+        mock_response.content = MagicMock()
+        mock_response.content.iter_any.return_value = mock_content_iter()
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
 
@@ -415,7 +416,8 @@ class TestLMStudioGenerateStream:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.content = mock_content_iter()
+        mock_response.content = MagicMock()
+        mock_response.content.iter_any.return_value = mock_content_iter()
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
 

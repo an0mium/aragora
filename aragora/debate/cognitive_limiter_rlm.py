@@ -13,12 +13,12 @@ How Real RLM Works:
 3. The LLM can recursively call itself on context subsets
 4. The LLM dynamically decides decomposition strategy (grep, map-reduce, peek, etc.)
 
-When the official RLM library is installed (`pip install aragora[rlm]`), this module
+When the official RLM library is installed (`pip install rlm`), this module
 uses the real REPL-based approach. Otherwise, it falls back to hierarchical
 summarization which preserves semantics but isn't true RLM.
 
 Install RLM support:
-    pip install aragora[rlm]
+    pip install rlm
 """
 
 from __future__ import annotations
@@ -37,11 +37,6 @@ from aragora.debate.cognitive_limiter import (
 )
 
 # Check for official RLM library (use factory for consistent initialization)
-get_rlm: Any
-get_compressor: Any
-DebateContextAdapter: Any
-RLMBackendConfig: Any
-
 try:
     from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
     from aragora.rlm.bridge import DebateContextAdapter, RLMBackendConfig
@@ -50,10 +45,10 @@ try:
 except ImportError:
     HAS_OFFICIAL_RLM = False
     HAS_RLM_FACTORY = False
-    get_rlm = None
-    get_compressor = None
-    DebateContextAdapter = None
-    RLMBackendConfig = None
+    get_rlm: Any = None  # type: ignore[no-redef]
+    get_compressor: Any = None  # type: ignore[no-redef]
+    DebateContextAdapter: Any = None  # type: ignore[no-redef]
+    RLMBackendConfig: Any = None  # type: ignore[no-redef]
 
 if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor
@@ -206,7 +201,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         else:
             logger.info(
                 "RLM factory not available. Using hierarchical summarization fallback. "
-                "Install with: pip install aragora[rlm]"
+                "Install with: pip install rlm"
             )
 
         # Widen stats type to support mixed int/float/dict values from RLM extension
@@ -251,7 +246,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             ...     strategy="grep"
             ... )
         """
-        if not self.has_real_rlm:
+        rlm = self._aragora_rlm
+        if rlm is None:
             logger.warning("Real RLM not available, using fallback search")
             return self._fallback_search(query, messages)
 
@@ -263,7 +259,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             formatted_context = self._format_messages_for_rlm(messages)
 
             # Use AragoraRLM for query
-            result = await self._aragora_rlm.compress_and_query(
+            result = await rlm.compress_and_query(
                 query=query,
                 content=formatted_context,
                 source_type="debate",

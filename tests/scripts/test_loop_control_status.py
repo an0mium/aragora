@@ -205,3 +205,33 @@ def test_collect_all_skips_network_when_disabled(
     boss = raw[io_mod.LoopKind.BOSS_LOOP]
     assert boss["source_status"] == "unavailable"
     assert "no-network" in boss.get("error", "")
+
+
+def test_boss_loop_owner_stale_ignores_terminal_heartbeat_rows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def terminal_only_run(cmd, *args, **kwargs):  # type: ignore[no-untyped-def]
+        assert "agent_bridge.py" in " ".join(cmd)
+        return _FakeProc(
+            json.dumps(
+                {
+                    "boss_loop_alive": False,
+                    "boss_loop_status": {"owner": "swarm-boss-loop"},
+                    "agent_heartbeats": {
+                        "count": 2,
+                        "fresh_count": 0,
+                        "stale_count": 0,
+                        "terminal_count": 2,
+                    },
+                    "health": {"ok": True},
+                    "queue_depth": 7,
+                    "timestamp": "2026-06-09T00:00:00Z",
+                }
+            )
+        )
+
+    monkeypatch.setattr(io_mod, "_run", terminal_only_run)
+
+    raw = io_mod.collect_boss_loop(tmp_path)
+
+    assert raw["owner_stale"] is False

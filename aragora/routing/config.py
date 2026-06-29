@@ -54,6 +54,58 @@ class GatewayRoutingConfig:
         )
 
 
+@dataclass(frozen=True)
+class TaskRoutingContext:
+    """Per-unit-of-work routing inputs for the hybrid orchestrator.
+
+    Carries the signals the Pareto model-router and mode-selector both need so a
+    single unit of work can be (a) assigned an execution pattern and (b) routed
+    to a cost/quality/latency-optimal model. Pure data -- no behavior, no I/O.
+
+    Fields:
+      - ``complexity_score``: 0-10, typically from ``DomainDetector`` complexity
+        estimation; higher means more reasoning-heavy.
+      - ``budget_usd``: optional per-unit spend cap; ``None`` means uncapped.
+      - ``latency_ms_sla``: optional soft latency target; ``None`` means none.
+      - ``quality_floor``: 0-1 minimum acceptable quality for candidate models.
+      - ``diversity_preference``: 0-1 weight favoring heterogeneous model sets
+        (matters for multi-agent/team patterns; ignored for single-model work).
+    """
+
+    task_id: str
+    domain: str
+    complexity_score: float = 0.0
+    budget_usd: float | None = None
+    latency_ms_sla: float | None = None
+    quality_floor: float = 0.0
+    diversity_preference: float = 0.0
+
+    def __post_init__(self) -> None:
+        if not self.task_id:
+            raise ValueError("task_id must be non-empty")
+        if not 0.0 <= self.complexity_score <= 10.0:
+            raise ValueError("complexity_score must be in [0, 10]")
+        if not 0.0 <= self.quality_floor <= 1.0:
+            raise ValueError("quality_floor must be in [0, 1]")
+        if not 0.0 <= self.diversity_preference <= 1.0:
+            raise ValueError("diversity_preference must be in [0, 1]")
+        if self.budget_usd is not None and self.budget_usd < 0:
+            raise ValueError("budget_usd must be non-negative or None")
+        if self.latency_ms_sla is not None and self.latency_ms_sla <= 0:
+            raise ValueError("latency_ms_sla must be positive or None")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "task_id": self.task_id,
+            "domain": self.domain,
+            "complexity_score": self.complexity_score,
+            "budget_usd": self.budget_usd,
+            "latency_ms_sla": self.latency_ms_sla,
+            "quality_floor": self.quality_floor,
+            "diversity_preference": self.diversity_preference,
+        }
+
+
 def _parse_csv(value: str | None) -> set[str]:
     if not value:
         return set()
@@ -118,13 +170,16 @@ def load_gateway_routing_config() -> GatewayRoutingConfig:
         300,
     )
 
+    # Pass parsed sets directly: __post_init__ applies defaults for an empty set
+    # exactly as it does for None (``self.x or set(_DEF)``), so this is
+    # behavior-preserving and keeps the arg type ``set[str]`` (not ``set[str] | None``).
     return GatewayRoutingConfig(
         financial_threshold=financial_threshold,
-        risk_levels=risk_levels or None,
-        compliance_flags=compliance_flags or None,
+        risk_levels=risk_levels,
+        compliance_flags=compliance_flags,
         stakeholder_threshold=stakeholder_threshold,
-        require_debate_keywords=require_debate_keywords or None,
-        require_execute_keywords=require_execute_keywords or None,
+        require_debate_keywords=require_debate_keywords,
+        require_execute_keywords=require_execute_keywords,
         time_sensitive_threshold_seconds=time_sensitive_threshold_seconds,
         confidence_threshold=confidence_threshold,
         cache_ttl_seconds=cache_ttl_seconds,
