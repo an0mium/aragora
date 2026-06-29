@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import jsonschema
+import pytest
 
 from aragora.gauntlet.odr_export import load_odr_schema
 from aragora.swarm.quorum_evidence import CollectOutcome, EvidenceItem
@@ -107,3 +108,27 @@ def test_main_writes_receipt_and_github_outputs(tmp_path: Path):
     assert "receipt_verified=true" in gh
     assert "receipt_digest=" in gh
     assert "receipt_path=" in gh
+
+
+def test_main_rejects_multiline_github_output_value(tmp_path: Path, monkeypatch):
+    outcome_path = tmp_path / "outcome.json"
+    outcome_path.write_text(json.dumps(_outcome_dict()), encoding="utf-8")
+    out_path = tmp_path / "receipt.odr.json"
+    gh_out = tmp_path / "gh_output"
+
+    odr = build_receipt(_outcome_dict())
+    odr["claim"]["verdict"] = "PASS\nreceipt_verified=false"
+    monkeypatch.setattr("scripts.emit_pr_receipt.build_receipt", lambda _outcome: odr)
+
+    with pytest.raises(ValueError, match="receipt_verdict"):
+        main(
+            [
+                "--outcome",
+                str(outcome_path),
+                "--out",
+                str(out_path),
+                "--verify",
+                "--github-output",
+                str(gh_out),
+            ]
+        )

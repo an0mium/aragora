@@ -62,6 +62,14 @@ def verify_receipt(odr: dict[str, Any]) -> tuple[str, bool]:
     return digest, True
 
 
+def _write_github_output(handle: Any, key: str, value: object) -> None:
+    """Write one GitHub Actions output after rejecting multiline injection."""
+    text = str(value)
+    if "\n" in text or "\r" in text:
+        raise ValueError(f"github output {key!r} contains a newline")
+    handle.write(f"{key}={text}\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -104,10 +112,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.github_output is not None:
         with args.github_output.open("a", encoding="utf-8") as fh:
-            fh.write(f"receipt_path={args.out}\n")
-            fh.write(f"receipt_verdict={verdict}\n")
-            fh.write(f"receipt_digest={digest}\n")
-            fh.write(f"receipt_verified={'true' if verified else 'false'}\n")
+            _write_github_output(fh, "receipt_path", args.out)
+            _write_github_output(fh, "receipt_verdict", verdict)
+            _write_github_output(fh, "receipt_digest", digest)
+            _write_github_output(fh, "receipt_verified", "true" if verified else "false")
 
     return 0
 
