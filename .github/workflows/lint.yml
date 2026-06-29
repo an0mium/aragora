@@ -696,7 +696,9 @@ jobs:
       - name: Install security tools
         run: |
           python -m pip install --upgrade pip
-          python -m pip install bandit safety
+          # safety runs pinned in its own venv in the dependency-check step below;
+          # only bandit is needed in this base env.
+          python -m pip install bandit
 
       - name: Run Bandit security scan
         run: |
@@ -715,7 +717,12 @@ jobs:
           # safety pins typer<0.26.0, so installing the project into safety's env
           # breaks the safety CLI. Isolating safety satisfies both pins.
           python -m venv /tmp/safety-env
-          /tmp/safety-env/bin/python -m pip install --quiet --upgrade pip safety
+          /tmp/safety-env/bin/python -m pip install --upgrade pip
+          # Pin Safety so this REQUIRED gate is reproducible (a future Safety
+          # release could change/remove `check` or require an API key); no
+          # --quiet so the installed version is visible in CI logs.
+          /tmp/safety-env/bin/python -m pip install "safety==3.8.1"
+          /tmp/safety-env/bin/safety --version
           # Blocking: fail on HIGH/CRITICAL vulnerabilities.
           # --ignore 70612: Known false positive / accepted risk.
           /tmp/safety-env/bin/safety check --full-report --ignore 70612 -r /tmp/aragora-deps.txt
