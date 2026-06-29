@@ -35,6 +35,29 @@ _EVIDENCE_LINT_TIMEOUT = 90
 _GH_TIMEOUT = 60
 _GITHUB_ACTIONS_AUTHOR = "github-actions[bot]"
 _MIN_EVIDENCE_BODY = 40
+_GITHUB_TRANSPORT_ERROR_MARKERS = (
+    "api rate limit already exceeded",
+    "check your internet connection",
+    "client.timeout exceeded",
+    "connection refused",
+    "connection reset",
+    "connection timed out",
+    "context deadline exceeded",
+    "could not resolve host",
+    "error connecting",
+    "failed to start",
+    "http 502",
+    "http 503",
+    "http 504",
+    "i/o timeout",
+    "net/http",
+    "no such host",
+    "operation timed out",
+    "rate limit exceeded",
+    "temporary failure in name resolution",
+    "timeout awaiting response headers",
+    "tls handshake timeout",
+)
 
 
 def _could_count(author: str, body: str) -> bool:
@@ -104,6 +127,24 @@ def run_json(
     return json.loads(proc.stdout or "null")
 
 
+def _is_github_transport_error(error: object) -> bool:
+    text = str(error or "").lower()
+    return any(marker in text for marker in _GITHUB_TRANSPORT_ERROR_MARKERS)
+
+
+def _read_json_with_operator_fallback(args: list[str], *, timeout: int = _GH_TIMEOUT) -> Any:
+    """Read through the App token first; fall back to operator auth on transport only."""
+    read_env = _read_env()
+    try:
+        return run_json(args, env=read_env, timeout=timeout)
+    except RuntimeError as exc:
+        if read_env.get(
+            "ARAGORA_GITHUB_AUTH_SOURCE"
+        ) != "github_app_installation" or not _is_github_transport_error(exc):
+            raise
+        return run_json(args, env=aragora_env(), timeout=timeout)
+
+
 def list_open_prs(repo: str, *, limit: int, author: str | None) -> list[int]:
     rows = (
         run_json(
@@ -138,7 +179,7 @@ def list_open_prs(repo: str, *, limit: int, author: str | None) -> list[int]:
 
 def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
     """Head SHA, head committedDate, quorum conclusion, and real-failure flag."""
-    data = run_json(
+    data = _read_json_with_operator_fallback(
         [
             "gh",
             "pr",
@@ -149,7 +190,6 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
             "--json",
             "headRefOid,commits,statusCheckRollup",
         ],
-        env=_read_env(),
     )
     head_sha = str(data.get("headRefOid") or "").strip()
     commits = data.get("commits") or []

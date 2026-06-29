@@ -48,12 +48,87 @@ def test_fetch_pr_context_routes_reads_through_app_token(monkeypatch) -> None:
 
     def capture_run(args, *, env=None, timeout=m._GH_TIMEOUT):
         captured_envs.append(env or {})
-        return _proc(json.dumps({"headRefOid": "abc", "commits": [], "statusCheckRollup": []}))
+        return _proc(
+            json.dumps(
+                {
+                    "headRefOid": "abc",
+                    "commits": [{"oid": "abc", "committedDate": "2026-06-28T00:00:00Z"}],
+                    "statusCheckRollup": [],
+                }
+            )
+        )
 
     monkeypatch.setattr(m, "run", capture_run)
     m.fetch_pr_context("o/r", 1)
     assert captured_envs, "expected fetch_pr_context to shell out to gh"
     assert captured_envs[0].get("GH_TOKEN") == "fake-app-token"
+    assert captured_envs[0].get("ARAGORA_GITHUB_AUTH_SOURCE") == "github_app_installation"
+
+
+def test_fetch_pr_context_falls_back_to_operator_auth_on_app_transport_error(
+    monkeypatch,
+) -> None:
+    from aragora.swarm import github_app_auth
+
+    monkeypatch.setattr(
+        github_app_auth, "get_github_app_installation_token", lambda env=None: "fake-app-token"
+    )
+    captured_envs: list[dict] = []
+
+    def capture_run(args, *, env=None, timeout=m._GH_TIMEOUT):
+        captured_envs.append(env or {})
+        if (env or {}).get("ARAGORA_GITHUB_AUTH_SOURCE") == "github_app_installation":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="error connecting to api.github.com\ncheck your internet connection",
+            )
+        return _proc(
+            json.dumps(
+                {
+                    "headRefOid": "abc",
+                    "commits": [{"oid": "abc", "committedDate": "2026-06-28T00:00:00Z"}],
+                    "statusCheckRollup": [],
+                }
+            )
+        )
+
+    monkeypatch.setattr(m, "run", capture_run)
+    ctx = m.fetch_pr_context("o/r", 1)
+
+    assert ctx["head_sha"] == "abc"
+    assert len(captured_envs) == 2
+    assert captured_envs[0].get("ARAGORA_GITHUB_AUTH_SOURCE") == "github_app_installation"
+    assert captured_envs[1].get("ARAGORA_GITHUB_AUTH_SOURCE") != "github_app_installation"
+
+
+def test_fetch_pr_context_does_not_fallback_on_non_transport_app_error(monkeypatch) -> None:
+    from aragora.swarm import github_app_auth
+
+    monkeypatch.setattr(
+        github_app_auth, "get_github_app_installation_token", lambda env=None: "fake-app-token"
+    )
+    captured_envs: list[dict] = []
+
+    def capture_run(args, *, env=None, timeout=m._GH_TIMEOUT):
+        captured_envs.append(env or {})
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=1,
+            stdout="",
+            stderr="GraphQL: Resource not accessible by integration",
+        )
+
+    monkeypatch.setattr(m, "run", capture_run)
+    try:
+        m.fetch_pr_context("o/r", 1)
+    except RuntimeError as exc:
+        assert "Resource not accessible by integration" in str(exc)
+    else:  # pragma: no cover - explicit assertion for readability.
+        raise AssertionError("expected non-transport app error to fail closed")
+
+    assert len(captured_envs) == 1
     assert captured_envs[0].get("ARAGORA_GITHUB_AUTH_SOURCE") == "github_app_installation"
 
 
