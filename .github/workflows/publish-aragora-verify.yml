@@ -31,17 +31,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Verify checkout integrity
-        shell: bash
-        run: |
-          if [[ ! -f aragora-verify/pyproject.toml ]]; then
-            echo "::warning::aragora-verify missing after checkout; attempting recovery"
-            git sparse-checkout disable || true
-            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
-            git reset --hard FETCH_HEAD
-          fi
-          if [[ ! -f aragora-verify/pyproject.toml ]]; then
-            echo "::error::aragora-verify/pyproject.toml missing"; ls -la; exit 1
-          fi
+        uses: ./.github/actions/checkout-integrity
 
       - name: Setup Python
         uses: ./.github/actions/setup-python-safe
@@ -63,14 +53,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Verify checkout integrity
-        shell: bash
-        run: |
-          if [[ ! -f aragora-verify/pyproject.toml ]]; then
-            git sparse-checkout disable || true
-            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
-            git reset --hard FETCH_HEAD
-          fi
-          test -f aragora-verify/pyproject.toml || { echo "::error::aragora-verify missing"; exit 1; }
+        uses: ./.github/actions/checkout-integrity
 
       - name: Setup Python
         uses: ./.github/actions/setup-python-safe
