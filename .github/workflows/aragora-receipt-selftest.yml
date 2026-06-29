@@ -11,8 +11,9 @@ name: Aragora Receipt Self-Test
 
 on:
   # Runs on this PR (provides the pull_request context the action needs) and on
-  # manual dispatch. Model keys come from AWS Secrets Manager via OIDC (the org's
-  # keyless pattern), NOT from GitHub env secrets.
+  # manual dispatch. Keyless: reviewers authenticate via the subscription CLIs
+  # (claude, codex) logged in on the self-hosted runner — no API keys, no
+  # Secrets Manager. Single account per provider = TOS-clean.
   pull_request:
     branches: [worktree-strategy-mission-cadence]
   workflow_dispatch:
@@ -22,34 +23,25 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  id-token: write       # assume the AWS role via OIDC for Secrets Manager
   contents: read
   pull-requests: read
 
 jobs:
   receipt-selftest:
-    runs-on: ubuntu-latest
+    # Self-hosted runner with claude + codex subscription CLIs logged in.
+    runs-on: mac-studio
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_CI_ROLE_NAME }}
-          role-session-name: receipt-selftest-${{ github.run_id }}
-          aws-region: us-east-2
 
       - name: Run Aragora action (emit receipt)
         id: review
         uses: ./
         with:
-          agents: anthropic-api,openai-api
+          agents: claude,codex          # subscription CLI agents (no API keys)
           rounds: '1'
-          post-comment: 'false'        # self-test: never comment on the PR
+          post-comment: 'false'         # self-test: never comment on the PR
           emit-receipt: 'true'
-          receipt-reviewers: 'claude openai'
-          use-secrets-manager: 'true'  # keys from AWS Secrets Manager, not env
-          aws-region: us-east-2
+          receipt-reviewers: 'claude openai'  # collector: claude CLI + codex CLI
 
       - name: Report receipt outcome
         if: always()
