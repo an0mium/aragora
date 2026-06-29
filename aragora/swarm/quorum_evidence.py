@@ -310,7 +310,7 @@ _MAX_REVIEWER_CHARS = 32_000
 _CLAUDE_TIMEOUT = 600
 _CODEX_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
-# Best-effort Claude liveness probe. It catches fast subprocess errors without
+# Best-effort Claude liveness probe. It catches fast non-zero CLI exits before
 # committing to the long review ceiling, but a probe timeout is not a hard
 # precondition: slow-but-live subscription CLIs still get the real review call.
 # Set ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS=0 to disable probing.
@@ -1085,9 +1085,11 @@ def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
 def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
     """Best-effort check before a long Claude review.
 
-    Returns ``None`` for healthy CLIs, missing binaries, fast failures, and probe
-    timeouts. The real review call remains the source of truth so a slow cold
-    start cannot suppress a valid review. Disabled when
+    Returns an error string for fast non-zero probe exits, which usually means
+    the CLI has already detected an auth/config problem. Returns ``None`` for
+    healthy CLIs, missing binaries, subprocess exceptions, and probe timeouts.
+    The real review call remains the source of truth so a slow cold start cannot
+    suppress a valid review. Disabled when
     ``ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS`` parses to a non-positive number.
     Best-effort: a probe bug never blocks a genuine review.
     """
@@ -1100,7 +1102,7 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
             pass
     probe_timeout = _timeout_seconds(_CLI_PROBE_TIMEOUT_ENV, _CLI_PROBE_TIMEOUT)
     try:
-        subprocess.run(
+        proc = subprocess.run(
             argv,
             input=_CLI_PROBE_PROMPT,
             capture_output=True,
@@ -1112,6 +1114,10 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
         return None
     except (FileNotFoundError, OSError, subprocess.SubprocessError):
         return None  # let the real review surface the precise (and fast) error
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        suffix = f": {detail}" if detail else ""
+        return f"{family} CLI liveness probe exit {proc.returncode}{suffix}"
     return None
 
 

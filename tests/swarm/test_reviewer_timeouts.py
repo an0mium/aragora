@@ -33,6 +33,20 @@ def test_probe_proceeds_when_responsive(monkeypatch):
     assert qe._cli_liveness_probe("claude", ["claude", "-p"]) is None
 
 
+def test_probe_reports_fast_nonzero_exit(monkeypatch):
+    monkeypatch.setattr(
+        qe.subprocess,
+        "run",
+        lambda *_a, **_k: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="login required"
+        ),
+    )
+
+    err = qe._cli_liveness_probe("claude", ["claude", "-p"])
+
+    assert err == "claude CLI liveness probe exit 1: login required"
+
+
 def test_probe_proceeds_on_missing_binary(monkeypatch):
     # A missing binary is already a fast failure; let the real call surface it.
     def _missing(*_a, **_k):
@@ -64,3 +78,19 @@ def test_run_claude_cli_runs_real_review_after_probe_timeout(monkeypatch):
     assert not result.ok
     assert result.error == "claude CLI timed out after 600s"
     assert calls == ["run", "run"]
+
+
+def test_run_claude_cli_fast_fails_on_probe_nonzero(monkeypatch):
+    calls: list[str] = []
+
+    def _nonzero(*_a, **_k):
+        calls.append("run")
+        return subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="auth required")
+
+    monkeypatch.setattr(qe.subprocess, "run", _nonzero)
+
+    result = qe._run_claude_cli("review this diff")
+
+    assert not result.ok
+    assert result.error == "claude CLI liveness probe exit 1: auth required"
+    assert calls == ["run"]
