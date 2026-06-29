@@ -22,12 +22,13 @@ def _outcome_dict() -> dict:
         head_sha="a" * 40,
         head_committed_at="2026-06-27T08:00:00+00:00",
         tier=1,
-        action="prepare",
-        action_reason="supportive quorum reached",
+        action="post",
+        action_reason="supportive quorum posted",
         items=[
             EvidenceItem(family="claude", body="PASS", would_count=True, verdict="pass"),
             EvidenceItem(family="openai", body="PASS", would_count=True, verdict="pass"),
         ],
+        posted=["claude", "openai"],
     )
     return outcome.to_dict()
 
