@@ -303,18 +303,17 @@ _MAX_DIFF_CHARS = 60_000
 _PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
-# A genuine review of a large diff can legitimately take many minutes, so the
-# ceiling is generous (10 min default; raise via the *_TIMEOUT_SECONDS env vars
-# to 1200/1800 for very large diffs). The cost of being patient is bounded by a
-# fast liveness probe below: a wedged/contended CLI fails in ~probe seconds
-# rather than burning the full ceiling.
+# Claude CLI startup can legitimately take longer on large reviews, especially
+# when subscription auth and local MCP state are cold. Keep only that path at a
+# generous ceiling; reviewer transports without the Claude-specific probe stay
+# at the historic 5 minute default unless an operator opts in via env override.
 _CLAUDE_TIMEOUT = 600
-_CODEX_TIMEOUT = 600
-_REVIEWER_TIMEOUT = 600
-# Fast-fail liveness probe: before committing to the long review timeout, check
-# the CLI answers a trivial prompt within this short window. A timeout here means
-# "no valid response is coming" (binary wedged, auth prompt, contention) → skip
-# fast. Set ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS=0 to disable probing.
+_CODEX_TIMEOUT = 300
+_REVIEWER_TIMEOUT = 300
+# Best-effort Claude liveness probe. It catches fast subprocess errors without
+# committing to the long review ceiling, but a probe timeout is not a hard
+# precondition: slow-but-live subscription CLIs still get the real review call.
+# Set ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS=0 to disable probing.
 _CLI_PROBE_TIMEOUT = 90
 _CLI_PROBE_TIMEOUT_ENV = "ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS"
 _CLI_PROBE_PROMPT = "Reply with exactly: OK"
@@ -1084,19 +1083,21 @@ def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
 
 
 def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
-    """Fast-fail check before a long review: does this CLI answer quickly?
+    """Best-effort check before a long Claude review.
 
-    Returns an error string when the CLI is *unresponsive* — the probe timed out,
-    i.e. no valid response is coming (binary wedged, auth prompt, host
-    contention) — so the caller can skip fast instead of waiting the full review
-    ceiling. Returns ``None`` to proceed in every other case: a healthy CLI, OR a
-    fast failure (missing binary / nonzero exit) that the real call will surface
-    precisely and just as quickly. Disabled when
-    ``ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS`` is 0. Best-effort: a probe bug
-    never blocks a genuine review.
+    Returns ``None`` for healthy CLIs, missing binaries, fast failures, and probe
+    timeouts. The real review call remains the source of truth so a slow cold
+    start cannot suppress a valid review. Disabled when
+    ``ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS`` parses to a non-positive number.
+    Best-effort: a probe bug never blocks a genuine review.
     """
-    if os.environ.get(_CLI_PROBE_TIMEOUT_ENV, "").strip() == "0":
-        return None  # explicitly disabled
+    raw_timeout = os.environ.get(_CLI_PROBE_TIMEOUT_ENV, "").strip()
+    if raw_timeout:
+        try:
+            if math.isfinite(float(raw_timeout)) and float(raw_timeout) <= 0:
+                return None
+        except ValueError:
+            pass
     probe_timeout = _timeout_seconds(_CLI_PROBE_TIMEOUT_ENV, _CLI_PROBE_TIMEOUT)
     try:
         subprocess.run(
@@ -1108,10 +1109,7 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return (
-            f"{family} CLI unresponsive (liveness probe exceeded "
-            f"{_format_seconds(probe_timeout)}s) — failing fast"
-        )
+        return None
     except (FileNotFoundError, OSError, subprocess.SubprocessError):
         return None  # let the real review surface the precise (and fast) error
     return None

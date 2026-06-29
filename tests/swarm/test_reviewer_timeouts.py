@@ -1,6 +1,4 @@
-"""Two-tier reviewer timeouts: a generous ceiling for genuinely slow reviews,
-plus a short liveness probe that fails fast when no valid response is coming
-(wedged/contended/unauthed CLI)."""
+"""Reviewer timeout policy for slow Claude reviews and bounded other transports."""
 
 from __future__ import annotations
 
@@ -9,21 +7,19 @@ import subprocess
 import aragora.swarm.quorum_evidence as qe
 
 
-def test_review_ceiling_is_generous():
-    # A real review of a large diff can take minutes; the default ceiling is 10m.
+def test_review_ceiling_is_generous_only_for_claude():
+    # Claude gets the generous ceiling; unprobed transports keep the old default.
     assert qe._CLAUDE_TIMEOUT >= 600
-    assert qe._CODEX_TIMEOUT >= 600
-    assert qe._REVIEWER_TIMEOUT >= 600
+    assert qe._CODEX_TIMEOUT == 300
+    assert qe._REVIEWER_TIMEOUT == 300
 
 
-def test_probe_reports_unresponsive_on_timeout(monkeypatch):
+def test_probe_timeout_does_not_block_real_review(monkeypatch):
     def _timeout(*_a, **_k):
         raise subprocess.TimeoutExpired(cmd="claude", timeout=90)
 
     monkeypatch.setattr(qe.subprocess, "run", _timeout)
-    err = qe._cli_liveness_probe("claude", ["claude", "-p"])
-    assert err is not None
-    assert "liveness probe" in err
+    assert qe._cli_liveness_probe("claude", ["claude", "-p"]) is None
 
 
 def test_probe_proceeds_when_responsive(monkeypatch):
@@ -47,7 +43,7 @@ def test_probe_proceeds_on_missing_binary(monkeypatch):
 
 
 def test_probe_disabled_via_env(monkeypatch):
-    monkeypatch.setenv(qe._CLI_PROBE_TIMEOUT_ENV, "0")
+    monkeypatch.setenv(qe._CLI_PROBE_TIMEOUT_ENV, "0.0")
 
     def _boom(*_a, **_k):
         raise AssertionError("probe must not run when disabled")
@@ -56,13 +52,15 @@ def test_probe_disabled_via_env(monkeypatch):
     assert qe._cli_liveness_probe("claude", ["claude", "-p"]) is None
 
 
-def test_run_claude_cli_fast_fails_when_probe_times_out(monkeypatch):
-    # subprocess.run always times out → the probe catches it and the real review
-    # is never attempted; the error names the probe, not the full review ceiling.
+def test_run_claude_cli_runs_real_review_after_probe_timeout(monkeypatch):
+    calls: list[str] = []
+
     def _timeout(*_a, **_k):
+        calls.append("run")
         raise subprocess.TimeoutExpired(cmd="claude", timeout=90)
 
     monkeypatch.setattr(qe.subprocess, "run", _timeout)
     result = qe._run_claude_cli("review this diff")
     assert not result.ok
-    assert "liveness probe" in result.error
+    assert result.error == "claude CLI timed out after 600s"
+    assert calls == ["run", "run"]
