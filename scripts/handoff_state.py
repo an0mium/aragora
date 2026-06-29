@@ -173,6 +173,12 @@ class ReceiptEvidence:
     target_pr: int | None = None
 
 
+@dataclass(frozen=True)
+class TargetPrReference:
+    number: int
+    repo: str | None = None
+
+
 @dataclass
 class OwnerEvidence:
     available: bool = False
@@ -1644,25 +1650,30 @@ TARGET_PR_URL_KEYS = (
 )
 
 
-def target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
-    number = _target_pr_number_from_mapping(receipt)
-    if number is not None:
-        return number
+def target_pr_reference_from_receipt(receipt: Mapping[str, Any]) -> TargetPrReference | None:
+    reference = _target_pr_reference_from_mapping(receipt)
+    if reference is not None:
+        return reference
     requested_action = _mapping_from_action(receipt.get("requested_action"))
     if requested_action is not None:
-        return _target_pr_number_from_mapping(requested_action)
+        return _target_pr_reference_from_mapping(requested_action)
     return None
 
 
-def _target_pr_number_from_mapping(mapping: Mapping[str, Any]) -> int | None:
+def target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
+    reference = target_pr_reference_from_receipt(receipt)
+    return reference.number if reference is not None else None
+
+
+def _target_pr_reference_from_mapping(mapping: Mapping[str, Any]) -> TargetPrReference | None:
     for key in TARGET_PR_NUMBER_KEYS:
-        number = _pr_number_from_value(mapping.get(key))
-        if number is not None:
-            return number
+        reference = _target_pr_reference_from_value(mapping.get(key))
+        if reference is not None:
+            return reference
     for key in TARGET_PR_URL_KEYS:
-        number = _pr_number_from_value(mapping.get(key))
-        if number is not None:
-            return number
+        reference = _target_pr_reference_from_value(mapping.get(key))
+        if reference is not None:
+            return reference
     return None
 
 
@@ -2170,16 +2181,36 @@ def _first_text(mapping: Mapping[str, Any], *keys: str) -> str | None:
 
 
 def _pr_number_from_value(value: Any) -> int | None:
+    reference = _target_pr_reference_from_value(value)
+    return reference.number if reference is not None else None
+
+
+def _target_pr_reference_from_value(value: Any) -> TargetPrReference | None:
     text = str(value or "").strip().rstrip("/")
     if not text:
         return None
     if text.isdigit():
-        return int(text)
+        return TargetPrReference(number=int(text))
     marker = "/pull/"
     if marker not in text:
         return None
-    candidate = text.rsplit(marker, 1)[1].split("/", 1)[0]
-    return int(candidate) if candidate.isdigit() else None
+    repo_part, suffix = text.rsplit(marker, 1)
+    candidate = suffix.split("/", 1)[0]
+    if not candidate.isdigit():
+        return None
+    repo = _github_repo_from_pull_url_prefix(repo_part)
+    return TargetPrReference(number=int(candidate), repo=repo)
+
+
+def _github_repo_from_pull_url_prefix(prefix: str) -> str | None:
+    parts = [part for part in prefix.strip("/").split("/") if part]
+    if len(parts) < 2:
+        return None
+    owner = parts[-2]
+    repo = parts[-1]
+    if owner.lower() in {"http:", "https:", "github.com"}:
+        return None
+    return f"{owner}/{repo}"
 
 
 def _int_or_none(value: Any) -> int | None:

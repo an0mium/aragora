@@ -42,7 +42,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
     run_git,
 )
 from github_cli_health import check_github_cli_health  # noqa: E402
-from handoff_state import target_pr_number_from_receipt  # noqa: E402
+from handoff_state import TargetPrReference, target_pr_reference_from_receipt  # noqa: E402
 from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
 
 UTC = timezone.utc
@@ -637,8 +637,20 @@ def _receipt_has_pr_reference(receipt: Mapping[str, Any]) -> bool:
     return False
 
 
-def _target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
-    return target_pr_number_from_receipt(receipt)
+def _target_pr_reference_from_receipt(receipt: Mapping[str, Any]) -> TargetPrReference | None:
+    return target_pr_reference_from_receipt(receipt)
+
+
+def _target_pr_references_match(
+    left: TargetPrReference,
+    right: TargetPrReference,
+    default_repo: str,
+) -> bool:
+    if left.number != right.number:
+        return False
+    left_repo = (left.repo or default_repo).strip()
+    right_repo = (right.repo or default_repo).strip()
+    return left_repo == right_repo
 
 
 def _target_pr_state(
@@ -647,19 +659,25 @@ def _target_pr_state(
     receipt: Mapping[str, Any],
     outbox_payload: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any] | None:
-    number = _target_pr_number_from_receipt(receipt)
-    if number is None and outbox_payload is not None:
-        number = _target_pr_number_from_receipt(outbox_payload)
-    if number is None:
+    reference = _target_pr_reference_from_receipt(receipt)
+    if reference is None:
         return None
-    repo = str(receipt.get("repo") or repo_name).strip() or repo_name
+    if outbox_payload is not None:
+        outbox_reference = _target_pr_reference_from_receipt(outbox_payload)
+        if outbox_reference is not None and not _target_pr_references_match(
+            reference, outbox_reference, repo_name
+        ):
+            return None
+    repo = (reference.repo or str(receipt.get("repo") or "").strip() or repo_name).strip()
+    if not repo:
+        return None
     try:
         proc = subprocess.run(
             [
                 "gh",
                 "pr",
                 "view",
-                str(number),
+                str(reference.number),
                 "--repo",
                 repo,
                 "--json",
@@ -703,6 +721,14 @@ def _merged_target_pr_receipt_resolution(
     desired_head = _desired_head_from_payload(payload)
     if not desired_head:
         return False, None
+    receipt_reference = _target_pr_reference_from_receipt(receipt)
+    if receipt_reference is None:
+        return False, None
+    payload_reference = _target_pr_reference_from_receipt(payload)
+    if payload_reference is not None and not _target_pr_references_match(
+        receipt_reference, payload_reference, repo_name
+    ):
+        return True, f"{receipt_label} target PR does not match handoff target PR"
 
     target_pr_state = _target_pr_state(root, repo_name, receipt, payload)
     if str((target_pr_state or {}).get("state") or "").strip().upper() != "MERGED":
@@ -1032,7 +1058,7 @@ def _receipt_handoff_keep_reason(
             f"{receipt_label} exists, but origin/{branch} is unavailable "
             f"and local desired head {short_desired} still needs publication"
         )
-    return None
+    return f"{receipt_label} exists, but no matching target PR or branch proof is available"
 
 
 def _superseded_targets(

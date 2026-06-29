@@ -314,6 +314,8 @@ def _stale_target_pr_receipt_evidence(
             "receipt_head_sha": receipt_head,
             "reason": "receipt_head_mismatch",
         }
+    if receipt_head:
+        return None
 
     remote_head = _remote_tracking_head(repo_root, branch)
     if remote_head and remote_head != desired_head:
