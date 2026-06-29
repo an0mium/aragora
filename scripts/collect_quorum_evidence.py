@@ -27,6 +27,7 @@ Examples
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -45,11 +46,20 @@ def _hydrate_provider_secrets() -> None:
     """
     try:
         from aragora.config.secrets import hydrate_env_from_secrets
+    except ModuleNotFoundError as exc:
+        if os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
+            print(f"Secrets Manager hydration unavailable: {exc}", file=sys.stderr)
+        return
 
+    try:
         hydrate_env_from_secrets(overwrite=False)
-    except Exception:  # noqa: BLE001 - secret hydration is optional and best-effort.
-        # Best-effort: never block evidence collection on secrets hydration.
-        pass
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f"Secrets Manager hydration skipped: {exc}", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:

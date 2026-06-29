@@ -257,10 +257,15 @@ runs:
         mkdir -p ./aragora-artifacts
         LOG=./aragora-artifacts/receipt.log
         RECEIPT_REVIEWERS="${RECEIPT_REVIEWERS:-claude openai}"
-        if [[ ! "$RECEIPT_REVIEWERS" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*([[:space:]]+[A-Za-z0-9][A-Za-z0-9._-]*)*$ ]]; then
-          echo "invalid receipt-reviewers input; receipt skipped" >> "$LOG"
+        receipt_failed() {
+          echo "$1" >> "$LOG"
           echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
-          exit 1
+          rm -f ./aragora-artifacts/decision-receipt.odr.json
+          exit 0
+        }
+
+        if [[ ! "$RECEIPT_REVIEWERS" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*([[:space:]]+[A-Za-z0-9][A-Za-z0-9._-]*)*$ ]]; then
+          receipt_failed "invalid receipt-reviewers input; receipt skipped"
         fi
         read -r -a RECEIPT_REVIEWER_ARGS <<< "$RECEIPT_REVIEWERS"
 
@@ -271,20 +276,13 @@ runs:
         python3 -m venv "$RECEIPT_VENV" >> "$LOG" 2>&1
         RECEIPT_PY="$RECEIPT_VENV/bin/python"
         if [ ! -x "$RECEIPT_PY" ]; then
-          echo "receipt venv creation failed; receipt skipped" >> "$LOG"
-          echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
-          exit 1
+          receipt_failed "receipt venv creation failed; receipt skipped"
         fi
         "$RECEIPT_PY" -m pip install --upgrade pip >> "$LOG" 2>&1
         "$RECEIPT_PY" -m pip install "$GITHUB_ACTION_PATH" jsonschema >> "$LOG" 2>&1
         if [ "$?" -ne 0 ]; then
-          echo "receipt tooling install failed; receipt skipped" >> "$LOG"
-          echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
-          exit 1
+          receipt_failed "receipt tooling install failed; receipt skipped"
         fi
-
-        REPO="${{ github.repository }}"
-        PR="${{ steps.diff.outputs.pr_number }}"
 
         # Collect a heterogeneous-model quorum — DRY RUN: prepares + lints,
         # never posts (no --apply), Tier-gated regardless.
@@ -303,15 +301,10 @@ runs:
           if [ "$?" -eq 0 ]; then
             RECEIPT_OK=true
           else
-            echo "receipt emission or verification failed; dropping partial receipt" >> "$LOG"
-            rm -f ./aragora-artifacts/decision-receipt.odr.json
-            echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
-            exit 1
+            receipt_failed "receipt emission or verification failed; dropping partial receipt"
           fi
         else
-          echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
-          echo "no outcome collected; receipt skipped" >> "$LOG"
-          exit 1
+          receipt_failed "no outcome collected; receipt skipped"
         fi
 
         # Append a receipt summary to the PR comment if both exist.
@@ -336,16 +329,19 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}
         OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
         RECEIPT_REVIEWERS: ${{ inputs.receipt-reviewers }}
+        REPO: ${{ github.repository }}
+        PR: ${{ steps.diff.outputs.pr_number }}
         ARAGORA_USE_SECRETS_MANAGER: ${{ inputs.use-secrets-manager }}
         AWS_REGION: ${{ inputs.aws-region }}
 
     - name: Post PR comment
-      if: inputs.post-comment == 'true' && steps.review.outputs.review_generated == 'true'
+      if: always() && inputs.post-comment == 'true' && steps.review.outputs.review_generated == 'true'
       shell: bash
       run: |
-        gh pr comment ${{ steps.diff.outputs.pr_number }} --body-file ./aragora-artifacts/comment.md
+        gh pr comment "$PR" --body-file ./aragora-artifacts/comment.md
       env:
         GH_TOKEN: ${{ github.token }}
+        PR: ${{ steps.diff.outputs.pr_number }}
 
     - name: Upload SARIF
       if: inputs.sarif-upload == 'true' && steps.review.outputs.sarif_path != ''
@@ -377,3 +373,10 @@ runs:
         name: aragora-review-${{ steps.diff.outputs.pr_number }}
         path: ./aragora-artifacts/
         retention-days: 30
+
+    - name: Check receipt emission
+      if: inputs.emit-receipt == 'true' && steps.receipt.outputs.receipt_verified != 'true'
+      shell: bash
+      run: |
+        echo "::error::Receipt emission was requested but no verified receipt was produced"
+        exit 1

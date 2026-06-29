@@ -60,12 +60,13 @@ def test_verify_degrades_without_jsonschema(monkeypatch):
     assert fully is False
 
 
-def test_main_writes_receipt_even_when_verify_degrades(tmp_path: Path, monkeypatch):
+def test_main_fails_when_verify_degrades(tmp_path: Path, monkeypatch):
     import builtins
 
     outcome_path = tmp_path / "outcome.json"
     outcome_path.write_text(json.dumps(_outcome_dict()), encoding="utf-8")
     out_path = tmp_path / "receipt.odr.json"
+    gh_out = tmp_path / "gh_output"
     real_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
@@ -74,9 +75,20 @@ def test_main_writes_receipt_even_when_verify_degrades(tmp_path: Path, monkeypat
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
-    rc = main(["--outcome", str(outcome_path), "--out", str(out_path), "--verify"])
-    assert rc == 0
+    rc = main(
+        [
+            "--outcome",
+            str(outcome_path),
+            "--out",
+            str(out_path),
+            "--verify",
+            "--github-output",
+            str(gh_out),
+        ]
+    )
+    assert rc == 1
     assert out_path.is_file()  # receipt written despite no jsonschema
+    assert "receipt_verified=false" in gh_out.read_text(encoding="utf-8")
 
 
 def test_main_writes_receipt_and_github_outputs(tmp_path: Path):

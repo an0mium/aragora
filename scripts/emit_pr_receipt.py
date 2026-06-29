@@ -117,6 +117,10 @@ def main(argv: list[str] | None = None) -> int:
             _write_github_output(fh, "receipt_digest", digest)
             _write_github_output(fh, "receipt_verified", "true" if verified else "false")
 
+    if args.verify and not verified:
+        print("receipt verification failed: jsonschema validation did not run", file=sys.stderr)
+        return 1
+
     return 0
 
 
