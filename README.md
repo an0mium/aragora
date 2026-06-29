@@ -147,8 +147,8 @@ The receipt is the unit that carries through every stage. One review produces:
 ```
 decision ──▶ model jury (heterogeneous, independent)
                ├─ proposals / critiques / revisions
-               ├─ dissent trail + load-bearing cruxes
-               └─ per-agent ELO + Brier calibration (at decision time)
+               ├─ dissent trail (+ cruxes when a CruxReceipt is supplied — ODR-4)
+               └─ per-agent ELO + Brier calibration when provenance present — ODR-5
           ──▶ verdict + confidence
           ──▶ human attestation (optional; EU AI Act Art. 14)   🔄 #8230
           ──▶ Ed25519 signature                                 🔄 #8225
@@ -156,8 +156,10 @@ decision ──▶ model jury (heterogeneous, independent)
           ──▶ Rekor public anchoring (tamper-evidence)          🔄 #8231
 ```
 
-Today's receipts verify on schema, digest, and quorum consistency offline; public-key
-signing and anchoring are in-flight. See the [proof ladder](#proof-ladder).
+Today's receipts verify on schema, digest, and quorum consistency offline; per the
+[ODR spec](docs/specs/OPEN_DECISION_RECEIPT.md), cruxes and calibration carry explicit
+*absent markers* unless their source is supplied (ODR-4/5), and public-key signing and
+anchoring are in-flight. See the [proof ladder](#proof-ladder).
 
 ## Find your path
 
@@ -438,7 +440,7 @@ metric. *(docs/plans/ agent-civilization designs)*
 
 - **Crux Finder (✅ MVP / 🔮 shaping).** Consensus mode `crux_finder` surfaces the 3–5
   load-bearing disagreements where flipping a belief flips the conclusion; signed
-  CruxReceipts, `aragora crux find "<question>"`. Crux-shaping prompts and per-round
+  CruxReceipts, `aragora crux "<question>"`. Crux-shaping prompts and per-round
   claim targeting are deferred pending dogfood runs.
 - **Epistemic CI / Decision Integrity Core (🔮 DIC-13..22).** Extend receipts beyond
   debates to *code and organizational claims*: executable claims (evidence + freshness
@@ -506,8 +508,10 @@ multi-format export, ELO rankings, Continuum memory, the fully-wired self-improv
 infrastructure, enterprise auth/encryption/key-rotation, and a very large test suite.
 GA readiness is tracked at **~98%** (58/59 checklist items).
 
-**Honest qualifications:** the B0 benchmark shows 100% verified-truth on a small strict
-set but ~69% on the full corpus; **SOC 2 Type II is not certified** (the one open GA
+**Honest qualifications:** the B0 benchmark reports 100% verified-truth on the strict
+set, with a separate, lower legacy full-corpus metric tracked alongside it (see
+[`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](docs/status/B0_BENCHMARK_TRUTH_STATUS.md));
+**SOC 2 Type II is not certified** (the one open GA
 blocker is the external penetration test); semantic convergence degrades to TF-IDF/Jaccard
 without the optional `sentence-transformers` dependency; "blockchain" receipts are SHA-256
 hashing, *not* an on-chain immutable ledger; and practical real-time parallelism is 2–6
