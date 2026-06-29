@@ -14,10 +14,10 @@ Design rules (mirroring the emitter's "never fabricate" contract):
 - **No invented clearance.** The verdict and quorum reflect only posted,
   supportive evidence when no reviewer dissent is present. Prepared evidence
   must remain merge-blocking in the portable receipt.
-- **Internally consistent quorum.** Supporting and dissenting families are
-  carried into ``consensus_proof``; ``odr_export`` records them as participants,
-  so the verifier's quorum-consistency check holds (supporting/dissenting agents
-  are always a subset of participants).
+- **Internally consistent quorum.** Posted supporting and dissenting families
+  are carried into ``consensus_proof``; ``odr_export`` records all reviewers as
+  participants, so the verifier's quorum-consistency check holds
+  (supporting/dissenting agents are always a subset of participants).
 - **Family is the disclosed axis.** Each evidence item's model *family* is
   recorded as its participant provider, so ODR independence (distinct model
   families) is disclosed rather than guessed.
@@ -96,7 +96,7 @@ def collect_outcome_to_decision_receipt(outcome: CollectOutcome) -> DecisionRece
         consensus_proof=ConsensusProof(
             reached=reached,
             confidence=confidence,
-            supporting_agents=supportive,
+            supporting_agents=posted_supportive,
             dissenting_agents=dissenting,
             method="merge-quorum",
         ),

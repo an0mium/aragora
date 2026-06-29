@@ -30,6 +30,7 @@ def _supportive_outcome(
         action=action,
         action_reason=action_reason,
         posted=list(posted or []),
+        tiered_gate=False,
         items=[
             EvidenceItem(
                 family="claude", body="PASS: looks correct", would_count=True, verdict="pass"
@@ -48,6 +49,7 @@ def _outcome(*, tier: int = 1) -> CollectOutcome:
         tier=tier,
         action="prepare",
         action_reason="reviewer dissent present (grok); prepared evidence only",
+        tiered_gate=False,
         items=[
             EvidenceItem(
                 family="claude", body="PASS: looks correct", would_count=True, verdict="pass"
@@ -73,7 +75,8 @@ def test_bridge_preserves_quorum_families():
     receipt = collect_outcome_to_decision_receipt(_outcome())
     proof = receipt.consensus_proof
     assert proof is not None
-    assert set(proof.supporting_agents) == {"claude", "openai"}
+    assert proof.supporting_agents == []
+    assert receipt.risk_summary["supportive"] == 2
     assert "grok" in proof.dissenting_agents
 
 
@@ -91,6 +94,7 @@ def test_bridge_fails_closed_when_supportive_quorum_is_prepare_only():
     assert receipt.verdict == "CHANGES_REQUESTED"
     assert receipt.consensus_proof is not None
     assert receipt.consensus_proof.reached is False
+    assert receipt.consensus_proof.supporting_agents == []
 
 
 def test_bridge_passes_when_supportive_quorum_was_posted():
@@ -105,6 +109,7 @@ def test_bridge_passes_when_supportive_quorum_was_posted():
     assert receipt.verdict == "PASS"
     assert receipt.consensus_proof is not None
     assert receipt.consensus_proof.reached is True
+    assert receipt.consensus_proof.supporting_agents == ["claude", "openai"]
 
 
 def test_bridge_fails_closed_when_posted_families_do_not_satisfy_quorum():
@@ -119,6 +124,38 @@ def test_bridge_fails_closed_when_posted_families_do_not_satisfy_quorum():
     assert receipt.verdict == "CHANGES_REQUESTED"
     assert receipt.consensus_proof is not None
     assert receipt.consensus_proof.reached is False
+    assert receipt.consensus_proof.supporting_agents == ["claude"]
+
+
+def test_bridge_excludes_unposted_supportive_families_from_consensus_proof():
+    receipt = collect_outcome_to_decision_receipt(
+        _supportive_outcome(
+            action="post",
+            action_reason="partial posting attempted",
+            posted=["openai"],
+        )
+    )
+
+    assert receipt.risk_summary["supportive"] == 2
+    assert receipt.consensus_proof is not None
+    assert receipt.consensus_proof.supporting_agents == ["openai"]
+
+
+def test_one_posted_family_failure_is_stable_when_tiered_gate_env_is_on(monkeypatch):
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+
+    receipt = collect_outcome_to_decision_receipt(
+        _supportive_outcome(
+            action="post",
+            action_reason="posting attempted",
+            posted=["claude"],
+        )
+    )
+
+    assert receipt.settlement_metadata["tiered_gate"] is False
+    assert receipt.verdict == "CHANGES_REQUESTED"
+    assert receipt.consensus_proof is not None
+    assert receipt.consensus_proof.reached is False
 
 
 def test_bridged_odr_fails_closed_when_supportive_quorum_has_dissent():
@@ -126,6 +163,7 @@ def test_bridged_odr_fails_closed_when_supportive_quorum_has_dissent():
 
     assert odr["claim"]["verdict"] == "CHANGES_REQUESTED"
     assert odr["quorum"]["reached"] is False
+    assert odr["quorum"]["supporting_agents"] == []
     assert odr["quorum"]["dissent"]["present"] is True
 
 

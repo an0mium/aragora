@@ -64,10 +64,7 @@
     ],
     "reached": false,
     "status": "present",
-    "supporting_agents": [
-      "claude",
-      "openai"
-    ]
+    "supporting_agents": []
   },
   "reasoning": {
     "status": "present",
