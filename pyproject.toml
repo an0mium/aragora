@@ -97,7 +97,7 @@ dev = [
     # `uv sync --extra dev` self-heals the development environment, so agents
     # do not need to fall back to `--no-verify`
     # (FIX-ENV-ONCE — docs/AGENT_OPERATING_CONTRACT.md §Conductor).
-    "pre-commit>=4.0,<5.0",
+    "pre-commit>=4.6.0,<5.0",
 ]
 all = [
     "fastapi>=0.138.0,<1.0",
