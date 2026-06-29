@@ -84,7 +84,7 @@ def get_redis_client(redis_url: str | None = None) -> RedisClientProtocol | None
     try:
         import redis
 
-        client = redis.from_url(url, encoding="utf-8", decode_responses=True)
+        client = redis.from_url(url, encoding="utf-8", decode_responses=True)  # type: ignore[call-overload]
         client.ping()
         logger.info("Using standalone Redis client at %s", url)
         if redis_url is None:
