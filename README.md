@@ -61,11 +61,12 @@ jobs:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           post-comment: 'true'
-          output-format: json
 ```
 
-Anyone — a teammate, an auditor, a customer — can then verify it independently
-with the standalone `aragora-verify` package (no Aragora dependency):
+The action posts a PR review comment and uploads the machine-readable review
+artifact. When a Decision Receipt artifact exists, anyone — a teammate, an
+auditor, a customer — can verify it independently with the standalone
+`aragora-verify` package (no Aragora dependency):
 
 ```bash
 # PyPI publish pending; today it lives in this repo under aragora-verify/:
