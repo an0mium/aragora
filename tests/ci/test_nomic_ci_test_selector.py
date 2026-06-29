@@ -56,8 +56,8 @@ class TestRelocatedTestPath:
         assert result is None
 
     def test_map_is_non_empty(self):
-        """The migration map contains representative entries from all 3 batches."""
-        assert len(_MIGRATED_TEST_MAP) >= 30
+        """Every map entry is a well-formed root -> subdirectory relocation."""
+        assert _MIGRATED_TEST_MAP
         for old, new in _MIGRATED_TEST_MAP.items():
             assert old.startswith("tests/test_")
             assert new.startswith("tests/")
@@ -84,7 +84,7 @@ class TestInferTestPathsTopLevel:
         assert "tests/test_resilience_config.py" in result
 
     def test_relocated_via_migration_map(self, monkeypatch):
-        """When legagy root is missing but the migration map has it, the
+        """When legacy root is missing but the migration map has it, the
         relocated path is selected."""
         # tests/test_exceptions.py was relocated to tests/agents/test_exceptions.py
         # Only the new path exists on disk

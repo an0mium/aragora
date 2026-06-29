@@ -1042,6 +1042,20 @@ def test_main_routes_stale_mailbox_only_owner_to_steering_prompt(
     assert "last heartbeat is 2026-06-04T14:45:34Z" in out
 
 
+def test_stale_terminal_owner_does_not_route_to_mailbox_steering() -> None:
+    owner_state = {
+        "status": "blocked",
+        "owner_blocking_state": "stale_terminal_owner",
+        "pending_message_count": 1,
+        "unread_message_count": 1,
+        "harness_confidence": "mailbox_only_fuzzy_thread",
+        "live_prompt_dispatchable": False,
+        "live_process": {"found": False},
+    }
+
+    assert prompt_builder._is_stale_mailbox_only_owner(owner_state) is False
+
+
 def test_main_guards_unresolved_operator_choice_placeholders(
     tmp_path: Path,
     monkeypatch: Any,

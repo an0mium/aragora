@@ -276,62 +276,38 @@ def test_default_claim_is_plain_no_force(tmp_path: Path, monkeypatch: Any) -> No
     assert "--allow-resource-conflicts" not in cmd
 
 
-def test_default_claim_releases_stale_then_retries(tmp_path: Path, monkeypatch: Any) -> None:
-    # Claim refused (stale-but-active row holds the resource). The probe assesses
-    # the owner stale, so we release it and retry -- without --force.
+def test_default_claim_does_not_release_stale_owner(tmp_path: Path, monkeypatch: Any) -> None:
+    # Claim refused (stale-but-active row holds the resource). Dispatch must not
+    # clear it itself; stale owners become reassignable only after explicit
+    # release or conservative reconciler supersession.
     wo = _wo_42()
-    seq: list[str] = []
     calls: list[list[str]] = []
 
     def fake_run(cmd: list[str], **kwargs: Any) -> Any:
         calls.append(cmd)
-        script = next((c for c in cmd if c.endswith(".py")), "")
-        if script.endswith("identify_lane_owner.py"):
-            seq.append("probe")
-            return SimpleNamespace(
-                returncode=0,
-                stdout=json.dumps(
-                    {"owner_session": "stale-owner", "owner_liveness": {"assessed": "stale"}}
-                ),
-                stderr="",
-            )
-        if "--release-stale" in cmd:
-            seq.append("release")
-            return SimpleNamespace(returncode=0, stdout="", stderr="")
-        # plain claim: fail first, succeed on retry
-        seq.append("claim")
-        return SimpleNamespace(returncode=0 if seq.count("claim") > 1 else 2, stdout="", stderr="x")
+        return SimpleNamespace(returncode=2, stdout="", stderr="stale conflict")
 
     monkeypatch.setattr(lc.subprocess, "run", fake_run)
-    assert lc.default_claim(wo, repo_root=tmp_path) is True
-    assert seq == ["claim", "probe", "release", "claim"]
-    release_cmd = next(cmd for cmd in calls if "--release-stale" in cmd)
-    assert release_cmd[release_cmd.index("--pr-number") + 1] == str(wo.pr)
+    assert lc.default_claim(wo, repo_root=tmp_path) is False
+    assert len(calls) == 1
+    assert all("--release-stale" not in cmd for cmd in calls)
+    assert all(not any(part.endswith("identify_lane_owner.py") for part in cmd) for cmd in calls)
 
 
 def test_default_claim_does_not_release_live_owner(tmp_path: Path, monkeypatch: Any) -> None:
     # Claim refused and the owner is LIVE -> never release/displace; claim fails.
     wo = _wo_42()
-    released: list[str] = []
+    calls: list[list[str]] = []
 
     def fake_run(cmd: list[str], **kwargs: Any) -> Any:
-        script = next((c for c in cmd if c.endswith(".py")), "")
-        if script.endswith("identify_lane_owner.py"):
-            return SimpleNamespace(
-                returncode=0,
-                stdout=json.dumps(
-                    {"owner_session": "live-owner", "owner_liveness": {"assessed": "live"}}
-                ),
-                stderr="",
-            )
-        if "--release-stale" in cmd:
-            released.append("released")
-            return SimpleNamespace(returncode=0, stdout="", stderr="")
-        return SimpleNamespace(returncode=2, stdout="", stderr="conflict")  # claim always refused
+        calls.append(cmd)
+        return SimpleNamespace(returncode=2, stdout="", stderr="conflict")
 
     monkeypatch.setattr(lc.subprocess, "run", fake_run)
     assert lc.default_claim(wo, repo_root=tmp_path) is False
-    assert released == []  # a live owner is never released
+    assert len(calls) == 1
+    assert all("--release-stale" not in cmd for cmd in calls)
+    assert all(not any(part.endswith("identify_lane_owner.py") for part in cmd) for cmd in calls)
 
 
 def test_run_pass_releases_lane_when_dispatch_fails() -> None:
@@ -540,11 +516,33 @@ def test_fetch_live_claims_treats_empty_liveness_as_live(monkeypatch: Any) -> No
     assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {1: "owner-a"}
 
 
-def test_fetch_live_claims_reclaims_explicit_stale_owner(monkeypatch: Any) -> None:
-    payload = {"owner_session": "owner-a", "owner_liveness": {"assessed": "stale"}}
+def test_fetch_live_claims_blocks_explicit_stale_owner(monkeypatch: Any) -> None:
+    payload = {
+        "owner_session": "owner-a",
+        "owner_liveness": {"assessed": "stale"},
+        "owner_blocking_state": "stale_owner",
+    }
+    monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _proc(json.dumps(payload)))
+
+    assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {1: "owner-a"}
+
+
+def test_fetch_live_claims_reclaims_stale_terminal_owner(monkeypatch: Any) -> None:
+    payload = {
+        "owner_session": "owner-a",
+        "owner_liveness": {"assessed": "terminal"},
+        "owner_blocking_state": "stale_terminal_owner",
+    }
     monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _proc(json.dumps(payload)))
 
     assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {}
+
+
+def test_fetch_live_claims_legacy_stale_owner_fails_closed(monkeypatch: Any) -> None:
+    payload = {"owner_session": "owner-a", "owner_liveness": {"assessed": "stale"}}
+    monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _proc(json.dumps(payload)))
+
+    assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {1: "owner-a"}
 
 
 def test_fetch_live_claims_allows_explicit_absent_owner(monkeypatch: Any) -> None:
