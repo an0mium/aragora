@@ -93,6 +93,22 @@ Do not implement from this section.
 | **Continual learning / self-improvement instrumentation** | Factory 2.0 | partially exists | Aragora has Nomic loop + KnowledgeMound cross-cycle learning; decide what to formalize/measure |
 | **Missions + operator dashboard + persistent execution** | Factory 2.0 | in progress | Mission engine in PR #8655; dashboard + headless persistent runtime are the remaining gaps |
 
+## Strategy Mission Queue
+
+Bounded, exit-gated sub-missions for the "useful + unique" strategy mission.
+Advanced one at a time on a standing cadence; row N+1 stays `queued` until row
+N's external-proof gate verifies. See the design spec
+([`docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md`](../superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md))
+and the M0+M1 plan
+([`docs/superpowers/plans/2026-06-26-mission-cadence-m0-m1.md`](../superpowers/plans/2026-06-26-mission-cadence-m0-m1.md))
+for the cadence mechanism.
+
+| id | title | tier | status | external-proof gate | tracking |
+|---|---|---|---|---|---|
+| M1 | ODR v1.0 GA (docs + verification only) | 0-1 | queued | `aragora-verify` verifies a committed example receipt produced by `odr_export` against the published ODR profile | epic TBD-link |
+| M2 | Action wedge (quorum review → verifiable receipt artifact + PR comment) | 2-3 | queued | the Action runs green on a real PR here and uploads a receipt `aragora-verify` passes (workflow change parks for founder) | epic TBD-link |
+| M3 | Proof corpus + legibility (README narrative + sprawl quarantine) | mixed | queued | public artifact with the receipt corpus live, plus a one-sentence README + ≤5 documented core modules on main (narrative parks for founder) | epic TBD-link |
+
 ## Maintenance
 
 - Review this register whenever a planning output is produced or a session ends with a multi-stage plan.
