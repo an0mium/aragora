@@ -33,6 +33,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ensure full checkout (self-hosted runners can leave a sparse tree)
+        shell: bash
+        run: |
+          if [[ ! -f action.yml ]]; then
+            echo "::warning::action.yml missing after checkout; restoring full tree"
+            git sparse-checkout disable 2>/dev/null || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
+            git reset --hard "${GITHUB_SHA:-FETCH_HEAD}"
+          fi
+          if [[ ! -f action.yml ]]; then
+            echo "::error::action.yml still missing after recovery"; ls -la; exit 1
+          fi
+
       - name: Run Aragora action (emit receipt)
         id: review
         uses: ./
