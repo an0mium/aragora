@@ -306,7 +306,7 @@ truth. *(docs/CANONICAL_GOALS.md)*
 
 > Scale (canonical counts in [`docs/METRICS.md`](docs/METRICS.md), rounded):
 > **~4,200 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test
-> functions across ~5,400 files · 3,386 API operations across 2,928 paths ·
+> functions across ~5,400 files · 3,297 API operations across 2,870 paths ·
 > 35+ allowlisted agent types across 12+ providers · 41 Knowledge Mound adapter specs
 > (46 files) · 360+ RBAC permissions · Python + TypeScript SDKs · v2.9.0.**
 > (Practical real-time debate uses 2–6 agents; the value is *heterogeneity*, not raw
