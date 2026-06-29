@@ -10,12 +10,12 @@ name: Aragora Receipt Self-Test
 # action is validated and merged.
 
 on:
-  # Runs on this PR (provides the pull_request context the action needs) and on
-  # manual dispatch. Keyless: reviewers authenticate via the subscription CLIs
-  # (claude, codex) logged in on the self-hosted runner — no API keys, no
-  # Secrets Manager. Single account per provider = TOS-clean.
-  pull_request:
-    branches: [worktree-strategy-mission-cadence]
+  # Manual-dispatch only. Keyless subscription path: reviewers authenticate via
+  # the claude + codex CLIs logged in on the self-hosted runner.
+  # PREREQUISITE on the runner: Python 3.11 available to actions/setup-python
+  # (the action installs Python; a self-hosted Mac without it fails with
+  # "mkdir: /Users/runner: Permission denied"). Until the runner has 3.11
+  # staged, validate the subscription quorum locally (see PR description).
   workflow_dispatch:
 
 concurrency:
