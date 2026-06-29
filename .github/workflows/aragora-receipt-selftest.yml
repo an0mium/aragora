@@ -24,7 +24,7 @@ on:
         type: string
 
 concurrency:
-  group: receipt-selftest-${{ github.event.pull_request.number || github.ref }}
+  group: receipt-selftest-${{ inputs.pr-number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -60,7 +60,8 @@ jobs:
           pr-number: ${{ inputs.pr-number }}
           post-comment: 'false'         # self-test: never comment on the PR
           emit-receipt: 'true'
-          receipt-reviewers: 'claude openai'  # collector: claude CLI + codex CLI
+          # openai family uses the Codex CLI when OPENAI_API_KEY is absent.
+          receipt-reviewers: 'claude openai'
 
       - name: Report receipt outcome
         if: always()

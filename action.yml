@@ -266,27 +266,48 @@ runs:
         read -r -a RECEIPT_REVIEWER_ARGS <<< "$RECEIPT_REVIEWERS"
 
         # The bridge/emitter may be newer than the published PyPI 'aragora', so
-        # install the action's own pinned source for the receipt tooling.
-        # jsonschema enables full schema validation (the emitter degrades to
-        # digest-only without it, but full validation is preferred when present).
-        pip install "$GITHUB_ACTION_PATH" jsonschema >> "$LOG" 2>&1 || true
+        # install the action's own source into a job-local venv for the receipt
+        # tooling. Never mutate shared runner site-packages.
+        RECEIPT_VENV=./aragora-artifacts/receipt-venv
+        python3 -m venv "$RECEIPT_VENV" >> "$LOG" 2>&1
+        RECEIPT_PY="$RECEIPT_VENV/bin/python"
+        if [ ! -x "$RECEIPT_PY" ]; then
+          echo "receipt venv creation failed; receipt skipped" >> "$LOG"
+          echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        "$RECEIPT_PY" -m pip install --upgrade pip >> "$LOG" 2>&1
+        "$RECEIPT_PY" -m pip install "$GITHUB_ACTION_PATH" jsonschema >> "$LOG" 2>&1
+        if [ "$?" -ne 0 ]; then
+          echo "receipt tooling install failed; receipt skipped" >> "$LOG"
+          echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
 
         REPO="${{ github.repository }}"
         PR="${{ steps.diff.outputs.pr_number }}"
 
         # Collect a heterogeneous-model quorum — DRY RUN: prepares + lints,
         # never posts (no --apply), Tier-gated regardless.
-        python3 "$GITHUB_ACTION_PATH/scripts/collect_quorum_evidence.py" \
+        "$RECEIPT_PY" "$GITHUB_ACTION_PATH/scripts/collect_quorum_evidence.py" \
           --repo "$REPO" --pr "$PR" \
           --reviewers "${RECEIPT_REVIEWER_ARGS[@]}" \
           --json > ./aragora-artifacts/outcome.json 2>> "$LOG"
 
+        RECEIPT_OK=false
         if [ -s ./aragora-artifacts/outcome.json ]; then
-          python3 "$GITHUB_ACTION_PATH/scripts/emit_pr_receipt.py" \
+          "$RECEIPT_PY" "$GITHUB_ACTION_PATH/scripts/emit_pr_receipt.py" \
             --outcome ./aragora-artifacts/outcome.json \
             --out ./aragora-artifacts/decision-receipt.odr.json \
             --verify \
             --github-output "$GITHUB_OUTPUT" >> "$LOG" 2>&1
+          if [ "$?" -eq 0 ]; then
+            RECEIPT_OK=true
+          else
+            echo "receipt emission or verification failed; dropping partial receipt" >> "$LOG"
+            rm -f ./aragora-artifacts/decision-receipt.odr.json
+            echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
+          fi
         else
           echo "receipt_verified=false" >> "$GITHUB_OUTPUT"
           echo "no outcome collected; receipt skipped" >> "$LOG"
@@ -294,9 +315,9 @@ runs:
 
         # Append a receipt summary to the PR comment if both exist.
         RECEIPT=./aragora-artifacts/decision-receipt.odr.json
-        if [ -f "$RECEIPT" ] && [ -f ./aragora-artifacts/comment.md ]; then
-          VERDICT=$(python3 -c "import json;print(json.load(open('$RECEIPT'))['claim'].get('verdict',''))" 2>>"$LOG")
-          RID=$(python3 -c "import json;print(json.load(open('$RECEIPT')).get('receipt_id',''))" 2>>"$LOG")
+        if [ "$RECEIPT_OK" = "true" ] && [ -f "$RECEIPT" ] && [ -f ./aragora-artifacts/comment.md ]; then
+          VERDICT=$("$RECEIPT_PY" -c "import json;print(json.load(open('$RECEIPT'))['claim'].get('verdict',''))" 2>>"$LOG")
+          RID=$("$RECEIPT_PY" -c "import json;print(json.load(open('$RECEIPT')).get('receipt_id',''))" 2>>"$LOG")
           {
             echo ""
             echo "---"
