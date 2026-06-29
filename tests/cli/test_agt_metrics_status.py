@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 
 from aragora.cli.commands.agt_metrics import cmd_metrics_status
-from aragora.metrics.viah import VIAH_TREND_FLAG
+from aragora.evaluation.viah import VIAH_TREND_FLAG
 from aragora.swarm.shift_ledger import ShiftLedger
 
 

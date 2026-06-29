@@ -1,7 +1,7 @@
 """CLI commands: ``aragora metrics viah`` and ``aragora metrics status``.
 
 Reads the ShiftLedger and prints VIAH (verifiable improvements per
-agent-hour) operator surfaces. See aragora.metrics.viah for the metric
+agent-hour) operator surfaces. See aragora.evaluation.viah for the metric
 definition (issue #6067, AGT-06).
 """
 
@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-from aragora.metrics.viah import VIAH_TREND_FLAG, compute_viah, viah_trend_enabled
+from aragora.evaluation.viah import VIAH_TREND_FLAG, compute_viah, viah_trend_enabled
 from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
 
 
@@ -68,7 +68,7 @@ def cmd_metrics_status(args: argparse.Namespace) -> int:
     is set, generates a report mirroring docs/status/B0_BENCHMARK_TRUTH_STATUS.md.
     Pass --output to write to disk instead of stdout.
     """
-    from aragora.metrics.viah_status import generate_viah_status_report
+    from aragora.evaluation.viah_status import generate_viah_status_report
 
     if not viah_trend_enabled():
         print(
