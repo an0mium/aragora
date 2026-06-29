@@ -25,7 +25,17 @@ from .verifier import (
     verify,
 )
 
-__version__ = "0.1.0"
+# Single-source the version from installed package metadata (pyproject.toml is
+# the only place the number lives). Falls back when running from a source tree
+# with no installed dist metadata.
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+try:
+    __version__ = _pkg_version("aragora-verify")
+except PackageNotFoundError:  # pragma: no cover - source tree without metadata
+    __version__ = "0.0.0+source"
+
+del PackageNotFoundError, _pkg_version
 
 __all__ = [
     "__version__",
