@@ -47,6 +47,10 @@ name: Aragora Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -76,7 +80,7 @@ PYTHONPATH=src python -m aragora_verify ../decision-receipt.odr.json
 
 ```bash
 pip install aragora
-aragora demo --offline              # zero-key debate, opens the receipt in your browser
+aragora demo --offline              # zero-key debate, writes a local receipt
 
 export ANTHROPIC_API_KEY=...        # provider credential for live model review
 aragora review-pr 123               # multi-agent review of a GitHub PR
@@ -124,6 +128,7 @@ See [Boundaries and Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) for the full n
 - [Quickstart](docs/quickstart.md) · [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md) · [CLI Reference](docs/CLI_REFERENCE.md)
 - [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) · [SDK Guide](docs/SDK_GUIDE.md) · [API Reference](docs/api/API_REFERENCE.md)
 - [Feature status](docs/STATUS.md) · [Enterprise features](docs/enterprise/ENTERPRISE_FEATURES.md) · [Architecture deep-dive](docs/EXTENDED_README.md)
+- [Inspiration and credits](docs/reference/CREDITS.md)
 
 ## Security
 
