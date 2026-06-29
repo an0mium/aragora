@@ -18,7 +18,7 @@ install required.
 | I want to… | Command |
 |------------|---------|
 | Try a debate in 30 seconds | `pip install aragora-debate` |
-| Verify a Decision Receipt (no Aragora needed) | `pip install aragora-verify` |
+| Verify a Decision Receipt (zero Aragora dep) | `aragora-verify <receipt>` — in repo at `aragora-verify/`; PyPI publish pending |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
@@ -48,10 +48,12 @@ signed.
     emit-receipt: 'true'   # uploads a verifiable decision-receipt.odr.json
 ```
 
-Anyone — a teammate, an auditor, a customer — can then verify it independently:
+Anyone — a teammate, an auditor, a customer — can then verify it independently
+with the standalone `aragora-verify` (zero Aragora dependency):
 
 ```bash
-pip install aragora-verify
+# PyPI publish pending; today it lives in this repo under aragora-verify/:
+#   (cd aragora-verify && PYTHONPATH=src python -m aragora_verify <receipt>)
 aragora-verify decision-receipt.odr.json   # schema + digest + signature + quorum checks
 ```
 
@@ -62,7 +64,7 @@ pip install aragora
 export ANTHROPIC_API_KEY=...        # at least one provider key (or use AWS Secrets Manager)
 
 aragora demo                        # zero-config debate, opens the receipt in your browser
-aragora review --pr 123             # multi-agent review of a GitHub PR
+aragora review-pr 123               # multi-agent review of a GitHub PR
 aragora receipt export <id> --format odr -o receipt.odr.json   # portable receipt
 ```
 
@@ -70,7 +72,7 @@ aragora receipt export <id> --format odr -o receipt.odr.json   # portable receip
 
 - **AI code review** — heterogeneous-model review of a diff or PR, with severity-tagged findings and a receipt. See [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md).
 - **Gauntlet** — adversarial stress-testing of a claim or spec; attack/defend cycles produce a cryptographic receipt.
-- **Structured debates** — multi-round debate with consensus detection and convergence tracking (`aragora debate`).
+- **Structured debates** — multi-round debate with consensus detection and convergence tracking (`aragora ask`).
 
 ## The load-bearing core
 
