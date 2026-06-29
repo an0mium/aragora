@@ -15,6 +15,30 @@ from aragora.swarm.quorum_evidence import CollectOutcome, EvidenceItem
 from aragora.swarm.quorum_receipt import collect_outcome_to_decision_receipt
 
 
+def _supportive_outcome(
+    *,
+    action: str = "prepare",
+    action_reason: str = "dry-run; re-run with --apply to post",
+    posted: list[str] | None = None,
+) -> CollectOutcome:
+    return CollectOutcome(
+        repo="synaptent/aragora",
+        pr=8667,
+        head_sha="b" * 40,
+        head_committed_at="2026-06-27T09:00:00+00:00",
+        tier=2,
+        action=action,
+        action_reason=action_reason,
+        posted=list(posted or []),
+        items=[
+            EvidenceItem(
+                family="claude", body="PASS: looks correct", would_count=True, verdict="pass"
+            ),
+            EvidenceItem(family="openai", body="PASS: agreed", would_count=True, verdict="pass"),
+        ],
+    )
+
+
 def _outcome(*, tier: int = 1) -> CollectOutcome:
     return CollectOutcome(
         repo="synaptent/aragora",
@@ -55,6 +79,42 @@ def test_bridge_preserves_quorum_families():
 
 def test_bridge_fails_closed_when_supportive_quorum_has_dissent():
     receipt = collect_outcome_to_decision_receipt(_outcome())
+
+    assert receipt.verdict == "CHANGES_REQUESTED"
+    assert receipt.consensus_proof is not None
+    assert receipt.consensus_proof.reached is False
+
+
+def test_bridge_fails_closed_when_supportive_quorum_is_prepare_only():
+    receipt = collect_outcome_to_decision_receipt(_supportive_outcome())
+
+    assert receipt.verdict == "CHANGES_REQUESTED"
+    assert receipt.consensus_proof is not None
+    assert receipt.consensus_proof.reached is False
+
+
+def test_bridge_passes_when_supportive_quorum_was_posted():
+    receipt = collect_outcome_to_decision_receipt(
+        _supportive_outcome(
+            action="post",
+            action_reason="posted exact-head evidence",
+            posted=["claude", "openai"],
+        )
+    )
+
+    assert receipt.verdict == "PASS"
+    assert receipt.consensus_proof is not None
+    assert receipt.consensus_proof.reached is True
+
+
+def test_bridge_fails_closed_when_posted_families_do_not_satisfy_quorum():
+    receipt = collect_outcome_to_decision_receipt(
+        _supportive_outcome(
+            action="post",
+            action_reason="posting attempted",
+            posted=["claude"],
+        )
+    )
 
     assert receipt.verdict == "CHANGES_REQUESTED"
     assert receipt.consensus_proof is not None
