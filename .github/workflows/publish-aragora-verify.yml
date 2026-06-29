@@ -20,13 +20,15 @@ on:
         description: 'Type PUBLISH to confirm'
         required: true
 
+# Least privilege at the top level; each job re-grants only what it needs.
 permissions:
-  contents: write
-  id-token: write  # Required for PyPI trusted publishing
+  contents: read
 
 jobs:
   test:
     runs-on: aragora
+    permissions:
+      contents: read  # checkout + run tests only; no OIDC, no write
     steps:
       - uses: actions/checkout@v4
 
@@ -47,8 +49,14 @@ jobs:
   publish:
     needs: test
     runs-on: aragora
-    if: github.event.inputs.confirm == 'PUBLISH'
+    # Gate on explicit confirmation AND the protected default branch, so a
+    # workflow_dispatch against any other ref can never reach PyPI even though
+    # the OIDC trusted publisher is scoped only to workflow + environment.
+    if: ${{ github.event.inputs.confirm == 'PUBLISH' && github.ref == 'refs/heads/main' }}
     environment: pypi
+    permissions:
+      id-token: write  # PyPI trusted publishing (OIDC)
+      contents: write  # create the GitHub Release / tag
     steps:
       - uses: actions/checkout@v4
 
@@ -68,7 +76,7 @@ jobs:
         env:
           VERSION: ${{ github.event.inputs.version }}
         run: |
-          python3 -c "import re,pathlib,os; p=pathlib.Path('pyproject.toml'); v=os.environ['VERSION']; assert re.fullmatch(r'[0-9A-Za-z.+-]+', v), 'bad version'; p.write_text(re.sub(r'(?m)^version = \"[^\"]*\"', f'version = \"{v}\"', p.read_text()))"
+          python3 -c "import re,pathlib,os; p=pathlib.Path('pyproject.toml'); v=os.environ['VERSION']; assert re.fullmatch(r'[0-9A-Za-z.+-]+', v), 'bad version'; text,n=re.subn(r'(?m)^version = \"[^\"]*\"', f'version = \"{v}\"', p.read_text()); assert n==1, f'expected exactly one version line, rewrote {n}'; p.write_text(text)"
           grep '^version' pyproject.toml | head -1
 
       - name: Build
@@ -87,7 +95,7 @@ jobs:
           attestations: false
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2 (pinned to commit)
         with:
           tag_name: aragora-verify-v${{ github.event.inputs.version }}
           name: aragora-verify v${{ github.event.inputs.version }}
