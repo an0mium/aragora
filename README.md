@@ -128,8 +128,10 @@ See [Boundaries and Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) for the full n
 ## Security
 
 Secrets load from AWS Secrets Manager in production (never standing env keys);
-local development uses a gitignored `.env`. See the [security docs](docs/security/)
-and the [deployment guide](docs/deployment/).
+local development uses a gitignored `.env`. See the
+[security overview](docs/enterprise/SECURITY.md),
+[compliance overview](docs/enterprise/COMPLIANCE.md), and
+[deployment guide](docs/deployment/DEPLOYMENT.md).
 
 ## Contributing & License
 
