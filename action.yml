@@ -271,8 +271,11 @@ runs:
 
         # The bridge/emitter may be newer than the published PyPI 'aragora', so
         # install the action's own source into a job-local venv for the receipt
-        # tooling. Never mutate shared runner site-packages.
-        RECEIPT_VENV=./aragora-artifacts/receipt-venv
+        # tooling. Never mutate shared runner site-packages. Keep the venv OUTSIDE
+        # ./aragora-artifacts so it is never swept into the uploaded artifact
+        # (uploading a full virtualenv would bloat / fail the upload).
+        RECEIPT_VENV="${RUNNER_TEMP:-/tmp}/aragora-receipt-venv"
+        rm -rf "$RECEIPT_VENV"
         python3 -m venv "$RECEIPT_VENV" >> "$LOG" 2>&1
         RECEIPT_PY="$RECEIPT_VENV/bin/python"
         if [ ! -x "$RECEIPT_PY" ]; then
