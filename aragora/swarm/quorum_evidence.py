@@ -268,6 +268,7 @@ _CODEX_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
 _CLAUDE_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS"
 _CODEX_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS"
+_OVERALL_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_OVERALL_TIMEOUT_SECONDS"
 _CODEX_MODEL_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODEL"
 _CODEX_MODELS_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODELS"
 _CODEX_DEFAULT_MODELS = ("gpt-5.5", "gpt-5")
@@ -300,6 +301,13 @@ def _reviewer_infra_retries() -> int:
         return max(0, int(raw))
     except ValueError:
         return _REVIEWER_INFRA_RETRIES_DEFAULT
+
+
+def _default_overall_timeout_seconds(reviewer_timeout: float) -> float:
+    default = math.ceil(
+        float(reviewer_timeout) * (_reviewer_infra_retries() + 1) + _REVIEWER_CLEANUP_TIMEOUT
+    )
+    return _timeout_seconds(_OVERALL_TIMEOUT_ENV, default)
 
 
 def _run_reviewer_with_infra_retry(
@@ -2456,6 +2464,12 @@ def run_collect_cli(
         validated_reviewer_timeout = _validate_positive_timeout(
             reviewer_timeout, "reviewer_timeout"
         )
+        if prepared_json is None and validated_overall_timeout is None:
+            if validated_reviewer_timeout is None:
+                validated_reviewer_timeout = _timeout_seconds(
+                    _REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT
+                )
+            validated_overall_timeout = _default_overall_timeout_seconds(validated_reviewer_timeout)
         if validated_overall_timeout is not None and (
             validated_reviewer_timeout is None
             or validated_reviewer_timeout > validated_overall_timeout

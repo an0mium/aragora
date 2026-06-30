@@ -2676,6 +2676,58 @@ def test_run_collect_cli_scopes_reviewer_timeout_env_and_forwards_overall(
     assert "collect_evidence" in capsys.readouterr().out
 
 
+def test_run_collect_cli_defaults_to_bounded_overall_timeout(monkeypatch) -> None:
+    seen: dict[str, object] = {}
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "8")
+    monkeypatch.setenv(qe._OVERALL_TIMEOUT_ENV, "25")
+    monkeypatch.delenv(qe._CLAUDE_TIMEOUT_ENV, raising=False)
+    monkeypatch.delenv(qe._CODEX_TIMEOUT_ENV, raising=False)
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        seen["reviewer_timeout"] = kwargs.get("reviewer_timeout")
+        seen["overall_timeout"] = kwargs.get("overall_timeout")
+        seen["claude_timeout_env"] = os.environ.get(qe._CLAUDE_TIMEOUT_ENV)
+        seen["reviewer_timeout_env"] = os.environ.get(qe._REVIEWER_TIMEOUT_ENV)
+        seen["codex_timeout_env"] = os.environ.get(qe._CODEX_TIMEOUT_ENV)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="dry-run",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=False,
+        json_output=False,
+    )
+
+    assert rc == 0
+    assert seen == {
+        "reviewer_timeout": 8.0,
+        "overall_timeout": 25.0,
+        "claude_timeout_env": "8",
+        "reviewer_timeout_env": "8",
+        "codex_timeout_env": "8",
+    }
+    assert os.environ.get(qe._REVIEWER_TIMEOUT_ENV) == "8"
+    assert os.environ.get(qe._CLAUDE_TIMEOUT_ENV) is None
+    assert os.environ.get(qe._CODEX_TIMEOUT_ENV) is None
+
+
 def test_run_collect_cli_overall_timeout_caps_default_reviewer_env(monkeypatch) -> None:
     seen: dict[str, object] = {}
     monkeypatch.delenv(qe._CLAUDE_TIMEOUT_ENV, raising=False)

@@ -739,7 +739,10 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         "--overall-timeout",
         type=float,
         default=None,
-        help="Overall reviewer orchestration timeout in seconds; fail-closed on expiry.",
+        help=(
+            "Overall reviewer orchestration timeout in seconds; fail-closed on expiry. "
+            "When omitted, use a bounded default derived from reviewer timeout and retry budget."
+        ),
     )
     collect_evidence_arg("--json", dest="json_output", action="store_true", help="Output as JSON")
 

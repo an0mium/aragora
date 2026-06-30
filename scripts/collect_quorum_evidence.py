@@ -75,7 +75,10 @@ def main(argv: list[str] | None = None) -> int:
         "--overall-timeout",
         type=float,
         default=None,
-        help="Overall reviewer orchestration timeout in seconds; fail-closed on expiry.",
+        help=(
+            "Overall reviewer orchestration timeout in seconds; fail-closed on expiry. "
+            "When omitted, use a bounded default derived from reviewer timeout and retry budget."
+        ),
     )
     parser.add_argument("--json", dest="json_output", action="store_true", help="Output as JSON")
     args = parser.parse_args(argv)
