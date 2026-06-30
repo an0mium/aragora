@@ -279,6 +279,40 @@ def test_automation_pr_preflight_rejects_rescue_publish_artifacts(
     )
 
 
+def test_automation_pr_preflight_allows_canonical_rescue_status_artifacts(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/tw03-proof-surface"], cwd=repo)
+    status_doc = repo / "docs" / "status" / "TW03_RESCUE_PRODUCTIZATION_STATUS.md"
+    generated_dir = repo / "docs" / "status" / "generated" / "rescue_productization"
+    latest = generated_dir / "latest.json"
+    timestamped = generated_dir / "rescue-productization-20260630T011606Z.json"
+    generated_dir.mkdir(parents=True)
+    status_doc.write_text("# TW-03 Rescue Productization Status\n", encoding="utf-8")
+    latest.write_text('{"generated_at": "2026-06-30T01:16:06Z"}\n', encoding="utf-8")
+    timestamped.write_text(
+        '{"generated_at": "2026-06-30T01:16:06Z"}\n',
+        encoding="utf-8",
+    )
+    _run(
+        [
+            "git",
+            "add",
+            "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+            "docs/status/generated/rescue_productization/latest.json",
+            "docs/status/generated/rescue_productization/rescue-productization-20260630T011606Z.json",
+        ],
+        cwd=repo,
+    )
+    _run(["git", "commit", "-m", "docs: refresh tw03 proof surface"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    assert "preflight: ok" in proc.stdout
+
+
 def test_automation_pr_preflight_rejects_reports_rescue_publish_artifacts(
     tmp_path: Path,
 ) -> None:
