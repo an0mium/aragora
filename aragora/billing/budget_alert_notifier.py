@@ -419,7 +419,7 @@ class BudgetAlertNotifier:
             alert: The budget alert.
             config: Webhook-specific config.
         """
-        from aragora.server.http_client_pool import get_http_pool
+        from aragora.observability.http_client_pool import get_http_pool
 
         payload = {
             "event_type": "budget_alert",
