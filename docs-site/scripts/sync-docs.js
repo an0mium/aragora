@@ -361,6 +361,7 @@ const DOC_MAP = {
   'status/ACTIVE_EXECUTION_ISSUES.md': 'contributing/active-execution-issues.md',
   'status/B0_BENCHMARK_TRUTH_STATUS.md': 'contributing/b0-benchmark-truth-status.md',
   'status/NEXT_STEPS_CANONICAL.md': 'contributing/next-steps-canonical.md',
+  'status/ROADMAP_INTAKE_REGISTER.md': 'contributing/roadmap-intake-register.md',
   'status/EXECUTION_NEXT_6_WEEKS_2026-03-05.md':
     'contributing/execution-next-6-weeks-2026-03-05.md',
   'status/DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md':
