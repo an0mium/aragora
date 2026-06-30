@@ -3708,6 +3708,45 @@ def test_claim_codex_send_lease_reuses_existing_forbidden_scope(
     assert capsys.readouterr().err == ""
 
 
+def test_reusable_codex_send_lease_rechecks_requested_forbidden_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import agent_bridge as mod
+    import aragora.nomic.dev_coordination as dev_coordination
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    calls: list[dict[str, object]] = []
+
+    class _FakeStore:
+        def list_active_leases(self) -> list[object]:
+            return [
+                SimpleNamespace(
+                    owner_session_id="codex-lane",
+                    claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+                    allowed_globs=[],
+                    metadata={"forbidden_paths": ["scripts/**"]},
+                )
+            ]
+
+        def find_conflicting_leases(self, **kwargs: object) -> list[dict[str, object]]:
+            calls.append(kwargs)
+            return [{"type": "forbidden_path"}]
+
+    monkeypatch.setattr(dev_coordination, "DevCoordinationStore", lambda repo_root: _FakeStore())
+    session = mod.Session(name="codex-lane", agent="codex", status="alive")
+
+    reusable = mod._reusable_codex_send_lease(
+        session,
+        claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+        write_scopes=[],
+        forbidden_paths=["scripts/settle_tier4_pr.py"],
+    )
+
+    assert reusable is False
+    assert calls[0]["forbidden_paths"] == ["scripts/settle_tier4_pr.py"]
+    assert "Codex send lease conflicts with active lease scope" in capsys.readouterr().err
+
+
 def test_claim_codex_send_lease_uses_worktree_session_id_and_requires_lease_id(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

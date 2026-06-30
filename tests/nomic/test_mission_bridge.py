@@ -115,6 +115,33 @@ def test_decomposition_to_mission_uses_scoped_test_paths_as_validation() -> None
     ]
 
 
+def test_decomposition_to_mission_quotes_scoped_test_paths_with_spaces() -> None:
+    decomp = TaskDecomposition(
+        original_task="repair a focused test",
+        complexity_score=2,
+        complexity_level="small",
+        should_decompose=False,
+        subtasks=[
+            SubTask(
+                id="focused",
+                title="Repair focused test",
+                description="Patch only the focused test.",
+                file_scope=["tests/nomic/path with spaces/test_mission_bridge.py"],
+            )
+        ],
+    )
+
+    mission = decomposition_to_mission(
+        decomp,
+        objective="repair a focused test",
+        include_panel_review=False,
+    )
+
+    assert mission["lanes"][0]["tests"] == [
+        "python3 -m pytest -q 'tests/nomic/path with spaces/test_mission_bridge.py'"
+    ]
+
+
 def test_decomposition_to_mission_does_not_emit_unscoped_codex_implementation_lane() -> None:
     mod = _load_goal_conductor_module()
     decomp = TaskDecomposition(

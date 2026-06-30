@@ -38,6 +38,27 @@ def _metadata_scope(metadata: dict[str, Any] | None, keys: tuple[str, ...]) -> l
     return list(dict.fromkeys(normalized))
 
 
+def _without_shadowed_regular_lease_conflicts(
+    conflicts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    forbidden_lease_ids = {
+        str(conflict.get("lease_id") or "")
+        for conflict in conflicts
+        if conflict.get("type") == "forbidden_path" and conflict.get("lease_id")
+    }
+    if not forbidden_lease_ids:
+        return conflicts
+    return [
+        conflict
+        for conflict in conflicts
+        if not (
+            conflict.get("lease_id")
+            and str(conflict.get("lease_id")) in forbidden_lease_ids
+            and not conflict.get("type")
+        )
+    ]
+
+
 def list_active_leases(self) -> list[WorkLease]:
     now = _utcnow()
     conn = self._connect()
@@ -322,7 +343,7 @@ def find_conflicting_leases(
                 "mode": str(claim.get("mode", "exclusive")),
             }
         )
-    return conflicts
+    return _without_shadowed_regular_lease_conflicts(conflicts)
 
 
 def claim_lease(
@@ -554,7 +575,7 @@ def _find_conflicting_leases_locked(
                 "mode": str(claim.get("mode", "exclusive")),
             }
         )
-    return conflicts
+    return _without_shadowed_regular_lease_conflicts(conflicts)
 
 
 def heartbeat_lease(self, lease_id: str, ttl_hours: float | None = None) -> WorkLease:

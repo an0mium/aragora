@@ -264,6 +264,34 @@ def test_claim_lease_metadata_scope_cannot_engulf_metadata_forbidden_path(
     assert exc_info.value.conflicts[0]["path"] == "aragora/server/**"
 
 
+def test_claim_lease_metadata_hot_paths_block_claim_scope(
+    store: DevCoordinationStore,
+) -> None:
+    with pytest.raises(LeaseConflictError) as exc_info:
+        store.claim_lease(
+            task_id="clb-hot-metadata",
+            title="Bounded app repair",
+            owner_agent="codex",
+            owner_session_id="sess-hot-metadata",
+            branch="codex/hot-metadata",
+            worktree_path="/tmp/wt-hot-metadata",
+            allowed_globs=["aragora/server/**"],
+            metadata={"hot_paths": ["aragora/server/auth_checks.py"]},
+        )
+
+    assert exc_info.value.conflicts == [
+        {
+            "type": "forbidden_path",
+            "path": "aragora/server/**",
+            "protected_scope": ["aragora/server/auth_checks.py"],
+            "message": (
+                "lease scope overlaps forbidden_paths; narrow the positive scope "
+                "or remove the protected path from forbidden_paths"
+            ),
+        }
+    ]
+
+
 def test_claim_lease_metadata_forbidden_paths_are_persisted_normalized(
     store: DevCoordinationStore,
 ) -> None:
@@ -484,6 +512,46 @@ def test_claim_lease_same_owner_session_cannot_forbid_existing_scope(
     assert exc_info.value.conflicts[0]["type"] == "forbidden_path"
     assert exc_info.value.conflicts[0]["claimed_paths"] == ["docs/guides/CONDUCTOR_WORKFLOW.md"]
     assert exc_info.value.conflicts[0]["forbidden_paths"] == ["docs/guides/CONDUCTOR_WORKFLOW.md"]
+
+
+def test_find_conflicting_leases_suppresses_regular_conflict_when_forbidden_blocks(
+    store: DevCoordinationStore,
+) -> None:
+    lease = store.claim_lease(
+        task_id="clb-shadowed-regular",
+        title="Launch lane",
+        owner_agent="codex",
+        owner_session_id="sess-shadowed-a",
+        branch="codex/shadowed-a",
+        worktree_path="/tmp/wt-shadowed-a",
+        claimed_paths=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+        forbidden_paths=["scripts/settle_tier4_pr.py"],
+    )
+
+    conflicts = store.find_conflicting_leases(
+        allowed_globs=[],
+        claimed_paths=[
+            "docs/guides/CONDUCTOR_WORKFLOW.md",
+            "scripts/settle_tier4_pr.py",
+        ],
+        owner_session_id="sess-shadowed-b",
+    )
+
+    assert conflicts == [
+        {
+            "lease_id": lease.lease_id,
+            "task_id": "clb-shadowed-regular",
+            "title": "Launch lane",
+            "owner_agent": "codex",
+            "owner_session_id": "sess-shadowed-a",
+            "branch": "codex/shadowed-a",
+            "worktree_path": str(Path("/tmp/wt-shadowed-a").resolve()),
+            "forbidden_paths": ["scripts/settle_tier4_pr.py"],
+            "expires_at": lease.expires_at,
+            "type": "forbidden_path",
+            "message": "claim overlaps another active lease's forbidden_paths",
+        }
+    ]
 
 
 def test_claim_lease_detects_existing_fleet_claim(store: DevCoordinationStore) -> None:
@@ -839,7 +907,7 @@ def test_record_completion_rejects_protected_hot_paths(store: DevCoordinationSto
         owner_session_id="sess-hot",
         branch="codex/hot",
         worktree_path="/tmp/wt-hot",
-        allowed_globs=["aragora/server/**"],
+        allowed_globs=["aragora/server/routes/**"],
         metadata={"hot_paths": ["aragora/server/handlers/**"]},
     )
 

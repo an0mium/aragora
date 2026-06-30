@@ -1403,6 +1403,8 @@ class DevCoordinationStore:
                     *_metadata_claims(
                         "forbidden_paths",
                         "forbidden_globs",
+                        "hot_paths",
+                        "hot_globs",
                     ),
                 ]
             )

@@ -1513,6 +1513,7 @@ def _reusable_codex_send_lease(
         conflicts = store.find_conflicting_leases(
             allowed_globs=write_scopes,
             claimed_paths=claimed_paths,
+            forbidden_paths=forbidden_paths,
             owner_session_id=reusable_owner_session_id,
         )
     except Exception as exc:

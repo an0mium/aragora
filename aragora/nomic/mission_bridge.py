@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -96,7 +97,8 @@ def _subtask_validation_commands(subtask: Any) -> list[str]:
         if path == "tests" or path.startswith("tests/")
     ]
     if scoped_tests:
-        return [f"python3 -m pytest -q {' '.join(scoped_tests)}"]
+        quoted_tests = " ".join(shlex.quote(path) for path in scoped_tests)
+        return [f"python3 -m pytest -q {quoted_tests}"]
     return []
 
 
