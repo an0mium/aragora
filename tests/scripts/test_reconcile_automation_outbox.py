@@ -1186,6 +1186,373 @@ def test_exact_open_pr_representation_writes_receipt_and_archives(
     )
 
 
+def test_exact_open_pr_representation_uses_cli_base_fallback(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-exact-open-pr-release-base-abc123"
+    branch = "codex/exact-open-pr-release-base"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"+ {desired_head}\n",
+                stderr="",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    class FakeGitHubClient:
+        disabled = False
+
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def open_prs_for_branch(
+            self, requested_branch: str
+        ) -> tuple[list[dict[str, Any]] | None, str | None]:
+            assert requested_branch == branch
+            return [
+                {
+                    "number": 8589,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": branch, "sha": desired_head},
+                    "base": {"ref": "release/next"},
+                    "html_url": "https://github.com/synaptent/aragora/pull/8589",
+                }
+            ], None
+
+        def remote_ref(self, requested_branch: str) -> tuple[dict[str, Any] | None, str | None]:
+            assert requested_branch == branch
+            return {"ref": f"refs/heads/{branch}", "object": {"sha": desired_head}}, None
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "NarrowGitHubClient", FakeGitHubClient)
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {branch: 8589})
+
+    assert mod.main(["--repo", str(tmp_path), "--base", "release/next", "--apply", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_exact_open_pr"] == 1
+    assert payload["actions"][0]["decision"] == "archive"
+    assert not handoff.exists()
+    receipt = json.loads((receipt_dir / f"{key}.json").read_text(encoding="utf-8"))
+    assert receipt["existing_pr_url"] == "https://github.com/synaptent/aragora/pull/8589"
+
+
+def test_merged_pr_preservation_proof_uses_cli_base_fallback(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/merged-pr-release-base"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    worktree = tmp_path / "missing-worktree"
+    payload = {
+        "idempotency_key": "open-pr-codex-merged-pr-release-base-abc123",
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "local_evidence": {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree": str(worktree),
+        },
+    }
+
+    def fake_preservation_proof(
+        record: dict[str, Any],
+        *,
+        repo_root: Path,
+        state_root: Path,
+    ) -> dict[str, Any]:
+        assert record["worktree"] == str(worktree)
+        assert repo_root == tmp_path
+        assert state_root == tmp_path / ".aragora"
+        return {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "upstream_preservation": {
+                "proven": True,
+                "method": "merged_pr_commit_list",
+                "base": "release/next",
+            },
+        }
+
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        fake_preservation_proof,
+    )
+
+    proof = mod._merged_pr_commit_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path / ".aragora",
+        payload=payload,
+        branch=branch,
+        repo_name="synaptent/aragora",
+        base="release/next",
+    )
+
+    assert proof is not None
+    assert proof["upstream_preservation"]["base"] == "release/next"
+
+
+def test_exact_open_pr_representation_keeps_when_local_branch_advanced(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-exact-open-pr-local-advanced-abc123"
+    branch = "codex/exact-open-pr-local-advanced"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    local_head = "1111111234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{local_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"+ {local_head}\n",
+                stderr="",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    class FakeGitHubClient:
+        disabled = False
+
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def open_prs_for_branch(
+            self, requested_branch: str
+        ) -> tuple[list[dict[str, Any]] | None, str | None]:
+            assert requested_branch == branch
+            return [
+                {
+                    "number": 8589,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": branch, "sha": desired_head},
+                    "base": {"ref": "main"},
+                    "html_url": "https://github.com/synaptent/aragora/pull/8589",
+                }
+            ], None
+
+        def remote_ref(self, requested_branch: str) -> tuple[dict[str, Any] | None, str | None]:
+            assert requested_branch == branch
+            return {"ref": f"refs/heads/{branch}", "object": {"sha": desired_head}}, None
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "NarrowGitHubClient", FakeGitHubClient)
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {branch: 8589})
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_exact_open_pr"] == 0
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "local branch head" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+
+
+def test_exact_open_pr_representation_keeps_draft_pr(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-exact-open-pr-draft-abc123"
+    branch = "codex/exact-open-pr-draft"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"+ {desired_head}\n",
+                stderr="",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    class FakeGitHubClient:
+        disabled = False
+
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def open_prs_for_branch(
+            self, requested_branch: str
+        ) -> tuple[list[dict[str, Any]] | None, str | None]:
+            assert requested_branch == branch
+            return [
+                {
+                    "number": 8589,
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": branch, "sha": desired_head},
+                    "base": {"ref": "main"},
+                    "html_url": "https://github.com/synaptent/aragora/pull/8589",
+                }
+            ], None
+
+        def remote_ref(self, requested_branch: str) -> tuple[dict[str, Any] | None, str | None]:
+            assert requested_branch == branch
+            return {"ref": f"refs/heads/{branch}", "object": {"sha": desired_head}}, None
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "NarrowGitHubClient", FakeGitHubClient)
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {branch: 8589})
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_exact_open_pr"] == 0
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "still draft" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+
+
+def test_exact_open_pr_representation_keeps_degraded_github_evidence(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-exact-open-pr-degraded-abc123"
+    branch = "codex/exact-open-pr-degraded"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"+ {desired_head}\n",
+                stderr="",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    class FakeGitHubClient:
+        disabled = False
+
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def open_prs_for_branch(
+            self, requested_branch: str
+        ) -> tuple[list[dict[str, Any]] | None, str | None]:
+            assert requested_branch == branch
+            return [
+                {
+                    "number": 8589,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": branch, "sha": desired_head},
+                    "base": {"ref": "main"},
+                    "html_url": "https://github.com/synaptent/aragora/pull/8589",
+                }
+            ], None
+
+        def remote_ref(self, requested_branch: str) -> tuple[dict[str, Any] | None, str | None]:
+            assert requested_branch == branch
+            return None, "ref lookup failed"
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "NarrowGitHubClient", FakeGitHubClient)
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {branch: 8589})
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_exact_open_pr"] == 0
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "GitHub evidence is degraded" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+
+
 def test_exact_open_pr_representation_requires_matching_branch_and_head(
     tmp_path: Path,
     monkeypatch: Any,

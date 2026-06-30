@@ -43,6 +43,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
 )
 from github_cli_health import check_github_cli_health  # noqa: E402
 from handoff_state import (  # noqa: E402
+    BASE_FIELD_KEYS,
     NarrowGitHubClient,
     desired_base_from_payload,
     full_heads_match,
@@ -347,7 +348,28 @@ def _lane_record_from_payload(payload: Mapping[str, Any], branch: str) -> dict[s
 
 
 def _requested_base_from_payload(payload: Mapping[str, Any]) -> str:
-    return desired_base_from_payload(payload)
+    """Return only an explicitly requested base, preserving caller fallbacks."""
+
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        for key in BASE_FIELD_KEYS:
+            base = str(local_evidence.get(key) or "").strip()
+            if base:
+                return base
+    for key in BASE_FIELD_KEYS:
+        base = str(payload.get(key) or "").strip()
+        if base:
+            return base
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        for key in BASE_FIELD_KEYS:
+            base = str(requested_action.get(key) or "").strip()
+            if base:
+                return base
+    return ""
+
+
+def _desired_base_for_publication(payload: Mapping[str, Any], fallback_base: str) -> str:
+    return _requested_base_from_payload(payload) or fallback_base
 
 
 def _upstream_base_matches(upstream: Mapping[str, Any], expected_base: str) -> bool:
@@ -950,6 +972,7 @@ def _exact_open_pr_terminal_candidate(
     repo_name: str,
     payload: dict[str, Any],
     branch: str,
+    base: str,
     github_client: NarrowGitHubClient | None = None,
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Return terminal disposition when an exact open PR already represents a handoff.
@@ -968,7 +991,17 @@ def _exact_open_pr_terminal_candidate(
     desired_head = _desired_head_from_payload(payload)
     if not desired_head:
         return None, None
-    desired_base = _requested_base_from_payload(payload)
+    local_branch_head = _git_ref_head(root, branch)
+    if local_branch_head and not full_heads_match(desired_head, local_branch_head):
+        return None, (
+            f"exact open PR terminal-archive gate: local branch head "
+            f"{local_branch_head[:12]} does not fully match desired head {desired_head[:12]}"
+        )
+    owner_keep_reason = _exact_open_pr_owner_keep_reason(root, branch)
+    if owner_keep_reason is not None:
+        return None, owner_keep_reason
+
+    desired_base = _desired_base_for_publication(payload, base)
     github_client = github_client or NarrowGitHubClient(repo_root=root, github_repo=repo_name)
     github = github_evidence_for_branch(
         github_client,
@@ -979,6 +1012,16 @@ def _exact_open_pr_terminal_candidate(
     )
     exact_open_pr = github.exact_open_pr
     if exact_open_pr is not None:
+        if github.mode != "ready":
+            return None, (
+                "exact open PR terminal-archive gate: GitHub evidence is "
+                f"{github.mode}; {github.error or 'not ready'}"
+            )
+        if exact_open_pr.get("draft") is True:
+            pr_number = _pr_number_from_value(exact_open_pr.get("number"))
+            return None, (
+                f"exact open PR terminal-archive gate: PR #{pr_number or 'unknown'} is still draft"
+            )
         pr_number = _pr_number_from_value(exact_open_pr.get("number"))
         pr_head = str(exact_open_pr.get("head_sha") or "").strip()
         pr_branch = str(exact_open_pr.get("head") or "").strip()
@@ -1015,6 +1058,60 @@ def _exact_open_pr_terminal_candidate(
         suffix = f" ({numbers})" if numbers else ""
         return None, f"branch has open PR(s){suffix}, but no open PR at desired head"
     return None, None
+
+
+def _exact_open_pr_owner_keep_reason(root: Path, branch: str) -> str | None:
+    script = root / "scripts" / "identify_lane_owner.py"
+    if not script.exists():
+        return None
+    state_root = root / ".aragora"
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "--branch",
+                branch,
+                "--liveness",
+                "--json",
+                "--registry-path",
+                str(state_root / "agent-bridge" / "lanes.json"),
+                "--steering-inbox-root",
+                str(state_root / "operator-steering"),
+                "--heartbeat-path",
+                str(state_root / "agent-bridge" / "heartbeats.json"),
+            ],
+            cwd=root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"exact open PR terminal-archive gate: owner liveness unverified ({exc.__class__.__name__})"
+    if proc.returncode != 0:
+        message = (proc.stderr or proc.stdout or "").strip().splitlines()
+        detail = message[0] if message else f"identify_lane_owner exited {proc.returncode}"
+        if "no lane matched" in detail.lower() or "no matching lane" in detail.lower():
+            return None
+        return f"exact open PR terminal-archive gate: owner liveness unverified ({detail})"
+    try:
+        owner = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return "exact open PR terminal-archive gate: owner liveness returned unparseable JSON"
+    if not isinstance(owner, Mapping):
+        return "exact open PR terminal-archive gate: owner liveness returned non-mapping JSON"
+    advisory = str(owner.get("advisory_withheld") or "").strip().lower()
+    blocking_state = str(owner.get("owner_blocking_state") or "").strip().lower()
+    status = str(owner.get("status") or owner.get("lane_status") or "").strip().lower()
+    if advisory == "possible_unpushed_work" or blocking_state == "possible_unpushed_work":
+        return "exact open PR terminal-archive gate: owner reports possible unpushed work"
+    if blocking_state in {"live_owner", "stale_owner", "unknown_owner", "stale_terminal_owner"}:
+        return f"exact open PR terminal-archive gate: owner gate remains ({blocking_state})"
+    owner_id = str(owner.get("owner_session") or owner.get("lane_id") or "").strip()
+    if owner_id and status not in {"completed", "released", "superseded"}:
+        return f"exact open PR terminal-archive gate: active owner {owner_id} remains"
+    return None
 
 
 def _archive_with_terminal_disposition(
@@ -1223,6 +1320,7 @@ def _handle_exact_open_pr_terminal_candidate(
     receipt_dir: Path,
     payload: dict[str, Any],
     branch: str,
+    base: str,
     github_client: NarrowGitHubClient,
     counts: dict[str, int],
     actions: list[dict[str, Any]],
@@ -1233,6 +1331,7 @@ def _handle_exact_open_pr_terminal_candidate(
         repo_name=repo_name,
         payload=payload,
         branch=branch,
+        base=base,
         github_client=github_client,
     )
     if terminal_info is not None:
@@ -1807,6 +1906,7 @@ def main(argv: list[str] | None = None) -> int:
                     receipt_dir=receipt_dir,
                     payload=payload,
                     branch=branch,
+                    base=args.base,
                     github_client=narrow_github_client,
                     counts=counts,
                     actions=actions,
@@ -1892,6 +1992,7 @@ def main(argv: list[str] | None = None) -> int:
                 receipt_dir=receipt_dir,
                 payload=payload,
                 branch=branch,
+                base=args.base,
                 github_client=narrow_github_client,
                 counts=counts,
                 actions=actions,
