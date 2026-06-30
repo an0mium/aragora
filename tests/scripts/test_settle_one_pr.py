@@ -196,9 +196,79 @@ def test_load_single_pr_packet_summarizes_transport_envelope(monkeypatch) -> Non
 
     assert message == (
         "merge-packet transport blocked: "
-        "gh pr view 7841 failed: GraphQL: API rate limit already exceeded"
+        "gh pr view 7841 failed: GraphQL: API rate limit already exceeded "
+        "(retry after: merge-packet transport blocked: "
+        "gh pr view 7841 failed: GraphQL: API rate limit already exceeded)"
     )
     assert "transport_blocked" not in message
+
+
+def test_load_single_pr_packet_retries_transient_transport_envelope(monkeypatch) -> None:
+    calls: list[list[str]] = []
+    packet_error = {
+        "status": "transport_blocked",
+        "transport_blocked": True,
+        "error_kind": "github_transport",
+        "error": "gh api repos/synaptent/aragora/pulls/8707 failed: error connecting to api.github.com",
+    }
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        calls.append(args)
+        if len(calls) == 1:
+            return None, {
+                "command": "packet",
+                "returncode": 1,
+                "stdout": json.dumps(packet_error),
+                "stderr": "",
+            }
+        return _packet(_entry(8707)), {"command": "packet", "returncode": 0}
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = settle_one_pr._load_single_pr_packet(cwd=Path.cwd(), pr=8707, repo=None)
+
+    assert packet["entries"][0]["pr_number"] == 8707
+    assert len(calls) == 2
+    assert packet["load_warnings"] == [
+        "single merge-packet transport retry succeeded after: "
+        "merge-packet transport blocked: gh api repos/synaptent/aragora/pulls/8707 "
+        "failed: error connecting to api.github.com"
+    ]
+
+
+def test_load_single_pr_packet_fails_closed_after_transport_retry(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        calls.append(args)
+        return None, {
+            "command": "packet",
+            "returncode": 1,
+            "stdout": json.dumps(
+                {
+                    "status": "transport_blocked",
+                    "transport_blocked": True,
+                    "error_kind": "github_transport",
+                    "error": "gh api repos/synaptent/aragora/pulls/8704 failed: error connecting to api.github.com",
+                }
+            ),
+            "stderr": "",
+        }
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    try:
+        settle_one_pr._load_single_pr_packet(cwd=Path.cwd(), pr=8704, repo=None)
+    except RuntimeError as exc:
+        message = str(exc)
+    else:  # pragma: no cover - the assertion below is clearer than pytest.raises here.
+        raise AssertionError("expected RuntimeError")
+
+    assert len(calls) == 2
+    assert "retry after: merge-packet transport blocked" in message
+    assert "error connecting to api.github.com" in message
 
 
 def test_select_candidate_prefers_admin_order() -> None:

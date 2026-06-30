@@ -199,6 +199,32 @@ def _merge_packet_failure_message(result: dict[str, Any]) -> str:
     return stderr or stdout or "merge-packet failed"
 
 
+def _merge_packet_transport_blocked(result: dict[str, Any]) -> bool:
+    stdout = str(result.get("stdout") or "").strip()
+    stderr = str(result.get("stderr") or "").strip()
+    if stdout:
+        try:
+            payload = json.loads(stdout)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict) and (
+            payload.get("transport_blocked")
+            or payload.get("status") == "transport_blocked"
+            or payload.get("error_kind") == "github_transport"
+        ):
+            return True
+    combined = f"{stderr}\n{stdout}".lower()
+    return any(
+        marker in combined
+        for marker in (
+            "error connecting to api.github.com",
+            "api rate limit",
+            "github transport",
+            "transport blocked",
+        )
+    )
+
+
 def _policy_context_for_report(policy_context: dict[str, Any]) -> dict[str, Any]:
     if not policy_context:
         return {}
@@ -1889,6 +1915,19 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
     if repo:
         command.extend(["--repo", repo])
     payload, result = _run_json(command, cwd=cwd, timeout=SINGLE_PACKET_TIMEOUT_SECONDS)
+    if result["returncode"] != 0 and _merge_packet_transport_blocked(result):
+        first_failure = _merge_packet_failure_message(result)
+        payload, result = _run_json(command, cwd=cwd, timeout=SINGLE_PACKET_TIMEOUT_SECONDS)
+        if result["returncode"] == 0 and isinstance(payload, dict):
+            warnings = [
+                str(item) for item in payload.get("load_warnings") or [] if str(item).strip()
+            ]
+            warnings.append(f"single merge-packet transport retry succeeded after: {first_failure}")
+            payload["load_warnings"] = warnings
+            return payload
+        if result["returncode"] != 0:
+            retry_failure = _merge_packet_failure_message(result)
+            raise RuntimeError(f"{retry_failure} (retry after: {first_failure})")
     if result["returncode"] != 0:
         raise RuntimeError(_merge_packet_failure_message(result))
     if not isinstance(payload, dict):
