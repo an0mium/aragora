@@ -348,6 +348,15 @@ def _lane_record_from_payload(payload: Mapping[str, Any], branch: str) -> dict[s
     return _lane_records_from_payload(payload, branch)[0]
 
 
+def _local_evidence_conflict_keep_reason(payload: Mapping[str, Any]) -> str | None:
+    conflict_reason = local_evidence_conflict_reason(payload)
+    if conflict_reason is None:
+        return None
+    return (
+        f"local_evidence conflict; preserving handoff before terminal archive ({conflict_reason})"
+    )
+
+
 def _requested_base_from_payload(payload: Mapping[str, Any]) -> str:
     """Return only an explicitly requested base, preserving caller fallbacks."""
 
@@ -1651,6 +1660,20 @@ def main(argv: list[str] | None = None) -> int:
 
         if not idem or not branch:
             counts["skipped_unparseable"] += 1
+            continue
+
+        conflict_keep_reason = _local_evidence_conflict_keep_reason(payload)
+        if conflict_keep_reason is not None:
+            counts["still_protecting_active_work"] += 1
+            actions.append(
+                {
+                    "path": str(path),
+                    "branch": branch,
+                    "decision": "keep",
+                    "reason": conflict_keep_reason,
+                    "synthetic_receipt": False,
+                }
+            )
             continue
 
         receipt = receipt_payloads_by_key.get(idem)

@@ -1930,6 +1930,58 @@ def test_exact_open_pr_representation_rejects_conflicting_local_evidence(
     assert handoff.exists()
 
 
+def test_conflicting_local_evidence_blocks_landed_on_main_archive(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-landed-local-conflict-abc123"
+    branch = "codex/landed-local-conflict"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    other_head = "1111111234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence=[
+            {
+                "branch": branch,
+                "desired_head_sha": desired_head,
+            },
+            {
+                "branch": branch,
+                "desired_head_sha": other_head,
+            },
+        ],
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("conflicting local evidence should skip landed-on-main git checks")
+        ),
+    )
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("conflicting local evidence should skip open PR state")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_landed_on_main"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "local_evidence conflict" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+
+
 def test_exact_open_pr_representation_respects_owner_possible_unpushed_work(
     tmp_path: Path,
     monkeypatch: Any,
@@ -2358,6 +2410,58 @@ def test_missing_branch_archives_when_open_pr_state_is_available(
     assert payload["actions"][0]["reason"] == "branch no longer exists"
 
 
+def test_conflicting_local_evidence_blocks_missing_branch_archive(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-missing-local-conflict-abc123"
+    branch = "codex/missing-local-conflict"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    other_head = "1111111234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence=[
+            {
+                "branch": branch,
+                "desired_head_sha": desired_head,
+            },
+            {
+                "branch": branch,
+                "desired_head_sha": other_head,
+            },
+        ],
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("conflicting local evidence should skip missing-branch git checks")
+        ),
+    )
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("conflicting local evidence should skip open PR state")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["missing_branch"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "local_evidence conflict" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+
+
 def test_unique_branch_keep_reason_notes_unavailable_open_pr_state(
     tmp_path: Path,
     monkeypatch: Any,
@@ -2585,6 +2689,67 @@ def test_unique_branch_keeps_when_preservation_proof_is_remote_branch_only(
     assert payload["counts"]["still_protecting_active_work"] == 1
     assert payload["actions"][0]["decision"] == "keep"
     assert "actively protecting" in payload["actions"][0]["reason"]
+
+
+def test_conflicting_local_evidence_blocks_merged_pr_proof_archive(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-merged-pr-local-conflict-abc123"
+    branch = "codex/merged-pr-local-conflict"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    other_head = "1111111234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence=[
+            {
+                "branch": branch,
+                "desired_head_sha": desired_head,
+                "worktree": str(tmp_path / "missing-worktree-a"),
+            },
+            {
+                "branch": branch,
+                "desired_head_sha": other_head,
+                "worktree": str(tmp_path / "missing-worktree-b"),
+            },
+        ],
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("conflicting local evidence should skip merged-PR git checks")
+        ),
+    )
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("conflicting local evidence should skip open PR state")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("conflicting local evidence should skip merged-PR proof")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_merged_pr_commit_proof"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "local_evidence conflict" in payload["actions"][0]["reason"]
+    assert handoff.exists()
 
 
 def test_merged_pr_preservation_proof_rejects_non_base_pr(
