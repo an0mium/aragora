@@ -154,6 +154,7 @@ Examples:
     _add_review_pr_parser(subparsers)
     _add_review_local_parser(subparsers)
     _add_review_queue_parser(subparsers)
+    _add_reconcile_parser(subparsers)
     _add_codebase_audit_parser(subparsers)
     _add_external_parsers(subparsers)
     _add_badge_parser(subparsers)
@@ -2719,6 +2720,12 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Output the result as JSON (kind, paths, alerting surfaces).",
     )
     alert_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
+
+def _add_reconcile_parser(subparsers) -> None:
+    from aragora.cli.commands.reconcile import add_reconcile_parser
+
+    add_reconcile_parser(subparsers)
 
 
 def _add_codebase_audit_parser(subparsers) -> None:

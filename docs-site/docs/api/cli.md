@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **110**
-- Total top-level invocations (including aliases): **111**
+- Canonical top-level commands: **111**
+- Total top-level invocations (including aliases): **112**
 
 ## Installation
 
@@ -117,6 +117,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `ralph` | - | Ralph campaign supervisor — autonomous incident commander | - |
 | `rbac` | - | RBAC management commands | `assign`, `check`, `check-local`, `list-permissions`, `list-roles`, `permissions`, `roles` |
 | `receipt` | - | View, verify, and export decision receipts | `export`, `inspect`, `list`, `show`, `verify`, `view` |
+| `reconcile` | - | Run reconcile-lane repo cleanup and settlement reports | `settle` |
 | `repl` | - | Interactive debate mode | - |
 | `replay` | - | Replay stored debates | - |
 | `review` | - | Run AI code review on a diff or PR | - |
