@@ -70,6 +70,15 @@ PASSIVE_SESSION_ANCHOR_IGNORED_FILES = frozenset(
     }
 )
 PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT = 512
+_FALLBACK_PASSIVE_SESSION_ANCHOR_FILENAMES = frozenset(
+    {
+        ".claude-session-anchor",
+        ".codex-session-anchor",
+        ".codex-session",
+        ".droid-session-anchor",
+        ".session-anchor",
+    }
+)
 _PASSIVE_SESSION_ANCHOR_FILES_CACHE: frozenset[str] | None = None
 RECEIPT_PATH_KEYS = frozenset(
     {
@@ -729,18 +738,20 @@ def passive_session_anchor_filenames() -> frozenset[str]:
     """Return cleanup wrapper sentinels without widening inventory import time."""
     global _PASSIVE_SESSION_ANCHOR_FILES_CACHE
     if _PASSIVE_SESSION_ANCHOR_FILES_CACHE is None:
-        from safe_worktree_cleanup import WRAPPER_SENTINEL_FILENAMES
-
-        _PASSIVE_SESSION_ANCHOR_FILES_CACHE = frozenset(WRAPPER_SENTINEL_FILENAMES)
+        try:
+            from safe_worktree_cleanup import WRAPPER_SENTINEL_FILENAMES
+        except Exception:
+            _PASSIVE_SESSION_ANCHOR_FILES_CACHE = _FALLBACK_PASSIVE_SESSION_ANCHOR_FILENAMES
+        else:
+            _PASSIVE_SESSION_ANCHOR_FILES_CACHE = frozenset(WRAPPER_SENTINEL_FILENAMES)
     return _PASSIVE_SESSION_ANCHOR_FILES_CACHE
 
 
 def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorScanResult:
     """Return passive wrapper anchors from a bounded scan.
 
-    A symlinked candidate root is scanned once through the link, matching the
-    live cleanup helper's resolved-path inspection. Nested symlinked directories
-    are still not followed.
+    A symlinked candidate root and directory symlink targets are scanned through
+    the link, matching the live cleanup helper's resolved-path inspection.
     """
 
     anchors: set[str] = set()
@@ -767,8 +778,16 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
             record_direct_anchor(root / name)
 
     pending = [candidate_root]
+    scanned_roots: set[Path] = set()
     while pending:
         root = pending.pop()
+        try:
+            scan_root = root.resolve()
+        except OSError:
+            scan_root = root.absolute()
+        if scan_root in scanned_roots:
+            continue
+        scanned_roots.add(scan_root)
         try:
             with os.scandir(root) as entries:
                 for entry in entries:
@@ -793,6 +812,7 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
                                     scanned_entries += 1
                                     if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
                                         return result(truncated=True)
+                                    pending.append(child_root)
                                     continue
                             except OSError:
                                 anchor_only = False

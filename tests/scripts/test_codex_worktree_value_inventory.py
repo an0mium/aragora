@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 import sys
 from pathlib import Path
@@ -198,9 +199,29 @@ def test_passive_anchor_sentinel_set_comes_from_cleanup_helper() -> None:
     import codex_worktree_value_inventory as mod
     import safe_worktree_cleanup
 
+    mod._PASSIVE_SESSION_ANCHOR_FILES_CACHE = None
+
     assert (
         mod.passive_session_anchor_filenames() == safe_worktree_cleanup.WRAPPER_SENTINEL_FILENAMES
     )
+
+
+def test_passive_anchor_sentinel_set_falls_back_when_cleanup_import_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    real_import = builtins.__import__
+
+    def fail_cleanup_import(name: str, *args: object, **kwargs: object) -> object:
+        if name == "safe_worktree_cleanup":
+            raise ImportError("cleanup helper unavailable")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(mod, "_PASSIVE_SESSION_ANCHOR_FILES_CACHE", None)
+    monkeypatch.setattr(builtins, "__import__", fail_cleanup_import)
+
+    assert mod.passive_session_anchor_filenames() == mod._FALLBACK_PASSIVE_SESSION_ANCHOR_FILENAMES
 
 
 def test_unregistered_git_residue_reports_passive_anchor(
@@ -381,6 +402,30 @@ def test_passive_anchor_scan_counts_symlink_directory_anchor(
     scan = mod.passive_session_anchor_scan(root)
 
     assert scan.anchors == [str(link / ".session-anchor")]
+    assert scan.truncated is False
+    assert scan.anchor_only is False
+
+
+def test_passive_anchor_scan_counts_nested_anchor_under_symlink_directory(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    target = tmp_path / "target"
+    nested = target / ".worktrees" / "session"
+    nested.mkdir(parents=True)
+    (nested / ".session-anchor").write_text("anchor\n")
+    root = tmp_path / "residue"
+    root.mkdir()
+    link = root / "wrapper-link"
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory symlink unavailable: {exc}")
+
+    scan = mod.passive_session_anchor_scan(root)
+
+    assert scan.anchors == [str(link / ".worktrees" / "session" / ".session-anchor")]
     assert scan.truncated is False
     assert scan.anchor_only is False
 
