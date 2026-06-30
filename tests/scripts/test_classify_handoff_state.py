@@ -1048,6 +1048,30 @@ def test_target_pr_reference_can_prove_exact_open_pr_representation(
     assert github.pr_number_calls == 1
 
 
+def test_target_pr_reference_parses_github_url_repo() -> None:
+    reference = mod.target_pr_reference_from_receipt(
+        {"target_pr": "https://github.com/synaptent/aragora/pull/8570"}
+    )
+
+    assert reference == mod.TargetPrReference(number=8570, repo="synaptent/aragora")
+
+
+def test_target_pr_reference_rejects_enterprise_url_host() -> None:
+    reference = mod.target_pr_reference_from_receipt(
+        {"target_pr": "https://github.enterprise.example/synaptent/aragora/pull/8570"}
+    )
+
+    assert reference is None
+
+
+def test_target_pr_reference_rejects_non_github_url_host() -> None:
+    reference = mod.target_pr_reference_from_receipt(
+        {"target_pr": "https://example.com/synaptent/aragora/pull/8570"}
+    )
+
+    assert reference is None
+
+
 def test_target_pr_reference_accepts_matching_branch_pr_lookup(
     tmp_path: Path,
 ) -> None:

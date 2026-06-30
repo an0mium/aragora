@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 try:  # Works both as ``python scripts/handoff_state.py`` and as ``scripts.handoff_state``.
     from scripts.github_cli_health import github_cli_env
@@ -2199,11 +2199,22 @@ def _target_pr_reference_from_value(value: Any) -> TargetPrReference | None:
     if not candidate.isdigit():
         return None
     repo = _github_repo_from_pull_url_prefix(repo_part)
+    parsed_repo_part = urlparse(repo_part.strip())
+    if repo is None and (parsed_repo_part.scheme or parsed_repo_part.netloc):
+        return None
     return TargetPrReference(number=int(candidate), repo=repo)
 
 
 def _github_repo_from_pull_url_prefix(prefix: str) -> str | None:
-    parts = [part for part in prefix.strip("/").split("/") if part]
+    value = prefix.strip()
+    parsed = urlparse(value)
+    if parsed.scheme or parsed.netloc:
+        if parsed.scheme not in {"http", "https"}:
+            return None
+        if parsed.netloc.lower() != "github.com":
+            return None
+        value = parsed.path
+    parts = [part for part in value.strip("/").split("/") if part]
     if len(parts) < 2:
         return None
     owner = parts[-2]

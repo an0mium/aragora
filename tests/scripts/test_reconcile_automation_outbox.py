@@ -1342,6 +1342,8 @@ def test_reconcile_keeps_outbox_requested_action_target_open_pr_without_branch_p
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["counts"]["satisfied_by_existing_receipt"] == 0
+    assert payload["counts"]["blocked_receipt_pr_head_mismatch"] == 0
+    assert payload["counts"]["blocked_receipt_unverified_publication"] == 1
     assert payload["counts"]["still_protecting_active_work"] == 1
     assert payload["actions"][0]["decision"] == "keep"
     assert handoff.exists()

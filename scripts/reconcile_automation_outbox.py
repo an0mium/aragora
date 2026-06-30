@@ -1061,6 +1061,13 @@ def _receipt_handoff_keep_reason(
     return f"{receipt_label} exists, but no matching target PR or branch proof is available"
 
 
+def _receipt_keep_counter(reason: str) -> str:
+    normalized = reason.lower()
+    if "not desired head" in normalized or "target pr does not match" in normalized:
+        return "blocked_receipt_pr_head_mismatch"
+    return "blocked_receipt_unverified_publication"
+
+
 def _superseded_targets(
     outbox_payloads: Sequence[tuple[Path, dict[str, Any]]],
 ) -> dict[tuple[str, str], dict[str, str]]:
@@ -1411,6 +1418,7 @@ def main(argv: list[str] | None = None) -> int:
         "satisfied_by_existing_receipt": 0,
         "archived_superseded_by_existing_issue": 0,
         "blocked_receipt_pr_head_mismatch": 0,
+        "blocked_receipt_unverified_publication": 0,
         "blocked_receipt_issue_only": 0,
         "satisfied_by_superseded_handoff": 0,
         "satisfied_by_landed_on_main": 0,
@@ -1525,7 +1533,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             if target_pr_handled:
                 if target_pr_keep_reason is not None:
-                    counts["blocked_receipt_pr_head_mismatch"] += 1
+                    counts[_receipt_keep_counter(target_pr_keep_reason)] += 1
                     counts["still_protecting_active_work"] += 1
                     actions.append(
                         {
@@ -1555,7 +1563,7 @@ def main(argv: list[str] | None = None) -> int:
                     root, args.repo_name, payload, receipt, branch
                 )
                 if keep_reason is not None:
-                    counts["blocked_receipt_pr_head_mismatch"] += 1
+                    counts[_receipt_keep_counter(keep_reason)] += 1
                     counts["still_protecting_active_work"] += 1
                     actions.append(
                         {
@@ -1598,7 +1606,7 @@ def main(argv: list[str] | None = None) -> int:
                 root, args.repo_name, payload, receipt, branch
             )
             if keep_reason is not None:
-                counts["blocked_receipt_pr_head_mismatch"] += 1
+                counts[_receipt_keep_counter(keep_reason)] += 1
                 counts["still_protecting_active_work"] += 1
                 actions.append(
                     {

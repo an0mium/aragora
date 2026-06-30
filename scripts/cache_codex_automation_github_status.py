@@ -28,7 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.github_cli_health import check_github_cli_health
-from scripts.handoff_state import target_pr_number_from_receipt
+from scripts.handoff_state import TargetPrReference, target_pr_reference_from_receipt
 from scripts.publish_automation_handoffs import _open_boss_ready_count
 from scripts.publish_codex_automation_branches import (
     CODEX_BRANCH_PREFIX,
@@ -252,8 +252,28 @@ def _head_from_receipt(payload: Mapping[str, Any]) -> str:
     return ""
 
 
+def _target_pr_references_match(
+    left: TargetPrReference,
+    right: TargetPrReference,
+    default_repo: str = DEFAULT_REPO,
+) -> bool:
+    if left.number != right.number:
+        return False
+    left_repo = (left.repo or default_repo).strip()
+    right_repo = (right.repo or default_repo).strip()
+    return left_repo == right_repo
+
+
+def _target_pr_reference_label(reference: TargetPrReference) -> str:
+    return f"{reference.repo or DEFAULT_REPO}#{reference.number}"
+
+
+def _target_pr_reference(payload: Mapping[str, Any]) -> TargetPrReference | None:
+    return target_pr_reference_from_receipt(payload)
+
+
 def _requests_target_pr(payload: Mapping[str, Any]) -> bool:
-    return target_pr_number_from_receipt(payload) is not None
+    return _target_pr_reference(payload) is not None
 
 
 def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
@@ -299,9 +319,22 @@ def _stale_target_pr_receipt_evidence(
     branch: str,
     receipt_payload: Mapping[str, Any],
 ) -> dict[str, str] | None:
+    _ = (repo_root, branch)
     reason = str(receipt_payload.get("reason") or "").strip().lower()
-    if reason != "target_open_pr" or not _requests_target_pr(outbox_payload):
+    outbox_reference = _target_pr_reference(outbox_payload)
+    if reason != "target_open_pr" or outbox_reference is None:
         return None
+
+    receipt_reference = _target_pr_reference(receipt_payload)
+    if receipt_reference is not None and not _target_pr_references_match(
+        outbox_reference,
+        receipt_reference,
+    ):
+        return {
+            "outbox_target_pr": _target_pr_reference_label(outbox_reference),
+            "receipt_target_pr": _target_pr_reference_label(receipt_reference),
+            "reason": "target_pr_reference_mismatch",
+        }
 
     desired_head = _desired_head_from_outbox(outbox_payload)
     if not desired_head:
@@ -317,13 +350,10 @@ def _stale_target_pr_receipt_evidence(
     if receipt_head:
         return None
 
-    remote_head = _remote_tracking_head(repo_root, branch)
-    if remote_head and remote_head != desired_head:
-        return {
-            "desired_head_sha": desired_head,
-            "remote_head_sha": remote_head,
-            "reason": "remote_tracking_head_mismatch",
-        }
+    # Target-PR receipts are proved by the target PR, not by the original
+    # handoff branch. If the receipt lacks a target_pr_head_sha, keep the local
+    # cache neutral; reconcile can query the PR directly when stronger proof is
+    # required.
     return None
 
 
@@ -504,7 +534,7 @@ def _local_queue_state(
                 unsatisfied_receipted_outbox.append(unsatisfied_evidence)
                 if unsatisfied_evidence.get("reason") in {
                     "receipt_head_mismatch",
-                    "remote_tracking_head_mismatch",
+                    "target_pr_reference_mismatch",
                 }:
                     stale_target_pr_receipted_outbox.append(unsatisfied_evidence)
 
