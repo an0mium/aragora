@@ -158,7 +158,7 @@ class TestEmitHandlerEventTraceContext:
             original_import = builtins.__import__
 
             def guarded_import(name, *args, **kwargs):
-                if name == "aragora.server.middleware.tracing":
+                if name == "aragora.observability.middleware.tracing":
                     raise ImportError("no tracing")
                 return original_import(name, *args, **kwargs)
 
