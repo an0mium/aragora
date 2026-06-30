@@ -16,6 +16,7 @@ Usage:
 import argparse
 import ast
 import json
+import os
 import re
 import sys
 from collections import defaultdict
@@ -580,6 +581,25 @@ def generate_gh_commands(issues: list[dict], dry_run: bool = True) -> list[str]:
     return commands
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Audit test skip markers")
     parser.add_argument("--count-only", action="store_true", help="Only output total count")
@@ -630,11 +650,11 @@ def main():
     report = generate_report(markers)
 
     if args.count_only:
-        print(report["total"])
+        _emit_output(str(report["total"]))
         return
 
     if args.json:
-        print(json.dumps(report, indent=2))
+        _emit_output(json.dumps(report, indent=2))
         return
 
     if args.update_docs:
@@ -642,12 +662,18 @@ def main():
         docs_path = tests_dir / "SKIP_AUDIT.md"
         markdown = generate_markdown(report)
         docs_path.write_text(markdown)
-        print(f"Updated {docs_path}")
 
         # Update baseline
         baseline_path = tests_dir / ".skip_baseline"
         baseline_path.write_text(str(report["total"]))
-        print(f"Updated {baseline_path} with baseline: {report['total']}")
+        _emit_output(
+            "\n".join(
+                [
+                    f"Updated {docs_path}",
+                    f"Updated {baseline_path} with baseline: {report['total']}",
+                ]
+            )
+        )
         return
 
     if args.generate_issues or args.gh_commands:
@@ -662,32 +688,37 @@ def main():
         if args.gh_commands:
             # Output gh CLI commands
             commands = generate_gh_commands(issues, dry_run=True)
-            print("# GitHub CLI commands to create issues")
-            print("# Remove the leading # to execute")
-            print(f"# Total issues: {len(issues)}")
-            print()
-            for cmd in commands:
-                print(cmd)
+            _emit_output(
+                "\n".join(
+                    [
+                        "# GitHub CLI commands to create issues",
+                        "# Remove the leading # to execute",
+                        f"# Total issues: {len(issues)}",
+                        "",
+                        *commands,
+                    ]
+                )
+            )
         else:
             # Output JSON issue templates
-            print(json.dumps(issues, indent=2))
+            _emit_output(json.dumps(issues, indent=2))
 
         return
 
     # Default: print summary
-    print(f"Total skip markers: {report['total']}")
-    print("\nBy category:")
+    lines = [f"Total skip markers: {report['total']}", "", "By category:"]
     for category, count in sorted(report["by_category"].items(), key=lambda x: -x[1]):
-        print(f"  {category}: {count}")
+        lines.append(f"  {category}: {count}")
 
-    print("\nBy type:")
+    lines.extend(["", "By type:"])
     for marker_type, count in sorted(report["by_type"].items(), key=lambda x: -x[1]):
-        print(f"  {marker_type}: {count}")
+        lines.append(f"  {marker_type}: {count}")
 
-    print("\nTop 5 high-skip files:")
+    lines.extend(["", "Top 5 high-skip files:"])
     for item in report["high_skip_files"][:5]:
         short_path = item["file"].replace(f"{REPO_ROOT}/", "")
-        print(f"  {short_path}: {item['count']}")
+        lines.append(f"  {short_path}: {item['count']}")
+    _emit_output("\n".join(lines))
 
 
 if __name__ == "__main__":

@@ -10,8 +10,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 CONFIG_FILE = ".aragora.yaml"
 ENV_KEYS = [
     "ANTHROPIC_API_KEY",
@@ -36,6 +34,8 @@ def find_config() -> Path | None:
 
 def load_config(config_path: Path | None = None) -> dict:
     """Load configuration from file."""
+    import yaml  # optional dep (PyYAML); deferred so the parser imports clean
+
     if config_path is None:
         config_path = find_config()
 
@@ -52,6 +52,8 @@ def load_config(config_path: Path | None = None) -> dict:
 
 def save_config(config: dict, config_path: Path | None = None) -> bool:
     """Save configuration to file."""
+    import yaml  # optional dep (PyYAML); deferred so the parser imports clean
+
     if config_path is None:
         config_path = find_config()
 
@@ -110,6 +112,8 @@ def cmd_config(args) -> None:
 
 def _show_config(args) -> None:
     """Show all configuration."""
+    import yaml  # optional dep (PyYAML); deferred so the parser imports clean
+
     config_path = find_config()
 
     if config_path is None:

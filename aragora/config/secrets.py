@@ -37,10 +37,59 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, cast
 
 logger = logging.getLogger(__name__)
+
+
+def _mfa_prompt_allowed(*, isatty: bool, env: Mapping[str, str] | None = None) -> bool:
+    """Whether an interactive AWS MFA prompt is permissible in this process.
+
+    A non-interactive process (cron automation, headless conductor, a background
+    evidence pass) must NEVER block on ``getpass`` for an MFA code — it hangs
+    forever with no TTY to answer it. This is the silent failure that wedged every
+    automated Secrets Manager load: the process appears to "run" but is stuck on an
+    invisible prompt. Allowed only when attached to a TTY, or when explicitly
+    overridden via ``ARAGORA_AWS_ALLOW_MFA_PROMPT`` (escape hatch for odd setups).
+    """
+    resolved: Mapping[str, str] = os.environ if env is None else env
+    override = str(resolved.get("ARAGORA_AWS_ALLOW_MFA_PROMPT", "")).strip().lower()
+    if override in ("1", "true", "yes"):
+        return True
+    return isatty
+
+
+def _fail_fast_mfa_prompter(prompt: str = "") -> str:
+    """Replaces botocore's interactive ``getpass`` MFA prompter in non-interactive
+    processes so AWS assume-role-with-MFA *fails fast* (caught → fall back to env /
+    .env secrets) instead of blocking forever on a TTY that isn't there."""
+    raise RuntimeError(
+        "AWS assume-role needs an interactive MFA code but this process has no TTY; "
+        "skipping Secrets Manager and falling back to environment/.env secrets. "
+        "Run interactively, pre-export an AWS session, or set "
+        "ARAGORA_USE_SECRETS_MANAGER=false to silence."
+    )
+
+
+def _has_controlling_tty() -> bool:
+    """Whether a controlling terminal is reachable for an interactive prompt.
+
+    botocore's MFA prompt uses ``getpass``, which reads ``/dev/tty`` (the controlling
+    terminal), NOT stdin — so ``sys.stdin.isatty()`` is the wrong question: a process
+    with redirected stdin but a live terminal (``python app.py </dev/null`` in an SSH
+    shell) could still prompt successfully. Probe ``/dev/tty`` directly to match what
+    getpass will actually do, so we only fail-fast when there is genuinely no terminal
+    (cron, nohup, a detached daemon).
+    """
+    try:
+        fd = os.open("/dev/tty", os.O_RDWR)
+    except OSError:
+        return False
+    os.close(fd)
+    return True
+
 
 # Import botocore exceptions for proper error handling
 # These are optional - if not installed, we use Exception as fallback
@@ -388,8 +437,13 @@ class SecretManager:
                     "mode": "standard",
                 },
             )
-            client = boto3.client("secretsmanager", region_name=region, config=config)
-            self._aws_clients[region] = client
+            client = self._build_client(boto3, region, config)
+            # Don't cache a fail-closed None: a later retry (e.g. after credentials
+            # become available, or in a different process state) must be able to
+            # re-attempt Secrets Manager rather than be pinned to None for the
+            # SecretManager instance's lifetime.
+            if client is not None:
+                self._aws_clients[region] = client
             return client
         except ImportError:
             logger.debug("boto3 not installed, AWS Secrets Manager unavailable")
@@ -404,6 +458,43 @@ class SecretManager:
             # Catch remaining non-boto exceptions (e.g., config errors, network)
             logger.warning(
                 "Failed to initialize AWS client (%s): %s: %s", region, type(e).__name__, e
+            )
+            return None
+
+    def _build_client(self, boto3: Any, region: str, config: Any) -> Any:
+        """Build the Secrets Manager client, neutering the interactive MFA prompt in
+        non-interactive processes.
+
+        A profile that requires assume-role-with-MFA (``AWS_PROFILE=aragora-secrets``)
+        otherwise blocks on ``getpass`` with no TTY to answer — the silent hang that
+        wedged every headless Secrets Manager load. Here, a non-interactive process
+        installs :func:`_fail_fast_mfa_prompter` so resolution fails fast and the
+        caller falls back to env/.env secrets. Interactive TTYs and MFA-free
+        credential paths (instance roles, OIDC) are unaffected.
+        """
+        if _mfa_prompt_allowed(isatty=_has_controlling_tty()):
+            return boto3.client("secretsmanager", region_name=region, config=config)
+        try:
+            # Reach botocore's session via boto3's own wrapper (``_session``) rather
+            # than importing botocore.session directly — keeps this off the typed
+            # import surface (boto3 is already an untyped/Any import).
+            boto_session = boto3.Session()
+            botocore_session = boto_session._session
+            provider = botocore_session.get_component("credential_provider").get_provider(
+                "assume-role"
+            )
+            provider._prompter = _fail_fast_mfa_prompter
+            return boto_session.client("secretsmanager", region_name=region, config=config)
+        except Exception:  # noqa: BLE001 - botocore internals vary by version
+            # Fail CLOSED, not back to the hang-prone default client: if the guard
+            # cannot be installed in a non-interactive process, returning
+            # boto3.client() here would re-enter the exact getpass MFA hang this
+            # exists to prevent. Returning None makes the caller fall back to
+            # env/.env secrets instead.
+            logger.warning(
+                "could not install non-interactive MFA guard for %s; refusing the "
+                "default client to avoid a getpass hang (using env/.env secrets)",
+                region,
             )
             return None
 

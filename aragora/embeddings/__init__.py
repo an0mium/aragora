@@ -59,7 +59,7 @@ from aragora.memory.embeddings import (
 )
 
 # Re-export core protocol for type checking
-from aragora.core_protocols import EmbeddingBackend
+from aragora.protocols import EmbeddingBackend
 
 
 def get_embedding_provider() -> EmbeddingProvider:

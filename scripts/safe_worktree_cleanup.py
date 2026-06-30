@@ -479,6 +479,58 @@ def _delete_branch(repo_root: Path, branch: str) -> bool:
     return proc.returncode == 0
 
 
+def _path_still_exists(path: Path) -> bool:
+    return path.exists() or path.is_symlink()
+
+
+def _residual_paths(path: Path, *, limit: int = 50) -> list[str]:
+    """Return a bounded list of residual entries under a failed purge path."""
+
+    if not _path_still_exists(path):
+        return []
+    if path.is_file() or path.is_symlink():
+        return [path.name]
+    residuals: list[str] = []
+    pending = [path]
+    while pending:
+        current = pending.pop()
+        try:
+            entries = current.iterdir()
+            for entry in entries:
+                residuals.append(str(entry.relative_to(path)))
+                if entry.is_dir() and not entry.is_symlink():
+                    pending.append(entry)
+                if len(residuals) >= limit:
+                    residuals.append("...")
+                    return residuals
+        except OSError:
+            if residuals:
+                residuals.append("<lookup_failed>")
+                return residuals
+            return ["<lookup_failed>"]
+    return residuals or ["."]
+
+
+def _purge_residual_path(path: Path) -> tuple[bool, str | None, list[str]]:
+    """Delete an untracked residue path and report truthfully if anything remains."""
+
+    if not _path_still_exists(path):
+        return True, None, []
+    purge_error: str | None = None
+    try:
+        if path.is_file() or path.is_symlink():
+            path.unlink()
+        else:
+            shutil.rmtree(path)
+    except OSError as exc:
+        purge_error = str(exc)
+    residuals = _residual_paths(path)
+    path_purged = not _path_still_exists(path)
+    if path_purged:
+        purge_error = None
+    return path_purged, purge_error, residuals
+
+
 def remove_worktree(
     repo_root: Path,
     inspection: WorktreeInspection,
@@ -493,6 +545,12 @@ def remove_worktree(
         "removed": False,
         "branch_deleted": False,
         "path_purged": False,
+        "requires_purge_path": False,
+        "git_remove_failed": False,
+        "git_worktree_removed": False,
+        "recovery_action": None,
+        "residual_paths": [],
+        "purge_error": None,
         "blockers": list(inspection.blockers),
         "cleanup_safety": cleanup_safety(inspection),
     }
@@ -513,36 +571,71 @@ def remove_worktree(
             )
         except subprocess.TimeoutExpired as exc:
             result["status"] = "remove_failed"
+            result["git_remove_failed"] = True
             result["stderr"] = f"git worktree remove timed out after {exc.timeout}s"
+            result["recovery_action"] = (
+                "git worktree remove timed out; rerun inspect before retrying cleanup"
+            )
             return result
         if proc.returncode != 0:
             result["status"] = "remove_failed"
+            result["git_remove_failed"] = True
             result["stderr"] = proc.stderr.strip()
+            result["recovery_action"] = (
+                "git worktree remove failed; rerun inspect before retrying cleanup"
+            )
             if not purge_path:
                 return result
         else:
             result["removed"] = True
             result["status"] = "removed"
+            result["git_worktree_removed"] = True
     else:
         result["status"] = "untracked_path"
         if not purge_path:
+            result["requires_purge_path"] = True
+            result["recovery_action"] = (
+                "rerun remove with --purge-path only after a fresh inspect returns "
+                "removable=true, blockers=[], dirty=false, active_session=false, "
+                "and open_prs=[] for this exact path"
+            )
             return result
 
-    if path.exists() and purge_path:
-        shutil.rmtree(path, ignore_errors=True)
-        result["path_purged"] = not path.exists()
+    if _path_still_exists(path) and purge_path:
+        path_purged, purge_error, residuals = _purge_residual_path(path)
+        result["path_purged"] = path_purged
+        result["residual_paths"] = residuals
+        if purge_error:
+            result["purge_error"] = purge_error
         if result["path_purged"]:
-            result["removed"] = True
+            if result["git_remove_failed"]:
+                result["status"] = "remove_failed_path_purged"
+                result["removed"] = False
+                result["recovery_action"] = (
+                    "filesystem path was purged, but git worktree remove failed; "
+                    "rerun inspect and reconcile git worktree metadata before deleting "
+                    "the branch or treating cleanup as complete"
+                )
+            else:
+                result["removed"] = True
+        else:
+            if result["git_remove_failed"]:
+                result["status"] = "remove_failed_purge_incomplete"
+            else:
+                result["status"] = "purge_incomplete"
+            result["removed"] = False
+            result["recovery_action"] = (
+                "path was not fully removed; inspect residual_paths and rerun cleanup "
+                "only after the remaining files are proven disposable"
+            )
 
-    if delete_branch and inspection.branch:
+    if delete_branch and inspection.branch and result.get("removed"):
         result["branch_deleted"] = _delete_branch(repo_root, inspection.branch)
 
     if result.get("status") in {"removed", "untracked_path"} and not result["removed"]:
         result["status"] = "partial"
     elif result.get("status") == "untracked_path" and result["removed"]:
         result["status"] = "purged"
-    elif result.get("status") == "remove_failed" and result["path_purged"]:
-        result["status"] = "purged_after_failed_remove"
 
     return result
 
@@ -573,7 +666,15 @@ def cmd_remove(args: argparse.Namespace) -> int:
     else:
         print(json.dumps(result, indent=2))
     status = str(result.get("status", ""))
-    if status in {"blocked", "remove_failed", "untracked_path", "partial"}:
+    if status in {
+        "blocked",
+        "remove_failed",
+        "remove_failed_path_purged",
+        "remove_failed_purge_incomplete",
+        "untracked_path",
+        "partial",
+        "purge_incomplete",
+    }:
         return 1
     return 0
 
@@ -608,7 +709,10 @@ def _build_parser() -> argparse.ArgumentParser:
     remove_parser.add_argument(
         "--purge-path",
         action="store_true",
-        help="Delete a residual path if git worktree removal leaves files behind",
+        help=(
+            "Delete the filesystem path after safety gates pass; required for untracked "
+            "residue and verified after removal"
+        ),
     )
     remove_parser.add_argument(
         "--force", action="store_true", help="Bypass active-session/open-PR blockers"

@@ -40,10 +40,12 @@ bootstraps and from any agent):
   same ``lane_id`` from a *different* ``owner_session`` is rejected
   unless ``--force`` is supplied; the helper exits 2 and prints a
   conflict hint so the caller can pick a different lane name or wait.
-- A mutating active claim is also rejected when a different active owner
-  already claims the same ``pr_number``, ``branch``, or ``worktree``.
-  Different lane IDs cannot silently duplicate work on the same PR or branch.
-  Read-only observers can opt into report-only claim creation with
+- A mutating active claim is also rejected when a different blocking owner
+  already claims the same ``pr_number``, ``branch``, or ``worktree``. Blocking
+  rows include live/active statuses, conflict rows, and unknown statuses.
+  Terminal rows such as ``released``, ``completed``, ``expired``, and
+  ``superseded`` do not block. Different lane IDs cannot silently duplicate work
+  on the same PR or branch. Read-only observers can opt into report-only claim creation with
   ``--allow-resource-conflicts``.
 - Never deletes rows. Never writes a lane row with a missing
   ``lane_id`` or empty ``owner_session``.
@@ -106,6 +108,7 @@ ALLOWED_STATUSES = (
     "blocked",
     "released",
     "completed",
+    "expired",
     "superseded",
     "conflict",
 )
@@ -152,6 +155,7 @@ ACTIVE_STATUSES = {
     "working",
     "blocked",
 }
+TERMINAL_NON_BLOCKING_STATUSES = {"released", "completed", "expired", "superseded"}
 
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
@@ -294,7 +298,8 @@ def _active_identity_conflict(
     if not requested or str(normalized.get("status") or "") not in ACTIVE_STATUSES:
         return None
     for existing in rows:
-        if str(existing.get("status") or "") not in ACTIVE_STATUSES:
+        existing_status = str(existing.get("status") or "").strip()
+        if existing_status in TERMINAL_NON_BLOCKING_STATUSES:
             continue
         existing_owner = str(existing.get("owner_session") or "")
         if not existing_owner or existing_owner == owner_session:
@@ -312,10 +317,16 @@ def release_stale_claims(
     registry_path: Path,
     owner_session: str,
     ttl_minutes: float,
+    lane_id: str = "",
+    pr_number: int | None = None,
     updated_at: str | None = None,
     now: dt.datetime | None = None,
 ) -> dict[str, Any]:
-    """Release stale active claims owned by ``owner_session``."""
+    """Release stale active claims owned by ``owner_session``.
+
+    Optional ``lane_id`` / ``pr_number`` filters let automation clear one
+    verified stale lane without releasing every stale row for that owner.
+    """
     if not owner_session:
         raise ValueError("owner_session must not be empty")
     if ttl_minutes < 0:
@@ -333,6 +344,12 @@ def release_stale_claims(
             if str(row.get("owner_session") or "") != owner_session:
                 out_rows.append(row)
                 continue
+            if lane_id and str(row.get("lane_id") or "") != lane_id:
+                out_rows.append(row)
+                continue
+            if pr_number is not None and row.get("pr_number") != pr_number:
+                out_rows.append(row)
+                continue
             if str(row.get("status") or "") not in ACTIVE_STATUSES:
                 out_rows.append(row)
                 continue
@@ -348,6 +365,8 @@ def release_stale_claims(
         _atomic_write(registry_path, out_rows)
         return {
             "owner_session": owner_session,
+            "lane_id": lane_id,
+            "pr_number": pr_number,
             "released_count": len(released),
             "released_lane_ids": released,
             "registry_path": str(registry_path),
@@ -543,7 +562,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-resource-conflicts",
         action="store_true",
         help=(
-            "Allow a claim even if another active owner claims the same "
+            "Allow a claim even if another blocking owner claims the same "
             "pr_number, branch, or worktree. Default is fail-closed for "
             "mutating lane ownership."
         ),
@@ -607,6 +626,8 @@ def main(argv: list[str] | None = None) -> int:
                 registry_path=registry_path,
                 owner_session=args.owner_session,
                 ttl_minutes=float(args.ttl_minutes),
+                lane_id=args.lane_id,
+                pr_number=args.pr_number,
                 updated_at=args.updated_at,
             )
         else:

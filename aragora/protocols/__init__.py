@@ -69,22 +69,28 @@ from aragora.protocols.bridge import ProtocolBridge
 # =============================================================================
 # Backend Protocols (sync, simple interfaces for storage)
 # =============================================================================
-from aragora.core_protocols import (
+from aragora.protocols.backend_protocols import (
     # Agent basics
     Agent,
     AgentRating,
+    # Type aliases
+    AgentRecord,
     # HTTP/Auth
     AuthenticatedUser,
-    HTTPHeaders,
-    HTTPRequestHandler,
     # Storage backends
     ConsensusBackend,
     CritiqueBackend,
+    DebateRecord,
     EloBackend,
     EmbeddingBackend,
     GenesisBackend,
+    HTTPHeaders,
+    HTTPRequestHandler,
     MemoryBackend,
+    MemoryRecord,
+    PathSegments,
     PersonaBackend,
+    QueryParams,
     StorageBackend,
 )
 
@@ -191,6 +197,12 @@ __all__ = [
     "MemoryBackend",
     "PersonaBackend",
     "StorageBackend",
+    # Backend type aliases
+    "DebateRecord",
+    "MemoryRecord",
+    "AgentRecord",
+    "QueryParams",
+    "PathSegments",
     # Domain protocols - Agents
     "AgentProtocol",
     "StreamingAgentProtocol",

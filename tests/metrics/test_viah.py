@@ -1,14 +1,16 @@
-"""Tests for aragora.metrics.viah — VIAH score from ShiftLedger entries."""
+"""Tests for aragora.evaluation.viah — VIAH score from ShiftLedger entries."""
 
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-from aragora.metrics.viah import (
+from aragora.evaluation.viah import (
     VIAH_TREND_FLAG,
     ViahCoefficients,
     ViahReport,
@@ -20,6 +22,22 @@ from aragora.metrics.viah import (
     viah_trend_enabled,
 )
 from aragora.swarm.shift_ledger import ShiftLedger
+
+
+def test_viah_import_does_not_load_llm_judge_stack() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "import aragora.evaluation.viah; "
+                "raise SystemExit('aragora.evaluation.llm_judge' in sys.modules)"
+            ),
+        ],
+        check=False,
+    )
+    assert result.returncode == 0
 
 
 def _ts(at: datetime) -> str:
@@ -471,4 +489,3 @@ class TestRollingViahTrend:
         ledger = _seed_ledger(tmp_path, [])
         with pytest.raises(ValueError, match="weeks"):
             rolling_viah_trend(ledger=ledger, weeks=0)
-        assert report.window_start.endswith("Z")
