@@ -12,24 +12,24 @@
 
 | Metric | Value | Source | Command |
 |---|---|---|---|
-| Python files under aragora/ | `4219` | `aragora/` | `git ls-files aragora \| grep -E '\.py$' \| wc -l` |
-| Python lines of code under aragora/ | `1972052` | `aragora/` | `python3 -c "from pathlib import Path; import subprocess; files = subprocess.check_output(['git', 'ls-files', 'aragora'], text=True).splitlines(); print(sum(sum(1 for _ in Path(p).open(encoding='utf-8', errors='replace')) for p in files if p.endswith('.py')))"` |
+| Python files under aragora/ | `4251` | `aragora/` | `git ls-files aragora \| grep -E '\.py$' \| wc -l` |
+| Python lines of code under aragora/ | `1973642` | `aragora/` | `python3 -c "from pathlib import Path; import subprocess; files = subprocess.check_output(['git', 'ls-files', 'aragora'], text=True).splitlines(); print(sum(sum(1 for _ in Path(p).open(encoding='utf-8', errors='replace')) for p in files if p.endswith('.py')))"` |
 | Top-level modules under aragora/ | `144` | `aragora/` | `git ls-files aragora \| awk -F/ 'NF>2 {print $2}' \| sort -u \| wc -l` |
-| Test files (test_*.py under tests/) | `5402` | `tests/` | `git ls-files tests \| grep -E '(^\|/)test_[^/]*\.py$' \| wc -l` |
-| Test functions (class + module level) | `222659` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
-| @pytest.mark.parametrize decorators | `813` | `tests/` | `git grep -E '@pytest\.mark\.parametrize' -- tests \| wc -l` |
+| Test files (test_*.py under tests/) | `5411` | `tests/` | `git ls-files tests \| grep -E '(^\|/)test_[^/]*\.py$' \| wc -l` |
+| Test functions (class + module level) | `222728` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
+| @pytest.mark.parametrize decorators | `815` | `tests/` | `git grep -E '@pytest\.mark\.parametrize' -- tests \| wc -l` |
 | CLI top-level command modules | `83` | `aragora/cli/commands/` | `git ls-files aragora/cli/commands \| grep -E '/[^/]*\.py$' \| grep -v '/__' \| wc -l` |
 | OpenAPI paths | `2870` | `docs/api/openapi.json` | `python -c "import json; print(len(json.load(open('docs/api/openapi.json'))['paths']))"` |
 | OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `python -c "import json; spec=json.load(open('docs/api/openapi.json')); print(sum(1 for p in spec['paths'].values() for m in p if m.lower() in {'get','post','put','delete','patch','head','options'}))"` |
 | @require_permission decorator calls | `1362` | `aragora/` | `git grep -E '@require_permission\(' -- aragora \| wc -l` |
-| Unique permission strings | `423` | `aragora/` | `git grep -h -o -E "@require_permission\(['\"][^'\"]+['\"]\)" -- aragora \| sed -E "s/.*['\"]([^'\"]+)['\"].*/\1/" \| sort -u \| wc -l` |
+| Unique permission strings | `423` | `aragora/` | `git grep -h -o -E "@require_permission\(['\"][^'\"]+['\"]\)" -- aragora \| sed -E "s/.*['\"]([^'\"]+)['\"].*/\\1/" \| sort -u \| wc -l` |
 | Python SDK modules | `198` | `sdk/python/` | `git ls-files sdk/python/aragora_sdk \| grep -E '\.py$' \| grep -v '/__' \| awk -F/ 'NF<=5' \| wc -l` |
 | TypeScript SDK modules | `216` | `sdk/typescript/` | `git ls-files sdk/typescript/src \| grep -E '\.ts$' \| awk -F/ 'NF<=5' \| wc -l` |
 | Allowlisted agent types | `35` | `aragora/config/settings.py` | `grep -A 50 'ALLOWED_AGENT_TYPES' aragora/config/settings.py \| grep -oE "'[a-z-]+'" \| sort -u \| wc -l` |
 | Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `git grep -E '"\.[a-z_]+_adapter"' -- aragora/knowledge/mound/adapters/factory.py \| wc -l` |
 | Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `git ls-files aragora/knowledge/mound/adapters \| grep -E '/[^/]+_adapter\.py$' \| wc -l` |
-| Markdown files under docs/ | `1020` | `docs/` | `git ls-files docs \| grep -E '\.md$' \| wc -l` |
-| GitHub Actions workflows | `89` | `.github/workflows/` | `git ls-files .github/workflows \| grep -E '\.yml$' \| wc -l` |
+| Markdown files under docs/ | `1024` | `docs/` | `git ls-files docs \| grep -E '\.md$' \| wc -l` |
+| GitHub Actions workflows | `90` | `.github/workflows/` | `git ls-files .github/workflows \| grep -E '\.yml$' \| wc -l` |
 | Mypy baseline errors (grandfathered) | `3115` | `.mypy-baseline` | `wc -l .mypy-baseline` |
 
 ## Notes on counting methodology
@@ -49,7 +49,7 @@ All other docs that cite a metric should link here rather than hard-code the num
 
 The `--check` mode fails if any metric moved by more than 0.5% from the committed doc. This threshold is a trade-off: lower values (e.g. 0.1%) would trigger on small absolute moves in small-denominator metrics (e.g. adapter count changing by one), forcing doc churn on normal development. Higher values (e.g. 5%) would let meaningful drift accumulate silently. 0.5% was picked as the default; it is a constant in `scripts/regenerate_metrics.py` (`DRIFT_THRESHOLD`) and can be tuned if specific metrics prove too noisy.
 
-New metrics (present in the script but not in the committed doc) are reported as `NEW:` in the check output and force a refresh regardless of threshold.
+New metrics (present in the script but not in the committed doc) are reported as `NEW:` in the check output and force a refresh regardless of threshold. 
 
 ## Related automation
 
