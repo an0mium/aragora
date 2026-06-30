@@ -295,7 +295,7 @@ class TestBatchViaServer:
             "status_url": "http://localhost:8080/status/batch-123",
         }
 
-        with patch("aragora.cli.batch.httpx.post", return_value=mock_response):
+        with patch("aragora.security.safe_http.safe_post", return_value=mock_response):
             _batch_via_server(items, args)
 
         captured = capsys.readouterr()
@@ -323,7 +323,7 @@ class TestBatchViaServer:
         mock_response.raise_for_status.side_effect = mock_error
         mock_response.text = "Server Error"
 
-        with patch("aragora.cli.batch.httpx.post", return_value=mock_response):
+        with patch("aragora.security.safe_http.safe_post", return_value=mock_response):
             with pytest.raises(SystemExit) as exc_info:
                 _batch_via_server(items, args)
 
@@ -347,7 +347,7 @@ class TestBatchViaServer:
         request = httpx.Request("POST", "http://localhost:8080/api/debates/batch")
         mock_error = httpx.RequestError("Connection refused", request=request)
 
-        with patch("aragora.cli.batch.httpx.post", side_effect=mock_error):
+        with patch("aragora.security.safe_http.safe_post", side_effect=mock_error):
             with pytest.raises(SystemExit) as exc_info:
                 _batch_via_server(items, args)
 
@@ -371,7 +371,7 @@ class TestBatchViaServer:
         mock_response.raise_for_status = MagicMock()
         mock_response.json.return_value = {"success": True, "batch_id": "batch-123"}
 
-        with patch("aragora.cli.batch.httpx.post", return_value=mock_response) as mock_post:
+        with patch("aragora.security.safe_http.safe_post", return_value=mock_response) as mock_post:
             _batch_via_server(items, args)
 
         # Check that webhook was included in request
@@ -532,7 +532,7 @@ class TestPollBatchStatus:
             mock_resp.raise_for_status = MagicMock()
             return mock_resp
 
-        with patch("aragora.cli.batch.httpx.get", side_effect=mock_get):
+        with patch("aragora.security.safe_http.safe_get", side_effect=mock_get):
             with patch("aragora.cli.batch.time.sleep"):  # Skip actual sleeping
                 _poll_batch_status("http://localhost:8080", "batch-123", None)
 
@@ -553,7 +553,7 @@ class TestPollBatchStatus:
         }
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("aragora.cli.batch.httpx.get", return_value=mock_resp):
+        with patch("aragora.security.safe_http.safe_get", return_value=mock_resp):
             with patch("aragora.cli.batch.time.sleep"):
                 _poll_batch_status("http://localhost:8080", "batch-123", None)
 
@@ -574,7 +574,7 @@ class TestPollBatchStatus:
         }
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("aragora.cli.batch.httpx.get", return_value=mock_resp):
+        with patch("aragora.security.safe_http.safe_get", return_value=mock_resp):
             with patch("aragora.cli.batch.time.sleep"):
                 _poll_batch_status("http://localhost:8080", "batch-123", None)
 

@@ -1118,6 +1118,8 @@ def _classify_agent_process(command: str) -> str | None:
         return None
     if "codex_worktree_value_inventory.py" in lowered:
         return "worktree_inventory"
+    if "render_benchmark_truth_status.py" in lowered:
+        return "benchmark_truth"
     if "run_boss_cycle.sh" in lowered:
         return "boss_cycle"
     if (
@@ -1151,6 +1153,7 @@ def _process_summary_for_role(role: str) -> str:
         "claude_code": "Claude Code local session process",
         "codex_app_server": "Codex Desktop app server process",
         "codex_cli": "Codex CLI process",
+        "benchmark_truth": "benchmark-truth status and latest-pointer guard process",
         "factory_droid": "Factory/Droid local agent process",
         "multi_agent_dialog": "multi-agent review dialog process",
         "publisher": "Codex automation publisher process",
@@ -2630,12 +2633,17 @@ def _heartbeat_summary(
     now_dt: datetime,
     freshness_seconds: int,
 ) -> dict[str, Any]:
+    terminal = bool(
+        row.get("terminal") is True
+        or row.get("terminal_outcome")
+        or row.get("terminal_finalized_at")
+    )
     seen = _parse_heartbeat_timestamp(row.get("last_seen_at"))
     age_seconds: int | None = None
     fresh = False
     if seen is not None:
         age_seconds = max(0, int((now_dt - seen).total_seconds()))
-        fresh = age_seconds <= freshness_seconds
+        fresh = not terminal and age_seconds <= freshness_seconds
     return {
         "lane_id": row.get("lane_id"),
         "owner_session": row.get("owner_session"),
@@ -2648,6 +2656,10 @@ def _heartbeat_summary(
         "last_seen_at": row.get("last_seen_at"),
         "age_seconds": age_seconds,
         "fresh": fresh,
+        "terminal": terminal,
+        "terminal_outcome": row.get("terminal_outcome"),
+        "terminal_reason": row.get("terminal_reason"),
+        "terminal_finalized_at": row.get("terminal_finalized_at"),
     }
 
 
@@ -2661,11 +2673,23 @@ def _collect_agent_heartbeats(
 
     path = heartbeat_path or _heartbeat_file_for_read()
     if not path.exists():
-        return {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}}
+        return {
+            "count": 0,
+            "fresh_count": 0,
+            "stale_count": 0,
+            "terminal_count": 0,
+            "latest_by_owner": {},
+        }
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}}
+        return {
+            "count": 0,
+            "fresh_count": 0,
+            "stale_count": 0,
+            "terminal_count": 0,
+            "latest_by_owner": {},
+        }
     rows = [row for row in raw if isinstance(row, dict)] if isinstance(raw, list) else []
     now_dt = _parse_heartbeat_timestamp(now) if now else datetime.now(UTC)
     if now_dt is None:
@@ -2690,7 +2714,12 @@ def _collect_agent_heartbeats(
     return {
         "count": len(summaries),
         "fresh_count": sum(1 for summary in summaries if summary.get("fresh") is True),
-        "stale_count": sum(1 for summary in summaries if summary.get("fresh") is False),
+        "stale_count": sum(
+            1
+            for summary in summaries
+            if summary.get("fresh") is False and summary.get("terminal") is not True
+        ),
+        "terminal_count": sum(1 for summary in summaries if summary.get("terminal") is True),
         "latest_by_owner": latest_by_owner,
     }
 
@@ -2967,6 +2996,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
             "count": int(agent_heartbeats.get("count", 0)),
             "fresh_count": int(agent_heartbeats.get("fresh_count", 0)),
             "stale_count": int(agent_heartbeats.get("stale_count", 0)),
+            "terminal_count": int(agent_heartbeats.get("terminal_count", 0)),
         }
         snapshot["records_omitted"] = True
 

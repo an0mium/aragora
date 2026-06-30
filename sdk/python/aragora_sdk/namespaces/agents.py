@@ -98,6 +98,20 @@ class AgentsAPI:
         """Get agent's calibration summary."""
         return self._client.request("GET", f"/api/v1/agent/{name}/calibration-summary")
 
+    def get_calibration_report(self, name: str, domain: str | None = None) -> dict[str, Any]:
+        """Get agent's auditable calibration report.
+
+        Structured, interpretable calibration breakdown (per-domain accuracy,
+        Brier/calibration-curve summary, sample sizes, data window) built from
+        existing calibration data. Agents with no calibration data return an
+        explicit ``{"status": "absent", "reason": ...}`` body — never
+        fabricated numbers.
+        """
+        params = {"domain": domain} if domain else None
+        return self._client.request(
+            "GET", f"/api/v1/agents/{name}/calibration-report", params=params
+        )
+
     def get_domains(self, name: str) -> dict[str, Any]:
         """Get domains the agent specializes in."""
         return self._client.request("GET", f"/api/v1/agent/{name}/domains")
@@ -564,6 +578,20 @@ class AsyncAgentsAPI:
         """Get agent's calibration summary."""
         return await self._client.request("GET", f"/api/v1/agent/{name}/calibration-summary")
 
+    async def get_calibration_report(self, name: str, domain: str | None = None) -> dict[str, Any]:
+        """Get agent's auditable calibration report.
+
+        Structured, interpretable calibration breakdown (per-domain accuracy,
+        Brier/calibration-curve summary, sample sizes, data window) built from
+        existing calibration data. Agents with no calibration data return an
+        explicit ``{"status": "absent", "reason": ...}`` body — never
+        fabricated numbers.
+        """
+        params = {"domain": domain} if domain else None
+        return await self._client.request(
+            "GET", f"/api/v1/agents/{name}/calibration-report", params=params
+        )
+
     async def get_domains(self, name: str) -> dict[str, Any]:
         """Get domains the agent specializes in."""
         return await self._client.request("GET", f"/api/v1/agent/{name}/domains")
@@ -673,13 +701,17 @@ class AsyncAgentsAPI:
 
     async def calibrate(self, name: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
         """Trigger calibration for an agent."""
-        return await self._client.request("POST", f"/api/v1/agents/{name}/calibrate", json=options or {})
+        return await self._client.request(
+            "POST", f"/api/v1/agents/{name}/calibrate", json=options or {}
+        )
 
     async def get_elo(self, name: str) -> dict[str, Any]:
         """Get agent's current ELO rating."""
         return await self._client.request("GET", f"/api/v1/agents/{name}/elo")
 
-    async def update_elo(self, name: str, elo_change: int, reason: str | None = None) -> dict[str, Any]:
+    async def update_elo(
+        self, name: str, elo_change: int, reason: str | None = None
+    ) -> dict[str, Any]:
         """Update agent's ELO rating."""
         body: dict[str, Any] = {"elo_change": elo_change}
         if reason:

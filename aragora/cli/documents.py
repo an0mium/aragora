@@ -16,8 +16,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 
 def create_documents_parser(subparsers: Any) -> None:
     """Create the documents subcommand parser."""
@@ -159,6 +157,8 @@ def cmd_upload(args: argparse.Namespace) -> int:
 
 async def _upload_async(args: argparse.Namespace) -> int:
     """Async upload implementation."""
+    import yaml  # optional dep (PyYAML); deferred so the parser imports clean
+
     from aragora.documents.folder import (
         FolderScanner,
         FolderUploadConfig,

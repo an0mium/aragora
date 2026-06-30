@@ -13,6 +13,7 @@ Routes tasks to best-fit agents by:
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -81,6 +82,57 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "philosophy": 0.85,  # Rigorous reasoning
         "general": 0.85,
     },
+    # Cheap-tier coding models (Qwen Code, Kimi). Strong, low-cost; their low
+    # cost_factor (below) routes routine work here, reserving frontier subs.
+    "qwen": {
+        "debugging": 0.8,
+        "testing": 0.78,
+        "performance": 0.75,
+        "frontend": 0.78,
+        "api": 0.75,
+        "database": 0.72,
+        "general": 0.72,
+    },
+    "kimi": {
+        "reasoning": 0.8,
+        "architecture": 0.75,
+        "documentation": 0.78,
+        "data_analysis": 0.78,
+        "api": 0.72,
+        "general": 0.74,
+    },
+}
+
+# OpenRouter Fusion is NOT a default agent -- it is opt-in via the enable_fusion
+# feature flag, so it is kept out of DEFAULT_AGENT_EXPERTISE (the always-on
+# defaults) and registered separately only when the flag is set. As a
+# multi-model council it is broadly strong rather than specialized; its high
+# cost_factor (~4.5x) means the Pareto optimizer picks it only when quality
+# outweighs cost.
+FUSION_EXPERTISE: dict[str, float] = {
+    "reasoning": 0.92,
+    "architecture": 0.9,
+    "security": 0.88,
+    "api": 0.88,
+    "data_analysis": 0.9,
+    "philosophy": 0.9,
+    "general": 0.88,
+}
+
+# Relative cost multipliers for the always-on agents so the Pareto optimizer
+# reflects the real ~20-45x cheap-vs-frontier gap (Artificial Analysis v4.1:
+# DeepSeek/Qwen/Kimi ~$0.04-0.10/task vs Claude/Codex ~$1-1.8/task). Cheap-tier
+# agents get a low cost_factor so routine work routes to them, reserving the
+# frontier subscriptions' rate budget for high-stakes tasks. This serves the
+# predictable-cost (subscription-first) posture. Unlisted agents default to 1.0x.
+AGENT_COST_FACTORS: dict[str, float] = {
+    "deepseek": 0.3,
+    "qwen": 0.35,
+    "kimi": 0.4,
+    "gemini": 0.5,  # Gemini/Antigravity Flash: cheap + fast
+    "grok": 0.8,
+    "codex": 1.0,
+    "claude": 1.2,
 }
 
 if TYPE_CHECKING:
@@ -933,14 +985,39 @@ class AgentSelector:
         """
         selector = cls(elo_system=elo_system, persona_manager=persona_manager)
 
-        # Register agents with default expertise
+        # Per-agent cost/latency overrides (default 1.0x / 1000ms). Fusion runs a
+        # model panel + judge, so it is ~4.5x cost and slower; this lets the
+        # Pareto optimizer naturally skip it on low budgets and pick it only when
+        # quality outweighs cost.
+        # Register the always-on default agents (1.0x cost / 1000ms latency).
         for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
-            profile = AgentProfile(
-                name=agent_name,
-                agent_type=agent_name,
-                expertise=expertise.copy(),
+            if agent_name == "kimi" and not os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
+                continue
+            selector.register_agent(
+                AgentProfile(
+                    name=agent_name,
+                    agent_type=agent_name,
+                    expertise=expertise.copy(),
+                    cost_factor=AGENT_COST_FACTORS.get(agent_name, 1.0),
+                )
             )
-            selector.register_agent(profile)
+
+        # Fusion is opt-in: expose it to the Pareto optimizer ONLY when
+        # enable_fusion is set, so a stock install (flag OFF) never auto-selects
+        # it -- enforcing the default-OFF guarantee. Its high cost/latency make
+        # the optimizer pick it only when quality outweighs cost.
+        from aragora.config.feature_flags import is_enabled as _flag_enabled
+
+        if _flag_enabled("enable_fusion"):
+            selector.register_agent(
+                AgentProfile(
+                    name="fusion",
+                    agent_type="fusion",
+                    expertise=FUSION_EXPERTISE.copy(),
+                    cost_factor=4.5,
+                    latency_ms=4500.0,
+                )
+            )
 
         # Sync from ELO if available
         if elo_system:
@@ -963,4 +1040,5 @@ __all__ = [
     "PHASE_ROLES",
     # Constants
     "DEFAULT_AGENT_EXPERTISE",
+    "FUSION_EXPERTISE",
 ]

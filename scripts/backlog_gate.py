@@ -54,7 +54,18 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+
+from aragora.swarm.pr_value import (  # noqa: E402
+    CLASS_MAINTENANCE,
+    DEFAULT_MAX_MAINTENANCE_RATIO,
+    DEFAULT_STALE_DAYS,
+    build_value_report,
+)
 
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_BRANCH_PREFIXES = ("codex/",)
@@ -62,6 +73,7 @@ DEFAULT_OUTBOX_DIR = os.path.join(".aragora", "automation-outbox")
 DEFAULT_SIGNAL_FILE = os.path.join(".aragora", "backpressure.json")
 DEFAULT_MAX_OPEN_PRS = 60
 DEFAULT_MAX_OUTBOX = 50
+DEFAULT_WITHHELD_CLASSES = (CLASS_MAINTENANCE,)
 GH_TIMEOUT_SECONDS = 120
 GH_LIST_LIMIT = 300
 
@@ -72,7 +84,7 @@ EXIT_SHEPHERD = 3
 MODE_GENERATE = "generate"
 MODE_SHEPHERD = "shepherd"
 
-_GH_LIST_FIELDS = "number,headRefName,isDraft,createdAt"
+_GH_LIST_FIELDS = "number,headRefName,title,labels,isDraft,createdAt,updatedAt"
 
 
 # --- Inputs (read-only) -------------------------------------------------------------
@@ -153,6 +165,8 @@ def run_gate(
     outbox_dir: str = DEFAULT_OUTBOX_DIR,
     max_open_prs: int = DEFAULT_MAX_OPEN_PRS,
     max_outbox: int = DEFAULT_MAX_OUTBOX,
+    max_maintenance_ratio: float = DEFAULT_MAX_MAINTENANCE_RATIO,
+    stale_days: int = DEFAULT_STALE_DAYS,
     signal_file: str = DEFAULT_SIGNAL_FILE,
     quiet: bool = False,
     now: datetime | None = None,
@@ -167,7 +181,11 @@ def run_gate(
     if now is None:
         now = datetime.now(timezone.utc)
     generated_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    thresholds = {"max_open_prs": max_open_prs, "max_outbox": max_outbox}
+    thresholds = {
+        "max_open_prs": max_open_prs,
+        "max_outbox": max_outbox,
+        "max_maintenance_ratio": max_maintenance_ratio,
+    }
 
     def emit(payload: dict[str, Any]) -> None:
         if not quiet:
@@ -194,6 +212,7 @@ def run_gate(
             "ready": None,
             "outbox_depth": None,
             "thresholds": thresholds,
+            "value_composition": None,
             "generated_at": generated_at,
             "annotations": [],
         }
@@ -211,12 +230,24 @@ def run_gate(
     open_count = len(prs)
     drafts = sum(1 for pr in prs if bool(pr.get("isDraft")))
     ready = open_count - drafts
+    value_report = build_value_report(
+        prs,
+        stale_days=stale_days,
+        max_maintenance_ratio=max_maintenance_ratio,
+        now=now,
+        annotations=[],
+    )
 
     reasons: list[str] = []
     if open_count >= max_open_prs:
         reasons.append(f"open_prs:{open_count}>=max_open_prs:{max_open_prs}")
     if depth >= max_outbox:
         reasons.append(f"outbox_depth:{depth}>=max_outbox:{max_outbox}")
+    if value_report["maintenance_ratio"] > max_maintenance_ratio:
+        reasons.append(
+            "maintenance_ratio:"
+            f"{value_report['maintenance_ratio']}>max_maintenance_ratio:{max_maintenance_ratio}"
+        )
 
     annotations: list[str] = []
     if outbox_missing:
@@ -229,6 +260,7 @@ def run_gate(
     if len(raw_prs) >= GH_LIST_LIMIT:
         reasons.append(f"list_truncated:>={GH_LIST_LIMIT}")
         annotations.append(f"list_truncated:>={GH_LIST_LIMIT}")
+        value_report["annotations"].append(f"list_truncated:>={GH_LIST_LIMIT}")
 
     mode = MODE_SHEPHERD if reasons else MODE_GENERATE
     payload = {
@@ -239,9 +271,15 @@ def run_gate(
         "ready": ready,
         "outbox_depth": depth,
         "thresholds": thresholds,
+        "value_composition": value_report,
         "generated_at": generated_at,
         "annotations": annotations,
     }
+    if reasons:
+        payload["admission"] = {
+            "withhold_classes": list(DEFAULT_WITHHELD_CLASSES),
+            "source": "backlog_gate",
+        }
 
     try:
         atomic_write_json(signal_file, payload)
@@ -309,6 +347,19 @@ def main(argv: list[str] | None = None) -> int:
         f"at/over this the gate says shepherd",
     )
     parser.add_argument(
+        "--max-maintenance-ratio",
+        type=float,
+        default=DEFAULT_MAX_MAINTENANCE_RATIO,
+        help=f"Maintenance-ratio threshold (default {DEFAULT_MAX_MAINTENANCE_RATIO}); "
+        "above this the gate says shepherd",
+    )
+    parser.add_argument(
+        "--stale-days",
+        type=int,
+        default=DEFAULT_STALE_DAYS,
+        help=f"Open PRs older than this many days count as stale (default {DEFAULT_STALE_DAYS})",
+    )
+    parser.add_argument(
         "--signal-file",
         default=DEFAULT_SIGNAL_FILE,
         help=f"Path for the atomically-written signal JSON (default {DEFAULT_SIGNAL_FILE})",
@@ -329,6 +380,8 @@ def main(argv: list[str] | None = None) -> int:
         outbox_dir=args.outbox_dir,
         max_open_prs=args.max_open_prs,
         max_outbox=args.max_outbox,
+        max_maintenance_ratio=args.max_maintenance_ratio,
+        stale_days=args.stale_days,
         signal_file=args.signal_file,
         quiet=args.quiet,
     )
