@@ -44,6 +44,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
 from github_cli_health import check_github_cli_health  # noqa: E402
 from handoff_state import (  # noqa: E402
     NarrowGitHubClient,
+    desired_base_from_payload,
     full_heads_match,
     github_evidence_for_branch,
     target_pr_number_from_receipt,
@@ -346,17 +347,7 @@ def _lane_record_from_payload(payload: Mapping[str, Any], branch: str) -> dict[s
 
 
 def _requested_base_from_payload(payload: Mapping[str, Any]) -> str:
-    requested_action = _mapping_from_action(payload.get("requested_action"))
-    if requested_action is not None:
-        for key in ("base", "base_ref", "base_ref_name", "target_base"):
-            base = str(requested_action.get(key) or "").strip()
-            if base:
-                return base
-    for key in ("base", "base_ref", "base_ref_name", "target_base"):
-        base = str(payload.get(key) or "").strip()
-        if base:
-            return base
-    return ""
+    return desired_base_from_payload(payload)
 
 
 def _upstream_base_matches(upstream: Mapping[str, Any], expected_base: str) -> bool:
@@ -959,6 +950,7 @@ def _exact_open_pr_terminal_candidate(
     repo_name: str,
     payload: dict[str, Any],
     branch: str,
+    github_client: NarrowGitHubClient | None = None,
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Return terminal disposition when an exact open PR already represents a handoff.
 
@@ -967,11 +959,17 @@ def _exact_open_pr_terminal_candidate(
     head to match before an outbox item can be archived.
     """
 
+    if not _is_pr_publication_request(payload):
+        return None, None
+    records = _lane_records_from_payload(payload, branch)
+    if any(_has_local_work_marker(record) for record in records):
+        return None, "exact open PR terminal-archive gate: local work marker present"
+
     desired_head = _desired_head_from_payload(payload)
     if not desired_head:
         return None, None
     desired_base = _requested_base_from_payload(payload)
-    github_client = NarrowGitHubClient(repo_root=root, github_repo=repo_name)
+    github_client = github_client or NarrowGitHubClient(repo_root=root, github_repo=repo_name)
     github = github_evidence_for_branch(
         github_client,
         branch,
@@ -1225,6 +1223,7 @@ def _handle_exact_open_pr_terminal_candidate(
     receipt_dir: Path,
     payload: dict[str, Any],
     branch: str,
+    github_client: NarrowGitHubClient,
     counts: dict[str, int],
     actions: list[dict[str, Any]],
     apply: bool,
@@ -1234,6 +1233,7 @@ def _handle_exact_open_pr_terminal_candidate(
         repo_name=repo_name,
         payload=payload,
         branch=branch,
+        github_client=github_client,
     )
     if terminal_info is not None:
         pr_number = terminal_info["decision_evidence"]["pr_number"]
@@ -1540,6 +1540,7 @@ def main(argv: list[str] | None = None) -> int:
 
     issue_checker = _IssueStateChecker(root, args.repo_name)
     existing_issue_archived = 0
+    narrow_github_client = NarrowGitHubClient(repo_root=root, github_repo=args.repo_name)
 
     actions: list[dict[str, Any]] = []
     for path in outbox_files:
@@ -1796,21 +1797,22 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:
             ref_proc = None
         if ref_proc is None or ref_proc.returncode != 0:
-            if _handle_exact_open_pr_terminal_candidate(
-                root=root,
-                repo_name=args.repo_name,
-                path=path,
-                archive_dir=archive_dir,
-                receipt_dir=receipt_dir,
-                payload=payload,
-                branch=branch,
-                counts=counts,
-                actions=actions,
-                apply=args.apply,
-            ):
-                continue
             open_prs, open_pr_state_available = load_open_pr_state()
             if branch in open_prs:
+                if _handle_exact_open_pr_terminal_candidate(
+                    root=root,
+                    repo_name=args.repo_name,
+                    path=path,
+                    archive_dir=archive_dir,
+                    receipt_dir=receipt_dir,
+                    payload=payload,
+                    branch=branch,
+                    github_client=narrow_github_client,
+                    counts=counts,
+                    actions=actions,
+                    apply=args.apply,
+                ):
+                    continue
                 counts["still_protecting_active_work"] += 1
                 actions.append(
                     {
@@ -1880,22 +1882,22 @@ def main(argv: list[str] | None = None) -> int:
                 shutil.move(str(path), str(archive_dir / path.name))
             continue
 
-        if _handle_exact_open_pr_terminal_candidate(
-            root=root,
-            repo_name=args.repo_name,
-            path=path,
-            archive_dir=archive_dir,
-            receipt_dir=receipt_dir,
-            payload=payload,
-            branch=branch,
-            counts=counts,
-            actions=actions,
-            apply=args.apply,
-        ):
-            continue
-
         open_prs, open_pr_state_available = load_open_pr_state()
         if branch in open_prs:
+            if _handle_exact_open_pr_terminal_candidate(
+                root=root,
+                repo_name=args.repo_name,
+                path=path,
+                archive_dir=archive_dir,
+                receipt_dir=receipt_dir,
+                payload=payload,
+                branch=branch,
+                github_client=narrow_github_client,
+                counts=counts,
+                actions=actions,
+                apply=args.apply,
+            ):
+                continue
             counts["still_protecting_active_work"] += 1
             actions.append(
                 {
