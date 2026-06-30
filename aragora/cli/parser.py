@@ -223,8 +223,6 @@ Examples:
     _add_truth_map_parser(subparsers)  # DIC-18 / #6028
     _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
     _add_epistemic_check_parser(subparsers)  # DIC-14 / #6024
-
-    # DIC-25: adversarial world-state stress-test operator surface
     _add_stress_test_parser(subparsers)  # DIC-25 / #6219
 
     # DIC-27: operator crux arbitration surface
@@ -791,35 +789,13 @@ def _add_decay_monitor_parser(subparsers) -> None:
 
 
 def _add_stress_test_parser(subparsers) -> None:
-    """Add the 'stress-test' subcommand (DIC-25 / #6219).
-
-    Flag-gated: ARAGORA_STRESS_TEST_ENABLED. Live queue effect: none.
-    """
+    """Add the 'stress-test' subcommand (DIC-25 / #6219)."""
     p = subparsers.add_parser(
         "stress-test",
         help="DIC-25: probe proof-carrying code units with adversarial world-state perturbations",
-        description=(
-            "Read-only offline stress-test: load a perturbation catalog and proof-unit "
-            "integrity scores, then report fragility deltas before reality invalidates them. "
-            "No queue mutation. Requires ARAGORA_STRESS_TEST_ENABLED=1."
-        ),
     )
-    p.add_argument(
-        "--catalog",
-        required=True,
-        metavar="JSON",
-        help=(
-            "Path to a JSON file containing a list of StressPerturbation dicts "
-            "(fields: perturbation_id, kind, description, simulated_impact, "
-            "affected_claim_ids, affected_proof_unit_ids)"
-        ),
-    )
-    p.add_argument(
-        "--units",
-        required=True,
-        metavar="JSON",
-        help="Path to a JSON file containing a {proof_unit_id: integrity_score} dict",
-    )
+    p.add_argument("--catalog", required=True, metavar="JSON", help="Perturbation catalog JSON")
+    p.add_argument("--units", required=True, metavar="JSON", help="Proof-unit integrities JSON")
     p.add_argument("--json", action="store_true", help="Emit JSON instead of human-readable text")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic25_stress_test", "cmd_stress_test"))
 
