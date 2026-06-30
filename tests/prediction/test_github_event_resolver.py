@@ -19,7 +19,11 @@ from aragora.prediction.stakeable_claim import (
 )
 
 _FLAG = "ARAGORA_PREDICTION_MARKETS_ENABLED"
-_FUTURE = (datetime.now(tz=UTC) + timedelta(days=30)).isoformat()
+_NOW = datetime.now(tz=UTC)
+_EVENT_TIME = _NOW.isoformat()
+_FUTURE = (_NOW + timedelta(days=30)).isoformat()
+_PAST = (_NOW - timedelta(days=1)).isoformat()
+_AFTER_EXPIRY = (_NOW + timedelta(days=31)).isoformat()
 
 
 @pytest.fixture(autouse=True)
@@ -59,6 +63,7 @@ class TestCanResolve:
             event_type="pull_request",
             action="closed",
             target_ref="a/b#1",
+            occurred_at=_EVENT_TIME,
             merged=True,
         )
         assert r.can_resolve(claim, event)
@@ -90,6 +95,7 @@ class TestCanResolve:
             event_type="check_run",
             action="completed",
             target_ref="a/b#5",
+            occurred_at=_EVENT_TIME,
             conclusion="success",
         )
         assert r.can_resolve(claim, event)
@@ -101,6 +107,7 @@ class TestCanResolve:
             event_type="workflow_run",
             action="completed",
             target_ref="a/b#5",
+            occurred_at=_EVENT_TIME,
             conclusion="success",
         )
         assert r.can_resolve(claim, event)
@@ -128,6 +135,7 @@ class TestFlagGate:
             event_type="pull_request",
             action="closed",
             target_ref=claim.target_ref,
+            occurred_at=_EVENT_TIME,
             merged=True,
         )
         with pytest.raises(RuntimeError, match="Prediction markets are disabled"):
@@ -155,6 +163,7 @@ class TestPRMergeResolution:
             event_type="pull_request",
             action="closed",
             target_ref="a/b#10",
+            occurred_at=_EVENT_TIME,
             merged=True,
         )
         result = r.resolve_from_event(claim, event)
@@ -162,24 +171,30 @@ class TestPRMergeResolution:
         assert result.resolution_value is True
         assert "merged" in result.evidence
 
-    def test_closed_without_merge_resolves_no(self):
+    def test_closed_without_merge_before_expiry_waits(self):
         r = GitHubEventResolver()
         claim = _open_claim(target_ref="a/b#11")
         event = GitHubEventPayload(
             event_type="pull_request",
             action="closed",
             target_ref="a/b#11",
+            occurred_at=_EVENT_TIME,
             merged=False,
         )
         result = r.resolve_from_event(claim, event)
-        assert result.resolved is True
+        assert result.resolved is False
         assert result.resolution_value is False
-        assert "closed without merge" in result.evidence
+        assert "can reopen" in result.evidence
 
     def test_opened_action_not_terminal(self):
         r = GitHubEventResolver()
         claim = _open_claim(target_ref="a/b#12")
-        event = GitHubEventPayload(event_type="pull_request", action="opened", target_ref="a/b#12")
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="opened",
+            target_ref="a/b#12",
+            occurred_at=_EVENT_TIME,
+        )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
 
@@ -195,7 +210,11 @@ class TestPRMergeResolution:
             resolution_value=True,
         )
         event = GitHubEventPayload(
-            event_type="pull_request", action="closed", target_ref="a/b#1", merged=True
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#1",
+            occurred_at=_EVENT_TIME,
+            merged=True,
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
@@ -205,10 +224,47 @@ class TestPRMergeResolution:
         r = GitHubEventResolver()
         claim = _open_claim(target_ref="a/b#1")
         event = GitHubEventPayload(
-            event_type="pull_request", action="closed", target_ref="a/b#999", merged=True
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#999",
+            occurred_at=_EVENT_TIME,
+            merged=True,
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
+
+    def test_event_after_expiry_does_not_resolve(self):
+        r = GitHubEventResolver()
+        claim = StakeableClaim(
+            claim_id="expired-pr",
+            question="Will a/b#13 merge?",
+            question_type=QuestionType.PR_MERGE,
+            target_ref="a/b#13",
+            expiry=_PAST,
+        )
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#13",
+            occurred_at=_EVENT_TIME,
+            merged=True,
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert "after claim expiry" in result.evidence
+
+    def test_missing_event_timestamp_does_not_resolve(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(target_ref="a/b#14")
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#14",
+            merged=True,
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert "timestamp is missing" in result.evidence
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +276,12 @@ class TestIssueCloseResolution:
     def test_issue_closed_resolves_yes(self):
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.ISSUE_CLOSE, target_ref="x/y#3")
-        event = GitHubEventPayload(event_type="issues", action="closed", target_ref="x/y#3")
+        event = GitHubEventPayload(
+            event_type="issues",
+            action="closed",
+            target_ref="x/y#3",
+            occurred_at=_EVENT_TIME,
+        )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is True
         assert result.resolution_value is True
@@ -229,14 +290,24 @@ class TestIssueCloseResolution:
     def test_issue_reopened_not_terminal(self):
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.ISSUE_CLOSE, target_ref="x/y#4")
-        event = GitHubEventPayload(event_type="issues", action="reopened", target_ref="x/y#4")
+        event = GitHubEventPayload(
+            event_type="issues",
+            action="reopened",
+            target_ref="x/y#4",
+            occurred_at=_EVENT_TIME,
+        )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
 
     def test_issue_labeled_not_terminal(self):
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.ISSUE_CLOSE, target_ref="x/y#5")
-        event = GitHubEventPayload(event_type="issues", action="labeled", target_ref="x/y#5")
+        event = GitHubEventPayload(
+            event_type="issues",
+            action="labeled",
+            target_ref="x/y#5",
+            occurred_at=_EVENT_TIME,
+        )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
 
@@ -254,7 +325,9 @@ class TestCIPassResolution:
             event_type="check_run",
             action="completed",
             target_ref="p/q#5",
+            occurred_at=_EVENT_TIME,
             conclusion="success",
+            raw={"aggregate": True, "run_attempt": 1},
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is True
@@ -268,7 +341,9 @@ class TestCIPassResolution:
             event_type="check_run",
             action="completed",
             target_ref="p/q#6",
+            occurred_at=_EVENT_TIME,
             conclusion="failure",
+            raw={"aggregate": True, "run_attempt": 1},
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is True
@@ -282,7 +357,9 @@ class TestCIPassResolution:
             event_type="workflow_run",
             action="completed",
             target_ref="p/q#7",
+            occurred_at=_EVENT_TIME,
             conclusion="success",
+            raw={"aggregate": True, "run_attempt": 1},
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is True
@@ -295,6 +372,7 @@ class TestCIPassResolution:
             event_type="check_run",
             action="queued",
             target_ref="p/q#8",
+            occurred_at=_EVENT_TIME,
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
@@ -306,11 +384,63 @@ class TestCIPassResolution:
             event_type="check_run",
             action="completed",
             target_ref="p/q#9",
+            occurred_at=_EVENT_TIME,
             conclusion="cancelled",
+            raw={"aggregate": True, "run_attempt": 1},
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is True
         assert result.resolution_value is False
+
+    def test_single_check_run_without_aggregate_marker_waits(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="p/q#10")
+        event = GitHubEventPayload(
+            event_type="check_run",
+            action="completed",
+            target_ref="p/q#10",
+            occurred_at=_EVENT_TIME,
+            conclusion="success",
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert "not marked as an aggregate" in result.evidence
+
+    def test_rerun_ci_event_does_not_resolve_first_run_claim(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="p/q#11")
+        event = GitHubEventPayload(
+            event_type="workflow_run",
+            action="completed",
+            target_ref="p/q#11",
+            occurred_at=_EVENT_TIME,
+            conclusion="success",
+            raw={"aggregate": True, "run_attempt": 2},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert "run_attempt=2" in result.evidence
+
+    def test_ci_event_after_expiry_does_not_resolve(self):
+        r = GitHubEventResolver()
+        claim = StakeableClaim(
+            claim_id="expired-ci",
+            question="Will p/q#12 pass?",
+            question_type=QuestionType.CI_PASS,
+            target_ref="p/q#12",
+            expiry=_FUTURE,
+        )
+        event = GitHubEventPayload(
+            event_type="workflow_run",
+            action="completed",
+            target_ref="p/q#12",
+            occurred_at=_AFTER_EXPIRY,
+            conclusion="success",
+            raw={"aggregate": True, "run_attempt": 1},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert "after claim expiry" in result.evidence
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +459,7 @@ class TestResolverWithStore:
             event_type="pull_request",
             action="closed",
             target_ref="a/b#99",
+            occurred_at=_EVENT_TIME,
             merged=True,
         )
         result = r.resolve_from_event(store.get("e2e-1"), event)
@@ -352,7 +483,9 @@ class TestResolverWithStore:
             event_type="check_run",
             action="completed",
             target_ref="a/b#100",
+            occurred_at=_EVENT_TIME,
             conclusion="failure",
+            raw={"aggregate": True, "run_attempt": 1},
         )
         result = r.resolve_from_event(store.get("e2e-2"), event)
         assert result.resolved

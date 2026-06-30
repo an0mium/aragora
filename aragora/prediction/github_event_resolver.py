@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from aragora.prediction.stakeable_claim import (
@@ -47,6 +48,7 @@ class GitHubEventPayload:
         action: Event action string (e.g. ``"closed"``, ``"completed"``).
         target_ref: ``owner/repo#number`` or ``owner/repo@branch`` — must
             match the claim's ``target_ref`` for resolution to proceed.
+        occurred_at: ISO-8601 UTC timestamp for when the event occurred.
         merged: For ``pull_request`` events: whether the PR was merged.
         conclusion: For ``check_run``/``workflow_run`` events: the final
             conclusion (``"success"``, ``"failure"``, ``"cancelled"``, …).
@@ -56,6 +58,7 @@ class GitHubEventPayload:
     event_type: str
     action: str
     target_ref: str
+    occurred_at: str = ""
     merged: bool = False
     conclusion: str = ""
     raw: dict[str, Any] = field(default_factory=dict)
@@ -132,6 +135,10 @@ class GitHubEventResolver:
                 ),
             )
 
+        expiry_result = self._check_expiry(claim, event)
+        if expiry_result is not None:
+            return expiry_result
+
         if claim.question_type == QuestionType.PR_MERGE:
             return self._resolve_pr_merge(claim, event)
         if claim.question_type == QuestionType.ISSUE_CLOSE:
@@ -150,6 +157,60 @@ class GitHubEventResolver:
     # Per-type resolvers
     # ------------------------------------------------------------------
 
+    def _check_expiry(
+        self, claim: StakeableClaim, event: GitHubEventPayload
+    ) -> ResolutionResult | None:
+        event_dt = self._parse_event_time(event)
+        if event_dt is None:
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence="Event timestamp is missing or invalid; cannot compare against claim expiry.",
+            )
+        expiry_dt = self._parse_datetime(claim.expiry)
+        if expiry_dt is None:
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence=f"Claim expiry {claim.expiry!r} is invalid; cannot resolve safely.",
+            )
+        if event_dt > expiry_dt:
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence=(
+                    f"Event at {event_dt.isoformat()} occurred after claim expiry "
+                    f"{expiry_dt.isoformat()}; leaving unresolved for expiry handling."
+                ),
+            )
+        return None
+
+    @staticmethod
+    def _parse_event_time(event: GitHubEventPayload) -> datetime | None:
+        raw_time = (
+            event.occurred_at
+            or event.raw.get("occurred_at")
+            or event.raw.get("completed_at")
+            or event.raw.get("updated_at")
+            or event.raw.get("created_at")
+        )
+        if not isinstance(raw_time, str) or not raw_time:
+            return None
+        return GitHubEventResolver._parse_datetime(raw_time)
+
+    @staticmethod
+    def _parse_datetime(value: str) -> datetime | None:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed
+
     def _resolve_pr_merge(
         self, claim: StakeableClaim, event: GitHubEventPayload
     ) -> ResolutionResult:
@@ -160,15 +221,21 @@ class GitHubEventResolver:
                 resolution_value=False,
                 evidence=f"pull_request action {event.action!r} is not terminal; waiting.",
             )
-        value = event.merged
-        evidence = (
-            f"PR {claim.target_ref} {'merged' if value else 'closed without merge'} "
-            f"(action={event.action!r}, merged={event.merged})."
-        )
+        if not event.merged:
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence=(
+                    f"PR {claim.target_ref} closed without merge before expiry; "
+                    "waiting because the PR can reopen before the claim window closes."
+                ),
+            )
+        evidence = f"PR {claim.target_ref} merged (action={event.action!r}, merged=True)."
         return ResolutionResult(
             claim_id=claim.claim_id,
             resolved=True,
-            resolution_value=value,
+            resolution_value=True,
             evidence=evidence,
         )
 
@@ -200,6 +267,31 @@ class GitHubEventResolver:
                 resolution_value=False,
                 evidence=(
                     f"check_run/workflow_run action {event.action!r} is not terminal; waiting."
+                ),
+            )
+        if not event.raw.get("aggregate"):
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence=(
+                    f"{event.event_type} event for {claim.target_ref} is not marked as an "
+                    "aggregate required-check result; waiting for a pre-aggregated CI event."
+                ),
+            )
+        try:
+            run_attempt = int(event.raw.get("run_attempt", 1))
+        except (TypeError, ValueError):
+            run_attempt = 0
+        if run_attempt != 1:
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence=(
+                    f"{event.event_type} event for {claim.target_ref} is run_attempt="
+                    f"{event.raw.get('run_attempt')!r}; first-run claims only resolve from "
+                    "run_attempt=1."
                 ),
             )
         value = event.conclusion == "success"
