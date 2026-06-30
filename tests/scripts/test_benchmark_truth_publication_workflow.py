@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -51,6 +52,26 @@ def _workflow_step(name: str) -> dict[str, object]:
         if str(step.get("name", "")) == name:
             return step
     raise AssertionError(f"{name} step not found")
+
+
+def _commit_publish_run() -> str:
+    return str(
+        _workflow_step(
+            "Commit, publish, and verify draft PR for refreshed trust-loop surfaces"
+        ).get("run", "")
+    )
+
+
+def _commit_publish_git_add_block() -> str:
+    run = _commit_publish_run()
+    match = re.search(
+        r"git add \\\n(?P<block>.*?)\n\n\s*if git diff --cached --quiet",
+        run,
+        re.DOTALL,
+    )
+    if match is None:
+        raise AssertionError("commit/publish git add block not found")
+    return match.group("block")
 
 
 def test_runtime_prereq_creates_metrics_dir_and_allows_fresh_recurrence() -> None:
@@ -169,11 +190,7 @@ def test_publishes_refresh_via_branch_and_verifies_draft_pr() -> None:
     }
 
     publish_run = str(_workflow_step("Publish tracked trust-loop surfaces").get("run", ""))
-    run = str(
-        _workflow_step(
-            "Commit, publish, and verify draft PR for refreshed trust-loop surfaces"
-        ).get("run", "")
-    )
+    run = _commit_publish_run()
     assert "--freshness-map docs/benchmarks/benchmark_corpus_freshness.json \\" in publish_run
     assert "--ensure-issues \\" in publish_run
     assert 'branch="benchmark-truth-publication/${GITHUB_RUN_ID}"' in run
@@ -190,3 +207,14 @@ def test_publishes_refresh_via_branch_and_verifies_draft_pr() -> None:
     assert 'echo "Draft PR: $pr_url"' in run
     assert "[skip ci]" not in run
     assert "git push origin HEAD:main" not in run
+
+
+def test_commit_step_stages_only_preflight_allowed_rescue_productization_artifacts() -> None:
+    run = _commit_publish_run()
+    git_add_block = _commit_publish_git_add_block()
+
+    assert "rescue_productization_artifacts" in run
+    assert "docs/status/generated/rescue_productization/latest.json" in run
+    assert r"rescue-productization-\d{8}T\d{6}Z\.json" in run
+    assert "docs/status/generated/rescue_productization\n" not in git_add_block
+    assert "docs/status/generated/rescue_productization \\" not in git_add_block

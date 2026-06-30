@@ -337,6 +337,32 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mapfile -t rescue_productization_artifacts < <(python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # Keep aligned with scripts/automation_pr_preflight.sh:
+          # only these canonical TW03 proof-surface artifacts are commit-eligible.
+          latest = Path("docs/status/generated/rescue_productization/latest.json")
+          root = latest.parent
+          pattern = re.compile(r"rescue-productization-\d{8}T\d{6}Z\.json\Z")
+
+          allowed = []
+          if latest.is_file():
+              allowed.append(latest)
+          if root.is_dir():
+              allowed.extend(
+                  sorted(
+                      path
+                      for path in root.iterdir()
+                      if path.is_file() and pattern.fullmatch(path.name)
+                  )
+              )
+
+          for path in allowed:
+              print(path.as_posix())
+          PY
+          )
           git add \
             docs/benchmarks/benchmark_corpus_freshness.json \
             docs/benchmarks/rescue_productization.json \
@@ -344,7 +370,7 @@ jobs:
             docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md \
             docs/status/generated/benchmark_scorecards \
             docs/status/generated/benchmark_truth_artifacts \
-            docs/status/generated/rescue_productization
+            "${rescue_productization_artifacts[@]}"
 
           if git diff --cached --quiet; then
             echo "No recurring trust-loop surface changes to commit."
