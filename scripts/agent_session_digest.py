@@ -22,6 +22,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,36 @@ def find_rollout(*, path: str | None, session: str | None, latest: bool, root: P
             if session in c.name:
                 return c
     return None
+
+
+def coordinator_view(
+    *, root: Path, since_hours: float, now: float | None = None
+) -> list[dict[str, Any]]:
+    """Compact per-session digests for every rollout modified within the window.
+
+    The single cross-agent view: run before editing shared files to see what
+    sibling agents are touching (which PRs/files) and avoid collisions.
+    """
+    cutoff = (now if now is not None else time.time()) - since_hours * 3600.0
+    rows: list[dict[str, Any]] = []
+    for r in sorted(root.rglob("rollout-*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            if r.stat().st_mtime < cutoff:
+                continue
+        except OSError:
+            continue
+        turns = extract_turns(r)
+        sid = r.name.split("-")[-1].replace(".jsonl", "")
+        rows.append(
+            {
+                "session_id": sid,
+                "rollout": str(r),
+                "counts": turns["counts"],
+                "prs_referenced": turns["prs_referenced"],
+                "last_decision": (turns["decisions"][-1] if turns["decisions"] else ""),
+            }
+        )
+    return rows
 
 
 def extract_turns(rollout: Path) -> dict[str, Any]:
@@ -175,6 +206,17 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--latest", action="store_true", help="Most recent rollout")
     g.add_argument("--session", help="Match a session-id substring")
     g.add_argument("--path", help="Explicit rollout .jsonl path")
+    g.add_argument(
+        "--all",
+        action="store_true",
+        help="Coordinator view: one-line digest of every rollout in the window",
+    )
+    ap.add_argument(
+        "--since-hours",
+        type=float,
+        default=24.0,
+        help="With --all: only rollouts modified within this many hours (default 24)",
+    )
     ap.add_argument(
         "--rlm",
         nargs="?",
@@ -185,6 +227,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--sessions-root", default=str(DEFAULT_SESSIONS_ROOT))
     ap.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     args = ap.parse_args(argv)
+
+    if args.all:
+        lines = coordinator_view(root=Path(args.sessions_root), since_hours=args.since_hours)
+        if args.json:
+            print(json.dumps(lines, indent=2))
+        else:
+            if not lines:
+                print("no rollouts in window")
+            for row in lines:
+                c = row["counts"]
+                prs = ", ".join("#" + p for p in row["prs_referenced"]) or "none"
+                print(
+                    f"{row['session_id']}  {c['commands']}cmds {c['decisions']}dec  "
+                    f"PRs:{prs}  | {row['last_decision'][:90]}"
+                )
+        return 0
 
     rollout = find_rollout(
         path=args.path,

@@ -63,6 +63,28 @@ def test_find_rollout_latest_and_session_and_missing(tmp_path: Path) -> None:
     assert digest.find_rollout(path=None, session="nope", latest=False, root=tmp_path) is None
 
 
+def test_coordinator_view_windows_by_mtime(tmp_path: Path) -> None:
+    import os
+
+    sess = tmp_path / "rollout-2026-06-30T12-00-00-019f197d.jsonl"
+    _write_rollout(tmp_path).rename(sess)
+    rows = digest.coordinator_view(root=tmp_path, since_hours=24.0)
+    assert len(rows) == 1
+    assert rows[0]["session_id"] == "019f197d"
+    assert "8718" in rows[0]["prs_referenced"]
+    future = os.path.getmtime(sess) + 10 * 3600
+    assert digest.coordinator_view(root=tmp_path, since_hours=1.0, now=future) == []
+
+
+def test_main_all_mode(tmp_path: Path, capsys) -> None:
+    sess = tmp_path / "rollout-2026-06-30T12-00-00-019f197d.jsonl"
+    _write_rollout(tmp_path).rename(sess)
+    rc = digest.main(["--all", "--sessions-root", str(tmp_path), "--json"])
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert any(r["session_id"] == "019f197d" for r in out)
+
+
 def test_main_json_output(tmp_path: Path, capsys) -> None:
     sess = tmp_path / "rollout-2026-06-30T12-00-00-019f197d.jsonl"
     _write_rollout(tmp_path).rename(sess)
