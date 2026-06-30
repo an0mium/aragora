@@ -139,6 +139,56 @@ def test_build_settle_report_buckets_exact_head_prs() -> None:
     assert report["superseded"][0]["pr"] == 4
 
 
+def test_build_settle_report_uses_latest_status_rollup_entries() -> None:
+    packet = _packet(_entry(1))
+    stale_success = {
+        "name": "lint",
+        "workflowName": "Lint",
+        "conclusion": "SUCCESS",
+        "completedAt": "2026-06-28T00:00:00Z",
+    }
+    latest_failure = {
+        "name": "lint",
+        "workflowName": "Lint",
+        "conclusion": "FAILURE",
+        "completedAt": "2026-06-28T00:05:00Z",
+    }
+    views = {
+        1: _view(
+            1,
+            rollup=[
+                latest_failure,
+                {"name": "Generate & Validate", "conclusion": "SUCCESS"},
+                {"name": "TypeScript SDK Type Check", "conclusion": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "conclusion": "SUCCESS"},
+                {"name": "sdk-parity", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "conclusion": "SUCCESS"},
+                stale_success,
+            ],
+        )
+    }
+
+    report = build_settle_report(packet=packet, views=views, autonomy="report", repo=None)
+
+    assert report["counts"]["mergeable"] == 0
+    assert report["counts"]["parked"] == 1
+    assert any("lint=FAILURE" in blocker for blocker in report["parked"][0]["blockers"])
+
+
+def test_build_settle_report_classifies_human_gate_before_mergeable() -> None:
+    entry = _entry(1)
+    entry["requires_human_preapproval"] = True
+    entry["human_preapproval_recorded"] = False
+    packet = _packet(entry)
+    views = {1: _view(1)}
+
+    report = build_settle_report(packet=packet, views=views, autonomy="report", repo=None)
+
+    assert report["counts"]["mergeable"] == 0
+    assert report["counts"]["needs_human"] == 1
+    assert report["needs_human"][0]["bucket_reason"] == "human_required"
+
+
 def test_report_mode_does_not_call_merger_or_evidence_apply(monkeypatch) -> None:
     packet = _packet(_entry(1))
     calls: list[str] = []
@@ -178,3 +228,49 @@ def test_report_mode_does_not_call_merger_or_evidence_apply(monkeypatch) -> None
 
     assert rc == 0
     assert calls == ["view:1:None", "packet", "view:1:None"]
+
+
+def test_report_mode_rejects_execute_reviewers(monkeypatch, capsys) -> None:
+    def forbidden_packet(**_kwargs):  # pragma: no cover - must not run
+        raise AssertionError("read-only report must reject reviewer execution first")
+
+    monkeypatch.setattr("aragora.cli.commands.reconcile._build_merge_packet", forbidden_packet)
+    args = argparse.Namespace(
+        reconcile_command="settle",
+        autonomy="report",
+        pr=["1"],
+        limit=30,
+        repo=None,
+        review_queue_root=None,
+        execute_reviewers=True,
+        ignore_own_quorum_check=False,
+        json=True,
+    )
+
+    rc = cmd_reconcile(args)
+
+    assert rc == 2
+    assert "--execute-reviewers is not allowed" in capsys.readouterr().err
+
+
+def test_report_mode_rejects_ignore_own_quorum_check(monkeypatch, capsys) -> None:
+    def forbidden_packet(**_kwargs):  # pragma: no cover - must not run
+        raise AssertionError("read-only report must reject quorum bypass first")
+
+    monkeypatch.setattr("aragora.cli.commands.reconcile._build_merge_packet", forbidden_packet)
+    args = argparse.Namespace(
+        reconcile_command="settle",
+        autonomy="report",
+        pr=["1"],
+        limit=30,
+        repo=None,
+        review_queue_root=None,
+        execute_reviewers=False,
+        ignore_own_quorum_check=True,
+        json=True,
+    )
+
+    rc = cmd_reconcile(args)
+
+    assert rc == 2
+    assert "--ignore-own-quorum-check is not allowed" in capsys.readouterr().err

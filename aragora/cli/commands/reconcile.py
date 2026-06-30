@@ -107,6 +107,19 @@ def _cmd_settle(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    if bool(getattr(args, "execute_reviewers", False)):
+        print(
+            "error: reconcile settle is read-only; --execute-reviewers is not allowed",
+            file=sys.stderr,
+        )
+        return 2
+    if bool(getattr(args, "ignore_own_quorum_check", False)):
+        print(
+            "error: reconcile settle reports enforce the normal quorum gate; "
+            "--ignore-own-quorum-check is not allowed",
+            file=sys.stderr,
+        )
+        return 2
 
     try:
         packet, views = _load_settle_inputs(args)
@@ -226,15 +239,15 @@ def _classify_settle_record(
             view, entry, blockers=(), bucket_reason=_superseded_reason(view)
         )
 
-    ctx = context_from_gh(view, entry)
+    ctx = context_from_gh(_view_with_latest_status_rollup(view), entry)
     decision = decide_auto_merge(ctx)
-    if decision.should_merge:
-        return "mergeable", _record(view, entry, blockers=(), bucket_reason="would_merge")
     if _record_needs_human(entry, decision):
         return (
             "needs_human",
             _record(view, entry, blockers=decision.blockers, bucket_reason="human_required"),
         )
+    if decision.should_merge:
+        return "mergeable", _record(view, entry, blockers=(), bucket_reason="would_merge")
     return "parked", _record(view, entry, blockers=decision.blockers, bucket_reason="not_ready")
 
 
@@ -284,6 +297,15 @@ def _record_needs_human(entry: dict[str, Any] | None, decision: Any) -> bool:
     if entry.get("status") == "human_risk_settlement_required":
         return True
     return any("human" in blocker.lower() for blocker in decision.blockers)
+
+
+def _view_with_latest_status_rollup(view: dict[str, Any]) -> dict[str, Any]:
+    rollup = view.get("statusCheckRollup")
+    if not isinstance(rollup, list):
+        return view
+    from aragora.cli.commands.review_queue import _latest_status_check_rollup
+
+    return {**view, "statusCheckRollup": _latest_status_check_rollup(rollup)}
 
 
 def _render_settle_report(report: dict[str, Any]) -> None:
