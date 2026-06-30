@@ -42,7 +42,7 @@ from aragora.server.middleware.tracing import get_trace_id
 if TYPE_CHECKING:
     from aragora.storage.webhook_config_store import WebhookConfig
     from aragora.server.stream.emitter import SyncEventEmitter
-    from aragora.server.stream.events import StreamEvent
+    from aragora.events.types import StreamEvent
 
 logger = logging.getLogger(__name__)
 
