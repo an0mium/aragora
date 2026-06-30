@@ -1190,7 +1190,7 @@ async def webhook_alert_callback(
         headers: Optional headers to include
     """
     try:
-        from aragora.server.http_client_pool import get_http_pool
+        from aragora.observability.http_client_pool import get_http_pool
 
         payload = {
             "type": "slo_alert",
@@ -1226,7 +1226,7 @@ def create_slack_alert_callback(webhook_url: str) -> AlertCallback:
 
     async def slack_callback(breach: SLOBreach) -> None:
         try:
-            from aragora.server.http_client_pool import get_http_pool
+            from aragora.observability.http_client_pool import get_http_pool
 
             # Format as Slack message
             color = "#ff0000" if breach.severity == "critical" else "#ffa500"

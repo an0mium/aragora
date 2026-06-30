@@ -306,7 +306,7 @@ class WebhookDeliveryWorker:
         attempt: int,
     ) -> DeliveryResult:
         """Perform the actual webhook delivery."""
-        from aragora.server.http_client_pool import get_http_pool
+        from aragora.observability.http_client_pool import get_http_pool
 
         start_time = time.time()
 
