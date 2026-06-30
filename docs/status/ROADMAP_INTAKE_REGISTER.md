@@ -93,6 +93,8 @@ Do not implement from this section.
 | **Continual learning / self-improvement instrumentation** | Factory 2.0 | partially exists | Aragora has Nomic loop + KnowledgeMound cross-cycle learning; decide what to formalize/measure |
 | **Missions + operator dashboard + persistent execution** | Factory 2.0 | in progress | Mission engine in PR #8655; dashboard + headless persistent runtime are the remaining gaps |
 
+<a id="strategy-mission-queue"></a>
+
 ## Strategy Mission Queue
 
 Bounded, exit-gated sub-missions for the "useful + unique" strategy mission.
@@ -105,9 +107,9 @@ for the cadence mechanism.
 
 | id | title | tier | status | external-proof gate | tracking |
 |---|---|---|---|---|---|
-| M1 | ODR v1.0 GA (docs + verification only) | 0-1 | queued | `aragora-verify` verifies a committed example receipt produced by `odr_export` against the published ODR profile | epic TBD-link |
-| M2 | Action wedge (quorum review → verifiable receipt artifact + PR comment) | 2-3 | queued | the Action runs green on a real PR here and uploads a receipt `aragora-verify` passes (workflow change parks for founder) | epic TBD-link |
-| M3 | Proof corpus + legibility (README narrative + sprawl quarantine) | mixed | queued | public artifact with the receipt corpus live, plus a one-sentence README + ≤5 documented core modules on main (narrative parks for founder) | epic TBD-link |
+| M1 | ODR v1.0 GA (docs + verification only) | 0-1 | queued | `aragora-verify` verifies a committed example receipt produced by `odr_export` against the published ODR profile | Epic [#8665](https://github.com/synaptent/aragora/issues/8665) |
+| M2 | Action wedge (quorum review → verifiable receipt artifact + PR comment) | 2-3 | queued | the Action runs green on a real PR here and uploads a receipt `aragora-verify` passes (workflow change parks for founder) | Epic [#8665](https://github.com/synaptent/aragora/issues/8665) |
+| M3 | Proof corpus + legibility (README narrative + sprawl quarantine) | mixed | queued | public artifact with the receipt corpus live, plus a one-sentence README + ≤5 documented core modules on main (narrative parks for founder) | Epic [#8665](https://github.com/synaptent/aragora/issues/8665) |
 
 ## Maintenance
 

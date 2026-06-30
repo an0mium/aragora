@@ -1,11 +1,8 @@
-"""Aragora metrics package.
+"""Deprecated re-export shim for the Aragora metrics package.
 
-Exposes:
-- AGT-06 VIAH (verifiable improvements per agent-hour): :class:`ViahReport`,
-  :func:`compute_viah`, :func:`viah_score`.
-- AGT-03 Manifold Brier scorer: :class:`ManifoldBrierScorer`,
-  :class:`ManifoldPrediction`, :class:`BrierWindowSummary`,
-  :class:`CalibrationBin`, :func:`brier_score`, :func:`manifold_brier_enabled`.
+The originals now live under :mod:`aragora.evaluation`. This package
+re-exports them so the legacy ``aragora.metrics`` import paths keep working
+for one release.
 
 Imports are lazy (PEP 562 ``__getattr__``) so importing
 ``aragora.metrics.manifold_brier`` does not trigger the heavy transitive
@@ -13,6 +10,14 @@ dependency chain in ``aragora.metrics.viah``.
 """
 
 from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    "aragora.metrics is deprecated; import from aragora.evaluation instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 __all__ = [
     # AGT-06
@@ -41,7 +46,7 @@ _BRIER_NAMES = {
 
 def __getattr__(name: str):  # noqa: ANN001, ANN201 — PEP 562 module __getattr__
     if name in _VIAH_NAMES:
-        from aragora.metrics.viah import ViahReport, compute_viah, viah_score
+        from aragora.evaluation.viah import ViahReport, compute_viah, viah_score
 
         _globals = globals()
         _globals["ViahReport"] = ViahReport
@@ -49,7 +54,7 @@ def __getattr__(name: str):  # noqa: ANN001, ANN201 — PEP 562 module __getattr
         _globals["viah_score"] = viah_score
         return _globals[name]
     if name in _BRIER_NAMES:
-        from aragora.metrics.manifold_brier import (
+        from aragora.evaluation.manifold_brier import (
             BrierWindowSummary,
             CalibrationBin,
             ManifoldBrierScorer,
