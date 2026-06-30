@@ -5753,6 +5753,8 @@ class TestCommandDispatch:
                 "openai",
                 "--author",
                 "an0mium",
+                "--out",
+                "/tmp/prepared-evidence.json",
                 "--json",
             ]
         )
@@ -5761,6 +5763,7 @@ class TestCommandDispatch:
         assert ns_collect.pr == 6280
         assert ns_collect.reviewers == ["claude", "openai"]
         assert ns_collect.author == "an0mium"
+        assert str(ns_collect.out) == "/tmp/prepared-evidence.json"
         assert ns_collect.apply is False
         assert ns_collect.json_output is True
         # run invocation parses

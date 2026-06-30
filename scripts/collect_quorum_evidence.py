@@ -65,6 +65,15 @@ def main(argv: list[str] | None = None) -> int:
             "re-running reviewers."
         ),
     )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help=(
+            "Write the dry-run collect-evidence JSON artifact to this path so it "
+            "can later be reused with --prepared-json."
+        ),
+    )
     parser.add_argument("--json", dest="json_output", action="store_true", help="Output as JSON")
     args = parser.parse_args(argv)
 
@@ -76,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         apply=args.apply,
         json_output=args.json_output,
         prepared_json=args.prepared_json,
+        out_path=args.out,
     )
 
 

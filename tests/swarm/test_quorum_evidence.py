@@ -2318,6 +2318,65 @@ def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_p
     assert seen["families"] == ("claude", "grok")
 
 
+def test_run_collect_cli_writes_prepared_artifact(monkeypatch, tmp_path, capsys) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="dry-run",
+            items=[
+                EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+                EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    out_path = tmp_path / "artifacts" / "prepared.json"
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=None,
+        author=None,
+        apply=False,
+        json_output=True,
+        out_path=out_path,
+    )
+
+    assert rc == 0
+    stdout_payload = json.loads(capsys.readouterr().out)
+    artifact_payload = json.loads(out_path.read_text(encoding="utf-8"))
+    assert artifact_payload == stdout_payload
+    assert artifact_payload["head_sha"] == HEAD
+    assert artifact_payload["items"][0]["family"] == "claude"
+
+
+def test_run_collect_cli_rejects_out_with_apply(monkeypatch, tmp_path, capsys) -> None:
+    def boom_collect(**kwargs) -> CollectOutcome:
+        raise AssertionError("collect_evidence must not run when --out and --apply conflict")
+
+    monkeypatch.setattr(qe, "collect_evidence", boom_collect)
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=None,
+        author=None,
+        apply=True,
+        json_output=True,
+        out_path=tmp_path / "prepared.json",
+    )
+
+    assert rc == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error"] == "--out is only valid for dry-run evidence preparation"
+
+
 def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
     def fake_collect(**kwargs) -> CollectOutcome:
         return CollectOutcome(

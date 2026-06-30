@@ -7,6 +7,7 @@ Separated from command implementations for clarity and maintainability.
 
 import argparse
 import os
+from pathlib import Path
 
 from aragora.cli._mission_parser import add_mission_parser
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
@@ -2352,6 +2353,15 @@ def _add_review_queue_parser(subparsers) -> None:
         "--apply",
         action="store_true",
         help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
+    )
+    collect_evidence_parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help=(
+            "Write the dry-run collect-evidence JSON artifact to this path so it "
+            "can later be reused with --prepared-json."
+        ),
     )
     collect_evidence_parser.add_argument(
         "--json", dest="json_output", action="store_true", help="Output as JSON"

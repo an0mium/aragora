@@ -2279,6 +2279,7 @@ def run_collect_cli(
     apply: bool,
     json_output: bool,
     prepared_json: Path | None = None,
+    out_path: Path | None = None,
     printer: Callable[[str], None] = print,
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
@@ -2289,6 +2290,14 @@ def run_collect_cli(
     return 1 (quorum is enforced as N-of-M elsewhere). Inspect ``posted_families``
     in the JSON output rather than treating exit-code 1 as "nothing posted".
     """
+    if out_path is not None and apply:
+        msg = "--out is only valid for dry-run evidence preparation"
+        if json_output:
+            printer(json.dumps({"mode": "collect_evidence", "error": msg}, indent=2))
+        else:
+            printer(f"error: {msg}")
+        return 2
+
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()
     try:
@@ -2313,6 +2322,9 @@ def run_collect_cli(
                 env=merge_quorum_io.aragora_env(),
                 quorum_reconciler=default_quorum_reconciler if apply else None,
             )
+        if out_path is not None:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(json.dumps(outcome.to_dict(), indent=2) + "\n", encoding="utf-8")
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
             printer(json.dumps({"mode": "collect_evidence", "error": str(exc)}, indent=2))
