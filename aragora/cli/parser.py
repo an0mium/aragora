@@ -226,6 +226,9 @@ Examples:
     _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
     _add_epistemic_check_parser(subparsers)  # DIC-14 / #6024
 
+    # DIC-22: verified replacement pipeline CLI surface
+    _add_repair_spec_parser(subparsers)  # DIC-22 / #6033
+
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
 
@@ -787,6 +790,37 @@ def _add_decay_monitor_parser(subparsers) -> None:
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic20_decay_monitor", "cmd_decay_monitor"))
+
+
+def _add_repair_spec_parser(subparsers) -> None:
+    """Add the 'repair-spec' subcommand (DIC-22 / #6033).
+
+    Flag-gated: ARAGORA_REPAIR_PIPELINE_ENABLED must be set.
+    Live queue effect: none (spec artifact only; no queue writes).
+    """
+    p = subparsers.add_parser(
+        "repair-spec",
+        help="DIC-22: produce a bounded repair spec from a DecaySignal",
+        description=(
+            "Reads a DecaySignal JSON file (from 'aragora decay-monitor --json') "
+            "and emits a RepairSpec. Requires ARAGORA_REPAIR_PIPELINE_ENABLED=1. "
+            "live_swap repair_kind is unconditionally blocked."
+        ),
+    )
+    p.add_argument(
+        "signal_file",
+        metavar="SIGNAL_FILE",
+        help="Path to a DecaySignal JSON file (one object, from decay-monitor --json signals[])",
+    )
+    p.add_argument(
+        "--kind",
+        dest="kind",
+        choices=("report_only", "shadow_candidate", "pr_candidate"),
+        default="report_only",
+        help="Repair kind (default: report_only); shadow_candidate/pr_candidate require flag",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic22_repair", "cmd_repair_spec"))
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:
