@@ -90,7 +90,7 @@ def emit_handler_event(
 
     # Add trace context if available
     try:
-        from aragora.server.middleware.tracing import get_trace_id
+        from aragora.observability.middleware.tracing import get_trace_id
 
         trace_id = get_trace_id()
         if trace_id:
