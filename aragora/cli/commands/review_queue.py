@@ -3694,6 +3694,15 @@ def _lint_evidence_comment(
     identity = _resolve_model_review_identity(body)
     inferred_reviewer = identity.surface_reviewer_id
     lower = body.lower()
+    explicit_model_verdict = _explicit_model_review_verdict(body)
+    requires_explicit_model_verdict = any(
+        token in lower
+        for token in (
+            "independent model review",
+            "independent semantic review",
+            "model-family semantic signal",
+        )
+    )
 
     problems: list[str] = []
     if not body.strip():
@@ -3706,6 +3715,8 @@ def _lint_evidence_comment(
         problems.append("github_actions_author_not_counted")
     if negative_verdict:
         problems.append("blocking_or_negative_verdict")
+    if requires_explicit_model_verdict and explicit_model_verdict == "unknown":
+        problems.append("missing_explicit_model_review_verdict")
     if inferred_reviewer == "unknown_model_reviewer":
         problems.append("missing_known_model_reviewer_heading")
     for problem in identity.identity_problems:
@@ -3746,6 +3757,7 @@ def _lint_evidence_comment(
         "model_id": identity.model_id,
         "identity_source": identity.identity_source,
         "identity_problems": list(identity.identity_problems),
+        "evidence_verdict": explicit_model_verdict,
         "current_head_grounded": grounded,
         "current_head_grounding_method": grounding_method,
         "current_pr_grounded": pr_grounded,
@@ -3754,9 +3766,24 @@ def _lint_evidence_comment(
         "reviewer_signals": reviewer_signals,
         "counted_reviewer_ids": counted_reviewer_ids,
         "counted_model_families": counted_reviewer_ids,
-        "would_count": bool(counted_reviewer_ids),
+        "would_count": bool(counted_reviewer_ids) and not problems,
         "problems": problems,
     }
+
+
+def _explicit_model_review_verdict(body: str) -> str:
+    """Return the explicit reviewer verdict used to count model-review evidence."""
+    for line in body.splitlines():
+        probe = line.strip().lstrip("*#>-`0123456789.)\t ").lower()
+        if not probe.startswith("verdict:"):
+            continue
+        verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
+        if verdict.startswith("pass"):
+            return "pass"
+        if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
+            return "changes_requested"
+        return "unknown"
+    return "unknown"
 
 
 def _proposed_evidence_pr_grounding(body: str, pr: str) -> tuple[bool, str]:

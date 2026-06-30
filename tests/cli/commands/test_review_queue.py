@@ -5922,6 +5922,40 @@ class TestCommandDispatch:
         assert payload["current_head_grounding_method"] == "head_sha_citation"
         assert payload["problems"] == []
 
+    def test_evidence_lint_rejects_model_review_without_explicit_verdict(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="8707",
+            head_sha="515c145ddd6e679042e37862dde84b3a1b06586f",
+            head_committed_at="2026-06-30T02:15:14Z",
+            body=(
+                "## Grok independent model review\n\n"
+                "Reviewer: grok (xai) - independent adversarial model review via Grok "
+                "Build CLI harness, grounded on the exact PR head.\n"
+                "Head: 515c145 (515c145ddd6e679042e37862dde84b3a1b06586f), "
+                "committed 2026-06-30T02:15:14Z.\n"
+                "PR: #8707.\n"
+                "Model family: grok\n\n"
+                "Reviewing the PR diff in context: tracing `_claims_overlap`, "
+                "fleet-claim conflict detection, and the new tests.\n\n"
+                "dogfood: yes\n"
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["evidence_verdict"] == "unknown"
+        assert payload["counted_reviewer_ids"] == ["grok"]
+        assert "missing_explicit_model_review_verdict" in payload["problems"]
+
     def test_evidence_lint_rejects_github_actions_bot_author(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",
