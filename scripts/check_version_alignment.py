@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -36,6 +37,34 @@ def get_canonical_version() -> str:
         raise ValueError("Could not parse version from aragora/__version__.py")
 
     return f"{major.group(1)}.{minor.group(1)}.{patch.group(1)}"
+
+
+def get_runtime_aragora_version() -> str:
+    """Import aragora in a fresh interpreter and return aragora.__version__."""
+    probe = "\n".join(
+        [
+            "import aragora",
+            "import sys",
+            "version = getattr(aragora, '__version__', None)",
+            "if not isinstance(version, str):",
+            "    raise SystemExit('aragora.__version__ is not a string')",
+            "sys.stdout.write(version)",
+        ]
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        check=False,
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        raise RuntimeError(detail)
+    version = result.stdout.strip()
+    if not version:
+        raise RuntimeError("aragora.__version__ is empty")
+    return version
 
 
 def get_pyproject_version(path: Path) -> str | None:
@@ -286,6 +315,17 @@ def main() -> int:
                 if fix_python_version(path, canonical):
                     fixed.append(name)
 
+    try:
+        runtime_version = get_runtime_aragora_version()
+    except RuntimeError as e:
+        print(f"  import aragora: {e} [runtime] [MISMATCH]")
+        mismatches.append(("import aragora", None))
+    else:
+        status = "OK" if runtime_version == canonical else "MISMATCH"
+        print(f"  import aragora: {runtime_version} [runtime] [{status}]")
+        if runtime_version != canonical:
+            mismatches.append(("import aragora", runtime_version))
+
     for name, path, pattern in doc_sources:
         version = get_doc_version(path, pattern)
         if version is None:
@@ -314,7 +354,7 @@ def main() -> int:
         print("Run with --fix to auto-fix, or manually update the files.")
         return 1
 
-    if mismatches and fixed:
+    if mismatches and args.fix:
         remaining = len(mismatches) - len(fixed)
         if remaining > 0:
             print(f"\nWARNING: {remaining} mismatch(es) could not be fixed.")
