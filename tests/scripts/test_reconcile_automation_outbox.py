@@ -1441,6 +1441,44 @@ def test_reconcile_target_pr_state_uses_repo_from_receipt_url(
     assert commands[0][:6] == ["gh", "pr", "view", "7105", "--repo", "other/repo"]
 
 
+def test_reconcile_target_pr_state_uses_sibling_repo_for_numeric_target(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    receipt = {
+        "status": "already_satisfied",
+        "reason": "target_open_pr",
+        "target_pr": 7105,
+        "repo": "Other/Repo",
+    }
+    commands: list[list[str]] = []
+
+    def fake_subprocess_run(
+        command: list[str],
+        **_kwargs: Any,
+    ) -> SimpleNamespace:
+        commands.append(command)
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "number": 7105,
+                    "state": "MERGED",
+                    "headRefOid": "abcdef1234567890abcdef1234567890abcdef12",
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    state = mod._target_pr_state(tmp_path, "synaptent/aragora", receipt)
+
+    assert state is not None
+    assert commands
+    assert commands[0][:6] == ["gh", "pr", "view", "7105", "--repo", "other/repo"]
+
+
 def test_reconcile_keeps_target_pr_receipt_when_merged_pr_head_differs(
     tmp_path: Path,
     monkeypatch: Any,

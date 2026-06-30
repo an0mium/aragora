@@ -386,8 +386,60 @@ def test_local_queue_state_ignores_target_pr_branch_drift_without_exact_pr_head(
 
     assert payload["outbox_count"] == 1
     assert payload["terminal_receipt_count"] == 1
+    assert payload["terminal_receipted_outbox_count"] == 0
+    assert payload["unreceipted_outbox_count"] == 1
+    assert payload["unsatisfied_receipted_outbox_count"] == 1
+    assert payload["unsatisfied_receipted_outbox"][0]["reason"] == "target_pr_receipt_missing"
+    assert payload["stale_target_pr_receipted_outbox_count"] == 1
+
+
+def test_local_queue_state_accepts_target_pr_reference_case_variants(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-example-refresh"
+    branch = "codex/example"
+    desired_head = "a" * 40
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "local_evidence": {
+                    "branch": branch,
+                    "desired_head_sha": desired_head,
+                },
+                "requested_action": {
+                    "branch": branch,
+                    "target_pr": "https://github.com/Synaptent/Aragora/pull/123",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / "receipt.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "reason": "target_open_pr",
+                "status": "already_satisfied",
+                "target_pr": 123,
+                "repo": "synaptent/aragora",
+                "target_pr_head_sha": desired_head,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod._local_queue_state(
+        repo_root=tmp_path,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
     assert payload["terminal_receipted_outbox_count"] == 1
-    assert payload["unreceipted_outbox_count"] == 0
     assert payload["unsatisfied_receipted_outbox_count"] == 0
     assert payload["stale_target_pr_receipted_outbox_count"] == 0
 

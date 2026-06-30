@@ -28,7 +28,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.github_cli_health import check_github_cli_health
-from scripts.handoff_state import TargetPrReference, target_pr_reference_from_receipt
+from scripts.handoff_state import (
+    TargetPrReference,
+    target_pr_reference_from_receipt,
+    target_pr_reference_label,
+    target_pr_references_match,
+)
 from scripts.publish_automation_handoffs import _open_boss_ready_count
 from scripts.publish_codex_automation_branches import (
     CODEX_BRANCH_PREFIX,
@@ -257,15 +262,11 @@ def _target_pr_references_match(
     right: TargetPrReference,
     default_repo: str = DEFAULT_REPO,
 ) -> bool:
-    if left.number != right.number:
-        return False
-    left_repo = (left.repo or default_repo).strip()
-    right_repo = (right.repo or default_repo).strip()
-    return left_repo == right_repo
+    return target_pr_references_match(left, right, default_repo)
 
 
 def _target_pr_reference_label(reference: TargetPrReference) -> str:
-    return f"{reference.repo or DEFAULT_REPO}#{reference.number}"
+    return target_pr_reference_label(reference, DEFAULT_REPO)
 
 
 def _target_pr_reference(payload: Mapping[str, Any]) -> TargetPrReference | None:
@@ -319,7 +320,6 @@ def _stale_target_pr_receipt_evidence(
     branch: str,
     receipt_payload: Mapping[str, Any],
 ) -> dict[str, str] | None:
-    _ = (repo_root, branch)
     reason = str(receipt_payload.get("reason") or "").strip().lower()
     outbox_reference = _target_pr_reference(outbox_payload)
     if reason != "target_open_pr" or outbox_reference is None:
@@ -349,6 +349,14 @@ def _stale_target_pr_receipt_evidence(
         }
     if receipt_head:
         return None
+    if receipt_reference is None:
+        remote_head = _remote_tracking_head(repo_root, branch)
+        if remote_head and remote_head == desired_head:
+            return None
+        return {
+            "outbox_target_pr": _target_pr_reference_label(outbox_reference),
+            "reason": "target_pr_receipt_missing",
+        }
 
     # Target-PR receipts are proved by the target PR, not by the original
     # handoff branch. If the receipt lacks a target_pr_head_sha, keep the local
@@ -534,6 +542,7 @@ def _local_queue_state(
                 unsatisfied_receipted_outbox.append(unsatisfied_evidence)
                 if unsatisfied_evidence.get("reason") in {
                     "receipt_head_mismatch",
+                    "target_pr_receipt_missing",
                     "target_pr_reference_mismatch",
                 }:
                     stale_target_pr_receipted_outbox.append(unsatisfied_evidence)

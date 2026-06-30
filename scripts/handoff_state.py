@@ -171,6 +171,7 @@ class ReceiptEvidence:
     issue_only_pr_receipt: bool = False
     path: str | None = None
     target_pr: int | None = None
+    target_pr_repo: str | None = None
 
 
 @dataclass(frozen=True)
@@ -758,6 +759,7 @@ def classify_handoff_item(
         desired_head,
         desired_base,
         target_pr=receipt_evidence.target_pr,
+        target_pr_repo=receipt_evidence.target_pr_repo,
     )
     evidence["github"] = dataclasses.asdict(github)
     owner = owner_probe.probe(branch) if branch else OwnerEvidence()
@@ -1152,6 +1154,7 @@ def github_evidence_for_branch(
     desired_head: str,
     desired_base: str = "",
     target_pr: int | None = None,
+    target_pr_repo: str | None = None,
 ) -> GitHubEvidence:
     open_prs, pr_error = github_client.open_prs_for_branch(branch)
     ref, ref_error = github_client.remote_ref(branch)
@@ -1176,14 +1179,22 @@ def github_evidence_for_branch(
                 break
     target_pr_error = None
     if exact_open_pr is None and target_pr is not None:
-        target_payload, target_pr_error = _open_pr_by_number(github_client, target_pr)
-        if target_payload is not None:
-            exact_open_pr = _exact_open_pr_from_payload(
-                target_payload,
-                desired_head=desired_head,
-                desired_base=desired_base,
-                expected_branch=branch,
+        client_repo = _normalize_github_repo_name(str(getattr(github_client, "github_repo", "")))
+        normalized_target_repo = _normalize_github_repo_name(target_pr_repo or "")
+        if normalized_target_repo and client_repo and normalized_target_repo != client_repo:
+            target_pr_error = (
+                f"target PR repo {target_pr_repo} differs from configured repo "
+                f"{getattr(github_client, 'github_repo', '')}"
             )
+        else:
+            target_payload, target_pr_error = _open_pr_by_number(github_client, target_pr)
+            if target_payload is not None:
+                exact_open_pr = _exact_open_pr_from_payload(
+                    target_payload,
+                    desired_head=desired_head,
+                    desired_base=desired_base,
+                    expected_branch=branch,
+                )
     remote_ref = None
     if ref is not None:
         obj = ref.get("object") if isinstance(ref.get("object"), Mapping) else {}
@@ -1371,8 +1382,12 @@ def receipt_evidence_from_payload(
     receipt: Mapping[str, Any] | None,
     outbox_payload: Mapping[str, Any],
 ) -> ReceiptEvidence:
+    outbox_reference = target_pr_reference_from_receipt(outbox_payload)
     if receipt is None:
-        return ReceiptEvidence(target_pr=target_pr_number_from_receipt(outbox_payload))
+        return ReceiptEvidence(
+            target_pr=outbox_reference.number if outbox_reference is not None else None,
+            target_pr_repo=outbox_reference.repo if outbox_reference is not None else None,
+        )
     status = str(receipt.get("status") or "").strip().lower() or None
     reason = str(receipt.get("reason") or "").strip().lower() or None
     has_pr = receipt_has_pr_reference(receipt)
@@ -1383,6 +1398,8 @@ def receipt_evidence_from_payload(
         and not has_pr
         and (reason in {"published", "existing_issue", "created_issue"} or has_issue)
     )
+    receipt_reference = target_pr_reference_from_receipt(receipt)
+    reference = receipt_reference or outbox_reference
     return ReceiptEvidence(
         status=status,
         reason=reason,
@@ -1390,8 +1407,8 @@ def receipt_evidence_from_payload(
         has_issue_reference=has_issue,
         issue_only_pr_receipt=issue_only,
         path=str(receipt.get("__receipt_path") or "") or None,
-        target_pr=target_pr_number_from_receipt(receipt)
-        or target_pr_number_from_receipt(outbox_payload),
+        target_pr=reference.number if reference is not None else None,
+        target_pr_repo=reference.repo if reference is not None else None,
     )
 
 
@@ -1648,6 +1665,7 @@ TARGET_PR_URL_KEYS = (
     "created_pull_request_url",
     "existing_pull_request_url",
 )
+TARGET_PR_REPO_KEYS = ("target_pr_repo", "repo", "github_repo")
 
 
 def target_pr_reference_from_receipt(receipt: Mapping[str, Any]) -> TargetPrReference | None:
@@ -1669,12 +1687,36 @@ def _target_pr_reference_from_mapping(mapping: Mapping[str, Any]) -> TargetPrRef
     for key in TARGET_PR_NUMBER_KEYS:
         reference = _target_pr_reference_from_value(mapping.get(key))
         if reference is not None:
-            return reference
+            return _target_pr_reference_with_mapping_repo(reference, mapping)
     for key in TARGET_PR_URL_KEYS:
         reference = _target_pr_reference_from_value(mapping.get(key))
         if reference is not None:
-            return reference
+            return _target_pr_reference_with_mapping_repo(reference, mapping)
     return None
+
+
+def target_pr_references_match(
+    left: TargetPrReference,
+    right: TargetPrReference,
+    default_repo: str | None = None,
+) -> bool:
+    if left.number != right.number:
+        return False
+    left_repo = _normalize_github_repo_name(left.repo or default_repo or "")
+    right_repo = _normalize_github_repo_name(right.repo or default_repo or "")
+    if not left_repo and not right_repo:
+        return True
+    return bool(left_repo and right_repo and left_repo == right_repo)
+
+
+def target_pr_reference_label(
+    reference: TargetPrReference,
+    default_repo: str | None = None,
+) -> str:
+    repo = _normalize_github_repo_name(reference.repo or default_repo or "") or (
+        reference.repo or default_repo or ""
+    )
+    return f"{repo}#{reference.number}" if repo else f"#{reference.number}"
 
 
 def heads_match(expected: str, actual: str) -> bool:
@@ -2202,7 +2244,47 @@ def _target_pr_reference_from_value(value: Any) -> TargetPrReference | None:
     parsed_repo_part = urlparse(repo_part.strip())
     if repo is None and (parsed_repo_part.scheme or parsed_repo_part.netloc):
         return None
-    return TargetPrReference(number=int(candidate), repo=repo)
+    return TargetPrReference(number=int(candidate), repo=_normalize_github_repo_name(repo or ""))
+
+
+def _target_pr_reference_with_mapping_repo(
+    reference: TargetPrReference,
+    mapping: Mapping[str, Any],
+) -> TargetPrReference:
+    if reference.repo:
+        return reference
+    repo = _repo_name_from_mapping(mapping)
+    if repo is None:
+        return reference
+    return TargetPrReference(number=reference.number, repo=repo)
+
+
+def _repo_name_from_mapping(mapping: Mapping[str, Any]) -> str | None:
+    for key in TARGET_PR_REPO_KEYS:
+        value = mapping.get(key)
+        if isinstance(value, Mapping):
+            normalized = _normalize_github_repo_name(str(value.get("full_name") or ""))
+        else:
+            normalized = _normalize_github_repo_name(str(value or ""))
+        if normalized:
+            return normalized
+    return None
+
+
+def _normalize_github_repo_name(value: str) -> str | None:
+    text = str(value or "").strip().removesuffix(".git").strip("/")
+    if not text:
+        return None
+    parsed = urlparse(text)
+    if parsed.scheme or parsed.netloc:
+        if parsed.netloc.lower() != "github.com":
+            return None
+        text = parsed.path.strip("/")
+    parts = [part for part in text.split("/") if part]
+    if len(parts) != 2:
+        return None
+    owner, repo = parts
+    return f"{owner.lower()}/{repo.lower()}"
 
 
 def _github_repo_from_pull_url_prefix(prefix: str) -> str | None:

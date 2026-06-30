@@ -42,7 +42,11 @@ from audit_codex_branch_backlog import (  # noqa: E402
     run_git,
 )
 from github_cli_health import check_github_cli_health  # noqa: E402
-from handoff_state import TargetPrReference, target_pr_reference_from_receipt  # noqa: E402
+from handoff_state import (  # noqa: E402
+    TargetPrReference,
+    target_pr_reference_from_receipt,
+    target_pr_references_match,
+)
 from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
 
 UTC = timezone.utc
@@ -646,11 +650,7 @@ def _target_pr_references_match(
     right: TargetPrReference,
     default_repo: str,
 ) -> bool:
-    if left.number != right.number:
-        return False
-    left_repo = (left.repo or default_repo).strip()
-    right_repo = (right.repo or default_repo).strip()
-    return left_repo == right_repo
+    return target_pr_references_match(left, right, default_repo)
 
 
 def _target_pr_state(
