@@ -201,8 +201,13 @@ def _validate_quorum(errors: list[str], value: Any) -> None:
     ):
         if required not in value:
             errors.append(f"quorum.{required}: required when present")
+    # List-valued subfields must be actual lists when present: a key present with a
+    # non-list value (e.g. ``participants: null``) is a malformed/tamper signal that
+    # must FAIL validation, not slip through and crash the downstream cross-check.
     participants = value.get("participants")
-    if isinstance(participants, list):
+    if "participants" in value and not isinstance(participants, list):
+        errors.append("quorum.participants: must be a list when present")
+    elif isinstance(participants, list):
         for i, participant in enumerate(participants):
             if (
                 not isinstance(participant, dict)
@@ -210,6 +215,12 @@ def _validate_quorum(errors: list[str], value: Any) -> None:
                 or "model_family" not in participant
             ):
                 errors.append(f"quorum.participants[{i}]: requires agent and model_family")
+    if "supporting_agents" in value and not isinstance(value.get("supporting_agents"), list):
+        errors.append("quorum.supporting_agents: must be a list when present")
+    dissent = value.get("dissent")
+    if isinstance(dissent, dict) and "dissenting_agents" in dissent:
+        if not isinstance(dissent.get("dissenting_agents"), list):
+            errors.append("quorum.dissent.dissenting_agents: must be a list when present")
 
 
 def _validate_confidence(errors: list[str], value: Any) -> None:
@@ -393,17 +404,27 @@ def _check_quorum_consistency(doc: dict[str, Any]) -> Check:
     quorum = doc.get("quorum")
     if not isinstance(quorum, dict) or quorum.get("status") != "present":
         return Check("quorum_consistency", SKIP, "no present quorum block to cross-check")
+
+    # Coerce list-valued subfields defensively: a present-but-null value makes
+    # ``dict.get(key, [])`` return ``None`` (the default fires only on absence),
+    # so iterate over a guaranteed list to turn malformed input into a verdict,
+    # never a crash.
+    def _as_list(v: Any) -> list[Any]:
+        return v if isinstance(v, list) else []
+
     participants = {
         str(p.get("agent"))
-        for p in quorum.get("participants", [])
+        for p in _as_list(quorum.get("participants"))
         if isinstance(p, dict) and p.get("agent")
     }
     referenced: set[str] = set()
-    referenced.update(str(a) for a in quorum.get("supporting_agents", []) if isinstance(a, str))
+    referenced.update(
+        str(a) for a in _as_list(quorum.get("supporting_agents")) if isinstance(a, str)
+    )
     dissent = quorum.get("dissent")
     if isinstance(dissent, dict):
         referenced.update(
-            str(a) for a in dissent.get("dissenting_agents", []) if isinstance(a, str)
+            str(a) for a in _as_list(dissent.get("dissenting_agents")) if isinstance(a, str)
         )
     missing = sorted(referenced - participants)
     if missing:

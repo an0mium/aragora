@@ -172,6 +172,25 @@ def test_quorum_inconsistency_fails() -> None:
     assert "ghost" in _check(result, "quorum_consistency").detail
 
 
+@pytest.mark.parametrize("field", ["participants", "supporting_agents"])
+def test_quorum_present_but_null_list_subfield_fails_not_crash(field: str) -> None:
+    # A present-but-null list subfield (e.g. ``participants: null``) is a
+    # malformed/tamper signal: ``dict.get(key, [])`` returns None on a present
+    # null, so the engine must turn it into a FAIL verdict, not raise TypeError
+    # downstream. Regression for the #8389 review finding.
+    doc = _valid_odr()
+    doc["quorum"][field] = None
+    result = verify_odr_document(doc)  # must not raise
+    assert result.ok is False
+
+
+def test_quorum_null_dissenting_agents_fails_not_crash() -> None:
+    doc = _valid_odr()
+    doc["quorum"]["dissent"] = {"status": "present", "dissenting_agents": None}
+    result = verify_odr_document(doc)  # must not raise
+    assert result.ok is False
+
+
 def test_chain_anchored_passes_and_broken_fails() -> None:
     doc = _valid_odr()
     digest = odr_content_digest(doc)
