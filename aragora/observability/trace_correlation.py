@@ -137,7 +137,7 @@ def track_request_with_trace(
             if ctx.sampled:
                 logger.info("Request traced", extra={"trace_id": ctx.trace_id})
     """
-    from aragora.server.metrics import API_REQUESTS, API_LATENCY
+    from aragora.observability.server_metrics import API_REQUESTS, API_LATENCY
 
     ctx = get_trace_context() if include_trace else TraceContext()
     start = time.perf_counter()
