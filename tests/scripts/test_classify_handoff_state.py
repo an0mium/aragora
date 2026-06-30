@@ -34,11 +34,13 @@ class FakeGitHub:
         pr_by_number: dict[int, dict[str, Any]] | None = None,
         refs: dict[str, dict[str, Any]] | None = None,
         errors: dict[str, str] | None = None,
+        github_repo: str = "synaptent/aragora",
     ) -> None:
         self.open_prs = open_prs or {}
         self.pr_by_number = pr_by_number or {}
         self.refs = refs or {}
         self.errors = errors or {}
+        self.github_repo = github_repo
         self.pr_calls = 0
         self.pr_number_calls = 0
         self.ref_calls = 0
@@ -1286,6 +1288,96 @@ def test_requested_action_target_pr_can_prove_exact_open_pr_representation_when_
     assert item["evidence"]["github"]["exact_open_pr"]["number"] == 8570
     assert "GitHub PR evidence is degraded" in item["reason"]
     assert github.pr_number_calls == 1
+
+
+def test_numeric_outbox_target_matches_same_repo_receipt_url_with_default_repo(
+    tmp_path: Path,
+) -> None:
+    key = "open-pr-codex-example-aaaaaaaa"
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    path = _write_outbox(tmp_path, key=key, branch="codex/original-branch")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload.pop("repo")
+    payload["requested_action"]["target_pr"] = 8570
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    _write_receipt(
+        tmp_path,
+        key,
+        {
+            "status": "already_satisfied",
+            "reason": "target_open_pr",
+            "existing_pr_url": "https://github.com/synaptent/aragora/pull/8570",
+        },
+    )
+    github = FakeGitHub(
+        pr_by_number={
+            8570: {
+                "number": 8570,
+                "state": "open",
+                "draft": False,
+                "head": {"ref": "codex/original-branch", "sha": HEAD},
+                "base": {"ref": "main"},
+                "html_url": "https://github.com/synaptent/aragora/pull/8570",
+            }
+        },
+        errors={"pr:codex/original-branch": "gh api failed (HTTP 504)"},
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["safe_to_mutate"] is False
+    assert item["next_mutation_candidate"] == "none"
+    assert item["evidence"]["receipt"]["target_pr"] == 8570
+    assert item["evidence"]["receipt"]["target_pr_repo"] == "synaptent/aragora"
+    assert item["evidence"]["receipt"]["target_pr_mismatch"] is None
+    assert item["evidence"]["github"]["exact_open_pr"]["number"] == 8570
+    assert github.pr_number_calls == 1
+
+
+def test_numeric_outbox_target_rejects_cross_repo_receipt_url_with_default_repo(
+    tmp_path: Path,
+) -> None:
+    key = "open-pr-codex-example-aaaaaaaa"
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    path = _write_outbox(tmp_path, key=key, branch="codex/original-branch")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload.pop("repo")
+    payload["requested_action"]["target_pr"] = 8570
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    _write_receipt(
+        tmp_path,
+        key,
+        {
+            "status": "already_satisfied",
+            "reason": "target_open_pr",
+            "existing_pr_url": "https://github.com/other/repo/pull/8570",
+        },
+    )
+    github = FakeGitHub(
+        pr_by_number={
+            8570: {
+                "number": 8570,
+                "state": "open",
+                "draft": False,
+                "head": {"ref": "codex/original-branch", "sha": HEAD},
+                "base": {"ref": "main"},
+                "html_url": "https://github.com/synaptent/aragora/pull/8570",
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["safe_to_mutate"] is False
+    assert item["next_mutation_candidate"] == "none"
+    assert item["evidence"]["receipt"]["target_pr"] is None
+    assert "receipt target PR other/repo#8570" in item["reason"]
+    assert "outbox target PR synaptent/aragora#8570" in item["reason"]
+    assert github.pr_calls == 0
+    assert github.pr_number_calls == 0
+    assert github.ref_calls == 0
 
 
 def test_target_pr_branch_lookup_must_match_handoff_branch(

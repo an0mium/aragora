@@ -674,6 +674,7 @@ def classify_handoffs(
             github_client=gh,
             owner_probe=owner,
             state_root=state_root,
+            default_repo=github_repo,
             steering_rows=steering_rows,
         )
         gh_error = item.evidence.get("github", {}).get("error")
@@ -716,13 +717,14 @@ def classify_handoff_item(
     github_client: Any,
     owner_probe: Any,
     state_root: Path,
+    default_repo: str | None = None,
     steering_rows: Sequence[Mapping[str, Any]] | None = None,
 ) -> HandoffClassification:
     idem = str(payload.get("idempotency_key") or path.stem).strip() or path.stem
     branch = branch_from_payload(payload)
     desired_head = desired_head_from_payload(payload)
     desired_base = desired_base_from_payload(payload)
-    receipt_evidence = receipt_evidence_from_payload(receipt, payload)
+    receipt_evidence = receipt_evidence_from_payload(receipt, payload, default_repo=default_repo)
 
     evidence: dict[str, Any] = {
         "receipt": dataclasses.asdict(receipt_evidence),
@@ -1193,10 +1195,16 @@ def github_evidence_for_branch(
     if exact_open_pr is None and target_pr is not None:
         client_repo = _normalize_github_repo_name(str(getattr(github_client, "github_repo", "")))
         normalized_target_repo = _normalize_github_repo_name(target_pr_repo or "")
-        if normalized_target_repo and client_repo and normalized_target_repo != client_repo:
+        if not normalized_target_repo and not client_repo:
+            target_pr_error = "target PR repo is unavailable; skipping target PR lookup"
+        elif normalized_target_repo and client_repo and normalized_target_repo != client_repo:
             target_pr_error = (
                 f"target PR repo {target_pr_repo} differs from configured repo "
                 f"{getattr(github_client, 'github_repo', '')}"
+            )
+        elif normalized_target_repo and not client_repo:
+            target_pr_error = (
+                f"target PR repo {target_pr_repo} cannot be checked without configured repo"
             )
         else:
             target_payload, target_pr_error = _open_pr_by_number(github_client, target_pr)
@@ -1393,9 +1401,15 @@ def _receipt_sort_timestamp(receipt: Mapping[str, Any], path: Path) -> float:
 def receipt_evidence_from_payload(
     receipt: Mapping[str, Any] | None,
     outbox_payload: Mapping[str, Any],
+    *,
+    default_repo: str | None = None,
 ) -> ReceiptEvidence:
     outbox_reference = target_pr_reference_from_receipt(outbox_payload)
     if receipt is None:
+        if outbox_reference is not None:
+            outbox_reference = _target_pr_reference_with_default_repo(
+                outbox_reference, default_repo
+            )
         return ReceiptEvidence(
             target_pr=outbox_reference.number if outbox_reference is not None else None,
             target_pr_repo=outbox_reference.repo if outbox_reference is not None else None,
@@ -1412,7 +1426,7 @@ def receipt_evidence_from_payload(
     )
     receipt_reference = target_pr_reference_from_receipt(receipt)
     target_pr_mismatch = None
-    default_repo = _repo_name_from_mapping(outbox_payload)
+    default_repo = _repo_name_from_mapping(outbox_payload) or default_repo
     if (
         receipt_reference is not None
         and outbox_reference is not None
@@ -1426,6 +1440,8 @@ def receipt_evidence_from_payload(
         reference = None
     else:
         reference = receipt_reference or outbox_reference
+    if reference is not None:
+        reference = _target_pr_reference_with_default_repo(reference, default_repo)
     return ReceiptEvidence(
         status=status,
         reason=reason,
@@ -2285,6 +2301,18 @@ def _target_pr_reference_with_mapping_repo(
     if reference.repo:
         return reference
     repo = _repo_name_from_mapping(mapping)
+    if repo is None:
+        return reference
+    return TargetPrReference(number=reference.number, repo=repo)
+
+
+def _target_pr_reference_with_default_repo(
+    reference: TargetPrReference,
+    default_repo: str | None,
+) -> TargetPrReference:
+    if reference.repo:
+        return reference
+    repo = _normalize_github_repo_name(default_repo or "")
     if repo is None:
         return reference
     return TargetPrReference(number=reference.number, repo=repo)
