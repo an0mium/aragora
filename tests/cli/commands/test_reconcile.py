@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import json
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 
 from aragora.cli.commands.reconcile import (
     add_reconcile_parser,
     build_settle_report,
     cmd_reconcile,
 )
+from aragora.cli.commands.review_queue_transport import _GhError
 
 
 def _green_rollup() -> list[dict[str, str]]:
@@ -95,6 +99,20 @@ def test_reconcile_parser_registers_settle_report() -> None:
     assert ns.autonomy == "report"
     assert ns.pr == ["8658"]
     assert ns.json is True
+
+
+def test_reconcile_parser_does_not_advertise_report_side_effect_flags() -> None:
+    root = argparse.ArgumentParser()
+    sub = root.add_subparsers()
+    add_reconcile_parser(sub)
+
+    for flag in ("--execute-reviewers", "--ignore-own-quorum-check"):
+        try:
+            root.parse_args(["reconcile", "settle", flag])
+        except SystemExit as exc:
+            assert exc.code == 2
+        else:  # pragma: no cover - argparse should reject these flags
+            raise AssertionError(f"{flag} should not be accepted by reconcile settle")
 
 
 def test_top_level_parser_registers_reconcile_settle() -> None:
@@ -189,7 +207,7 @@ def test_build_settle_report_classifies_human_gate_before_mergeable() -> None:
     assert report["needs_human"][0]["bucket_reason"] == "human_required"
 
 
-def test_report_mode_does_not_call_merger_or_evidence_apply(monkeypatch) -> None:
+def test_report_mode_uses_read_only_packet_and_single_explicit_view(monkeypatch) -> None:
     packet = _packet(_entry(1))
     calls: list[str] = []
 
@@ -201,16 +219,8 @@ def test_report_mode_does_not_call_merger_or_evidence_apply(monkeypatch) -> None
         calls.append(f"view:{ref}:{repo}")
         return _view(int(ref))
 
-    def forbidden_side_effect(*_args, **_kwargs):  # pragma: no cover - must not run
-        raise AssertionError("report autonomy must not mutate")
-
     monkeypatch.setattr("aragora.cli.commands.reconcile._build_merge_packet", fake_packet)
     monkeypatch.setattr("aragora.cli.commands.reconcile._fetch_pr_view", fake_view)
-    monkeypatch.setattr("aragora.cli.commands.reconcile._merge_pr", forbidden_side_effect)
-    monkeypatch.setattr(
-        "aragora.cli.commands.reconcile._collect_quorum_evidence_apply",
-        forbidden_side_effect,
-    )
 
     args = argparse.Namespace(
         reconcile_command="settle",
@@ -227,7 +237,103 @@ def test_report_mode_does_not_call_merger_or_evidence_apply(monkeypatch) -> None
     rc = cmd_reconcile(args)
 
     assert rc == 0
-    assert calls == ["view:1:None", "packet", "view:1:None"]
+    assert calls == ["view:1:None", "packet"]
+
+
+def test_repo_open_queue_lists_prs_with_repo_override(monkeypatch) -> None:
+    packet = _packet(_entry(11), _entry(12, status="needs_model_review_quorum"))
+    calls: list[object] = []
+
+    def fake_gh_json(args: list[str]):
+        calls.append(["gh", *args])
+        assert args == [
+            "pr",
+            "list",
+            "--repo",
+            "owner/repo",
+            "--state",
+            "open",
+            "--limit",
+            "2",
+            "--json",
+            "number",
+        ]
+        return [{"number": 11}, {"number": 12}]
+
+    def fake_packet(**kwargs):
+        calls.append(kwargs)
+        return packet
+
+    def fake_view(ref: str, *, repo: str | None):
+        calls.append(f"view:{ref}:{repo}")
+        return _view(int(ref))
+
+    monkeypatch.setattr("aragora.cli.commands.reconcile._gh_json", fake_gh_json)
+    monkeypatch.setattr("aragora.cli.commands.reconcile._build_merge_packet", fake_packet)
+    monkeypatch.setattr("aragora.cli.commands.reconcile._fetch_pr_view", fake_view)
+    args = argparse.Namespace(
+        reconcile_command="settle",
+        autonomy="report",
+        pr=[],
+        limit=2,
+        repo="owner/repo",
+        review_queue_root=None,
+        execute_reviewers=False,
+        ignore_own_quorum_check=False,
+        json=True,
+    )
+
+    rc = cmd_reconcile(args)
+
+    assert rc == 0
+    packet_call = next(call for call in calls if isinstance(call, dict))
+    assert packet_call["pr_refs"] == ["11", "12"]
+    assert packet_call["repo"] == "owner/repo"
+    assert "view:11:owner/repo" in calls
+    assert "view:12:owner/repo" in calls
+
+
+def test_report_mode_json_transport_error_fails_closed(monkeypatch) -> None:
+    def fail_transport(_args) -> None:
+        raise _GhError(
+            "gh pr view 1 --json number failed: error connecting to api.github.com\n"
+            "check your internet connection or https://githubstatus.com"
+        )
+
+    monkeypatch.setattr("aragora.cli.commands.reconcile._load_settle_inputs", fail_transport)
+    monkeypatch.setattr(
+        "aragora.cli.commands.reconcile._gh_json",
+        lambda _args: (_ for _ in ()).throw(_GhError("REST fallback unavailable")),
+    )
+    args = argparse.Namespace(
+        reconcile_command="settle",
+        autonomy="report",
+        pr=["1"],
+        limit=30,
+        repo="owner/repo",
+        review_queue_root=None,
+        execute_reviewers=False,
+        ignore_own_quorum_check=False,
+        json=True,
+    )
+    stdout = StringIO()
+    stderr = StringIO()
+
+    with redirect_stdout(stdout), redirect_stderr(stderr):
+        rc = cmd_reconcile(args)
+
+    assert rc == 1
+    assert stderr.getvalue() == ""
+    payload = json.loads(stdout.getvalue())
+    assert payload["version"] == "reconcile_settle_report.v1"
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+    assert payload["preserve_no_mutate"] is True
+    assert payload["mutation_forbidden"] is True
+    assert payload["command"] == "reconcile settle"
+    assert payload["pr_refs"] == ["1"]
+    assert payload["merge_packet"]["status"] == "transport_blocked"
+    assert payload["merge_packet"]["rest_fallback"]["available"] is False
 
 
 def test_report_mode_rejects_execute_reviewers(monkeypatch, capsys) -> None:

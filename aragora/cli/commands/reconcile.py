@@ -76,16 +76,6 @@ def add_reconcile_parser(subparsers: argparse._SubParsersAction) -> None:
         default=None,
         help="Override the review-queue store root used by merge-packet.",
     )
-    settle.add_argument(
-        "--execute-reviewers",
-        action="store_true",
-        help="Pass through to review-queue merge-packet reviewer execution.",
-    )
-    settle.add_argument(
-        "--ignore-own-quorum-check",
-        action="store_true",
-        help="Diagnostic pass-through to review-queue merge-packet.",
-    )
     settle.add_argument("--json", action="store_true", help="Output as JSON.")
     settle.set_defaults(func=cmd_reconcile)
     parser.set_defaults(command="reconcile", func=cmd_reconcile)
@@ -130,6 +120,9 @@ def _cmd_settle(args: argparse.Namespace) -> int:
             repo=getattr(args, "repo", None),
         )
     except Exception as exc:  # pragma: no cover - exact exception class comes from gh/review-queue
+        if getattr(args, "json", False) and _is_github_transport_error(exc):
+            print(json.dumps(_transport_blocked_settle_report(args=args, error=exc), indent=2))
+            return 1
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -145,6 +138,7 @@ def _load_settle_inputs(
 ) -> tuple[dict[str, Any], dict[int, dict[str, Any]]]:
     pr_refs = [str(ref).strip() for ref in (getattr(args, "pr", []) or []) if str(ref).strip()]
     repo = getattr(args, "repo", None)
+    limit = int(getattr(args, "limit", 30) or 30)
     if pr_refs:
         views: dict[int, dict[str, Any]] = {}
         open_refs: list[str] = []
@@ -157,7 +151,7 @@ def _load_settle_inputs(
         packet = (
             _build_merge_packet(
                 pr_refs=open_refs,
-                limit=int(getattr(args, "limit", 30) or 30),
+                limit=limit,
                 repo=repo,
                 review_queue_root=getattr(args, "review_queue_root", None),
                 execute_reviewers=bool(getattr(args, "execute_reviewers", False)),
@@ -166,14 +160,35 @@ def _load_settle_inputs(
             if open_refs
             else _empty_merge_packet(repo=repo)
         )
-        for ref in open_refs:
-            view = _fetch_pr_view(ref, repo=repo)
-            views[_view_number(view)] = view
+        return packet, views
+
+    if repo:
+        repo_refs = _fetch_repo_open_pr_refs(repo=repo, limit=limit)
+        packet = (
+            _build_merge_packet(
+                pr_refs=repo_refs,
+                limit=limit,
+                repo=repo,
+                review_queue_root=getattr(args, "review_queue_root", None),
+                execute_reviewers=bool(getattr(args, "execute_reviewers", False)),
+                ignore_own_quorum_check=bool(getattr(args, "ignore_own_quorum_check", False)),
+            )
+            if repo_refs
+            else _empty_merge_packet(repo=repo)
+        )
+        views = {}
+        for entry in packet.get("entries") or []:
+            if not isinstance(entry, dict):
+                continue
+            number = _entry_number(entry)
+            if number <= 0:
+                continue
+            views[number] = _fetch_pr_view(str(number), repo=repo)
         return packet, views
 
     packet = _build_merge_packet(
         pr_refs=[],
-        limit=int(getattr(args, "limit", 30) or 30),
+        limit=limit,
         repo=repo,
         review_queue_root=getattr(args, "review_queue_root", None),
         execute_reviewers=bool(getattr(args, "execute_reviewers", False)),
@@ -376,18 +391,88 @@ def _build_merge_packet(
     )
 
 
+def _fetch_repo_open_pr_refs(*, repo: str, limit: int) -> list[str]:
+    raw = _gh_json(
+        [
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--limit",
+            str(limit),
+            "--json",
+            "number",
+        ]
+    )
+    if not isinstance(raw, list):
+        raise RuntimeError(f"open PR list for {repo} did not return a list")
+    refs: list[str] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            number = int(item.get("number") or 0)
+        except (TypeError, ValueError):
+            continue
+        if number > 0:
+            refs.append(str(number))
+    return refs
+
+
 def _gh_json(args: list[str]) -> Any:
     from aragora.cli.commands.review_queue import _gh_json as review_queue_gh_json
 
     return review_queue_gh_json(args)
 
 
-def _merge_pr(*_args: Any, **_kwargs: Any) -> None:
-    raise NotImplementedError("merge application is intentionally absent from report mode")
+def _is_github_transport_error(error: object) -> bool:
+    from aragora.cli.commands.review_queue_transport import _is_github_transport_error as is_error
+
+    return is_error(error)
 
 
-def _collect_quorum_evidence_apply(*_args: Any, **_kwargs: Any) -> None:
-    raise NotImplementedError("evidence application is intentionally absent from report mode")
+def _transport_blocked_settle_report(
+    *,
+    args: argparse.Namespace,
+    error: Exception,
+) -> dict[str, Any]:
+    pr_refs = [str(ref).strip() for ref in (getattr(args, "pr", []) or []) if str(ref).strip()]
+    limit = int(getattr(args, "limit", 30) or 30)
+    repo = getattr(args, "repo", None)
+    from aragora.cli.commands.review_queue_transport import (
+        _merge_packet_transport_blocked_envelope_with_rest_fallback,
+    )
+
+    return {
+        "version": SETTLE_REPORT_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "autonomy": str(getattr(args, "autonomy", "report") or "report"),
+        "mutated": False,
+        "repo": repo,
+        "counts": {bucket: 0 for bucket in SETTLE_BUCKETS},
+        **{bucket: [] for bucket in SETTLE_BUCKETS},
+        "status": "transport_blocked",
+        "transport_blocked": True,
+        "preserve_no_mutate": True,
+        "mutation_forbidden": True,
+        "error_kind": "github_transport",
+        "command": "reconcile settle",
+        "error": str(error),
+        "pr_refs": pr_refs,
+        "merge_packet": _merge_packet_transport_blocked_envelope_with_rest_fallback(
+            error=str(error),
+            pr_refs=pr_refs,
+            repo_override=repo,
+            limit=limit,
+            gh_json=_gh_json,
+        ),
+        "next_prompt": (
+            "GitHub transport is blocked; preserve no-mutate state and rerun reconcile settle "
+            "after transport recovers. Do not mark ready or settle from this degraded report."
+        ),
+    }
 
 
 def _empty_merge_packet(*, repo: str | None) -> dict[str, Any]:
