@@ -45,11 +45,14 @@ from github_cli_health import check_github_cli_health  # noqa: E402
 from handoff_state import (  # noqa: E402
     BASE_FIELD_KEYS,
     HEAD_FIELD_KEYS,
+    LaneRegistryOwnerProbe,
     NarrowGitHubClient,
     full_heads_match,
     github_evidence_for_branch,
     is_pr_publication_request as handoff_is_pr_publication_request,
     local_evidence_conflict_reason,
+    owner_evidence_from_payload,
+    steering_evidence_for_branch,
     target_pr_number_from_receipt,
 )
 from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
@@ -125,6 +128,10 @@ def _state_default_path(state_root: Path, default_relative: Path) -> Path:
     if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
         return expanded.joinpath(*default_relative.parts[1:])
     return expanded / default_relative
+
+
+def _aragora_state_root(state_root: Path) -> Path:
+    return _state_default_path(state_root, Path(".aragora")).resolve()
 
 
 def _resolve_path(repo_root: Path, value: Path | None, default: Path) -> Path:
@@ -1064,10 +1071,52 @@ def _exact_open_pr_terminal_candidate(
     return None, None
 
 
+def _owner_evidence_keep_reason(owner: Any) -> str | None:
+    advisory = str(getattr(owner, "advisory_withheld", "") or "").strip().lower()
+    blocking_state = str(getattr(owner, "owner_blocking_state", "") or "").strip().lower()
+    status = str(getattr(owner, "status", "") or "").strip().lower()
+    if getattr(owner, "available", True) is False:
+        detail = str(getattr(owner, "error", "") or "owner evidence unavailable").strip()
+        return f"exact open PR terminal-archive gate: owner liveness unverified ({detail})"
+    if advisory == "possible_unpushed_work" or blocking_state == "possible_unpushed_work":
+        return "exact open PR terminal-archive gate: owner reports possible unpushed work"
+    if blocking_state in {"live_owner", "stale_owner", "unknown_owner", "stale_terminal_owner"}:
+        return f"exact open PR terminal-archive gate: owner gate remains ({blocking_state})"
+    owner_id = str(
+        getattr(owner, "owner_session", None) or getattr(owner, "lane_id", None) or ""
+    ).strip()
+    if owner_id and status not in {"completed", "released", "superseded"}:
+        return f"exact open PR terminal-archive gate: active owner {owner_id} remains"
+    return None
+
+
+def _steering_keep_reason(state_root: Path, branch: str, owner: Any) -> str | None:
+    steering = steering_evidence_for_branch(
+        state_root=state_root,
+        branch=branch,
+        owner_session=getattr(owner, "owner_session", None),
+        lane_id=getattr(owner, "lane_id", None),
+    )
+    if steering.human_message_count > 0:
+        return "exact open PR terminal-archive gate: human steering message remains"
+    if steering.blocking_message_count > 0:
+        return "exact open PR terminal-archive gate: blocking operator steering remains"
+    return None
+
+
+def _registry_owner_keep_reason(state_root: Path, branch: str) -> str | None:
+    owner = LaneRegistryOwnerProbe(state_root=state_root).probe(branch)
+    reason = _owner_evidence_keep_reason(owner)
+    if reason is not None:
+        return reason
+    return _steering_keep_reason(state_root, branch, owner)
+
+
 def _exact_open_pr_owner_keep_reason(root: Path, state_root: Path, branch: str) -> str | None:
+    aragora_state_root = _aragora_state_root(state_root)
     script = root / "scripts" / "identify_lane_owner.py"
     if not script.exists():
-        return None
+        return _registry_owner_keep_reason(aragora_state_root, branch)
     try:
         proc = subprocess.run(
             [
@@ -1078,11 +1127,11 @@ def _exact_open_pr_owner_keep_reason(root: Path, state_root: Path, branch: str) 
                 "--liveness",
                 "--json",
                 "--registry-path",
-                str(state_root / "agent-bridge" / "lanes.json"),
+                str(aragora_state_root / "agent-bridge" / "lanes.json"),
                 "--steering-inbox-root",
-                str(state_root / "operator-steering"),
+                str(aragora_state_root / "operator-steering"),
                 "--heartbeat-path",
-                str(state_root / "agent-bridge" / "heartbeats.json"),
+                str(aragora_state_root / "agent-bridge" / "heartbeats.json"),
             ],
             cwd=root,
             text=True,
@@ -1096,25 +1145,19 @@ def _exact_open_pr_owner_keep_reason(root: Path, state_root: Path, branch: str) 
         message = (proc.stderr or proc.stdout or "").strip().splitlines()
         detail = message[0] if message else f"identify_lane_owner exited {proc.returncode}"
         if "no lane matched" in detail.lower() or "no matching lane" in detail.lower():
-            return None
+            return _registry_owner_keep_reason(aragora_state_root, branch)
         return f"exact open PR terminal-archive gate: owner liveness unverified ({detail})"
     try:
-        owner = json.loads(proc.stdout)
+        owner_payload = json.loads(proc.stdout)
     except json.JSONDecodeError:
         return "exact open PR terminal-archive gate: owner liveness returned unparseable JSON"
-    if not isinstance(owner, Mapping):
+    if not isinstance(owner_payload, Mapping):
         return "exact open PR terminal-archive gate: owner liveness returned non-mapping JSON"
-    advisory = str(owner.get("advisory_withheld") or "").strip().lower()
-    blocking_state = str(owner.get("owner_blocking_state") or "").strip().lower()
-    status = str(owner.get("status") or owner.get("lane_status") or "").strip().lower()
-    if advisory == "possible_unpushed_work" or blocking_state == "possible_unpushed_work":
-        return "exact open PR terminal-archive gate: owner reports possible unpushed work"
-    if blocking_state in {"live_owner", "stale_owner", "unknown_owner", "stale_terminal_owner"}:
-        return f"exact open PR terminal-archive gate: owner gate remains ({blocking_state})"
-    owner_id = str(owner.get("owner_session") or owner.get("lane_id") or "").strip()
-    if owner_id and status not in {"completed", "released", "superseded"}:
-        return f"exact open PR terminal-archive gate: active owner {owner_id} remains"
-    return None
+    owner = owner_evidence_from_payload(owner_payload)
+    reason = _owner_evidence_keep_reason(owner)
+    if reason is not None:
+        return reason
+    return _steering_keep_reason(aragora_state_root, branch, owner)
 
 
 def _archive_with_terminal_disposition(
@@ -1285,24 +1328,26 @@ def _write_synthetic_receipt(
     reason: str,
     pr_number: int | None,
     apply: bool,
+    repo_name: str | None = None,
+    pr_url: str | None = None,
 ) -> Path:
     receipt_dir.mkdir(parents=True, exist_ok=True)
     key = str(outbox_payload.get("idempotency_key") or "").strip()
     if not key:
         raise ValueError("outbox payload missing idempotency_key")
     path = receipt_dir / f"{key}.json"
+    repo = str(repo_name or outbox_payload.get("repo") or "synaptent/aragora").strip()
+    existing_pr_url = str(pr_url or "").strip()
+    if not existing_pr_url and pr_number is not None:
+        existing_pr_url = f"https://github.com/{repo}/pull/{pr_number}"
     body = {
         "created_issue_url": None,
         "existing_issue_url": None,
-        "existing_pr_url": (
-            f"https://github.com/{outbox_payload.get('repo', 'synaptent/aragora')}/pull/{pr_number}"
-            if pr_number is not None
-            else None
-        ),
+        "existing_pr_url": existing_pr_url or None,
         "idempotency_key": key,
         "reason": reason,
         "recorded_at": datetime.now(UTC).isoformat(),
-        "repo": outbox_payload.get("repo", "synaptent/aragora"),
+        "repo": repo,
         "source_file": str(outbox_payload.get("__source_file", "")),
         "status": "already_satisfied",
         "task": outbox_payload.get("task", ""),
@@ -1341,6 +1386,7 @@ def _handle_exact_open_pr_terminal_candidate(
     )
     if terminal_info is not None:
         pr_number = terminal_info["decision_evidence"]["pr_number"]
+        pr_url = str(terminal_info["decision_evidence"].get("pr_url") or "").strip()
         reason = f"represented by exact open PR #{pr_number}"
         counts["satisfied_by_exact_open_pr"] += 1
         actions.append(
@@ -1361,6 +1407,8 @@ def _handle_exact_open_pr_terminal_candidate(
                 reason=TERMINAL_DISPOSITION_EXACT_OPEN_PR,
                 pr_number=pr_number,
                 apply=True,
+                repo_name=repo_name,
+                pr_url=pr_url or None,
             )
             _archive_with_terminal_disposition(path, archive_dir, payload, terminal_info)
         return True
@@ -1916,7 +1964,7 @@ def main(argv: list[str] | None = None) -> int:
             ref_proc = None
         if ref_proc is None or ref_proc.returncode != 0:
             open_prs, open_pr_state_available = load_open_pr_state()
-            if open_pr_state_available and _handle_exact_open_pr_terminal_candidate(
+            if _handle_exact_open_pr_terminal_candidate(
                 root=root,
                 state_root=state_root,
                 repo_name=args.repo_name,
@@ -2003,7 +2051,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         open_prs, open_pr_state_available = load_open_pr_state()
-        if open_pr_state_available and _handle_exact_open_pr_terminal_candidate(
+        if _handle_exact_open_pr_terminal_candidate(
             root=root,
             state_root=state_root,
             repo_name=args.repo_name,

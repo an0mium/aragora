@@ -1186,6 +1186,99 @@ def test_exact_open_pr_representation_writes_receipt_and_archives(
     )
 
 
+def test_exact_open_pr_receipt_uses_verified_repo_and_pr_url(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-exact-open-pr-verified-repo-abc123"
+    branch = "codex/exact-open-pr-verified-repo"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+    handoff_payload = json.loads(handoff.read_text(encoding="utf-8"))
+    handoff_payload["repo"] = "stale/wrong-repo"
+    handoff.write_text(json.dumps(handoff_payload), encoding="utf-8")
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"+ {desired_head}\n",
+                stderr="",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    class FakeGitHubClient:
+        disabled = False
+
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def open_prs_for_branch(
+            self, requested_branch: str
+        ) -> tuple[list[dict[str, Any]] | None, str | None]:
+            assert requested_branch == branch
+            return [
+                {
+                    "number": 8589,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": branch, "sha": desired_head},
+                    "base": {"ref": "main"},
+                    "html_url": "https://github.com/example/project/pull/8589",
+                }
+            ], None
+
+        def remote_ref(self, requested_branch: str) -> tuple[dict[str, Any] | None, str | None]:
+            assert requested_branch == branch
+            return {"ref": f"refs/heads/{branch}", "object": {"sha": desired_head}}, None
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "NarrowGitHubClient", FakeGitHubClient)
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {branch: 8589})
+
+    assert (
+        mod.main(
+            [
+                "--repo",
+                str(tmp_path),
+                "--repo-name",
+                "example/project",
+                "--apply",
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_exact_open_pr"] == 1
+    receipt = json.loads((receipt_dir / f"{key}.json").read_text(encoding="utf-8"))
+    assert receipt["repo"] == "example/project"
+    assert receipt["existing_pr_url"] == "https://github.com/example/project/pull/8589"
+
+
 def test_exact_open_pr_representation_uses_cli_base_fallback(
     tmp_path: Path,
     monkeypatch: Any,
@@ -2233,6 +2326,96 @@ def test_exact_open_pr_owner_gate_uses_selected_state_root(
     assert handoff.exists()
 
 
+def test_exact_open_pr_owner_gate_resolves_default_repo_state_root(tmp_path: Path) -> None:
+    branch = "codex/exact-open-pr-default-state-root"
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    observed_args = tmp_path / "owner-args.json"
+    (scripts_dir / "identify_lane_owner.py").write_text(
+        "import json, sys\n"
+        f"observed_path = {json.dumps(str(observed_args))}\n"
+        "args = sys.argv\n"
+        "def value(flag):\n"
+        "    return args[args.index(flag) + 1]\n"
+        "observed = {\n"
+        "    'registry': value('--registry-path'),\n"
+        "    'steering': value('--steering-inbox-root'),\n"
+        "    'heartbeat': value('--heartbeat-path'),\n"
+        "}\n"
+        "open(observed_path, 'w', encoding='utf-8').write(json.dumps(observed))\n"
+        "print(json.dumps({'status': 'completed'}))\n",
+        encoding="utf-8",
+    )
+
+    assert mod._exact_open_pr_owner_keep_reason(tmp_path, tmp_path, branch) is None
+
+    observed = json.loads(observed_args.read_text(encoding="utf-8"))
+    state_root = tmp_path / ".aragora"
+    assert observed["registry"] == str(state_root / "agent-bridge" / "lanes.json")
+    assert observed["steering"] == str(state_root / "operator-steering")
+    assert observed["heartbeat"] == str(state_root / "agent-bridge" / "heartbeats.json")
+
+
+def test_exact_open_pr_owner_gate_respects_blocking_steering(tmp_path: Path) -> None:
+    branch = "codex/exact-open-pr-steering-blocked"
+    owner_session = "codex-steering-blocked"
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "identify_lane_owner.py").write_text(
+        "import json\n"
+        f"print(json.dumps({{'status': 'completed', 'owner_session': {owner_session!r}}}))\n",
+        encoding="utf-8",
+    )
+    inbox = tmp_path / ".aragora" / "operator-steering" / owner_session
+    inbox.mkdir(parents=True)
+    (inbox / "2026-06-30T00-00-00-000Z-block.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "aragora-operator-steering/1.0",
+                "to_session": owner_session,
+                "priority": "blocking",
+                "subject": f"Block {branch}",
+                "body": f"Do not archive {branch} until the operator clears this.",
+                "message_sha256": "fixture-sha",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    reason = mod._exact_open_pr_owner_keep_reason(tmp_path, tmp_path, branch)
+
+    assert reason == "exact open PR terminal-archive gate: blocking operator steering remains"
+
+
+def test_exact_open_pr_owner_gate_uses_registry_when_liveness_has_no_match(tmp_path: Path) -> None:
+    branch = "codex/exact-open-pr-registry-fallback"
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "identify_lane_owner.py").write_text(
+        "import sys\nsys.stderr.write('ERROR: no lane matched criteria')\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / ".aragora" / "agent-bridge"
+    registry.mkdir(parents=True)
+    (registry / "lanes.json").write_text(
+        json.dumps(
+            [
+                {
+                    "branch": branch,
+                    "lane_id": "Q1-exact-open-pr",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    reason = mod._exact_open_pr_owner_keep_reason(tmp_path, tmp_path, branch)
+
+    assert reason == "exact open PR terminal-archive gate: owner gate remains (unknown_owner)"
+
+
 def test_exact_open_pr_path_uses_narrow_rest_when_bulk_cache_and_local_ref_miss_branch(
     tmp_path: Path,
     monkeypatch: Any,
@@ -2309,6 +2492,78 @@ def test_exact_open_pr_path_uses_narrow_rest_when_bulk_cache_and_local_ref_miss_
     assert payload["actions"][0]["decision"] == "archive"
     decision = payload["actions"][0]["terminal_disposition"]["decision_evidence"]
     assert decision["pr_number"] == 8589
+    assert handoff.exists()
+
+
+def test_exact_open_pr_path_uses_narrow_rest_when_bulk_open_pr_state_degrades(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-exact-open-pr-bulk-degraded-abc123"
+    branch = "codex/exact-open-pr-bulk-degraded"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "target_head_sha": desired_head,
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    class FakeGitHubClient:
+        disabled = False
+
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def open_prs_for_branch(
+            self, requested_branch: str
+        ) -> tuple[list[dict[str, Any]] | None, str | None]:
+            assert requested_branch == branch
+            return [
+                {
+                    "number": 8589,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": branch, "sha": desired_head},
+                    "base": {"ref": "main"},
+                    "html_url": "https://github.com/synaptent/aragora/pull/8589",
+                }
+            ], None
+
+        def remote_ref(self, requested_branch: str) -> tuple[dict[str, Any] | None, str | None]:
+            assert requested_branch == branch
+            return {"ref": f"refs/heads/{branch}", "object": {"sha": desired_head}}, None
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _unhealthy_github())
+    monkeypatch.setattr(mod, "NarrowGitHubClient", FakeGitHubClient)
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("bulk call should be skipped")),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_exact_open_pr"] == 1
+    assert payload["counts"]["blocked_missing_branch_open_pr_unknown"] == 0
+    assert payload["actions"][0]["decision"] == "archive"
     assert handoff.exists()
 
 
@@ -2573,7 +2828,7 @@ def test_apply_preserves_missing_branch_when_open_pr_state_unavailable(
     assert not list((tmp_path / ".aragora" / "automation-outbox-archive").glob("*.json"))
 
 
-def test_missing_branch_with_desired_head_does_not_probe_exact_pr_when_github_unhealthy(
+def test_missing_branch_with_desired_head_keeps_when_bulk_and_narrow_github_unhealthy(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
@@ -2593,17 +2848,22 @@ def test_missing_branch_with_desired_head_does_not_probe_exact_pr_when_github_un
     )
     receipt_dir.mkdir(parents=True)
 
+    narrow_calls: list[str] = []
+
     class FakeGitHubClient:
         disabled = False
 
         def __init__(self, **_kwargs: Any) -> None:
             pass
 
-        def open_prs_for_branch(self, _branch: str) -> tuple[list[dict[str, Any]], None]:
-            raise AssertionError("narrow PR lookup must not bypass unhealthy broad PR state")
+        def open_prs_for_branch(
+            self, _branch: str
+        ) -> tuple[list[dict[str, Any]] | None, str | None]:
+            narrow_calls.append(_branch)
+            return None, "gh api failed (TimeoutExpired)"
 
-        def remote_ref(self, _branch: str) -> tuple[dict[str, Any], None]:
-            raise AssertionError("narrow ref lookup must not bypass unhealthy broad PR state")
+        def remote_ref(self, _branch: str) -> tuple[dict[str, Any] | None, str | None]:
+            return None, "gh api failed (TimeoutExpired)"
 
     monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _unhealthy_github())
     monkeypatch.setattr(mod, "NarrowGitHubClient", FakeGitHubClient)
@@ -2626,6 +2886,7 @@ def test_missing_branch_with_desired_head_does_not_probe_exact_pr_when_github_un
 
     reports = sorted((tmp_path / ".aragora" / "cleanup-state").glob("*.json"))
     payload = json.loads(reports[-1].read_text(encoding="utf-8"))
+    assert narrow_calls == [branch]
     assert payload["counts"]["blocked_missing_branch_open_pr_unknown"] == 1
     assert payload["counts"]["missing_branch"] == 0
     assert payload["actions"][0]["decision"] == "keep"
