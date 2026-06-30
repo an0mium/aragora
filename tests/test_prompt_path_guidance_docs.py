@@ -16,3 +16,14 @@ def test_recursive_prompts_do_not_assume_home_aragora_symlink():
         assert "~/aragora" not in text
         assert "repo root" in text
         assert "worktree" in text
+
+
+def test_stage_gate_conductor_prompt_uses_canonical_log_resolver():
+    repo_root = Path(__file__).resolve().parents[1]
+    prompt = (repo_root / "docs/prompts/STAGE_GATE_CONDUCTOR_LOG_PROMPT.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "resolve_stage_gate_conductor_log_issue" in prompt
+    assert "#8671" in prompt
+    assert "#7162" not in prompt

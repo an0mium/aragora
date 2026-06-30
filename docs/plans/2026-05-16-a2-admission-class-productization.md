@@ -180,7 +180,7 @@ Steps 2, 5 are observational; they do not block the next PR's merge.
 - Corpus manifest: `docs/benchmarks/corpus.json` (rev-4, 13 in-progress)
 - Operating Law source: `docs/CANONICAL_GOALS.md`
 - Gate doctrine: `docs/status/NEXT_STEPS_CANONICAL.md`
-- Stage-Gate Conductor log: [#7162](https://github.com/synaptent/aragora/issues/7162)
+- Stage-Gate Conductor log: [#8671](https://github.com/synaptent/aragora/issues/8671)
 - Settlement-receipt hygiene precedent: `.aragora/review-queue/receipts/pr-7210-recorded-7210-c44acbeb4888-admin_squash_merge-admin_squash_merge.json`
 - Closure-receipt precedent: `.aragora/audits/closure-receipts/2026-05-14-stale-tasking-closure.json`
 - Related (non-overlapping) stage-gate-drift issues: [#6598](https://github.com/synaptent/aragora/issues/6598), [#6706](https://github.com/synaptent/aragora/issues/6706), [#6097](https://github.com/synaptent/aragora/issues/6097), [#6246](https://github.com/synaptent/aragora/issues/6246)
