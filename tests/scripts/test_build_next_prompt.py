@@ -1042,6 +1042,20 @@ def test_main_routes_stale_mailbox_only_owner_to_steering_prompt(
     assert "last heartbeat is 2026-06-04T14:45:34Z" in out
 
 
+def test_stale_terminal_owner_does_not_route_to_mailbox_steering() -> None:
+    owner_state = {
+        "status": "blocked",
+        "owner_blocking_state": "stale_terminal_owner",
+        "pending_message_count": 1,
+        "unread_message_count": 1,
+        "harness_confidence": "mailbox_only_fuzzy_thread",
+        "live_prompt_dispatchable": False,
+        "live_process": {"found": False},
+    }
+
+    assert prompt_builder._is_stale_mailbox_only_owner(owner_state) is False
+
+
 def test_main_guards_unresolved_operator_choice_placeholders(
     tmp_path: Path,
     monkeypatch: Any,
@@ -1066,6 +1080,106 @@ def test_main_guards_unresolved_operator_choice_placeholders(
     assert "unresolved operator-choice placeholder" in out
     assert "Do not continue lane work" in out
     assert "I explicitly choose option 1|2|3" not in out
+
+
+def test_product_proof_loop_prompt_shepherd_signal_blocks_new_pr_work(tmp_path: Path) -> None:
+    signal_file = tmp_path / ".aragora" / "backpressure.json"
+    signal_file.parent.mkdir()
+    signal_file.write_text(
+        json.dumps(
+            {
+                "mode": "shepherd",
+                "open_prs": 83,
+                "drafts": 77,
+                "ready": 6,
+                "outbox_depth": 12,
+                "thresholds": {"max_open_prs": 60, "max_outbox": 50},
+                "generated_at": "2026-06-12T20:00:00Z",
+                "reasons": ["open_prs:83>=max_open_prs:60"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    prompt = prompt_builder.build_product_proof_loop_prompt(
+        repo_root=tmp_path,
+        signal_file=signal_file,
+    )
+
+    assert "mode=shepherd" in prompt
+    assert "open_prs:83>=max_open_prs:60" in prompt
+    assert "do not create a new branch, commit, or PR" in prompt
+    assert "shepherd existing work" in prompt
+    assert "highest-value existing unowned green Tier 0-2" in prompt
+
+
+def test_product_proof_loop_prompt_generate_allows_one_bounded_gap(tmp_path: Path) -> None:
+    signal_file = tmp_path / ".aragora" / "backpressure.json"
+    signal_file.parent.mkdir()
+    signal_file.write_text(
+        json.dumps(
+            {
+                "mode": "generate",
+                "open_prs": 12,
+                "drafts": 9,
+                "ready": 3,
+                "outbox_depth": 2,
+                "thresholds": {"max_open_prs": 60, "max_outbox": 50},
+                "generated_at": "2026-06-12T20:00:00Z",
+                "reasons": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    prompt = prompt_builder.build_product_proof_loop_prompt(
+        repo_root=tmp_path,
+        signal_file=signal_file,
+    )
+
+    assert "mode=generate" in prompt
+    assert "find exactly one new non-duplicate Tier 0-2 measurable gap" in prompt
+    assert "patch only that narrow surface" in prompt
+    assert "Stop before semantic/security/API changes" in prompt
+
+
+def test_product_proof_loop_prompt_missing_signal_fails_closed(tmp_path: Path) -> None:
+    signal_file = tmp_path / ".aragora" / "backpressure.json"
+
+    prompt = prompt_builder.build_product_proof_loop_prompt(
+        repo_root=tmp_path,
+        signal_file=signal_file,
+    )
+
+    assert "mode=missing" in prompt
+    assert f"signal_file_missing:{signal_file}" in prompt
+    assert "do not create a new branch, commit, or PR" in prompt
+
+
+def test_main_product_proof_loop_prompt_json_includes_signal(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    signal_file = tmp_path / "signal.json"
+    signal_file.write_text('{"mode": "shepherd", "reasons": ["open_prs:70"]}\n')
+
+    assert (
+        prompt_builder.main(
+            [
+                "--repo-root",
+                str(tmp_path),
+                "--product-proof-loop-prompt",
+                "--backpressure-signal-file",
+                str(signal_file),
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["backpressure_signal"]["mode"] == "shepherd"
+    assert "mode=shepherd" in payload["prompt"]
 
 
 def test_main_json_suppresses_broken_pipe(tmp_path: Path, monkeypatch: Any) -> None:

@@ -45,6 +45,19 @@ RATCHET = {
     "max_noqa": 2800,  # Total across aragora/
 }
 
+# Per-file LOC exceptions: a small allowlist of known-large files with a TRACKED
+# extraction plan. These do NOT relax the global ratchet (max_file_loc stays 5400 for
+# every other file) — each is a conscious, issue-linked exception kept until the file
+# is split. Add a file here only with a tracking issue; remove it once extracted.
+MAX_FILE_LOC_EXCEPTIONS = {
+    # review_queue.py mixes the merge-quorum GATE subsystem (family/jurisdiction
+    # rules, _tier_requirement, _build_model_review_quorum, recognizer/verdict
+    # helpers) with the review-queue/settlement CLI. The gate logic belongs beside
+    # quorum_evidence.py/merge_quorum_reconcile.py; extraction tracked in #8553.
+    # Bridge ceiling until that lands (do not grow further; extract instead).
+    "aragora/cli/commands/review_queue.py": 6000,
+}
+
 LAST_RECORDED_BASELINE = {
     "date": "2026-04-12",
     "global_suppressions": {
@@ -203,10 +216,9 @@ def check_ratchet(global_suppressions: dict[str, int], subsystems: list[dict]) -
 
     for sub in subsystems:
         for entry in sub.get("top5_largest", []):
-            if entry["loc"] > RATCHET["max_file_loc"]:
-                violations.append(
-                    f"{entry['file']}: {entry['loc']} LOC > {RATCHET['max_file_loc']}"
-                )
+            limit = MAX_FILE_LOC_EXCEPTIONS.get(entry["file"], RATCHET["max_file_loc"])
+            if entry["loc"] > limit:
+                violations.append(f"{entry['file']}: {entry['loc']} LOC > {limit}")
 
     return violations
 

@@ -33,7 +33,7 @@ from aragora.billing.usage import (
 
 # Import Prometheus metrics for cost tracking
 try:
-    from aragora.server.prometheus import record_cost_usd
+    from aragora.observability.prometheus import record_cost_usd
 
     PROMETHEUS_AVAILABLE = True
 except ImportError:

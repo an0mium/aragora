@@ -274,11 +274,78 @@ in `quorum.supporting_agents` and `quorum.dissent.dissenting_agents` should
 appear among `quorum.participants[].agent`. A mismatch is a malformed-receipt
 signal (emitter bug or tampering), not a mere weakening.
 
-## 9. Versioning
+## 9. Versioning and Stability
 
 `odr_version` follows semver-minor semantics: additive optional fields bump
 the minor version; any change to canonicalization, required members, or
 absent-marker semantics is a new major profile with a new `profile` URI.
+
+### 9.1 Field-stability tiers
+
+Every member of the content profile carries one of three stability tiers.
+The tier governs what a future `odr_version` may do to it:
+
+| Tier | Meaning | Change policy |
+|---|---|---|
+| **stable** | Load-bearing for verification or evidentiary meaning. | May not be removed, renamed, or have its type/semantics changed without a **major** profile bump (new `profile` URI). |
+| **provisional** | Present and emitted, but its shape may still settle. | May be tightened or extended in a **minor** bump; removal requires a major bump and a deprecation cycle (§9.3). |
+| **reserved** | Declared, not yet meaningful (e.g. `routing.status: "reserved"`). | May be defined in a **minor** bump without notice; carries no compatibility promise until it leaves reserved. |
+
+Tier assignment for v0.1 → the v1.0 GA target:
+
+- **stable:** `odr_version`, `profile`, `receipt_id`, `subject`, `claim`,
+  `quorum`, the JCS canonicalization basis (§5), the absent-marker contract
+  (§3), and `signatures`.
+- **provisional:** `reasoning`, `confidence`, `cruxes`, `attestation`,
+  `source`, `issued_at`.
+- **reserved:** `routing`.
+
+### 9.2 Compatibility guarantees (v1.0 GA)
+
+When this profile reaches v1.0 GA, it commits to:
+
+1. **Backward compatibility within a major:** a verifier for `1.x` MUST verify
+   any receipt emitted at `1.y` for `y ≤ x`; unknown additive optional members
+   are ignored, never fatal.
+2. **Forward tolerance:** a `1.x` receipt presented to a `1.y` verifier with
+   `y < x` MUST still verify on the stable core (schema of stable members, JCS
+   digest, signatures, quorum consistency); provisional additions it does not
+   recognize degrade to weakening signals, never hard failures.
+3. **Conformance authority:** `aragora-verify` is the normative conformance
+   checker. A change that would make a previously-verifying stable-core receipt
+   fail is by definition a **major** bump requiring a new published verifier.
+
+### 9.3 Deprecation policy
+
+A provisional member slated for removal is marked deprecated in a minor bump,
+continues to be emitted and accepted for at least one subsequent minor
+release, and is removed only at the next major bump. Deprecations are recorded
+in the verifier's `CHANGELOG.md` and surfaced as a verifier *warning*, never a
+failure, during the deprecation window.
+
+### 9.4 Native `DecisionReceipt` ↔ `odr_version` relationship
+
+The on-wire `odr_version` is **independent** of the native
+`DecisionReceipt.schema_version`. The native record may rev (e.g. `1.1 → 1.2`)
+without changing `odr_version`; the export layer
+(`aragora/gauntlet/odr_export.py`) absorbs the difference and records the
+source record's version under `source.schema_version`. The full field-by-field
+mapping is normative and lives in
+[`odr-native-mapping.md`](./odr-native-mapping.md); that mapping is covered by
+a drift-guard test so it cannot silently fall out of sync with the emitter.
+
+### 9.5 Path to v1.0 GA (current status)
+
+The on-wire `odr_version` and `profile` URI remain **`"0.1"`** until a single
+coordinated GA release bumps, together: (a) the emitter constants in
+`aragora/gauntlet/odr_export.py`, (b) the bundled `odr_schema.json` in both the
+main repo and the `aragora-verify` package, and (c) the published `aragora-verify`
+release. Until that coordinated release, this section is the **stability
+contract that defines what v1.0 will guarantee** — authored ahead of the flip so
+the guarantees are reviewable independently of the release mechanics. The flip
+itself, and receipt signing in the production gate, are tracked separately and
+are out of scope for the documentation/verification milestone that introduced
+this section.
 
 ## 10. Reference emitter
 

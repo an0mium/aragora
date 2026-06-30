@@ -188,6 +188,56 @@ def test_different_lane_same_branch_is_rejected_by_default(tmp_registry: Path) -
     assert "branch='worktree-codex-insights' already claimed" in str(excinfo.value)
 
 
+def test_different_lane_same_branch_with_conflict_status_is_rejected(
+    tmp_registry: Path,
+) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="lane-a",
+        owner_session="codex-A",
+        status="conflict",
+        branch="worktree-codex-insights",
+    )
+
+    with pytest.raises(claim_module.ClaimError) as excinfo:
+        claim_module.claim_lane(
+            registry_path=tmp_registry,
+            lane_id="lane-b",
+            owner_session="codex-B",
+            branch="worktree-codex-insights",
+        )
+
+    assert "branch='worktree-codex-insights' already claimed" in str(excinfo.value)
+
+
+def test_different_lane_same_branch_with_unknown_status_is_rejected(
+    tmp_registry: Path,
+) -> None:
+    tmp_registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-a",
+                    "owner_session": "codex-A",
+                    "status": "mystery",
+                    "branch": "worktree-codex-insights",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(claim_module.ClaimError) as excinfo:
+        claim_module.claim_lane(
+            registry_path=tmp_registry,
+            lane_id="lane-b",
+            owner_session="codex-B",
+            branch="worktree-codex-insights",
+        )
+
+    assert "branch='worktree-codex-insights' already claimed" in str(excinfo.value)
+
+
 def test_different_lane_same_worktree_is_rejected_by_default(
     tmp_registry: Path,
 ) -> None:
@@ -245,6 +295,54 @@ def test_released_lane_identity_does_not_block_new_owner(tmp_registry: Path) -> 
 
     payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
     assert len(payload) == 2
+
+
+def test_expired_lane_identity_does_not_block_new_owner_after_sweep(
+    tmp_registry: Path,
+) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="lane-a",
+        owner_session="codex-A",
+        status="expired",
+        pr_number=7245,
+        branch="codex/pr7245",
+    )
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="lane-b",
+        owner_session="codex-B",
+        pr_number=7245,
+        branch="codex/pr7245",
+    )
+
+    payload = {row["lane_id"]: row for row in json.loads(tmp_registry.read_text())}
+    assert payload["lane-a"]["status"] == "expired"
+    assert payload["lane-b"]["status"] == "active"
+
+
+def test_superseded_lane_identity_does_not_block_new_owner_after_reconciliation(
+    tmp_registry: Path,
+) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="lane-a",
+        owner_session="codex-A",
+        status="superseded",
+        pr_number=7245,
+        branch="codex/pr7245",
+    )
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="lane-b",
+        owner_session="codex-B",
+        pr_number=7245,
+        branch="codex/pr7245",
+    )
+
+    payload = {row["lane_id"]: row for row in json.loads(tmp_registry.read_text())}
+    assert payload["lane-a"]["status"] == "superseded"
+    assert payload["lane-b"]["status"] == "active"
 
 
 def test_other_lanes_are_preserved_during_claim(tmp_registry: Path) -> None:

@@ -53,10 +53,15 @@ from scripts.lane_supervisor import _worker_launcher_launch  # noqa: E402
 # mergeStateStatus values that mean "open and waiting on checks/quorum/settlement"
 # -- i.e. a candidate the swarm can usefully advance. CLEAN/DIRTY/DRAFT excluded.
 _BLOCKED_STATES = {"BLOCKED", "UNSTABLE"}
-# Owner-liveness assessments that mean the lane is NOT actively held, so it is
-# reassignable. Anything else (including unknown) is treated as live -- the
+# Owner blocking-state values that mean the lane is NOT actively held, so it is
+# reassignable. Anything else (including stale/unknown) is treated as live -- the
 # fail-safe direction is to avoid double-dispatching a possibly-live lane.
-_RECLAIMABLE_ASSESSMENTS = {"stale", "terminal", "absent", "reclaimable"}
+_RECLAIMABLE_OWNER_BLOCKING_STATES = {"stale_terminal_owner", "absent", "reclaimable"}
+
+# Compatibility for older identify_lane_owner output that predates
+# owner_blocking_state. Plain "stale" remains blocking until a reconciler/sweeper
+# has made the row terminal.
+_RECLAIMABLE_LEGACY_ASSESSMENTS = {"terminal", "absent", "reclaimable"}
 _UNKNOWN_OWNER = "owner-liveness-unavailable"
 # Per-probe timeout kept short: a single slow identify_lane_owner must not stall
 # the whole pass. Probes run concurrently across candidates (one slow probe no
@@ -178,11 +183,17 @@ def _resolve_owner(pr: int) -> tuple[int, str | None]:
     owner = str(data.get("owner_session") or "").strip()
     if not owner:
         return pr, None
+    owner_blocking_state = str(data.get("owner_blocking_state") or "").strip().lower()
+    if owner_blocking_state in _RECLAIMABLE_OWNER_BLOCKING_STATES:
+        return pr, None
+    if owner_blocking_state:
+        return pr, owner
+
     liveness = data.get("owner_liveness")
     assessment = (
         str((liveness.get("assessed") if isinstance(liveness, dict) else "") or "").strip().lower()
     )
-    if assessment in _RECLAIMABLE_ASSESSMENTS:
+    if assessment in _RECLAIMABLE_LEGACY_ASSESSMENTS:
         return pr, None
     return pr, owner
 
