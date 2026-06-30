@@ -1,6 +1,7 @@
 """Tests for Gastown-inspired patterns (Beads, Convoys, Hook Queue, Agent Roles, Molecules)."""
 
 import asyncio
+import json
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -174,6 +175,94 @@ class TestBeadStore:
 
         pending = await store.list_by_status(BeadStatus.PENDING)
         assert len(pending) == 3
+
+
+class TestAgentHierarchyMigration:
+    """Regression coverage for preserve-first legacy hierarchy migration."""
+
+    @pytest.mark.asyncio
+    async def test_legacy_hierarchy_is_not_retired_when_save_fails(
+        self, temp_dir, reset_singletons, monkeypatch
+    ):
+        legacy_dir = temp_dir / ".agents"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "hierarchy.json"
+        legacy_file.write_text(
+            json.dumps(
+                {
+                    "assignments": [
+                        {
+                            "agent_id": "mayor-001",
+                            "role": "mayor",
+                            "assigned_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        hierarchy = AgentHierarchy(temp_dir / "new-hierarchy")
+        hierarchy._legacy_hierarchy_file = legacy_file
+
+        async def fail_save():
+            return False
+
+        monkeypatch.setattr(hierarchy, "_save_hierarchy", fail_save)
+
+        await hierarchy.initialize()
+
+        assert legacy_file.exists()
+        assert not legacy_file.with_name("hierarchy.json.migrated").exists()
+
+    @pytest.mark.asyncio
+    async def test_register_agent_rolls_back_when_save_fails(
+        self, temp_dir, reset_singletons, monkeypatch
+    ):
+        hierarchy = AgentHierarchy(temp_dir / "hierarchy")
+
+        async def fail_save():
+            return False
+
+        monkeypatch.setattr(hierarchy, "_save_hierarchy", fail_save)
+
+        with pytest.raises(RuntimeError, match="failed to save agent hierarchy"):
+            await hierarchy.register_agent("crew-001", AgentRole.CREW)
+
+        assert await hierarchy.get_assignment("crew-001") is None
+
+    @pytest.mark.asyncio
+    async def test_unregister_agent_rolls_back_when_save_fails(
+        self, temp_dir, reset_singletons, monkeypatch
+    ):
+        hierarchy = AgentHierarchy(temp_dir / "hierarchy")
+        await hierarchy.register_agent("crew-001", AgentRole.CREW)
+
+        async def fail_save():
+            return False
+
+        monkeypatch.setattr(hierarchy, "_save_hierarchy", fail_save)
+
+        with pytest.raises(RuntimeError, match="failed to save agent hierarchy"):
+            await hierarchy.unregister_agent("crew-001")
+
+        assert await hierarchy.get_assignment("crew-001") is not None
+
+    @pytest.mark.asyncio
+    async def test_spawn_polecat_rolls_back_when_initial_save_fails(
+        self, temp_dir, reset_singletons, monkeypatch
+    ):
+        hierarchy = AgentHierarchy(temp_dir / "hierarchy")
+        await hierarchy.register_agent("mayor-001", AgentRole.MAYOR)
+
+        async def fail_save():
+            return False
+
+        monkeypatch.setattr(hierarchy, "_save_hierarchy", fail_save)
+
+        with pytest.raises(RuntimeError, match="failed to save agent hierarchy"):
+            await hierarchy.spawn_polecat("mayor-001", "Fix bug in auth module")
+
+        assert await hierarchy.get_agents_by_role(AgentRole.POLECAT) == []
 
 
 # =============================================================================
@@ -351,6 +440,176 @@ class TestAgentRoles:
         assert RoleCapability.CREATE_CONVOY in assignment.capabilities
 
     @pytest.mark.asyncio
+    async def test_default_hierarchy_state_uses_runtime_data_dir(
+        self, monkeypatch, tmp_path, reset_singletons
+    ):
+        """Default hierarchy persistence must not dirty the repo-level .agents tree."""
+        runtime_dir = tmp_path / ".nomic"
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(runtime_dir))
+
+        hierarchy = AgentHierarchy()
+        await hierarchy.initialize()
+        await hierarchy.register_agent("mayor-001", AgentRole.MAYOR)
+
+        assert hierarchy.hierarchy_file == runtime_dir / "agent_hierarchy" / "hierarchy.json"
+        assert hierarchy.hierarchy_file.exists()
+        assert not (tmp_path / ".agents" / "hierarchy.json").exists()
+
+    @pytest.mark.asyncio
+    async def test_default_hierarchy_migrates_legacy_agents_file(
+        self, monkeypatch, tmp_path, reset_singletons
+    ):
+        runtime_dir = tmp_path / ".nomic"
+        legacy_dir = tmp_path / ".agents"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "hierarchy.json"
+        legacy_file.write_text(
+            json.dumps(
+                {
+                    "assignments": [
+                        {
+                            "agent_id": "mayor-legacy",
+                            "role": "mayor",
+                            "assigned_at": datetime.now(timezone.utc).isoformat(),
+                            "supervised_by": None,
+                            "supervises": [],
+                            "capabilities": [],
+                            "is_ephemeral": False,
+                            "expires_at": None,
+                            "metadata": {"source": "legacy"},
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(runtime_dir))
+        monkeypatch.setattr(AgentHierarchy, "_repo_root", staticmethod(lambda: tmp_path))
+
+        hierarchy = AgentHierarchy()
+        await hierarchy.initialize()
+
+        migrated_file = runtime_dir / "agent_hierarchy" / "hierarchy.json"
+        assert migrated_file.exists()
+        assert not legacy_file.exists()
+        assert (legacy_dir / "hierarchy.json.migrated").exists()
+        assignment = await hierarchy.get_assignment("mayor-legacy")
+        assert assignment is not None
+        assert assignment.role == AgentRole.MAYOR
+
+    @pytest.mark.asyncio
+    async def test_default_hierarchy_merges_legacy_when_runtime_file_exists(
+        self, monkeypatch, tmp_path, reset_singletons
+    ):
+        runtime_dir = tmp_path / ".nomic"
+        runtime_hierarchy_dir = runtime_dir / "agent_hierarchy"
+        runtime_hierarchy_dir.mkdir(parents=True)
+        runtime_file = runtime_hierarchy_dir / "hierarchy.json"
+        runtime_file.write_text(json.dumps({"assignments": []}), encoding="utf-8")
+        legacy_dir = tmp_path / ".agents"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "hierarchy.json"
+        legacy_file.write_text(
+            json.dumps(
+                {
+                    "assignments": [
+                        {
+                            "agent_id": "mayor-legacy",
+                            "role": "mayor",
+                            "assigned_at": datetime.now(timezone.utc).isoformat(),
+                            "supervised_by": None,
+                            "supervises": [],
+                            "capabilities": [],
+                            "is_ephemeral": False,
+                            "expires_at": None,
+                            "metadata": {"source": "legacy"},
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(runtime_dir))
+        monkeypatch.setattr(AgentHierarchy, "_repo_root", staticmethod(lambda: tmp_path))
+
+        hierarchy = AgentHierarchy()
+        await hierarchy.initialize()
+
+        assignment = await hierarchy.get_assignment("mayor-legacy")
+        assert assignment is not None
+        assert assignment.role == AgentRole.MAYOR
+        assert (
+            json.loads(runtime_file.read_text(encoding="utf-8"))["assignments"][0]["agent_id"]
+            == "mayor-legacy"
+        )
+        assert not legacy_file.exists()
+        assert (legacy_dir / "hierarchy.json.migrated").exists()
+
+    @pytest.mark.asyncio
+    async def test_default_hierarchy_ignores_corrupt_legacy_json(
+        self, monkeypatch, tmp_path, reset_singletons
+    ):
+        runtime_dir = tmp_path / ".nomic"
+        legacy_dir = tmp_path / ".agents"
+        legacy_dir.mkdir()
+        (legacy_dir / "hierarchy.json").write_text("{not valid json", encoding="utf-8")
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(runtime_dir))
+        monkeypatch.setattr(AgentHierarchy, "_repo_root", staticmethod(lambda: tmp_path))
+
+        hierarchy = AgentHierarchy()
+        await hierarchy.initialize()
+
+        assert await hierarchy.get_agents_by_role(AgentRole.MAYOR) == []
+
+    @pytest.mark.asyncio
+    async def test_default_hierarchy_falls_back_to_legacy_when_runtime_file_corrupt(
+        self, monkeypatch, tmp_path, reset_singletons
+    ):
+        runtime_dir = tmp_path / ".nomic"
+        runtime_hierarchy_dir = runtime_dir / "agent_hierarchy"
+        runtime_hierarchy_dir.mkdir(parents=True)
+        runtime_file = runtime_hierarchy_dir / "hierarchy.json"
+        runtime_file.write_text("{not valid json", encoding="utf-8")
+        legacy_dir = tmp_path / ".agents"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "hierarchy.json"
+        legacy_file.write_text(
+            json.dumps(
+                {
+                    "assignments": [
+                        {
+                            "agent_id": "mayor-legacy",
+                            "role": "mayor",
+                            "assigned_at": datetime.now(timezone.utc).isoformat(),
+                            "supervised_by": None,
+                            "supervises": [],
+                            "capabilities": [],
+                            "is_ephemeral": False,
+                            "expires_at": None,
+                            "metadata": {"source": "legacy"},
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(runtime_dir))
+        monkeypatch.setattr(AgentHierarchy, "_repo_root", staticmethod(lambda: tmp_path))
+
+        hierarchy = AgentHierarchy()
+        await hierarchy.initialize()
+
+        assignment = await hierarchy.get_assignment("mayor-legacy")
+        assert assignment is not None
+        assert assignment.role == AgentRole.MAYOR
+        assert (
+            json.loads(runtime_file.read_text(encoding="utf-8"))["assignments"][0]["agent_id"]
+            == "mayor-legacy"
+        )
+        assert not legacy_file.exists()
+
+    @pytest.mark.asyncio
     async def test_supervision_hierarchy(self, temp_dir, reset_singletons):
         """Test supervision relationships."""
         hierarchy = AgentHierarchy(temp_dir)
@@ -386,6 +645,7 @@ class TestAgentRoles:
         assert polecat.role == AgentRole.POLECAT
         assert polecat.is_ephemeral
         assert polecat.supervised_by == "mayor-001"
+        assert polecat.expires_at is not None
 
     @pytest.mark.asyncio
     async def test_role_capabilities(self, temp_dir, reset_singletons):

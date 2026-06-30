@@ -273,4 +273,4 @@ Aragora is the only platform in the adversarial + multi-provider quadrant. Compe
 
 ---
 
-*For technical details, see [COMMERCIAL_OVERVIEW.md](COMMERCIAL_OVERVIEW.md). For the full positioning narrative, see [WHY_ARAGORA.md](WHY_ARAGORA.md). For enterprise capabilities, see [enterprise/ENTERPRISE_FEATURES.md](enterprise/ENTERPRISE_FEATURES.md).*
+*For technical details, see [COMMERCIAL_OVERVIEW.md](../COMMERCIAL_OVERVIEW.md). For the full positioning narrative, see [WHY_ARAGORA.md](../WHY_ARAGORA.md). For enterprise capabilities, see [enterprise/ENTERPRISE_FEATURES.md](../enterprise/ENTERPRISE_FEATURES.md).*

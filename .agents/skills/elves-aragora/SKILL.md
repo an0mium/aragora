@@ -58,7 +58,8 @@ complete until all of the following hold, in order:
    - **Tier 0-2** (docs/tests, additive internal, live automation/CLI/observability): a green,
      receipt-backed model quorum with no unresolved dissent is sufficient to record settlement
      autonomously and continue. **Still never merge by default** — settlement records the
-     authorization packet; the human or a recorded merge-on-green preference does the merge.
+     authorization packet; the human or a recorded merge-on-green preference plus helper
+     authorization does the merge. §Conductor never grants merge authority by itself.
    - **Tier 3-4** (semantic correctness, persistence, security/RBAC/auth, public API/SDK,
      migrations; or secrets/deployment/workflow policy/destructive ops/merge-authority
      self-modification): **HARD STOP.** The model quorum prepares the packet, but the run must
@@ -69,6 +70,15 @@ complete until all of the following hold, in order:
 The Tier 3-4 hard stop is the aragora-native expression of Elves' "you never merge by default"
 non-negotiable: autonomy is granted exactly where the governance model grants it, and revoked
 exactly where it requires a human.
+
+## Conductor protocol (evidence-last, anti-molasses) — read every cycle
+
+For any long-running PR-advancing loop, the **single source of truth** is
+`docs/AGENT_OPERATING_CONTRACT.md` **§Conductor**. Re-read it each cycle and obey it verbatim;
+do not re-embed its rules into recursive prompts — carry only the current exact-head target +
+one next action (see §Conductor's thin-prompt template). Do **not** maintain a second summary
+of its rules here. "Evidence-first" in this skill means governance must be evidence-grounded;
+§Conductor defines the timing rule for countable evidence.
 
 ## Operating-contract auto-halts (always active)
 
@@ -81,12 +91,15 @@ immediately and surface to the user when any of these fire:
 - The work touches an **approval-required** item: GitHub Actions workflows, runner/CI matrix,
   secrets/auth, pre-commit/pre-push hooks, release workflows, major-version dep bumps, public
   API/SDK removals, schema drops/renames, branch deletion with unmerged commits, `git push
-  --force`, or edits to `CLAUDE.md` / `AGENTS.md` / `scripts/nomic_loop.py` / `.env` / `secrets/`.
+  --force`, or edits to `CLAUDE.md` / `AGENTS.md` / `docs/AGENT_OPERATING_CONTRACT.md` /
+  `docs/REVIEW_AUTHORITY_PRINCIPLES.md` / `scripts/nomic_loop.py` / `.env` / `secrets/`.
   These are never autonomous — pause and ask.
 
 ## Non-negotiables (aragora additions to the Elves base)
 
 - Never merge by default; never approve a merge. Tier 3-4 always requires human settlement first.
+  §Conductor's autonomy rail means "keep advancing safe units"; it does not override this merge
+  rule.
 - Every closing commit carries a `Co-authored-by: codex[bot]` (or `claude[bot]`) trailer.
 - Never modify a test to make it pass; fix the code. Total test count never decreases.
 - One **coordinator** owns the run. Serial batches share the run's branch + worktree.

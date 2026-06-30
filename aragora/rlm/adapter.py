@@ -849,7 +849,7 @@ class REPLContextAdapter(RLMContextAdapter):
         # >>> disagreements = search_debate(debate, r"disagree|however")
         # >>> FINAL(f"Key disagreements: {summarize(disagreements)}")
 
-    Requires: pip install aragora[rlm] for TRUE RLM functionality
+    Requires: pip install rlm for TRUE RLM functionality
     """
 
     def __init__(

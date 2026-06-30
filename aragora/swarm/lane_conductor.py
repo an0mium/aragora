@@ -184,11 +184,6 @@ def plan_pass(
 # ---------------------------------------------------------------------------
 
 
-# Owner-liveness assessments (from identify_lane_owner) that mean the lane is
-# NOT actively held, so a stale row holding it may be released and reclaimed.
-_RECLAIMABLE_ASSESSMENTS = {"stale", "terminal", "absent", "reclaimable"}
-
-
 def _run_lane_claim(work_order: WorkOrderSpec, root: Path) -> subprocess.CompletedProcess | None:
     """Run one PLAIN lane claim (no --force). None on spawn/timeout failure."""
     try:
@@ -220,88 +215,20 @@ def _run_lane_claim(work_order: WorkOrderSpec, root: Path) -> subprocess.Complet
         return None
 
 
-def _release_stale_conflict(pr: int, root: Path) -> bool:
-    """Release PR #``pr``'s current lane owner IFF it is assessed reclaimable.
-
-    claim_lane's conflict check is status-based, not heartbeat-based, so a
-    stale-but-still-``active`` row blocks a plain claim. We clear it only when
-    identify_lane_owner assesses the owner stale/terminal/absent -- NEVER a live
-    owner -- so a competing live worker is never displaced (the blind---force
-    clobber race is avoided). Returns True if a stale owner was released.
-    """
-    try:
-        probe = subprocess.run(
-            [
-                "python3",
-                str(root / "scripts" / "identify_lane_owner.py"),
-                "--pr",
-                str(pr),
-                "--json",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    if probe.returncode != 0 or not probe.stdout.strip():
-        return False
-    try:
-        data = json.loads(probe.stdout)
-    except json.JSONDecodeError:
-        return False
-    owner = str(data.get("owner_session") or "").strip()
-    liveness = data.get("owner_liveness")
-    assessed = (
-        str((liveness.get("assessed") if isinstance(liveness, dict) else "") or "").strip().lower()
-    )
-    if not owner or assessed not in _RECLAIMABLE_ASSESSMENTS:
-        return False  # no owner, or owner is LIVE -> never release / never displace
-    try:
-        rel = subprocess.run(
-            [
-                "python3",
-                str(root / "scripts" / "claim_active_agent_lane.py"),
-                "--release-stale",
-                "--owner-session",
-                owner,
-                "--pr-number",
-                str(pr),
-                "--ttl-minutes",
-                "0",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return rel.returncode == 0
-
-
 def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -> bool:
     """Claim the lane via scripts/claim_active_agent_lane.py.
 
-    Plain claim first (no --force): claim_lane's identity-conflict check then
-    provides mutual exclusion, so a competing LIVE claim makes this fail and we
-    never double-dispatch. If it fails because a STALE row holds the resource,
-    release that stale row (only when its owner is assessed reclaimable) and retry
-    once. This reclaims stale lanes without the blind-force clobber race that
-    could overwrite a newly-live owner.
+    Plain claim only (no --force and no stale-owner release): claim_lane's
+    identity-conflict check provides mutual exclusion. If a stale or ambiguous
+    row still holds the PR, dispatch fails closed until an explicit release or
+    conservative reconciler receipt has already changed that row to a
+    non-blocking terminal status.
     """
     root = repo_root or Path.cwd()
     proc = _run_lane_claim(work_order, root)
     if proc is None:
         return False
-    if proc.returncode == 0:
-        return True
-    # Claim refused -- if a stale row is holding this PR, clear it and retry once.
-    if _release_stale_conflict(work_order.pr, root):
-        retry = _run_lane_claim(work_order, root)
-        return retry is not None and retry.returncode == 0
-    return False
+    return proc.returncode == 0
 
 
 def default_dispatch(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -> str:
