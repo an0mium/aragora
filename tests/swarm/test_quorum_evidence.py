@@ -2982,3 +2982,35 @@ def test_severity_gated_string_false_stays_strict_through_restore() -> None:
         }
     )
     assert item.severity_gated is False
+
+
+# --- advisory_dissent_settle_enabled (opt-in flag, default OFF) -------------
+def test_advisory_dissent_settle_enabled_default_off(monkeypatch) -> None:
+    # Production default is the env var UNSET; that MUST read as OFF so the new
+    # advisory_settle path is dormant until an operator opts in.
+    monkeypatch.delenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", raising=False)
+    assert qe.advisory_dissent_settle_enabled() is False
+
+
+@pytest.mark.parametrize("raw", ["1", "true", "TRUE", "yes", "on", "On"])
+def test_advisory_dissent_settle_enabled_true_tokens(monkeypatch, raw: str) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", raw)
+    assert qe.advisory_dissent_settle_enabled() is True
+
+
+@pytest.mark.parametrize("raw", ["0", "false", "off", "no", "", "  ", "maybe"])
+def test_advisory_dissent_settle_enabled_false_tokens(monkeypatch, raw: str) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", raw)
+    assert qe.advisory_dissent_settle_enabled() is False
+
+
+def test_advisory_dissent_settle_enabled_accepts_injected_env() -> None:
+    # Mirrors severity_gated_dissent_enabled / tiered_merge_gate_enabled: an
+    # explicit env mapping overrides os.environ for deterministic testing.
+    assert (
+        qe.advisory_dissent_settle_enabled({"ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE": "1"}) is True
+    )
+    assert (
+        qe.advisory_dissent_settle_enabled({"ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE": "0"}) is False
+    )
+    assert qe.advisory_dissent_settle_enabled({}) is False

@@ -143,6 +143,7 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
 from aragora.swarm.quorum_evidence import (  # noqa: E402
     WESTERN_FAMILIES as WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
+    advisory_dissent_settle_enabled as advisory_dissent_settle_enabled,
     severity_gated_dissent_enabled as severity_gated_dissent_enabled,
     tier_quorum_rule as tier_quorum_rule,
     tiered_merge_gate_enabled as tiered_merge_gate_enabled,
@@ -3098,6 +3099,48 @@ def _explicit_merged_pr_merge_packet_entry(
     }
 
 
+def _any_review_has_blocking_finding(
+    comments: list[Any],
+    *,
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> bool:
+    """Whether ANY recognized model-review comment grounded on the exact head
+    carries a blocking ``[P0]``/``[P1]`` finding or a populated Blocker label.
+
+    Fail-closed input to the advisory_settle path: that path is available ONLY
+    when every review is free of blocking findings. Unlike
+    ``_model_review_signals_from_comments`` (which skips negative-verdict comments
+    when collecting *supportive* signals), this scans ALL recognized review
+    bodies — including CHANGES-REQUESTED ones — because the blocking findings live
+    in exactly those. Recognition mirrors the signal builder (head-grounded +
+    review-heading token) so the two halves cannot drift.
+    """
+    for comment in comments or []:
+        if not isinstance(comment, dict):
+            continue
+        if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
+            continue
+        body = str(comment.get("body", "") or "")
+        lower = body.lower()
+        if not any(
+            token in lower
+            for token in (
+                "codex review",
+                "claude review",
+                "grok independent",
+                "gemini independent",
+                "independent semantic review",
+                "independent model review",
+                "model-family semantic signal",
+            )
+        ):
+            continue
+        if _has_blocking_finding_or_label(body):
+            return True
+    return False
+
+
 def _build_model_review_quorum(
     *,
     pr: dict[str, Any],
@@ -3206,11 +3249,49 @@ def _build_model_review_quorum(
         isinstance(required_pr_check_surface, dict)
         and required_pr_check_surface.get("quorum_only_failure")
     )
-    missing_quorum_is_active_check_blocker = (
-        quorum_only_required_failure and not quorum_satisfied and not settlement_recorded
-    )
     stale_quorum_check_after_satisfied_evidence = (
         quorum_only_required_failure and quorum_satisfied and not settlement_recorded
+    )
+    # --- Advisory-dissent settlement (opt-in, default OFF) ------------------
+    # A PR that fails the strict model quorum may still settle via the distinct
+    # ``advisory_settle`` verdict when (and ONLY when) every condition holds:
+    #   1. the flag is ON (default OFF -> path dormant, behavior byte-identical);
+    #   2. tier is 0/1/2 (Tier 3-4 keep human settlement, unaffected);
+    #   3. the only failing required check is the model-quorum check itself
+    #      (``quorum_only_required_failure``) -> all OTHER required checks are green;
+    #   4. at least one western-frontier review (claude/openai) exists at the head;
+    #   5. ZERO `[P0]`/`[P1]` blocking findings across ALL collected reviews, AND no
+    #      unresolved protocol/comment dissent. Condition (5) reuses the SAME
+    #      ``has_blocking_finding_or_label`` helper the dissent half consults, scanned
+    #      over every grounded review body, so it holds regardless of whether the
+    #      separate severity-gated-dissent flag is on. Any blocking finding or
+    #      unresolved dissent disqualifies advisory_settle.
+    # This is a strict fallback: it is only consulted when the strict quorum was NOT
+    # satisfied, and it never relaxes the blocking-finding bar.
+    advisory_findings = list(advisory_views)
+    advisory_settle_eligible = (
+        advisory_dissent_settle_enabled()
+        and tier is not None
+        and 0 <= tier <= 2
+        and quorum_only_required_failure
+        and not quorum_satisfied
+        and not settlement_recorded
+        and has_western_frontier_signal
+        and not unresolved_dissent
+        and not _any_review_has_blocking_finding(
+            pr.get("comments") or [],
+            head_sha=head_sha,
+            head_committed_at=head_committed_at,
+        )
+    )
+    # The incomplete-quorum check only acts as an ACTIVE blocker when advisory_settle
+    # is NOT rescuing this PR; otherwise the merge-quorum check is treated as resolved
+    # by the advisory path (and the verdict chain reports advisory_settle instead).
+    missing_quorum_is_active_check_blocker = (
+        quorum_only_required_failure
+        and not quorum_satisfied
+        and not settlement_recorded
+        and not advisory_settle_eligible
     )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
     human_preapproval_recorded = (
@@ -3274,7 +3355,15 @@ def _build_model_review_quorum(
         reasons.append(
             f"advisory finding from {family}: {sev_note} — not blocking (severity-gated dissent)"
         )
-    if not quorum_satisfied and not settlement_recorded:
+    if advisory_settle_eligible:
+        reasons.append(
+            "advisory-dissent settle: only the model-quorum check is failing, a "
+            "western-frontier review is present at head, and no [P0]/[P1] blocking "
+            "findings remain; settling on advisory findings only"
+        )
+        if advisory_findings:
+            reasons.append(f"{len(advisory_findings)} advisory finding(s) surfaced for follow-up")
+    if not quorum_satisfied and not settlement_recorded and not advisory_settle_eligible:
         if signal_count < requirement["required_model_signals"]:
             reasons.append(
                 "model quorum incomplete: "
@@ -3310,6 +3399,14 @@ def _build_model_review_quorum(
     ):
         status = "repair_or_wait"
         verdict = "not_ready_for_settlement"
+    elif advisory_settle_eligible:
+        # Opt-in advisory-dissent settlement: a distinct, auditable verdict (NOT
+        # ``admin_squash_allowed``) so the audit trail records that this settled on
+        # advisory findings only. Tier 0-2 only; no human risk settlement required.
+        status = "satisfied"
+        verdict = "advisory_settle"
+        requires_human_risk_settlement = False
+        admin_squash_allowed = True
     elif not quorum_satisfied:
         status = "needs_model_review_quorum"
         verdict = "collect_model_quorum_before_merge"
@@ -3365,6 +3462,12 @@ def _build_model_review_quorum(
         "counted_model_families": counted_reviewer_ids,
         "dissenting_views": dissenting_views,
         "advisory_views": advisory_views,
+        # Advisory findings surfaced for follow-up issue-filing by a caller when the
+        # PR settles via the advisory_settle path. Populated only when that path is
+        # eligible (otherwise empty); issue-filing itself is a caller concern, not
+        # this gate's. Mirrors ``advisory_views`` content for the eligible case.
+        "advisory_findings": advisory_findings if advisory_settle_eligible else [],
+        "advisory_settle": advisory_settle_eligible,
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
     }
