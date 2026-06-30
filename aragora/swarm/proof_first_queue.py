@@ -61,6 +61,12 @@ _DRIFT_TERMS = (
     "outrun",
     "current gate",
 )
+_STRATEGY_MISSION_GATED_TERMS = (
+    "#8665",
+    "issues/8665",
+    "strategy mission cadence",
+    "strategy mission queue",
+)
 _REV4_STAGING_CORPUS_PATH = Path("tests/benchmarks/corpus_rev4.json")
 
 
@@ -171,6 +177,20 @@ def classify_proof_first_queue_issue(
                 roadmap_codes=priority.codes,
                 blocked_codes=priority.blocked_codes,
             )
+
+    strategy_mission_matches = _matched_terms(normalized_text, _STRATEGY_MISSION_GATED_TERMS)
+    if strategy_mission_matches:
+        return ProofFirstQueueDecision(
+            allowed=False,
+            lane="strategy_mission_gated",
+            reason=(
+                "strategy mission cadence is tracked by the intake register; only an "
+                "explicitly active queue row may enter boss-ready"
+            ),
+            matched_terms=strategy_mission_matches,
+            roadmap_codes=roadmap_codes,
+            blocked_codes=(),
+        )
 
     if _is_explicit_staged_rev4_issue(
         issue_number=issue_number,

@@ -88,6 +88,36 @@ def test_classifies_blocked_roadmap_lane(
 
 
 @pytest.mark.parametrize(
+    ("title", "body", "expected_term"),
+    [
+        (
+            "Strategy mission cadence: reconcile proof docs for Epic #8665",
+            "Status docs must align with proof drift before the strategy mission queue moves.",
+            "#8665",
+        ),
+        (
+            "Open Strategy Mission Queue worker",
+            "Roadmap proof drift should stay queued until the prior external gate verifies.",
+            "strategy mission queue",
+        ),
+    ],
+)
+def test_strategy_mission_tracking_stays_out_of_boss_ready(
+    title: str, body: str, expected_term: str
+) -> None:
+    decision = classify_proof_first_queue_issue(
+        title,
+        body,
+        labels=("boss-ready",),
+    )
+
+    assert decision.allowed is False
+    assert decision.lane == "strategy_mission_gated"
+    assert expected_term in decision.matched_terms
+    assert "docs_proof_drift" != decision.lane
+
+
+@pytest.mark.parametrize(
     ("title", "body", "expected_terms"),
     [
         (

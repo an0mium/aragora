@@ -122,6 +122,10 @@ Queue rule for this tranche:
 
 - only roadmap codes in the **Do now** set may carry or be auto-created with `boss-ready`
 - delayed-track issues may stay open for planning truth, but restock and auto-decomposition should strip them from the live dispatch queue
+- strategy mission cadence / Epic [#8665](https://github.com/synaptent/aragora/issues/8665)
+  is durable planning truth in the intake register, not wholesale `boss-ready`
+  work; only a specifically opened active row from the Strategy Mission Queue may
+  enter live dispatch after its predecessor's external-proof gate verifies
 
 Observer rule for this tranche:
 

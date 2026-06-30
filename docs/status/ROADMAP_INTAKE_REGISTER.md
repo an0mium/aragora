@@ -50,13 +50,14 @@ When an agent or human is asked to "make this plan permanent / durable":
 | **Workspace reconciliation (2026-06-26)** branches 2,749→489, worktrees 319→1; 1,695 stale codex branches inspected, 4 preserved | this session | Done | (operational) | preserved branches: `codex/review-6887`, `codex/rbac-openapi-coverage-primary-20260615`, `codex/validate-doc-links-anchor-check-r2-20260514`, `codex/disaster-recovery-stat-portability-improver-20260609` — harvest to PRs |
 | **Head freeze** — 5 grinder daemons disabled (boss-loop, merge-arbiter, merge-shepherd, overnight-watchdog, publisher); publisher pause-manifest bug confirmed (never read) | this session | Done | (operational) | fixed by reconcile-lane "real pause/lock" (above) |
 
-## Open planning epics (index, 2026-06-26)
+## Open planning epics (index, 2026-06-30)
 
 These are the durable, tracked roadmap epics. Keep this list current as the intake gate.
 
 | Epic | Title |
 |---|---|
 | [#8641](https://github.com/synaptent/aragora/issues/8641) | Sakana Fugu integration |
+| [#8665](https://github.com/synaptent/aragora/issues/8665) | Strategy mission cadence — ODR GA, Action wedge, proof corpus |
 | [#8257](https://github.com/synaptent/aragora/issues/8257) | Codebase health: macro-architecture, packaging, gate-rigor (Factory "Structural Excellence") |
 | [#8223](https://github.com/synaptent/aragora/issues/8223) | Open Decision Receipt (ODR) — decision-semantics layer |
 | [#8344](https://github.com/synaptent/aragora/issues/8344) | Conveyor hardening — close the six failure classes |
