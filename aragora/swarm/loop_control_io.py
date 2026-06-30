@@ -154,12 +154,14 @@ def collect_boss_loop(repo_root: Path, *, timeout: float = 20.0) -> dict[str, An
     heartbeats = _as_dict(payload.get("agent_heartbeats"))
     count = int(heartbeats.get("count", 0) or 0)
     fresh = int(heartbeats.get("fresh_count", 0) or 0)
+    terminal = int(heartbeats.get("terminal_count", 0) or 0)
+    active_heartbeat_count = max(0, count - terminal)
     health = _as_dict(payload.get("health"))
     queue_depth = payload.get("queue_depth")
     return {
         "source_status": "ok",
         "alive": bool(payload.get("boss_loop_alive")),
-        "owner_stale": count > 0 and fresh == 0,
+        "owner_stale": active_heartbeat_count > 0 and fresh == 0,
         "feedback_status": "ok" if health.get("ok", True) else "degraded",
         "ticks": queue_depth if isinstance(queue_depth, int) else None,
         "owner": str(status.get("owner") or "swarm-boss-loop"),

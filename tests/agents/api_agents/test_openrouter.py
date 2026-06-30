@@ -314,6 +314,30 @@ class TestOpenRouterGenerateStream:
     """Tests for streaming generation."""
 
     @pytest.mark.asyncio
+    async def test_stream_blocks_before_network_when_budget_cap_reached(
+        self, mock_env_with_api_keys, monkeypatch, tmp_path
+    ):
+        """OpenRouter streaming must obey the fail-closed monthly cap."""
+        from aragora.agents.api_agents.openrouter import OpenRouterAgent
+        from aragora.billing import budget_guard
+        from aragora.billing.budget_guard import BudgetExceededError
+
+        monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "1")
+        monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(tmp_path / "budget.json"))
+        budget_guard._mem_state.clear()
+
+        agent = OpenRouterAgent()
+        monkeypatch.setattr(agent, "_estimate_budget_cost_from_text_usd", lambda text, max_out: 2.0)
+
+        with patch("aragora.agents.api_agents.openrouter.create_client_session") as create_session:
+            with pytest.raises(AgentStreamError) as exc_info:
+                async for _ in agent.generate_stream("Test prompt"):
+                    pass
+
+        assert isinstance(exc_info.value.__cause__, BudgetExceededError)
+        create_session.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_stream_yields_chunks(
         self, mock_env_with_api_keys, mock_sse_chunks, mock_openrouter_limiter
     ):

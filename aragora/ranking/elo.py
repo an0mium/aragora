@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aragora.type_protocols import EventEmitterProtocol
+    from aragora.protocols import EventEmitterProtocol
     from aragora.knowledge.mound.adapters.performance_adapter import EloAdapter
 
 from aragora.config import (

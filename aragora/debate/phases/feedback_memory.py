@@ -14,7 +14,7 @@ from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
-    from aragora.type_protocols import TieredMemoryProtocol
+    from aragora.protocols import TieredMemoryProtocol
 
 logger = logging.getLogger(__name__)
 

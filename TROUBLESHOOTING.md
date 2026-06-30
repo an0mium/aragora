@@ -108,7 +108,7 @@ journalctl -u aragora -n 50 --no-pager
 # If no systemd service exists, start manually:
 cd /opt/aragora  # or wherever your code lives
 source venv/bin/activate
-python -m aragora.server --host 0.0.0.0 --http-port 8080 --port 8765
+aragora serve --host 0.0.0.0 --api-port 8080 --ws-port 8765
 ```
 
 ### Fix: CORS Configuration

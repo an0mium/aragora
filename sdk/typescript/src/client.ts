@@ -1576,6 +1576,15 @@ export class AragoraClient {
     return this.request<Record<string, unknown>>('GET', `/api/v1/agent/${encodeURIComponent(name)}/calibration-summary`);
   }
 
+  /**
+   * Get an agent's auditable calibration report (per-domain accuracy,
+   * Brier/calibration-curve summary, sample sizes, data window). Agents with
+   * no calibration data return an explicit `{ status: 'absent', reason }`.
+   */
+  async getAgentCalibrationReport(name: string, params?: { domain?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/v1/agents/${encodeURIComponent(name)}/calibration-report`, { params });
+  }
+
   async getAgentMoments(name: string, params?: { type?: string; limit?: number } & PaginationParams): Promise<{ moments: AgentMoment[] }> {
     return this.request<{ moments: AgentMoment[] }>('GET', `/api/v1/agent/${encodeURIComponent(name)}/moments`, { params });
   }

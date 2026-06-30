@@ -141,7 +141,19 @@ if [ -z "$\{LATEST_BACKUP\}" ]; then
 fi
 
 # 2. Check backup age (must be < 25 hours old)
-BACKUP_AGE_HOURS=$(( ($(date +%s) - $(stat -c %Y "$\{LATEST_BACKUP\}")) / 3600 ))
+backup_mtime() {
+    mtime=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || true)
+    case "$mtime" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    printf '%s\n' "$mtime"
+}
+
+BACKUP_MTIME=$(backup_mtime "$\{LATEST_BACKUP\}") || {
+    alert "Could not read backup mtime: $\{LATEST_BACKUP\}"
+    exit 1
+}
+BACKUP_AGE_HOURS=$(( ($(date +%s) - BACKUP_MTIME) / 3600 ))
 if [ $\{BACKUP_AGE_HOURS\} -gt 25 ]; then
     alert "Latest backup is $\{BACKUP_AGE_HOURS\} hours old - exceeds 24h RPO"
     exit 1

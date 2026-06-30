@@ -721,11 +721,21 @@ def _resolve_receipt_data(receipt_ref: str) -> dict[str, Any] | None:
 
 def _export_odr(data: dict[str, Any]) -> str:
     """Render a receipt dict as a JCS-canonical Open Decision Receipt document."""
-    from aragora.gauntlet.odr_export import decision_receipt_to_odr, jcs_canonicalize
+    from aragora.gauntlet.odr_export import (
+        calibration_provenance_for_receipt,
+        decision_receipt_to_odr,
+        jcs_canonicalize,
+    )
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
     receipt = DecisionReceipt.from_dict(data)
-    odr = decision_receipt_to_odr(receipt)
+    # Best-effort: when participating agents have recorded calibration data,
+    # the confidence block points at their calibration-report endpoints
+    # (issue #8229); otherwise the existing settlement/absent logic applies.
+    odr = decision_receipt_to_odr(
+        receipt,
+        calibration_provenance=calibration_provenance_for_receipt(receipt),
+    )
     return jcs_canonicalize(odr).decode("utf-8")
 
 
