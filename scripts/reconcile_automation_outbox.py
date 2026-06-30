@@ -1004,10 +1004,16 @@ def _exact_open_pr_terminal_candidate(
         return None, None
     local_branch_head = _git_ref_head(root, branch)
     if local_branch_head and not full_heads_match(desired_head, local_branch_head):
-        return None, (
-            f"exact open PR terminal-archive gate: local branch head "
-            f"{local_branch_head[:12]} does not fully match desired head {desired_head[:12]}"
+        ancestor = run_git(
+            ["merge-base", "--is-ancestor", local_branch_head, desired_head],
+            root,
+            timeout=15,
         )
+        if ancestor.returncode != 0:
+            return None, (
+                f"exact open PR terminal-archive gate: local branch head "
+                f"{local_branch_head[:12]} does not fully match desired head {desired_head[:12]}"
+            )
     owner_keep_reason = _exact_open_pr_owner_keep_reason(root, state_root, branch)
     if owner_keep_reason is not None:
         return None, owner_keep_reason
@@ -1097,9 +1103,11 @@ def _steering_keep_reason(state_root: Path, branch: str, owner: Any) -> str | No
         owner_session=getattr(owner, "owner_session", None),
         lane_id=getattr(owner, "lane_id", None),
     )
-    if steering.human_message_count > 0:
+    unresolved_human = int(getattr(steering, "unresolved_human_message_count", 0) or 0)
+    unresolved_blocking = int(getattr(steering, "unresolved_blocking_message_count", 0) or 0)
+    if steering.human_message_count > 0 and unresolved_human:
         return "exact open PR terminal-archive gate: human steering message remains"
-    if steering.blocking_message_count > 0:
+    if steering.blocking_message_count > 0 and unresolved_blocking:
         return "exact open PR terminal-archive gate: blocking operator steering remains"
     return None
 

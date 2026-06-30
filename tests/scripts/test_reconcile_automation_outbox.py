@@ -1492,6 +1492,85 @@ def test_exact_open_pr_representation_keeps_when_local_branch_advanced(
     assert handoff.exists()
 
 
+def test_exact_open_pr_representation_allows_stale_local_branch_behind_desired_head(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-exact-open-pr-local-behind-abc123"
+    branch = "codex/exact-open-pr-local-behind"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    local_head = "1111111234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{local_head}\n")
+        if args == ["merge-base", "--is-ancestor", branch, "origin/main"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args == ["cherry", "origin/main", branch]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"+ {local_head}\n",
+                stderr="",
+            )
+        if args == ["merge-base", "--is-ancestor", local_head, desired_head]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    class FakeGitHubClient:
+        disabled = False
+
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def open_prs_for_branch(
+            self, requested_branch: str
+        ) -> tuple[list[dict[str, Any]] | None, str | None]:
+            assert requested_branch == branch
+            return [
+                {
+                    "number": 8589,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": branch, "sha": desired_head},
+                    "base": {"ref": "main"},
+                    "html_url": "https://github.com/synaptent/aragora/pull/8589",
+                }
+            ], None
+
+        def remote_ref(self, requested_branch: str) -> tuple[dict[str, Any] | None, str | None]:
+            assert requested_branch == branch
+            return {"ref": f"refs/heads/{branch}", "object": {"sha": desired_head}}, None
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "NarrowGitHubClient", FakeGitHubClient)
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {branch: 8589})
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_exact_open_pr"] == 1
+    assert payload["actions"][0]["decision"] == "archive"
+    assert handoff.exists()
+
+
 def test_exact_open_pr_representation_keeps_draft_pr(
     tmp_path: Path,
     monkeypatch: Any,
@@ -2385,6 +2464,53 @@ def test_exact_open_pr_owner_gate_respects_blocking_steering(tmp_path: Path) -> 
     reason = mod._exact_open_pr_owner_keep_reason(tmp_path, tmp_path, branch)
 
     assert reason == "exact open PR terminal-archive gate: blocking operator steering remains"
+
+
+def test_exact_open_pr_owner_gate_ignores_resolved_blocking_steering(
+    tmp_path: Path,
+) -> None:
+    branch = "codex/exact-open-pr-steering-resolved"
+    owner_session = "codex-steering-resolved"
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "identify_lane_owner.py").write_text(
+        "import json\n"
+        f"print(json.dumps({{'status': 'completed', 'owner_session': {owner_session!r}}}))\n",
+        encoding="utf-8",
+    )
+    inbox = tmp_path / ".aragora" / "operator-steering" / owner_session
+    inbox.mkdir(parents=True)
+    message_path = inbox / "2026-06-30T00-00-00-000Z-block.json"
+    message_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "aragora-operator-steering/1.0",
+                "to_session": owner_session,
+                "priority": "blocking",
+                "subject": f"Block {branch}",
+                "body": f"Do not archive {branch} until the operator clears this.",
+                "message_sha256": "fixture-sha",
+            }
+        ),
+        encoding="utf-8",
+    )
+    receipt_dir = inbox / "_read_receipts"
+    receipt_dir.mkdir()
+    (receipt_dir / "2026-06-30T00-01-00-000Z-receipt.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "aragora-operator-steering-read-receipt/1.0",
+                "message_filename": message_path.name,
+                "message_sha256": "fixture-sha",
+                "read_at_utc": "2026-06-30T00:01:00Z",
+                "outcome": "completed",
+                "outcome_note": "fixture completed",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod._exact_open_pr_owner_keep_reason(tmp_path, tmp_path, branch) is None
 
 
 def test_exact_open_pr_owner_gate_uses_registry_when_liveness_has_no_match(tmp_path: Path) -> None:

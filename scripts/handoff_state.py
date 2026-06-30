@@ -196,6 +196,9 @@ class SteeringEvidence:
     blocking_message_count: int = 0
     resolved_read_receipt_count: int = 0
     human_message_count: int = 0
+    unresolved_message_count: int = 0
+    unresolved_blocking_message_count: int = 0
+    unresolved_human_message_count: int = 0
     latest_message: dict[str, Any] | None = None
     latest_read_receipt: dict[str, Any] | None = None
     ack_protocol: str = "top_level_message_remains_pending"
@@ -1440,8 +1443,23 @@ def steering_evidence_for_branch(
                 "latest_read_receipt": receipt,
             }
         )
+
+    def resolved_by_receipt(message: Mapping[str, Any]) -> bool:
+        receipt = message.get("latest_read_receipt")
+        if not isinstance(receipt, Mapping):
+            return False
+        return str(receipt.get("outcome") or "").strip().lower() in {
+            "obeyed",
+            "stale",
+            "superseded",
+            "completed",
+        }
+
     blocking = [m for m in matches if m.get("priority") == "blocking"]
     human = [m for m in matches if m.get("human_detected")]
+    unresolved = [m for m in matches if not resolved_by_receipt(m)]
+    unresolved_blocking = [m for m in blocking if not resolved_by_receipt(m)]
+    unresolved_human = [m for m in human if not resolved_by_receipt(m)]
     latest = sorted(matches, key=lambda m: str(m.get("sent_at_utc") or ""))[-1] if matches else None
     receipts = [
         receipt
@@ -1462,6 +1480,9 @@ def steering_evidence_for_branch(
         blocking_message_count=len(blocking),
         resolved_read_receipt_count=len(resolved_receipts),
         human_message_count=len(human),
+        unresolved_message_count=len(unresolved),
+        unresolved_blocking_message_count=len(unresolved_blocking),
+        unresolved_human_message_count=len(unresolved_human),
         latest_message=latest,
         latest_read_receipt=latest_receipt,
     )
