@@ -224,6 +224,7 @@ def test_build_manifest_counts_dispositions() -> None:
             _pr(1, "feat(odr): verify core"),
             _pr(2, "chore(ci): refresh cancelled lint snapshots", draft=True),
         ],
+        merge_packet_entries={1: {"tier": 1, "unresolved_dissent": False}},
         inventory_candidates=[
             {
                 "candidate_id": "wt",
@@ -240,3 +241,34 @@ def test_build_manifest_counts_dispositions() -> None:
     assert manifest["summary"]["by_disposition"][DISPOSITION_HARVEST_NOW] == 1
     assert manifest["summary"]["by_disposition"][DISPOSITION_CLOSE_OR_DELETE] == 1
     assert manifest["summary"]["by_disposition"][DISPOSITION_PARK_PRESERVE] == 1
+
+
+def test_build_manifest_without_merge_packets_parks_prs() -> None:
+    manifest = build_manifest(
+        prs=[_pr(1, "feat(odr): verify core")],
+        now=NOW,
+    )
+
+    assert manifest["summary"]["by_disposition"][DISPOSITION_HARVEST_NOW] == 0
+    assert manifest["summary"]["by_disposition"][DISPOSITION_PARK_PRESERVE] == 1
+    assert "merge_packet.error=merge_packet_not_collected" in manifest["items"][0]["evidence"]
+
+
+def test_build_manifest_skips_inventory_duplicate_for_open_pr() -> None:
+    manifest = build_manifest(
+        prs=[_pr(8718, "feat(odr): verify core")],
+        merge_packet_entries={8718: {"tier": 1, "unresolved_dissent": False}},
+        inventory_candidates=[
+            {
+                "candidate_id": "wt",
+                "classification": "open_pr_or_outbox",
+                "decision": "preserve",
+                "git": {"branch": "codex/pr-8718", "head": "head-8718"},
+                "links": {"open_prs": [{"number": 8718}]},
+            }
+        ],
+        now=NOW,
+    )
+
+    assert manifest["summary"]["total_items"] == 1
+    assert manifest["annotations"] == ["inventory_duplicate_skipped:worktree:wt"]

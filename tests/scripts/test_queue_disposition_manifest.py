@@ -159,3 +159,53 @@ def test_collect_merge_packets_marks_failed_pr_record() -> None:
     assert entries == {}
     assert annotations == ["merge_packet_failed:#8718:transport down"]
     assert prs[0]["_merge_packet_error"] == "merge_packet_failed:#8718:transport down"
+
+
+def test_main_collects_merge_packets_by_default() -> None:
+    old_list = manifest_cli.default_list_prs
+    old_packet = manifest_cli.default_merge_packet
+    seen: list[tuple[int, str]] = []
+    lines: list[str] = []
+
+    try:
+        manifest_cli.default_list_prs = lambda repo, limit: [
+            {
+                "number": "8541",
+                "title": "feat(api): expose crux finder",
+                "isDraft": False,
+                "mergeable": "MERGEABLE",
+                "headRefName": "codex/x",
+                "headRefOid": "abc",
+                "createdAt": "2026-06-20T12:00:00Z",
+                "additions": 10,
+                "deletions": 0,
+                "changedFiles": 1,
+                "labels": [],
+            }
+        ]
+
+        def fake_packet(pr: int, repo: str = manifest_cli.DEFAULT_REPO) -> dict[str, Any]:
+            seen.append((pr, repo))
+            return {"tier": 3, "unresolved_dissent": False}
+
+        manifest_cli.default_merge_packet = fake_packet
+        rc = manifest_cli.main(["--summary"])
+    finally:
+        manifest_cli.default_list_prs = old_list
+        manifest_cli.default_merge_packet = old_packet
+
+    assert rc == manifest_cli.EXIT_OK
+    assert seen == [(8541, manifest_cli.DEFAULT_REPO)]
+
+
+def test_main_rejects_invalid_bounds(capsys: Any) -> None:
+    assert manifest_cli.main(["--stale-days", "0"]) == manifest_cli.EXIT_FAILURE
+    assert "--stale-days must be >= 1" in capsys.readouterr().err
+
+    assert (
+        manifest_cli.main(
+            ["--merge-packet-workers", str(manifest_cli.MAX_MERGE_PACKET_WORKERS + 1)]
+        )
+        == manifest_cli.EXIT_FAILURE
+    )
+    assert "--merge-packet-workers must be between" in capsys.readouterr().err

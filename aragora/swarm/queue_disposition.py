@@ -422,15 +422,29 @@ def build_manifest(
     """Build the complete disposition manifest payload."""
     if now is None:
         now = datetime.now(timezone.utc)
+    merge_packets_not_collected = merge_packet_entries is None
     merge_packet_entries = merge_packet_entries or {}
+    manifest_annotations = list(annotations or [])
     items: list[dict[str, Any]] = []
+    pr_numbers: set[int] = set()
+    pr_branches: set[str] = set()
+    pr_heads: set[str] = set()
     for pr in prs:
         if not isinstance(pr, dict):
             continue
         number = _coerce_optional_pr_number(pr.get("number"))
+        if number is not None:
+            pr_numbers.add(number)
+        if branch := _branch(pr):
+            pr_branches.add(branch)
+        if head := _head(pr):
+            pr_heads.add(head)
+        pr_record = dict(pr)
+        if merge_packets_not_collected:
+            pr_record["_merge_packet_error"] = "merge_packet_not_collected"
         items.append(
             classify_pr_disposition(
-                pr,
+                pr_record,
                 merge_packet_entry=merge_packet_entries.get(number) if number is not None else None,
                 now=now,
                 stale_days=stale_days,
@@ -438,7 +452,17 @@ def build_manifest(
         )
     for candidate in inventory_candidates or []:
         if isinstance(candidate, dict):
-            items.append(classify_inventory_candidate(candidate))
+            item = classify_inventory_candidate(candidate)
+            if (
+                item["open_pr"] in pr_numbers
+                or bool(item["branch"] and item["branch"] in pr_branches)
+                or bool(item["head_sha"] and item["head_sha"] in pr_heads)
+            ):
+                manifest_annotations.append(
+                    f"inventory_duplicate_skipped:{item['item_type']}:{item['id']}"
+                )
+                continue
+            items.append(item)
 
     by_disposition = {name: 0 for name in DISPOSITIONS}
     by_value_class: dict[str, int] = {}
@@ -450,7 +474,7 @@ def build_manifest(
         "schema_version": "aragora.queue_disposition_manifest.v1",
         "generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "policy": "value_of_information_preserve_first",
-        "annotations": list(annotations or []),
+        "annotations": manifest_annotations,
         "summary": {
             "total_items": len(items),
             "by_disposition": by_disposition,

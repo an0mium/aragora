@@ -30,6 +30,7 @@ GH_TIMEOUT_SECONDS = 120
 MERGE_PACKET_TIMEOUT_SECONDS = 60
 INVENTORY_TIMEOUT_SECONDS = 300
 DEFAULT_MERGE_PACKET_WORKERS = 4
+MAX_MERGE_PACKET_WORKERS = 16
 
 EXIT_OK = 0
 EXIT_FAILURE = 1
@@ -38,6 +39,13 @@ _GH_FIELDS = (
     "number,title,labels,isDraft,createdAt,updatedAt,headRefName,headRefOid,"
     "baseRefName,mergeable,reviewDecision,additions,deletions,changedFiles,author"
 )
+
+
+def subprocess_env() -> dict[str, str]:
+    env = dict(os.environ)
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = str(REPO_ROOT) if not existing else f"{REPO_ROOT}{os.pathsep}{existing}"
+    return env
 
 
 def atomic_write_json(path: str, payload: dict[str, Any]) -> None:
@@ -85,7 +93,7 @@ def default_list_prs(repo: str, limit: int) -> list[dict[str, Any]]:
     return payload
 
 
-def default_merge_packet(pr: int) -> dict[str, Any]:
+def default_merge_packet(pr: int, repo: str = DEFAULT_REPO) -> dict[str, Any]:
     command = [
         sys.executable,
         "-m",
@@ -94,6 +102,8 @@ def default_merge_packet(pr: int) -> dict[str, Any]:
         "merge-packet",
         "--pr",
         str(pr),
+        "--repo",
+        repo,
         "--json",
     ]
     result = subprocess.run(
@@ -102,6 +112,8 @@ def default_merge_packet(pr: int) -> dict[str, Any]:
         text=True,
         timeout=MERGE_PACKET_TIMEOUT_SECONDS,
         check=False,
+        cwd=str(REPO_ROOT),
+        env=subprocess_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(
@@ -112,9 +124,11 @@ def default_merge_packet(pr: int) -> dict[str, Any]:
         raise RuntimeError(f"merge-packet returned unexpected payload for PR #{pr}")
     entries = payload.get("entries")
     if not isinstance(entries, list) or not entries:
-        return {}
+        raise RuntimeError(f"merge-packet returned no entries for PR #{pr}")
     entry = entries[0]
-    return entry if isinstance(entry, dict) else {}
+    if not isinstance(entry, dict):
+        raise RuntimeError(f"merge-packet returned malformed entry for PR #{pr}")
+    return entry
 
 
 def default_inventory_candidates() -> list[dict[str, Any]]:
@@ -134,6 +148,8 @@ def default_inventory_candidates() -> list[dict[str, Any]]:
         text=True,
         timeout=INVENTORY_TIMEOUT_SECONDS,
         check=False,
+        cwd=str(REPO_ROOT),
+        env=subprocess_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(
@@ -173,7 +189,7 @@ def collect_merge_packets(
     merge_entries: dict[int, dict[str, Any]] = {}
     if not jobs:
         return merge_entries
-    workers = max(1, min(workers, len(jobs)))
+    workers = max(1, min(workers, len(jobs), MAX_MERGE_PACKET_WORKERS))
     if workers == 1:
         for pr, number in jobs:
             try:
@@ -224,7 +240,7 @@ def run_manifest(
         if len(prs) >= limit:
             annotations.append(f"list_truncated:>={limit}")
 
-        merge_entries: dict[int, dict[str, Any]] = {}
+        merge_entries: dict[int, dict[str, Any]] | None = None
         if merge_packet is not None:
             merge_entries = collect_merge_packets(
                 prs,
@@ -281,8 +297,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stale-days", type=int, default=14)
     parser.add_argument(
         "--with-merge-packets",
+        dest="with_merge_packets",
         action="store_true",
+        default=True,
         help="Run review-queue merge-packet for each open PR (read-only, slower).",
+    )
+    parser.add_argument(
+        "--no-merge-packets",
+        dest="with_merge_packets",
+        action="store_false",
+        help="Skip merge-packet collection; PR dispositions will park until packet data exists.",
     )
     parser.add_argument(
         "--merge-packet-workers",
@@ -298,10 +322,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--summary", action="store_true", help="Emit one summary line.")
     parser.add_argument("--out", default=None, help="Optional atomic JSON output path.")
     args = parser.parse_args(argv)
+    if args.stale_days < 1:
+        print(
+            json.dumps({"action": "error", "error": "--stale-days must be >= 1"}), file=sys.stderr
+        )
+        return EXIT_FAILURE
+    if not 1 <= args.merge_packet_workers <= MAX_MERGE_PACKET_WORKERS:
+        print(
+            json.dumps(
+                {
+                    "action": "error",
+                    "error": f"--merge-packet-workers must be between 1 and {MAX_MERGE_PACKET_WORKERS}",
+                }
+            ),
+            file=sys.stderr,
+        )
+        return EXIT_FAILURE
 
     return run_manifest(
         list_prs=lambda: default_list_prs(args.repo, args.limit),
-        merge_packet=default_merge_packet if args.with_merge_packets else None,
+        merge_packet=(lambda pr: default_merge_packet(pr, args.repo))
+        if args.with_merge_packets
+        else None,
         merge_packet_workers=args.merge_packet_workers,
         inventory_candidates=default_inventory_candidates if args.include_worktrees else None,
         limit=args.limit,
