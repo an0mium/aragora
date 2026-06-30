@@ -235,7 +235,7 @@ docker logs aragora 2>&1 | grep -E "RLM Factory|TRUE RLM|compression fallback"
 # NOT Expected: [RLM Factory] Created AragoraRLM with compression fallback
 
 # Verify rlm package is installed
-pip show rlm || echo "RLM package not installed - install with: pip install '.[rlm]'"
+python -c "import aragora.rlm" 2>/dev/null || echo "RLM not importable - reinstall the base package: pip install -e ."
 ```
 
 **Why TRUE RLM Matters:**
@@ -244,9 +244,9 @@ pip show rlm || echo "RLM package not installed - install with: pip install '.[r
 - TRUE RLM significantly improves knowledge retrieval quality in production workloads
 
 **Troubleshooting:**
-- If `HAS_OFFICIAL_RLM` is `False`: Ensure the `rlm` extra is in your pip install command
-- Docker builds: Verify `.[rlm]` is included in the Dockerfile pip install line
-- Lightsail/EC2: Ensure setup scripts include `pip install -e ".[rlm]"`
+- If `HAS_OFFICIAL_RLM` is `False`: Install the official RLM package with `pip install rlm`
+- Docker builds: Verify `pip install -e .` is included in the Dockerfile pip install line
+- Lightsail/EC2: Ensure setup scripts include `pip install -e .`
 
 ### 10. Resource Limits
 

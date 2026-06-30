@@ -40,7 +40,7 @@ references:
       meaning: canonical roadmap tree including DIC-02 and TW-11
     review_help:
       kind: doc
-      url: https://github.com/synaptent/aragora/blob/main/README.md#quick-start
+      url: https://github.com/synaptent/aragora/blob/main/README.md#try-it-now
       meaning: public review and review-pr entrypoint documentation
     proof_pack_template:
       kind: doc

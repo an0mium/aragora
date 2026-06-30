@@ -438,6 +438,11 @@ python scripts/migrate_databases.py --validate
    aragora serve
    ```
 
+   > **Note:** `aragora` is a console script installed by `pip install -e .`
+   > (it creates `venv/bin/aragora`). If you see `aragora: command not found`,
+   > reinstall from the repo root inside your virtualenv with `pip install -e .`,
+   > the same console-script step documented in the operations runbook.
+
 ### Database Locking
 
 **Symptoms:** "database is locked" errors.

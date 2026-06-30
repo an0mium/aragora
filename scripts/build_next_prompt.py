@@ -860,6 +860,8 @@ def _owner_lookup_packet(
 def _is_stale_mailbox_only_owner(owner_state: Any) -> bool:
     if not isinstance(owner_state, dict):
         return False
+    if str(owner_state.get("owner_blocking_state") or "") == "stale_terminal_owner":
+        return False
     if str(owner_state.get("status") or "") not in ACTIVE_STATUSES:
         return False
     live_process = owner_state.get("live_process")

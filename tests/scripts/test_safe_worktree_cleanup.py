@@ -225,16 +225,15 @@ def test_remove_purges_residual_path_after_failed_git_remove(
         blockers=[],
     )
 
-    monkeypatch.setattr(
-        mod.autopilot,
-        "_run_git",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
             args=["git", "worktree", "remove"],
             returncode=255,
             stdout="",
             stderr="Directory not empty",
-        ),
-    )
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
     monkeypatch.setattr(mod.autopilot, "_branch_exists", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
 
@@ -246,9 +245,608 @@ def test_remove_purges_residual_path_after_failed_git_remove(
         force=False,
     )
 
-    assert result["status"] == "purged_after_failed_remove"
+    assert result["status"] == "remove_failed_path_purged"
+    assert result["removed"] is False
     assert result["path_purged"] is True
+    assert result["git_remove_failed"] is True
+    assert "git worktree remove failed" in result["recovery_action"]
     assert worktree.exists() is False
+
+
+def test_remove_refuses_untracked_residue_without_purge_path_with_recovery(
+    tmp_path: Path,
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+    (worktree / ".claude-session-anchor").write_text("session anchor\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=False,
+        force=False,
+    )
+
+    assert result["status"] == "untracked_path"
+    assert result["removed"] is False
+    assert result["path_purged"] is False
+    assert result["requires_purge_path"] is True
+    assert "--purge-path" in result["recovery_action"]
+    assert worktree.exists() is True
+
+
+def test_remove_purge_path_deletes_anchor_only_untracked_residue(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+    (worktree / ".claude-session-anchor").write_text("session anchor\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purged"
+    assert result["removed"] is True
+    assert result["path_purged"] is True
+    assert result["residual_paths"] == []
+    assert worktree.exists() is False
+
+
+def test_remove_purge_path_reports_incomplete_when_anchor_residue_survives(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+    (worktree / ".claude-session-anchor").write_text("session anchor\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+    monkeypatch.setattr(mod.shutil, "rmtree", lambda *_args, **_kwargs: None)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purge_incomplete"
+    assert result["removed"] is False
+    assert result["path_purged"] is False
+    assert result["residual_paths"] == [".claude-session-anchor"]
+    assert "not fully removed" in result["recovery_action"]
+    assert worktree.exists() is True
+
+
+def test_tracked_remove_purge_failure_reports_not_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    residual = worktree / "build" / "cache"
+    residual.mkdir(parents=True)
+    (residual / "leftover.txt").write_text("residue\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.shutil, "rmtree", lambda *_args, **_kwargs: None)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purge_incomplete"
+    assert result["removed"] is False
+    assert result["git_worktree_removed"] is True
+    assert result["path_purged"] is False
+    assert "build" in result["residual_paths"]
+    assert "not fully removed" in result["recovery_action"]
+
+
+def test_failed_git_remove_and_failed_purge_preserve_both_signals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    worktree.mkdir()
+    (worktree / "leftover.txt").write_text("residue\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=255,
+            stdout="",
+            stderr="Directory not empty",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.shutil, "rmtree", lambda *_args, **_kwargs: None)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "remove_failed_purge_incomplete"
+    assert result["git_remove_failed"] is True
+    assert result["stderr"] == "Directory not empty"
+    assert "not fully removed" in result["recovery_action"]
+    assert result["removed"] is False
+    assert result["path_purged"] is False
+    assert result["residual_paths"] == ["leftover.txt"]
+
+
+def test_failed_git_remove_without_purge_has_recovery_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    worktree.mkdir()
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=255,
+            stdout="",
+            stderr="Directory not empty",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=False,
+        force=False,
+    )
+
+    assert result["status"] == "remove_failed"
+    assert result["git_remove_failed"] is True
+    assert "rerun inspect" in result["recovery_action"]
+
+
+def test_cmd_remove_reports_failed_git_remove_even_after_path_purge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    worktree.mkdir()
+    (worktree / "leftover.txt").write_text("residue\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=255,
+            stdout="",
+            stderr="Directory not empty",
+        )
+
+    monkeypatch.setattr(mod, "inspect_worktree", lambda *_args, **_kwargs: inspection)
+    monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    args = argparse.Namespace(
+        repo=".",
+        path=str(worktree),
+        branch=None,
+        delete_branch=True,
+        purge_path=True,
+        force=False,
+        json=True,
+    )
+
+    rc = mod.cmd_remove(args)
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 1
+    assert payload["status"] == "remove_failed_path_purged"
+    assert payload["git_remove_failed"] is True
+    assert payload["path_purged"] is True
+    assert payload["removed"] is False
+    assert payload["branch_deleted"] is False
+
+
+def test_cmd_remove_returns_nonzero_for_tracked_residue_purge_incomplete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    residual = worktree / "build" / "cache"
+    residual.mkdir(parents=True)
+    (residual / "leftover.txt").write_text("residue\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "inspect_worktree", lambda *_args, **_kwargs: inspection)
+    monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.shutil, "rmtree", lambda *_args, **_kwargs: None)
+
+    args = argparse.Namespace(
+        repo=".",
+        path=str(worktree),
+        branch=None,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+        json=True,
+    )
+
+    rc = mod.cmd_remove(args)
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 1
+    assert payload["status"] == "purge_incomplete"
+    assert payload["git_worktree_removed"] is True
+    assert payload["path_purged"] is False
+    assert payload["removed"] is False
+
+
+def test_git_remove_timeout_sets_failure_flag_and_recovery_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-timeout"
+    worktree.mkdir()
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def timeout_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", timeout_run)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "remove_failed"
+    assert result["git_remove_failed"] is True
+    assert result["git_worktree_removed"] is False
+    assert "timed out" in result["stderr"]
+    assert "rerun inspect" in result["recovery_action"]
+
+
+def test_purge_race_success_clears_stale_purge_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def race_remove(path: Path) -> None:
+        path.rmdir()
+        raise OSError("path disappeared during purge")
+
+    monkeypatch.setattr(mod.shutil, "rmtree", race_remove)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purged"
+    assert result["path_purged"] is True
+    assert result["purge_error"] is None
+    assert result["residual_paths"] == []
+
+
+def test_purge_incomplete_does_not_delete_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    worktree.mkdir()
+    (worktree / "leftover.txt").write_text("residue\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+    branch_delete_calls: list[list[str]] = []
+
+    def fake_run(*args, **kwargs):
+        command = list(args[0])
+        if command[:3] == ["git", "branch", "-D"]:
+            branch_delete_calls.append(command)
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.autopilot, "_branch_exists", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(mod.shutil, "rmtree", lambda *_args, **_kwargs: None)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=True,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purge_incomplete"
+    assert result["branch_deleted"] is False
+    assert branch_delete_calls == []
+
+
+def test_residual_paths_are_bounded_without_rglob(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    residue = tmp_path / "large-residue"
+    residue.mkdir()
+    for index in range(60):
+        (residue / f"leftover-{index:02d}.txt").write_text("x")
+
+    def fail_rglob(*_args, **_kwargs):
+        raise AssertionError("residual lookup must not traverse with rglob")
+
+    monkeypatch.setattr(Path, "rglob", fail_rglob)
+
+    residuals = mod._residual_paths(residue, limit=50)
+
+    assert len(residuals) == 51
+    assert residuals[-1] == "..."
+
+
+def test_residual_paths_name_file_targets(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    residue = tmp_path / "leftover.log"
+    residue.write_text("residue\n")
+
+    assert mod._residual_paths(residue) == ["leftover.log"]
 
 
 def test_remove_deletes_branch_when_requested(

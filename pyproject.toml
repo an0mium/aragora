@@ -35,12 +35,23 @@ dependencies = [
     # ``aragora --help`` time — click/httpx/typer via cli/ submodules, plus
     # config/settings which need pydantic + PyYAML). Declared in base so any
     # install yields a working CLI, not just ``[test]``.
-    "click>=8.1,<9.0",
+    "click>=8.4.2,<9.0",
     "httpx>=0.27,<1.0",
-    "typer>=0.26.7,<1.0",
+    "typer>=0.26.8,<1.0",
     "PyYAML>=6.0.3,<7.0",
     "pydantic>=2.13.4,<3.0",
     "pydantic-settings>=2.14.2,<3.0",
+    # Core async runtime floor, audited against the bootable base set in
+    # scripts/ci_install_project.sh (LEGACY_CONTROL_PLANE_BASE_DEPS, the floor
+    # both Dockerfiles boot from). aiohttp has the widest runtime footprint
+    # (server handlers, agents, connectors) and websockets backs the
+    # aragora/server/stream/* WebSocket surface. Declared in base so these
+    # import cleanly from a plain ``pip install aragora``; the FastAPI/uvicorn
+    # gateway and the other optional stacks stay in their extras ([gateway],
+    # [enterprise], ...). The aiohttp floor matches the [blockchain]/[all]
+    # extras for one consistent pin.
+    "aiohttp>=3.14.1,<4.0",
+    "websockets>=13.0,<15.1",
 ]
 
 [project.scripts]
@@ -52,8 +63,8 @@ test = [
     "pydantic>=2.13.4,<3.0",
     "pydantic-settings>=2.14.2,<3.0",
     "PyYAML>=6.0.3,<7.0",
-    "pytest>=9.1.0,<10.0",
-    "pytest-asyncio>=1.3.0,<2.0",
+    "pytest>=9.1.1,<10.0",
+    "pytest-asyncio>=1.4.0,<2.0",
     "twine>=6.2.0,<7.0",
 ]
 gateway = [
@@ -82,6 +93,11 @@ dev = [
     "types-PyYAML>=6.0.12.20260518,<7.0",
     "types-croniter>=6.2.2.20260518,<7.0",
     "bandit>=1.9.4,<2.0",
+    # Hook runtime for repo-local git hooks. Declaring it here means
+    # `uv sync --extra dev` self-heals the development environment, so agents
+    # do not need to fall back to `--no-verify`
+    # (FIX-ENV-ONCE — docs/AGENT_OPERATING_CONTRACT.md §Conductor).
+    "pre-commit>=4.6.0,<5.0",
 ]
 all = [
     "fastapi>=0.138.0,<1.0",

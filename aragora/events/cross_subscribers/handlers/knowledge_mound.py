@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 # Import metrics stubs - will be overwritten if metrics available
 try:
-    from aragora.server.prometheus_cross_pollination import (
+    from aragora.observability.prometheus_cross_pollination import (
         record_km_inbound_event,
         record_km_outbound_event,
     )
