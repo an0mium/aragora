@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, DebateResult, Environment, Message
     from aragora.debate.cancellation import CancellationToken
-    from aragora.type_protocols import EventEmitterProtocol
+    from aragora.protocols import EventEmitterProtocol
 
 
 def _default_environment() -> Environment:
