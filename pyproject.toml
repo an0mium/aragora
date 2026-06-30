@@ -35,9 +35,9 @@ dependencies = [
     # ``aragora --help`` time — click/httpx/typer via cli/ submodules, plus
     # config/settings which need pydantic + PyYAML). Declared in base so any
     # install yields a working CLI, not just ``[test]``.
-    "click>=8.4.1,<9.0",
+    "click>=8.4.2,<9.0",
     "httpx>=0.27,<1.0",
-    "typer>=0.26.7,<1.0",
+    "typer>=0.26.8,<1.0",
     "PyYAML>=6.0.3,<7.0",
     "pydantic>=2.13.4,<3.0",
     "pydantic-settings>=2.14.2,<3.0",
@@ -63,7 +63,7 @@ test = [
     "pydantic>=2.13.4,<3.0",
     "pydantic-settings>=2.14.2,<3.0",
     "PyYAML>=6.0.3,<7.0",
-    "pytest>=9.1.0,<10.0",
+    "pytest>=9.1.1,<10.0",
     "pytest-asyncio>=1.4.0,<2.0",
     "twine>=6.2.0,<7.0",
 ]
@@ -97,7 +97,7 @@ dev = [
     # `uv sync --extra dev` self-heals the development environment, so agents
     # do not need to fall back to `--no-verify`
     # (FIX-ENV-ONCE — docs/AGENT_OPERATING_CONTRACT.md §Conductor).
-    "pre-commit>=4.0,<5.0",
+    "pre-commit>=4.6.0,<5.0",
 ]
 all = [
     "fastapi>=0.138.0,<1.0",
