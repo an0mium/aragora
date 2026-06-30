@@ -395,6 +395,43 @@ def test_automation_pr_preflight_rejects_nested_rescue_publish_pointers(
     assert "published/rescue_productization/snapshots/latest.json" in proc.stderr
 
 
+def test_automation_pr_preflight_rejects_nested_canonical_rescue_status_pointer(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/bad-nested-canonical-rescue"], cwd=repo)
+    latest = (
+        repo
+        / "docs"
+        / "status"
+        / "generated"
+        / "rescue_productization"
+        / "snapshots"
+        / "latest.json"
+    )
+    latest.parent.mkdir(parents=True)
+    latest.write_text("{}\n", encoding="utf-8")
+    _run(
+        [
+            "git",
+            "add",
+            "docs/status/generated/rescue_productization/snapshots/latest.json",
+        ],
+        cwd=repo,
+    )
+    _run(["git", "commit", "-m", "bad: commit nested canonical rescue pointer"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "failed"
+    assert payload["error"] == "rescue productization publish artifacts must not be committed"
+    assert payload["rescue_publish_files"] == [
+        "docs/status/generated/rescue_productization/snapshots/latest.json"
+    ]
+
+
 def test_automation_pr_preflight_accepts_unrelated_latest_json(
     tmp_path: Path,
 ) -> None:
