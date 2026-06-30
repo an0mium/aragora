@@ -1854,6 +1854,77 @@ def test_exact_open_pr_representation_respects_local_work_markers(
     assert handoff.exists()
 
 
+def test_exact_open_pr_representation_respects_owner_possible_unpushed_work(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-exact-open-pr-owner-unpushed-abc123"
+    branch = "codex/exact-open-pr-owner-unpushed"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "identify_lane_owner.py").write_text(
+        "import json\nprint(json.dumps({'advisory_withheld': 'possible_unpushed_work'}))\n",
+        encoding="utf-8",
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"+ {desired_head}\n",
+                stderr="",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    class FakeGitHubClient:
+        disabled = False
+
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def open_prs_for_branch(self, _branch: str) -> tuple[list[dict[str, Any]], None]:
+            raise AssertionError("owner possible-unpushed-work should skip exact-open-PR REST path")
+
+        def remote_ref(self, _branch: str) -> tuple[dict[str, Any], None]:
+            raise AssertionError("owner possible-unpushed-work should skip exact-open-PR REST path")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "NarrowGitHubClient", FakeGitHubClient)
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {branch: 8589})
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_exact_open_pr"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "owner reports possible unpushed work" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+
+
 def test_reconcile_keeps_target_pr_receipt_when_merged_pr_head_differs(
     tmp_path: Path,
     monkeypatch: Any,
