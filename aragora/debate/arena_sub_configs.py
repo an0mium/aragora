@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from aragora.type_protocols import (
+from aragora.protocols import (
     CalibrationTrackerProtocol,
     ConsensusMemoryProtocol,
     ContinuumMemoryProtocol,

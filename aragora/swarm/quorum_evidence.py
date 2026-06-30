@@ -303,9 +303,20 @@ _MAX_DIFF_CHARS = 60_000
 _PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
-_CLAUDE_TIMEOUT = 300
+# Claude CLI startup can legitimately take longer on large reviews, especially
+# when subscription auth and local MCP state are cold. Keep only that path at a
+# generous ceiling; reviewer transports without the Claude-specific probe stay
+# at the historic 5 minute default unless an operator opts in via env override.
+_CLAUDE_TIMEOUT = 600
 _CODEX_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
+# Best-effort Claude liveness probe. It catches fast non-zero CLI exits before
+# committing to the long review ceiling, but a probe timeout is not a hard
+# precondition: slow-but-live subscription CLIs still get the real review call.
+# Set ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS=0 to disable probing.
+_CLI_PROBE_TIMEOUT = 90
+_CLI_PROBE_TIMEOUT_ENV = "ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS"
+_CLI_PROBE_PROMPT = "Reply with exactly: OK"
 _CLAUDE_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS"
 _CODEX_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS"
 _CODEX_MODEL_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODEL"
@@ -1006,7 +1017,8 @@ def build_review_prompt(
 def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     """Run a genuine reviewer, preferring subscription CLIs over metered APIs.
 
-    ``claude`` -> claude CLI; ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
+    ``claude`` -> claude CLI (or Anthropic API if ANTHROPIC_API_KEY);
+    ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
     ``grok`` -> Grok Build CLI when installed (else API); ``gemini`` -> Antigravity
     CLI when installed (else API); everything else -> API agent. The CLI-first
     routing for grok/gemini lets the merge gate form a 2-family quorum from any
@@ -1014,7 +1026,7 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     """
     fam = canonical_family(family)
     if fam == "claude":
-        result = _run_claude_cli(prompt)
+        result = _run_claude_reviewer(prompt)
     elif fam == "openai":
         result = _run_openai_reviewer(prompt)
     elif fam == "grok":
@@ -1070,12 +1082,55 @@ def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
     return ["claude", "-p", "--strict-mcp-config", "--mcp-config", str(mcp_config_path)]
 
 
+def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
+    """Best-effort check before a long Claude review.
+
+    Returns an error string for fast non-zero probe exits, which usually means
+    the CLI has already detected an auth/config problem. Returns ``None`` for
+    healthy CLIs, missing binaries, subprocess exceptions, and probe timeouts.
+    The real review call remains the source of truth so a slow cold start cannot
+    suppress a valid review. Disabled when
+    ``ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS`` parses to a non-positive number.
+    Best-effort: a probe bug never blocks a genuine review.
+    """
+    raw_timeout = os.environ.get(_CLI_PROBE_TIMEOUT_ENV, "").strip()
+    if raw_timeout:
+        try:
+            if math.isfinite(float(raw_timeout)) and float(raw_timeout) <= 0:
+                return None
+        except ValueError:
+            pass
+    probe_timeout = _timeout_seconds(_CLI_PROBE_TIMEOUT_ENV, _CLI_PROBE_TIMEOUT)
+    try:
+        proc = subprocess.run(
+            argv,
+            input=_CLI_PROBE_PROMPT,
+            capture_output=True,
+            text=True,
+            timeout=probe_timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    except (FileNotFoundError, OSError, subprocess.SubprocessError):
+        return None  # let the real review surface the precise (and fast) error
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        suffix = f": {detail}" if detail else ""
+        return f"{family} CLI liveness probe exit {proc.returncode}{suffix}"
+    return None
+
+
 def _run_claude_cli(prompt: str) -> ReviewerResult:
     timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
         with _claude_empty_mcp_config_file() as mcp_config_path:
+            argv = _claude_reviewer_command(mcp_config_path)
+            probe_error = _cli_liveness_probe("claude", argv)
+            if probe_error:
+                return ReviewerResult("claude", "", False, probe_error)
             proc = subprocess.run(
-                _claude_reviewer_command(mcp_config_path),
+                argv,
                 input=prompt,
                 capture_output=True,
                 text=True,
@@ -1101,6 +1156,29 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
             f"claude CLI exit {proc.returncode}: {(proc.stderr or '').strip()[:200]}",
         )
     return ReviewerResult("claude", _cap_text(text), True)
+
+
+def _run_claude_reviewer(prompt: str) -> ReviewerResult:
+    """Run Claude evidence via the subscription CLI, then the direct Anthropic API.
+
+    The claude subscription CLI is preferred (no metered cost). When it is
+    unavailable or fails — e.g. CI runners and other keyless-CLI environments —
+    fall back to the direct Anthropic API if ``ANTHROPIC_API_KEY`` is set, so the
+    merge gate can still form a western-family quorum from API keys alone rather
+    than depending solely on OpenRouter. If neither path works the original CLI
+    failure is returned, so the generic OpenRouter fallback in
+    :func:`default_reviewer_runner` still applies.
+    """
+    result = _run_claude_cli(prompt)
+    if result.ok:
+        return result
+    if os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        # Use the Anthropic *API* agent type ("claude" maps to the CLI agent);
+        # relabel the result to the "claude" family so it counts in the quorum.
+        api = _run_api_agent("anthropic-api", prompt)
+        if api.ok:
+            return replace(api, family="claude")
+    return result
 
 
 def _run_openai_reviewer(prompt: str) -> ReviewerResult:

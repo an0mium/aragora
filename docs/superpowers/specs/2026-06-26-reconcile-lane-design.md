@@ -138,7 +138,7 @@ There is a confirmed bug: the publisher **never read its pause manifest** (`~/.a
 | Worktree cleanup + guardrails | `scripts/codex_worktree_autopilot.py` (`cleanup`), `scripts/safe_worktree_cleanup.py` | Stage 1 |
 | Worktree value inventory | `scripts/codex_worktree_value_inventory.py` (`classify_candidate`, value classes) | Stage 1/2 evidence |
 | Salvage classifier (discard / auto-PR-candidate / operator-review) | `scripts/harvest_salvage_branches.py` (`_is_trivial_diff`, `_matches_auto_pr_archetype`, `_diff_stat`, `_commit_log`) | Stages 2,4,5 classification only |
-| PR/outbox representation evidence | `scripts/codex_worktree_value_inventory.py --include-pr-state`, `scripts/reconcile_automation_outbox.py`, `scripts/identify_lane_owner.py` | PR-backing / representation evidence (guardrails) |
+| PR/outbox representation evidence | `scripts/classify_handoff_state.py`, `scripts/handoff_state.py`, `scripts/codex_worktree_value_inventory.py --include-pr-state`, `scripts/reconcile_automation_outbox.py`, `scripts/identify_lane_owner.py` | Read-only PR-backing / handoff / owner evidence (guardrails) |
 | Outbox reconcile | `scripts/reconcile_automation_outbox.py` (`--apply`) | settles satisfied handoffs before Cut |
 | Auto-merge decision core | `aragora/swarm/auto_merge_green.py` (`decide_auto_merge`, `apply_merges`), `scripts/auto_merge_quorum_green.py` | Stage 6 |
 | WIP / backpressure | `aragora/swarm/wip_budget.py` (`classify_wip`), `scripts/backlog_gate.py` | Stage 7 |
@@ -212,7 +212,7 @@ Crash safety is inherited from the spine: `MissionState.save` is atomic (`os.rep
 
 ## 8. Testing strategy
 
-- **Temp-repo fixtures with synthetic sprawl.** A fixture builds a throwaway git repo and fabricates the full taxonomy: merged-into-main, `[gone]`, empty-diff, dirty worktree, live-process worktree (sentinel lock file), PR-backing branch, retry-series duplicates, `trivial`/`tiny`/`substantive` branches, and a Tier-0..4 spread of open PRs. No network: `gh`, outbox/owner probes, and the model quorum are injected (the primitives already take injectable list/merge fns — `apply_merges(merge_fn=…)`, `backlog_gate.run_gate(list_prs=…)`, and the inventory/outbox scripts accept cached or fixture-backed data).
+- **Temp-repo fixtures with synthetic sprawl.** A fixture builds a throwaway git repo and fabricates the full taxonomy: merged-into-main, `[gone]`, empty-diff, dirty worktree, live-process worktree (sentinel lock file), PR-backing branch, retry-series duplicates, `trivial`/`tiny`/`substantive` branches, and a Tier-0..4 spread of open PRs. No network: `gh`, outbox/owner probes, and the model quorum are injected (the primitives already take injectable list/merge fns — `apply_merges(merge_fn=…)`, `backlog_gate.run_gate(list_prs=…)`, `classify_handoffs(github_client=…, owner_probe=…)`, and the inventory/outbox scripts accept cached or fixture-backed data).
 - **Dry-run vs apply parity.** For each stage, assert the dry-run **plan** exactly equals the set the `--apply` run mutates (same branches pruned/cut, same PRs merged) — the core safety property. A divergence is a bug.
 - **Guardrail tests.** Assert Prune/Cut **never** touch a dirty / live-process / active-session / PR-backing / preserved / protected-surface / unmerged-commit branch even when it otherwise classifies for removal.
 - **Exact-head deletion tests.** Advance a branch after dry-run/inspection but before apply; assert Prune/Cut skip deletion and emit `needs-human-at-<sha>` or `head_moved`, preserving both the old protected SHA and the new branch tip.

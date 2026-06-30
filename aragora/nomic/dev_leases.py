@@ -8,16 +8,17 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from aragora.nomic.dev_coordination.core import _claims_overlap, _path_matches_glob
-from aragora.nomic.dev_coordination.models import LeaseConflictError, LeaseStatus, WorkLease
-from aragora.nomic.dev_coordination.utils import (
-    _json_dump,
-    _json_loads,
-    _normalize_claim,
-    _parse_dt,
-    _safe_kill_probe,
-    _utcnow,
-)
+from . import dev_coordination as _dev
+from .dev_coordination.core import _claims_overlap
+from .dev_coordination.models import LeaseConflictError, LeaseStatus, WorkLease
+
+_json_dump = _dev._json_dump
+_json_loads = _dev._json_loads
+_normalize_claim = _dev._normalize_claim
+_parse_dt = _dev._parse_dt
+_path_matches_glob = _dev._path_matches_glob
+_safe_kill_probe = _dev._safe_kill_probe
+_utcnow = _dev._utcnow
 
 _FORBIDDEN_SCOPE_KEYS = ("forbidden_paths", "forbidden_globs", "hot_paths", "hot_globs")
 
@@ -57,6 +58,16 @@ def _without_shadowed_regular_lease_conflicts(
             and not conflict.get("type")
         )
     ]
+
+
+def _fleet_claim_overlaps_requested_scope(
+    fleet_claim_path: str,
+    requested_globs: list[str],
+    requested_paths: list[str],
+) -> bool:
+    """Return whether an existing fleet path claim conflicts with a requested lease."""
+
+    return _claims_overlap([fleet_claim_path], requested_globs, requested_paths)
 
 
 def list_active_leases(self) -> list[WorkLease]:
@@ -332,7 +343,7 @@ def find_conflicting_leases(
         path = _normalize_claim(str(claim.get("path", "")))
         if not path:
             continue
-        if not _claims_overlap([path], normalized_globs, normalized_paths):
+        if not _fleet_claim_overlaps_requested_scope(path, normalized_globs, normalized_paths):
             continue
         conflicts.append(
             {
@@ -564,7 +575,7 @@ def _find_conflicting_leases_locked(
         path = _normalize_claim(str(claim.get("path", "")))
         if not path:
             continue
-        if not _claims_overlap([path], normalized_globs, normalized_paths):
+        if not _fleet_claim_overlaps_requested_scope(path, normalized_globs, normalized_paths):
             continue
         conflicts.append(
             {
