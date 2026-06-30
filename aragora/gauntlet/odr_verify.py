@@ -33,6 +33,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -534,13 +535,43 @@ def verify_odr_document(
         return VerifyResult(ok=False, receipt_id=receipt_id, odr_digest="", checks=checks)
     checks.append(Check("schema_conformance", PASS, "conforms to ODR v0.1 profile"))
 
-    digest_hex = odr_content_digest(doc)
-    checks.append(Check("canonical_digest", PASS, f"sha-256:{digest_hex}"))
-    checks.append(_check_signatures(doc, digest_hex, public_key))
-    checks.append(_check_quorum_consistency(doc))
-    checks.append(_check_chain(doc, digest_hex, chain))
+    # Boundary contract: this engine verifies untrusted/possibly-tampered receipts,
+    # so any exception raised while checking structurally-valid-but-malformed input
+    # must become a FAIL verdict — never propagate as a crash. Each check below is
+    # run through this guard so one malformed subfield cannot abort verification.
+    def _safe_check(name: str, fn: Callable[[], Check]) -> Check:
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - boundary: malformed input -> FAIL, not crash
+            return Check(
+                name, FAIL, f"verification raised on malformed input: {type(exc).__name__}: {exc}"
+            )
 
-    warnings = _weakening_warnings(doc)
+    try:
+        digest_hex = odr_content_digest(doc)
+    except Exception as exc:  # noqa: BLE001 - boundary: malformed input -> FAIL, not crash
+        checks.append(
+            Check(
+                "canonical_digest", FAIL, f"digest computation raised: {type(exc).__name__}: {exc}"
+            )
+        )
+        return VerifyResult(ok=False, receipt_id=receipt_id, odr_digest="", checks=checks)
+    checks.append(Check("canonical_digest", PASS, f"sha-256:{digest_hex}"))
+    checks.append(_safe_check("signature", lambda: _check_signatures(doc, digest_hex, public_key)))
+    checks.append(_safe_check("quorum_consistency", lambda: _check_quorum_consistency(doc)))
+    checks.append(_safe_check("chain_link", lambda: _check_chain(doc, digest_hex, chain)))
+
+    warnings: list[str] = []
+    try:
+        warnings = _weakening_warnings(doc)
+    except Exception as exc:  # noqa: BLE001 - boundary: malformed input -> FAIL, not crash
+        checks.append(
+            Check(
+                "weakening_signals",
+                FAIL,
+                f"weakening-signal scan raised on malformed input: {type(exc).__name__}: {exc}",
+            )
+        )
     ok = not any(c.status == FAIL for c in checks)
     return VerifyResult(
         ok=ok, receipt_id=receipt_id, odr_digest=digest_hex, checks=checks, warnings=warnings

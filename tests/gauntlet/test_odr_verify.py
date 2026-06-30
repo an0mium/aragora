@@ -191,6 +191,32 @@ def test_quorum_null_dissenting_agents_fails_not_crash() -> None:
     assert result.ok is False
 
 
+def test_malformed_subfields_produce_verdict_not_crash() -> None:
+    # Boundary contract: structurally-valid-but-malformed receipts must produce a
+    # verdict, never raise. Each mutation crashed a different check before the
+    # pipeline guard (review-finding class: malformed input -> FAIL, not crash).
+    mutations = [
+        lambda d: d["quorum"].__setitem__("participants", None),
+        lambda d: d["quorum"].__setitem__("supporting_agents", None),
+        lambda d: d.__setitem__(
+            "independence", {"status": "present", "distinct_model_families": object()}
+        ),
+    ]
+    for mutate in mutations:
+        doc = _valid_odr()
+        mutate(doc)
+        result = verify_odr_document(doc)  # must not raise
+        assert isinstance(result.ok, bool)
+
+
+def test_chain_non_dict_entry_does_not_crash() -> None:
+    doc = _valid_odr()
+    digest = odr_content_digest(doc)
+    chain = ["not-a-dict", {"hash": "h1", "odr_digest": digest}]
+    result = verify_odr_document(doc, chain=chain)  # must not raise
+    assert result.ok is False
+
+
 def test_chain_anchored_passes_and_broken_fails() -> None:
     doc = _valid_odr()
     digest = odr_content_digest(doc)
