@@ -158,7 +158,7 @@ def test_explicit_root_scan_allows_foreign_repo_for_backwards_compat(
     assert candidate.cleanup_candidate is True
 
 
-def test_passive_anchor_sentinel_set_matches_cleanup_helper() -> None:
+def test_passive_anchor_sentinel_set_comes_from_cleanup_helper() -> None:
     import codex_worktree_value_inventory as mod
     import safe_worktree_cleanup
 
@@ -297,29 +297,23 @@ def test_passive_anchor_scan_reports_mixed_residue_without_only_proof(tmp_path: 
     assert candidate.cleanup_safety.safe_to_delete is False
 
 
-def test_passive_anchor_scan_rejects_symlink_candidate_root(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_passive_anchor_scan_counts_symlink_candidate_root(tmp_path: Path) -> None:
     import codex_worktree_value_inventory as mod
 
+    target = tmp_path / "residue"
+    target.mkdir()
+    (target / ".session-anchor").write_text("anchor\n")
     root = tmp_path / "residue-link"
-    root.mkdir()
-    (root / ".session-anchor").write_text("anchor\n")
-
-    original_is_symlink = mod.Path.is_symlink
-
-    def fake_is_symlink(path: Path) -> bool:
-        if path == root:
-            return True
-        return original_is_symlink(path)
-
-    monkeypatch.setattr(mod.Path, "is_symlink", fake_is_symlink)
+    try:
+        root.symlink_to(target, target_is_directory=True)
+    except OSError as exc:  # pragma: no cover - platform permission guard
+        pytest.skip(f"symlink creation unavailable: {exc}")
 
     scan = mod.passive_session_anchor_scan(root)
 
-    assert scan.anchors == []
+    assert scan.anchors == [str(root / ".session-anchor")]
     assert scan.truncated is False
-    assert scan.anchor_only is False
+    assert scan.anchor_only is True
 
 
 def test_passive_anchor_scan_handles_per_entry_oserror(
@@ -466,6 +460,7 @@ def test_no_git_cache_residue_preserves_anchor_signal_when_scan_truncated(
     assert candidate.links["passive_session_anchor_scan_truncated"] is True
     assert "passive session anchor residue only" not in candidate.proof
     assert "passive_session_anchor" in candidate.cleanup_safety.signals
+    assert "passive_session_anchor_scan_truncated" in candidate.cleanup_safety.signals
     assert candidate.cleanup_safety.safe_to_delete is False
 
 
@@ -511,6 +506,7 @@ def test_truncated_scan_never_reports_anchor_only_for_unvisited_entries(
     assert candidate.links["passive_session_anchor_mixed_residue"] is True
     assert candidate.links["passive_session_anchor_scan_truncated"] is True
     assert "passive session anchor residue only" not in candidate.proof
+    assert "passive_session_anchor_scan_truncated" in candidate.cleanup_safety.signals
 
 
 def test_no_git_cache_residue_reports_truncated_anchor_scan(tmp_path: Path) -> None:
@@ -535,7 +531,53 @@ def test_no_git_cache_residue_reports_truncated_anchor_scan(tmp_path: Path) -> N
     assert candidate.links["passive_session_anchor_mixed_residue"] is True
     assert "passive session anchor residue only" not in candidate.proof
     assert "passive_session_anchor" in candidate.cleanup_safety.signals
+    assert "passive_session_anchor_scan_truncated" in candidate.cleanup_safety.signals
     assert candidate.cleanup_safety.safe_to_delete is False
+
+
+def test_truncated_scan_records_late_direct_child_anchor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path, repo=False)
+    late = root / "late-anchor-wrapper"
+    late.mkdir()
+    (late / ".session-anchor").write_text("anchor\n")
+
+    class DirEntry:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.path = str(root / name)
+
+        def is_dir(self, *, follow_symlinks: bool = True) -> bool:
+            return True
+
+        def is_file(self, *, follow_symlinks: bool = True) -> bool:
+            return False
+
+        def is_symlink(self) -> bool:
+            return False
+
+    class FakeScandir:
+        def __enter__(self) -> list[DirEntry]:
+            return [
+                DirEntry("noise-0"),
+                DirEntry("noise-1"),
+                DirEntry("late-anchor-wrapper"),
+            ]
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
+    monkeypatch.setattr(mod, "PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT", 2)
+    monkeypatch.setattr(mod.os, "scandir", lambda _path: FakeScandir())
+
+    scan = mod.passive_session_anchor_scan(root)
+
+    assert scan.truncated is True
+    assert scan.anchors == [str(late / ".session-anchor")]
+    assert scan.anchor_only is False
 
 
 def test_no_git_active_marker_is_preserved(tmp_path: Path) -> None:

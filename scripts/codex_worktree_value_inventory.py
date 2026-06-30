@@ -41,6 +41,9 @@ from audit_codex_branch_backlog import (  # noqa: E402
     terminal_receipted_handoff_branch_heads,
     unresolved_outbox_handoff_branches,
 )
+from safe_worktree_cleanup import (  # noqa: E402
+    _WRAPPER_SENTINEL_FILENAMES as PASSIVE_SESSION_ANCHOR_FILES,
+)
 
 SCHEMA = "aragora-worktree-harvest/1.0"
 # Every git/gh subprocess in this module must carry an explicit timeout so a
@@ -61,15 +64,6 @@ ACTIVE_SESSION_FILES = (
     ".claude-session-active",
     ".codex_session_active",
     ".nomic-session-active",
-)
-PASSIVE_SESSION_ANCHOR_FILES = frozenset(
-    {
-        ".claude-session-anchor",
-        ".codex-session-anchor",
-        ".codex-session",
-        ".droid-session-anchor",
-        ".session-anchor",
-    }
 )
 PASSIVE_SESSION_ANCHOR_IGNORED_FILES = frozenset(
     {
@@ -734,12 +728,12 @@ def has_active_session(candidate_root: Path, repo_path: Path | None) -> bool:
 
 
 def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorScanResult:
-    """Return passive wrapper anchors from a bounded scan that never follows symlinked dirs."""
-    try:
-        if candidate_root.is_symlink():
-            return PassiveSessionAnchorScanResult([])
-    except OSError:
-        return PassiveSessionAnchorScanResult([])
+    """Return passive wrapper anchors from a bounded scan.
+
+    A symlinked candidate root is scanned once through the link, matching the
+    live cleanup helper's resolved-path inspection. Nested symlinked directories
+    are still not followed.
+    """
 
     anchors: set[str] = set()
     scanned_entries = 0
@@ -770,23 +764,32 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
         try:
             with os.scandir(root) as entries:
                 for entry in entries:
-                    scanned_entries += 1
-                    if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
-                        return result(truncated=True)
                     try:
                         if entry.is_dir(follow_symlinks=False):
                             child_root = Path(entry.path)
                             record_direct_child_anchors(child_root)
+                            scanned_entries += 1
+                            if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
+                                return result(truncated=True)
                             pending.append(child_root)
                             continue
                         is_regular_file = entry.is_file(follow_symlinks=False)
                         is_symlink = entry.is_symlink()
                         if not is_regular_file and not is_symlink:
+                            scanned_entries += 1
+                            if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
+                                return result(truncated=True)
                             anchor_only = False
                             continue
                     except OSError:
+                        scanned_entries += 1
+                        if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
+                            return result(truncated=True)
                         anchor_only = False
                         continue
+                    scanned_entries += 1
+                    if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
+                        return result(truncated=True)
                     if entry.name in PASSIVE_SESSION_ANCHOR_IGNORED_FILES:
                         continue
                     if entry.name not in PASSIVE_SESSION_ANCHOR_FILES:
@@ -1825,6 +1828,8 @@ def cleanup_safety_for_candidate(
         signals = ["stale"]
         if links.get("passive_session_anchors"):
             signals.append("passive_session_anchor")
+        if links.get("passive_session_anchor_scan_truncated"):
+            signals.append("passive_session_anchor_scan_truncated")
         return CleanupSafety(
             safety_class="stale_residue",
             preserve=False,
