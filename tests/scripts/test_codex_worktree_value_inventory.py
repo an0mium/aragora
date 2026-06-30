@@ -59,6 +59,42 @@ def _candidate(tmp_path: Path, name: str = "abcd", *, repo: bool = True) -> Path
     return root
 
 
+class _FakeDirEntry:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        is_dir: bool = False,
+        is_file: bool = False,
+        is_symlink: bool = False,
+    ) -> None:
+        self.name = path.name
+        self.path = str(path)
+        self._is_dir = is_dir
+        self._is_file = is_file
+        self._is_symlink = is_symlink
+
+    def is_dir(self, *, follow_symlinks: bool = True) -> bool:
+        return self._is_dir
+
+    def is_file(self, *, follow_symlinks: bool = True) -> bool:
+        return self._is_file
+
+    def is_symlink(self) -> bool:
+        return self._is_symlink
+
+
+class _FakeScandir:
+    def __init__(self, entries: list[object]) -> None:
+        self._entries = entries
+
+    def __enter__(self) -> list[object]:
+        return self._entries
+
+    def __exit__(self, *_args: object) -> bool:
+        return False
+
+
 def _stub_clean_git(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -299,17 +335,23 @@ def test_passive_anchor_scan_reports_mixed_residue_without_only_proof(tmp_path: 
     assert candidate.cleanup_safety.safe_to_delete is False
 
 
-def test_passive_anchor_scan_counts_symlink_candidate_root(tmp_path: Path) -> None:
+def test_passive_anchor_scan_counts_symlink_candidate_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import codex_worktree_value_inventory as mod
 
     target = tmp_path / "residue"
     target.mkdir()
     (target / ".session-anchor").write_text("anchor\n")
     root = tmp_path / "residue-link"
-    try:
-        root.symlink_to(target, target_is_directory=True)
-    except OSError as exc:  # pragma: no cover - platform permission guard
-        pytest.skip(f"symlink creation unavailable: {exc}")
+    anchor = root / ".session-anchor"
+    monkeypatch.setattr(
+        mod.os,
+        "scandir",
+        lambda path: _FakeScandir(
+            [_FakeDirEntry(anchor, is_file=True)] if Path(path) == root else []
+        ),
+    )
 
     scan = mod.passive_session_anchor_scan(root)
 
@@ -318,19 +360,23 @@ def test_passive_anchor_scan_counts_symlink_candidate_root(tmp_path: Path) -> No
     assert scan.anchor_only is True
 
 
-def test_passive_anchor_scan_counts_symlink_directory_anchor(tmp_path: Path) -> None:
+def test_passive_anchor_scan_counts_symlink_directory_anchor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import codex_worktree_value_inventory as mod
 
     root = tmp_path / "residue"
     root.mkdir()
-    target = tmp_path / "wrapper-target"
-    target.mkdir()
-    (target / ".session-anchor").write_text("anchor\n")
     link = root / "wrapper-link"
-    try:
-        link.symlink_to(target, target_is_directory=True)
-    except OSError as exc:  # pragma: no cover - platform permission guard
-        pytest.skip(f"symlink creation unavailable: {exc}")
+    link.mkdir()
+    (link / ".session-anchor").write_text("anchor\n")
+    monkeypatch.setattr(
+        mod.os,
+        "scandir",
+        lambda path: _FakeScandir(
+            [_FakeDirEntry(link, is_symlink=True)] if Path(path) == root else []
+        ),
+    )
 
     scan = mod.passive_session_anchor_scan(root)
 
@@ -389,18 +435,22 @@ def test_passive_anchor_scan_handles_per_entry_oserror(
     assert scan.anchor_only is False
 
 
-def test_passive_anchor_scan_counts_symlinked_anchor_file(tmp_path: Path) -> None:
+def test_passive_anchor_scan_counts_symlinked_anchor_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import codex_worktree_value_inventory as mod
 
     root = tmp_path / "residue"
     root.mkdir()
-    target = tmp_path / "anchor-target"
-    target.write_text("anchor\n")
     anchor = root / ".session-anchor"
-    try:
-        anchor.symlink_to(target)
-    except OSError as exc:  # pragma: no cover - platform permission guard
-        pytest.skip(f"symlink creation unavailable: {exc}")
+    anchor.write_text("anchor\n")
+    monkeypatch.setattr(
+        mod.os,
+        "scandir",
+        lambda path: _FakeScandir(
+            [_FakeDirEntry(anchor, is_symlink=True)] if Path(path) == root else []
+        ),
+    )
 
     scan = mod.passive_session_anchor_scan(root)
 
