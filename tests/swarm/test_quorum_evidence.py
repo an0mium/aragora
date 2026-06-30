@@ -1037,6 +1037,35 @@ def test_collect_runs_reviewers_concurrently() -> None:
     assert outcome.failures == []
 
 
+def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None:
+    fakes, posted = _fakes(tier=0)
+
+    def runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "claude":
+            return ReviewerResult(family, "Verdict: PASS from claude", True)
+        time.sleep(0.05)
+        return ReviewerResult(family, "Verdict: PASS from grok", True)
+
+    fakes["reviewer_runner"] = runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=0.01,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timeout is True
+    assert outcome.timed_out_families == ["grok"]
+    assert outcome.action == "prepare"
+    assert "reviewer orchestration timeout" in outcome.action_reason
+    assert [item.family for item in outcome.items] == ["claude"]
+    assert [failure.family for failure in outcome.failures] == ["grok"]
+    assert posted == []
+
+
 def test_collect_preserves_family_order_despite_completion_order() -> None:
     # The first-requested reviewer (claude) finishes last; items must still be
     # ordered by the caller's requested family order, not by completion.
@@ -2274,6 +2303,54 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     assert "collect_evidence" in capsys.readouterr().out
 
 
+def test_run_collect_cli_scopes_timeout_env_overrides(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setenv(qe._CLAUDE_TIMEOUT_ENV, "111")
+    monkeypatch.delenv(qe._CODEX_TIMEOUT_ENV, raising=False)
+    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        captured.update(kwargs)
+        captured["claude_timeout"] = qe.os.environ.get(qe._CLAUDE_TIMEOUT_ENV)
+        captured["codex_timeout"] = qe.os.environ.get(qe._CODEX_TIMEOUT_ENV)
+        captured["reviewer_timeout"] = qe.os.environ.get(qe._REVIEWER_TIMEOUT_ENV)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="dry run",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=False,
+        json_output=False,
+        reviewer_timeout_seconds=90,
+        overall_timeout_seconds=150,
+    )
+
+    assert rc == 0
+    assert captured["overall_timeout_seconds"] == 150.0
+    assert captured["claude_timeout"] == "90"
+    assert captured["codex_timeout"] == "90"
+    assert captured["reviewer_timeout"] == "90"
+    assert qe.os.environ.get(qe._CLAUDE_TIMEOUT_ENV) == "111"
+    assert qe.os.environ.get(qe._CODEX_TIMEOUT_ENV) is None
+    assert qe.os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
+
+
 def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:
     prepared = _prepared_outcome_file(tmp_path)
     seen: dict[str, object] = {}
@@ -2335,6 +2412,30 @@ def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
     monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
     rc = qe.run_collect_cli(
         repo="o/r", pr=1, families=None, author=None, apply=False, json_output=False
+    )
+    assert rc == 1
+
+
+def test_run_collect_cli_timeout_returns_failure_even_with_supportive_quorum(monkeypatch) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=0,
+            action="prepare",
+            action_reason="reviewer orchestration timeout; prepared only",
+            items=[EvidenceItem("claude", "body", True, ["claude"], [], "pass")],
+            orchestration_timeout=True,
+            timed_out_families=["grok"],
+            overall_timeout_seconds=1.0,
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=False
     )
     assert rc == 1
 
@@ -2570,10 +2671,12 @@ def _force_grok_bin(monkeypatch, present: bool) -> None:
 
 def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None:
     _force_grok_bin(monkeypatch, True)
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "17")
     seen: dict = {}
 
     def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["timeout"] = timeout
         return qe.ReviewerResult(family, "verdict", True, harness=harness)
 
     monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
@@ -2583,6 +2686,7 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     # read-only sandbox + headless single-prompt, explicit Grok Build path.
     assert seen["argv"][1:] == ["--sandbox", "read-only", "--no-plan", "-p", "review prompt"]
     assert seen["argv"][0].endswith(".grok/bin/grok")
+    assert seen["timeout"] == 17.0
 
 
 def test_grok_build_bin_override(monkeypatch) -> None:
@@ -2613,11 +2717,13 @@ def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeyp
 def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     import shutil as _sh
 
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "19")
     monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
     seen: dict = {}
 
     def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["timeout"] = timeout
         return qe.ReviewerResult(family, "v", True, harness=harness)
 
     monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
@@ -2626,6 +2732,7 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     assert res.family == "gemini"
     # resolved path (not bare "agy") + sandbox.
     assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+    assert seen["timeout"] == 19.0
 
 
 def test_gemini_reviewer_falls_back_to_api_without_agy(monkeypatch) -> None:

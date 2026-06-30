@@ -395,6 +395,18 @@ def _timeout_seconds(env_name: str, default: int) -> float:
     return value
 
 
+def _positive_timeout_seconds(value: float | int | str | None, name: str) -> float | None:
+    if value is None:
+        return None
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a positive finite number of seconds") from exc
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise ValueError(f"{name} must be a positive finite number of seconds")
+    return seconds
+
+
 def _format_seconds(seconds: float) -> str:
     return f"{seconds:g}"
 
@@ -466,6 +478,9 @@ class CollectOutcome:
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
     quorum_rerun: dict[str, Any] | None = None
+    orchestration_timeout: bool = False
+    timed_out_families: list[str] = field(default_factory=list)
+    overall_timeout_seconds: float | None = None
     # Captured ONCE at construction (not re-read from os.environ per property
     # access) so a security-relevant gate decision stays deterministic within a
     # single settlement flow even if the process env mutates mid-run.
@@ -548,6 +563,9 @@ class CollectOutcome:
             "posted_families": list(self.posted),
             "post_errors": list(self.post_errors),
             "quorum_rerun": self.quorum_rerun,
+            "orchestration_timeout": self.orchestration_timeout,
+            "timed_out_families": list(self.timed_out_families),
+            "overall_timeout_seconds": self.overall_timeout_seconds,
             "items": [
                 {
                     "family": item.family,
@@ -1251,10 +1269,12 @@ def _run_grok_reviewer(prompt: str) -> ReviewerResult:
     """
     grok_bin = _resolve_grok_build_bin()
     if os.path.isfile(grok_bin) and os.access(grok_bin, os.X_OK):
+        timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
         result = _run_argv_cli_reviewer(
             "grok",
             [grok_bin, "--sandbox", "read-only", "--no-plan", "-p", prompt],
             _GROK_BUILD_HARNESS,
+            timeout=timeout,
         )
         if result.ok or not _env_key_present("XAI_API_KEY", "GROK_API_KEY"):
             return result
@@ -1272,8 +1292,12 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
 
     agy_path = shutil.which("agy")
     if agy_path:
+        timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
         result = _run_argv_cli_reviewer(
-            "gemini", [agy_path, "--sandbox", "-p", prompt], _ANTIGRAVITY_HARNESS
+            "gemini",
+            [agy_path, "--sandbox", "-p", prompt],
+            _ANTIGRAVITY_HARNESS,
+            timeout=timeout,
         )
         if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):
             return result
@@ -1848,8 +1872,12 @@ def collect_evidence(
     poster: Callable[[str, int, str], None] = default_poster,
     quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
+    overall_timeout_seconds: float | None = None,
 ) -> CollectOutcome:
     """Run reviewers, validate evidence, and post only when tier-gating allows."""
+    overall_timeout_seconds = _positive_timeout_seconds(
+        overall_timeout_seconds, "overall_timeout_seconds"
+    )
     ctx = context_fetcher(repo, pr)
     head_sha = str(ctx.get("head_sha") or "").strip()
     head_committed_at = str(ctx.get("head_committed_at") or "")
@@ -1867,6 +1895,7 @@ def collect_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
+        overall_timeout_seconds=overall_timeout_seconds,
     )
 
     prompt = prompt_builder(repo, pr, ctx)
@@ -1897,7 +1926,29 @@ def collect_evidence(
                 pool.submit(_run_reviewer_with_infra_retry, reviewer_runner, family, prompt): family
                 for family in supported
             }
-            for future in concurrent.futures.as_completed(future_to_family):
+            if overall_timeout_seconds is None:
+                done = set(concurrent.futures.as_completed(future_to_family))
+                not_done: set[concurrent.futures.Future[ReviewerResult]] = set()
+            else:
+                done, not_done = concurrent.futures.wait(
+                    future_to_family, timeout=overall_timeout_seconds
+                )
+            if not_done:
+                outcome.orchestration_timeout = True
+                outcome.timed_out_families = [
+                    future_to_family[future] for future in future_to_family if future in not_done
+                ]
+                for future in not_done:
+                    future.cancel()
+                    family = future_to_family[future]
+                    reviews[family] = ReviewerResult(
+                        family,
+                        "",
+                        False,
+                        "reviewer orchestration timed out after "
+                        f"{_format_seconds(overall_timeout_seconds or 0)}s",
+                    )
+            for future in done:
                 family = future_to_family[future]
                 try:
                     reviews[family] = future.result()
@@ -1938,6 +1989,15 @@ def collect_evidence(
                 problems=list(lint.get("problems") or []),
             )
         )
+
+    if outcome.orchestration_timeout:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            "reviewer orchestration timeout "
+            f"({', '.join(outcome.timed_out_families) or 'deadline expired'}); "
+            "prepared evidence only"
+        )
+        return outcome
 
     if action == "post":
         if outcome.dissenting_families:
@@ -2270,6 +2330,48 @@ def _render_outcome(outcome: CollectOutcome) -> str:
     return "\n".join(lines)
 
 
+@contextmanager
+def _scoped_env(overrides: dict[str, str]) -> Iterator[None]:
+    previous = {key: os.environ.get(key) for key in overrides}
+    try:
+        os.environ.update(overrides)
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def _reviewer_timeout_env_overrides(
+    reviewer_timeout_seconds: float | None,
+    overall_timeout_seconds: float | None,
+) -> dict[str, str]:
+    reviewer_timeout_seconds = _positive_timeout_seconds(
+        reviewer_timeout_seconds, "reviewer_timeout_seconds"
+    )
+    overall_timeout_seconds = _positive_timeout_seconds(
+        overall_timeout_seconds, "overall_timeout_seconds"
+    )
+    if reviewer_timeout_seconds is None and overall_timeout_seconds is None:
+        return {}
+    if reviewer_timeout_seconds is None:
+        effective = overall_timeout_seconds
+    elif overall_timeout_seconds is None:
+        effective = reviewer_timeout_seconds
+    else:
+        effective = min(reviewer_timeout_seconds, overall_timeout_seconds)
+    if effective is None:  # pragma: no cover - defensive guard for future edits.
+        return {}
+    value = _format_seconds(effective)
+    return {
+        _CLAUDE_TIMEOUT_ENV: value,
+        _CODEX_TIMEOUT_ENV: value,
+        _REVIEWER_TIMEOUT_ENV: value,
+    }
+
+
 def run_collect_cli(
     *,
     repo: str,
@@ -2279,6 +2381,8 @@ def run_collect_cli(
     apply: bool,
     json_output: bool,
     prepared_json: Path | None = None,
+    reviewer_timeout_seconds: float | None = None,
+    overall_timeout_seconds: float | None = None,
     printer: Callable[[str], None] = print,
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
@@ -2292,27 +2396,35 @@ def run_collect_cli(
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()
     try:
-        if prepared_json is None:
-            outcome = collect_evidence(
-                repo=repo,
-                pr=pr,
-                families=fams,
-                author=resolved_author,
-                apply=apply,
-                env=merge_quorum_io.aragora_env(),
-                quorum_reconciler=default_quorum_reconciler if apply else None,
-            )
-        else:
-            outcome = apply_prepared_evidence(
-                repo=repo,
-                pr=pr,
-                prepared_json=prepared_json,
-                author=resolved_author,
-                apply=apply,
-                families=fams,
-                env=merge_quorum_io.aragora_env(),
-                quorum_reconciler=default_quorum_reconciler if apply else None,
-            )
+        overall_timeout_seconds = _positive_timeout_seconds(
+            overall_timeout_seconds, "overall_timeout_seconds"
+        )
+        env_overrides = _reviewer_timeout_env_overrides(
+            reviewer_timeout_seconds, overall_timeout_seconds
+        )
+        with _scoped_env(env_overrides):
+            if prepared_json is None:
+                outcome = collect_evidence(
+                    repo=repo,
+                    pr=pr,
+                    families=fams,
+                    author=resolved_author,
+                    apply=apply,
+                    env=merge_quorum_io.aragora_env(),
+                    quorum_reconciler=default_quorum_reconciler if apply else None,
+                    overall_timeout_seconds=overall_timeout_seconds,
+                )
+            else:
+                outcome = apply_prepared_evidence(
+                    repo=repo,
+                    pr=pr,
+                    prepared_json=prepared_json,
+                    author=resolved_author,
+                    apply=apply,
+                    families=fams,
+                    env=merge_quorum_io.aragora_env(),
+                    quorum_reconciler=default_quorum_reconciler if apply else None,
+                )
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
             printer(json.dumps({"mode": "collect_evidence", "error": str(exc)}, indent=2))
@@ -2324,4 +2436,4 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
-    return 0 if outcome.has_supportive_quorum else 1
+    return 0 if outcome.has_supportive_quorum and not outcome.orchestration_timeout else 1
