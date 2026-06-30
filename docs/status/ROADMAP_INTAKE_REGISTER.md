@@ -93,6 +93,8 @@ Do not implement from this section.
 | **Continual learning / self-improvement instrumentation** | Factory 2.0 | partially exists | Aragora has Nomic loop + KnowledgeMound cross-cycle learning; decide what to formalize/measure |
 | **Missions + operator dashboard + persistent execution** | Factory 2.0 | in progress | Mission engine in PR #8655; dashboard + headless persistent runtime are the remaining gaps |
 
+<a id="strategy-mission-queue"></a>
+
 ## Strategy Mission Queue
 
 Bounded, exit-gated sub-missions for the "useful + unique" strategy mission.
