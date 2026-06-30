@@ -19,7 +19,10 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from aragora.epistemic.decay_monitor import DecaySignal
 
 _FLAG = "ARAGORA_REPAIR_PIPELINE_ENABLED"
 _ALLOWED_KINDS = ("report_only", "shadow_candidate", "pr_candidate")
@@ -29,7 +32,7 @@ def _flag_enabled() -> bool:
     return os.environ.get(_FLAG, "").lower() in {"1", "true", "yes", "on"}
 
 
-def _parse_decay_signal(data: dict[str, Any]):  # type: ignore[return]
+def _parse_decay_signal(data: dict[str, Any]) -> DecaySignal:
     """Reconstruct a DecaySignal from its to_dict() output."""
     from aragora.epistemic.decay_monitor import DecayReason, DecaySignal
 
@@ -96,9 +99,9 @@ def cmd_repair_spec(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        from aragora.epistemic.repair import propose_repair
+        from aragora.epistemic.repair import RepairKind, propose_repair
 
-        spec = propose_repair(signal, repair_kind=kind)  # type: ignore[arg-type]
+        spec = propose_repair(signal, repair_kind=cast(RepairKind, kind))
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
