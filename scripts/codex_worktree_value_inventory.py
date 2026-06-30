@@ -41,9 +41,6 @@ from audit_codex_branch_backlog import (  # noqa: E402
     terminal_receipted_handoff_branch_heads,
     unresolved_outbox_handoff_branches,
 )
-from safe_worktree_cleanup import (  # noqa: E402
-    _WRAPPER_SENTINEL_FILENAMES as PASSIVE_SESSION_ANCHOR_FILES,
-)
 
 SCHEMA = "aragora-worktree-harvest/1.0"
 # Every git/gh subprocess in this module must carry an explicit timeout so a
@@ -73,6 +70,7 @@ PASSIVE_SESSION_ANCHOR_IGNORED_FILES = frozenset(
     }
 )
 PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT = 512
+_PASSIVE_SESSION_ANCHOR_FILES_CACHE: frozenset[str] | None = None
 RECEIPT_PATH_KEYS = frozenset(
     {
         "candidate_path",
@@ -727,6 +725,16 @@ def has_active_session(candidate_root: Path, repo_path: Path | None) -> bool:
     return bool(active_lock_files(candidate_root, repo_path))
 
 
+def passive_session_anchor_filenames() -> frozenset[str]:
+    """Return cleanup wrapper sentinels without widening inventory import time."""
+    global _PASSIVE_SESSION_ANCHOR_FILES_CACHE
+    if _PASSIVE_SESSION_ANCHOR_FILES_CACHE is None:
+        from safe_worktree_cleanup import WRAPPER_SENTINEL_FILENAMES
+
+        _PASSIVE_SESSION_ANCHOR_FILES_CACHE = frozenset(WRAPPER_SENTINEL_FILENAMES)
+    return _PASSIVE_SESSION_ANCHOR_FILES_CACHE
+
+
 def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorScanResult:
     """Return passive wrapper anchors from a bounded scan.
 
@@ -755,7 +763,7 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
             anchor_only = False
 
     def record_direct_child_anchors(root: Path) -> None:
-        for name in PASSIVE_SESSION_ANCHOR_FILES:
+        for name in passive_session_anchor_filenames():
             record_direct_anchor(root / name)
 
     pending = [candidate_root]
@@ -768,6 +776,7 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
                         if entry.is_dir(follow_symlinks=False):
                             child_root = Path(entry.path)
                             record_direct_child_anchors(child_root)
+                            anchor_only = False
                             scanned_entries += 1
                             if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
                                 return result(truncated=True)
@@ -775,6 +784,22 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
                             continue
                         is_regular_file = entry.is_file(follow_symlinks=False)
                         is_symlink = entry.is_symlink()
+                        if is_symlink:
+                            child_root = Path(entry.path)
+                            try:
+                                if child_root.is_dir():
+                                    record_direct_child_anchors(child_root)
+                                    anchor_only = False
+                                    scanned_entries += 1
+                                    if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
+                                        return result(truncated=True)
+                                    continue
+                            except OSError:
+                                anchor_only = False
+                                scanned_entries += 1
+                                if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
+                                    return result(truncated=True)
+                                continue
                         if not is_regular_file and not is_symlink:
                             scanned_entries += 1
                             if scanned_entries > PASSIVE_SESSION_ANCHOR_SCAN_ENTRY_LIMIT:
@@ -792,7 +817,7 @@ def passive_session_anchor_scan(candidate_root: Path) -> PassiveSessionAnchorSca
                         return result(truncated=True)
                     if entry.name in PASSIVE_SESSION_ANCHOR_IGNORED_FILES:
                         continue
-                    if entry.name not in PASSIVE_SESSION_ANCHOR_FILES:
+                    if entry.name not in passive_session_anchor_filenames():
                         anchor_only = False
                         continue
                     anchors.add(entry.path)

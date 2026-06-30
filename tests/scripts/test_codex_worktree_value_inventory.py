@@ -162,7 +162,9 @@ def test_passive_anchor_sentinel_set_comes_from_cleanup_helper() -> None:
     import codex_worktree_value_inventory as mod
     import safe_worktree_cleanup
 
-    assert mod.PASSIVE_SESSION_ANCHOR_FILES == safe_worktree_cleanup._WRAPPER_SENTINEL_FILENAMES
+    assert (
+        mod.passive_session_anchor_filenames() == safe_worktree_cleanup.WRAPPER_SENTINEL_FILENAMES
+    )
 
 
 def test_unregistered_git_residue_reports_passive_anchor(
@@ -316,6 +318,27 @@ def test_passive_anchor_scan_counts_symlink_candidate_root(tmp_path: Path) -> No
     assert scan.anchor_only is True
 
 
+def test_passive_anchor_scan_counts_symlink_directory_anchor(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = tmp_path / "residue"
+    root.mkdir()
+    target = tmp_path / "wrapper-target"
+    target.mkdir()
+    (target / ".session-anchor").write_text("anchor\n")
+    link = root / "wrapper-link"
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError as exc:  # pragma: no cover - platform permission guard
+        pytest.skip(f"symlink creation unavailable: {exc}")
+
+    scan = mod.passive_session_anchor_scan(root)
+
+    assert scan.anchors == [str(link / ".session-anchor")]
+    assert scan.truncated is False
+    assert scan.anchor_only is False
+
+
 def test_passive_anchor_scan_handles_per_entry_oserror(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -395,6 +418,28 @@ def test_passive_anchor_scan_ignores_platform_detritus(tmp_path: Path) -> None:
     (root / ".DS_Store").write_text("ignored\n")
 
     assert mod.passive_session_anchor_files(root) == [str(root / ".session-anchor")]
+
+
+def test_passive_anchor_scan_treats_directory_sibling_as_mixed_residue(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path, repo=False)
+    (root / ".session-anchor").write_text("anchor\n")
+    (root / "empty-sibling").mkdir()
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.links["passive_session_anchors"] == [str(root / ".session-anchor")]
+    assert candidate.links["passive_session_anchor_mixed_residue"] is True
+    assert "passive session anchor residue only" not in candidate.proof
+    assert "passive session anchors present with additional residue" in candidate.proof
 
 
 def test_passive_anchor_scan_caps_large_anchor_only_tree(tmp_path: Path) -> None:

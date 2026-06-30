@@ -261,6 +261,7 @@ _WRAPPER_SENTINEL_FILENAMES = frozenset(
         ".session-anchor",
     }
 )
+WRAPPER_SENTINEL_FILENAMES = _WRAPPER_SENTINEL_FILENAMES
 
 
 def _is_empty_nested_wrapper(path: Path) -> bool:
