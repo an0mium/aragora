@@ -17,6 +17,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 _FLAG = "ARAGORA_QUARANTINE_POLICY_ENABLED"
 
@@ -66,7 +67,7 @@ class _Signal:
         self.recommended_action = action
 
 
-def _parse_signal(data: dict) -> _Signal:
+def _parse_signal(data: dict) -> Any:
     reasons = [
         _Reason(kind=str(r.get("kind", "")))
         for r in (data.get("reasons") or [])
@@ -105,7 +106,7 @@ def cmd_quarantine_eval(args: argparse.Namespace) -> int:
     from aragora.epistemic.quarantine_policy import apply_quarantine_policy
 
     decision = apply_quarantine_policy(
-        signal,  # type: ignore[arg-type]  # duck-typed _Signal; runtime OK
+        signal,
         code_unit_class=code_unit_class,
         request_live_swap=request_live_swap,
     )

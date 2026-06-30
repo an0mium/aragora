@@ -791,27 +791,12 @@ def _add_decay_monitor_parser(subparsers) -> None:
 
 
 def _add_quarantine_eval_parser(subparsers) -> None:
-    """Add the 'quarantine-eval' subcommand (DIC-21 / #6032).
-
-    Flag-gated: ARAGORA_QUARANTINE_POLICY_ENABLED must be set.
-    Live queue effect: none (read-only operator report).
-    """
+    """DIC-21 / #6032 quarantine-eval (ARAGORA_QUARANTINE_POLICY_ENABLED=1)."""
     p = subparsers.add_parser(
         "quarantine-eval",
         help="DIC-21: evaluate fail-closed quarantine policy for a decayed code proof",
-        description=(
-            "Read-only quarantine policy evaluation for a proof-carrying code unit. "
-            "Reads a DecaySignal JSON file, applies the configured policy, and reports "
-            "the QuarantineDecision (action, rationale, provenance hash). "
-            "Requires ARAGORA_QUARANTINE_POLICY_ENABLED=1."
-        ),
     )
-    p.add_argument(
-        "--signal",
-        required=True,
-        metavar="FILE",
-        help="Path to a DecaySignal JSON file (DIC-20 decay-monitor output)",
-    )
+    p.add_argument("--signal", required=True, help="DecaySignal JSON (decay-monitor)")
     p.add_argument(
         "--class",
         dest="code_unit_class",
@@ -823,8 +808,7 @@ def _add_quarantine_eval_parser(subparsers) -> None:
         "--request-live-swap",
         dest="request_live_swap",
         action="store_true",
-        default=False,
-        help="Simulate a live-routing request to verify it is blocked (default: off)",
+        help="Simulate live-routing request (always blocked)",
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic21_quarantine", "cmd_quarantine_eval"))
