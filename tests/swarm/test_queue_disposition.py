@@ -25,6 +25,7 @@ def _pr(
     deletions: int = 0,
     changed_files: int = 2,
     created: str = "2026-06-20T12:00:00Z",
+    updated: str = "2026-06-20T12:00:00Z",
 ) -> dict[str, object]:
     return {
         "number": number,
@@ -34,6 +35,7 @@ def _pr(
         "headRefName": f"codex/pr-{number}",
         "headRefOid": f"head-{number}",
         "createdAt": created,
+        "updatedAt": updated,
         "additions": additions,
         "deletions": deletions,
         "changedFiles": changed_files,
@@ -149,6 +151,24 @@ def test_invalid_pr_number_does_not_emit_zero_open_pr() -> None:
 
     assert item["id"] == "codex/value"
     assert item["open_pr"] is None
+    assert item["disposition"] == DISPOSITION_PARK_PRESERVE
+    assert item["operator_required"] is True
+    assert "invalid_pr_identity=true" in item["evidence"]
+
+
+def test_invalid_pr_number_cannot_route_to_harvest_now() -> None:
+    item = classify_pr_disposition(
+        {
+            **_pr(0, "feat(odr): verify core", mergeable="MERGEABLE"),
+            "number": "not-a-number",
+        },
+        merge_packet_entry={"tier": 1, "unresolved_dissent": False},
+        now=NOW,
+    )
+
+    assert item["disposition"] == DISPOSITION_PARK_PRESERVE
+    assert item["operator_required"] is True
+    assert "merge-packet safety cannot be proven" in item["next_action"]
 
 
 def test_stale_maintenance_pr_can_close_only_after_manifest_checks() -> None:
@@ -159,6 +179,7 @@ def test_stale_maintenance_pr_can_close_only_after_manifest_checks() -> None:
             draft=True,
             mergeable="CONFLICTING",
             created="2026-06-01T12:00:00Z",
+            updated="2026-06-01T12:00:00Z",
         ),
         now=NOW,
         stale_days=14,
@@ -169,7 +190,42 @@ def test_stale_maintenance_pr_can_close_only_after_manifest_checks() -> None:
     assert "owner/steering" in item["next_action"]
 
 
-def test_unique_worktree_routes_to_harvest() -> None:
+def test_recently_updated_old_pr_does_not_close_as_stale() -> None:
+    item = classify_pr_disposition(
+        _pr(
+            8156,
+            "chore(ci): refresh cancelled lint snapshots",
+            draft=False,
+            mergeable="MERGEABLE",
+            created="2026-05-01T12:00:00Z",
+            updated="2026-06-29T12:00:00Z",
+        ),
+        now=NOW,
+        stale_days=14,
+    )
+
+    assert item["disposition"] == DISPOSITION_PARK_PRESERVE
+    assert "stale_days>=14" not in item["evidence"]
+
+
+def test_unknown_string_booleans_fail_closed_without_truthy_fallthrough() -> None:
+    item = classify_pr_disposition(
+        _pr(8393, "feat(routing): decision-stakes router"),
+        merge_packet_entry={
+            "tier": "1",
+            "unresolved_dissent": "definitely-not",
+            "requires_human_preapproval": "unknown",
+        },
+        now=NOW,
+    )
+
+    assert item["disposition"] == DISPOSITION_HUMAN_PACKET
+    assert item["operator_required"] is True
+    assert "model_dissent_present_but_not_value_proof" in item["evidence"]
+    assert "merge_packet.requires_human_preapproval=unknown" in item["evidence"]
+
+
+def test_unique_worktree_routes_to_preserve_operator_packet() -> None:
     item = classify_inventory_candidate(
         {
             "candidate_id": "abc",
@@ -182,7 +238,8 @@ def test_unique_worktree_routes_to_harvest() -> None:
     )
 
     assert item["item_type"] == "worktree"
-    assert item["disposition"] == DISPOSITION_HARVEST_NOW
+    assert item["disposition"] == DISPOSITION_PARK_PRESERVE
+    assert item["operator_required"] is True
     assert item["branch"] == "codex/value"
 
 

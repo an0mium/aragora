@@ -69,13 +69,20 @@ def _coerce_int(value: Any, default: int = 0) -> int:
         return default
 
 
-def _coerce_bool(value: Any) -> bool:
+def _coerce_bool(
+    value: Any, *, default: bool = False, unknown_string_default: bool | None = None
+) -> bool:
     if isinstance(value, str):
         normalized = value.strip().lower()
         if normalized in {"1", "true", "yes", "y", "on"}:
             return True
         if normalized in {"0", "false", "no", "n", "off", ""}:
             return False
+        if unknown_string_default is not None:
+            return unknown_string_default
+        return default
+    if value is None:
+        return default
     return bool(value)
 
 
@@ -97,10 +104,15 @@ def _head(record: dict[str, Any]) -> str:
 
 
 def _is_stale(record: dict[str, Any], *, now: datetime, stale_days: int) -> bool:
-    created = parse_iso_datetime(record.get("createdAt") or record.get("created_at"))
-    if created is None:
+    activity = parse_iso_datetime(
+        record.get("updatedAt")
+        or record.get("updated_at")
+        or record.get("createdAt")
+        or record.get("created_at")
+    )
+    if activity is None:
         return False
-    return (now - created).days >= stale_days
+    return (now - activity).days >= stale_days
 
 
 def estimate_evaluation_cost(record: dict[str, Any]) -> str:
@@ -144,8 +156,13 @@ def _has_high_risk_signal(
     tier = _coerce_int(merge_packet_entry.get("tier"), default=-1)
     return (
         tier >= 3
-        or _coerce_bool(merge_packet_entry.get("requires_human_risk_settlement"))
-        or _coerce_bool(merge_packet_entry.get("requires_human_preapproval"))
+        or _coerce_bool(
+            merge_packet_entry.get("requires_human_risk_settlement"),
+            unknown_string_default=True,
+        )
+        or _coerce_bool(
+            merge_packet_entry.get("requires_human_preapproval"), unknown_string_default=True
+        )
     )
 
 
@@ -217,12 +234,14 @@ def classify_pr_disposition(
     title = _title(record)
     branch = _branch(record)
     head_sha = _head(record)
-    is_draft = _coerce_bool(record.get("isDraft"))
+    is_draft = _coerce_bool(record.get("isDraft"), unknown_string_default=True)
     mergeable = str(record.get("mergeable") or "").upper()
     stale = _is_stale(record, now=now, stale_days=stale_days)
     high_value = _has_high_value_signal(record, value_class)
     high_risk = _has_high_risk_signal(record, merge_packet_entry)
-    unresolved_dissent = _coerce_bool((merge_packet_entry or {}).get("unresolved_dissent"))
+    unresolved_dissent = _coerce_bool(
+        (merge_packet_entry or {}).get("unresolved_dissent"), unknown_string_default=True
+    )
     low_expected_value = value_class in {CLASS_MAINTENANCE, CLASS_INFRA} and not high_value
     merge_packet_error = str(record.get("_merge_packet_error") or "")
 
@@ -244,6 +263,22 @@ def classify_pr_disposition(
     if merge_packet_error:
         evidence.append(f"merge_packet.error={merge_packet_error}")
     evidence.extend(_merge_packet_evidence(merge_packet_entry))
+
+    if number is None:
+        evidence.append("invalid_pr_identity=true")
+        return _base_item(
+            item_type="pr",
+            item_id=item_id,
+            branch=branch,
+            head_sha=head_sha,
+            open_pr=None,
+            value_class=value_class,
+            evaluation_cost=cost,
+            evidence=evidence,
+            disposition=DISPOSITION_PARK_PRESERVE,
+            next_action="preserve; PR number is missing or invalid, so merge-packet safety cannot be proven",
+            operator_required=True,
+        )
 
     if merge_packet_error:
         return _base_item(
@@ -379,9 +414,9 @@ def classify_inventory_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     evidence.extend(str(item) for item in candidate.get("proof") or [])
 
     if classification == "unique_unharvested":
-        disposition = DISPOSITION_HARVEST_NOW
+        disposition = DISPOSITION_PARK_PRESERVE
         next_action = "preserve and represent unique work on an open PR or durable branch"
-        operator_required = False
+        operator_required = True
     elif classification in {"active_or_dirty", "open_pr_or_outbox", "receipt_protected"}:
         disposition = DISPOSITION_PARK_PRESERVE
         next_action = "preserve; route to owner, open PR, outbox, or receipt before cleanup"
