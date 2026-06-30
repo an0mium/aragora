@@ -23,14 +23,20 @@ _MINIMAL_SIGNAL = {
     "code_unit_id": "proof_first.shift.green_criteria",
     "integrity_score": 0.42,
     "reasons": [
-        {"kind": "failed_claim", "detail": "bc12.benchmark_surface_fresh", "claim_id": "bc12.bench"},
+        {
+            "kind": "failed_claim",
+            "detail": "bc12.benchmark_surface_fresh",
+            "claim_id": "bc12.bench",
+        },
         {"kind": "unresolved_crux", "detail": "soak policy", "crux_id": "crux.soak"},
     ],
     "recommended_action": "repair_required",
 }
 
 
-def _make_args(signal_file: str, kind: str = "report_only", as_json: bool = False) -> argparse.Namespace:
+def _make_args(
+    signal_file: str, kind: str = "report_only", as_json: bool = False
+) -> argparse.Namespace:
     return argparse.Namespace(signal_file=signal_file, kind=kind, json=as_json)
 
 
@@ -200,7 +206,9 @@ def test_shadow_candidate_has_nonempty_provenance_hash(tmp_path, monkeypatch, ca
     sig.write_text(json.dumps(_MINIMAL_SIGNAL))
     cmd_repair_spec(_make_args(str(sig), kind="shadow_candidate", as_json=True))
     parsed = json.loads(capsys.readouterr().out)
-    assert len(parsed["provenance_hash"]) == 64, "shadow_candidate must have 64-char provenance hash"
+    assert len(parsed["provenance_hash"]) == 64, (
+        "shadow_candidate must have 64-char provenance hash"
+    )
 
 
 def test_pr_candidate_has_nonempty_provenance_hash(tmp_path, monkeypatch, capsys):
