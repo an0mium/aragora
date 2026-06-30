@@ -44,6 +44,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
 from github_cli_health import check_github_cli_health  # noqa: E402
 from handoff_state import (  # noqa: E402
     BASE_FIELD_KEYS,
+    HEAD_FIELD_KEYS,
     NarrowGitHubClient,
     full_heads_match,
     github_evidence_for_branch,
@@ -254,24 +255,19 @@ def _head_from_payload(payload: dict[str, Any]) -> str:
 def _desired_head_from_payload(payload: dict[str, Any]) -> str:
     """Extract the requested branch head SHA from outbox payloads when present."""
     for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
-        head = str(
-            local_evidence.get("desired_head_sha")
-            or local_evidence.get("head_sha")
-            or local_evidence.get("head")
-            or local_evidence.get("commit")
-            or ""
-        ).strip()
-        if head:
-            return head
+        for key in HEAD_FIELD_KEYS:
+            head = str(local_evidence.get(key) or "").strip()
+            if head:
+                return head
 
-    for key in ("desired_head_sha", "head_sha", "head", "commit"):
+    for key in HEAD_FIELD_KEYS:
         head = str(payload.get(key) or "").strip()
         if head:
             return head
 
     requested_action = _mapping_from_action(payload.get("requested_action"))
     if requested_action is not None:
-        for key in ("desired_head_sha", "head_sha", "head", "commit"):
+        for key in HEAD_FIELD_KEYS:
             head = str(requested_action.get(key) or "").strip()
             if head:
                 return head
@@ -973,6 +969,7 @@ def _existing_issue_terminal_candidate(
 def _exact_open_pr_terminal_candidate(
     *,
     root: Path,
+    state_root: Path,
     repo_name: str,
     payload: dict[str, Any],
     branch: str,
@@ -1004,7 +1001,7 @@ def _exact_open_pr_terminal_candidate(
             f"exact open PR terminal-archive gate: local branch head "
             f"{local_branch_head[:12]} does not fully match desired head {desired_head[:12]}"
         )
-    owner_keep_reason = _exact_open_pr_owner_keep_reason(root, branch)
+    owner_keep_reason = _exact_open_pr_owner_keep_reason(root, state_root, branch)
     if owner_keep_reason is not None:
         return None, owner_keep_reason
 
@@ -1067,11 +1064,10 @@ def _exact_open_pr_terminal_candidate(
     return None, None
 
 
-def _exact_open_pr_owner_keep_reason(root: Path, branch: str) -> str | None:
+def _exact_open_pr_owner_keep_reason(root: Path, state_root: Path, branch: str) -> str | None:
     script = root / "scripts" / "identify_lane_owner.py"
     if not script.exists():
         return None
-    state_root = root / ".aragora"
     try:
         proc = subprocess.run(
             [
@@ -1321,6 +1317,7 @@ def _write_synthetic_receipt(
 def _handle_exact_open_pr_terminal_candidate(
     *,
     root: Path,
+    state_root: Path,
     repo_name: str,
     path: Path,
     archive_dir: Path,
@@ -1335,6 +1332,7 @@ def _handle_exact_open_pr_terminal_candidate(
 ) -> bool:
     terminal_info, keep_reason = _exact_open_pr_terminal_candidate(
         root=root,
+        state_root=state_root,
         repo_name=repo_name,
         payload=payload,
         branch=branch,
@@ -1918,22 +1916,23 @@ def main(argv: list[str] | None = None) -> int:
             ref_proc = None
         if ref_proc is None or ref_proc.returncode != 0:
             open_prs, open_pr_state_available = load_open_pr_state()
+            if open_pr_state_available and _handle_exact_open_pr_terminal_candidate(
+                root=root,
+                state_root=state_root,
+                repo_name=args.repo_name,
+                path=path,
+                archive_dir=archive_dir,
+                receipt_dir=receipt_dir,
+                payload=payload,
+                branch=branch,
+                base=args.base,
+                github_client=narrow_github_client,
+                counts=counts,
+                actions=actions,
+                apply=args.apply,
+            ):
+                continue
             if branch in open_prs:
-                if _handle_exact_open_pr_terminal_candidate(
-                    root=root,
-                    repo_name=args.repo_name,
-                    path=path,
-                    archive_dir=archive_dir,
-                    receipt_dir=receipt_dir,
-                    payload=payload,
-                    branch=branch,
-                    base=args.base,
-                    github_client=narrow_github_client,
-                    counts=counts,
-                    actions=actions,
-                    apply=args.apply,
-                ):
-                    continue
                 counts["still_protecting_active_work"] += 1
                 actions.append(
                     {
@@ -2004,22 +2003,23 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         open_prs, open_pr_state_available = load_open_pr_state()
+        if open_pr_state_available and _handle_exact_open_pr_terminal_candidate(
+            root=root,
+            state_root=state_root,
+            repo_name=args.repo_name,
+            path=path,
+            archive_dir=archive_dir,
+            receipt_dir=receipt_dir,
+            payload=payload,
+            branch=branch,
+            base=args.base,
+            github_client=narrow_github_client,
+            counts=counts,
+            actions=actions,
+            apply=args.apply,
+        ):
+            continue
         if branch in open_prs:
-            if _handle_exact_open_pr_terminal_candidate(
-                root=root,
-                repo_name=args.repo_name,
-                path=path,
-                archive_dir=archive_dir,
-                receipt_dir=receipt_dir,
-                payload=payload,
-                branch=branch,
-                base=args.base,
-                github_client=narrow_github_client,
-                counts=counts,
-                actions=actions,
-                apply=args.apply,
-            ):
-                continue
             counts["still_protecting_active_work"] += 1
             actions.append(
                 {
