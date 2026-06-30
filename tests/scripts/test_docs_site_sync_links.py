@@ -107,6 +107,7 @@ def test_docs_site_sync_creates_linked_status_and_planning_pages() -> None:
         DOCS_SITE_ROOT / "contributing" / "pmf-dogfood-execution-plan.md",
         DOCS_SITE_ROOT / "contributing" / "pmf-scorecard.md",
         DOCS_SITE_ROOT / "contributing" / "roadmap.md",
+        DOCS_SITE_ROOT / "contributing" / "roadmap-intake-register.md",
         DOCS_SITE_ROOT / "contributing" / "tw03-rescue-productization-status.md",
         DOCS_SITE_ROOT / "guides" / "conductor-workflow.md",
         DOCS_SITE_ROOT / "guides" / "marketplace.md",
@@ -117,6 +118,13 @@ def test_docs_site_sync_creates_linked_status_and_planning_pages() -> None:
 
     for page in expected_pages:
         assert page.exists(), f"Expected synced docs-site page missing: {page}"
+
+
+def test_roadmap_rewrites_intake_register_link() -> None:
+    content = _read_docs_site("contributing/roadmap.md")
+
+    assert "[Roadmap intake register](./roadmap-intake-register)" in content
+    assert "[Roadmap intake register](docs/status/ROADMAP_INTAKE_REGISTER.md)" not in content
 
 
 def test_cli_reference_preserves_generated_catalog_description() -> None:
