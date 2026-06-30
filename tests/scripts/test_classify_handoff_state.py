@@ -1062,6 +1062,18 @@ def test_target_pr_reference_uses_sibling_repo_for_numeric_target() -> None:
     assert reference == mod.TargetPrReference(number=8570, repo="other/repo")
 
 
+def test_target_pr_reference_prefers_url_repo_over_numeric_target() -> None:
+    reference = mod.target_pr_reference_from_receipt(
+        {
+            "target_pr": 8570,
+            "existing_pr_url": "https://github.com/other/repo/pull/8570",
+            "repo": "synaptent/aragora",
+        }
+    )
+
+    assert reference == mod.TargetPrReference(number=8570, repo="other/repo")
+
+
 def test_target_pr_reference_matches_repo_case_insensitively() -> None:
     left = mod.target_pr_reference_from_receipt(
         {"target_pr": "https://github.com/Synaptent/Aragora/pull/8570"}
@@ -1158,6 +1170,52 @@ def test_cross_repo_target_pr_reference_does_not_probe_default_repo(
     assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
     assert github.pr_number_calls == 0
     assert "target PR repo other/repo differs" in item["evidence"]["github"]["error"]
+
+
+def test_mismatched_receipt_target_pr_blocks_classification_before_probe(
+    tmp_path: Path,
+) -> None:
+    key = "open-pr-codex-example-aaaaaaaa"
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(
+        tmp_path,
+        key=key,
+        branch="codex/original-branch",
+        extra_payload={"target_pr": "https://github.com/synaptent/aragora/pull/8570"},
+    )
+    _write_receipt(
+        tmp_path,
+        key,
+        {
+            "status": "already_satisfied",
+            "reason": "target_open_pr",
+            "existing_pr_url": "https://github.com/other/repo/pull/8570",
+        },
+    )
+    github = FakeGitHub(
+        pr_by_number={
+            8570: {
+                "number": 8570,
+                "state": "open",
+                "draft": False,
+                "head": {"ref": "codex/original-branch", "sha": HEAD},
+                "base": {"ref": "main"},
+                "html_url": "https://github.com/synaptent/aragora/pull/8570",
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["safe_to_mutate"] is False
+    assert item["next_mutation_candidate"] == "none"
+    assert item["evidence"]["receipt"]["target_pr"] is None
+    assert "receipt target PR other/repo#8570" in item["reason"]
+    assert "outbox target PR synaptent/aragora#8570" in item["reason"]
+    assert github.pr_calls == 0
+    assert github.pr_number_calls == 0
+    assert github.ref_calls == 0
 
 
 def test_target_pr_representation_is_not_safe_when_branch_pr_lookup_degrades(

@@ -172,6 +172,7 @@ class ReceiptEvidence:
     path: str | None = None
     target_pr: int | None = None
     target_pr_repo: str | None = None
+    target_pr_mismatch: str | None = None
 
 
 @dataclass(frozen=True)
@@ -750,6 +751,17 @@ def classify_handoff_item(
             desired_head_sha=desired_head or None,
             state=HandoffState.UNKNOWN,
             reason="outbox payload has no branch",
+            evidence=evidence,
+        )
+
+    if receipt_evidence.target_pr_mismatch:
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.UNKNOWN,
+            reason=receipt_evidence.target_pr_mismatch,
             evidence=evidence,
         )
 
@@ -1399,7 +1411,21 @@ def receipt_evidence_from_payload(
         and (reason in {"published", "existing_issue", "created_issue"} or has_issue)
     )
     receipt_reference = target_pr_reference_from_receipt(receipt)
-    reference = receipt_reference or outbox_reference
+    target_pr_mismatch = None
+    default_repo = _repo_name_from_mapping(outbox_payload)
+    if (
+        receipt_reference is not None
+        and outbox_reference is not None
+        and not target_pr_references_match(receipt_reference, outbox_reference, default_repo)
+    ):
+        target_pr_mismatch = (
+            "receipt target PR "
+            f"{target_pr_reference_label(receipt_reference, default_repo)} does not match "
+            f"outbox target PR {target_pr_reference_label(outbox_reference, default_repo)}"
+        )
+        reference = None
+    else:
+        reference = receipt_reference or outbox_reference
     return ReceiptEvidence(
         status=status,
         reason=reason,
@@ -1409,6 +1435,7 @@ def receipt_evidence_from_payload(
         path=str(receipt.get("__receipt_path") or "") or None,
         target_pr=reference.number if reference is not None else None,
         target_pr_repo=reference.repo if reference is not None else None,
+        target_pr_mismatch=target_pr_mismatch,
     )
 
 
@@ -1684,11 +1711,11 @@ def target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
 
 
 def _target_pr_reference_from_mapping(mapping: Mapping[str, Any]) -> TargetPrReference | None:
-    for key in TARGET_PR_NUMBER_KEYS:
+    for key in TARGET_PR_URL_KEYS:
         reference = _target_pr_reference_from_value(mapping.get(key))
         if reference is not None:
             return _target_pr_reference_with_mapping_repo(reference, mapping)
-    for key in TARGET_PR_URL_KEYS:
+    for key in TARGET_PR_NUMBER_KEYS:
         reference = _target_pr_reference_from_value(mapping.get(key))
         if reference is not None:
             return _target_pr_reference_with_mapping_repo(reference, mapping)
@@ -1868,7 +1895,11 @@ def _queue_cap_uncertain_for_publication(queue_cap: QueueCapEvidence) -> bool:
 
 
 def _terminal_receipt_satisfied(receipt: ReceiptEvidence) -> bool:
-    if receipt.status not in TERMINAL_RECEIPT_STATUSES or receipt.issue_only_pr_receipt:
+    if (
+        receipt.status not in TERMINAL_RECEIPT_STATUSES
+        or receipt.issue_only_pr_receipt
+        or receipt.target_pr_mismatch
+    ):
         return False
     return receipt.has_pr_reference or receipt.target_pr is not None
 

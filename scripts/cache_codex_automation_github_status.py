@@ -358,11 +358,14 @@ def _stale_target_pr_receipt_evidence(
             "reason": "target_pr_receipt_missing",
         }
 
-    # Target-PR receipts are proved by the target PR, not by the original
-    # handoff branch. If the receipt lacks a target_pr_head_sha, keep the local
-    # cache neutral; reconcile can query the PR directly when stronger proof is
-    # required.
-    return None
+    remote_head = _remote_tracking_head(repo_root, branch)
+    if remote_head and remote_head == desired_head:
+        return None
+    return {
+        "outbox_target_pr": _target_pr_reference_label(outbox_reference),
+        "receipt_target_pr": _target_pr_reference_label(receipt_reference),
+        "reason": "target_pr_receipt_missing",
+    }
 
 
 def _unsatisfied_receipt_evidence(
