@@ -98,7 +98,7 @@ class SpecBuilder:
                 from aragora.agents.api_agents.openrouter import OpenRouterAgent
 
                 self._agent = OpenRouterAgent(
-                    name="spec_builder", model="anthropic/claude-opus-4.7"
+                    name="spec_builder", model="anthropic/claude-opus-4.8"
                 )
                 return self._agent
         except (ImportError, RuntimeError, ValueError) as e:

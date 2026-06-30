@@ -129,7 +129,9 @@ def _get_oracle_models() -> tuple[str, str, str]:
 
         return _ORACLE_MODEL_OPENROUTER, _ORACLE_MODEL_ANTHROPIC, _ORACLE_MODEL_OPENAI
     except ImportError:
-        return "anthropic/claude-opus-4.7", "claude-sonnet-4-6", "gpt-5.3"
+        # Mirror the primary-path constants exactly so a missing import does not
+        # silently swap the configured Anthropic model (Sonnet) for Opus.
+        return "anthropic/claude-opus-4.8", "claude-sonnet-4-6", "gpt-5.3-chat"
 
 
 def _get_tentacle_models() -> list[dict[str, str]]:

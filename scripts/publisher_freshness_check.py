@@ -55,6 +55,7 @@ class FreshnessReport:
     outbox_real_count: int
     outbox_cache_count: int | None
     outbox_drift: bool
+    outbox_changed_after_cache: bool
     drift_detail: str
     blockers: list[str] = field(default_factory=list)
 
@@ -157,6 +158,27 @@ def _count_outbox_files(outbox_dir: Path) -> int:
     return sum(1 for p in outbox_dir.iterdir() if p.is_file() and p.suffix == ".json")
 
 
+def _outbox_state_mtime(outbox_dir: Path) -> float | None:
+    if not outbox_dir.is_dir():
+        return None
+    try:
+        latest = outbox_dir.stat().st_mtime
+    except OSError:
+        return None
+    try:
+        paths = list(outbox_dir.iterdir())
+    except OSError:
+        return latest
+    for path in paths:
+        if not (path.is_file() and path.suffix == ".json"):
+            continue
+        try:
+            latest = max(latest, path.stat().st_mtime)
+        except OSError:
+            continue
+    return latest
+
+
 def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *args],
@@ -175,10 +197,17 @@ def _same_git_origin(left: Path, right: Path) -> bool:
     return bool(left_proc.stdout.strip()) and left_proc.stdout.strip() == right_proc.stdout.strip()
 
 
+def _has_automation_state_dirs(state_root: Path) -> bool:
+    state_dir = state_root if state_root.name == ".aragora" else state_root / ".aragora"
+    return (state_dir / "automation-github-status").is_dir() or (
+        state_dir / "automation-outbox"
+    ).is_dir()
+
+
 def _automation_state_root(repo_root: Path) -> Path:
     """Return the checkout whose shared .aragora state should back publisher checks."""
 
-    if (repo_root / ".aragora").is_dir():
+    if _has_automation_state_dirs(repo_root):
         return repo_root
 
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
@@ -194,7 +223,7 @@ def _automation_state_root(repo_root: Path) -> Path:
             resolved = candidate
         if resolved.name == ".aragora" and resolved.is_dir():
             return resolved
-        if not (resolved / ".aragora").is_dir():
+        if not _has_automation_state_dirs(resolved):
             continue
         if explicit or _same_git_origin(repo_root, resolved):
             return resolved
@@ -249,21 +278,36 @@ def evaluate(
 
     cache_present = cache_path.is_file()
     cache_age: float | None
+    cache_mtime: float | None = None
     if cache_present:
-        cache_age = max(0.0, now - cache_path.stat().st_mtime)
+        cache_mtime = cache_path.stat().st_mtime
+        cache_age = max(0.0, now - cache_mtime)
     else:
         cache_age = None
     cache_stale = (cache_age is None) or (cache_age > stale_threshold_seconds)
 
     outbox_real = _count_outbox_files(outbox_dir)
     outbox_cache = _read_cache_outbox_count(cache_path) if cache_present else None
+    outbox_state_mtime = _outbox_state_mtime(outbox_dir)
+    outbox_changed_after_cache = (
+        cache_mtime is not None
+        and outbox_state_mtime is not None
+        and outbox_state_mtime > cache_mtime
+    )
     # A stale cache will *necessarily* disagree with the live outbox (the
     # outbox has changed since the snapshot was taken). Reporting drift in
     # that case is double-flagging: ``cache: Nh stale`` already explains the
-    # disagreement. Only treat drift as a real signal when the cache is
-    # fresh and the counts still don't match — that is the actual operator-
+    # disagreement. A post-cache outbox write is the same class of transient:
+    # the cache accurately described an older queue snapshot. Only treat drift
+    # as a blocker when the cache is fresh, no newer outbox mutation explains
+    # the mismatch, and the counts still don't match — that is the operator-
     # actionable case (e.g. publisher writing the wrong count).
-    drift_meaningful = outbox_cache is not None and outbox_cache != outbox_real and not cache_stale
+    drift_meaningful = (
+        outbox_cache is not None
+        and outbox_cache != outbox_real
+        and not cache_stale
+        and not outbox_changed_after_cache
+    )
     drift = outbox_cache is not None and outbox_cache != outbox_real
     if outbox_cache is None:
         drift_detail = f"outbox={outbox_real} cache=missing"
@@ -287,11 +331,12 @@ def evaluate(
         blockers.append(f"drift: {drift_detail}")
 
     if not blockers:
-        verdict = "ready"
+        verdict = "warming" if drift and outbox_changed_after_cache else "ready"
     elif loaded and not launchd_failing and not drift_meaningful:
-        # cache-stale alone (without meaningful drift, with healthy launchd)
-        # is "warming": the next publisher run will refresh the cache and
-        # the operator signal will resolve without intervention.
+        # cache-stale or post-cache outbox changes (without meaningful drift,
+        # with healthy launchd) are "warming": the next publisher run will
+        # refresh the cache and the operator signal will resolve without
+        # intervention.
         verdict = "warming"
     else:
         verdict = "degraded"
@@ -324,6 +369,7 @@ def evaluate(
         outbox_real_count=outbox_real,
         outbox_cache_count=outbox_cache,
         outbox_drift=drift,
+        outbox_changed_after_cache=outbox_changed_after_cache,
         drift_detail=drift_detail,
         blockers=blockers,
     )
@@ -337,9 +383,19 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cache-path",
         "--status-cache",
+        "--cache-file",
+        "--cache",
         dest="cache_path",
         default=None,
         help="Path to the publisher status cache JSON",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help=(
+            "Directory containing publisher status cache latest.json. "
+            "Accepted for CLI compatibility with publisher helpers."
+        ),
     )
     parser.add_argument("--outbox-dir", default=None)
     parser.add_argument(
@@ -403,6 +459,7 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "outbox_real_count",
         "outbox_cache_count",
         "outbox_drift",
+        "outbox_changed_after_cache",
         "drift_detail",
     )
     compact = {key: payload[key] for key in keep_keys if key in payload}
@@ -424,6 +481,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     repo_root = Path(args.repo).resolve()
     cache_path = _resolve_explicit_path(repo_root, args.cache_path)
+    if cache_path is None:
+        cache_dir = _resolve_explicit_path(repo_root, args.cache_dir)
+        if cache_dir is not None:
+            cache_path = cache_dir / "latest.json"
     outbox_dir = _resolve_explicit_path(repo_root, args.outbox_dir)
     state_root = Path(args.state_root).expanduser().resolve() if args.state_root else None
     report = evaluate(

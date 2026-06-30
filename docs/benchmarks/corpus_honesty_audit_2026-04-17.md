@@ -276,7 +276,7 @@ failures into successes.
   telemetry aggregation is zero
   (`total_unique_classes: 0`, `recent_limit: 500`). Either no rescue events
   are being published, or the linkage pipeline is not pointed at
-  `/Users/armand/.aragora/rescue_events.jsonl` correctly.
+  `~/.aragora/rescue_events.jsonl` correctly.
 
 Both reinforce the same finding: the instrumentation surface is plumbed for
 publication but is not yet publishing anything derived from real autonomous

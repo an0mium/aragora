@@ -286,6 +286,46 @@ class TestComplianceCheck:
             with pytest.raises(SystemExit):
                 _cmd_check(args)
 
+    def test_check_unknown_framework_exits_with_error(self, capsys):
+        """Typo'd framework IDs must exit non-zero, not report a false COMPLIANT.
+
+        Regression: 'gdrp,hippa' (typos for 'gdpr,hipaa') previously reported
+        Status COMPLIANT / Score 100% / no frameworks checked / exit 0, hiding a
+        critical SSN/PHI exposure behind a green all-clear.
+        """
+        args = argparse.Namespace(
+            compliance_command="check",
+            content=["store ssn 123-45-6789 unencrypted password=secret"],
+            content_file=None,
+            frameworks="gdrp,hippa",
+            min_severity="low",
+            json=False,
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            _cmd_check(args)
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Unknown compliance framework" in captured.err
+        assert "gdrp" in captured.err
+        # Must NOT have printed a passing result
+        assert "COMPLIANT" not in captured.out
+
+    def test_check_partial_unknown_framework_exits_with_error(self, capsys):
+        """A valid framework mixed with a typo'd one must still error."""
+        args = argparse.Namespace(
+            compliance_command="check",
+            content=["ssn 123-45-6789"],
+            content_file=None,
+            frameworks="hipaa,gdrp",
+            min_severity="low",
+            json=False,
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            _cmd_check(args)
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "gdrp" in captured.err
+
     def test_check_from_file(self, capsys, tmp_path):
         """Check command reads content from file."""
         test_file = tmp_path / "test.py"
@@ -349,6 +389,26 @@ class TestComplianceReport:
         data = json.loads(output)
         assert "compliant" in data
         assert "score" in data
+
+    def test_report_unknown_framework_exits_with_error(self, capsys, tmp_path):
+        """Report command also rejects typo'd framework IDs with exit 1."""
+        test_file = tmp_path / "plan.txt"
+        test_file.write_text("store ssn 123-45-6789 unencrypted")
+
+        args = argparse.Namespace(
+            compliance_command="report",
+            content_file=str(test_file),
+            frameworks="hippa",
+            output_format="text",
+            output=None,
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            _cmd_report(args)
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Unknown compliance framework" in captured.err
+        assert "hippa" in captured.err
+        assert "COMPLIANT" not in captured.out
 
     def test_report_write_to_file(self, tmp_path):
         """Report command writes output to file."""

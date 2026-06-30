@@ -179,7 +179,7 @@
     "sha256": "54d7ac936f8aea831b395f9de3a3e32dcea5d78f76cbc392da028d85a870964e"
   },
   "environment": {
-    "cwd": "/Users/armand/Development/aragora/.claude/worktrees/aft-advocate-feasibility",
+    "cwd": "~/aragora/.claude/worktrees/aft-advocate-feasibility",
     "hostname": "MacBook-Pro-5.local",
     "user": "armand"
   },

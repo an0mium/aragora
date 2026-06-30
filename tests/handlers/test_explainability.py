@@ -43,9 +43,16 @@ class TestExplainabilityHandlerRouting:
         """Test matching counterfactuals route."""
         assert handler.can_handle("/api/v1/debates/debate_123/counterfactuals", "GET")
 
-    def test_can_handle_summary_route(self, handler):
-        """Test matching summary route."""
-        assert handler.can_handle("/api/v1/debates/debate_123/summary", "GET")
+    def test_does_not_handle_summary_route(self, handler):
+        """Summary is owned by DebatesHandler, not ExplainabilityHandler.
+
+        ExplainabilityHandler previously also claimed
+        /api/v1/debates/{id}/summary but was first-wins shadowed by
+        DebatesHandler since registration. The duplicate claim was removed
+        (run-20260611 PROD route-collision lane), so this handler must no
+        longer match the summary route.
+        """
+        assert not handler.can_handle("/api/v1/debates/debate_123/summary", "GET")
 
     def test_can_handle_explain_shortcut(self, handler):
         """Test matching explain shortcut route."""
@@ -308,7 +315,14 @@ class TestExplainabilityHandlerCounterfactuals:
 
 
 class TestExplainabilityHandlerSummary:
-    """Tests for summary endpoint."""
+    """Summary ownership moved to DebatesHandler (run-20260611 PROD lane).
+
+    ``/api/v1/debates/{id}/summary`` is served by DebatesHandler
+    (``_get_summary`` via ``aragora.debate.summarizer.summarize_debate``).
+    ExplainabilityHandler used to carry a duplicate, first-wins-shadowed claim
+    on the same path; the claim, its dispatch branch, and the now-dead
+    ``_handle_summary`` method were removed. These tests pin that removal.
+    """
 
     @pytest.fixture
     def handler(self):
@@ -317,31 +331,21 @@ class TestExplainabilityHandlerSummary:
 
         return ExplainabilityHandler({})
 
-    @pytest.fixture
-    def mock_decision(self):
-        """Create mock decision."""
-        decision = MagicMock()
-        decision.debate_id = "debate_123"
-        decision.outcome = "consensus"
-        return decision
-
     @pytest.mark.asyncio
-    async def test_handle_summary_success(self, handler, mock_decision):
-        """Test successful summary request."""
+    async def test_handle_summary_not_dispatched(self, handler):
+        """ExplainabilityHandler must not dispatch the summary endpoint."""
         mock_handler = MagicMock()
 
-        with patch.object(
-            handler, "_get_or_build_decision", new=AsyncMock(return_value=mock_decision)
-        ):
-            with patch("aragora.explainability.ExplanationBuilder") as MockBuilder:
-                MockBuilder.return_value.generate_summary.return_value = (
-                    "The debate reached consensus with high confidence."
-                )
-                result = await handler.handle(
-                    "/api/v1/debates/debate_123/summary", {}, mock_handler
-                )
+        result = await handler.handle("/api/v1/debates/debate_123/summary", {}, mock_handler)
 
-        assert result.status_code == 200
+        # No summary branch remains: dispatch falls through to the invalid-endpoint
+        # response rather than generating a summary.
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_handle_summary_method_removed(self, handler):
+        """The dead ``_handle_summary`` method must no longer exist."""
+        assert not hasattr(handler, "_handle_summary")
 
 
 class TestExplainabilityHandlerBatch:

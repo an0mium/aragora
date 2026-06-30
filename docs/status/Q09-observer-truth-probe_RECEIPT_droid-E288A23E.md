@@ -62,7 +62,7 @@ mode when `clean=false`.
 
 Exit: `0`. Temp worktree removed via `git worktree remove`.
 
-### Dirty founder root checkout (`/Users/armand/Development/aragora`)
+### Dirty founder root checkout (`~/aragora`)
 
 Read-only probe with `--no-fetch` (no mutation of founder root):
 
@@ -79,7 +79,7 @@ Read-only probe with `--no-fetch` (no mutation of founder root):
     "behind_origin_main=1",
     "head_mismatch_origin_main"
   ],
-  "repo_root": "/Users/armand/Development/aragora",
+  "repo_root": "<repo-root>",
   "submodule_dirty": false,
   "uncommitted_modified_count": 1,
   "untracked_count": 0

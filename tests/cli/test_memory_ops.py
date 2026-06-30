@@ -341,3 +341,96 @@ class TestCmdPromote:
             await _cmd_promote(args)
         captured = capsys.readouterr()
         assert "404" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# Endpoint contract tests (regression guard for wrong-endpoint defects)
+#
+# These tests pin the exact server endpoints the CLI must call. The CLI
+# previously targeted non-existent routes (`/api/v1/memory/continuum/search`,
+# `/api/v1/memory/continuum/tier-stats`, and bare `POST /api/v1/memory`) that
+# the server's MemoryHandler does not implement, yielding user-facing 404/500
+# errors. The real routes are:
+#   - GET  /api/v1/memory/search       (query)
+#   - GET  /api/v1/memory/tier-stats   (stats)
+#   - POST /api/v1/memory/store        (store)
+#   - POST /api/v1/memory/{id}/promote (promote)
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryOpsEndpoints:
+    """Pin the exact API endpoints invoked by each subcommand."""
+
+    @pytest.mark.asyncio
+    async def test_query_targets_search_route(self):
+        args = argparse.Namespace(text="needle", tier="slow", limit=7, json=True)
+        mock_get = AsyncMock(return_value={"results": [], "total": 0})
+        with patch("aragora.cli.commands.memory_ops._api_get", mock_get):
+            await _cmd_query(args)
+        endpoint = mock_get.await_args.args[0]
+        params = mock_get.await_args.args[1]
+        assert endpoint == "/api/v1/memory/search"
+        assert "continuum" not in endpoint
+        # query params align with the server search contract (q/tier/limit)
+        assert params["q"] == "needle"
+        assert params["tier"] == "slow"
+        assert params["limit"] == 7
+
+    @pytest.mark.asyncio
+    async def test_stats_targets_tier_stats_route(self):
+        args = argparse.Namespace(json=True)
+        mock_get = AsyncMock(return_value={"tiers": {}, "total_entries": 0})
+        with patch("aragora.cli.commands.memory_ops._api_get", mock_get):
+            await _cmd_stats(args)
+        endpoint = mock_get.await_args.args[0]
+        assert endpoint == "/api/v1/memory/tier-stats"
+        assert "continuum" not in endpoint
+
+    @pytest.mark.asyncio
+    async def test_store_targets_store_route_with_payload(self):
+        args = argparse.Namespace(text="remember this", tier="medium", json=True)
+        mock_post = AsyncMock(return_value={"id": "m1", "tier": "medium"})
+        with patch("aragora.cli.commands.memory_ops._api_post", mock_post):
+            await _cmd_store(args)
+        endpoint = mock_post.await_args.args[0]
+        payload = mock_post.await_args.args[1]
+        assert endpoint == "/api/v1/memory/store"
+        assert payload["content"] == "remember this"
+        assert payload["tier"] == "medium"
+
+    @pytest.mark.asyncio
+    async def test_promote_targets_promote_route_with_payload(self):
+        args = argparse.Namespace(id="abc123", to="slow", json=True)
+        mock_post = AsyncMock(return_value={"success": True, "previous_tier": "fast"})
+        with patch("aragora.cli.commands.memory_ops._api_post", mock_post):
+            await _cmd_promote(args)
+        endpoint = mock_post.await_args.args[0]
+        payload = mock_post.await_args.args[1]
+        assert endpoint == "/api/v1/memory/abc123/promote"
+        assert payload["target_tier"] == "slow"
+
+
+class TestMemoryHandlerServerContract:
+    """The server MemoryHandler must actually claim the routes the CLI calls."""
+
+    def _handler(self):
+        from aragora.server.handlers.memory.memory import MemoryHandler
+
+        return MemoryHandler()
+
+    def test_store_route_is_claimed(self):
+        h = self._handler()
+        assert h.can_handle("/api/v1/memory/store") is True
+
+    def test_promote_route_is_claimed(self):
+        h = self._handler()
+        assert h.can_handle("/api/v1/memory/abc123/promote") is True
+
+    def test_handle_post_routes_store_and_promote(self):
+        import inspect
+
+        from aragora.server.handlers.memory.memory import MemoryHandler
+
+        src = inspect.getsource(MemoryHandler.handle_post)
+        assert "/api/v1/memory/store" in src
+        assert "/promote" in src

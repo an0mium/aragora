@@ -48,7 +48,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T01:25:03.482670Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T01:25:03.485200Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T01:25:03.482670Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T01:25:03.485200Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -124,7 +124,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T01:26:50.808902Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T01:26:50.817644Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T01:26:50.808902Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T01:26:50.817644Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -162,7 +162,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: /Users/armand/Development/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de12a-4179-7753-9eaa-4a68c44b83af\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
+          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: ~/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de12a-4179-7753-9eaa-4a68c44b83af\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
           "verdict": "dispatch_failed"
         },
         {
@@ -320,7 +320,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:03:10.969369Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:03:10.973812Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:03:10.969369Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:03:10.973812Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -360,7 +360,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:05:05.033929Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:05:05.037462Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:05:05.033929Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:05:05.037462Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -400,7 +400,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:05:56.519379Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:05:56.522073Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:05:56.519379Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:05:56.522073Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -440,7 +440,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:06:56.838114Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:06:56.841345Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:06:56.838114Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:06:56.841345Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -481,7 +481,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:07:44.875742Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:07:44.879653Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:07:44.875742Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:07:44.879653Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -522,7 +522,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: /Users/armand/Development/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de182-797e-7811-8a59-52c157600bd0\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
+          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: ~/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de182-797e-7811-8a59-52c157600bd0\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
           "verdict": "dispatch_failed"
         },
         {
@@ -563,7 +563,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:09:59.786374Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:09:59.788791Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:09:59.786374Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:09:59.788791Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -603,7 +603,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: /Users/armand/Development/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de185-1b97-7a83-af7a-808e9dac06c0\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
+          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: ~/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de185-1b97-7a83-af7a-808e9dac06c0\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
           "verdict": "dispatch_failed"
         },
         {
@@ -643,7 +643,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:12:35.196194Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:12:35.198430Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:12:35.196194Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:12:35.198430Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -683,7 +683,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:13:28.074436Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:13:28.076745Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:13:28.074436Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:13:28.076745Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -763,7 +763,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: /Users/armand/Development/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de18a-0c96-7170-a24c-4f729f15725b\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
+          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: ~/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de18a-0c96-7170-a24c-4f729f15725b\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
           "verdict": "dispatch_failed"
         },
         {
@@ -803,7 +803,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:18:16.742384Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:18:16.745823Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:18:16.742384Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:18:16.745823Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -843,7 +843,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:19:17.768035Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:19:17.772273Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:19:17.768035Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:19:17.772273Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -883,7 +883,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\n2026-05-01T03:20:01.799270Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/armand/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:20:01.801467Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/armand/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
+          "rationale": "Reading prompt from stdin...\n2026-05-01T03:20:01.799270Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=~/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json\n2026-05-01T03:20:01.801467Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=~/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json\nOpenAI Codex v0.125.0 (researc",
           "verdict": "dispatch_failed"
         },
         {
@@ -921,7 +921,7 @@
         },
         {
           "agent": "codex",
-          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: /Users/armand/Development/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de18e-5949-7e41-a4da-7cd4b7efb4fb\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
+          "rationale": "Reading prompt from stdin...\nOpenAI Codex v0.125.0 (research preview)\n--------\nworkdir: ~/aragora\nmodel: gpt-5.5\nprovider: openai\napproval: never\nsandbox: read-only\nreasoning effort: xhigh\nreasoning summaries: none\nsession id: 019de18e-5949-7e41-a4da-7cd4b7efb4fb\n--------\nuser\nYou are one panelist in Aragora's heterogeneity contamination probe.\n\nYour task is to inspect the prompt below for a concrete factual or code-backed\nerror. The prompt may contain an error, multiple ",
           "verdict": "dispatch_failed"
         },
         {

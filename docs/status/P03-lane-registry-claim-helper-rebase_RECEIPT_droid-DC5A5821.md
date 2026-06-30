@@ -54,14 +54,14 @@ Finish/rebase PR #7267 (lane-registry integration into overlap detector) by veri
 
 ```bash
 # Re-run the validation chain on this PR's branch
-cd /Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-144653-9da7e596
+cd ~/aragora/.worktrees/codex-auto/claude-20260517-144653-9da7e596
 git fetch origin main
 git log origin/main..HEAD --oneline    # expect 1 commit
 bash scripts/automation_pr_preflight.sh origin/main HEAD
-/Users/armand/Development/aragora/.venv/bin/python3 -m pytest \
+~/aragora/.venv/bin/python3 -m pytest \
     tests/scripts/test_list_active_agent_sessions.py \
     tests/scripts/test_claim_active_agent_lane.py -q
-/Users/armand/Development/aragora/.venv/bin/python3 -m ruff check \
+~/aragora/.venv/bin/python3 -m ruff check \
     scripts/list_active_agent_sessions.py scripts/claim_active_agent_lane.py
 gh pr view 7267 --json state,isDraft,mergeable,statusCheckRollup
 ```
@@ -70,7 +70,7 @@ gh pr view 7267 --json state,isDraft,mergeable,statusCheckRollup
 
 - **P04** (finish #7272 LaunchAgent template): same finish-existing pattern as P03 — verify clean, post self-review, flip ready.
 - **P05** (finish #7261 publication-freshness-probe): same pattern; needed before P02 can ever be a real lane.
-- **P06** rescue-productize-next-class: read `/Users/armand/.aragora/rescue_events.jsonl` if present (or `docs/status/generated/rescue_productization/latest.json`), pick top remaining unproduced class, follow the #7265 pattern (5 canonical shapes + ledger entry + 10+ tests).
+- **P06** rescue-productize-next-class: read `~/.aragora/rescue_events.jsonl` if present (or `docs/status/generated/rescue_productization/latest.json`), pick top remaining unproduced class, follow the #7265 pattern (5 canonical shapes + ledger entry + 10+ tests).
 - **P07** worktree-inventory-rerun: publisher last ran at `04:08:00Z`, 12.8 h ago. Run `python3 scripts/publish_worktree_value_inventory.py` and commit `latest.json` + a fresh dated snapshot.
 - **P09** overlap-detector-improve: reconcile #7270 (`scripts/agent_overlap_report.py`) with #7267 — decide canonical surface or unify schemas. Worth a draft PR that picks one and deprecates the other.
 - **P10** codex-automation-handoff: run `scripts/reconcile_automation_outbox.py` and triage unpublished handoffs.

@@ -192,11 +192,11 @@ Legacy `.gt` stores are supported for backwards compatibility when present.
 
 ## Project Overview
 
-Aragora is the **Decision Integrity Platform** -- orchestrating 43 agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel. It implements self-improvement through the **Nomic Loop** -- an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
+Aragora is the **Decision Integrity Platform** -- orchestrating 46 agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel. It implements self-improvement through the **Nomic Loop** -- an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
 **Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
 
-**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions | 5,078 test files | 3,386 API operations across 2,928 paths | canonical counts in `docs/METRICS.md`
+**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions | 5,078 test files | 3,297 API operations across 2,870 paths | canonical counts in `docs/METRICS.md`
 
 ## Architecture
 
@@ -237,7 +237,7 @@ aragora/
 │           ├── kafka.py    # Apache Kafka consumer
 │           └── rabbitmq.py # RabbitMQ consumer/publisher
 ├── server/           # HTTP/WebSocket API
-│   ├── unified_server.py   # Main server (3,386 API operations)
+│   ├── unified_server.py   # Main server (3,297 API operations)
 │   ├── startup.py          # Server startup sequence
 │   ├── debate_origin.py    # Bidirectional chat result routing
 │   ├── handlers/           # HTTP endpoint handlers (700+ modules)

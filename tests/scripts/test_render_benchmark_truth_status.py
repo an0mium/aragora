@@ -1,16 +1,32 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-_scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_scripts_dir = str(_REPO_ROOT / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
 import render_benchmark_truth_status as mod  # noqa: E402
+
+
+def test_open_pr_help_warns_no_draft_is_only_for_live_review_ready_branches() -> None:
+    result = subprocess.run(
+        ["bash", str(_REPO_ROOT / "scripts" / "open_pr.sh"), "--help"],
+        cwd=_REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert "Pass --no-draft only when the branch is ready for live review." in result.stdout
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> Path:
@@ -151,6 +167,10 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
     assert "B0 Benchmark Truth Status" in markdown
     assert f"`{latest_paths['truth_corpus_latest']}`" in markdown
     assert f"`{latest_paths['scorecard_corpus_latest']}`" in markdown
+    assert "- Corpus-scoped truth pointer:" in markdown
+    assert "- Corpus-scoped scorecard pointer:" in markdown
+    assert "- Latest truth artifact:" not in markdown
+    assert "- Latest scorecard:" not in markdown
     assert "Verified expected issues: `1`" in markdown
     assert "In-progress expected issues: `0`" in markdown
     assert "| Verified truth success rate (primary) | 100.0% |" in markdown
@@ -161,6 +181,35 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
     assert (
         "Full-corpus truth success rate (legacy/context) (`truth_success_rate`): 0.2500" in markdown
     )
+
+
+def test_load_corpus_rejects_blank_corpus_id(tmp_path: Path) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": " ",
+            "revision": 1,
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+
+    with pytest.raises(ValueError, match="non-empty corpus_id"):
+        mod.load_corpus(corpus_path)
+
+
+@pytest.mark.parametrize("revision", [0, -1, True, "not-a-number", None])
+def test_load_corpus_rejects_invalid_revision(tmp_path: Path, revision: object) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": revision,
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+
+    with pytest.raises(ValueError, match="positive integer revision"):
+        mod.load_corpus(corpus_path)
 
 
 def test_render_status_markdown_headlines_verified_rate_and_in_flight_metrics(
@@ -219,6 +268,23 @@ def test_render_status_markdown_headlines_verified_rate_and_in_flight_metrics(
                 "in_progress_graduation_rate": 0.0,
                 "in_progress_issue_numbers": [5814],
             },
+            "issues": [
+                {
+                    "expected_status": "in_progress",
+                    "issue_number": 5814,
+                    "issue_state": "OPEN",
+                },
+                {
+                    "expected_status": "in_progress",
+                    "issue_number": 5815,
+                    "issue_state": "CLOSED",
+                },
+                {
+                    "expected_status": "verified",
+                    "issue_number": 5800,
+                    "issue_state": "CLOSED",
+                },
+            ],
         },
         scorecard_payload={
             "generated_at": "2026-04-17T06:05:00Z",
@@ -256,7 +322,9 @@ def test_render_status_markdown_headlines_verified_rate_and_in_flight_metrics(
     assert "| In-progress attempted issues | 0 |" in markdown
     assert "| In-progress successful issues | 0 |" in markdown
     assert "| In-progress graduation rate | 0.0% |" in markdown
-    assert "| In-progress issue numbers | `#5814` |" in markdown
+    assert "| Expected in-progress issue numbers | `#5814` |" in markdown
+    assert "| Live-open expected issue numbers | `#5814` |" in markdown
+    assert "| Live-closed expected issue numbers | `#5815` |" in markdown
 
 
 def test_render_status_markdown_surfaces_proxy_neutral_issue_classes(tmp_path: Path) -> None:
@@ -342,6 +410,85 @@ def test_render_status_markdown_backfills_legacy_proxy_neutral_fields(tmp_path: 
     assert "| Unique issues neutral | 4 |" in markdown
     assert "## Proxy Neutral Class Distribution" in markdown
     assert "`issue_already_resolved`: 4" in markdown
+
+
+def test_render_status_markdown_rejects_proxy_neutral_count_mismatch(
+    tmp_path: Path,
+) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 1,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=tmp_path / "truth",
+        scorecard_root=tmp_path / "scorecards",
+    )
+
+    with pytest.raises(ValueError, match="unique_issues_neutral"):
+        mod.render_status_markdown(
+            corpus_path=corpus_path,
+            truth_path=latest_paths["truth_corpus_latest"],
+            scorecard_path=latest_paths["scorecard_corpus_latest"],
+            latest_paths=latest_paths,
+            truth_payload=_truth_payload(revision=1),
+            scorecard_payload={
+                **_scorecard_payload(revision=1),
+                "proxy_metrics": {
+                    "no_rescue_success_rate": 0.0,
+                    "unique_issues_attempted": 5,
+                    "unique_issues_succeeded": 1,
+                    "unique_issues_failed": 1,
+                    "unique_issues_neutral": 9,
+                    "total_ticks": 5,
+                },
+            },
+        )
+
+
+def test_render_status_markdown_rejects_proxy_success_failure_overflow(
+    tmp_path: Path,
+) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 1,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=tmp_path / "truth",
+        scorecard_root=tmp_path / "scorecards",
+    )
+
+    with pytest.raises(ValueError, match="exceeds unique_issues_attempted"):
+        mod.render_status_markdown(
+            corpus_path=corpus_path,
+            truth_path=latest_paths["truth_corpus_latest"],
+            scorecard_path=latest_paths["scorecard_corpus_latest"],
+            latest_paths=latest_paths,
+            truth_payload=_truth_payload(revision=1),
+            scorecard_payload={
+                **_scorecard_payload(revision=1),
+                "proxy_metrics": {
+                    "no_rescue_success_rate": 0.0,
+                    "unique_issues_attempted": 1,
+                    "unique_issues_succeeded": 1,
+                    "unique_issues_failed": 1,
+                    "total_ticks": 2,
+                },
+            },
+        )
 
 
 def test_render_status_markdown_surfaces_stale_closed_corpus_issues(tmp_path: Path) -> None:
@@ -700,6 +847,117 @@ def test_main_rejects_stale_corpus_latest_payload_revision(tmp_path: Path) -> No
         )
 
     assert not output_path.exists()
+
+
+def test_main_rejects_truth_latest_pointer_payload_divergence(tmp_path: Path) -> None:
+    corpus_path = _write_json(
+        tmp_path / "docs" / "benchmarks" / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 2,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    truth_root = tmp_path / "docs" / "status" / "generated" / "benchmark_truth_artifacts"
+    scorecard_root = tmp_path / "docs" / "status" / "generated" / "benchmark_scorecards"
+    _write_json(
+        truth_root / "tw-01-bounded-execution-v1" / "latest.json",
+        _truth_payload(revision=2, generated_at="2026-04-14T20:00:00Z"),
+    )
+    _write_json(
+        truth_root / "tw-01-bounded-execution-v1" / "rev-2" / "latest.json",
+        _truth_payload(revision=2, generated_at="2026-04-14T20:30:00Z"),
+    )
+    _write_json(
+        scorecard_root / "tw-01-bounded-execution-v1" / "latest.json",
+        _scorecard_payload(revision=2),
+    )
+    _write_json(
+        scorecard_root / "tw-01-bounded-execution-v1" / "rev-2" / "latest.json",
+        _scorecard_payload(revision=2),
+    )
+    output_path = tmp_path / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md"
+
+    with pytest.raises(SystemExit, match="truth artifact latest pointer mismatch"):
+        mod.main(
+            [
+                "--corpus",
+                str(corpus_path),
+                "--truth-root",
+                str(truth_root),
+                "--scorecard-root",
+                str(scorecard_root),
+                "--output",
+                str(output_path),
+            ]
+        )
+
+    assert not output_path.exists()
+
+
+def test_main_rejects_scorecard_latest_pointer_payload_divergence(tmp_path: Path) -> None:
+    corpus_path = _write_json(
+        tmp_path / "docs" / "benchmarks" / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 2,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    truth_root = tmp_path / "docs" / "status" / "generated" / "benchmark_truth_artifacts"
+    scorecard_root = tmp_path / "docs" / "status" / "generated" / "benchmark_scorecards"
+    _write_json(
+        truth_root / "tw-01-bounded-execution-v1" / "latest.json",
+        _truth_payload(revision=2),
+    )
+    _write_json(
+        truth_root / "tw-01-bounded-execution-v1" / "rev-2" / "latest.json",
+        _truth_payload(revision=2),
+    )
+    _write_json(
+        scorecard_root / "tw-01-bounded-execution-v1" / "latest.json",
+        _scorecard_payload(revision=2, generated_at="2026-04-14T20:05:00Z"),
+    )
+    _write_json(
+        scorecard_root / "tw-01-bounded-execution-v1" / "rev-2" / "latest.json",
+        _scorecard_payload(revision=2, generated_at="2026-04-14T20:35:00Z"),
+    )
+    output_path = tmp_path / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md"
+
+    with pytest.raises(SystemExit, match="scorecard latest pointer mismatch"):
+        mod.main(
+            [
+                "--corpus",
+                str(corpus_path),
+                "--truth-root",
+                str(truth_root),
+                "--scorecard-root",
+                str(scorecard_root),
+                "--output",
+                str(output_path),
+            ]
+        )
+
+    assert not output_path.exists()
+
+
+def test_agent_bridge_classifies_benchmark_truth_renderer_process() -> None:
+    import agent_bridge as bridge
+
+    assert (
+        bridge._classify_agent_process(
+            "python3 scripts/render_benchmark_truth_status.py --output /tmp/status.md"
+        )
+        == "benchmark_truth"
+    )
+    assert (
+        bridge._process_summary_for_role("benchmark_truth")
+        == "benchmark-truth status and latest-pointer guard process"
+    )
 
 
 def test_repo_checked_in_benchmark_truth_surfaces_match_current_corpus(tmp_path: Path) -> None:

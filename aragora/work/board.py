@@ -14,6 +14,7 @@ from aragora.work.sources import (
     collect_github_prs,
     collect_mission_files,
     enrich_with_agent_bridge_lanes,
+    resolve_work_state_root,
 )
 
 
@@ -21,22 +22,24 @@ def collect_work_items(
     repo_root: Path | str, *, scope: str = "current"
 ) -> tuple[list[WorkItem], list[dict]]:
     """Collect work items from all known read-only sources."""
-    root = Path(repo_root)
+    root = Path(repo_root).expanduser().resolve()
+    state_root, state_health = resolve_work_state_root(root)
     health: list[dict] = []
     items: list[WorkItem] = []
     collectors = [
-        collect_github_prs,
-        collect_automation_outbox,
-        lambda r: collect_automation_receipts(r, scope=scope),
-        lambda r: collect_broker_runs(r, scope=scope),
-        lambda r: collect_beads_and_convoys(r, scope=scope),
-        lambda r: collect_mission_files(r, scope=scope),
+        (collect_github_prs, root),
+        (collect_automation_outbox, state_root),
+        (lambda r: collect_automation_receipts(r, scope=scope), state_root),
+        (lambda r: collect_broker_runs(r, scope=scope), state_root),
+        (lambda r: collect_beads_and_convoys(r, scope=scope), root),
+        (lambda r: collect_mission_files(r, scope=scope), root),
     ]
-    for collector in collectors:
-        collected, source_health = collector(root)
+    health.append(state_health)
+    for collector, collector_root in collectors:
+        collected, source_health = collector(collector_root)
         items.extend(collected)
         health.append(source_health)
-    items, lane_health = enrich_with_agent_bridge_lanes(root, items)
+    items, lane_health = enrich_with_agent_bridge_lanes(state_root, items)
     health.append(lane_health)
 
     if scope == "current":

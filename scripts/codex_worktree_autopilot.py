@@ -213,6 +213,13 @@ def _classify_session(
     last_activity = _session_last_activity(session)
     within_ttl = bool(last_activity and (_utc_now() - last_activity) <= ttl)
     ahead = _branch_ahead_count(repo_root, base_branch, branch) if branch else 0
+    # A squash-merged branch reports ahead>0 forever (its commits never become
+    # ancestors of base). Fall back to a content comparison so reclaimable
+    # worktrees are not stuck in skipped_unmerged. Only checked when ahead>0 to
+    # avoid the extra git calls on the common already-ancestor path.
+    effectively_merged = bool(
+        branch and ahead > 0 and _branch_effectively_merged(repo_root, base_branch, branch)
+    )
     dirty = _safe_worktree_dirty(repo_root, path, base_branch) if tracked_worktree else False
 
     cleanup_lock = False
@@ -233,7 +240,11 @@ def _classify_session(
         cleanup_lock_reason = "active_lease"
     elif tracked_worktree and within_ttl:
         lifecycle_state = "grace"
-    elif str(lease.get("lease_status")) == "expired" or dirty or ahead > 0:
+    elif (
+        str(lease.get("lease_status")) == "expired"
+        or dirty
+        or (ahead > 0 and not effectively_merged)
+    ):
         lifecycle_state = "expired"
     else:
         lifecycle_state = "safe-to-clean"
@@ -247,6 +258,7 @@ def _classify_session(
         "active_session": active_session,
         "dirty": dirty,
         "ahead": ahead,
+        "effectively_merged": effectively_merged,
         "base_branch": base_branch,
         "base_sha": _resolve_ref_sha(repo_root, _base_ref(base_branch)),
         "last_heartbeat_at": lease.get("last_heartbeat_at"),
@@ -1056,6 +1068,45 @@ def _branch_ahead_count(repo_root: Path, base: str, branch: str) -> int:
     return int(out) if out.isdigit() else 0
 
 
+def _branch_effectively_merged(repo_root: Path, base: str, branch: str) -> bool:
+    """Return True if the branch's net changes are already present in ``base``.
+
+    Commit-ancestry (``rev-list base..branch``) cannot see a **squash-merge**:
+    the squashed commit on ``base`` is brand new, so the branch's original
+    commits never become ancestors and ``ahead`` stays positive forever. That
+    is the root cause of worktrees being stuck in ``skipped_unmerged`` and
+    never reclaimed.
+
+    This compares *content* instead of ancestry. For every path the branch
+    changed (relative to its merge-base with ``base``), it checks whether that
+    path is byte-identical between the base tip and the branch tip. If they all
+    match, the branch's work is fully reflected in ``base`` (whether it landed
+    via merge, rebase, or squash) and the worktree is safe to reclaim.
+
+    Fail-closed: any git error, an unresolvable merge-base, or a real content
+    difference returns False so the worktree is conservatively kept.
+    """
+    base_ref = _base_ref(base)
+    merge_base_proc = _run_git(repo_root, "merge-base", base_ref, branch)
+    if merge_base_proc.returncode != 0:
+        return False
+    merge_base = merge_base_proc.stdout.strip()
+    if not merge_base:
+        return False
+    changed_proc = _run_git(repo_root, "diff", "--name-only", f"{merge_base}..{branch}")
+    if changed_proc.returncode != 0:
+        return False
+    changed_paths = [line for line in changed_proc.stdout.splitlines() if line.strip()]
+    if not changed_paths:
+        # Branch introduces nothing over the merge-base: nothing to integrate.
+        return True
+    # ``git diff --quiet`` exits 0 when there is no difference, 1 when there is,
+    # and >1 on error. Restrict to the branch's own paths so unrelated newer
+    # work on base does not mask a genuine squash-merge.
+    diff_proc = _run_git(repo_root, "diff", "--quiet", base_ref, branch, "--", *changed_paths)
+    return diff_proc.returncode == 0
+
+
 def _pid_alive(pid: int) -> bool:
     if pid <= 0:
         return False
@@ -1293,7 +1344,7 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
 
         if metadata["tracked_worktree"] and branch:
             ahead = metadata["ahead"]
-            if ahead > 0 and not args.force_unmerged:
+            if ahead > 0 and not metadata.get("effectively_merged") and not args.force_unmerged:
                 kept.append(session)
                 skipped_unmerged += 1
                 results.append(

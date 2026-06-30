@@ -30,7 +30,11 @@ def test_cli_summary_text(fake_codex_home, capsys: pytest.CaptureFixture[str]) -
     out = capsys.readouterr().out
     assert rc == 0
     assert "Window:" in out
-    assert "Tokens:" in out
+    # Token lines are now explicitly labeled to distinguish window-created
+    # consumption from lifetime-cumulative totals (the prior bare "Tokens:"
+    # label misrepresented lifetime totals as in-window consumption).
+    assert "Tokens (window-created threads):" in out
+    assert "Lifetime tokens" in out
     assert "Tool calls" in out
 
 

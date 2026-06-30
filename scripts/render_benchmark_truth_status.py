@@ -56,11 +56,28 @@ def _load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _positive_revision(value: Any, *, path: Path) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"Corpus at {path} must contain a positive integer revision")
+    try:
+        revision = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Corpus at {path} must contain a positive integer revision") from exc
+    if revision <= 0:
+        raise ValueError(f"Corpus at {path} must contain a positive integer revision")
+    return revision
+
+
 def load_corpus(path: Path) -> dict[str, Any]:
     payload = _load_json(path)
     issues = payload.get("issues")
     if not isinstance(issues, list) or not issues:
         raise ValueError(f"Corpus at {path} must contain a non-empty 'issues' list")
+    corpus_id = str(payload.get("corpus_id") or "").strip()
+    if not corpus_id:
+        raise ValueError(f"Corpus at {path} must contain a non-empty corpus_id")
+    payload["corpus_id"] = corpus_id
+    payload["revision"] = _positive_revision(payload.get("revision"), path=path)
     return payload
 
 
@@ -114,6 +131,22 @@ def _load_expected_latest_payload(
     return payload
 
 
+def _require_matching_latest_payloads(
+    *,
+    corpus_latest_payload: dict[str, Any],
+    revision_latest_payload: dict[str, Any],
+    corpus_latest_path: Path,
+    revision_latest_path: Path,
+    label: str,
+) -> None:
+    if corpus_latest_payload == revision_latest_payload:
+        return
+    raise SystemExit(
+        f"{label} latest pointer mismatch: "
+        f"{corpus_latest_path} does not match {revision_latest_path}"
+    )
+
+
 def _format_percent(value: Any) -> str:
     if isinstance(value, (int, float)):
         return f"{float(value):.1%}"
@@ -164,6 +197,20 @@ def _format_issue_numbers(values: Any) -> str:
     if not issue_numbers:
         return "none"
     return ", ".join(f"`#{value}`" for value in sorted(issue_numbers))
+
+
+def _issue_numbers_for_records(records: list[dict[str, Any]], *, state: str) -> list[int]:
+    normalized_state = state.strip().upper()
+    issue_numbers: list[int] = []
+    for record in records:
+        if str(record.get("expected_status") or "").strip() != "in_progress":
+            continue
+        if str(record.get("issue_state") or "").strip().upper() != normalized_state:
+            continue
+        issue_number = record.get("issue_number")
+        if isinstance(issue_number, int) and issue_number > 0:
+            issue_numbers.append(issue_number)
+    return sorted(issue_numbers)
 
 
 def _render_stale_closed_issues(issues: list[dict[str, Any]]) -> list[str]:
@@ -253,18 +300,49 @@ def _render_issue_drafts(drafts: list[dict[str, Any]]) -> list[str]:
     ] or ["- none"]
 
 
+def _proxy_count(value: Any, *, field: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"proxy metric `{field}` must be an integer count")
+    if value < 0:
+        raise ValueError(f"proxy metric `{field}` must be non-negative")
+    return value
+
+
 def _normalize_proxy_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     proxy_metrics = dict(payload)
     terminal_class_distribution = dict(proxy_metrics.get("terminal_class_distribution") or {})
 
-    if "unique_issues_neutral" not in proxy_metrics:
-        attempted = proxy_metrics.get("unique_issues_attempted")
-        succeeded = proxy_metrics.get("unique_issues_succeeded")
-        failed = proxy_metrics.get("unique_issues_failed")
-        if all(isinstance(value, (int, float)) for value in (attempted, succeeded, failed)):
-            proxy_metrics["unique_issues_neutral"] = max(
-                int(attempted) - int(succeeded) - int(failed),
-                0,
+    attempted = _proxy_count(
+        proxy_metrics.get("unique_issues_attempted"),
+        field="unique_issues_attempted",
+    )
+    succeeded = _proxy_count(
+        proxy_metrics.get("unique_issues_succeeded"),
+        field="unique_issues_succeeded",
+    )
+    failed = _proxy_count(
+        proxy_metrics.get("unique_issues_failed"),
+        field="unique_issues_failed",
+    )
+    if attempted is not None and succeeded is not None and failed is not None:
+        neutral = _proxy_count(
+            proxy_metrics.get("unique_issues_neutral"),
+            field="unique_issues_neutral",
+        )
+        expected_neutral = attempted - succeeded - failed
+        if expected_neutral < 0:
+            raise ValueError(
+                "proxy metrics inconsistent: unique_issues_succeeded + "
+                "unique_issues_failed exceeds unique_issues_attempted"
+            )
+        if neutral is None:
+            proxy_metrics["unique_issues_neutral"] = expected_neutral
+        elif neutral != expected_neutral:
+            raise ValueError(
+                "proxy metrics inconsistent: unique_issues_neutral must equal "
+                "unique_issues_attempted - unique_issues_succeeded - unique_issues_failed"
             )
 
     if "neutral_classes" not in proxy_metrics and terminal_class_distribution:
@@ -302,6 +380,9 @@ def render_status_markdown(
     failure_distribution = dict(scorecard_payload.get("failure_class_distribution") or {})
     rescue_counts = dict(scorecard_payload.get("rescue_counts_by_type") or {})
     neutral_classes = dict(proxy_metrics.get("neutral_classes") or {})
+    issue_records = [
+        item for item in list(truth_payload.get("issues") or []) if isinstance(item, dict)
+    ]
     corpus_freshness = dict(truth_payload.get("corpus_freshness") or {})
     stale_closed_issues = [
         item
@@ -368,8 +449,8 @@ def render_status_markdown(
             "",
             "## Published Paths",
             "",
-            f"- Latest truth artifact: `{_repo_stable_path(truth_path)}`",
-            f"- Latest scorecard: `{_repo_stable_path(scorecard_path)}`",
+            f"- Corpus-scoped truth pointer: `{_repo_stable_path(truth_path)}`",
+            f"- Corpus-scoped scorecard pointer: `{_repo_stable_path(scorecard_path)}`",
             f"- Revision-scoped truth pointer: `{_repo_stable_path(latest_paths['truth_revision_latest'])}`",
             f"- Revision-scoped scorecard pointer: `{_repo_stable_path(latest_paths['scorecard_revision_latest'])}`",
             "",
@@ -414,8 +495,16 @@ def render_status_markdown(
                     f"{_format_percent(in_flight_metrics.get('in_progress_graduation_rate'))} |"
                 ),
                 (
-                    "| In-progress issue numbers | "
+                    "| Expected in-progress issue numbers | "
                     f"{_format_issue_numbers(in_flight_metrics.get('in_progress_issue_numbers'))} |"
+                ),
+                (
+                    "| Live-open expected issue numbers | "
+                    f"{_format_issue_numbers(_issue_numbers_for_records(issue_records, state='OPEN'))} |"
+                ),
+                (
+                    "| Live-closed expected issue numbers | "
+                    f"{_format_issue_numbers(_issue_numbers_for_records(issue_records, state='CLOSED'))} |"
                 ),
             ]
         )
@@ -608,23 +697,37 @@ def main(argv: list[str] | None = None) -> int:
         expected_corpus_id=expected_corpus_id,
         expected_revision=expected_revision,
     )
+    truth_revision_payload = _load_expected_latest_payload(
+        path=latest_paths["truth_revision_latest"],
+        label="truth artifact revision latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
+    _require_matching_latest_payloads(
+        corpus_latest_payload=truth_payload,
+        revision_latest_payload=truth_revision_payload,
+        corpus_latest_path=truth_path,
+        revision_latest_path=latest_paths["truth_revision_latest"],
+        label="truth artifact",
+    )
     scorecard_payload = _load_expected_latest_payload(
         path=scorecard_path,
         label="scorecard latest.json",
         expected_corpus_id=expected_corpus_id,
         expected_revision=expected_revision,
     )
-    _load_expected_latest_payload(
-        path=latest_paths["truth_revision_latest"],
-        label="truth artifact revision latest.json",
-        expected_corpus_id=expected_corpus_id,
-        expected_revision=expected_revision,
-    )
-    _load_expected_latest_payload(
+    scorecard_revision_payload = _load_expected_latest_payload(
         path=latest_paths["scorecard_revision_latest"],
         label="scorecard revision latest.json",
         expected_corpus_id=expected_corpus_id,
         expected_revision=expected_revision,
+    )
+    _require_matching_latest_payloads(
+        corpus_latest_payload=scorecard_payload,
+        revision_latest_payload=scorecard_revision_payload,
+        corpus_latest_path=scorecard_path,
+        revision_latest_path=latest_paths["scorecard_revision_latest"],
+        label="scorecard",
     )
 
     content = render_status_markdown(

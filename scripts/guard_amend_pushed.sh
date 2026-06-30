@@ -23,22 +23,21 @@ REMOTE="origin"
 BRANCH=""
 
 usage() {
-    cat <<'EOF'
-Usage: scripts/guard_amend_pushed.sh [--remote NAME] [--branch NAME]
-
-Refuses `git commit --amend` when the current HEAD is already published
-on the remote tracking branch. Implements v13 rule R19.
-
-Options:
-  --remote NAME   remote name (default: origin)
-  --branch NAME   branch name (default: current branch from HEAD)
-  -h, --help      show this help and exit
-
-Exit codes:
-  0  amend is safe (HEAD ahead of remote, or remote branch absent)
-  1  AMEND-BLOCKED (HEAD == remote tip)
-  2  usage / invocation error
-EOF
+    printf '%s\n' \
+        "Usage: scripts/guard_amend_pushed.sh [--remote NAME] [--branch NAME]" \
+        "" \
+        'Refuses `git commit --amend` when the current HEAD is already published' \
+        "on the remote tracking branch. Implements v13 rule R19." \
+        "" \
+        "Options:" \
+        "  --remote NAME   remote name (default: origin)" \
+        "  --branch NAME   branch name (default: current branch from HEAD)" \
+        "  -h, --help      show this help and exit" \
+        "" \
+        "Exit codes:" \
+        "  0  amend is safe (HEAD ahead of remote, or remote branch absent)" \
+        "  1  AMEND-BLOCKED (HEAD == remote tip)" \
+        "  2  usage / invocation error"
 }
 
 while [[ $# -gt 0 ]]; do

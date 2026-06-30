@@ -22,7 +22,7 @@
 **Step 1: Fetch latest main and rebase the PR branch**
 
 ```bash
-cd /Users/armand/Development/aragora/.claude/worktrees/practicality-fix
+cd ~/aragora/.claude/worktrees/practicality-fix
 git fetch origin main
 git rebase origin/main
 ```

@@ -71,17 +71,17 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 
 ```bash
 # Option 1: Deploy key (recommended)
-argocd repo add https://github.com/an0mium/aragora \
+argocd repo add https://github.com/synaptent/aragora \
   --ssh-private-key-path ~/.ssh/aragora-deploy-key
 
 # Option 2: GitHub App (enterprise)
-argocd repo add https://github.com/an0mium/aragora \
+argocd repo add https://github.com/synaptent/aragora \
   --github-app-id <app-id> \
   --github-app-installation-id <installation-id> \
   --github-app-private-key-path ./github-app.pem
 
 # Option 3: HTTPS with token
-argocd repo add https://github.com/an0mium/aragora \
+argocd repo add https://github.com/synaptent/aragora \
   --username git \
   --password <github-token>
 ```
@@ -256,7 +256,7 @@ argocd app get aragora-us-east-2
 argocd app sync aragora-us-east-2 --dry-run
 
 # Check repo connectivity
-argocd repo get https://github.com/an0mium/aragora
+argocd repo get https://github.com/synaptent/aragora
 ```
 
 ### Health Check Failed

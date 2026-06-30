@@ -274,7 +274,12 @@ class TestInitOfficialRLM:
                     with patch("aragora.rlm.bridge.OfficialRLM", mock_rlm_cls):
                         from aragora.rlm.bridge import AragoraRLM
 
-                        instance = AragoraRLM(backend_config=cfg)
+                        # Credential gate (#8101) would skip init when no
+                        # provider key is configured in the test env.
+                        with patch.object(
+                            AragoraRLM, "_backend_has_usable_credential", return_value=True
+                        ):
+                            instance = AragoraRLM(backend_config=cfg)
         return instance, mock_rlm_cls, fake_logger_mod
 
     # -- Trajectory logging --

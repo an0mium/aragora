@@ -353,6 +353,146 @@ class TestDemoIntegration:
         assert exc.value.code == 0
         assert "Result: VALID" in capsys.readouterr().out
 
+    def test_demo_receipt_passes_top_level_verify(self, tmp_path, capsys):
+        """Saved demo receipts must verify VALID under the top-level ``aragora verify``.
+
+        Regression for the producer/consumer contract mismatch: ``_save_demo_receipt``
+        emits ``artifact_hash`` (the canonical content hash) but no ``checksum`` key,
+        while ``aragora verify`` previously treated a missing ``checksum`` as a hard
+        failure. The documented onboarding next-step (``aragora verify <receipt>``)
+        must report the demo receipt as valid. Drives the same code path the
+        ``aragora demo --offline`` CLI uses (``_run_demo_debate``).
+        """
+        import asyncio
+
+        from aragora.cli.commands.verify import _verify_receipt, cmd_verify
+        from aragora.cli.demo import _run_demo_debate
+
+        result, elapsed = asyncio.run(
+            _run_demo_debate("Should we adopt microservices or keep our monolith?")
+        )
+        capsys.readouterr()  # drain demo output
+
+        receipt_path = tmp_path / "aragora-demo-receipt.json"
+        _save_demo_receipt(result, elapsed, str(receipt_path))
+
+        saved = json.loads(receipt_path.read_text())
+        # The producer emits artifact_hash, not a literal checksum key.
+        assert saved.get("artifact_hash")
+        assert "checksum" not in saved
+
+        # Direct invariant: the verifier accepts the canonical artifact_hash.
+        report = _verify_receipt(saved)
+        checksum_check = next(c for c in report["checks"] if c["name"] == "integrity")
+        assert checksum_check["passed"] is True, checksum_check["detail"]
+        assert report["valid"] is True, report["checks"]
+
+        # End-to-end: the CLI entry point returns exit code 0.
+        args = argparse.Namespace(
+            receipt_path=str(receipt_path), output_format="json", verbose=False
+        )
+        rc = cmd_verify(args)
+        assert rc == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["valid"] is True
+
+    def test_demo_receipt_top_level_verify_detects_tampering(self, tmp_path, capsys):
+        """Tampering a demo receipt's verdict must be caught by ``aragora verify``."""
+        import asyncio
+
+        from aragora.cli.commands.verify import _verify_receipt
+        from aragora.cli.demo import _run_demo_debate
+
+        result, elapsed = asyncio.run(
+            _run_demo_debate("Should we adopt microservices or keep our monolith?")
+        )
+        capsys.readouterr()  # drain demo output
+
+        receipt_path = tmp_path / "aragora-demo-receipt.json"
+        _save_demo_receipt(result, elapsed, str(receipt_path))
+
+        saved = json.loads(receipt_path.read_text())
+        # Sanity: untampered receipt verifies.
+        assert _verify_receipt(saved)["valid"] is True
+
+        # Tamper the verdict without recomputing artifact_hash.
+        saved["verdict"] = "rejected" if saved["verdict"] != "rejected" else "approved"
+        report = _verify_receipt(saved)
+        integrity_check = next(c for c in report["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is False
+        assert report["valid"] is False
+
+    def test_demo_receipt_integrity_coverage_is_honest(self, tmp_path, capsys):
+        """The integrity check must report an accurate ``covers`` scope.
+
+        Codex P1: ``aragora verify`` must not overclaim. The artifact_hash only
+        protects the decision-integrity fields, so the reported coverage must list
+        exactly those fields and must NOT include presentational fields like
+        ``timestamp`` or ``schema_version``. Conversely, tampering a covered field
+        (confidence) must still FAIL.
+        """
+        import asyncio
+
+        from aragora.cli.commands.verify import _INTEGRITY_HASH_FIELDS, _verify_receipt
+        from aragora.cli.demo import _run_demo_debate
+
+        result, elapsed = asyncio.run(
+            _run_demo_debate("Should we adopt microservices or keep our monolith?")
+        )
+        capsys.readouterr()
+
+        receipt_path = tmp_path / "aragora-demo-receipt.json"
+        _save_demo_receipt(result, elapsed, str(receipt_path))
+        saved = json.loads(receipt_path.read_text())
+
+        report = _verify_receipt(saved)
+        integrity_check = next(c for c in report["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is True
+
+        # Coverage is explicit and accurate: exactly the decision-integrity fields.
+        covers = set(integrity_check.get("covers", []))
+        assert covers == set(_INTEGRITY_HASH_FIELDS)
+        # Presentational fields are NOT claimed as integrity-protected.
+        assert "timestamp" not in covers
+        assert "schema_version" not in covers
+        # But the fields the hash DOES cover are present in the claim.
+        assert {"verdict", "confidence", "receipt_id"} <= covers
+
+        # Tampering a covered decision field (confidence) must still FAIL.
+        tampered = dict(saved)
+        tampered["confidence"] = 0.0 if saved.get("confidence") != 0.0 else 1.0
+        tampered_report = _verify_receipt(tampered)
+        tampered_check = next(c for c in tampered_report["checks"] if c["name"] == "integrity")
+        assert tampered_check["passed"] is False
+        assert tampered_report["valid"] is False
+
+    def test_demo_receipt_verify_result_wording_is_scoped(self, tmp_path, capsys):
+        """An unsigned demo receipt's VALID result must not claim whole-payload safety."""
+        import asyncio
+
+        from aragora.cli.commands.verify import cmd_verify
+        from aragora.cli.demo import _run_demo_debate
+
+        result, elapsed = asyncio.run(
+            _run_demo_debate("Should we adopt microservices or keep our monolith?")
+        )
+        capsys.readouterr()
+
+        receipt_path = tmp_path / "aragora-demo-receipt.json"
+        _save_demo_receipt(result, elapsed, str(receipt_path))
+
+        args = argparse.Namespace(
+            receipt_path=str(receipt_path), output_format="text", verbose=False
+        )
+        rc = cmd_verify(args)
+        out = capsys.readouterr().out
+        assert rc == 0
+        # Result must be scoped to decision-integrity fields, not "not tampered with".
+        assert "VALID -- decision-integrity fields verified" in out
+        assert "not tamper-evidence" in out
+        # Must not overclaim full-payload integrity on an unsigned receipt.
+        assert "full-payload integrity verified" not in out
+
 
 class TestOfflineMockFallback:
     def test_builtin_fallback_prints_standard_markers(self, capsys):

@@ -25,9 +25,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -42,9 +44,6 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-from aragora.swarm.agent_bridge.exceptions import TransportError
-from aragora.swarm.agent_bridge.harnesses import create_transport
 
 try:
     # When run as `python3 scripts/agent_bridge.py`, Python adds scripts/ to
@@ -93,6 +92,32 @@ DEFAULT_STALE_TTL_HOURS = 24
 HEARTBEAT_FRESH_SECONDS = 15 * 60
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
+RESOLVED_STEERING_OUTCOMES = {
+    "obeyed",
+    "stale",
+    "superseded",
+    "completed",
+}
+DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS = 5.0
+
+
+class _LazyTransportError(Exception):
+    """Placeholder so tests can monkeypatch create_transport without eager imports."""
+
+
+TransportError: type[Exception] = _LazyTransportError
+create_transport: Any | None = None
+
+
+def _load_transport_runtime() -> tuple[type[Exception], Any]:
+    global TransportError, create_transport
+    if create_transport is None:
+        from aragora.swarm.agent_bridge.exceptions import TransportError as bridge_error
+        from aragora.swarm.agent_bridge.harnesses import create_transport as bridge_transport
+
+        TransportError = bridge_error
+        create_transport = bridge_transport
+    return TransportError, create_transport
 
 
 def _state_root_bridge_dir() -> Path:
@@ -791,42 +816,67 @@ def _active_owner_payload(
 
 
 def _load_broker_run_summaries() -> list[dict[str, Any]]:
-    try:
-        from aragora.swarm.agent_bridge.store import BridgeStore
-    except ImportError:
+    runs_root = CANONICAL_REPO_ROOT / ".aragora" / "agent_bridge" / "runs"
+    if not runs_root.exists():
         return []
-
+    runs: list[dict[str, Any]] = []
     try:
-        store = BridgeStore(CANONICAL_REPO_ROOT)
-        runs = []
-        for run_path in store.runs_root().glob("*/run.json"):
-            run = store.load_run(run_path.parent.name)
+        for run_path in runs_root.glob("*/run.json"):
+            run_payload = json.loads(run_path.read_text(encoding="utf-8"))
+            if not isinstance(run_payload, dict):
+                continue
+            run_id = str(run_payload.get("run_id") or run_path.parent.name)
+            sessions: dict[str, dict[str, Any]] = {}
+            sessions_path = run_path.parent / "sessions.json"
             try:
-                registry = store.load_sessions(run.run_id)
-                sessions = {role: session.to_dict() for role, session in registry.sessions.items()}
-            except (OSError, TypeError, json.JSONDecodeError, KeyError):
+                sessions_payload = json.loads(sessions_path.read_text(encoding="utf-8"))
+                raw_sessions = (
+                    sessions_payload.get("sessions", {})
+                    if isinstance(sessions_payload, dict)
+                    else {}
+                )
+                if isinstance(raw_sessions, dict):
+                    sessions = {
+                        str(role): session
+                        for role, session in raw_sessions.items()
+                        if isinstance(session, dict)
+                    }
+            except (OSError, TypeError, json.JSONDecodeError):
                 sessions = {}
+            participants = run_payload.get("participants", [])
+            if not isinstance(participants, list):
+                participants = []
             runs.append(
                 {
-                    "run_id": run.run_id,
-                    "status": run.status,
-                    "updated_at": run.updated_at,
-                    "next_actor": run.next_actor,
-                    "last_turn_index": run.last_turn_index,
-                    "participants": [participant.to_dict() for participant in run.participants],
+                    "run_id": run_id,
+                    "status": run_payload.get("status"),
+                    "updated_at": run_payload.get("updated_at"),
+                    "next_actor": run_payload.get("next_actor"),
+                    "last_turn_index": run_payload.get("last_turn_index"),
+                    "participants": [
+                        participant for participant in participants if isinstance(participant, dict)
+                    ],
                     "sessions": sessions,
                 }
             )
         runs.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
         return runs
-    except (OSError, TypeError, json.JSONDecodeError, KeyError, ValueError):
+    except (OSError, TypeError, json.JSONDecodeError, ValueError):
         return []
+
+
+def _is_current_broker_run(run: dict[str, Any]) -> bool:
+    return run.get("status") in ACTIVE_LANE_STATUSES or run.get("status") == "awaiting_human"
+
+
+def _filter_current_broker_runs(broker_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [run for run in broker_runs if _is_current_broker_run(run)]
 
 
 def _active_broker_session_ids(broker_runs: list[dict[str, Any]]) -> set[str]:
     ids: set[str] = set()
     for run in broker_runs:
-        if run.get("status") not in ACTIVE_LANE_STATUSES and run.get("status") != "awaiting_human":
+        if not _is_current_broker_run(run):
             continue
         sessions = run.get("sessions", {})
         if not isinstance(sessions, dict):
@@ -891,8 +941,8 @@ def _active_lane_identity_conflicts(records: list["LaneRecord"]) -> list[dict[st
 
 def _collect_health_issues(
     sessions: list[Session], records: list[LaneRecord]
-) -> list[dict[str, str]]:
-    issues: list[dict[str, str]] = []
+) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
     active_lane_owners = {
         record.owner_session for record in records if record.status in ACTIVE_LANE_STATUSES
     }
@@ -920,6 +970,14 @@ def _collect_health_issues(
                         "type": "stale_worktree",
                         "session": s.name,
                         "detail": f"dead session with lingering worktree: {s.worktree}",
+                        "owner_state": "stale_session",
+                        "lifecycle": lifecycle,
+                        "worktree": s.worktree,
+                        "worktree_exists": True,
+                        "cleanup_state": "stale_lingering_worktree",
+                        "recommended_operator_action": (
+                            "inspect with safe_worktree_cleanup.py before any removal"
+                        ),
                     }
                 )
             continue
@@ -931,6 +989,14 @@ def _collect_health_issues(
                     "type": "stale_worktree",
                     "session": s.name,
                     "detail": f"worktree path missing: {s.worktree}",
+                    "owner_state": "active_or_current_session",
+                    "lifecycle": lifecycle,
+                    "worktree": s.worktree,
+                    "worktree_exists": False,
+                    "cleanup_state": "missing_path_metadata",
+                    "recommended_operator_action": (
+                        "verify lane ownership before pruning metadata"
+                    ),
                 }
             )
 
@@ -946,6 +1012,12 @@ def _collect_health_issues(
                     "type": "ambiguous_lane",
                     "session": ", ".join(owners),
                     "detail": f"lane '{lane_id}' claimed by multiple active sessions",
+                    "owner_state": "duplicate_active_owner",
+                    "lane_id": lane_id,
+                    "owner_sessions": owners,
+                    "recommended_operator_action": (
+                        "resolve duplicate active owners before mutation or cleanup"
+                    ),
                 }
             )
 
@@ -958,6 +1030,13 @@ def _collect_health_issues(
                     "type": "lane_missing_next_action",
                     "session": r.owner_session,
                     "detail": f"active lane '{r.lane_id}' has no actionable next_action",
+                    "owner_state": "active_lane_incomplete_metadata",
+                    "lane_id": r.lane_id,
+                    "status": r.status,
+                    "worktree": r.worktree or None,
+                    "recommended_operator_action": (
+                        "refresh the lane with a concrete next_action before routing"
+                    ),
                 }
             )
         if not r.last_steering_outcome or r.last_steering_outcome == DEFAULT_STEERING_OUTCOME:
@@ -966,6 +1045,13 @@ def _collect_health_issues(
                     "type": "lane_missing_steering_outcome",
                     "session": r.owner_session,
                     "detail": f"active lane '{r.lane_id}' has no explicit steering outcome",
+                    "owner_state": "active_lane_incomplete_metadata",
+                    "lane_id": r.lane_id,
+                    "status": r.status,
+                    "worktree": r.worktree or None,
+                    "recommended_operator_action": (
+                        "record last_steering_outcome before claiming clean routing"
+                    ),
                 }
             )
         if not r.last_heartbeat_at:
@@ -974,6 +1060,14 @@ def _collect_health_issues(
                     "type": "lane_missing_heartbeat",
                     "session": r.owner_session,
                     "detail": f"active lane '{r.lane_id}' has no heartbeat timestamp",
+                    "owner_state": "active_lane_missing_liveness",
+                    "lane_id": r.lane_id,
+                    "status": r.status,
+                    "worktree": r.worktree or None,
+                    "heartbeat_state": "missing",
+                    "recommended_operator_action": (
+                        "start or refresh agent_heartbeat.py before treating owner as live"
+                    ),
                 }
             )
 
@@ -985,6 +1079,15 @@ def _collect_health_issues(
                     "type": "lane_conflict",
                     "session": r.owner_session,
                     "detail": f"lane '{r.lane_id}' in conflict with {r.conflict_session}: {r.conflict_reason}",
+                    "owner_state": "lane_conflict",
+                    "lane_id": r.lane_id,
+                    "status": r.status,
+                    "worktree": r.worktree or None,
+                    "conflict_session": r.conflict_session,
+                    "conflict_reason": r.conflict_reason,
+                    "recommended_operator_action": (
+                        "resolve_lane_conflicts.py dry-run before mutation or cleanup"
+                    ),
                 }
             )
 
@@ -994,6 +1097,14 @@ def _collect_health_issues(
                 "type": str(conflict["type"]),
                 "session": ", ".join(conflict["owner_sessions"]),
                 "detail": str(conflict["detail"]),
+                "owner_state": "duplicate_active_owner",
+                "key_kind": conflict["key_kind"],
+                "key_value": conflict["key_value"],
+                "lane_ids": conflict["lane_ids"],
+                "owner_sessions": conflict["owner_sessions"],
+                "recommended_operator_action": (
+                    "resolve duplicate active owners before mutation or cleanup"
+                ),
             }
         )
 
@@ -1007,6 +1118,8 @@ def _classify_agent_process(command: str) -> str | None:
         return None
     if "codex_worktree_value_inventory.py" in lowered:
         return "worktree_inventory"
+    if "render_benchmark_truth_status.py" in lowered:
+        return "benchmark_truth"
     if "run_boss_cycle.sh" in lowered:
         return "boss_cycle"
     if (
@@ -1040,6 +1153,7 @@ def _process_summary_for_role(role: str) -> str:
         "claude_code": "Claude Code local session process",
         "codex_app_server": "Codex Desktop app server process",
         "codex_cli": "Codex CLI process",
+        "benchmark_truth": "benchmark-truth status and latest-pointer guard process",
         "factory_droid": "Factory/Droid local agent process",
         "multi_agent_dialog": "multi-agent review dialog process",
         "publisher": "Codex automation publisher process",
@@ -1327,8 +1441,344 @@ def cmd_sessions(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Launch dispatch verification (issue #8317)
+#
+# A dispatched lane can die silently when the launcher pastes the prompt into
+# the harness composer but the trailing Enter never registers as a submit: the
+# lane registry shows a launched lane while the prompt sits staged in the
+# composer forever.  These helpers read back the pane after launch, confirm
+# the prompt actually left the composer, nudge it with exactly ONE Enter if it
+# is still staged, and persist a "dispatch" receipt into the launcher's lane
+# metadata entry so liveness checks can breach on staged-but-unsubmitted
+# lanes.
+# ---------------------------------------------------------------------------
+
+DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS = 5.0
+SUBMIT_VERIFY_POLLS = 3
+# After a confident Enter nudge, give the harness a moment to clear the
+# composer with a short second re-poll instead of a single fixed wait, so a
+# harness that needs a beat is not recorded undelivered prematurely.
+SUBMIT_VERIFY_NUDGE_REPOLLS = 2
+SUBMIT_VERIFY_NUDGE_REPOLL_INTERVAL = 1.5
+_PASTE_PLACEHOLDER_RE = re.compile(r"\[Pasted (?:Content|text)\b", re.IGNORECASE)
+
+
+def _default_tmux_runner(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run a tmux command with a bounded timeout; injectable for tests."""
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+
+
+def _launch_uses_interactive_paste(agent: str, *, autonomous: bool) -> bool:
+    """True when tmux_session_launcher.sh delivers the prompt via paste.
+
+    Claude lanes are always interactive (prompt pasted after readiness).
+    Codex lanes paste only when not autonomous (autonomous prompted Codex
+    uses ``codex exec`` which consumes the prompt directly).  Droid/Factory
+    prompted lanes always use ``droid exec -f`` -- nothing to verify.
+    """
+    if agent == "claude":
+        return True
+    return agent == "codex" and not autonomous
+
+
+def _launched_pane_target(name: str) -> tuple[str | None, str | None]:
+    """Resolve the tmux pane target for a freshly launched lane.
+
+    Returns ``(target, reason)``.  ``reason`` is ``None`` on success; on failure
+    ``target`` is ``None`` and ``reason`` is a short diagnostic.
+
+    The meta file is the source of truth for the launched window target.  A
+    meta file that *exists but cannot be read* (OSError / JSONDecodeError, or a
+    non-dict / missing ``tmux_window_target``) fails CLOSED with
+    ``reason="meta-unreadable"`` (review fix #8338 / #8317): verifying against
+    the documented ``TMUX_SESSION:name`` fallback could capture an unrelated
+    pane and either falsely attest delivery or falsely flag an unrelated lane.
+    When the meta file is *legitimately absent* the documented fallback target
+    is returned (``reason=None``) -- there is no other pane to confuse it with.
+    """
+    meta_path = TMUX_SESSIONS_DIR / f"{name}.meta.json"
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None, "meta-unreadable"
+        if not isinstance(meta, dict):
+            return None, "meta-unreadable"
+        target = str(meta.get("tmux_window_target") or "")
+        if not target:
+            return None, "meta-unreadable"
+        return target, None
+    return f"{TMUX_SESSION}:{name}", None
+
+
+def _prompt_tail_marker(prompt: str, *, max_chars: int = 80) -> str:
+    """Last non-empty prompt line (tail-trimmed) used to spot a staged paste."""
+    for line in reversed(prompt.splitlines()):
+        cleaned = line.strip()
+        if cleaned:
+            return cleaned[-max_chars:]
+    return ""
+
+
+def _pane_shows_staged_prompt(
+    pane_text: str, marker: str, *, tail_lines: int = 25
+) -> tuple[bool, bool]:
+    """Heuristic: is the pasted prompt still sitting in the composer?
+
+    Returns ``(staged, placeholder)`` where ``staged`` is True when the prompt
+    still appears un-submitted and ``placeholder`` is True only when a tmux/
+    harness paste placeholder such as ``[Pasted Content N chars]`` is present.
+
+    The two signals are deliberately split (review fix #8338 / #8317):
+
+    * **Paste-placeholder detected** -- a high-confidence positive that the
+      prompt is genuinely staged in the composer; this is the ONLY signal the
+      caller acts on (single Enter nudge, then a confident True/False).
+    * **Bare marker-in-tail (no placeholder)** -- low-confidence and too
+      false-positive-prone to act on.  A harness routinely echoes the submitted
+      prompt back as a quoted line *after* submit, so a substring match alone is
+      not proof the composer still holds the prompt.  The verifier treats this
+      as *unverifiable* (``delivered=None``), never as a confident
+      still-staged (``False``) and never as grounds to send Enter.
+
+    The tail window scans the last ``tail_lines`` non-empty lines after ANSI
+    cleanup (wider than a handful of lines so a staged paste followed by a few
+    lines of harness chrome does not scroll the marker off the tail).  Once a
+    harness accepts a submit it appends output below the echoed prompt, so the
+    pane tail eventually moves past both markers.  Known limitation: a freshly
+    submitted prompt with no harness output yet can look staged; the bounded
+    re-poll plus the single Enter nudge (a no-op on an empty composer) covers
+    that.
+    """
+    cleaned_lines = [
+        cleaned
+        for cleaned in (_ANSI_RE.sub("", line).strip() for line in pane_text.splitlines())
+        if cleaned
+    ]
+    tail = "\n".join(cleaned_lines[-tail_lines:])
+    if _PASTE_PLACEHOLDER_RE.search(tail):
+        return True, True
+    return (bool(marker) and marker in tail), False
+
+
+def _capture_pane_tail(
+    target: str,
+    runner: Any = None,
+    *,
+    lines: int = 40,
+) -> str | None:
+    """Read back the pane contents for submit verification.
+
+    Returns the captured pane text on success (possibly an empty string for a
+    genuinely empty pane), or ``None`` when the capture itself failed -- a tmux
+    subprocess error, a non-zero returncode (e.g. dead/missing pane), or an
+    OSError.  Callers must treat ``None`` as *unverifiable* and never collapse
+    it into a clean "delivered" outcome (review fix #8338 / #8317): a
+    capture-failure is not evidence the prompt left the composer.
+    """
+    run = runner or _default_tmux_runner
+    try:
+        result = run(["tmux", "capture-pane", "-t", target, "-p", "-S", f"-{lines}"])
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if getattr(result, "returncode", 1) != 0:
+        return None
+    return str(getattr(result, "stdout", "") or "")
+
+
+def _verify_prompt_submission(
+    target: str,
+    prompt: str,
+    *,
+    timeout_seconds: float = DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS,
+    polls: int = SUBMIT_VERIFY_POLLS,
+    runner: Any = None,
+    sleep: Any = None,
+) -> dict[str, Any]:
+    """Confirm a pasted prompt left the composer; nudge once if confidently staged.
+
+    Polls the pane up to ``polls`` times within ``timeout_seconds`` and records
+    a tri-state ``delivered`` outcome (review fix #8338 / #8317):
+
+    * ``True``  -- a paste placeholder was positively detected and then cleared
+      (submitted), or no staged signal was ever seen.
+    * ``False`` -- a paste placeholder was positively detected and *persisted*
+      through the single Enter nudge and the short re-poll (still staged).
+    * ``None``  -- submission could not be verified either way.  This covers a
+      failed pane capture (``reason: "capture-failed"``), a bare marker-in-tail
+      match with no placeholder (``reason: "marker-only"`` -- too
+      false-positive-prone to act on), and a nudge that ``tmux send-keys``
+      rejected (``reason: "nudge-failed"``).
+
+    A corrective Enter is sent only on a *positive* paste-placeholder
+    detection -- the one high-confidence signal the prompt genuinely sits in
+    the composer.  A bare marker-in-tail match is NEVER auto-submitted (a
+    harness echoes the submitted prompt back as a quoted line, so it is not
+    proof the composer still holds it) and is reported as unverifiable rather
+    than a confident False.  At most ONE Enter is ever sent, and only when
+    ``tmux send-keys`` actually succeeds (returncode 0); a rejected send is
+    recorded as unverifiable rather than falsely attested.
+
+    After a confident nudge the composer is re-polled with a short bounded
+    loop (``SUBMIT_VERIFY_NUDGE_REPOLLS`` polls) so a harness that needs a beat
+    to clear the composer is not recorded undelivered prematurely.
+    """
+    run = runner or _default_tmux_runner
+    if sleep is None:
+        sleep = time.sleep
+    marker = _prompt_tail_marker(prompt)
+    polls = max(1, int(polls))
+    interval = max(0.1, float(timeout_seconds) / polls)
+    attempts = 0
+    enter_nudges = 0
+    capture_failed = False
+    saw_marker_only = False
+    staged = False
+    placeholder = False
+    for poll_index in range(polls):
+        attempts += 1
+        pane = _capture_pane_tail(target, run)
+        if pane is None:
+            capture_failed = True
+            break
+        capture_failed = False
+        marker_staged, placeholder = _pane_shows_staged_prompt(pane, marker)
+        if placeholder:
+            # High-confidence staged: a paste placeholder is in the composer.
+            staged = True
+            break
+        if marker_staged:
+            # Low-confidence: bare marker echo. Record it but keep polling --
+            # the placeholder (if any) may surface, or the echo may scroll off.
+            saw_marker_only = True
+            staged = False
+        else:
+            staged = False
+            saw_marker_only = False
+            break
+        if poll_index < polls - 1:
+            sleep(interval)
+
+    delivered: bool | None
+    reason: str | None = None
+    nudge_failed = False
+
+    if capture_failed:
+        delivered = None
+        reason = "capture-failed"
+    elif placeholder:
+        # Positive staged signal -> send exactly one Enter, then re-poll briefly.
+        sent = False
+        try:
+            result = run(["tmux", "send-keys", "-t", target, "Enter"])
+            sent = getattr(result, "returncode", 1) == 0
+        except (subprocess.SubprocessError, OSError):
+            sent = False
+        if not sent:
+            nudge_failed = True
+            delivered = None
+            reason = "nudge-failed"
+        else:
+            enter_nudges = 1
+            still_placeholder = True
+            for _ in range(max(1, int(SUBMIT_VERIFY_NUDGE_REPOLLS))):
+                sleep(min(interval, SUBMIT_VERIFY_NUDGE_REPOLL_INTERVAL))
+                attempts += 1
+                pane = _capture_pane_tail(target, run)
+                if pane is None:
+                    capture_failed = True
+                    break
+                _marker_staged, still_placeholder = _pane_shows_staged_prompt(pane, marker)
+                if not still_placeholder:
+                    break
+            if capture_failed:
+                delivered = None
+                reason = "capture-failed"
+            elif still_placeholder:
+                # Placeholder positively persisted through the nudge+repoll.
+                delivered = False
+            else:
+                delivered = True
+    elif saw_marker_only:
+        # Bare marker echo, never a placeholder: too false-positive-prone to
+        # call either way. Unverifiable, and no Enter was sent.
+        delivered = None
+        reason = "marker-only"
+    else:
+        # No staged signal at all -> the prompt left the composer.
+        delivered = True
+
+    outcome: dict[str, Any] = {
+        "delivered": delivered,
+        "attempts": attempts,
+        "enter_nudges": enter_nudges,
+        "pane_target": target,
+        "verified_at": _now_iso(),
+        "method": "pane-tail-heuristic",
+    }
+    if reason is not None:
+        outcome["error"] = reason
+    if nudge_failed:
+        outcome["nudge_failed"] = True
+    return outcome
+
+
+def _record_dispatch_receipt(name: str, dispatch: dict[str, Any]) -> Path | None:
+    """Additively merge a ``dispatch`` sub-object into the lane meta entry.
+
+    Extends the metadata file tmux_session_launcher.sh already writes at
+    ``~/.aragora/tmux-sessions/<name>.meta.json``; all existing keys are
+    preserved.  Sentinels (e.g. lane_liveness) can breach on
+    ``dispatch.delivered == false`` for staged-but-unsubmitted lanes.
+    """
+    meta_path = TMUX_SESSIONS_DIR / f"{name}.meta.json"
+    payload: dict[str, Any] = {}
+    if meta_path.exists():
+        try:
+            loaded = json.loads(meta_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                payload = loaded
+        except (OSError, json.JSONDecodeError):
+            payload = {}
+    payload.setdefault("name", name)
+    payload["dispatch"] = dispatch
+    try:
+        _atomic_write_json(meta_path, payload)
+    except OSError:
+        return None
+    return meta_path
+
+
+def _install_sigpipe_hygiene() -> None:
+    """Keep dispatch exit codes truthful when a stdout consumer exits early.
+
+    Without this, a downstream reader closing its end of the pipe kills the
+    launcher with SIGPIPE (exit 141) before it can report dispatch truth.
+    With SIGPIPE ignored, writes raise BrokenPipeError instead, which the
+    report paths catch explicitly.  POSIX-only; a no-op elsewhere.
+    """
+    if not hasattr(signal, "SIGPIPE"):
+        return
+    try:
+        signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+    except (OSError, ValueError):
+        pass
+
+
 def cmd_launch(args: argparse.Namespace) -> int:
     """Launch a tmux-managed harness lane, then let send/read manage it."""
+    # SIGPIPE hygiene is scoped to launch (review fix #8338 / #8317): the
+    # report writes below are wrapped in BrokenPipeError handling so a consumer
+    # closing the pipe early cannot mask the dispatch outcome. Other subcommands
+    # keep their default SIGPIPE behavior.
+    _install_sigpipe_hygiene()
     if not args.name:
         print("No session name. Use --name", file=sys.stderr)
         return 1
@@ -1399,28 +1849,122 @@ def cmd_launch(args: argparse.Namespace) -> int:
         print(f"Launch failed: {exc}", file=sys.stderr)
         return 1
 
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "ok": result.returncode == 0,
-                    "name": args.name,
-                    "agent": agent,
-                    "cwd": str(launch_cwd),
-                    "returncode": result.returncode,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                },
-                indent=2,
-            )
-        )
-    else:
-        if result.stdout:
-            print(result.stdout, end="")
-        if result.stderr:
-            print(result.stderr, end="", file=sys.stderr)
+    dispatch = _verify_launch_dispatch(args, agent=agent, launch_ok=result.returncode == 0)
+    exit_code = result.returncode
+    # Verification is OBSERVATIONAL by default (review fix #8338 / #8317): the
+    # tri-state dispatch receipt is ALWAYS written (that is the durable signal
+    # lane_liveness reads), but it does NOT flip cmd_launch's exit code.  A
+    # successful launch returns its normal rc regardless of whether the prompt
+    # was confirmed submitted -- changing the default broke every caller (CI,
+    # retry loops, the funnel automation) that treats rc!=0 as launch failure.
+    # Exit-code enforcement is opt-in via --strict-verify: only then does a
+    # non-delivered (False) or unverifiable (None) dispatch produce rc=1.
+    if (
+        getattr(args, "strict_verify", False)
+        and exit_code == 0
+        and dispatch is not None
+        and dispatch.get("delivered") is not True
+    ):
+        exit_code = 1
 
-    return result.returncode
+    # Report writes are wrapped so a consumer closing the pipe early cannot
+    # mask the dispatch outcome (see _install_sigpipe_hygiene / issue #8317).
+    try:
+        if args.json:
+            payload: dict[str, Any] = {
+                "ok": exit_code == 0,
+                "name": args.name,
+                "agent": agent,
+                "cwd": str(launch_cwd),
+                "returncode": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+            if dispatch is not None:
+                payload["dispatch"] = dispatch
+            print(json.dumps(payload, indent=2))
+        else:
+            if result.stdout:
+                print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, end="", file=sys.stderr)
+            if dispatch is not None and dispatch.get("delivered") is not True:
+                if dispatch.get("delivered") is None:
+                    print(
+                        f"Prompt submission for '{args.name}' could not be "
+                        f"verified after {dispatch.get('attempts', 0)} check(s) "
+                        f"({dispatch.get('error', 'capture-failed')}); "
+                        "dispatch receipt records delivered=null (unverifiable).",
+                        file=sys.stderr,
+                    )
+                else:
+                    print(
+                        f"Prompt for '{args.name}' still staged in the composer "
+                        f"after {dispatch.get('attempts', 0)} check(s); "
+                        "dispatch receipt records delivered=false.",
+                        file=sys.stderr,
+                    )
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+    return exit_code
+
+
+def _verify_launch_dispatch(
+    args: argparse.Namespace,
+    *,
+    agent: str,
+    launch_ok: bool,
+) -> dict[str, Any] | None:
+    """Run post-launch submit verification and persist the dispatch receipt.
+
+    Returns the dispatch outcome dict, or None when verification does not
+    apply (launch failed, no prompt, exec-style delivery, or verification
+    disabled via ``--submit-verify-timeout 0``).
+    """
+    if not launch_ok:
+        return None
+    timeout_seconds = float(
+        getattr(args, "submit_verify_timeout", DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS) or 0.0
+    )
+    if timeout_seconds <= 0:
+        return None
+    if not _launch_uses_interactive_paste(
+        agent, autonomous=bool(getattr(args, "autonomous", False))
+    ):
+        return None
+    prompt = ""
+    if getattr(args, "file", None):
+        try:
+            prompt = Path(args.file).read_text(encoding="utf-8")
+        except OSError:
+            return None
+    elif getattr(args, "prompt", None):
+        prompt = " ".join(args.prompt)
+    if not prompt.strip():
+        return None
+    target, target_reason = _launched_pane_target(args.name)
+    if target is None:
+        # The meta file existed but could not be read for a trustworthy pane
+        # target.  Fail CLOSED to unverifiable rather than capturing a possibly
+        # unrelated fallback pane (review fix #8338 / #8317).
+        dispatch: dict[str, Any] = {
+            "delivered": None,
+            "attempts": 0,
+            "enter_nudges": 0,
+            "pane_target": None,
+            "verified_at": _now_iso(),
+            "method": "pane-tail-heuristic",
+            "error": target_reason or "meta-unreadable",
+        }
+    else:
+        dispatch = _verify_prompt_submission(
+            target,
+            prompt,
+            timeout_seconds=timeout_seconds,
+        )
+    _record_dispatch_receipt(args.name, dispatch)
+    return dispatch
 
 
 def cmd_exec(args: argparse.Namespace) -> int:
@@ -1453,14 +1997,33 @@ def cmd_exec(args: argparse.Namespace) -> int:
     allowed_roles = set(args.allowed_role or ["reviewer"])
 
     try:
-        transport = create_transport(
+        transport_error, transport_factory = _load_transport_runtime()
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "agent": agent,
+                        "cwd": str(launch_cwd),
+                        "error": str(exc),
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"Exec failed: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        transport = transport_factory(
             agent,
             cwd=launch_cwd,
             model=str(args.model).strip() if args.model else None,
             harness_options=harness_options,
         )
         result = transport.launch(prompt, allowed_roles=allowed_roles)
-    except (TransportError, OSError, ValueError) as exc:
+    except (transport_error, OSError, ValueError) as exc:
         if args.json:
             print(
                 json.dumps(
@@ -1727,8 +2290,27 @@ def cmd_processes(args: argparse.Namespace) -> int:
     return 0
 
 
+def _health_summary_payload(
+    issues: list[dict[str, str]], *, example_limit: int = 3
+) -> dict[str, Any]:
+    issue_type_counts: dict[str, int] = {}
+    for issue in issues:
+        issue_type = str(issue.get("type") or "unknown")
+        issue_type_counts[issue_type] = issue_type_counts.get(issue_type, 0) + 1
+    examples = issues[: max(0, example_limit)]
+    return {
+        "ok": len(issues) == 0,
+        "issue_count": len(issues),
+        "issue_type_counts": dict(sorted(issue_type_counts.items())),
+        "issue_examples": examples,
+        "issues_omitted": max(0, len(issues) - len(examples)),
+        "details_omitted": True,
+    }
+
+
 def cmd_health(args: argparse.Namespace) -> int:
     """Report stale worktrees, ambiguous lane ownership, and dead sessions."""
+    summary_only = bool(getattr(args, "summary_only", False))
     sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
     _enrich_prs(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
@@ -1761,8 +2343,22 @@ def cmd_health(args: argparse.Namespace) -> int:
         pass
 
     if args.json:
+        if summary_only:
+            print(json.dumps(_health_summary_payload(issues), indent=2))
+            return 0 if not issues else 1
         print(json.dumps({"ok": len(issues) == 0, "issues": issues}, indent=2))
         return 0 if not issues else 1
+
+    if summary_only:
+        payload = _health_summary_payload(issues)
+        if not issues:
+            print("Health OK: 0 issue(s).")
+            return 0
+        issue_counts = ", ".join(
+            f"{issue_type}={count}" for issue_type, count in payload["issue_type_counts"].items()
+        )
+        print(f"Health has {payload['issue_count']} issue(s): {issue_counts}")
+        return 1
 
     if not issues:
         print("Health OK: no stale worktrees, no lane conflicts.")
@@ -1799,9 +2395,12 @@ def _collect_pending_steering_messages(
 
         scoped:
           {count: int, latest_three: [{subject, sent_at_utc, priority,
-                                        lane_id_hint, pr_hint}]}
+                                        lane_id_hint, pr_hint}],
+           unresolved_count: int, latest_unresolved_three: [...]}
         roll-up:
-          {count: int, by_recipient: {<session>: int}, latest_three: [...]}
+          {count: int, by_recipient: {<session>: int}, latest_three: [...],
+           unresolved_count: int, unresolved_by_recipient: {<session>: int},
+           latest_unresolved_three: [...]}
 
     Acknowledged messages live in the per-recipient ``_acked/`` subdir
     (Phase D convention; the directory name starts with ``_`` so this
@@ -1813,8 +2412,29 @@ def _collect_pending_steering_messages(
         steering_root = REPO_ROOT / ".aragora" / "operator-steering"
     if not steering_root.is_dir():
         if session_name:
-            return {"count": 0, "latest_three": []}
-        return {"count": 0, "by_recipient": {}, "latest_three": []}
+            return {
+                "count": 0,
+                "latest_three": [],
+                "unresolved_count": 0,
+                "latest_unresolved_three": [],
+            }
+        return {
+            "count": 0,
+            "by_recipient": {},
+            "latest_three": [],
+            "unresolved_count": 0,
+            "unresolved_by_recipient": {},
+            "latest_unresolved_three": [],
+        }
+
+    def _message_key(path: Path) -> tuple[str, str]:
+        try:
+            message = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            message = {}
+        if not isinstance(message, dict):
+            message = {}
+        return (path.name, str(message.get("message_sha256") or ""))
 
     def _summary_from(path: Path) -> dict[str, Any]:
         try:
@@ -1850,17 +2470,24 @@ def _collect_pending_steering_messages(
         # consumed messages per the Phase D convention.
         return [p for p in dir_path.glob("*.json") if p.is_file()]
 
-    def _read_receipt_summary(dir_path: Path, files: list[Path]) -> dict[str, Any]:
+    def _read_receipt_summary(
+        dir_path: Path,
+        files: list[Path],
+    ) -> tuple[dict[str, Any], set[tuple[str, str]]]:
         receipt_dir = dir_path / "_read_receipts"
         if not receipt_dir.is_dir():
-            return {
-                "read_receipt_count": 0,
-                "unread_message_count": len(files),
-                "latest_read_receipt": None,
-            }
+            return (
+                {
+                    "read_receipt_count": 0,
+                    "unread_message_count": len(files),
+                    "latest_read_receipt": None,
+                },
+                set(),
+            )
 
         receipts: list[dict[str, Any]] = []
         read_keys: set[tuple[str, str]] = set()
+        resolved_keys: set[tuple[str, str]] = set()
         for receipt_path in receipt_dir.glob("*.json"):
             if not receipt_path.is_file():
                 continue
@@ -1872,22 +2499,17 @@ def _collect_pending_steering_messages(
                 continue
             data["_receipt_filename"] = receipt_path.name
             receipts.append(data)
-            read_keys.add(
-                (
-                    str(data.get("message_filename") or ""),
-                    str(data.get("message_sha256") or ""),
-                )
+            key = (
+                str(data.get("message_filename") or ""),
+                str(data.get("message_sha256") or ""),
             )
+            read_keys.add(key)
+            if str(data.get("outcome") or "").strip().lower() in RESOLVED_STEERING_OUTCOMES:
+                resolved_keys.add(key)
 
         unread = 0
         for message_path in files:
-            try:
-                message = json.loads(message_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                message = {}
-            if not isinstance(message, dict):
-                message = {}
-            key = (message_path.name, str(message.get("message_sha256") or ""))
+            key = _message_key(message_path)
             if key not in read_keys:
                 unread += 1
 
@@ -1904,54 +2526,85 @@ def _collect_pending_steering_messages(
                 "outcome": raw.get("outcome"),
                 "subject": raw.get("subject"),
             }
-        return {
-            "read_receipt_count": len(receipts),
-            "unread_message_count": unread,
-            "latest_read_receipt": latest,
-        }
+        return (
+            {
+                "read_receipt_count": len(receipts),
+                "unread_message_count": unread,
+                "latest_read_receipt": latest,
+            },
+            resolved_keys,
+        )
+
+    def _unresolved_files(files: list[Path], resolved_keys: set[tuple[str, str]]) -> list[Path]:
+        return [
+            message_path
+            for message_path in files
+            if _message_key(message_path) not in resolved_keys
+        ]
 
     if session_name:
         inbox_dir = steering_root / session_name
         files = _inbox_files(inbox_dir)
+        receipt_summary, resolved_keys = _read_receipt_summary(inbox_dir, files)
+        unresolved_files = _unresolved_files(files, resolved_keys)
         summaries = sorted(
             (_summary_from(p) for p in files),
+            key=lambda s: s["sent_at_utc"],
+            reverse=True,
+        )
+        unresolved_summaries = sorted(
+            (_summary_from(p) for p in unresolved_files),
             key=lambda s: s["sent_at_utc"],
             reverse=True,
         )
         return {
             "count": len(files),
             "latest_three": summaries[:3],
-            **_read_receipt_summary(inbox_dir, files),
+            "unresolved_count": len(unresolved_files),
+            "latest_unresolved_three": unresolved_summaries[:3],
+            **receipt_summary,
         }
 
     # Roll-up across all recipient dirs.
     by_recipient: dict[str, int] = {}
+    unresolved_by_recipient: dict[str, int] = {}
     read_receipts_by_recipient: dict[str, int] = {}
     all_summaries: list[dict[str, Any]] = []
+    all_unresolved_summaries: list[dict[str, Any]] = []
     total_read_receipts = 0
     total_unread = 0
+    total_unresolved = 0
     latest_receipts: list[dict[str, Any]] = []
     for child in sorted(steering_root.iterdir()):
         if not child.is_dir() or child.name.startswith("."):
             continue
         files = _inbox_files(child)
+        receipt_summary, resolved_keys = _read_receipt_summary(child, files)
+        unresolved_files = _unresolved_files(files, resolved_keys)
         if files:
             by_recipient[child.name] = len(files)
             all_summaries.extend(_summary_from(p) for p in files)
-        receipt_summary = _read_receipt_summary(child, files)
+        if unresolved_files:
+            unresolved_by_recipient[child.name] = len(unresolved_files)
+            all_unresolved_summaries.extend(_summary_from(p) for p in unresolved_files)
         total_read_receipts += int(receipt_summary["read_receipt_count"])
         total_unread += int(receipt_summary["unread_message_count"])
+        total_unresolved += len(unresolved_files)
         if receipt_summary["read_receipt_count"]:
             read_receipts_by_recipient[child.name] = int(receipt_summary["read_receipt_count"])
         latest = receipt_summary["latest_read_receipt"]
         if isinstance(latest, dict):
             latest_receipts.append(latest)
     all_summaries.sort(key=lambda s: s["sent_at_utc"], reverse=True)
+    all_unresolved_summaries.sort(key=lambda s: s["sent_at_utc"], reverse=True)
     latest_receipts.sort(key=lambda r: str(r.get("read_at_utc") or ""), reverse=True)
     return {
         "count": sum(by_recipient.values()),
         "by_recipient": by_recipient,
         "latest_three": all_summaries[:3],
+        "unresolved_count": total_unresolved,
+        "unresolved_by_recipient": unresolved_by_recipient,
+        "latest_unresolved_three": all_unresolved_summaries[:3],
         "read_receipt_count": total_read_receipts,
         "unread_message_count": total_unread,
         "read_receipts_by_recipient": read_receipts_by_recipient,
@@ -1980,12 +2633,17 @@ def _heartbeat_summary(
     now_dt: datetime,
     freshness_seconds: int,
 ) -> dict[str, Any]:
+    terminal = bool(
+        row.get("terminal") is True
+        or row.get("terminal_outcome")
+        or row.get("terminal_finalized_at")
+    )
     seen = _parse_heartbeat_timestamp(row.get("last_seen_at"))
     age_seconds: int | None = None
     fresh = False
     if seen is not None:
         age_seconds = max(0, int((now_dt - seen).total_seconds()))
-        fresh = age_seconds <= freshness_seconds
+        fresh = not terminal and age_seconds <= freshness_seconds
     return {
         "lane_id": row.get("lane_id"),
         "owner_session": row.get("owner_session"),
@@ -1998,6 +2656,10 @@ def _heartbeat_summary(
         "last_seen_at": row.get("last_seen_at"),
         "age_seconds": age_seconds,
         "fresh": fresh,
+        "terminal": terminal,
+        "terminal_outcome": row.get("terminal_outcome"),
+        "terminal_reason": row.get("terminal_reason"),
+        "terminal_finalized_at": row.get("terminal_finalized_at"),
     }
 
 
@@ -2011,11 +2673,23 @@ def _collect_agent_heartbeats(
 
     path = heartbeat_path or _heartbeat_file_for_read()
     if not path.exists():
-        return {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}}
+        return {
+            "count": 0,
+            "fresh_count": 0,
+            "stale_count": 0,
+            "terminal_count": 0,
+            "latest_by_owner": {},
+        }
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}}
+        return {
+            "count": 0,
+            "fresh_count": 0,
+            "stale_count": 0,
+            "terminal_count": 0,
+            "latest_by_owner": {},
+        }
     rows = [row for row in raw if isinstance(row, dict)] if isinstance(raw, list) else []
     now_dt = _parse_heartbeat_timestamp(now) if now else datetime.now(UTC)
     if now_dt is None:
@@ -2040,9 +2714,195 @@ def _collect_agent_heartbeats(
     return {
         "count": len(summaries),
         "fresh_count": sum(1 for summary in summaries if summary.get("fresh") is True),
-        "stale_count": sum(1 for summary in summaries if summary.get("fresh") is False),
+        "stale_count": sum(
+            1
+            for summary in summaries
+            if summary.get("fresh") is False and summary.get("terminal") is not True
+        ),
+        "terminal_count": sum(1 for summary in summaries if summary.get("terminal") is True),
         "latest_by_owner": latest_by_owner,
     }
+
+
+def _operator_pending_steering_count(pending_steering: dict[str, Any]) -> int:
+    key = "unresolved_count" if "unresolved_count" in pending_steering else "count"
+    try:
+        return max(0, int(pending_steering.get(key, 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _operator_queue_depth(summary: dict[str, Any], pending_steering: dict[str, Any]) -> int:
+    """Return the actionable operator-visible work count for the snapshot."""
+
+    return (
+        int(summary.get("active_lanes", 0))
+        + int(summary.get("active_broker_runs", 0))
+        + _operator_pending_steering_count(pending_steering)
+    )
+
+
+def _operator_summary_int(summary: dict[str, Any], key: str) -> int:
+    try:
+        return max(0, int(summary.get(key, 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _operator_boss_loop_status(summary: dict[str, Any]) -> dict[str, Any]:
+    """Explain the legacy boss-loop liveness boolean in operator snapshots."""
+
+    raw_roles = summary.get("active_process_roles") or []
+    if isinstance(raw_roles, str):
+        raw_roles = [raw_roles]
+    try:
+        active_roles = sorted(str(role) for role in raw_roles)
+    except TypeError:
+        active_roles = []
+    active_role_set = set(active_roles)
+    active_broker_runs = _operator_summary_int(summary, "active_broker_runs")
+    fresh_agent_heartbeats = _operator_summary_int(summary, "fresh_agent_heartbeats")
+    has_boss_cycle_process = "boss_cycle" in active_role_set
+
+    if active_broker_runs:
+        reason = "active_broker_runs"
+    elif fresh_agent_heartbeats:
+        reason = "fresh_agent_heartbeats"
+    elif has_boss_cycle_process:
+        reason = "boss_cycle_process"
+    else:
+        reason = "idle_no_live_boss_loop_signal"
+
+    return {
+        "alive": bool(active_broker_runs or fresh_agent_heartbeats or has_boss_cycle_process),
+        "reason": reason,
+        "active_broker_runs": active_broker_runs,
+        "fresh_agent_heartbeats": fresh_agent_heartbeats,
+        "has_boss_cycle_process": has_boss_cycle_process,
+        "active_process_roles": active_roles,
+    }
+
+
+def _operator_boss_loop_alive(summary: dict[str, Any]) -> bool:
+    return bool(_operator_boss_loop_status(summary)["alive"])
+
+
+def _operator_recent_blockers(
+    issues: list[dict[str, str]],
+    pending_steering: dict[str, Any],
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    if _operator_pending_steering_count(pending_steering):
+        messages = pending_steering.get("latest_unresolved_three")
+        if messages is None:
+            messages = pending_steering.get("latest_three", [])
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            blockers.append(
+                {
+                    "type": "pending_steering",
+                    "source": "operator_steering",
+                    "detail": str(message.get("subject") or "(pending steering message)"),
+                    "priority": str(message.get("priority") or ""),
+                    "lane_id_hint": message.get("lane_id_hint"),
+                    "pr_hint": message.get("pr_hint"),
+                }
+            )
+
+    for issue in issues:
+        blockers.append(
+            {
+                "type": str(issue.get("type") or "health_issue"),
+                "source": "health",
+                "detail": str(issue.get("detail") or ""),
+                "session": str(issue.get("session") or ""),
+            }
+        )
+    return blockers[:limit]
+
+
+def _coerce_success_rate(raw_rate: Any) -> float | None:
+    if raw_rate is None or isinstance(raw_rate, bool):
+        return None
+    if isinstance(raw_rate, int | float):
+        rate = float(raw_rate)
+    else:
+        try:
+            rate = float(str(raw_rate))
+        except ValueError:
+            return None
+    if not math.isfinite(rate) or rate < 0.0 or rate > 1.0:
+        return None
+    return rate
+
+
+def _b0_scorecard_timeout_seconds() -> float:
+    raw = os.environ.get("AGENT_BRIDGE_B0_SCORECARD_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS
+    try:
+        timeout = float(raw)
+    except ValueError:
+        return DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS
+    return max(0.1, timeout)
+
+
+def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
+    root = repo_root or CANONICAL_REPO_ROOT
+    scorecard_script = root / "scripts" / "measure_b0_scorecard.py"
+    corpus_path = root / "docs" / "benchmarks" / "corpus.json"
+    if not scorecard_script.exists() or not corpus_path.exists():
+        return None
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(scorecard_script),
+                "--json",
+                "--corpus",
+                str(corpus_path),
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=_b0_scorecard_timeout_seconds(),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return _coerce_success_rate(payload.get("no_rescue_success_rate", payload.get("success_rate")))
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close.
+
+    This is an end-of-process CLI guard; stdout is intentionally redirected
+    rather than restored because the downstream reader has already gone away.
+    """
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_text(output: str) -> int:
+    try:
+        print(output)
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+    return 0
 
 
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
@@ -2055,6 +2915,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         include_summaries=not summary_only,
         include_historical=include_historical or not summary_only,
     )
+    if not include_historical:
+        broker_runs = _filter_current_broker_runs(broker_runs)
     sessions = (
         discovered_sessions if include_historical else _filter_current_sessions(discovered_sessions)
     )
@@ -2087,7 +2949,28 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     )
     pending_steering = _collect_pending_steering_messages(steering_recipient)
     agent_heartbeats = _collect_agent_heartbeats()
+    summary: dict[str, Any] = {
+        "total_sessions": len(sessions),
+        "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
+        "live_sessions": sum(1 for s in sessions if _is_current_session(s)),
+        "dead_sessions": sum(1 for s in sessions if s.status == "dead"),
+        "historical_sessions": sum(
+            1 for s in sessions if (s.lifecycle or s.status) in HISTORICAL_SESSION_LIFECYCLES
+        ),
+        "active_broker_runs": sum(
+            1 for run in broker_runs if run.get("status") in {"running", "awaiting_human"}
+        ),
+        "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
+        "conflict_lanes": sum(1 for r in records if r.status == "conflict")
+        + len(computed_conflict_lane_ids),
+        "health_issues": len(issues),
+        "active_processes": int(process_census.get("total", 0)),
+        "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
+        "agent_heartbeats": int(agent_heartbeats.get("count", 0)),
+        "fresh_agent_heartbeats": int(agent_heartbeats.get("fresh_count", 0)),
+    }
 
+    boss_loop_status = _operator_boss_loop_status(summary)
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
         "sessions": [s.to_dict() for s in sessions],
@@ -2098,84 +2981,79 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "health": {"ok": len(issues) == 0, "issues": issues},
         "pending_steering_messages": pending_steering,
         "agent_heartbeats": agent_heartbeats,
-        "summary": {
-            "total_sessions": len(sessions),
-            "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
-            "live_sessions": sum(1 for s in sessions if _is_current_session(s)),
-            "dead_sessions": sum(1 for s in sessions if s.status == "dead"),
-            "historical_sessions": sum(
-                1 for s in sessions if (s.lifecycle or s.status) in HISTORICAL_SESSION_LIFECYCLES
-            ),
-            "active_broker_runs": sum(
-                1 for run in broker_runs if run.get("status") in {"running", "awaiting_human"}
-            ),
-            "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
-            "conflict_lanes": sum(1 for r in records if r.status == "conflict")
-            + len(computed_conflict_lane_ids),
-            "health_issues": len(issues),
-            "active_processes": int(process_census.get("total", 0)),
-            "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
-            "agent_heartbeats": int(agent_heartbeats.get("count", 0)),
-            "fresh_agent_heartbeats": int(agent_heartbeats.get("fresh_count", 0)),
-        },
+        "queue_depth": _operator_queue_depth(summary, pending_steering),
+        "success_rate": _collect_b0_success_rate(),
+        "recent_blockers": _operator_recent_blockers(issues, pending_steering),
+        "boss_loop_alive": bool(boss_loop_status["alive"]),
+        "boss_loop_status": boss_loop_status,
+        "summary": summary,
     }
     if summary_only:
         snapshot.pop("sessions")
         snapshot.pop("lanes")
         snapshot.pop("broker_runs")
+        snapshot["agent_heartbeats"] = {
+            "count": int(agent_heartbeats.get("count", 0)),
+            "fresh_count": int(agent_heartbeats.get("fresh_count", 0)),
+            "stale_count": int(agent_heartbeats.get("stale_count", 0)),
+            "terminal_count": int(agent_heartbeats.get("terminal_count", 0)),
+        }
         snapshot["records_omitted"] = True
 
     if args.json:
-        print(json.dumps(snapshot, indent=2))
-        return 0
+        return _emit_text(json.dumps(snapshot, indent=2))
 
-    summary = snapshot["summary"]
-    print(f"Operator Snapshot @ {snapshot['timestamp']}")
-    print("=" * 80)
-    print(
-        f"Sessions: {summary['live_sessions']} live / {summary['historical_sessions']} historical / {summary['total_sessions']} total"
+    lines: list[str] = [
+        f"Operator Snapshot @ {snapshot['timestamp']}",
+        "=" * 80,
+        f"Sessions: {summary['live_sessions']} live / {summary['historical_sessions']} historical / {summary['total_sessions']} total",
+    ]
+    lines.append(f"Broker:   {summary['active_broker_runs']} active run(s)")
+    lines.append(
+        f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict"
     )
-    print(f"Broker:   {summary['active_broker_runs']} active run(s)")
-    print(f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict")
-    process_roles = ", ".join(summary["active_process_roles"]) or "-"
-    print(f"Processes:{summary['active_processes']} recognized ({process_roles})")
+    active_process_roles = [str(role) for role in summary.get("active_process_roles", [])]
+    process_roles = ", ".join(active_process_roles) or "-"
+    lines.append(f"Processes:{summary['active_processes']} recognized ({process_roles})")
+    boss_loop_label = "alive" if boss_loop_status["alive"] else "idle"
+    lines.append(f"BossLoop: {boss_loop_label} ({boss_loop_status['reason']})")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
-    print(f"Health:   {health_status}")
+    lines.append(f"Health:   {health_status}")
 
     if sessions and not summary_only:
-        print(f"\n{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY")
-        print("-" * 110)
+        lines.extend(["", f"{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY"])
+        lines.append("-" * 110)
         for s in sessions:
             branch = s.branch[:26] if s.branch else "-"
             summary_text = (s.summary[:40] + "..." if len(s.summary) > 40 else s.summary) or "-"
-            print(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
+            lines.append(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
 
     if records and not summary_only:
-        print(f"\n{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION")
-        print("-" * 90)
+        lines.extend(["", f"{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION"])
+        lines.append("-" * 90)
         for r in records:
             next_action = (
                 r.next_action[:40] + "..." if len(r.next_action) > 40 else r.next_action
             ) or "-"
-            print(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
+            lines.append(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
 
     process_records = snapshot.get("process_census", {}).get("records", [])
     if process_records and not summary_only:
-        print(f"\n{'PID':>8} {'ELAPSED':>12} {'ROLE':<22} SUMMARY")
-        print("-" * 85)
+        lines.extend(["", f"{'PID':>8} {'ELAPSED':>12} {'ROLE':<22} SUMMARY"])
+        lines.append("-" * 85)
         for process in process_records:
-            print(
+            lines.append(
                 f"{int(process['pid']):>8} {str(process['elapsed']):>12} "
                 f"{str(process['role']):<22} {process['summary']}"
             )
 
     if issues:
-        print(f"\n{'TYPE':<22} {'SESSION':<26} DETAIL")
-        print("-" * 100)
+        lines.extend(["", f"{'TYPE':<22} {'SESSION':<26} DETAIL"])
+        lines.append("-" * 100)
         for issue in issues:
-            print(f"{issue['type']:<22} {issue['session']:<26} {issue['detail']}")
+            lines.append(f"{issue['type']:<22} {issue['session']:<26} {issue['detail']}")
 
-    return 0
+    return _emit_text("\n".join(lines))
 
 
 def cmd_tmux_map(args: argparse.Namespace) -> int:
@@ -2311,6 +3189,9 @@ def _json_parent() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    # SIGPIPE hygiene is scoped to ``launch`` only (review fix #8338 / #8317):
+    # other subcommands (sessions/exec/send/approve/read) keep their prior
+    # clean SIGPIPE-killed behavior under ``| head`` and must not be affected.
     parser = argparse.ArgumentParser(
         description="Agent bridge: send, approve, read, lanes",
     )
@@ -2342,6 +3223,25 @@ def main() -> int:
         "--autonomous", action="store_true", help="Grant launcher autonomy where supported"
     )
     launch_p.add_argument("--timeout-seconds", type=int, default=120)
+    launch_p.add_argument(
+        "--submit-verify-timeout",
+        type=float,
+        default=DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS,
+        help=(
+            "Seconds to spend confirming a pasted prompt left the composer "
+            "after launch (0 disables submit verification)."
+        ),
+    )
+    launch_p.add_argument(
+        "--strict-verify",
+        action="store_true",
+        help=(
+            "Enforce submit verification on the exit code: exit 1 when the "
+            "dispatch is not confirmed delivered (still staged or unverifiable). "
+            "Off by default -- verification is observational and the tri-state "
+            "dispatch receipt is always written regardless of this flag."
+        ),
+    )
 
     exec_p = sub.add_parser(
         "exec",
@@ -2415,6 +3315,10 @@ def main() -> int:
     sub.add_parser("tmux-map", parents=[json_parent], help="Show tmux panes")
     sub.add_parser(
         "health", parents=[json_parent], help="Check for stale worktrees and lane conflicts"
+    ).add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact health counts and bounded examples for automation probes.",
     )
     gc_p = sub.add_parser(
         "gc",

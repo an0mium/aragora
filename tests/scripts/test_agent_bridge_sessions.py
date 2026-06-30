@@ -108,6 +108,7 @@ def test_collect_sessions_merges_tmux_and_claude_sources(
         repo_root=repo_root,
         tmux_dir=tmux_dir,
         claude_projects_root=claude_projects_root,
+        codex_home=tmp_path / "codex",
         resolve_repo=False,
     )
 
@@ -203,6 +204,7 @@ def test_collect_sessions_can_skip_expensive_summaries(
         repo_root=repo_root,
         tmux_dir=tmux_dir,
         claude_projects_root=claude_projects_root,
+        codex_home=tmp_path / "codex",
         resolve_repo=False,
         include_summaries=False,
     )
@@ -544,3 +546,157 @@ def test_main_json_output(
     assert payload["repo_root"] == str(repo_root)
     assert payload["count"] == 1
     assert payload["sessions"][0]["name"] == "codex-strategic"
+
+
+def _write_codex_rollout(
+    codex_home: Path,
+    *,
+    rel: str,
+    cwd: str,
+    originator: str | None,
+    branch: str = "droid/example",
+    assistant_text: str = "Recorded settlement receipt for #7760.",
+) -> Path:
+    path = codex_home / "sessions" / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    meta_payload: dict = {
+        "id": "019e9551-5640-7a82-b18e-b9dbb8cc4f2f",
+        "source": "vscode",
+        "cwd": cwd,
+        "git": {"branch": branch, "commit_hash": "abc123"},
+    }
+    if originator is not None:
+        meta_payload["originator"] = originator
+    lines = [
+        json.dumps({"type": "session_meta", "payload": meta_payload}),
+        json.dumps(
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": assistant_text}],
+                },
+            }
+        ),
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def test_collect_sessions_labels_codex_desktop_not_claude(tmp_path: Path) -> None:
+    """A Codex Desktop automation rollout must attribute to codex, never claude."""
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    codex_home = tmp_path / "codex"
+    _write_codex_rollout(
+        codex_home,
+        rel="2026/06/04/rollout-desktop.jsonl",
+        cwd=str(repo_root),
+        originator="Codex Desktop",
+    )
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmp_path / "tmux",
+        claude_projects_root=tmp_path / "claude",
+        codex_home=codex_home,
+        source="codex",
+        resolve_repo=False,
+    )
+
+    assert len(sessions) == 1
+    record = sessions[0]
+    assert record.source == "codex_desktop"
+    assert record.agent == "codex"
+    assert record.source != "claude_jsonl"
+    assert record.name == "codex-019e9551"
+    assert record.branch == "droid/example"
+    assert record.cwd == str(repo_root)
+    assert "settlement receipt" in record.summary
+
+
+def test_collect_sessions_labels_codex_cli_when_not_desktop(tmp_path: Path) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    codex_home = tmp_path / "codex"
+    _write_codex_rollout(
+        codex_home,
+        rel="2026/06/04/rollout-cli.jsonl",
+        cwd=str(repo_root),
+        originator=None,
+    )
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmp_path / "tmux",
+        claude_projects_root=tmp_path / "claude",
+        codex_home=codex_home,
+        source="codex",
+        resolve_repo=False,
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].source == "codex_cli"
+    assert sessions[0].agent == "codex"
+
+
+def test_collect_sessions_codex_desktop_versioned_originator(tmp_path: Path) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    codex_home = tmp_path / "codex"
+    _write_codex_rollout(
+        codex_home,
+        rel="2026/06/04/rollout-desktop-v2.jsonl",
+        cwd=str(repo_root),
+        originator="Codex Desktop 1.2.3",
+    )
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmp_path / "tmux",
+        claude_projects_root=tmp_path / "claude",
+        codex_home=codex_home,
+        source="codex",
+        resolve_repo=False,
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].source == "codex_desktop"
+
+
+def test_load_codex_sessions_filters_out_other_repos(tmp_path: Path) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    codex_home = tmp_path / "codex"
+    _write_codex_rollout(
+        codex_home,
+        rel="2026/06/04/rollout-other.jsonl",
+        cwd=str(tmp_path / "other-repo"),
+        originator="Codex Desktop",
+    )
+
+    records = mod.load_codex_sessions(
+        repo_root=repo_root.resolve(),
+        codex_home=codex_home,
+    )
+
+    assert records == []
+
+
+def test_load_codex_sessions_absent_home_returns_empty(tmp_path: Path) -> None:
+    import agent_bridge_sessions as mod
+
+    records = mod.load_codex_sessions(
+        repo_root=(tmp_path / "aragora").resolve(),
+        codex_home=tmp_path / "missing-codex",
+    )
+    assert records == []

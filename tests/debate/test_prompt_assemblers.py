@@ -191,6 +191,18 @@ class TestBuildProposalPrompt:
         assert "Design a rate limiter" in prompt
         assert "proposal" in prompt.lower()
 
+    def test_single_agent_direct_answer_prompt_avoids_debate_framing(self, assembler, agent):
+        assembler.protocol.single_agent_direct_answer = True
+        assembler.env.task = "Answer in one sentence: what is 2+2?"
+
+        prompt = assembler.build_proposal_prompt(agent)
+
+        assert "answering a user request" in prompt
+        assert "Answer in one sentence: what is 2+2?" in prompt
+        assert "multi-agent debate" not in prompt
+        assert "best proposal" not in prompt
+        assert "critiqued by other agents" not in prompt
+
     def test_includes_task(self, assembler, agent):
         assembler.env.task = "Implement OAuth 2.0"
         prompt = assembler.build_proposal_prompt(agent)

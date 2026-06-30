@@ -123,7 +123,7 @@ def test_in_progress_checks_monitor_without_repair_or_rerun() -> None:
         _pr(
             [
                 {
-                    "workflowName": "Tests",
+                    "workflowName": "Metrics Drift",
                     "name": "Type Check",
                     "status": "IN_PROGRESS",
                     "conclusion": "",
@@ -136,6 +136,52 @@ def test_in_progress_checks_monitor_without_repair_or_rerun() -> None:
     assert result.action == "monitor"
     assert result.rerun_commands == []
     assert "monitor #7443" in result.prompt
+
+
+def test_pending_named_rollup_gate_preempts_model_evidence_prompt() -> None:
+    result = followup.build_followup_result(
+        _pr(
+            [
+                _check(
+                    "Aragora Merge Quorum",
+                    "aragora-merge-quorum",
+                    "FAILURE",
+                    run_id="7",
+                    job_id="70",
+                ),
+                {
+                    "workflowName": "Tests",
+                    "name": "test-fast (infra, tests/nomic tests/control_plane, infra, 30)",
+                    "status": "IN_PROGRESS",
+                    "conclusion": "",
+                    "detailsUrl": ("https://github.com/synaptent/aragora/actions/runs/8/job/80"),
+                    "startedAt": "2026-05-23T19:27:02Z",
+                    "completedAt": "",
+                },
+            ],
+            head="evidence-head",
+        ),
+        run_data_by_id={
+            "7": {
+                "headSha": "evidence-head",
+                "workflowName": "Aragora Merge Quorum",
+                "jobs": [_job("aragora-merge-quorum", "failure", job_id="70")],
+            }
+        },
+        log_summary_by_job={
+            "70": [
+                "PR #7474 | Tier 2 | status=needs_model_review_quorum | verdict=collect_model_quorum_before_merge",
+                "- model quorum incomplete: 0/2 signal(s)",
+                "- focused adversarial dogfood evidence is required",
+            ]
+        },
+    )
+
+    assert result.action == "monitor_named_rollup_gates"
+    assert result.rerun_commands == []
+    assert "named non-required rollup gates settle" in result.prompt
+    assert "Tests / test-fast (infra" in result.prompt
+    assert "Post exactly one valid PR comment" not in result.prompt
 
 
 def test_expected_head_drift_stops_followup() -> None:
@@ -288,6 +334,15 @@ def test_merge_quorum_model_quorum_failure_emits_evidence_prompt() -> None:
         "collecting exactly one current-head non-Codex model/dogfood evidence signal"
         in result.prompt
     )
+    lint_index = result.prompt.index("review-queue evidence-lint")
+    post_index = result.prompt.index("Post exactly one valid PR comment")
+    assert lint_index < post_index
+    assert "would_count=true" in result.prompt
+    assert "## Claude focused adversarial dogfood" in result.prompt
+    assert "Model family: claude" in result.prompt
+    assert "## Codex focused adversarial dogfood" not in result.prompt
+    assert "Model family: openai" not in result.prompt
+    assert "not Codex, not any OpenAI-family model" in result.prompt
     assert "Post exactly one valid PR comment" in result.prompt
     assert "Do not merge" in result.prompt
 
@@ -307,6 +362,120 @@ def test_summarize_log_keeps_model_quorum_lines() -> None:
 
     assert any("model quorum incomplete" in line for line in summary)
     assert any("focused adversarial dogfood" in line for line in summary)
+
+
+def test_summarize_log_keeps_dependency_audit_lines() -> None:
+    summary = followup.summarize_log(
+        "\n".join(
+            [
+                "noise",
+                "Found 1 known vulnerability in 1 package",
+                "Name    Version ID             Fix Versions",
+                "aiohttp 3.13.5  CVE-2026-34993 3.14.0",
+                "##[error]Process completed with exit code 1.",
+            ]
+        )
+    )
+
+    assert any("known vulnerability" in line for line in summary)
+    assert any("CVE-2026-34993" in line for line in summary)
+    assert "CVE-2026-34993" in followup.dependency_search_terms_from_logs(summary)
+    assert "aiohttp" in followup.dependency_search_terms_from_logs(summary)
+
+
+def test_dependency_security_failure_with_superseding_pr_avoids_branch_repair() -> None:
+    result = followup.build_followup_result(
+        _pr(
+            [
+                _check("Security Gate", "Python Security Scan", "FAILURE", run_id="8", job_id="80"),
+                _check(
+                    "Aragora Merge Quorum",
+                    "aragora-merge-quorum",
+                    "FAILURE",
+                    run_id="7",
+                    job_id="70",
+                    started_at="2026-05-27T00:12:07Z",
+                    completed_at="2026-05-27T00:13:12Z",
+                ),
+            ],
+            head="security-head",
+        ),
+        run_data_by_id={
+            "8": {
+                "headSha": "security-head",
+                "workflowName": "Security Gate",
+                "jobs": [_job("Python Security Scan", "failure", job_id="80")],
+            },
+            "7": {
+                "headSha": "security-head",
+                "workflowName": "Aragora Merge Quorum",
+                "jobs": [_job("aragora-merge-quorum", "failure", job_id="70")],
+            },
+        },
+        log_summary_by_job={
+            "80": [
+                "Found 1 known vulnerability in 1 package",
+                "aiohttp 3.13.5  CVE-2026-34993 3.14.0",
+            ],
+            "70": [
+                "PR #7720 | Tier 4 | status=needs_model_review_quorum | verdict=collect_model_quorum_before_merge",
+                "- model quorum incomplete: 0/2 signal(s)",
+            ],
+        },
+        superseding_dependency_prs_by_job={
+            "80": [
+                {
+                    "number": 7727,
+                    "state": "MERGED",
+                    "title": "fix(security): bump aiohttp to 3.14.0 (CVE-2026-34993)",
+                    "url": "https://github.com/synaptent/aragora/pull/7727",
+                    "files": ["uv.lock"],
+                    "match_terms": ["CVE-2026-34993", "aiohttp"],
+                }
+            ]
+        },
+    )
+
+    assert result.action == "verify_superseding_dependency_pr"
+    assert "avoid duplicate branch-local dependency repair" in result.prompt
+    assert "superseded-by: PR #7727 [MERGED]" in result.prompt
+    assert "Do not open or continue a branch-local dependency repair" in result.prompt
+
+
+def test_dependency_supersession_search_ignores_closed_unmerged_prs(monkeypatch: Any) -> None:
+    def fake_run_gh_json(args: list[str]) -> Any:
+        if args[:3] == ["gh", "pr", "list"]:
+            return [
+                {
+                    "number": 7727,
+                    "state": "MERGED",
+                    "title": "fix(security): bump aiohttp to 3.14.0",
+                    "url": "https://github.com/synaptent/aragora/pull/7727",
+                    "headRefOid": "fixed-head",
+                    "headRefName": "fix/aiohttp",
+                    "baseRefName": "main",
+                    "mergedAt": "2026-06-03T23:58:57Z",
+                },
+                {
+                    "number": 7728,
+                    "state": "CLOSED",
+                    "title": "chore(deps): bump aiohttp from 3.13.5 to 3.14.0",
+                    "url": "https://github.com/synaptent/aragora/pull/7728",
+                    "headRefOid": "abandoned-head",
+                    "headRefName": "dependabot/uv/aiohttp-3.14.0",
+                    "baseRefName": "main",
+                    "mergedAt": "",
+                },
+            ]
+        if args[:4] == ["gh", "pr", "view", "7727"]:
+            return {"files": [{"path": "uv.lock"}]}
+        raise AssertionError(f"unexpected gh json call: {args}")
+
+    monkeypatch.setattr(followup, "_run_gh_json", fake_run_gh_json)
+
+    repairs = followup._search_superseding_dependency_prs(current_pr=7720, terms=["aiohttp"])
+
+    assert [repair["number"] for repair in repairs] == [7727]
 
 
 def test_wait_run_only_current_head_early_cancellations_emit_reruns() -> None:
@@ -364,6 +533,8 @@ def test_prompt_always_contains_recursive_convergence_sentences() -> None:
 
     assert followup.INCREMENTAL_PROGRESS_SENTENCE in result.prompt
     assert followup.META_AUTOMATION_SENTENCE in result.prompt
+    assert "- python3 scripts/agent_bridge.py health --json || true" in result.prompt
+    assert "- python3 scripts/agent_bridge.py --json health || true" not in result.prompt
 
 
 def test_wait_check_waits_for_matching_status_row_then_emits_reruns(monkeypatch: Any) -> None:

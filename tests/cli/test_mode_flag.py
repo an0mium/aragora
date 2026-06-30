@@ -2,12 +2,36 @@
 
 from __future__ import annotations
 
+import importlib
+import sys
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from aragora.modes import load_builtins
 from aragora.modes.base import ModeRegistry
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_ARAGORA_PACKAGE_ROOT = _REPO_ROOT / "aragora"
+
+
+def _import_checkout_decide_module():
+    """Import decide from this checkout even after editable-install/path churn."""
+    root = str(_REPO_ROOT)
+    if root in sys.path:
+        sys.path.remove(root)
+    sys.path.insert(0, root)
+
+    import aragora
+
+    package_root = str(_ARAGORA_PACKAGE_ROOT)
+    package_paths = getattr(aragora, "__path__", None)
+    if package_paths is not None and package_root not in package_paths:
+        package_paths.insert(0, package_root)
+
+    sys.modules.pop("aragora.cli.commands.decide", None)
+    return importlib.import_module("aragora.cli.commands.decide")
 
 
 class TestLoadBuiltins:
@@ -166,24 +190,82 @@ class TestModeInRunDebate:
         for agent in created_agents:
             assert agent.system_prompt == original_prompt
 
+    @pytest.mark.asyncio
+    async def test_single_agent_none_consensus_sets_direct_answer_protocol(self):
+        """One-agent ask runs with direct-answer prompt semantics."""
+        from aragora.cli.commands.debate import run_debate
+
+        def mock_create_agent(model_type, name, role, model=None, **kwargs):
+            agent = MagicMock()
+            agent.name = name
+            agent.role = role
+            agent.system_prompt = ""
+            agent.provider = model_type
+            return agent
+
+        mock_result = MagicMock()
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.9
+        mock_result.messages = []
+
+        with (
+            patch("aragora.cli.commands.debate.create_agent", side_effect=mock_create_agent),
+            patch("aragora.cli.commands.debate.CritiqueStore"),
+            patch("aragora.cli.commands.debate.Arena") as MockArena,
+        ):
+            MockArena.return_value.run = AsyncMock(return_value=mock_result)
+
+            await run_debate(
+                task="What is 2+2?",
+                agents_str="grok",
+                rounds=1,
+                consensus="none",
+                mode=None,
+                learn=False,
+                enable_audience=False,
+                offline=True,
+            )
+
+        protocol = MockArena.call_args.args[2]
+        assert protocol.single_agent_direct_answer is True
+
 
 class TestModeInDecide:
     """Test mode injection into run_decide."""
 
     def setup_method(self):
+        ModeRegistry.clear()
+        load_builtins()
+
+    def teardown_method(self):
         load_builtins()
 
     @pytest.mark.asyncio
-    async def test_decide_unknown_mode_raises(self):
-        """run_decide raises KeyError for unknown mode."""
-        from aragora.cli.commands.decide import run_decide
+    async def test_decide_unknown_mode_raises(self, capsys):
+        """run_decide reports unknown modes without resolving them."""
+        decide_module = _import_checkout_decide_module()
+        assert (
+            Path(decide_module.__file__)
+            .resolve()
+            .is_relative_to(_ARAGORA_PACKAGE_ROOT / "cli" / "commands")
+        )
+        run_decide = decide_module.run_decide
 
-        with pytest.raises(KeyError, match="not found"):
+        missing_mode = "__missing_decide_mode_for_test__"
+        assert ModeRegistry.get(missing_mode) is None
+
+        try:
             await run_decide(
                 task="Decide something",
                 agents_str="claude,claude",
-                mode="nonexistent",
+                mode=missing_mode,
             )
+        except KeyError as exc:
+            assert "not found" in str(exc)
+        else:
+            captured = capsys.readouterr()
+            assert f"Mode '{missing_mode}' not found" in captured.out
+            assert "proceeding with standard deliberation" in captured.out
 
     def test_decide_valid_mode_resolves_prompt(self):
         """run_decide's mode handling resolves a valid mode and stores prompt."""

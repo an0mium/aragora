@@ -65,7 +65,7 @@ This checklist tracks all items required before declaring Aragora self-hosted GA
 - [x] **Docker Compose** - Production-ready with profiles (monitoring, workers)
 - [x] **Kubernetes manifests** - HPA, health probes, external secrets
 - [x] **TLS documentation** - Traefik and Nginx reverse proxy guides
-- [x] **Offline mode** - `aragora serve --offline` for air-gapped environments
+- [x] **Offline mode** - `aragora serve --demo` for air-gapped environments
 - [x] **Upgrade runbook** - Database migrations, rollback procedures
 - [x] **Production hardening checklist** - In `docs/DEPLOYMENT.md`
 

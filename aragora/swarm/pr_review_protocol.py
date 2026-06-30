@@ -40,13 +40,11 @@ See also: ``docs/THESIS.md`` § Implementation gaps, issue #6374.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any, Sequence, cast
 
-from aragora.agents.base import AgentType, create_agent
 from aragora.review.protocol import DissentPosition, Recommendation
 from aragora.review.provider_slots import (
     ProviderSlotAvailabilitySummary,
@@ -81,6 +79,15 @@ MIN_EXECUTED_REVIEWERS = 3
 MAX_EXECUTED_REVIEWERS = 3
 LIVE_REVIEW_TIMEOUT_SECONDS = 60.0
 MAX_LIVE_DIFF_CHARS = 16_000
+
+
+def create_agent(*args: Any, **kwargs: Any) -> Any:
+    """Lazily construct live reviewer agents while preserving monkeypatch seam."""
+
+    from aragora.agents.base import create_agent as _create_agent
+
+    return _create_agent(*args, **kwargs)
+
 
 _SLOT_CATALOG: tuple[tuple[str, str, str, str, tuple[str, ...]], ...] = (
     ("logic", "logic_reviewer", "core", "claude", ("claude", "anthropic-api")),
@@ -195,6 +202,43 @@ class PRReviewProtocol:
     def resolve_provider_slots(self) -> list[ProviderSlotResolution]:
         return ProviderSlotResolver().resolve_slots(self.provider_slots)
 
+    def metadata_provider_slots(
+        self,
+    ) -> tuple[list[ProviderSlotResolution], ProviderSlotAvailabilitySummary]:
+        """Return packet-shaped slot metadata without probing provider availability.
+
+        Merge-packet readiness uses this protocol object as advisory metadata.
+        It must not import/register every agent implementation unless live
+        reviewers are actually being executed.
+        """
+
+        provider_slots = [
+            ProviderSlotResolution(
+                slot_id=slot.slot_id,
+                review_role=slot.review_role,
+                lens=slot.lens,
+                family=slot.family,
+                selected_provider=None,
+                status="not_probed",
+                detail="provider availability not probed for metadata-only packet",
+                candidates=list(slot.candidates),
+            )
+            for slot in self.provider_slots
+        ]
+        core_slots = [slot for slot in self.provider_slots if slot.lens == "core"]
+        availability_summary = ProviderSlotAvailabilitySummary(
+            total_slots=len(self.provider_slots),
+            resolved_slots=0,
+            unresolved_slots=[slot.slot_id for slot in self.provider_slots],
+            core_slots_total=len(core_slots),
+            core_slots_resolved=0,
+            available_families=[],
+            unresolved_families=sorted({slot.family for slot in self.provider_slots}),
+            opt_in_slots=[],
+            degraded=True,
+        )
+        return provider_slots, availability_summary
+
     def execute_live_reviewers(
         self,
         *,
@@ -209,6 +253,8 @@ class PRReviewProtocol:
         machine_recommendation: str,
         machine_recommendation_reason: str,
     ) -> tuple[list[ReviewerOutput], list[PRReviewerExecutionFailure]]:
+        import asyncio
+
         return asyncio.run(
             self._execute_live_reviewers_async(
                 repo=repo,
@@ -238,6 +284,8 @@ class PRReviewProtocol:
         machine_recommendation: str,
         machine_recommendation_reason: str,
     ) -> tuple[list[ReviewerOutput], list[PRReviewerExecutionFailure]]:
+        import asyncio
+
         resolutions = self.resolve_provider_slots()
         selected: list[ProviderSlotResolution] = []
         failures: list[PRReviewerExecutionFailure] = []
@@ -312,8 +360,10 @@ class PRReviewProtocol:
             )
         started = time.perf_counter()
         try:
+            import asyncio
+
             agent = create_agent(
-                cast(AgentType, provider),
+                cast(Any, provider),
                 name=f"pr_review_{slot.slot_id}",
                 role="critic",
                 timeout=LIVE_REVIEW_TIMEOUT_SECONDS,
@@ -403,9 +453,13 @@ class PRReviewProtocol:
         reviewer_outputs: Sequence[ReviewerOutput] | None = None,
         execution_failures: Sequence[PRReviewerExecutionFailure] | None = None,
     ) -> PRReviewProtocolPacket:
-        slot_resolver = ProviderSlotResolver()
-        provider_slots = slot_resolver.resolve_slots(self.provider_slots)
-        availability_summary = slot_resolver.summarize(provider_slots)
+        has_live_reviewer_results = bool(reviewer_outputs or execution_failures)
+        if has_live_reviewer_results:
+            slot_resolver = ProviderSlotResolver()
+            provider_slots = slot_resolver.resolve_slots(self.provider_slots)
+            availability_summary = slot_resolver.summarize(provider_slots)
+        else:
+            provider_slots, availability_summary = self.metadata_provider_slots()
         findings = self._build_findings(
             has_failures=has_failures,
             has_pending=has_pending,

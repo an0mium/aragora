@@ -195,6 +195,39 @@ class TestComplianceRule:
         assert len(rule.keywords) == 3
         assert "sensitive" in rule.keywords
 
+    def test_positional_construction_preserves_field_assignment(self):
+        """Regression: positional args must keep their pre-PHI meaning.
+
+        ``validators`` was originally inserted *before* ``recommendation``/
+        ``category``/``references``, which shifted the generated ``__init__``
+        positional order. A pre-PHI caller passing ``recommendation`` /
+        ``category`` / ``references`` positionally (after ``pattern`` and
+        ``keywords``) would have had the recommendation string land in
+        ``validators`` -- then ``check()`` would iterate it char-by-char as
+        detector names. ``validators`` now lives at the end of the field list,
+        restoring the legacy positional ABI.
+        """
+        rule = ComplianceRule(
+            "POS-001",  # id
+            "custom",  # framework
+            "Positional Rule",  # name
+            "Built with positional args",  # description
+            ComplianceSeverity.HIGH,  # severity
+            r"secret\s*=",  # pattern
+            ["token"],  # keywords
+            "Redact secrets before logging",  # recommendation
+            "security",  # category
+            ["INTERNAL-1"],  # references
+        )
+        assert rule.recommendation == "Redact secrets before logging"
+        assert rule.category == "security"
+        assert rule.references == ["INTERNAL-1"]
+        # validators defaults to an empty list, NOT the recommendation string.
+        assert rule.validators == []
+        # check() must not treat the recommendation string as detector names.
+        issues = rule.check("password secret = 'x'")
+        assert all(i.recommendation == "Redact secrets before logging" for i in issues)
+
     def test_rule_get_pattern_compiles_regex(self):
         """Test that get_pattern compiles the regex."""
         rule = ComplianceRule(
@@ -741,20 +774,43 @@ class TestComplianceFrameworkManager:
         result = manager.check(content, frameworks=["hipaa"])
         assert result.frameworks_checked == ["hipaa"]
 
-    def test_manager_check_with_unknown_frameworks_ignores_them(self):
-        """Test that unknown framework IDs are ignored."""
-        manager = ComplianceFrameworkManager()
-        result = manager.check("test content", frameworks=["hipaa", "nonexistent"])
-        assert "hipaa" in result.frameworks_checked
-        assert "nonexistent" not in result.frameworks_checked
+    def test_manager_check_with_partially_unknown_frameworks_raises(self):
+        """Unknown framework IDs mixed with valid ones must raise, not be ignored.
 
-    def test_manager_check_with_empty_frameworks_returns_compliant(self):
-        """Test check with no valid frameworks returns compliant."""
+        Silently dropping an unknown/typo'd framework ID could lead a caller to
+        believe a framework was evaluated when it never was.
+        """
         manager = ComplianceFrameworkManager()
-        result = manager.check("test content", frameworks=["nonexistent"])
-        assert result.compliant is True
-        assert result.score == 1.0
-        assert len(result.issues) == 0
+        with pytest.raises(ValueError) as exc_info:
+            manager.check("test content", frameworks=["hipaa", "nonexistent"])
+        assert "nonexistent" in str(exc_info.value)
+
+    def test_manager_check_with_all_unknown_frameworks_raises_not_compliant(self):
+        """A request that names only unknown frameworks must raise.
+
+        Regression test: previously this returned a false COMPLIANT/100% result
+        for content that was never evaluated against any framework, hiding even
+        critical issues (e.g. exposed SSN/PHI) behind a green all-clear.
+        """
+        manager = ComplianceFrameworkManager()
+        # Content with a critical SSN/PHI exposure that should never be reported
+        # as compliant simply because the framework IDs were typo'd.
+        content = "store ssn 123-45-6789 unencrypted password=secret"
+        with pytest.raises(ValueError) as exc_info:
+            manager.check(content, frameworks=["gdrp", "hippa"])
+        msg = str(exc_info.value)
+        assert "gdrp" in msg
+        assert "hippa" in msg
+
+    def test_manager_check_unknown_framework_error_lists_available(self):
+        """The error should help the user by listing valid framework IDs."""
+        manager = ComplianceFrameworkManager()
+        with pytest.raises(ValueError) as exc_info:
+            manager.check("test content", frameworks=["bogus"])
+        msg = str(exc_info.value).lower()
+        # Mentions at least a couple of real frameworks as guidance
+        assert "gdpr" in msg
+        assert "hipaa" in msg
 
     def test_manager_check_min_severity_filter(self):
         """Test minimum severity filtering."""

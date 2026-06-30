@@ -20,12 +20,12 @@
 | 1 | Settle #7443 (provider bootstrap + receipt repair) | **Shipped** | Merged 2026-05-27T02:25:17Z as `7318af7e5b`. Tier 4 settled via repaired `scripts/settle_tier4_pr.py` (#7469 / #7471 lineage) using the model-quorum + `aragora/human-settlement` chain, normal protected squash with `--match-head-commit`, no admin-fallback needed. |
 | 2 | Land #7450 (model-quorum family-expansion pre-approval) | **Shipped** | Merged as `dd144b4a3f`. The recognizer-header gap remains — implementation PR is governed by separate Tier 4 pre-approval #7472 (open, awaiting operator design review). |
 | 3 | Land #7451 (model-family bench harness scaffold) | **Evidence satisfied; needs ready/settlement only** | Still open/draft at head `113a706c92831c0fb889d6e3da35ee454ceb6a94`. After repair commit `113a706c92` (addressing the three Codex request-changes blockers), the merge-packet counts `codex` + `factory` and 1 dogfood at the exact head; required checks are green; no unresolved dissent. Remaining blocker is operator/draft boundary, not evidence. |
-| 4 | Publish B0 truth result, whatever it is | **Falsified honestly** | Re-ran `scripts/build_benchmark_truth_artifact.py --publish` 2026-05-26T22:51:31Z; verified `truth_success_rate_verified` is **0.0%** at this corpus. The repo-tracked evidence remains the generated B0 truth pointers under `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/`; local `.aragora/` rerun artifacts are intentionally not tracked. The 0.0% IS the artifact — the public claim must ratchet to what is measured. Legacy/proxy rates (30.8% / 76.9%) are not substitutes. |
+| 4 | Publish B0 truth result, whatever it is | **Falsified honestly** | Re-ran `scripts/build_benchmark_truth_artifact.py --publish` 2026-05-26T22:51:31Z; verified `truth_success_rate_verified` is **0.0%** at this corpus. The repo-tracked evidence remains the generated B0 truth pointers under `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/`; local `.aragora/` rerun artifacts are intentionally not tracked. The 0.0% IS the artifact — the public claim must ratchet to what is measured. Legacy/proxy rates (30.8% / 76.9%) are not substitutes. **Reconciled 2026-06-05:** that 0.0% was honest for the corpus snapshot on 2026-05-26, but the benchmark corpus has since advanced (now `tw-01-bounded-execution-v1` rev-5, recorded 2026-05-28, coverage complete). The canonical published surface `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` (last updated 2026-06-02) now measures verified `truth_success_rate_verified` = **100%** and full-corpus `truth_success_rate` = **53.8%** (7/13). The dated 0.0% is retained as the point-in-time Sprint-1 measurement, not the current claim; the live claim is always whatever the B0 status surface publishes. |
 | — | Bonus — #7483 follow-up routing fix | **Shipped** | Merged 2026-05-27T17:22:58Z as `12615421be3af363803c1a68a5bb32d5105028b9`. Not a primary sprint goal but adjacent settlement-tooling work that landed cleanly. |
 
 ---
 
-## Sprint 2 — 2026-05-27 → 2026-06-10
+## Sprint 2 — 2026-05-27 → 2026-06-10 — CLOSED
 
 > **Operating principle**: settlement / review-queue tooling has
 > saturated. Sprint 1 already pushed producer:merger positive; further
@@ -45,19 +45,29 @@
    this sprint unless a regression appears.
 
 2. **Run fresh-agent product-proof sequence end-to-end.** **Operator
-   proof passed; strict outreach reading still needs non-operator demo
-   proof.** A local post-#7479 operator proof run recorded under
+   proof and strict non-operator demo receipt proof passed.** A local
+   post-#7479 operator proof run recorded under
    `.aragora/proof/post-7479/20260528T035207Z/` shows
    `aragora validate-env --json`, `aragora doctor --validate`,
    `aragora ask --agents grok --decision-integrity`, and
    `aragora receipt verify` all exiting 0 on current main. The receipt
-   `/Users/armand/.aragora/receipts/9e2e072d-04e7-4968-8475-a2d134b85656_b6f334a28539822d.json`
-   verified successfully. These `.aragora/` proof files are local operator
-   evidence, not repo-tracked public artifacts. Goal status: core product
-   capability proven by operator run; outreach-gate clause (b) remains open
-   only under the literal non-operator `aragora demo --receipt` requirement.
-   The next bounded proof step is a non-operator/fresh-user demo receipt run,
-   not another operator rerun of the same path.
+   `~/.aragora/receipts/9e2e072d-04e7-4968-8475-a2d134b85656_b6f334a28539822d.json`
+   verified successfully. After #7496 (`933c82b183404eaf92e30bbbbf50a0e4afea3dd7`)
+   landed, the strict non-operator/fresh-user demo proof recorded under
+   `.aragora/proof/post-7496-demo/20260528T061018Z/` shows provider keys
+   unset, Secrets Manager disabled, `aragora demo --receipt` exiting 0,
+   and `aragora receipt verify` exiting 0 for receipt `DR-20260528-fac8d2`
+   (`VALID (3/3 checks passed)`). These `.aragora/` proof files are local
+   operator-held evidence, not repo-tracked public artifacts. Goal status:
+   core product capability and outreach-gate clause (b) are satisfied.
+   After the rev-5 B0 graduation, clause (a) is also satisfied by
+   `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`: `truth_success_rate_verified`
+   is 100.0% across five strict verified entries. Clause (c) is satisfied by
+   the unmodified Claude frontier adversarial review on product-scope SDK PR
+   #7513 at exact head `6531ebad2968ae9e2888f08ba237473c41eb0e21`
+   ([comment](https://github.com/synaptent/aragora/pull/7513#issuecomment-4567004963)).
+   All three outreach evidence gates are now satisfied; actually performing
+   outreach remains an operator decision, not an autonomous action.
 
 3. **Operator design-review of #7472 (advisory-review recognizable
    header pre-approval).** #7472 is the Tier 4 design doc + 18 passing
@@ -107,10 +117,14 @@
   is unlocked only when *all* of these are true: (a) B0
   `truth_success_rate_verified ≥ 50%` (verified-by-PR-link metric, not
   legacy/proxy), (b) `aragora demo --receipt` round-trips for a non-
-  operator user (operator proof passed, strict non-operator proof still
-  open), (c) at least one frontier-model adversarial review of a real PR
-  survives unmodified (Factory + Codex already meeting this for #7451 is
-  encouraging but not yet repeated on a product-scope PR end-to-end).
+  operator user (satisfied by the local post-#7496 proof under
+  `.aragora/proof/post-7496-demo/20260528T061018Z/`), (c) at least one
+  frontier-model adversarial review of a real PR survives unmodified
+  (satisfied by the Claude frontier adversarial review on product-scope
+  SDK PR #7513 at exact head
+  `6531ebad2968ae9e2888f08ba237473c41eb0e21`). Clauses (a), (b), and
+  (c) are satisfied; external outreach execution still requires an
+  explicit operator decision.
 - **No Tier 4 self-mods without pre-approval discipline.** Unchanged
   from sprint 1. Any change to `scripts/settle_tier4_pr.py`,
   `aragora-merge-quorum.yml`, `aragora-review-gate.yml`, or the family
@@ -126,6 +140,155 @@ satisfied, or honestly falsified) — same discipline as sprint 1 — or
 The sprint does *not* extend by drift, and substrate-tooling work
 that violates the anti-goal does *not* count toward any sprint goal
 even if it lands successfully.
+
+### Sprint 2 closure — 2026-06-10
+
+| # | Goal | Outcome |
+|---|---|---|
+| 1 | Land #7479 (product-proof unblocker) | **Shipped** (`d4f488de28`, recorded above) |
+| 2 | Fresh-agent product-proof sequence | **Satisfied** — operator proof + strict non-operator demo receipt proof passed; all three outreach evidence gates (a)(b)(c) satisfied. Outreach execution remains an operator decision. |
+| 3 | Operator design-review of #7472 | **Not terminal** — the pre-approval spec merged, but the operator design-review decision (approve / reject / request-changes) was not posted within the window. Carried into Sprint 3 as an **operator-action item**, not an autonomous lane. |
+| 4 | Substrate triage (≤3 open surface) | **Satisfied** — target met after #7487 merged; net-closing pressure held. |
+
+Bonus movement during the window: B0 full-corpus truth rose 38.5% → **69.2%**
+and in-progress graduation 0% → **50.0%** (4/8) — see
+`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`; the remaining ungraduated cohort is
+`#5182 #5183 #5184 #5186` (bounded unit-test issues).
+
+---
+
+## Sprint 3 — 2026-06-10 → 2026-06-24 — CLOSED (same-day)
+
+> **Operating principle**: the loop is now demonstrably netting product truth
+> (69.2% full-corpus, 50% graduation). Sprint 3 spends loop capacity on the
+> product, not the loop: finish the cohort, cap substrate self-work at the
+> source, fix the two known merge-gate liveness stalls, and ship one dated
+> commercial artifact. Process work outside the four named goals stands down.
+
+### Sprint 3 goals (≤4)
+
+1. **Graduate the remaining 4 B0-cohort issues** — `#5182`
+   (server/handlers/orchestration/protocols), `#5183`
+   (control_plane/workers/testfixer_task_worker), `#5184`
+   (server/handlers/bots/slack/signature), `#5186` (agents/errors) — to
+   verified truth under the existing `mergeable_pr_or_merged_pr` success
+   contract, then republish `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`.
+   Target: in-progress graduation ≥ 87.5% (7/8), with honest falsification
+   recorded if any issue proves mis-scoped.
+2. **Ship the loop-steering substrate cap.** The boss issue generator gains a
+   product:substrate classification and a `--substrate-cap` (default 0.3) so
+   at most ~30% of generated issues target loop/meta surfaces. Acceptance:
+   one before/after queue-composition measurement published in this file.
+   (Sanctioned steering-surface work — it exists to redirect the queue toward
+   product; anti-goal clause (a).)
+3. **Merge-gate liveness Phase 1** per
+   `docs/governance/BOSS_LOOP_MERGE_GATE_RESILIENCE.md`: (i) quorum-rerun
+   reconciler (A1 — re-runs stale-but-satisfiable `aragora-merge-quorum`
+   checks; kills the observed 2.5h stall class, e.g. #7727), (ii) boss PR
+   dedupe janitor (closes duplicate draft PRs per issue — live duplicates at
+   sprint open: #8061 ×2, #8002 ×3, #7818 ×2). Both are sanctioned under
+   anti-goal clause (b): they net-close or unblock existing queue items.
+4. **EU AI Act wedge artifact.** One polished, dated end-to-end walkthrough
+   (`aragora compliance classify` → `eu-ai-act generate` → `report`) published
+   under `docs/compliance/`, with honest "known gaps" recorded for any step
+   that fails. The Aug 2, 2026 enforcement date is 7.5 weeks out; this is the
+   one dated commercial wedge with shipped tooling.
+
+**Carried operator item (not an autonomous lane):** post the design-review
+decision on #7472 (advisory-review recognizable header).
+
+### Sprint 3 anti-goals
+
+Sprint 2 anti-goals carry forward verbatim (no new review-queue / settlement /
+merge-quorum / steering meta-tooling outside clause (a)/(b); no premature
+external outreach without an explicit operator decision; no Tier 4 self-mods
+without spec + failing governance tests first). The four named goals above are
+the **only** sanctioned settlement/steering-surface work this sprint.
+
+### Sprint 3 exit condition
+
+Same discipline: every goal reaches terminal state (shipped, satisfied, or
+honestly falsified) or an explicit operator decision extends/replaces it. No
+drift extensions.
+
+### Sprint 3 closure — 2026-06-10 (same-day; run-20260610)
+
+| # | Goal | Outcome |
+|---|---|---|
+| 1 | Graduate remaining 4 B0-cohort issues | **Shipped** — #5182 #5183 #5184 #5186 closed via merged issue-linked PRs (#8097 #8100 #8102 #8103); cohort 8/8. Truth-metric republication registers at the next recurring TW-02 pass. |
+| 2 | Loop-steering substrate cap | **Shipped** — #8095 merged; live in the boss-loop launchd env (`ARAGORA_SUBSTRATE_CAP=0.3`). Trailing acceptance (before/after queue composition at next real refill) carried into Sprint 4 as a measurement item, per operator decision. |
+| 3 | Merge-gate liveness Phase 1 | **Shipped** — reconciler #8092 (incl. live circular-stall fix) + janitor #8093 merged; reconciler live (`ARAGORA_QUORUM_RECONCILER=1`); 4 duplicate drafts closed at sprint open, duplicate groups now zero. |
+| 4 | EU AI Act wedge artifact | **Shipped** — #8096 merged (dated walkthrough, live CLI outputs, honest PARTIAL grades). |
+
+Carried operator item resolved: #7472 design review **APPROVED** (recorded 2026-06-10; the
+lineage-bound implementation was already live on main — see the record correction on #7472).
+Closure authority: exit condition (b), explicit operator decision of 2026-06-10 instructing
+adoption of the steering-leverage operating plan's Phase 0 as Sprint 4.
+
+---
+
+## Sprint 4 — 2026-06-10 → 2026-06-24 — Phase 0: Instruments
+
+> **Operating principle**: the two-week steering audit
+> (run-20260610) found every loss shared one shape — *a cheap signal existed
+> on disk, nothing was contracted to read it, and the human was the only
+> fallback reader.* Sprint 4 ships the instruments before any further
+> features, per `docs/superpowers/plans/2026-06-10-steering-leverage-operating-plan-v2.md`
+> Phase 0, adopted by explicit operator decision (2026-06-10).
+
+### Sprint 4 goals (≤4)
+
+1. **Dead Man's Signals sentinel live.** `scripts/fleet_sentinel.py` +
+   launchd unit: reads publisher-status freshness/auth, `boss_metrics.jsonl`
+   mtime, launchd plist validity + daemon liveness, gh/codex auth state,
+   main-checkout-on-main invariant, outbox depth/age, disk free; breaches
+   emit to a JSONL ledger + notification channel; silence recorded as an
+   incident. Acceptance: replaying the May-18→Jun-08 on-disk state raises
+   the publisher alarm; ≥48h live with no human-discovered incident it
+   missed.
+2. **Leverage + waste instruments published.** `scripts/measure_leverage_ratio.py`
+   (refuses to invent operator-minutes; steering-integrity honestly null
+   until instrumented) + `scripts/measure_work_loss.py` (waste ratio from
+   outbox archive × origin refs × PR refs — the 2026-06-10 harvest logic,
+   productized) → `docs/status/LEVERAGE.md` with LR, waste ratio, and a
+   blind-period log. Acceptance: first publication with real numbers,
+   baseline = run-20260610.
+3. **Net-closure floor in the issue generator.** Weekly closed:created
+   below a configurable floor throttles `generate_boss_issues.py` (the
+   substrate-cap pattern applied to appetite; audit basis: 215 created : 0
+   closed in the window). Acceptance: floor enforced in one real refill or
+   throttle observed, skips reported never silent.
+4. **Substrate-cap composition measurement** (carried Sprint 3 goal 2
+   acceptance): publish the before/after queue composition at the first
+   real refill with the cap active. **Satisfied (2026-06-11)** — published in
+   `docs/status/LEVERAGE.md` § "Queue Composition (substrate cap)". The live
+   generator yields **0 valid candidates at both cap settings** (proof-first
+   canonical-priority filter empties the queue upstream of the cap, same as
+   2026-06-10), so no real refill reached the cap to compose. The measurement
+   is therefore **synthetic — the cap's mathematical effect proven by unit**
+   (`select_with_substrate_cap`, 7/7 tests passing): on a 10-substrate +
+   10-product set at the default `cap=0.3`, composition shifts from 100%
+   substrate (cap disabled) to **30% substrate / 70% product** (3 substrate /
+   7 product, 7 substrate skipped, never silently). The synthetic-vs-live
+   distinction is stated explicitly in the published section; it is to be
+   replaced with an observed live composition at the next real refill that
+   reaches the cap with mixed candidates.
+
+### Sprint 4 anti-goals
+
+Sprint 2/3 anti-goals carry forward verbatim. Additionally: **no Phase 1+
+work** (attention exchange, crux cards, intents, ledger, receipt standard)
+this sprint — instruments first, features after the instruments exist; and
+no settlement-surface changes (`review_queue.py`, quorum workflows,
+`settle_*.py`) — the three green settlement-surface PRs from the outbox
+harvest (#8122, #8126, #8140) await operator settlement and are not
+superseded by anything here.
+
+### Sprint 4 exit condition
+
+Every goal terminal (shipped / satisfied / honestly falsified) or explicit
+operator decision; no drift extensions. Sentinel goal additionally requires
+the 48h live-soak clause before it counts as shipped.
 
 ---
 

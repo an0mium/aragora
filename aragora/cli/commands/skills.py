@@ -17,27 +17,42 @@ import argparse
 import asyncio
 import json
 import logging
-from typing import Any
+import os
+from typing import TYPE_CHECKING, Any
 
-import httpx
+from aragora._lazy_imports import lazy_module
 
-from aragora.config.settings import get_settings
+# Optional runtime dep: imported lazily so the parser can register this
+# command on a base install that lacks httpx (httpx is only needed when a
+# command actually issues an HTTP request).
+if TYPE_CHECKING:  # pragma: no cover - import only for type checkers
+    import httpx
+else:
+    httpx = lazy_module("httpx")
 
 logger = logging.getLogger(__name__)
 
+# Default API URL, consistent with nomic.py/verticals.py/debate.py/consensus.py.
+DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
+
 
 def _get_api_base() -> str:
-    """Get the API base URL from settings."""
-    settings = get_settings()
-    host = getattr(settings, "server_host", "localhost")
-    port = getattr(settings, "server_port", 8000)
-    return f"http://{host}:{port}"
+    """Get the API base URL.
+
+    Honors ``ARAGORA_API_URL`` and defaults to the documented server port
+    (8080), matching the other CLI clients (nomic, verticals, debate,
+    consensus).
+    """
+    return os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
 
 def _get_auth_headers() -> dict[str, str]:
-    """Get authentication headers if available."""
-    settings = get_settings()
-    token = getattr(settings, "api_token", None)
+    """Get authentication headers if available.
+
+    Reads ``ARAGORA_API_TOKEN`` (falling back to ``ARAGORA_API_KEY``),
+    consistent with the other CLI clients.
+    """
+    token = os.environ.get("ARAGORA_API_TOKEN") or os.environ.get("ARAGORA_API_KEY")
     if token:
         return {"Authorization": f"Bearer {token}"}
     return {}
@@ -181,7 +196,7 @@ async def _cmd_list(args: argparse.Namespace) -> None:
 
         if not skills:
             print("  No skills installed.")
-            print("\n  Install skills with: aragora marketplace install <skill_id>")
+            print("\n  Install skills with: aragora skills install <skill_id>")
             return
 
         for skill in skills:
@@ -211,7 +226,7 @@ async def _cmd_install(args: argparse.Namespace) -> None:
 
     if not skill_id:
         print("\nError: skill_id is required")
-        print("Usage: aragora marketplace install <skill_id>")
+        print("Usage: aragora skills install <skill_id>")
         return
 
     data: dict[str, Any] = {}
@@ -252,7 +267,7 @@ async def _cmd_uninstall(args: argparse.Namespace) -> None:
 
     if not skill_id:
         print("\nError: skill_id is required")
-        print("Usage: aragora marketplace uninstall <skill_id>")
+        print("Usage: aragora skills uninstall <skill_id>")
         return
 
     try:
@@ -288,7 +303,7 @@ async def _cmd_info(args: argparse.Namespace) -> None:
 
     if not skill_id:
         print("\nError: skill_id is required")
-        print("Usage: aragora marketplace info <skill_id>")
+        print("Usage: aragora skills info <skill_id>")
         return
 
     try:

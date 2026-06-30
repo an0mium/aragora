@@ -8,8 +8,16 @@ import asyncio
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from aragora.inbox.triage_profile_benchmark import render_benchmark_report, run_fixture_benchmark
+
+ACCEPTANCE_KEYS = (
+    "decision_agreement",
+    "latency_improvement",
+    "blocked_rate_delta",
+    "unsafe_auto_approval",
+)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -45,6 +53,61 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _positive_int(value: Any, *, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+    return value
+
+
+def _bool(value: Any, *, label: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{label} must be a boolean")
+    return value
+
+
+def validate_report_shape(report: dict[str, Any]) -> None:
+    comparison = report.get("comparison")
+    profiles = report.get("profiles")
+    if not isinstance(comparison, dict):
+        raise ValueError("benchmark report comparison must be an object")
+    if not isinstance(profiles, dict):
+        raise ValueError("benchmark report profiles must be an object")
+
+    message_count = _positive_int(
+        comparison.get("message_count"),
+        label="comparison.message_count",
+    )
+    acceptance = comparison.get("acceptance")
+    if not isinstance(acceptance, dict):
+        raise ValueError("comparison.acceptance must be an object")
+    acceptance_values = [
+        _bool(acceptance.get(key), label=f"comparison.acceptance.{key}") for key in ACCEPTANCE_KEYS
+    ]
+    passes_all_thresholds = _bool(
+        comparison.get("passes_all_thresholds"),
+        label="comparison.passes_all_thresholds",
+    )
+    expected_passes = all(acceptance_values)
+    if passes_all_thresholds != expected_passes:
+        raise ValueError(
+            "comparison.passes_all_thresholds must match the conjunction of "
+            "comparison.acceptance values"
+        )
+    for profile in ("baseline", "staged_v1"):
+        profile_payload = profiles.get(profile)
+        if not isinstance(profile_payload, dict):
+            raise ValueError(f"profiles.{profile} must be an object")
+        profile_count = _positive_int(
+            profile_payload.get("message_count"),
+            label=f"profiles.{profile}.message_count",
+        )
+        if profile_count != message_count:
+            raise ValueError(
+                f"profiles.{profile}.message_count ({profile_count}) must match "
+                f"comparison.message_count ({message_count})"
+            )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     report = asyncio.run(
@@ -54,6 +117,11 @@ def main(argv: list[str] | None = None) -> int:
             verbose=args.verbose,
         )
     )
+    try:
+        validate_report_shape(report)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
     print(render_benchmark_report(report))
     if args.output is not None:

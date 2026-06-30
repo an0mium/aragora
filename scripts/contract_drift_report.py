@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -17,13 +18,20 @@ import verify_sdk_contracts
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
+class BaselineJsonError(RuntimeError):
+    """Raised when a required contract-drift baseline cannot be trusted."""
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     if not path.exists():
-        return {}
+        raise BaselineJsonError(f"contract drift baseline missing: {path}")
     try:
-        return json.loads(path.read_text())
-    except json.JSONDecodeError:
-        return {}
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BaselineJsonError(f"cannot load contract drift baseline {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise BaselineJsonError(f"contract drift baseline must be a JSON object: {path}")
+    return payload
 
 
 def _verify_counts() -> tuple[dict[str, int], dict[str, int]]:
@@ -195,7 +203,11 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    summary = build_summary()
+    try:
+        summary = build_summary()
+    except BaselineJsonError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     md = to_markdown(summary)
 
     json_path = Path(args.json_out)

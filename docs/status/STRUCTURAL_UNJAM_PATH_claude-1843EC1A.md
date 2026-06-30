@@ -76,7 +76,7 @@ The 9 held PRs are explicitly paused by the operator. Auditing them periodically
 
 Lane `P104-unjam-coordination` (this session):
 
-1. ✅ **Reconciled codex outbox duplicate** (`open-pr-codex-eu-ai-act-compliance-artifacts-primary-r2-...93c5c430.json`): the work was already covered by my PRs #7391/#7392, BUT codex had correctly caught a `file:///Users/armand/.claude/...` absolute-path leak in #7391's RECEIPT.md. Applied that sanitization to #7391 directly (commit `0855c00895`). Wrote `already-satisfied` receipt to stop codex from re-attempting. Codex's local branch `codex/eu-ai-act-compliance-artifacts-primary-r2-20260521` is safe to delete.
+1. ✅ **Reconciled codex outbox duplicate** (`open-pr-codex-eu-ai-act-compliance-artifacts-primary-r2-...93c5c430.json`): the work was already covered by my PRs #7391/#7392, BUT codex had correctly caught a `file://~/.claude/...` absolute-path leak in #7391's RECEIPT.md. Applied that sanitization to #7391 directly (commit `0855c00895`). Wrote `already-satisfied` receipt to stop codex from re-attempting. Codex's local branch `codex/eu-ai-act-compliance-artifacts-primary-r2-20260521` is safe to delete.
 2. ✅ **Woke codex-R03** with high-priority steering message at `.aragora/operator-steering/codex-r03-.../2026-05-21T21-06-31-991Z-9b6a3335.json` summarizing the reconciliation and what's safe to pick up next.
 3. ✅ **Dispatched Factory Droid** (PID 90915, `droid exec --auto low -m claude-opus-4-7 -r high`) for a read-only audit of the 17 codex desktop automations. Output to `/tmp/factory_codex_automation_audit.md`.
 4. ✅ **Documented this structural blocker** (this file) so the operator + future agent sessions have a single canonical reference.

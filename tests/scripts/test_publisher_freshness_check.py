@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import time
@@ -55,6 +56,10 @@ def _write_outbox_files(tmp_path: Path, count: int) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
     for i in range(count):
         (outbox / f"open-pr-codex-test-{i}.json").write_text("{}", encoding="utf-8")
+
+
+def _set_mtime(path: Path, timestamp: float) -> None:
+    os.utime(path, (timestamp, timestamp))
 
 
 def test_ready_when_loaded_fresh_no_drift(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:
@@ -124,6 +129,31 @@ def test_default_paths_accept_direct_dot_aragora_state_root_env(
     assert report.outbox_cache_count == 1
 
 
+def test_empty_local_dot_aragora_does_not_mask_explicit_shared_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    (repo_root / ".aragora" / "agent_bridge" / "runs").mkdir(parents=True)
+    state_root = tmp_path / "shared-root"
+    (state_root / ".aragora" / "automation-github-status").mkdir(parents=True)
+    (state_root / ".aragora" / "automation-outbox").mkdir(parents=True)
+    cache = _write_cache(state_root, outbox_count=1)
+    _write_outbox_files(state_root, 1)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+    now = cache.stat().st_mtime + 60
+
+    report = mod.evaluate(repo_root, now=now)
+
+    assert report.verdict == "ready"
+    assert report.cache_path == str(
+        state_root / ".aragora" / "automation-github-status" / "latest.json"
+    )
+    assert report.outbox_dir == str(state_root / ".aragora" / "automation-outbox")
+    assert report.outbox_real_count == 1
+    assert report.outbox_cache_count == 1
+
+
 def test_degraded_when_launchd_not_loaded(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:
     cache = _write_cache(stub_repo, outbox_count=2)
     _write_outbox_files(stub_repo, 2)
@@ -149,22 +179,25 @@ def test_degraded_when_cache_stale(monkeypatch: pytest.MonkeyPatch, stub_repo: P
     assert report.cache_age_human == "2.0h"
 
 
-def test_warming_when_loaded_but_drift(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:
-    """When launchd is loaded and cache is fresh but drift exists, verdict is warming.
-
-    This represents the transient state right after a publisher cycle that ran
-    against a stale outbox snapshot — the cache should refresh on the next cycle.
-    """
+def test_warming_when_outbox_changed_after_fresh_cache(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path
+) -> None:
+    """Fresh count drift is warming when a newer outbox write explains it."""
     cache = _write_cache(stub_repo, outbox_count=2)
     _write_outbox_files(stub_repo, 5)  # real count > cache count
+    base = time.time() - 300
+    outbox = stub_repo / ".aragora" / "automation-outbox"
+    _set_mtime(cache, base)
+    for path in outbox.glob("*.json"):
+        _set_mtime(path, base + 10)
+    _set_mtime(outbox, base + 10)
     monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
-    now = cache.stat().st_mtime + 60
+    now = base + 60
     report = mod.evaluate(stub_repo, now=now)
-    # drift triggers degraded since drift means writes have happened that the
-    # cache hasn't reflected yet
     assert report.outbox_drift is True
-    assert "drift: outbox=5 cache=2" in report.blockers
-    assert report.verdict == "degraded"
+    assert report.outbox_changed_after_cache is True
+    assert [b for b in report.blockers if b.startswith("drift:")] == []
+    assert report.verdict == "warming"
 
 
 def test_warming_label_when_loaded_no_drift_but_cache_just_stale(
@@ -297,6 +330,65 @@ def test_main_accepts_status_cache_alias(
     assert parsed["cache_path"] == str(cache_path.resolve())
 
 
+def test_main_accepts_cache_dir_alias(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cache_dir = stub_repo / ".aragora" / "automation-github-status"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / "latest.json"
+    cache_path.write_text(
+        json.dumps({"generated_at": "2026-05-05T12:00:00Z", "local_queue": {"outbox_count": 0}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(["--repo", str(stub_repo), "--cache-dir", str(cache_dir), "--json"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["cache_path"] == str(cache_path.resolve())
+
+
+def test_main_accepts_cache_file_alias(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cache_path = stub_repo / "custom-cache-file.json"
+    cache_path.write_text(
+        json.dumps({"generated_at": "2026-05-05T12:00:00Z", "local_queue": {"outbox_count": 0}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(["--repo", str(stub_repo), "--cache-file", str(cache_path), "--json"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["cache_path"] == str(cache_path.resolve())
+
+
+def test_main_preserves_cache_abbreviation_as_explicit_alias(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cache_path = stub_repo / "custom-cache-abbrev.json"
+    cache_path.write_text(
+        json.dumps({"generated_at": "2026-05-05T12:00:00Z", "local_queue": {"outbox_count": 0}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(["--repo", str(stub_repo), "--cache", str(cache_path), "--json"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["cache_path"] == str(cache_path.resolve())
+
+
 def test_main_resolves_explicit_relative_paths_from_repo(
     monkeypatch: pytest.MonkeyPatch,
     stub_repo: Path,
@@ -421,15 +513,22 @@ def test_fresh_cache_with_count_disagreement_still_flags_drift(
     AND counts disagree, drift IS a real blocker (the publisher wrote
     inconsistent data).
     """
-    cache = _write_cache(stub_repo, outbox_count=2)
     _write_outbox_files(stub_repo, 5)
+    cache = _write_cache(stub_repo, outbox_count=2)
+    base = time.time() - 300
+    outbox = stub_repo / ".aragora" / "automation-outbox"
+    for path in outbox.glob("*.json"):
+        _set_mtime(path, base)
+    _set_mtime(outbox, base)
+    _set_mtime(cache, base + 10)
     monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
     # Cache is 60s old → fresh at default 1800s threshold.
-    now = cache.stat().st_mtime + 60
+    now = base + 70
     report = mod.evaluate(stub_repo, now=now, stale_threshold_seconds=1800)
 
     assert report.cache_stale is False
     assert report.outbox_drift is True
+    assert report.outbox_changed_after_cache is False
     drift_blockers = [b for b in report.blockers if b.startswith("drift:")]
     assert drift_blockers == ["drift: outbox=5 cache=2"]
     assert report.verdict == "degraded"
