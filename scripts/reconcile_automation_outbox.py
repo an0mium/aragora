@@ -45,9 +45,10 @@ from github_cli_health import check_github_cli_health  # noqa: E402
 from handoff_state import (  # noqa: E402
     BASE_FIELD_KEYS,
     NarrowGitHubClient,
-    desired_base_from_payload,
     full_heads_match,
     github_evidence_for_branch,
+    is_pr_publication_request as handoff_is_pr_publication_request,
+    local_evidence_conflict_reason,
     target_pr_number_from_receipt,
 )
 from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
@@ -415,6 +416,9 @@ def _merged_pr_commit_preservation_proof(
 
     if not _is_pr_publication_request(payload):
         return None
+    local_conflict_reason = local_evidence_conflict_reason(payload)
+    if local_conflict_reason is not None:
+        return None
     expected_base = _requested_base_from_payload(payload) or base
     records = _lane_records_from_payload(payload, branch)
     if not records:
@@ -630,16 +634,7 @@ def _requested_action_type(payload: Mapping[str, Any]) -> str:
 
 
 def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
-    return _requested_action_type(payload) in {
-        "open_pr",
-        "open_pull_request",
-        "open_or_update_pr",
-        "open_or_update_pull_request",
-        "push_branch_and_open_pr",
-        "push_branch_and_open_pull_request",
-        "push_branch_and_open_or_update_pr",
-        "push_branch_and_open_or_update_pull_request",
-    }
+    return handoff_is_pr_publication_request(payload)
 
 
 def _receipt_has_pr_reference(receipt: Mapping[str, Any]) -> bool:
@@ -984,6 +979,9 @@ def _exact_open_pr_terminal_candidate(
 
     if not _is_pr_publication_request(payload):
         return None, None
+    local_conflict_reason = local_evidence_conflict_reason(payload)
+    if local_conflict_reason is not None:
+        return None, f"exact open PR terminal-archive gate: {local_conflict_reason}"
     records = _lane_records_from_payload(payload, branch)
     if any(_has_local_work_marker(record) for record in records):
         return None, "exact open PR terminal-archive gate: local work marker present"
