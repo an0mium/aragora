@@ -7,6 +7,7 @@ deleted after a recovery manifest exists. It is intentionally conservative.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -69,7 +70,18 @@ def _coerce_int(value: Any, default: int = 0) -> int:
 
 
 def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off", ""}:
+            return False
     return bool(value)
+
+
+def _coerce_optional_pr_number(value: Any) -> int | None:
+    number = _coerce_int(value)
+    return number if number > 0 else None
 
 
 def _title(record: dict[str, Any]) -> str:
@@ -110,18 +122,22 @@ def _is_parked_epic(record: dict[str, Any]) -> bool:
     return title.startswith(PARKED_PREFIXES) or "vision-layer" in labels
 
 
+def _contains_term(text: str, term: str) -> bool:
+    return re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", text) is not None
+
+
 def _has_high_value_signal(record: dict[str, Any], value_class: str) -> bool:
     if value_class == CLASS_PRODUCT or _is_parked_epic(record):
         return True
     title = _title(record).lower()
-    return any(term in title for term in HIGH_VALUE_TERMS)
+    return any(_contains_term(title, term) for term in HIGH_VALUE_TERMS)
 
 
 def _has_high_risk_signal(
     record: dict[str, Any], merge_packet_entry: dict[str, Any] | None
 ) -> bool:
     title = _title(record).lower()
-    if any(term in title for term in HIGH_RISK_TERMS):
+    if any(_contains_term(title, term) for term in HIGH_RISK_TERMS):
         return True
     if not merge_packet_entry:
         return False
@@ -192,7 +208,10 @@ def classify_pr_disposition(
     """Classify one open PR into a value-preserving disposition."""
     if now is None:
         now = datetime.now(timezone.utc)
-    number = _coerce_int(record.get("number"))
+    number = _coerce_optional_pr_number(record.get("number"))
+    item_id = str(
+        number or record.get("number") or _branch(record) or _head(record) or "unknown-pr"
+    )
     value_class = classify_value_record(record)
     cost = estimate_evaluation_cost(record)
     title = _title(record)
@@ -205,6 +224,7 @@ def classify_pr_disposition(
     high_risk = _has_high_risk_signal(record, merge_packet_entry)
     unresolved_dissent = _coerce_bool((merge_packet_entry or {}).get("unresolved_dissent"))
     low_expected_value = value_class in {CLASS_MAINTENANCE, CLASS_INFRA} and not high_value
+    merge_packet_error = str(record.get("_merge_packet_error") or "")
 
     evidence = [
         f"title={title}",
@@ -221,12 +241,29 @@ def classify_pr_disposition(
         evidence.append("high_risk_or_human_settlement_signal=true")
     if unresolved_dissent:
         evidence.append("model_dissent_present_but_not_value_proof")
+    if merge_packet_error:
+        evidence.append(f"merge_packet.error={merge_packet_error}")
     evidence.extend(_merge_packet_evidence(merge_packet_entry))
+
+    if merge_packet_error:
+        return _base_item(
+            item_type="pr",
+            item_id=item_id,
+            branch=branch,
+            head_sha=head_sha,
+            open_pr=number,
+            value_class=value_class,
+            evaluation_cost=cost,
+            evidence=evidence,
+            disposition=DISPOSITION_PARK_PRESERVE,
+            next_action="preserve; rerun merge-packet before assigning harvest or close/delete",
+            operator_required=True,
+        )
 
     if high_risk and not is_draft:
         return _base_item(
             item_type="pr",
-            item_id=str(number),
+            item_id=item_id,
             branch=branch,
             head_sha=head_sha,
             open_pr=number,
@@ -241,7 +278,7 @@ def classify_pr_disposition(
     if high_value and unresolved_dissent:
         return _base_item(
             item_type="pr",
-            item_id=str(number),
+            item_id=item_id,
             branch=branch,
             head_sha=head_sha,
             open_pr=number,
@@ -250,13 +287,13 @@ def classify_pr_disposition(
             evidence=evidence,
             disposition=DISPOSITION_PARK_PRESERVE,
             next_action="preserve; repair or adjudicate dissent, never close solely for dissent",
-            operator_required=False,
+            operator_required=high_risk,
         )
 
-    if high_value and not is_draft and mergeable != "CONFLICTING":
+    if high_value and not is_draft and mergeable == "MERGEABLE":
         return _base_item(
             item_type="pr",
-            item_id=str(number),
+            item_id=item_id,
             branch=branch,
             head_sha=head_sha,
             open_pr=number,
@@ -271,7 +308,7 @@ def classify_pr_disposition(
     if _is_parked_epic(record) or high_value or (is_draft and high_risk):
         return _base_item(
             item_type="pr",
-            item_id=str(number),
+            item_id=item_id,
             branch=branch,
             head_sha=head_sha,
             open_pr=number,
@@ -286,7 +323,7 @@ def classify_pr_disposition(
     if low_expected_value and (is_draft or stale or mergeable == "CONFLICTING"):
         return _base_item(
             item_type="pr",
-            item_id=str(number),
+            item_id=item_id,
             branch=branch,
             head_sha=head_sha,
             open_pr=number,
@@ -303,7 +340,7 @@ def classify_pr_disposition(
 
     return _base_item(
         item_type="pr",
-        item_id=str(number),
+        item_id=item_id,
         branch=branch,
         head_sha=head_sha,
         open_pr=number,
@@ -326,9 +363,13 @@ def classify_inventory_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     branch = str(git.get("branch") or candidate.get("branch") or "")
     head_sha = str(git.get("head") or candidate.get("head") or "")
     open_prs = links.get("open_prs") if isinstance(links.get("open_prs"), list) else []
-    open_pr = _coerce_int(open_prs[0], default=0) if open_prs else None
-    if open_pr == 0:
-        open_pr = None
+    open_pr = None
+    if open_prs:
+        first_pr = open_prs[0]
+        if isinstance(first_pr, dict):
+            open_pr = _coerce_optional_pr_number(first_pr.get("number"))
+        else:
+            open_pr = _coerce_optional_pr_number(first_pr)
     path = str(candidate.get("path") or "")
     item_id = str(candidate.get("candidate_id") or path or branch or head_sha)
     evidence = [
@@ -386,11 +427,11 @@ def build_manifest(
     for pr in prs:
         if not isinstance(pr, dict):
             continue
-        number = _coerce_int(pr.get("number"))
+        number = _coerce_optional_pr_number(pr.get("number"))
         items.append(
             classify_pr_disposition(
                 pr,
-                merge_packet_entry=merge_packet_entries.get(number),
+                merge_packet_entry=merge_packet_entries.get(number) if number is not None else None,
                 now=now,
                 stale_days=stale_days,
             )

@@ -90,6 +90,67 @@ def test_model_dissent_on_value_work_never_closes_by_itself() -> None:
     assert "never close solely for dissent" in item["next_action"]
 
 
+def test_string_false_does_not_create_dissent() -> None:
+    item = classify_pr_disposition(
+        _pr(8393, "feat(routing): decision-stakes router"),
+        merge_packet_entry={"tier": "1", "unresolved_dissent": "false"},
+        now=NOW,
+    )
+
+    assert item["disposition"] == DISPOSITION_HARVEST_NOW
+    assert "model_dissent_present_but_not_value_proof" not in item["evidence"]
+
+
+def test_unknown_mergeability_parks_high_value_pr() -> None:
+    item = classify_pr_disposition(
+        _pr(8393, "feat(routing): decision-stakes router", mergeable="UNKNOWN"),
+        merge_packet_entry={"tier": 1, "unresolved_dissent": False},
+        now=NOW,
+    )
+
+    assert item["disposition"] == DISPOSITION_PARK_PRESERVE
+    assert "preserve" in item["next_action"]
+
+
+def test_tier_three_draft_with_dissent_requires_operator() -> None:
+    item = classify_pr_disposition(
+        _pr(8541, "feat(api): expose crux finder", draft=True),
+        merge_packet_entry={"tier": 3, "unresolved_dissent": "true"},
+        now=NOW,
+    )
+
+    assert item["disposition"] == DISPOSITION_PARK_PRESERVE
+    assert item["operator_required"] is True
+
+
+def test_merge_packet_failure_parks_pr_until_tier_known() -> None:
+    item = classify_pr_disposition(
+        {
+            **_pr(8541, "feat(api): expose crux finder"),
+            "_merge_packet_error": "merge_packet_failed:#8541:transport down",
+        },
+        now=NOW,
+    )
+
+    assert item["disposition"] == DISPOSITION_PARK_PRESERVE
+    assert item["operator_required"] is True
+    assert "rerun merge-packet" in item["next_action"]
+
+
+def test_invalid_pr_number_does_not_emit_zero_open_pr() -> None:
+    item = classify_pr_disposition(
+        {
+            **_pr(0, "feat(odr): verify core"),
+            "number": None,
+            "headRefName": "codex/value",
+        },
+        now=NOW,
+    )
+
+    assert item["id"] == "codex/value"
+    assert item["open_pr"] is None
+
+
 def test_stale_maintenance_pr_can_close_only_after_manifest_checks() -> None:
     item = classify_pr_disposition(
         _pr(
@@ -123,6 +184,21 @@ def test_unique_worktree_routes_to_harvest() -> None:
     assert item["item_type"] == "worktree"
     assert item["disposition"] == DISPOSITION_HARVEST_NOW
     assert item["branch"] == "codex/value"
+
+
+def test_worktree_open_pr_dict_link_is_preserved() -> None:
+    item = classify_inventory_candidate(
+        {
+            "candidate_id": "abc",
+            "classification": "open_pr_or_outbox",
+            "decision": "preserve",
+            "git": {"branch": "codex/value", "head": "abc123"},
+            "links": {"open_prs": [{"number": 8718, "title": "manifest"}]},
+        }
+    )
+
+    assert item["disposition"] == DISPOSITION_PARK_PRESERVE
+    assert item["open_pr"] == 8718
 
 
 def test_patch_equivalent_worktree_requires_manifest_before_delete() -> None:

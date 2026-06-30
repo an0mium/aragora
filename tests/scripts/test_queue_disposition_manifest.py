@@ -106,7 +106,12 @@ def test_run_manifest_records_merge_packet_failures() -> None:
     assert rc == manifest_cli.EXIT_OK
     payload = json.loads(lines[0])
     assert payload["annotations"] == ["merge_packet_failed:#1:transport down"]
-    assert payload["items"][0]["disposition"] == "harvest_now"
+    assert payload["items"][0]["disposition"] == "park_preserve"
+    assert payload["items"][0]["operator_required"] is True
+    assert (
+        "merge_packet.error=merge_packet_failed:#1:transport down"
+        in payload["items"][0]["evidence"]
+    )
 
 
 def test_collect_merge_packets_uses_bounded_parallel_workers() -> None:
@@ -121,3 +126,36 @@ def test_collect_merge_packets_uses_bounded_parallel_workers() -> None:
 
     assert entries == {1: {"tier": 1}, 2: {"tier": 2}}
     assert annotations == []
+
+
+def test_collect_merge_packets_accepts_string_pr_numbers() -> None:
+    annotations: list[str] = []
+
+    entries = manifest_cli.collect_merge_packets(
+        [{"number": "8718"}],
+        lambda pr: {"tier": pr},
+        workers=1,
+        annotations=annotations,
+    )
+
+    assert entries == {8718: {"tier": 8718}}
+    assert annotations == []
+
+
+def test_collect_merge_packets_marks_failed_pr_record() -> None:
+    annotations: list[str] = []
+    prs = [{"number": "8718"}]
+
+    def boom(pr: int) -> dict[str, Any]:
+        raise RuntimeError("transport down")
+
+    entries = manifest_cli.collect_merge_packets(
+        prs,
+        boom,
+        workers=1,
+        annotations=annotations,
+    )
+
+    assert entries == {}
+    assert annotations == ["merge_packet_failed:#8718:transport down"]
+    assert prs[0]["_merge_packet_error"] == "merge_packet_failed:#8718:transport down"

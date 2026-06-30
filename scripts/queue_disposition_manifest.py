@@ -151,6 +151,14 @@ def _merge_packet_failure_annotation(number: int, exc: BaseException) -> str:
     return f"merge_packet_failed:#{number}:{str(exc)[:200]}"
 
 
+def _coerce_pr_number(value: Any) -> int | None:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
 def collect_merge_packets(
     prs: list[dict[str, Any]],
     merge_packet: Callable[[int], dict[str, Any]],
@@ -159,30 +167,36 @@ def collect_merge_packets(
     annotations: list[str],
 ) -> dict[int, dict[str, Any]]:
     """Collect per-PR merge packets with bounded read-only parallelism."""
-    numbers = [pr["number"] for pr in prs if isinstance(pr.get("number"), int)]
+    jobs = [
+        (pr, number) for pr in prs if (number := _coerce_pr_number(pr.get("number"))) is not None
+    ]
     merge_entries: dict[int, dict[str, Any]] = {}
-    if not numbers:
+    if not jobs:
         return merge_entries
-    workers = max(1, min(workers, len(numbers)))
+    workers = max(1, min(workers, len(jobs)))
     if workers == 1:
-        for number in numbers:
+        for pr, number in jobs:
             try:
                 entry = merge_packet(number)
             except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as exc:
-                annotations.append(_merge_packet_failure_annotation(number, exc))
+                annotation = _merge_packet_failure_annotation(number, exc)
+                annotations.append(annotation)
+                pr["_merge_packet_error"] = annotation
                 continue
             if entry:
                 merge_entries[number] = entry
         return merge_entries
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {executor.submit(merge_packet, number): number for number in numbers}
+        futures = {executor.submit(merge_packet, number): (pr, number) for pr, number in jobs}
         for future in as_completed(futures):
-            number = futures[future]
+            pr, number = futures[future]
             try:
                 entry = future.result()
             except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as exc:
-                annotations.append(_merge_packet_failure_annotation(number, exc))
+                annotation = _merge_packet_failure_annotation(number, exc)
+                annotations.append(annotation)
+                pr["_merge_packet_error"] = annotation
                 continue
             if entry:
                 merge_entries[number] = entry
