@@ -1,0 +1,266 @@
+[
+ {
+  "branch": "rebase-1344",
+  "tip_sha": "ac54b8dd4db1cee63164fc97ad220c47708f02f6",
+  "tip_date": "2026-03-25 07:16:25 -0500",
+  "subject": "docs: add Aragora terminology glossary"
+ },
+ {
+  "branch": "rebase-1343",
+  "tip_sha": "f4b5dd9000d37ba1c7879660890e71f099c3dcde",
+  "tip_date": "2026-03-25 07:16:30 -0500",
+  "subject": "Tighten founder proof point claims"
+ },
+ {
+  "branch": "rebase-1342",
+  "tip_sha": "6ccc20696c5f14f237cf22e830d013562b05ac8d",
+  "tip_date": "2026-03-25 07:16:35 -0500",
+  "subject": "Add March 2026 why-now strategy memo"
+ },
+ {
+  "branch": "rebase-1341",
+  "tip_sha": "be735c27e665159266c4e3c29726935aa857f638",
+  "tip_date": "2026-03-25 07:16:40 -0500",
+  "subject": "Add explicit non-goals ledger for product positioning"
+ },
+ {
+  "branch": "rebase-1340",
+  "tip_sha": "cad652b7d1ffb4d966134894072d6d744b41b19d",
+  "tip_date": "2026-03-25 07:16:45 -0500",
+  "subject": "Add buyer alternatives positioning docs"
+ },
+ {
+  "branch": "rebase-1338",
+  "tip_sha": "ee847ccb1712ced5dd32636bd9cb84cdf627f81c",
+  "tip_date": "2026-03-25 07:16:50 -0500",
+  "subject": "Add product evolution story and roadmap framing"
+ },
+ {
+  "branch": "rebase-1337",
+  "tip_sha": "894fdb18112fe0b7e64d834202556422dead2a43",
+  "tip_date": "2026-03-25 07:16:55 -0500",
+  "subject": "Add buyer and analyst FAQ"
+ },
+ {
+  "branch": "rebase-1336",
+  "tip_sha": "49fdb7ebaf9267e30539d834b7aa704c4ac28c45",
+  "tip_date": "2026-03-25 07:17:00 -0500",
+  "subject": "Add post-proof future evolution memo"
+ },
+ {
+  "branch": "rebase-1334",
+  "tip_sha": "d2236e9457b7e241fae309e1a220f162a1f03478",
+  "tip_date": "2026-03-25 07:17:05 -0500",
+  "subject": "Add decision-integrity proof memo"
+ },
+ {
+  "branch": "rebase-1332",
+  "tip_sha": "a3571112980fd34019497fa72d4bbd2ea1757e65",
+  "tip_date": "2026-03-25 07:17:10 -0500",
+  "subject": "Add why-not-generic-agents positioning memo"
+ },
+ {
+  "branch": "rebase-1331",
+  "tip_sha": "30954d0cd9d6d2d25b143d5c90c6cbd66c090978",
+  "tip_date": "2026-03-25 07:17:15 -0500",
+  "subject": "Tighten competitive framing memo"
+ },
+ {
+  "branch": "rebase-1329",
+  "tip_sha": "61b6e50900b2cbb140ccb6ba16a4c4bac203613c",
+  "tip_date": "2026-03-25 07:17:20 -0500",
+  "subject": "Define founder metrics tree for PMF docs"
+ },
+ {
+  "branch": "rebase-1325",
+  "tip_sha": "a0c6707037473f17e41eb265bbd657c5b1aac919",
+  "tip_date": "2026-03-25 07:17:25 -0500",
+  "subject": "docs: define PMF evidence ladder"
+ },
+ {
+  "branch": "rebase-1323",
+  "tip_sha": "6c1282f84feff41698affce362d6fddfbd96787e",
+  "tip_date": "2026-03-25 07:17:29 -0500",
+  "subject": "docs: define bounded six-week founder operating plan"
+ },
+ {
+  "branch": "rebase-1322",
+  "tip_sha": "196f86fdc00b6121ed5dc5b98ce46c5a52e72fd9",
+  "tip_date": "2026-03-25 07:17:34 -0500",
+  "subject": "Clarify Knowledge Mound learning story"
+ },
+ {
+  "branch": "rebase-1321",
+  "tip_sha": "f70c14f3420f36201f55df03a30f289c93f41333",
+  "tip_date": "2026-03-25 07:17:39 -0500",
+  "subject": "docs: add human-in-the-loop boundaries"
+ },
+ {
+  "branch": "rebase-1320",
+  "tip_sha": "2366d16fb02c2a584527a60f5453fa9f2edd816f",
+  "tip_date": "2026-03-25 07:17:44 -0500",
+  "subject": "docs: tighten visible result wording"
+ },
+ {
+  "branch": "rebase-1319",
+  "tip_sha": "35c173395d61748588065babcc266567d4c0e97e",
+  "tip_date": "2026-03-25 07:17:49 -0500",
+  "subject": "Document founder run failure taxonomy"
+ },
+ {
+  "branch": "rebase-1318",
+  "tip_sha": "9b81425fa8777ae31ae63e3137a7a9efd96193db",
+  "tip_date": "2026-03-25 07:17:54 -0500",
+  "subject": "Clarify receipt dissent evidence narrative"
+ },
+ {
+  "branch": "rebase-1317",
+  "tip_sha": "51ce187b3cba34ad83f344c20fe9a668c2bb1a45",
+  "tip_date": "2026-03-25 07:17:59 -0500",
+  "subject": "docs: define provider path truth contract"
+ },
+ {
+  "branch": "rebase-1315",
+  "tip_sha": "4909015bb783dc5f340b694eac5413f9eb5f1120",
+  "tip_date": "2026-03-25 07:18:04 -0500",
+  "subject": "Define design partner first-week journey"
+ },
+ {
+  "branch": "rebase-1311",
+  "tip_sha": "ef638b0fc0d2314455f08e5871b04166a608be1d",
+  "tip_date": "2026-03-25 07:18:09 -0500",
+  "subject": "Draft bounded design partner pilot structure"
+ },
+ {
+  "branch": "rebase-1310",
+  "tip_sha": "1b838620feec13009cd4ecb45ec16df898c931a7",
+  "tip_date": "2026-03-25 07:18:13 -0500",
+  "subject": "Add inbox trust design partner rubric"
+ },
+ {
+  "branch": "rebase-1308",
+  "tip_sha": "e65db64bcc314f4b302cd8d744d6bb0a6f41479d",
+  "tip_date": "2026-03-25 07:18:18 -0500",
+  "subject": "Define design partner pain taxonomy and triggers"
+ },
+ {
+  "branch": "fix-1310",
+  "tip_sha": "7911274a1388d143bfd2aa5c63011993629105c6",
+  "tip_date": "2026-03-25 07:19:31 -0500",
+  "subject": "Add inbox trust design partner rubric"
+ },
+ {
+  "branch": "fix-1315",
+  "tip_sha": "fb4fd37d7e0d1e856f44bd698c51ab3430f50efc",
+  "tip_date": "2026-03-25 07:19:42 -0500",
+  "subject": "Define design partner first-week journey"
+ },
+ {
+  "branch": "fix-1317",
+  "tip_sha": "71aaf2ec40132bb5169a8e37bb2af56f2679e429",
+  "tip_date": "2026-03-25 07:19:52 -0500",
+  "subject": "docs: define provider path truth contract"
+ },
+ {
+  "branch": "fix-1319",
+  "tip_sha": "16affdf88532f20ae080a1868f5f05be6a580e2b",
+  "tip_date": "2026-03-25 07:20:02 -0500",
+  "subject": "Document founder run failure taxonomy"
+ },
+ {
+  "branch": "fix-1321",
+  "tip_sha": "a716dfbeb0deca99b61b8be39c39645fde664d86",
+  "tip_date": "2026-03-25 07:20:13 -0500",
+  "subject": "docs: add human-in-the-loop boundaries"
+ },
+ {
+  "branch": "fix-1322",
+  "tip_sha": "6ee76988ce3bd953638aa22cde12c6bea475dd7e",
+  "tip_date": "2026-03-25 07:20:23 -0500",
+  "subject": "Clarify Knowledge Mound learning story"
+ },
+ {
+  "branch": "fix-1323",
+  "tip_sha": "904dd0d24bbb70d22ce0a0eff447995892415f79",
+  "tip_date": "2026-03-25 07:20:33 -0500",
+  "subject": "docs: define bounded six-week founder operating plan"
+ },
+ {
+  "branch": "fix-1325",
+  "tip_sha": "d01cc37baf81d31ffdb38811287951a35d5fe975",
+  "tip_date": "2026-03-25 07:20:44 -0500",
+  "subject": "docs: define PMF evidence ladder"
+ },
+ {
+  "branch": "fix-1329",
+  "tip_sha": "c6446909a55329ca5048396e2a10b226a4f2c82e",
+  "tip_date": "2026-03-25 07:20:54 -0500",
+  "subject": "Define founder metrics tree for PMF docs"
+ },
+ {
+  "branch": "fix-1331",
+  "tip_sha": "a93addfeef45b29403b8aca3b41ae408868830ee",
+  "tip_date": "2026-03-25 07:21:05 -0500",
+  "subject": "Tighten competitive framing memo"
+ },
+ {
+  "branch": "fix-1332",
+  "tip_sha": "fb2c15860cf080aa6b83e774098a266999e79dec",
+  "tip_date": "2026-03-25 07:21:16 -0500",
+  "subject": "Add why-not-generic-agents positioning memo"
+ },
+ {
+  "branch": "fix-1334",
+  "tip_sha": "e9d98ba372bfc41d295fd720b8191b5e7b40138a",
+  "tip_date": "2026-03-25 07:21:27 -0500",
+  "subject": "Add decision-integrity proof memo"
+ },
+ {
+  "branch": "fix-1336",
+  "tip_sha": "2eb2c735d869c65c1fbc3240e841dd1e3af09588",
+  "tip_date": "2026-03-25 07:21:38 -0500",
+  "subject": "Add post-proof future evolution memo"
+ },
+ {
+  "branch": "fix-1337",
+  "tip_sha": "9e5832c09b1d6de8392e055e81e45b3ee154de92",
+  "tip_date": "2026-03-25 07:21:48 -0500",
+  "subject": "Add buyer and analyst FAQ"
+ },
+ {
+  "branch": "fix-1338",
+  "tip_sha": "a1aec23a42ee0e5bbd142a2cc224ce3b7f2ddc01",
+  "tip_date": "2026-03-25 07:21:59 -0500",
+  "subject": "Add product evolution story and roadmap framing"
+ },
+ {
+  "branch": "fix-1340",
+  "tip_sha": "dda9db8ceab6e5d1583aaeddc06e51e2064b5171",
+  "tip_date": "2026-03-25 07:22:09 -0500",
+  "subject": "Add buyer alternatives positioning docs"
+ },
+ {
+  "branch": "fix-1341",
+  "tip_sha": "e59f5ee935271aea0e73bbbc7ddd7b5039da4c4a",
+  "tip_date": "2026-03-25 07:22:19 -0500",
+  "subject": "Add explicit non-goals ledger for product positioning"
+ },
+ {
+  "branch": "fix-1342",
+  "tip_sha": "47a04a1ba8e3f07d18a7e742bc3c15c96ebeebe8",
+  "tip_date": "2026-03-25 07:22:31 -0500",
+  "subject": "Add March 2026 why-now strategy memo"
+ },
+ {
+  "branch": "fix-1343",
+  "tip_sha": "d15ffd03d71e4746d792f7b369b880602501756d",
+  "tip_date": "2026-03-25 07:22:41 -0500",
+  "subject": "Tighten founder proof point claims"
+ },
+ {
+  "branch": "fix-1344",
+  "tip_sha": "ad0df488ffec22c94fdab0fadad43cdf032d0ace",
+  "tip_date": "2026-03-25 07:23:47 -0500",
+  "subject": "docs: add Aragora terminology glossary"
+ }
+]

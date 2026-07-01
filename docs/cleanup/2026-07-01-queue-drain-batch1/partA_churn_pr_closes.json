@@ -1,0 +1,48 @@
+{
+ "prepared_at": "2026-07-01T23:50:55.084696+00:00",
+ "executed": false,
+ "cap": 30,
+ "note": "Deterministic filter yielded only 4 confident candidates out of 46 open PRs; per plan, not stretching criteria. #8488 excluded (MERGEABLE/CLEAN, borderline 14-day staleness).",
+ "closes": [
+  {
+   "pr": 8128,
+   "title": "[outbox-harvest] Validated and pushed docs-only canonical proof-surface refresh",
+   "author": "an0mium (codex[bot] commits, head codex/next-steps-proof-surface-primary-20260606)",
+   "mergeable": "CONFLICTING",
+   "merge_state": "DIRTY",
+   "draft": true,
+   "last_commit": "2026-06-06T04:17:41Z",
+   "criteria": "[outbox-harvest] title; codex lane; CONFLICTING/DIRTY; draft stale >14d; no an0mium commits; branch is patch-equivalent to main (git cherry all '-')"
+  },
+  {
+   "pr": 8143,
+   "title": "[outbox-harvest] Built and pushed the work robot merge-state readiness gate",
+   "author": "an0mium (codex[bot] commits, head codex/work-robot-merge-state-gate-primary-20260603)",
+   "mergeable": "CONFLICTING",
+   "merge_state": "DIRTY",
+   "draft": true,
+   "last_commit": "2026-06-03T12:12:59Z",
+   "criteria": "[outbox-harvest] title; codex lane; CONFLICTING/DIRTY; draft stale >14d; no an0mium commits"
+  },
+  {
+   "pr": 8405,
+   "title": "fix(settlement): route Tier-4 read probes through app auth",
+   "author": "an0mium (codex[bot] commits, head codex/github-app-read-routing-20260614)",
+   "mergeable": "CONFLICTING",
+   "merge_state": "DIRTY",
+   "draft": false,
+   "last_commit": "2026-06-16T02:20:51Z",
+   "criteria": "fix( on settle substrate; codex lane; CONFLICTING/DIRTY; last commit 15d ago; no an0mium commits in last 7d"
+  },
+  {
+   "pr": 8406,
+   "title": "fix(tier4): add REST fallback for settlement check",
+   "author": "an0mium (codex[bot] commits, head codex/settle-tier4-rest-fallback-20260614)",
+   "mergeable": "CONFLICTING",
+   "merge_state": "DIRTY",
+   "draft": false,
+   "last_commit": "2026-06-21T18:03:45Z",
+   "criteria": "fix( on settle substrate; codex lane; CONFLICTING/DIRTY; last commit 10d ago; no an0mium commits in last 7d"
+  }
+ ]
+}

@@ -1,0 +1,112 @@
+[
+ {
+  "branch": "fix-1522",
+  "tip_sha": "d86009bdb200059126eac248cee42733ba02478b",
+  "tip_date": "2026-03-28 00:26:37 -0500",
+  "log3": "d86009bdb2 fix(prompt-engine): normalize stream timing inputs\n87d5b64260 fix(prompt-engine): restore timing serialization\nc480532241 feat(swarm): verify and route local runners by live probe (#1521)",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3511 +-",
+   " 5562 files changed, 298809 insertions(+), 887586 deletions(-)"
+  ]
+ },
+ {
+  "branch": "worktree-agent-a03f0ccb",
+  "tip_sha": "be13bded28da3bc1877748b83cfe039156b59d9c",
+  "tip_date": "2026-03-18 20:06:46 -0500",
+  "log3": "be13bded28 feat(nomic): add canonical repo assessment compiler\ncb4dc3ebd0 Merge pull request #1040 from synaptent/codex/docs-self-improvement-cadence\ned0f7de493 docs: codify autonomous self-improvement cadence",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3634 +-",
+   " 6004 files changed, 329774 insertions(+), 1025707 deletions(-)"
+  ]
+ },
+ {
+  "branch": "rebase-1331",
+  "tip_sha": "30954d0cd9d6d2d25b143d5c90c6cbd66c090978",
+  "tip_date": "2026-03-25 07:17:15 -0500",
+  "log3": "30954d0cd9 Tighten competitive framing memo\n7a4b8d5496 codex/swarm ec4cea49 story variants (#1339)\na6312af0b8 Add trust objections and rebuttals memo (#1335)",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3634 +-",
+   " 5757 files changed, 326681 insertions(+), 951178 deletions(-)"
+  ]
+ },
+ {
+  "branch": "rebase-1311",
+  "tip_sha": "ef638b0fc0d2314455f08e5871b04166a608be1d",
+  "tip_date": "2026-03-25 07:18:09 -0500",
+  "log3": "ef638b0fc0 Draft bounded design partner pilot structure\n7a4b8d5496 codex/swarm ec4cea49 story variants (#1339)\na6312af0b8 Add trust objections and rebuttals memo (#1335)",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3634 +-",
+   " 5758 files changed, 326852 insertions(+), 951154 deletions(-)"
+  ]
+ },
+ {
+  "branch": "pr1111-fix-ci",
+  "tip_sha": "5de051e5cde988409f8a5efa0219fa099d55010e",
+  "tip_date": "2026-03-20 21:40:49 -0500",
+  "log3": "5de051e5cd fix(ci): use legacy dependency shim in test matrix\ne44eb8d52a Merge remote-tracking branch 'origin/main' into pr1111-fix-ci\n1e8020a4b1 fix(tranche): persist queue item state before watch (#1117)",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3634 +-",
+   " 5964 files changed, 302149 insertions(+), 966090 deletions(-)"
+  ]
+ },
+ {
+  "branch": "fix-1337",
+  "tip_sha": "9e5832c09b1d6de8392e055e81e45b3ee154de92",
+  "tip_date": "2026-03-25 07:21:48 -0500",
+  "log3": "9e5832c09b Add buyer and analyst FAQ\n7c56ae57cf Add post-proof future evolution memo (#1336)\nb794fae56c Add decision-integrity proof memo (#1334)",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3634 +-",
+   " 5763 files changed, 328155 insertions(+), 950247 deletions(-)"
+  ]
+ },
+ {
+  "branch": "worktree-agent-a15c678d",
+  "tip_sha": "72b4ef98169c4923851635f98a275f714ec6f765",
+  "tip_date": "2026-03-27 00:01:06 -0500",
+  "log3": "72b4ef9816 fix: inbox test receipt requirement + audit async tests + triage error handling\nf498db32bd chore(deps): bump brace-expansion from 5.0.4 to 5.0.5 in /docs-site (#1443)\ncf6288611a fix(testing): make direct pytest invocation deterministic (#1444)",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3511 +-",
+   " 5634 files changed, 322507 insertions(+), 928118 deletions(-)"
+  ]
+ },
+ {
+  "branch": "rebase-1308",
+  "tip_sha": "e65db64bcc314f4b302cd8d744d6bb0a6f41479d",
+  "tip_date": "2026-03-25 07:18:18 -0500",
+  "log3": "e65db64bcc Define design partner pain taxonomy and triggers\n7a4b8d5496 codex/swarm ec4cea49 story variants (#1339)\na6312af0b8 Add trust objections and rebuttals memo (#1335)",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3634 +-",
+   " 5758 files changed, 326836 insertions(+), 951190 deletions(-)"
+  ]
+ },
+ {
+  "branch": "fix-1315",
+  "tip_sha": "fb4fd37d7e0d1e856f44bd698c51ab3430f50efc",
+  "tip_date": "2026-03-25 07:19:42 -0500",
+  "log3": "fb4fd37d7e Define design partner first-week journey\n83758a0d64 Add inbox trust design partner rubric (#1310)\n73170eb851 codex/swarm 66e86169 visible result contract (#1320)",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3634 +-",
+   " 5760 files changed, 327378 insertions(+), 950843 deletions(-)"
+  ]
+ },
+ {
+  "branch": "worktree-agent-a89f9ea7",
+  "tip_sha": "8c40c6ec31de7e86b064709cb591077d5ee9b171",
+  "tip_date": "2026-03-23 13:10:47 -0500",
+  "log3": "8c40c6ec31 feat(auth): add backend API key management endpoints\ncad66a2542 codex/swarm aebe47d9 queue max parallel two slice (#1141)\n5bf2af914f feat(swarm): add tranche queue harvest command (#1164)",
+  "diffstat_tail": [
+   " tests/worktree/test_lifecycle.py                   |     54 -",
+   " uv.lock                                            |   3634 +-",
+   " 5903 files changed, 300118 insertions(+), 948765 deletions(-)"
+  ]
+ }
+]

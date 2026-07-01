@@ -1,0 +1,722 @@
+[
+ {
+  "branch": "worktree-agent-a039de19",
+  "tip_sha": "cf111ee6e58bb37b97c15c4ef6090d19c488f688",
+  "tip_date": "2026-03-18 17:56:25 -0500",
+  "subject": "feat(ralph): add orchestration observability dashboard",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a55b5c2d",
+  "tip_sha": "13fd3e7f4c71afd5332197ce7000d46f6c046193",
+  "tip_date": "2026-03-18 18:22:30 -0500",
+  "subject": "feat(receipts): add unified receipt enforcement gate with feature flags",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a3a5d734",
+  "tip_sha": "c622cfb4ddcfc9d1159864554bcfd86df0cc787d",
+  "tip_date": "2026-03-18 18:30:21 -0500",
+  "subject": "feat(receipts): wire receipt enforcement into OpenClaw, canvas, computer-use paths",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a757f315",
+  "tip_sha": "d84405fe3aece1257b3d359e3523e3b5aa8b76e7",
+  "tip_date": "2026-03-18 18:48:48 -0500",
+  "subject": "feat(receipts): unify receipt stores and close inbox enforcement gaps",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "phase4-enforcement-metrics-exemptions",
+  "tip_sha": "128cc37f2e84febddb6e4ed1a877bf7a31ddd428",
+  "tip_date": "2026-03-18 19:38:35 -0500",
+  "subject": "feat(receipts): add enforcement metrics, exemption registry, and registry wiring",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a03f0ccb",
+  "tip_sha": "be13bded28da3bc1877748b83cfe039156b59d9c",
+  "tip_date": "2026-03-18 20:06:46 -0500",
+  "subject": "feat(nomic): add canonical repo assessment compiler",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-llm-scope-classifier",
+  "tip_sha": "91821864b889914ef4a7754eb35191a2412f53d8",
+  "tip_date": "2026-03-18 22:58:18 -0500",
+  "subject": "feat(tasks): add task queue REST handler and CLI command (#837)",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "claude/fix-test-drift",
+  "tip_sha": "74a2c3c5b788a464ac4fe404fb9735e36e77270c",
+  "tip_date": "2026-03-19 10:00:43 -0500",
+  "subject": "fix(tests): repair Ralph merge-wait and remove stale boss-model-selection tests",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "claude/bump-supabase-js-1064",
+  "tip_sha": "3e819b566393eb9086bf511e616139897320b5f8",
+  "tip_date": "2026-03-19 10:32:53 -0500",
+  "subject": "fix(live): bump @supabase/supabase-js from 2.99.1 to 2.99.3",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "claude/fix-verification-propagation",
+  "tip_sha": "e6ea754139ea27d2b01ad41ebdb6e023663f2a24",
+  "tip_date": "2026-03-20 16:22:47 -0500",
+  "subject": "fix(tranche): propagate verification_commands through queue compile",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pr1118-refresh",
+  "tip_sha": "8b1a6dd3a7ad6cfc8c9c62eefac2a2c918f79338",
+  "tip_date": "2026-03-20 21:40:36 -0500",
+  "subject": "fix(ci): use legacy dependency shim in test matrix",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pr1111-fix-ci",
+  "tip_sha": "5de051e5cde988409f8a5efa0219fa099d55010e",
+  "tip_date": "2026-03-20 21:40:49 -0500",
+  "subject": "fix(ci): use legacy dependency shim in test matrix",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pr1110-refresh",
+  "tip_sha": "a37d152626fe23385fee90df2396a8b731e1efbb",
+  "tip_date": "2026-03-20 21:45:38 -0500",
+  "subject": "docs(cli): refresh generated CLI reference",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pr1110-merge",
+  "tip_sha": "f5ad15e1c3e5c390faeaf13d106b9a25081d58bd",
+  "tip_date": "2026-03-21 02:41:25 +0000",
+  "subject": "Merge e454af687494e833e1ee6642e9589ef187d37736 into 1e8020a4b15fe80c17c8c6974092f689c3cd0059",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-ade80a63",
+  "tip_sha": "7a6343ef3ff7ff5c25a22e1957407fd657917bd1",
+  "tip_date": "2026-03-23 13:09:30 -0500",
+  "subject": "feat(onboarding): convert get-started to interactive onboarding flow",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a89f9ea7",
+  "tip_sha": "8c40c6ec31de7e86b064709cb591077d5ee9b171",
+  "tip_date": "2026-03-23 13:10:47 -0500",
+  "subject": "feat(auth): add backend API key management endpoints",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a5901fd2",
+  "tip_sha": "634ca7721b7f8d461e3b9faccd7355efee6c2fb4",
+  "tip_date": "2026-03-23 13:13:08 -0500",
+  "subject": "feat(knowledge): wire KnowledgeMound retrieval into debate factory",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-aee42fa7",
+  "tip_sha": "135e2abed1f9d478bd55e057ed0ab8bd53e84529",
+  "tip_date": "2026-03-23 13:15:44 -0500",
+  "subject": "feat(routing): wire ProviderRouter into DebateFactory",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a0ba9708",
+  "tip_sha": "1ab28513a6956568ae550e1daf3027ddf3255590",
+  "tip_date": "2026-03-23 13:22:49 -0500",
+  "subject": "feat(swarm): add label filter to boss-loop CLI for unattended dispatch",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-ad52452c",
+  "tip_sha": "3d11e1cfbbdcda0d7bab850387baa9d6034fee46",
+  "tip_date": "2026-03-23 13:24:44 -0500",
+  "subject": "feat(queue): seed fresh tranche queue targeting workbench and integrator slices",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a6e56908",
+  "tip_sha": "d2876100fd8e6d5b5d7a0bb02182aea1a5cc9ec9",
+  "tip_date": "2026-03-23 13:32:10 -0500",
+  "subject": "feat(demo): wire demo surface to real backend debate endpoint",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a24f1121",
+  "tip_sha": "29adf4a4577a5d93eb070da33e8a39eabd210b91",
+  "tip_date": "2026-03-23 13:32:56 -0500",
+  "subject": "feat(dashboard): add live debates section with active debate tracking",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-aeeb17e3",
+  "tip_sha": "5690f765c4c931130c088102f9ae5d87172fcb74",
+  "tip_date": "2026-03-23 13:36:48 -0500",
+  "subject": "feat(knowledge): wire debate outcome ingestion to KnowledgeMound",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-af285de6",
+  "tip_sha": "4e1d447d68527b230940ec3671f02c07ef477c3d",
+  "tip_date": "2026-03-23 13:48:53 -0500",
+  "subject": "test(e2e): add user journey smoke test for product loop validation",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a9631513",
+  "tip_sha": "c54edddf81a1258ca8cb39ba7fd2e9c0988762ee",
+  "tip_date": "2026-03-23 13:58:15 -0500",
+  "subject": "feat(integrations): make integrations UI show real connection status",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a181a842",
+  "tip_sha": "4c25d572c1eae3b48b8895ef185f3eb74c4df9db",
+  "tip_date": "2026-03-23 14:20:35 -0500",
+  "subject": "feat(debate): scale adversarial orchestration to 10+ concurrent agents",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a133b0b0",
+  "tip_sha": "afdbfb21af6cf5ed8acf4aed5fdf6ad474f1d0d0",
+  "tip_date": "2026-03-23 14:22:23 -0500",
+  "subject": "feat(openclaw): wire action dispatch to real execution handlers",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a868aa6e",
+  "tip_sha": "a91d5ae109cb4d56da802ddcc575d0716cde7a37",
+  "tip_date": "2026-03-23 14:32:11 -0500",
+  "subject": "feat(blockchain): wire ERC-8004 identity and receipt settlement (#816)",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a21a819f",
+  "tip_sha": "e6c17396b4be7bfc95d9bd3eac04227e46750498",
+  "tip_date": "2026-03-23 14:37:40 -0500",
+  "subject": "feat(pipeline): productize DAG workbench with real stage transitions (#993)",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-ad4fc751",
+  "tip_sha": "b351bf6199885310b02ca51e442f58c701e0c744",
+  "tip_date": "2026-03-23 15:22:10 -0500",
+  "subject": "docs(status): reflect complete epic closure \u2014 all 6 program epics resolved",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a8e54a1a",
+  "tip_sha": "5c819c73e99980e7dfe929514a857035d234da20",
+  "tip_date": "2026-03-23 15:26:14 -0500",
+  "subject": "feat(surfaces): productize Wave 2 \u2014 spectate, onboarding, conditional endpoints (#820)",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a12aed3b",
+  "tip_sha": "609c01ebb27f6d78ade6aa9a5fc53460e815bca0",
+  "tip_date": "2026-03-23 17:31:58 -0500",
+  "subject": "fix(debate): accept enable_rlm parameter in Arena constructor",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a8f2ce45",
+  "tip_sha": "c5d51fe55dc90484c83960fdb1ed97fd385abd72",
+  "tip_date": "2026-03-23 17:36:58 -0500",
+  "subject": "fix(cli): suppress rate limit retry noise in user-facing output",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pmf/surgical-fixes",
+  "tip_sha": "b9d3ef3547cc5b3c487631cf4484037f44b58902",
+  "tip_date": "2026-03-23 19:43:04 -0500",
+  "subject": "fix(pmf): 4 surgical fixes for the canonical founder loop",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-ac107743",
+  "tip_sha": "ff27341b3a88a4af99f69b80023a9572be177b2c",
+  "tip_date": "2026-03-23 20:55:44 -0500",
+  "subject": "fix(playground): make playground debate work without live agent dependencies",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pmf/quickstart-tls-fallback",
+  "tip_sha": "8fbc07033dcd02a1fd589219600e6db39965a614",
+  "tip_date": "2026-03-23 20:56:20 -0500",
+  "subject": "fix(cli): quickstart falls back to demo on TLS/provider failure (#1206)",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a6edd8c6",
+  "tip_sha": "1ff1a6c8657072f46310e41aeddeaa52419aefa5",
+  "tip_date": "2026-03-23 22:12:39 -0500",
+  "subject": "feat(onboarding): let users enter their own debate question",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a64ddd7a",
+  "tip_sha": "e25f6c14635624fe3c6f5eb6f839e0fa0b49ea6b",
+  "tip_date": "2026-03-23 22:13:31 -0500",
+  "subject": "feat(settings): add LLM provider key management to API Keys tab",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pmf/fix-default-worker-agent",
+  "tip_sha": "1f203d0310f12dc875c3aab85a7e71acf26658bf",
+  "tip_date": "2026-03-23 22:14:28 -0500",
+  "subject": "fix(swarm): default worker agent to claude instead of codex",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix/harvest-summary-logic",
+  "tip_sha": "2c092decdb267ff7e429481864ef5d641aae66df",
+  "tip_date": "2026-03-23 22:20:37 -0500",
+  "subject": "fix: harvest summary uses item-level completed count, not PR-level merged",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pmf/fix-harvest-summary-logic",
+  "tip_sha": "af64c0bd1e1ccd23fc8fec338562172f05d62314",
+  "tip_date": "2026-03-23 22:21:21 -0500",
+  "subject": "fix(swarm): harvest summary uses item-level completed count",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a6c32654",
+  "tip_sha": "8e0428e34a2593f8d3c9d637dde6ba335ccea219",
+  "tip_date": "2026-03-23 22:21:25 -0500",
+  "subject": "feat(debates): wire debates list and detail pages to real backend data",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a5bb6e1f",
+  "tip_sha": "bee0a5cbe25373a44ae09ecb75ed26c4262444d9",
+  "tip_date": "2026-03-23 22:23:36 -0500",
+  "subject": "feat(debates): redirect users to results after debate completion",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-ac7863e6",
+  "tip_sha": "518308ee1c21cc9f1e65c1a5767950e792fb72d2",
+  "tip_date": "2026-03-26 15:00:18 -0500",
+  "subject": "fix: resolve test mock staleness and playground timeout",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a15215c3",
+  "tip_sha": "4f4e6bb34eaf4f1e4d8b93e98fa9ddb8be6b4a19",
+  "tip_date": "2026-03-26 15:09:28 -0500",
+  "subject": "fix(fastapi): handle KM RuntimeError gracefully in staleness endpoint",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a9c5a256",
+  "tip_sha": "8fd7a6aba597f2944e94fad75774d1badb3a3a95",
+  "tip_date": "2026-03-26 15:37:09 -0500",
+  "subject": "fix(data-contracts): preserve next_steps priority and fix receipt merge order",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a15c678d",
+  "tip_sha": "72b4ef98169c4923851635f98a275f714ec6f765",
+  "tip_date": "2026-03-27 00:01:06 -0500",
+  "subject": "fix: inbox test receipt requirement + audit async tests + triage error handling",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a2793474",
+  "tip_sha": "64d70aba0c0240c31428b4e417cd0d6cfe71a480",
+  "tip_date": "2026-03-27 01:12:51 -0500",
+  "subject": "perf(debate): reduce interactive debate latency",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1451",
+  "tip_sha": "0cc0ac8efbd873d1043eff00389488af141858c6",
+  "tip_date": "2026-03-27 01:15:17 -0500",
+  "subject": "fix(receipts): secure share link contract",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1455",
+  "tip_sha": "44add9146faedbd0fd2cc3d84d6df75c122fb64f",
+  "tip_date": "2026-03-27 08:57:38 -0500",
+  "subject": "fix(receipts): enforce share permission parity",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-agent-a318b84a",
+  "tip_sha": "4b40ff6a68f63f2f5cf07a18decf7c075149849b",
+  "tip_date": "2026-03-27 09:04:14 -0500",
+  "subject": "fix: stabilize checkpoint test isolation + optimize triage latency",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1479",
+  "tip_sha": "2591a6607f3073b57b36aeb853ef065ec04ee600",
+  "tip_date": "2026-03-27 13:39:33 -0500",
+  "subject": "fix(api): restore privacy contract truthfulness",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1484",
+  "tip_sha": "ec4f1260262a82d5b518d0e7e9aca25ff9f3aa65",
+  "tip_date": "2026-03-27 16:53:49 -0500",
+  "subject": "fix(build): preserve decomposer validation",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1506",
+  "tip_sha": "6b190954bead3ce0081170f859b6b2b5907f50c7",
+  "tip_date": "2026-03-27 20:32:15 -0500",
+  "subject": "Fix prompt-engine benchmark stage classification",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1522",
+  "tip_sha": "d86009bdb200059126eac248cee42733ba02478b",
+  "tip_date": "2026-03-28 00:26:37 -0500",
+  "subject": "fix(prompt-engine): normalize stream timing inputs",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1541",
+  "tip_sha": "5108921d0499f99288f83d2b46bc0e44099959b6",
+  "tip_date": "2026-03-28 09:22:34 -0500",
+  "subject": "feat(idea): dispatch triage queues into boss loop",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1552",
+  "tip_sha": "615aeb83844a4e791f203670115045323f0a3190",
+  "tip_date": "2026-03-28 10:55:11 -0500",
+  "subject": "Add side-by-side debate comparison flow",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1558",
+  "tip_sha": "e180aaf05a84ffc47de4042e574d256198090f8d",
+  "tip_date": "2026-03-29 08:46:29 -0500",
+  "subject": "Strengthen browser extension validation",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pmf/ux-fixes",
+  "tip_sha": "abd5ad582f1e58fdeef5b3b1a131796581109f8f",
+  "tip_date": "2026-03-29 09:09:49 -0500",
+  "subject": "fix(ux): doctor crash + review error message",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1570",
+  "tip_sha": "24e681ffdb6c6308122e10ebd44485e8d2de8d5a",
+  "tip_date": "2026-03-29 11:51:26 -0500",
+  "subject": "fix(ci): restore shared bootstrap in release and smoke gates",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1572",
+  "tip_sha": "f7edbd405ab41ab7a872d83328c16076568883a1",
+  "tip_date": "2026-03-29 11:51:47 -0500",
+  "subject": "fix(tests): remove duplicate branch coordinator kwarg",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1575",
+  "tip_sha": "81714d1bdb83751a9b15b2c96c766f6f463e9cf4",
+  "tip_date": "2026-03-29 11:52:04 -0500",
+  "subject": "test(frontend): avoid unique agent-label assumption in compare page",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix-1578",
+  "tip_sha": "a094680f4282b4debce753db0c9b565ebe6b359d",
+  "tip_date": "2026-03-29 11:52:20 -0500",
+  "subject": "fix(core): align baseline defaults and test harnesses",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "salvage/refresh-1649",
+  "tip_sha": "306c23fa06de9bb0a6b606cc94cc488da5f39516",
+  "tip_date": "2026-03-29 16:01:42 -0500",
+  "subject": "fix(receipts): read explorer list from adapter singleton",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "pr-1650",
+  "tip_sha": "71413443d6abe4e2b1af02e8f459c8f14e2429ea",
+  "tip_date": "2026-03-29 16:17:15 -0500",
+  "subject": "fix(debate): clean up proof-path resource leaks",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "salvage/capability-matrix-deterministic",
+  "tip_sha": "b9ce00de68a539eea9f50c779ea5473dce3e165c",
+  "tip_date": "2026-03-29 17:22:05 -0500",
+  "subject": "fix(ci): use shared installer in docs build",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "salvage/pr-1661-refresh",
+  "tip_sha": "51be84da4249a274c9662453e87ffe34ae2c9406",
+  "tip_date": "2026-03-29 17:22:47 -0500",
+  "subject": "fix(cli): keep compare mode on one event loop",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "salvage/pr1686-refresh-20260330-1",
+  "tip_sha": "39c553d3f492ddcfe4a9220017ebffaec9f8ff0f",
+  "tip_date": "2026-03-30 03:01:01 -0500",
+  "subject": "fix(frontend): remove duplicate root app route",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix/badge-padding-saturn-icon",
+  "tip_sha": "487adf97353c33ade4745a9cc4bd37ea9b0f7402",
+  "tip_date": "2026-03-30 22:09:06 -0500",
+  "subject": "fix(landing): badge padding + Saturn icon for Pro theme selector",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-triage-instrumentation",
+  "tip_sha": "fcd3d5d587b0540b9ef6d3af23aea5e51db86612",
+  "tip_date": "2026-03-30 22:30:23 -0500",
+  "subject": "docs(capability): restore CLI inventory counts",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-landing-debate-ux",
+  "tip_sha": "b7224736917587e1745021e46f82bf47026f19f4",
+  "tip_date": "2026-04-05 08:48:13 -0500",
+  "subject": "fix(playground): restore landing feedback handler",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix/boss-loop-formatting",
+  "tip_sha": "2c6b2eb299bbf7b4ead325a8888cda5c79c9b2a3",
+  "tip_date": "2026-04-05 12:30:08 -0500",
+  "subject": "style: format boss_loop.py with ruff",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "feat/boss-loop-draft-pr-promotion",
+  "tip_sha": "6578337440285c2ac15e12bbfee02b4d9f08208c",
+  "tip_date": "2026-04-06 11:08:29 -0500",
+  "subject": "feat(boss-loop): create PRs as drafts, auto-promote when required checks pass",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "feat/swarm-session-coordination",
+  "tip_sha": "f26d7f23dcfbe4756f571661129816dcb82d21c9",
+  "tip_date": "2026-04-06 17:51:58 -0500",
+  "subject": "feat(swarm): add lightweight session coordination protocol",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "feat/merge-arbiter",
+  "tip_sha": "e56a557d6f9082cfde3b1c76cf1a40ec6e784fce",
+  "tip_date": "2026-04-07 09:11:33 -0500",
+  "subject": "feat(swarm): add merge arbiter for unattended boss-loop PR merging",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix/boss-loop-pr-terminal-state",
+  "tip_sha": "038db2b2647fa92e11841b7dd4d7d4b207c58a02",
+  "tip_date": "2026-04-07 09:13:13 -0500",
+  "subject": "fix(boss-loop): treat published PR as terminal state, stop retrying",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "codex-a-pr2681-refresh",
+  "tip_sha": "e168919855d4253497a86b97a90c539f44f3289c",
+  "tip_date": "2026-04-08 03:40:46 -0500",
+  "subject": "Merge remote-tracking branch 'origin/main' into codex-a-pr2681-refresh",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "fix/batch-failed-issues",
+  "tip_sha": "98d792f36ed43dc6fc85f2b41f84e0a8626aeaf6",
+  "tip_date": "2026-04-09 14:51:45 -0500",
+  "subject": "docs(spec): conversational workers \u2014 upgrade swarm from single-shot to multi-turn",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-fix-4281-boss-validation",
+  "tip_sha": "2e697e85f3847dd1822f81930494272d5071498f",
+  "tip_date": "2026-04-09 21:35:26 -0500",
+  "subject": "docs(swarm): catalog validation functions and types in boss_validation.py (#4281)",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ },
+ {
+  "branch": "worktree-fix-4308-rabbitmq-bare-raise",
+  "tip_sha": "ea79b18d2b49f032aa754d49370abe0306ce4b9a",
+  "tip_date": "2026-04-09 21:49:29 -0500",
+  "subject": "fix: replace bare raise with contextual error in rabbitmq consumer (#4308)",
+  "merge_base_with_main": "EMPTY (git merge-base origin/main origin/<branch> exit 1, no output)",
+  "open_pr": null,
+  "checked_at": "2026-07-01T23:50:05.440848+00:00"
+ }
+]
