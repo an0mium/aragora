@@ -264,7 +264,10 @@ def _pr_ids_from_call_args(arguments: dict[str, Any]) -> set[str]:
         value = arguments.get(key)
         if isinstance(value, int):
             ids.add(str(value))
-        elif isinstance(value, str) and value.isdigit():
+        elif isinstance(value, str) and value.isdecimal():
+            # isdecimal (not isdigit): a Unicode-digit like "²" passes isdigit()
+            # but raises ValueError under the ``sorted(prs, key=int)`` at the end
+            # of extract_turns, crashing the whole digest.
             ids.add(value)
     return ids
 
@@ -319,9 +322,40 @@ def rlm_summary(turns: dict[str, Any], question: str) -> str | None:
                 # A failed query (e.g. missing context) must not be surfaced as
                 # a "summary"; the compress step already guards its returncode.
                 return None
-            return q.stdout.strip() or None
+            return _extract_rlm_answer(q.stdout)
     except (subprocess.SubprocessError, OSError):
         return None
+
+
+def _extract_rlm_answer(stdout: str) -> str | None:
+    """Return just the ANSWER block from ``aragora rlm query`` stdout.
+
+    The CLI decorates the answer with chrome (``Loaded context…``, ``Query:``,
+    ``Strategy:``, separator bars, an ``ANSWER`` banner) and a trailing stats
+    footer (``Ready:``/``Confidence:``/``Tokens processed:``…). Surfacing raw
+    stdout as the "summary" buries the answer; extract the text between the
+    ANSWER banner and the footer separator. Falls back to the stripped stdout
+    if the expected markers are absent.
+    """
+    lines = stdout.splitlines()
+    try:
+        marker = next(i for i, ln in enumerate(lines) if ln.strip() == "ANSWER")
+    except StopIteration:
+        return stdout.strip() or None
+    body: list[str] = []
+    for ln in lines[marker + 1 :]:
+        stripped = ln.strip()
+        # Skip the ``===`` banner immediately under ANSWER.
+        if not body and set(stripped) <= {"="} and stripped:
+            continue
+        # Stop at the footer: the ``---`` separator or the first stats line.
+        if (set(stripped) <= {"-"} and stripped) or stripped.startswith(
+            ("Ready:", "Confidence:", "Iteration:", "Tokens processed:", "Sub-calls made:")
+        ):
+            break
+        body.append(ln)
+    answer = "\n".join(body).strip()
+    return answer or (stdout.strip() or None)
 
 
 def render_text(turns: dict[str, Any], summary: str | None) -> str:
@@ -348,7 +382,10 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument(
         "--all",
         action="store_true",
-        help="Coordinator view: one-line digest of every rollout in the window",
+        help=(
+            "Coordinator view: one-line digest of each rollout in the window "
+            f"(up to the {MAX_ROLLOUT_SCAN} most recent; older ones are skipped)"
+        ),
     )
     ap.add_argument(
         "--since-hours",
@@ -368,6 +405,10 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     if args.all:
+        if args.rlm is not None:
+            # --rlm summarizes a single session; it has no effect in coordinator
+            # view. Say so rather than silently ignoring it.
+            print("note: --rlm is ignored with --all (coordinator view)", file=sys.stderr)
         lines = coordinator_view(root=Path(args.sessions_root), since_hours=args.since_hours)
         if args.json:
             print(json.dumps(lines, indent=2))

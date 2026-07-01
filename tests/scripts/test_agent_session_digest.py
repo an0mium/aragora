@@ -181,6 +181,41 @@ def test_rlm_summary_cleans_temporary_files(tmp_path: Path, monkeypatch) -> None
     assert all(not path.exists() for path in created)
 
 
+def test_extract_rlm_answer_strips_cli_chrome() -> None:
+    stdout = "\n".join(
+        [
+            "Loaded context with 3 nodes",
+            "",
+            "Query: what happened",
+            "Strategy: auto",
+            "",
+            "-" * 60,
+            "",
+            "=" * 60,
+            "ANSWER",
+            "=" * 60,
+            "The agent fixed PR #8730 and ran the tests.",
+            "",
+            "-" * 60,
+            "Ready: True",
+            "Confidence: 91.0%",
+            "Tokens processed: 1,234",
+        ]
+    )
+    assert digest._extract_rlm_answer(stdout) == "The agent fixed PR #8730 and ran the tests."
+
+
+def test_extract_rlm_answer_falls_back_without_marker() -> None:
+    assert digest._extract_rlm_answer("plain text, no banner") == "plain text, no banner"
+    assert digest._extract_rlm_answer("   ") is None
+
+
+def test_pr_ids_ignore_unicode_digits() -> None:
+    # "²" passes str.isdigit() but crashes int(); must be rejected, not collected.
+    assert digest._pr_ids_from_call_args({"pr": "²"}) == set()
+    assert digest._pr_ids_from_call_args({"pr": "8730"}) == {"8730"}
+
+
 def test_main_all_mode(tmp_path: Path, capsys) -> None:
     sess = tmp_path / "rollout-2026-06-30T12-00-00-019f197d.jsonl"
     _write_rollout(tmp_path).rename(sess)
