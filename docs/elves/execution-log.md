@@ -32,9 +32,23 @@
 
 ---
 
-## Batch entries begin after launch
+## Batch 1: Drain campaign wave 1 (#8761) — IN PROGRESS
 
-_(template below — copy per batch)_
+- **Predicted tier:** 2 (operations; per-PR tier governs each settlement)
+- **Rollback tag:** `elves/ctl-pre-batch-1` (pushed: yes; note `elves/pre-batch-1` name was taken by an older run)
+- **Live probe at start:** origin/main 7439a146; quota core 4996/GraphQL 4738; 19 ready PRs
+- **Owner triage:** claimable {8282, 8289, 8389}; unowned {8405, 8519}; withheld-possible-unpushed-work {8406, 8460, 8461} → read-only only; off-limits {8726, 8472 (timeout family), 8720 (Codex)}
+- **Packet tiers:** 8282=T3, 8289=T3, 8389=T1, 8405=T4, 8406=T4, 8460=T2, 8461=T3, 8519=T3
+- **Dispositions so far:**
+  - **#8282** (T3): merge-conflict repaired — merged origin/main, resolved `sdk/typescript/src/namespaces/unified-inbox.ts` docstring conflict (kept main's not-mounted NOTE; PR does not mount the route) and `aragora/server/handlers/admin/system.py` (kept main's deliberate no-op handle_post + _ROUTE_MAP reconciliation); 47 admin handler tests pass; pushed f0d63ba2. LESSON: first attempt used a stale LOCAL branch ref and produced non-FF reject — always base repair worktrees on origin/<branch> detached. Superseded scratch worktree `.claude/worktrees/elves-b1-8282` left in place (safe-cleanup helper blocks removal while PR open). Waiting-on: CI on new head, then quorum evidence, then human settlement (T3).
+  - **#8289** (T3): merge-conflict repaired — union-resolved `aragora/gauntlet/odr_export.py` (PR's `attestation: Any` + main's `calibration_provenance` param, both docstrings); 87 gauntlet ODR tests pass; pushed 3f93e84a. Waiting-on: CI, quorum, human settlement (T3).
+  - **#8389** (T1, ODR verify engine): first gate cycle returned real dissent — claude: [P2] weakening_signals FAIL on non-numeric distinct_model_families (spec §8 says warn-only) + [P3] load_public_key strips raw 32-byte keys; openai: [P2] signature verification not bound to key_id (tampered key_id could PASS). FIXED all three at exact head 136f3002 → e0e7df74 with 3 regression tests (45 ODR tests pass, mypy clean). Nothing was posted on the dissent round (correct). Re-gate (attempt 2 of 2) launched.
+  - **#8405/#8406** (T4): prepare-only — packets recorded: merge conflicts + quorum incomplete (8405: 1/2 signals; 8406: 0/2). Queued for human settlement; NO autonomous implementation on T4 surfaces.
+  - **#8461** (T3, withheld owner): read-only packet recorded (conflict + 0/2 quorum); left for owner or later wave.
+  - **#8460** (T2, withheld owner): evidence collection planned read-only after 8389/8519.
+  - **#8519** (T3): evidence collection queued after 8389 re-gate.
+
+_(per-batch template below)_
 
 ## Batch N: <name>
 

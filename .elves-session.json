@@ -1,0 +1,13 @@
+{
+  "run_id": "close-the-loop-20260701",
+  "branch": "elves/close-the-loop-20260701",
+  "plan": "docs/plans/2026-07-01-strategic-plan-close-the-loop.md",
+  "epic": 8762,
+  "current_batch": "B1",
+  "batch_status": "in_progress",
+  "test_baseline": {"missions_quorum_slice": 312, "mypy_errors": 2646, "mypy_baseline": 3115},
+  "receipt_dir": ".aragora/run-close-the-loop-20260701/receipts",
+  "continuation_guard": {"stop_allowed": false, "reason": "B1 in progress; B2-B8 pending"},
+  "b1_dispositions": {},
+  "notes": "Evidence for 8389 launched 2026-07-01 ~18:05 CDT. Off-limits: 8726, 8720, timeout-family files."
+}
