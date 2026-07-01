@@ -30,7 +30,8 @@ the infra package. The sanctioned fix (per
    subscriber/worker modules to guarantee registration.
 4. The moved paths get **NO re-export shim** at their old `events`/`queue`
    locations (a shim re-creates the layering edge - the proven failure mode of
-   worker `5f92db63`). ALL consumers (runtime + the ~7 monkeypatching test files)
+   worker `5f92db63`). ALL consumers (runtime + the monkeypatching test files:
+   ~7 on the moved handler paths, ~12 total including the §6.3 SPLIT symbols)
    are **repointed** to the new homes. This is a *sanctioned relocate-UP
    exemption* from the usual "shim every moved path" rule (§8).
 
@@ -51,7 +52,8 @@ empirically proved that **relocate-UP plus a mandatory re-export shim CANNOT cle
 
 - The usual VAL-CROSS-004 rule ("shim every moved path") requires an
   identity-preserving re-export at the old path so external callers and the ~7
-  test files that `@patch(...)` the *old* submodule paths keep working
+  handler-path test files (plus the §6.1 SPLIT-symbol test files) that
+  `@patch(...)` the *old* submodule paths keep working
   (e.g. `@patch("aragora.events.cross_subscribers.handlers.validation.record_km_inbound_event")`).
 - An **eager** identity-preserving shim at `aragora.events.<x>` re-imports the
   relocated module, so `aragora.events.<x> -> <home> -> aragora.<domain>` is
@@ -158,16 +160,24 @@ def register_factory(name: str, factory: Callable[[], object]) -> None: ...
 def get_cross_subscriber_manager() -> "CrossSubscriberManager": ...   # public accessor - UNCHANGED
 def reset_cross_subscriber_manager() -> None: ...
 
-@dataclass
-class SubscriberStats:            # domain-free telemetry record
-    events_processed: int = 0
-    errors: int = 0
-    ...
+# SubscriberStats is REUSED as-is (already domain-free); see the note below:
+from aragora.events.subscribers.config import SubscriberStats   # existing, domain-free
 
 class CrossSubscriberManager:     # dispatch-only; iterates registered subscribers
     def dispatch(self, event: StreamEvent) -> None: ...
 ```
 
+- **`SubscriberStats` is REUSED, not redefined or renamed.** The domain-free stats
+  type already exists at `aragora.events.subscribers.config.SubscriberStats` (a rich,
+  domain-free dataclass - `name`, `events_processed/failed/skipped/retried`, latency
+  percentiles) and is ALREADY re-exported by `cross_subscribers` (imported in
+  `cross_subscribers/manager.py:26`, `dispatch.py`, `admin.py`) and by
+  `aragora.events.__init__`. The domain-free registry KEEPS that single definition
+  and its re-export path unchanged - it does NOT introduce a second `SubscriberStats`.
+  No rename is needed: `aragora/events/subscribers/config.py` (SubscriberStats +
+  RetryConfig + AsyncDispatchConfig) is domain-free and STAYS in `events`; only the
+  domain-coupled handler modules under `subscribers/` (debate/execution/mound/
+  testfixer/notification/workflow_automation) move.
 - Today `manager.py` (570 LOC) composes domain-coupled **mixins**
   (`BasicHandlersMixin`, `CultureHandlersMixin`, ...). The inversion converts the
   manager into a **registry-backed dispatcher**: it holds a list/dict of registered
@@ -218,7 +228,7 @@ exists, so **no `module_tiers.yaml` drift** results (§9).
 | `aragora/reasoning/event_subscribers.py` | domain | belief reaction from `handlers.basic` (`reasoning.belief`) |
 | `aragora/ranking/event_subscribers.py` | domain | elo reaction from `subscribers.execution_handlers` (`ranking.elo`) |
 | `aragora/workflow/event_subscribers.py` | application | `subscribers.workflow_automation` (PostDebateWorkflowSubscriber) + `handlers.strategic` workflow reaction (`workflow.engine.get_workflow_engine`) + `handlers.basic._handle_debate_end_to_workflow` |
-| `aragora/nomic/...` (existing testfixer surface) | application | `subscribers.testfixer_handlers` (`nomic.testfixer.http_api`, `nomic.improvement_queue`) |
+| `aragora/nomic/testfixer/event_subscribers.py` | application | `subscribers.testfixer_handlers` (`nomic.testfixer.http_api`, `nomic.improvement_queue`). **Distinct file** from the Q4 queue-worker home `aragora/nomic/testfixer/queue_worker.py` (neither exists today; no collision) |
 | `aragora/server/event_subscribers.py` | interface | server-coupled reactions: `handlers.basic` webhook delivery (`server.handlers.webhooks.get_webhook_store`), `handlers.culture` (`server.stream.state_manager`), `subscribers.execution_handlers` emitter (`server.stream.emitter`), `subscribers.notification_handlers` (delivery via `aragora.notifications`) |
 
 Queue worker homes (derived the same way; home layer >= each worker's highest
@@ -293,11 +303,20 @@ a bootstrap explicitly. Enumerated from the current
 | Arena / debate library | `aragora/debate/orchestrator.py` (Arena init), consumed by `debate/knowledge_manager.py`, `debate/extensions.py` | **domain-subset** |
 | Standalone scripts (run debates/workflows without the server) | `scripts/nomic_loop.py`, `scripts/run_nomic_with_stream.py`, `scripts/self_develop.py`, `scripts/queue_worker.py` | superset if they touch workflow/server/queue; domain-subset for pure debate |
 | Direct-constructor tests | any test asserting a reaction | call the bootstrap or import the specific home module |
+| **Memory tier analytics (DOMAIN, non-Arena dispatch)** | `aragora/memory/tier_analytics.py:282-290` calls `get_cross_subscriber_manager().dispatch(...)` on tier promotion/demotion - a dispatch WITHOUT Arena | **domain-subset** - a pure-library caller that exercises memory-tier analytics but never constructs an Arena must still run the domain-subset bootstrap, else the tier-movement event reaches an empty registry |
+| **Server-handler dispatch sites (INTERFACE, non-Arena)** | `server/handlers/cross_pollination.py:58,104,234,272,366`, `server/handlers/agents/agents.py:665`, `server/handlers/knowledge/analytics.py:479` all call `get_cross_subscriber_manager().dispatch(...)` | rely on the **superset** bootstrap already run at server startup (they do NOT each bootstrap); listed so E1's completeness check covers every dispatch site, not just Arena |
 
-> This list is derived from the ~13 current `get_cross_subscriber_manager()`
-> consumers; E1's acceptance requires re-running that grep to confirm every root is
-> covered. Idempotency: `register_subscriber` is keyed, so repeated bootstrap calls
-> are no-ops.
+> **Register vs dispatch.** The rows above split into two kinds of root: those that
+> must *register* (call a bootstrap) and non-Arena *dispatch* sites that merely
+> *consume* `get_cross_subscriber_manager().dispatch(...)` and therefore ASSUME
+> registration already happened. The dispatch sites are the reason the bootstrap
+> cannot be Arena-only: a `debate_end`/tier-movement/cross-pollination event can be
+> dispatched from `memory/`, `cli/`, or a `server/handlers/*` path with no Arena in
+> the call stack. This list is derived from the ~15 current
+> `get_cross_subscriber_manager()` call sites (across `debate/`, `cli/`, `memory/`,
+> `server/`); E1's acceptance requires re-running that grep to confirm every root -
+> register AND dispatch - is covered. Idempotency: `register_subscriber` is keyed, so
+> repeated bootstrap calls are no-ops.
 
 **Registration-completeness safeguard (E1 acceptance):** because a missed root
 fails *silently*, add (a) a startup log/metric of the registered subscriber count,
@@ -314,16 +333,50 @@ surface STAYS in `events`/`queue` and only the domain-coupled functions relocate
 
 ### 5.1 events SPLITs
 
-- **`security_events.py` (864 LOC).** KEEP (domain-free, stays in events): the
+- **`security_events.py` (865 LOC).** KEEP (domain-free, stays in events): the
   enums/dataclasses/emitter/factories that external callers import -
   `SecurityEventType`, `SecuritySeverity`, `SecurityFinding`, `SecurityEvent`,
-  `SecurityEventEmitter`, `create_vulnerability_event`, `create_secret_event`,
-  `create_scan_completed_event`, `get_security_emitter`, `set_security_emitter`.
-  MOVE (domain-coupled): `build_security_debate_question` (imports
-  `debate.protocol`, `debate.orchestrator`) and the agent-runner path (imports
-  `agents.factory`, `agents.api_agents.{anthropic,openai}`) -> a debate/security
-  home (e.g. `aragora/debate/security_response.py`, domain). Clears
-  `events -> agents` and the `security_events` contributor to `events -> debate`.
+  `SecurityEventEmitter`, `SecurityEventHandler`, `create_vulnerability_event`,
+  `create_secret_event`, `create_scan_completed_event`, `get_security_emitter`,
+  `set_security_emitter`, **plus the domain-free results store**
+  (`_security_debate_results`, `_store_security_debate_result`,
+  `get_security_debate_result`, `list_security_debates` - they only read/write an
+  in-memory dict, no `debate`/`agents` import).
+  MOVE (the domain-coupled runner) -> `aragora/debate/security_response.py` (domain):
+  - `trigger_security_debate` (L465 - imports `debate.protocol`, `debate.orchestrator`);
+  - `_get_security_debate_agents` (L554 - its grimp-visible coupling is
+    `agents.api_agents.{anthropic,openai}`; note its
+    `from aragora.agents.factory import get_available_agents` attempt (L557) is a
+    DEAD fallback - `aragora/agents/factory.py` does NOT exist, so it always raises
+    `ImportError` and contributes no grimp edge - the runner should drop that dead
+    branch when it relocates);
+  - `build_security_debate_question` (L417 - itself domain-free, but it is the
+    runner's question-builder and its 8 `@patch` tests move with it, §6.3).
+
+  **CRITICAL - invert `SecurityEventEmitter._trigger_security_debate` (defined L332,
+  fired from `emit()` at L311), do not just move the functions.** The emitter STAYS
+  in events, but its auto-debate path for critical findings today calls the
+  module-level `trigger_security_debate` DIRECTLY (the call is at L343), which is
+  *the* thing that drags `debate`/`agents` into `events`. Relocating
+  `trigger_security_debate` alone is
+  insufficient: if the retained emitter then imported it from the debate home it
+  would simply re-create the edge (`events -> debate`) in the other direction. So
+  the emitter must invert to a **registry callback**:
+  - `security_events` exposes a domain-free
+    `register_security_debate_runner(runner)` / `get_security_debate_runner()` hook
+    (zero domain imports - just a module-level Optional[Callable]);
+  - the relocated `aragora/debate/security_response.py` registers its
+    `trigger_security_debate` as the runner on import (registration guaranteed by
+    the debate bootstrap, §4.4);
+  - `_trigger_security_debate` invokes the registered runner if present, else
+    no-ops returning `None` (exactly matching today's `ImportError` fallback for a
+    pure library with no Arena).
+
+  Auto-debate for critical findings still fires WITHOUT `security_events` importing
+  `debate`/`agents`. The relocated runner imports the KEPT results store
+  (`_store_security_debate_result`) downward (`debate -> events`, legal). Clears
+  `events -> agents` and the `security_events` contributor to `events -> debate`,
+  matching the §7 simulation, which de-domains `security_events` entirely.
 - **`security_dispatcher.py` (499 LOC).** Only ONE domain import
   (`debate.orchestrator.Arena`, lazy at line ~363). KEEP the domain-free dispatch
   routing surface in events; MOVE the single Arena-running function to the debate
@@ -392,6 +445,19 @@ application-home workflow subscriber reacts **in parallel** - no cross-layer imp
 This is the general pattern: **handlers communicate through the domain-free event
 bus, never by importing each other across layers.**
 
+> **Invocation-count hazard (drives an E5 acceptance criterion, §10).**
+> `PostDebateWorkflowSubscriber` is instantiated+invoked at **TWO** sites today -
+> `subscribers/debate_handlers.py:457-460` AND
+> `cross_subscribers/handlers/basic.py:577-580` (both lazily construct it and call it
+> on `debate_end`) - in addition to being registerable as a subscriber
+> (`subscribers/workflow_automation.py:30`). After the inversion it must run as the
+> SINGLE registered application-home subscriber, firing **exactly once per
+> `debate_end` event**. A registration-COUNT parity test (the §4.4 / E1 safeguard)
+> would NOT catch a regression here: it counts *registered subscribers*, not
+> *invocations*, so a residual second delegating call would double-fire the workflow
+> while the registered count stays identical. E5 therefore carries an explicit
+> **invocation-count** acceptance criterion (§10), not just a registration-count check.
+
 > Note: `handlers.strategic` also imports `control_plane.registry` (unlayered) and
 > `handlers.notification_handlers` imports `aragora.notifications` (unlayered).
 > Unlayered targets impose no layer constraint, but the reaction still moves to the
@@ -409,7 +475,9 @@ moved paths. Census (grep across `aragora/`, `tests/`, `scripts/`, `sdk/`):
   consumer** outside `aragora/events/`. Runtime access is via
   `subscribers/__init__.py` + `manager.py` (both internal to events, edited in
   place) and via the `get_cross_subscriber_manager()` accessor (which STAYS).
-- **Only test consumers** (the ~7 monkeypatching files) require repointing:
+- **Only test consumers require repointing.** These **7 files monkeypatch the moved
+  cross_subscribers/subscribers HANDLER paths** - the "~7" figure quoted in §0/§8
+  refers to THIS handler-path set:
   - `tests/memory/test_tier_transition_events.py` (`handlers.basic`)
   - `tests/integration/test_e2e_debate_km_flow.py` (`handlers.validation.record_km_inbound_event`)
   - `tests/events/test_strategic_handlers.py` (`handlers.strategic`)
@@ -417,16 +485,53 @@ moved paths. Census (grep across `aragora/`, `tests/`, `scripts/`, `sdk/`):
   - `tests/events/test_workflow_to_supermemory.py` (`handlers.basic`)
   - `tests/nomic/testfixer/test_event_integration.py` (`subscribers.testfixer_handlers`)
   - `tests/events/test_post_debate_workflow.py` (`subscribers.workflow_automation.PostDebateWorkflowSubscriber`)
+- **Reconciliation with the SPLIT-symbol repoints (§6.3).** The 7 files above are the
+  HANDLER-path monkeypatches only. The §5.1/§5.2 SPLIT-moved *symbols* add a further
+  set of repointed test files - `tests/debate/test_security_debate.py` (8 `@patch`),
+  `tests/events/test_security_events.py`, `tests/events/test_security_dispatcher.py`,
+  `tests/events/test_arena_bridge.py`, and (queue) the direct-`@patch`
+  `tests/server/handlers/admin/health/test_workers.py` - so the **whole-inversion
+  repoint set is ~12 test files**, split across the E-batches and Q-batches (the
+  `security_debate`/`security_events` tests move with E7a; `arena_bridge` with E7b).
 
 ### 6.2 Moved worker paths (`queue.workers.*`, `create_default_executor`)
 
+- **The `aragora/queue/workers/__init__.py` barrel is itself a move target (drop
+  re-exports, no shim).** That `__init__.py` EAGERLY
+  `from aragora.queue.workers.<worker> import ...` for `gauntlet_worker`,
+  `transcription_worker`, `routing_worker`, and `consensus_healing_worker` - so the
+  barrel is a *direct*
+  `queue.workers -> {agents,debate,gauntlet,integrations,memory,ranking,server}`
+  contributor. Each worker-move batch MUST also **drop that worker's eager re-export
+  from the barrel (no shim)** - a re-export would re-create the edge exactly like the
+  events shim in §1. After Q3/Q4 the barrel re-exports only the unlayered
+  `transcription_worker` (if it stays) and any retained transport symbols.
 - **No `sdk/` consumer.** Runtime consumers are **interface-layer + scripts**, all
   repointable to the new homes:
   - `aragora/server/startup/workers.py` (`gauntlet_worker`, `testfixer_worker`)
   - `aragora/server/handlers/gauntlet/runner.py` (`gauntlet_worker.enqueue_gauntlet_job`)
+  - `aragora/server/handlers/admin/health/workers.py:146`
+    (`from aragora.queue.workers import get_consensus_healing_worker`) -> repoint to
+    the `aragora/memory/` consensus-healing home (Q3)
   - `scripts/queue_worker.py` (`create_default_executor`)
-- Plus queue/worker tests (`tests/queue/workers/*`, `tests/server/startup/test_workers.py`,
-  `tests/handlers/gauntlet/test_runner.py`, `tests/queue/test_consensus_healing_worker.py`, ...).
+- **Public docs referencing moved worker symbols (repoint in the owning batch):**
+  - `docs/resilience/QUEUE.md:80-88` + its docs-site mirror
+    `docs-site/docs/guides/queue.md:85-93`
+    (`from aragora.queue import ... create_default_executor` / `await
+    create_default_executor()`) -> repoint to `aragora/debate/queue_executor.py` (Q2).
+  - `docs/deployment/DISASTER_RECOVERY.md:900` + its docs-site mirror
+    `docs-site/docs/deployment/disaster-recovery.md:905`
+    (`from aragora.queue.workers import get_consensus_healing_worker`) -> repoint to
+    the `aragora/memory/` home (Q3).
+  - Editing a `docs/` source that `sync-docs.js` mirrors forces a mirror regen;
+    regenerate + commit the mirror in the same batch (merge-gate docs-site caveat).
+- Plus queue/worker tests (`tests/queue/workers/*`, `tests/queue/test_consensus_healing_worker.py`,
+  `tests/server/startup/test_workers.py`, `tests/handlers/gauntlet/test_runner.py`,
+  and BOTH `tests/handlers/admin/health/test_workers.py` (patches the CONSUMER's
+  imported name - follows the repoint automatically) and
+  `tests/server/handlers/admin/health/test_workers.py` (directly
+  `@patch("aragora.queue.workers.get_consensus_healing_worker")` - repoint to the
+  memory home), ...).
 - `aragora/debate/model_combinations.py`'s `SingleDebateExecutor` is an unrelated
   `Callable` type alias, NOT a consumer of `queue.worker.DebateExecutor`.
 
@@ -435,11 +540,34 @@ moved paths. Census (grep across `aragora/`, `tests/`, `scripts/`, `sdk/`):
 The §5.1/§5.2 SPLITs move *symbols* out of a module whose surface stays. Because
 there is no shim, every consumer of the **old symbol path** repoints. Census:
 
-- **`security_events.build_security_debate_question`** -> new home
-  `aragora/debate/security_response.py`. It is ALSO re-exported by
-  `aragora/events/__init__.py` (line 88, and in `__all__` line 160): **DROP that
-  re-export** (no shim - keeping it makes `events -> debate`), and remove it from
-  `events.__all__`. Consumers to repoint:
+**`aragora/events/__init__.py` eager re-export DROP list (MANDATORY - each retained
+eager re-export re-imports the relocated debate-home module and RE-CREATES
+`events -> debate`).** Remove BOTH the import and the `__all__` entry for every moved
+symbol. Verified line numbers on head `a5206a616c`:
+
+| Moved symbol | New home | `__init__` import line | `__all__` line | Batch |
+|---|---|---|---|---|
+| `ArenaEventBridge` | `aragora/debate/arena_bridge.py` | 47 | 126 | E7b |
+| `create_arena_bridge` | `aragora/debate/arena_bridge.py` | 48 | 127 | E7b |
+| `EVENT_TYPE_MAP` | `aragora/debate/arena_bridge.py` | 49 | 128 | E7b |
+| `trigger_security_debate` | `aragora/debate/security_response.py` | 87 | 159 | E7a |
+| `build_security_debate_question` | `aragora/debate/security_response.py` | 88 | 160 | E7a |
+
+Concretely: DROP the whole `from .arena_bridge import (ArenaEventBridge,
+create_arena_bridge, EVENT_TYPE_MAP)` block (L46-50) since all three names move; and
+inside `from .security_events import (...)` DROP only `trigger_security_debate`
+(L87) + `build_security_debate_question` (L88), while KEEPING the retained
+domain-free names (`SecurityEventEmitter`, `SecurityEventHandler`,
+`get_security_debate_result`, `list_security_debates`, the event types + factories).
+No `__getattr__` fallback / lazy re-export is added (that would also re-create the
+edge - grimp counts lazy chains).
+
+- **`security_events.build_security_debate_question` + `trigger_security_debate`
+  (+ `_get_security_debate_agents`)** -> new home
+  `aragora/debate/security_response.py` (drop from `events/__init__.py` per the table
+  above). `trigger_security_debate`'s ONLY runtime caller is the emitter
+  (`security_events.py:343`), which the §5.1 callback inversion de-couples - so no
+  runtime import site survives outside the debate home. Consumers to repoint:
   - `aragora/debate/security_debate.py:61,64` (runtime; lazy import + call ->
     `debate -> debate`, legal).
   - `tests/debate/test_security_debate.py` - **8** `@patch(
@@ -447,8 +575,8 @@ there is no shim, every consumer of the **old symbol path** repoints. Census:
     (lines 123,147,179,280,306,329,357,382).
   - `tests/events/test_security_events.py` - direct import (line 23) + call sites
     (~lines 1230-1330) + 2 `@patch` sites (lines 1802,1843). The
-    `build_security_debate_question` tests move with the symbol to
-    `tests/debate/`.
+    `build_security_debate_question` / `trigger_security_debate` tests move with the
+    symbols to `tests/debate/`.
 - **`security_dispatcher`'s Arena-runner function** (the single
   `debate.orchestrator.Arena` lazy import, ~line 363) -> `aragora/debate/`
   security home. Consumers: internal to `security_dispatcher` (the dispatch
@@ -560,8 +688,9 @@ Guardrails that make the exemption safe (all satisfied here):
    transport, `get_cross_subscriber_manager`, security types/emitter). Only the
    domain-coupled code moves. Public accessors do not move.
 2. A **consumer census** (§6) confirms **no public/external/SDK consumer** of the
-   moved paths - only internal runtime (repointed) and the ~7 monkeypatching tests
-   (repointed). If any external consumer existed, the exemption would NOT apply and
+   moved paths - only internal runtime (repointed) and the monkeypatching tests
+   (§6.1: ~7 handler-path files + the §6.3 SPLIT-symbol files, ~12 total; all
+   repointed). If any external consumer existed, the exemption would NOT apply and
    an alternative (keep the surface + invert, or a *domain-free* facade) would be
    required instead.
 3. grimp shows the edges clear with **no new un-baselined edge** (§7).
@@ -641,19 +770,22 @@ cap and carry a noted split point. **`events.dispatcher`/`async_dispatcher` ->
 | E4 | debate-domain home | Move debate reactions from `subscribers.debate_handlers` + `handlers.{basic,strategic}` debate bits -> `aragora/debate/event_subscribers.py`; repoint `test_strategic_handlers`, `test_tier_transition_events`. | contributes `events->debate` | ~700 |
 | E5 | application homes (workflow + nomic) + coupling inversion | Move `subscribers.workflow_automation` + `handlers.strategic` workflow reaction + `basic._handle_debate_end_to_workflow` -> `aragora/workflow/event_subscribers.py`; move `subscribers.testfixer_handlers` -> `aragora/nomic/...`; **invert `basic`/`debate_handlers` -> workflow to event emission** (§5.3); repoint `test_post_debate_workflow`, `test_event_integration`. | `events->{workflow,nomic}` | ~700 |
 | E6 | interface home (server-coupled reactions) | Move `basic` webhook delivery, `culture` state_manager, `execution_handlers` emitter, `notification_handlers` -> `aragora/server/event_subscribers.py`; register at server startup; repoint `test_workflow_to_supermemory`. | subscriber-side `events->server` | ~700 |
-| E7 | security split + arena_bridge + manager de-mixin | SPLIT `security_events` (move `build_security_debate_question` + agent-runner -> `aragora/debate/security_response.py`); SPLIT `security_dispatcher` (move Arena-runner fn); relocate `arena_bridge` -> `aragora/debate/` (or drop TYPE_CHECKING import); finalize `manager.py` domain-free (remove last mixin imports). | `events->agents` + remaining `events->debate` | ~800 |
+| E7a | security split (events + dispatcher) + emitter callback inversion | SPLIT `security_events`: move `trigger_security_debate` + `_get_security_debate_agents` + `build_security_debate_question` -> `aragora/debate/security_response.py`; add the domain-free `register_security_debate_runner`/`get_security_debate_runner` hook and INVERT `SecurityEventEmitter._trigger_security_debate` to the callback (§5.1); KEEP the domain-free results store in events. SPLIT `security_dispatcher` (move the single Arena-runner fn). DROP `trigger_security_debate` + `build_security_debate_question` from `events/__init__.py` (§6.3 table). Repoint `debate/security_debate.py`, `tests/debate/test_security_debate.py` (8 `@patch`), `tests/events/test_security_events.py`, `tests/events/test_security_dispatcher.py`. | `events->agents` + `security_events`/`security_dispatcher` share of `events->debate` | ~650 |
+| E7b | arena_bridge relocate + manager de-mixin | Relocate `arena_bridge` -> `aragora/debate/arena_bridge.py` (preferred option (a); or the drop-TYPE_CHECKING fallback (b), §5.1); DROP the `arena_bridge` trio from `events/__init__.py` (§6.3 table); finalize `manager.py` domain-free (remove the last mixin imports). Repoint `server/handlers/cross_pollination.py:156` (`EVENT_TYPE_MAP`), `debate/orchestrator_memory.py:306` (`ArenaEventBridge`), `tests/events/test_arena_bridge.py`. | `arena_bridge` share of `events->debate` | ~400 |
 
-After E1-E7: `events -> {agents,debate,knowledge,memory,nomic,ranking,reasoning,workflow}`
-cleared; `events -> server` remains (Batch 1b-sweep/2c).
+After E1-E7b: `events -> {agents,debate,knowledge,memory,nomic,ranking,reasoning,workflow}`
+cleared; `events -> server` remains (Batch 1b-sweep/2c). (E7 was split into E7a/E7b
+because the §5.1 emitter-inversion scope pushed the combined batch past the <=800 LOC
+cap.)
 
 ### Queue (supersedes cancelled Batch 2b)
 
 | # | Sub-feature | Scope | Clears | ~LOC |
 |---|---|---|---|---|
 | Q1 | Domain-free job-handler registry | `queue/__init__.py` + `queue/worker.py`: expose `register_worker`/`register_job_handler` + `get`/`reset`; keep transport base (`DebateWorker`); DROP only the `create_default_executor` re-export from `__init__` (no shim). **KEEP** the `DebateWorker` + `DebateExecutor` (type alias) re-exports. | none (enabler; no new edge) | ~500 |
-| Q2 | executor factory -> debate home | Move only `create_default_executor` (the domain-coupled factory; its nested `execute_debate` lazily imports `agents.base`/`core`/`debate.orchestrator`) out of `queue/worker.py` -> `aragora/debate/queue_executor.py` (domain: debate->agents/debate downward, legal); delete `worker.py`'s now-unused `AgentType` `TYPE_CHECKING` import; `DebateExecutor` type alias + `DebateWorker` STAY in `queue`; repoint `scripts/queue_worker.py`, `queue/README.md`/docstring examples, tests. | `queue->debate` + `worker` share of `queue->agents` | ~500 |
-| Q3 | gauntlet + memory workers | Move `workers.gauntlet_worker` -> **interface** home `aragora/server/workers/gauntlet_worker.py` (it lazily imports `server.stream.gauntlet_emitter` (L0 interface) + `gauntlet`/`agents`/`ranking`; home MUST be interface - an `aragora/gauntlet/` (application) home would create a NEW `application->interface` edge). Move `workers.consensus_healing_worker` -> **domain** home `aragora/memory/consensus_healing_worker.py` (imports only `memory.consensus`). Repoint `server/startup/workers.py`, `server/handlers/gauntlet/runner.py`, tests. **Split gauntlet vs consensus if >800.** *(Cleaner-but-more-work alternative for gauntlet_worker: invert the `gauntlet_emitter` coupling to event emission, then it may live in `aragora/gauntlet/`.)* | `queue->{gauntlet,ranking,memory}` + gauntlet share of `queue->{agents,server}` | ~800 |
-| Q4 | routing + testfixer (+ transcription) workers | Move `workers.routing_worker` -> **interface** home `aragora/server/workers/routing_worker.py` (it imports `server.debate_origin` + `integrations.email_reply_loop`, both L0 interface; home MUST be interface). Move `workers.testfixer_worker` -> **application** home `aragora/nomic/testfixer/queue_worker.py` (imports `nomic.testfixer`, L1). `workers.transcription_worker` clears no layered edge (unlayered `transcription`); MAY stay in `queue` or move to `aragora/transcription/` for cohesion. Repoint tests. **No target-home filename collisions** (verified: none of `aragora/{server/workers,memory,nomic/testfixer}/<worker>.py` exist today). | `queue->{integrations,nomic}` + routing share of `queue->server` | ~700 |
+| Q2 | executor factory -> debate home | Move only `create_default_executor` (the domain-coupled factory; its nested `execute_debate` lazily imports `agents.base`/`core`/`debate.orchestrator`) out of `queue/worker.py` -> `aragora/debate/queue_executor.py` (domain: debate->agents/debate downward, legal); delete `worker.py`'s now-unused `AgentType` `TYPE_CHECKING` import; `DebateExecutor` type alias + `DebateWorker` STAY in `queue`; DROP the `create_default_executor` re-export from `queue/__init__.py` (no shim); repoint `scripts/queue_worker.py`, `queue/README.md`/docstring examples, `docs/resilience/QUEUE.md` + mirror `docs-site/docs/guides/queue.md` (§6.2), tests. | `queue->debate` + `worker` share of `queue->agents` | ~550 |
+| Q3 | gauntlet + memory workers | Move `workers.gauntlet_worker` -> **interface** home `aragora/server/workers/gauntlet_worker.py` (it lazily imports `server.stream.gauntlet_emitter` (L0 interface) + `gauntlet`/`agents`/`ranking`; home MUST be interface - an `aragora/gauntlet/` (application) home would create a NEW `application->interface` edge). Move `workers.consensus_healing_worker` -> **domain** home `aragora/memory/consensus_healing_worker.py` (imports only `memory.consensus`). DROP the `gauntlet_worker` + `consensus_healing_worker` eager re-exports from the `queue/workers/__init__.py` barrel (no shim, §6.2). Repoint `server/startup/workers.py`, `server/handlers/gauntlet/runner.py`, `server/handlers/admin/health/workers.py:146` (`get_consensus_healing_worker`), `docs/deployment/DISASTER_RECOVERY.md:900` + mirror `docs-site/docs/deployment/disaster-recovery.md:905`, tests (incl. the direct-`@patch` `tests/server/handlers/admin/health/test_workers.py`). **Split gauntlet vs consensus if >800.** *(Cleaner-but-more-work alternative for gauntlet_worker: invert the `gauntlet_emitter` coupling to event emission, then it may live in `aragora/gauntlet/`.)* | `queue->{gauntlet,ranking,memory}` + gauntlet share of `queue->{agents,server}` | ~800 |
+| Q4 | routing + testfixer (+ transcription) workers | Move `workers.routing_worker` -> **interface** home `aragora/server/workers/routing_worker.py` (it imports `server.debate_origin` + `integrations.email_reply_loop`, both L0 interface; home MUST be interface). Move `workers.testfixer_worker` -> **application** home `aragora/nomic/testfixer/queue_worker.py` (imports `nomic.testfixer`, L1). `workers.transcription_worker` clears no layered edge (unlayered `transcription`); MAY stay in `queue` or move to `aragora/transcription/` for cohesion. DROP the `routing_worker` (and `transcription_worker` if it moves) eager re-exports from the `queue/workers/__init__.py` barrel (no shim, §6.2); `testfixer_worker` is NOT in the barrel today, so nothing to drop for it. Repoint tests. **No target-home filename collisions** (verified: none of `aragora/{server/workers,memory,nomic/testfixer}/<worker>.py` exist today). | `queue->{integrations,nomic}` + routing share of `queue->server` | ~700 |
 
 After Q1-Q4: `queue -> {agents,debate,gauntlet,integrations,memory,nomic,ranking,server}`
 fully cleared.
@@ -667,7 +799,13 @@ edge** (guards the §5.3 coupling inversion: no domain-home module may retain a
 cross-layer import of an application/interface home, e.g. `debate -> workflow`, and
 guards that each worker's new home is at/above its highest import); (3) NO re-export
 shim at any moved path; (4) all repointed consumers/tests pass; (5)
-`get_cross_subscriber_manager()` import path unchanged.
+`get_cross_subscriber_manager()` import path unchanged; (6) **E5-specific
+(invocation count, not registration count):** an invocation-count test proves
+`PostDebateWorkflowSubscriber` fires **exactly once** per `debate_end` event after
+the coupling inversion (§5.3). A registration-count parity check is insufficient - it
+would miss a residual double-fire from the two legacy delegating sites
+(`subscribers/debate_handlers.py:457`, `cross_subscribers/handlers/basic.py:577`),
+both of which must be removed so only the single registered subscriber remains.
 
 ## 11. References
 
