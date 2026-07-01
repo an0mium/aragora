@@ -2285,6 +2285,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                     pr_view, merge_packet, required_checks = _load_live_inputs(
                         args.pr, cwd=args.cwd, repo=args.repo
                     )
+                    # Re-evaluate the FULL gate on the fresh inputs — the reload
+                    # could have changed gate-relevant state (head moved, a required
+                    # check regressed, settlement invalidated); never merge on the
+                    # stale pre-resolve gate (#8750 openai [P1]).
+                    gate = evaluate_tier4_gate(
+                        pr=args.pr,
+                        expected_head=args.head,
+                        pr_view=pr_view,
+                        merge_packet=merge_packet,
+                        required_checks=required_checks,
+                        require_branch_protection_token=False,
+                        repo=args.repo,
+                        cwd=args.cwd,
+                        trusted_operator_logins=args.trusted_operator_login,
+                    )
+                    if not gate["ok"]:
+                        raise RuntimeError(
+                            "Tier 4 gate is not satisfied after skew auto-resolve "
+                            "reload; refusing --merge-apply"
+                        )
                     visibility_skew = _required_check_visibility_skew_report(
                         pr=args.pr,
                         head=args.head,

@@ -3446,3 +3446,54 @@ def test_merge_apply_auto_resolve_clears_skew_and_merges(
     assert reran == ["456"]  # re-ran the superseded failed run
     assert commands != []  # merge proceeded after the skew cleared
     assert rc == 0
+
+
+def test_merge_apply_auto_resolve_reblocks_if_gate_regresses(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    # #8750 openai [P1]: after --skew-auto-resolve clears and reloads inputs, the
+    # gate is RE-EVALUATED; if it is no longer ok on the fresh inputs, the merge
+    # must be refused (never merge on the stale pre-resolve gate).
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    _skewed_then_clean_inputs(head, monkeypatch)
+    commands: list[tuple[list[str], str | None]] = []
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+    monkeypatch.setattr(settler, "_rerun_workflow_run", lambda run_id, cwd, repo: True)
+    # Gate ok on the initial evaluation (so we enter merge-apply), then NOT ok on
+    # the post-resolve re-evaluation.
+    gate_calls = {"n": 0}
+    real_gate = settler.evaluate_tier4_gate
+
+    def _flaky_gate(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        gate_calls["n"] += 1
+        g = real_gate(*args, **kwargs)
+        if gate_calls["n"] >= 2:
+            g = dict(g)
+            g["ok"] = False
+            g["blockers"] = ["regressed after reload"]
+        return g
+
+    monkeypatch.setattr(settler, "evaluate_tier4_gate", _flaky_gate)
+
+    rc = settler.main(
+        [
+            "--merge-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--cwd",
+            str(tmp_path),
+            "--skew-auto-resolve",
+            "--skew-poll-seconds",
+            "0",
+        ]
+    )
+
+    assert rc == 2
+    assert commands == []  # merge NOT applied
+    assert gate_calls["n"] >= 2  # the gate was re-evaluated post-resolve
