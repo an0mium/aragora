@@ -453,8 +453,13 @@ def apply_api_mocks(monkeypatch: Any, force: bool = False) -> None:
     try:
         import anthropic
 
-        monkeypatch.setattr(anthropic, "Anthropic", MockAnthropicClient)
-        monkeypatch.setattr(anthropic, "AsyncAnthropic", MockAsyncAnthropicClient)
+        monkeypatch.setattr(anthropic, "Anthropic", MockAnthropicClient, raising=False)
+        monkeypatch.setattr(
+            anthropic,
+            "AsyncAnthropic",
+            MockAsyncAnthropicClient,
+            raising=False,
+        )
     except ImportError:
         pass
 

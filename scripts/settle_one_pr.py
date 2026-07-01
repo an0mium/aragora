@@ -31,6 +31,7 @@ CONVERGENCE_SENTENCE = (
 
 VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
+GITHUB_ACTIONS_APP_ID = 15368
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
 BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
 PYTHON_EXECUTABLE = sys.executable or "python3"
@@ -931,10 +932,76 @@ def _check_runs_from_payload(payload: Any) -> list[dict[str, Any]]:
     return [item for item in check_runs if isinstance(item, dict)]
 
 
+def _github_actions_check_run(item: dict[str, Any]) -> bool:
+    app = item.get("app")
+    if isinstance(app, dict):
+        slug = str(app.get("slug") or "").strip().lower()
+        if slug == "github-actions":
+            return True
+        app_id = _coerce_int(app.get("id") or app.get("databaseId"))
+        if app_id == GITHUB_ACTIONS_APP_ID:
+            return True
+    return _coerce_int(item.get("app_id") or item.get("appId")) == GITHUB_ACTIONS_APP_ID
+
+
+def _fallback_required_check_source_report(
+    required_checks: Any,
+    check_runs_payload: Any,
+) -> dict[str, Any]:
+    if not isinstance(required_checks, list):
+        return {
+            "status": "unknown",
+            "blockers": ["required checks JSON unavailable"],
+            "suggestions": ["rerun gh pr checks --required before settlement"],
+        }
+
+    required_contexts = [
+        str(check.get("name") or check.get("context") or "").strip()
+        for check in required_checks
+        if isinstance(check, dict)
+    ]
+    required_contexts = [context for context in required_contexts if context]
+    if not required_contexts:
+        return {
+            "status": "unknown",
+            "blockers": ["required checks JSON empty"],
+            "suggestions": ["rerun gh pr checks --required before settlement"],
+        }
+
+    check_report = required_check_report(required_checks)
+    if check_report["blockers"]:
+        return check_report
+
+    check_runs = _check_runs_from_payload(check_runs_payload)
+    blockers: list[str] = []
+    for context in required_contexts:
+        matching_success = [
+            item
+            for item in check_runs
+            if _rollup_name(item) == context
+            and _rollup_success(item)
+            and _github_actions_check_run(item)
+        ]
+        if not matching_success:
+            blockers.append(
+                f"{context} lacks a matching successful exact-head GitHub Actions CheckRun"
+            )
+
+    if blockers:
+        return {
+            "status": "blocked",
+            "blockers": blockers,
+            "suggestions": ["rerun or inspect the missing app-sourced required check"],
+        }
+
+    return {"status": "pass", "blockers": [], "suggestions": []}
+
+
 def required_check_source_report(
     protection: Any,
     pr_view: Any,
     check_runs_payload: Any = None,
+    required_checks: Any = None,
 ) -> dict[str, Any]:
     """Fail closed when an app-pinned required check is only a manual status.
 
@@ -945,6 +1012,8 @@ def required_check_source_report(
     an executor tries to merge.
     """
     if not isinstance(protection, dict):
+        if required_checks is not None:
+            return _fallback_required_check_source_report(required_checks, check_runs_payload)
         return {
             "status": "unknown",
             "blockers": ["branch protection required_status_checks JSON unavailable"],
@@ -1040,6 +1109,61 @@ def required_check_source_report(
     return {"status": status, "blockers": blockers, "suggestions": suggestions}
 
 
+def _required_check_source_fallback_from_entry(
+    entry: dict[str, Any],
+    check_report: dict[str, Any],
+    protection_cmd: dict[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Recover required check metadata from merge-packet's exact-head gate.
+
+    This fallback is intentionally narrow: it only activates after the live
+    required checks surface is green, and only when merge-packet already carried
+    branch-protection required check metadata plus an exact-head check-run gate
+    proving those contexts are satisfied.
+    """
+    if check_report.get("status") != "pass":
+        return None, None
+    check_surfaces = entry.get("check_surfaces")
+    if not isinstance(check_surfaces, dict):
+        return None, None
+    direct = check_surfaces.get("direct_commit_check_runs")
+    if not isinstance(direct, dict):
+        return None, None
+    if not bool(direct.get("required_contexts_satisfied")):
+        return None, None
+    non_success = direct.get("non_success_required_contexts") or []
+    if isinstance(non_success, list) and non_success:
+        return None, None
+    required_checks = direct.get("required_checks")
+    if not isinstance(required_checks, list) or not required_checks:
+        return None, None
+
+    checks: list[dict[str, Any]] = []
+    for item in required_checks:
+        if not isinstance(item, dict):
+            continue
+        context = str(item.get("context") or item.get("name") or "").strip()
+        if not context:
+            continue
+        checks.append({"context": context, "app_id": item.get("app_id")})
+    if not checks:
+        return None, None
+
+    reason = (
+        protection_cmd.get("stderr")
+        or protection_cmd.get("json_error")
+        or protection_cmd.get("stdout")
+        or "branch protection required_status_checks unavailable"
+    )
+    diagnostic = {
+        "used": True,
+        "source": "merge_packet_direct_commit_check_runs.required_checks",
+        "reason": str(reason),
+        "contexts": [str(item["context"]) for item in checks],
+    }
+    return {"checks": checks, "source": diagnostic["source"]}, diagnostic
+
+
 def validation_report(
     entry: dict[str, Any], *, cwd: Path, run_validation: bool
 ) -> list[dict[str, Any]]:
@@ -1116,7 +1240,132 @@ def load_pr_policy_metadata(
     )
     if isinstance(payload, dict):
         return payload, command
+    rest_payload, rest_command = load_pr_policy_metadata_rest(cwd, pr_number, repo=repo)
+    if rest_payload:
+        rest_command["primary_command"] = command
+        rest_command["fallback_reason"] = (
+            command.get("stderr")
+            or command.get("json_error")
+            or command.get("stdout")
+            or "gh pr view policy metadata unavailable"
+        )
+        return rest_payload, rest_command
     return {}, command
+
+
+def _rest_mergeable(value: Any) -> str:
+    if value is True:
+        return "MERGEABLE"
+    if value is False:
+        return "CONFLICTING"
+    return ""
+
+
+def _rest_merge_state(value: Any) -> str:
+    state = str(value or "").upper()
+    if state == "UNKNOWN":
+        return ""
+    return state
+
+
+def _rest_file_item(item: Any) -> dict[str, Any] | None:
+    if not isinstance(item, dict):
+        return None
+    filename = str(item.get("filename") or item.get("path") or "").strip()
+    if not filename:
+        return None
+    return {
+        "path": filename,
+        "additions": item.get("additions"),
+        "deletions": item.get("deletions"),
+        "changeType": item.get("status") or item.get("changeType"),
+    }
+
+
+def load_pr_policy_metadata_rest(
+    cwd: Path, pr_number: int, *, repo: str | None = None
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Load the policy metadata subset through REST when GraphQL is unavailable."""
+    pull_payload, pull_cmd = _run_json(
+        _with_repo(["gh", "api", f"repos/{{owner}}/{{repo}}/pulls/{pr_number}"], repo),
+        cwd=cwd,
+        timeout=GH_METADATA_TIMEOUT_SECONDS,
+    )
+    if not isinstance(pull_payload, dict):
+        return (
+            {},
+            {
+                "command": f"REST fallback: gh api repos/{{owner}}/{{repo}}/pulls/{pr_number}",
+                "returncode": 1,
+                "stdout": "",
+                "stderr": str(
+                    pull_cmd.get("stderr")
+                    or pull_cmd.get("json_error")
+                    or pull_cmd.get("stdout")
+                    or "pull REST metadata unavailable"
+                ),
+                "rest_fallback": True,
+                "pull_command": pull_cmd,
+            },
+        )
+    files_payload, files_cmd = _run_json(
+        _with_repo(
+            [
+                "gh",
+                "api",
+                f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/files",
+                "--paginate",
+            ],
+            repo,
+        ),
+        cwd=cwd,
+        timeout=GH_METADATA_TIMEOUT_SECONDS,
+    )
+    command: dict[str, Any] = {
+        "command": (
+            f"REST fallback: gh api repos/{{owner}}/{{repo}}/pulls/{pr_number}; "
+            f"gh api repos/{{owner}}/{{repo}}/pulls/{pr_number}/files --paginate"
+        ),
+        "returncode": 0
+        if isinstance(pull_payload, dict) and isinstance(files_payload, list)
+        else 1,
+        "stdout": "",
+        "stderr": "",
+        "rest_fallback": True,
+        "pull_command": pull_cmd,
+        "files_command": files_cmd,
+    }
+    if not isinstance(files_payload, list):
+        command["stderr"] = str(
+            files_cmd.get("stderr")
+            or files_cmd.get("json_error")
+            or files_cmd.get("stdout")
+            or "pull files REST metadata unavailable"
+        )
+        return {}, command
+
+    head = pull_payload.get("head") if isinstance(pull_payload.get("head"), dict) else {}
+    user = pull_payload.get("user") if isinstance(pull_payload.get("user"), dict) else {}
+    files = [file for item in files_payload if (file := _rest_file_item(item)) is not None]
+    metadata = {
+        "number": _coerce_int(pull_payload.get("number")) or pr_number,
+        "title": pull_payload.get("title"),
+        "headRefName": head.get("ref") if isinstance(head, dict) else "",
+        "author": {"login": user.get("login")} if isinstance(user, dict) else {},
+        "mergeable": _rest_mergeable(pull_payload.get("mergeable")),
+        "mergeStateStatus": _rest_merge_state(pull_payload.get("mergeable_state")),
+        "files": files,
+        "metadata_source": "rest_pull_files",
+    }
+    command["stdout"] = json.dumps(
+        {
+            "metadata_source": "rest_pull_files",
+            "number": metadata["number"],
+            "file_count": len(files),
+        },
+        sort_keys=True,
+    )
+    return metadata, command
 
 
 def _has_policy_file_scope(metadata: dict[str, Any]) -> bool:
@@ -1573,7 +1822,23 @@ def build_report(
         blockers.extend(check_report["blockers"])
         report["suggested_commands"].extend(check_report["suggestions"])
 
-        source_report = required_check_source_report(protection, pr_view, check_runs_payload)
+        required_source_fallback: dict[str, Any] | None = None
+        protection_for_source = protection
+        if not isinstance(protection_for_source, dict):
+            protection_for_source, required_source_fallback = (
+                _required_check_source_fallback_from_entry(
+                    selected,
+                    check_report,
+                    protection_cmd,
+                )
+            )
+        source_report = required_check_source_report(
+            protection_for_source, pr_view, check_runs_payload, required_checks
+        )
+        if required_source_fallback is not None:
+            source_report["source"] = required_source_fallback["source"]
+            source_report["fallback_reason"] = required_source_fallback["reason"]
+            report["checks"]["required_source_fallback"] = required_source_fallback
         report["checks"]["required_sources"] = source_report
         blockers.extend(source_report["blockers"])
         report["suggested_commands"].extend(source_report.get("suggestions") or [])

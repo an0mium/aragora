@@ -571,9 +571,11 @@ class ArenaExtensions:
             workspace_id = self.workspace_id or "default"
 
             # Get cross-subscriber manager to access adapter instances
-            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+            from aragora.debate.event_subscribers import (
+                bootstrap_debate_event_subscribers,
+            )
 
-            manager = get_cross_subscriber_manager()
+            manager = bootstrap_debate_event_subscribers()
 
             # Sync RankingAdapter if expertise was recorded
             try:

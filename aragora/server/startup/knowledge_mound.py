@@ -211,10 +211,13 @@ async def init_km_adapters() -> bool:
         True if adapters were initialized, False otherwise
     """
     try:
-        from aragora.events.cross_subscribers import get_cross_subscriber_manager
         from aragora.knowledge.mound.adapters import RankingAdapter, RlmAdapter
+        from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
 
-        manager = get_cross_subscriber_manager()
+        # Superset bootstrap: imports the domain/application/interface home modules so
+        # the relocated cross-subsystem reactions (P4a E2+) self-register and are wired
+        # into the singleton at server startup (a miss = silently lost reactions).
+        manager = bootstrap_event_subscribers()
 
         # Initialize RankingAdapter
         # RankingAdapter is instantiable despite inheriting abstract base

@@ -6,7 +6,7 @@ PROJECT_DIR=""
 INSTALL_MODE="editable"
 INSTALL_SCOPE="system"
 
-readonly LEGACY_CONTROL_PLANE_PACKAGE_NAME="aragora-debate"
+readonly LEGACY_CONTROL_PLANE_PACKAGE_NAMES=("aragora-debate" "aragora")
 readonly LEGACY_CONTROL_PLANE_MARKER_PATH="aragora/server"
 
 # Floor pins below are kept in lockstep with `pyproject.toml`'s
@@ -15,11 +15,11 @@ readonly LEGACY_CONTROL_PLANE_MARKER_PATH="aragora/server"
 # two files disagree creates noise and confusion. If pyproject.toml raises
 # any floor, mirror it here.
 LEGACY_CONTROL_PLANE_BASE_DEPS=(
-  "aiohttp>=3.13.3,<4.0"
+  "aiohttp>=3.14.1,<4.0"             # aligned to pyproject base/[blockchain]/[all]
   "websockets>=13.0,<15.1"
   "pyyaml>=6.0.3,<7.0"
   "pydantic>=2.13.2,<3.0"            # aligned to pyproject [test]
-  "pydantic-settings>=2.0,<3.0"
+  "pydantic-settings>=2.14.2,<3.0"   # security floor: GHSA-4xgf-cpjx-pc3j
   "bcrypt>=4.2,<6.0"                 # security floor: 4.0 -> 4.2 (defensive)
   "cryptography>=46.0.7,<48.0"       # security floor: 46.0 -> 46.0.7 (latest 46.x patch)
   "markupsafe>=2.1.0,<4.0"
@@ -67,6 +67,7 @@ LEGACY_CONTROL_PLANE_TEST_EXTRA_DEPS=(
   "redis>=5.0.0,<8.0"
   "asyncpg>=0.31.0,<1.0"             # aligned to pyproject [enterprise]/[all]
   "yt-dlp>=2024.1,<2027.0"
+  "anthropic>=0.111,<1.0"
   "openai>=2.0,<3.0"
   "twilio>=8.0,<10.0"
   "langchain>=1.0,<2.0"
@@ -218,8 +219,16 @@ PY
 
 is_legacy_control_plane_root() {
   local root="$1"
+  local name
+  local package_name
   [[ -d "$root/$LEGACY_CONTROL_PLANE_MARKER_PATH" ]] || return 1
-  [[ "$(project_name "$root")" == "$LEGACY_CONTROL_PLANE_PACKAGE_NAME" ]]
+  name="$(project_name "$root")"
+  for package_name in "${LEGACY_CONTROL_PLANE_PACKAGE_NAMES[@]}"; do
+    if [[ "$name" == "$package_name" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 install_legacy_control_plane_deps() {

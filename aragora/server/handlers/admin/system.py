@@ -176,6 +176,22 @@ class SystemHandler(BaseHandler):
 
         return None
 
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Keep OpenAPI placeholder inference without claiming POST routes."""
+        return None
+
+    # OpenAPI-only compatibility map for legacy placeholder POST surfaces.
+    # Runtime dispatch still goes through ROUTES + handle(); handle_post is a
+    # deliberate no-op and must not reclaim removed POST route ownership.
+    _ROUTE_MAP: dict[str, Any] = {
+        "POST /api/auth/stats": handle,
+        "POST /api/circuit-breakers": handle,
+        "POST /api/debug/test": handle,
+        "POST /api/v1/diagnostics/handlers": handle,
+    }
+
     @require_permission("admin:debug")
     def _handle_debug_test(self, handler: Any = None, user: Any = None) -> HandlerResult:
         """Handle debug test endpoint.

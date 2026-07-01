@@ -8,7 +8,6 @@ The heavy lifting is delegated to specialized mixins:
 - DispatchMixin: Event dispatch, batching, retry, circuit breaker, metrics
 - AdminMixin: Stats reporting, enable/disable, sampling, filtering, retry config
 - BasicHandlersMixin: Core subsystem event handlers
-- KnowledgeMoundHandlersMixin: Bidirectional KM event handlers
 - CultureHandlersMixin: Culture pattern handlers
 - ValidationHandlersMixin: Consensus and validation handlers
 - StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis, budget, alerts)
@@ -32,9 +31,9 @@ from .admin import AdminMixin
 from .dispatch import DispatchMixin
 from .handlers.basic import BasicHandlersMixin
 from .handlers.culture import CultureHandlersMixin
-from .handlers.knowledge_mound import KnowledgeMoundHandlersMixin
 from .handlers.strategic import StrategicHandlersMixin
 from .handlers.validation import ValidationHandlersMixin
+from .registry import get_registered_subscribers
 
 if TYPE_CHECKING:
     from aragora.config.settings import Settings
@@ -64,7 +63,6 @@ class CrossSubscriberManager(
     DispatchMixin,
     AdminMixin,
     BasicHandlersMixin,
-    KnowledgeMoundHandlersMixin,
     CultureHandlersMixin,
     ValidationHandlersMixin,
     StrategicHandlersMixin,
@@ -135,8 +133,36 @@ class CrossSubscriberManager(
         # Culture storage dict for CultureHandlersMixin
         self._debate_cultures: dict = {}
 
+        # Registry subscribers already wired into this manager instance
+        self._applied_subscribers: set[str] = set()
+
         # Register built-in cross-subsystem handlers
         self._register_builtin_subscribers()
+
+        # Registry subscribers are wired only by explicit layered bootstraps.
+        # Direct construction stays infrastructure-only, so relocated domain
+        # reactions cannot appear or disappear based on prior import order.
+
+    def apply_registered_subscribers(self) -> int:
+        """Wire registry subscribers not yet applied into this manager.
+
+        Home modules (domain/application/interface) self-register their
+        subscribers via ``aragora.events.cross_subscribers.register_subscriber``;
+        this applies them by delegating to each subscriber's ``register`` method,
+        reusing the existing per-event dispatch/stats/retry machinery. Idempotent:
+        each subscriber is applied at most once per manager instance.
+
+        Returns:
+            The number of subscribers newly applied by this call.
+        """
+        applied = 0
+        for name, subscriber in get_registered_subscribers().items():
+            if name in self._applied_subscribers:
+                continue
+            subscriber.register(self)
+            self._applied_subscribers.add(name)
+            applied += 1
+        return applied
 
     def _create_async_config_from_settings(self) -> AsyncDispatchConfig:
         """Create AsyncDispatchConfig from settings or use defaults.
@@ -218,86 +244,10 @@ class CrossSubscriberManager(
             self._handle_mound_to_memory,
         )
 
-        # =====================================================================
-        # Bidirectional Knowledge Mound Handlers
-        # =====================================================================
-
-        # Phase 1: Memory → KM (bidirectional completion)
-        self.register(
-            "memory_to_mound",
-            StreamEventType.MEMORY_STORED,
-            self._handle_memory_to_mound,
-        )
-
-        # Phase 1: KM → Memory pre-warm
-        self.register(
-            "mound_to_memory_retrieval",
-            StreamEventType.KNOWLEDGE_QUERIED,
-            self._handle_mound_to_memory_retrieval,
-        )
-
-        # Phase 2: Belief → KM
-        self.register(
-            "belief_to_mound",
-            StreamEventType.BELIEF_CONVERGED,
-            self._handle_belief_to_mound,
-        )
-
-        # Phase 2: KM → Belief (on debate start)
-        self.register(
-            "mound_to_belief",
-            StreamEventType.DEBATE_START,
-            self._handle_mound_to_belief,
-        )
-
-        # Phase 3: RLM → KM
-        self.register(
-            "rlm_to_mound",
-            StreamEventType.RLM_COMPRESSION_COMPLETE,
-            self._handle_rlm_to_mound,
-        )
-
-        # Phase 3: KM → RLM (on knowledge query)
-        self.register(
-            "mound_to_rlm",
-            StreamEventType.KNOWLEDGE_QUERIED,
-            self._handle_mound_to_rlm,
-        )
-
-        # Phase 4: ELO → KM
-        self.register(
-            "elo_to_mound",
-            StreamEventType.AGENT_ELO_UPDATED,
-            self._handle_elo_to_mound,
-        )
-
-        # Phase 4: KM → Team Selection (on debate start)
-        self.register(
-            "mound_to_team_selection",
-            StreamEventType.DEBATE_START,
-            self._handle_mound_to_team_selection,
-        )
-
-        # Phase 5: Insight → KM
-        self.register(
-            "insight_to_mound",
-            StreamEventType.INSIGHT_EXTRACTED,
-            self._handle_insight_to_mound,
-        )
-
-        # Phase 5: Flip → KM
-        self.register(
-            "flip_to_mound",
-            StreamEventType.FLIP_DETECTED,
-            self._handle_flip_to_mound,
-        )
-
-        # Phase 5: KM → Trickster (on debate start)
-        self.register(
-            "mound_to_trickster",
-            StreamEventType.DEBATE_START,
-            self._handle_mound_to_trickster,
-        )
+        # Bidirectional Knowledge Mound reactions relocated to their domain home
+        # (aragora.knowledge.event_subscribers, P4a E2 relocate-UP): they self-register
+        # via that module and are wired by apply_registered_subscribers at bootstrap,
+        # so events/ no longer imports knowledge here.
 
         # Phase 6: Culture → Debate (pattern updates)
         self.register(

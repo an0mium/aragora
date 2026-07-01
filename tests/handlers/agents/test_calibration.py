@@ -226,12 +226,13 @@ class TestCalibrationHandlerInit:
 
     def test_routes_defined(self, calibration_handler):
         assert hasattr(calibration_handler, "ROUTES")
-        assert len(calibration_handler.ROUTES) == 4
+        assert len(calibration_handler.ROUTES) == 5
 
     def test_routes_contain_expected_patterns(self, calibration_handler):
         routes = calibration_handler.ROUTES
         assert "/api/agent/*/calibration-curve" in routes
         assert "/api/agent/*/calibration-summary" in routes
+        assert "/api/agents/*/calibration-report" in routes
         assert "/api/calibration/leaderboard" in routes
         assert "/api/calibration/visualization" in routes
 

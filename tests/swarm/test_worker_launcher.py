@@ -110,6 +110,40 @@ class TestBuildPrompt:
         prompt = WorkerLauncher._build_prompt({})
         assert "git commit" in prompt
 
+    def test_explicit_prompt_is_honored_verbatim_when_opted_in(self):
+        # Regression: a fully-formed `prompt` with the `prompt_verbatim` opt-in
+        # (the lane dispatcher's claim-first prompt) must reach the worker
+        # verbatim, not be silently dropped in favor of a title/description.
+        claim_first = (
+            "You are an Aragora lane worker. CLAIM-OR-YIELD lane PR #8426. "
+            "Never merge, admin-merge, or settle. Report + release."
+        )
+        wo = {
+            "prompt": claim_first,
+            "prompt_verbatim": True,
+            "title": "advance #8426",
+            "target_agent": "codex",
+        }
+        prompt = WorkerLauncher._build_prompt(wo)
+        assert claim_first in prompt
+        assert "CLAIM-OR-YIELD" in prompt
+        assert "Never merge" in prompt
+
+    def test_prompt_field_without_opt_in_is_not_prepended(self):
+        # Blast-radius guard: non-lane producers (tranche/campaign) also stash a
+        # `prompt` field on work orders that flow through _build_prompt. Without
+        # the `prompt_verbatim` opt-in, that field must NOT be prepended -- the
+        # legacy title/description rendering is preserved.
+        wo = {
+            "prompt": "SHOULD-NOT-LEAK into the rendered worker prompt",
+            "title": "Fix auth module",
+            "description": "race condition",
+        }
+        prompt = WorkerLauncher._build_prompt(wo)
+        assert "SHOULD-NOT-LEAK" not in prompt
+        assert "# Fix auth module" in prompt
+        assert "race condition" in prompt
+
     def test_metadata_acceptance_criteria(self):
         wo = {
             "title": "Add feature",

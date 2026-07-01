@@ -67,9 +67,22 @@ class CalibrationHandler(SecureHandler):
     ROUTES = [
         "/api/agent/*/calibration-curve",
         "/api/agent/*/calibration-summary",
+        "/api/agents/*/calibration-report",
         "/api/calibration/leaderboard",
         "/api/calibration/visualization",
     ]
+
+    @staticmethod
+    def _is_calibration_report_path(path: str) -> bool:
+        """Match exactly /api/agents/{id}/calibration-report (version-stripped)."""
+        parts = path.split("/")
+        return (
+            len(parts) == 5
+            and parts[1] == "api"
+            and parts[2] == "agents"
+            and bool(parts[3])
+            and parts[4] == "calibration-report"
+        )
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -77,6 +90,8 @@ class CalibrationHandler(SecureHandler):
         if path.startswith("/api/agent/") and (
             path.endswith("/calibration-curve") or path.endswith("/calibration-summary")
         ):
+            return True
+        if self._is_calibration_report_path(path):
             return True
         if path in ("/api/calibration/leaderboard", "/api/calibration/visualization"):
             return True
@@ -117,6 +132,14 @@ class CalibrationHandler(SecureHandler):
             limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=10)
             return self._get_calibration_visualization(limit)
 
+        # Handle auditable calibration report: /api/agents/{id}/calibration-report
+        if self._is_calibration_report_path(path):
+            agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
+            if err:
+                return err
+            domain = get_string_param(query_params, "domain")
+            return self._get_calibration_report(agent, domain)
+
         if not path.startswith("/api/agent/"):
             return None
 
@@ -134,6 +157,24 @@ class CalibrationHandler(SecureHandler):
             return self._get_calibration_summary(agent, domain)
 
         return None
+
+    @handle_errors("calibration report retrieval")
+    def _get_calibration_report(self, agent: str, domain: str | None) -> HandlerResult:
+        """Build the auditable calibration report for one agent (issue #8229).
+
+        Read-only aggregation over the existing calibration stores. Agents
+        with no calibration data get an explicit ``{"status": "absent"}``
+        body (HTTP 200 — absence is an honest, schema-documented answer, not
+        an error), and every figure carries a ``sample_size`` disclosure.
+        """
+        if not ELO_AVAILABLE or not EloSystem:
+            return error_response("ELO system not available", 503)
+
+        from aragora.ranking.calibration_report import build_calibration_report
+
+        elo = self.get_elo_system() or EloSystem()
+        report = build_calibration_report(agent, elo_system=elo, domain=domain)
+        return json_response(report)
 
     @handle_errors("calibration curve retrieval")
     def _get_calibration_curve(self, agent: str, buckets: int, domain: str | None) -> HandlerResult:

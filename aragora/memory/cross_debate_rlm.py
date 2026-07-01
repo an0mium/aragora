@@ -23,7 +23,7 @@ Usage:
         context = await memory.get_relevant_context(task="Design a new API")
 
 Install official RLM support:
-    pip install aragora[rlm]
+    pip install rlm
 """
 
 from __future__ import annotations
