@@ -111,6 +111,7 @@ def _kwargs(h: _Harness, tmp_path: Path, **overrides) -> dict:
         promising=lambda view: True,
         merge_fn=h.merge_fn,
         fetch_main_checks=lambda: h.main_runs,
+        fetch_main_statuses=lambda: [],
     )
     base.update(overrides)
     return base
@@ -163,6 +164,30 @@ def test_main_health_uses_latest_run_per_check():
     runs = _main_runs_green()
     runs.append({"id": 0, "name": name, "status": "completed", "conclusion": "failure"})
     assert me.evaluate_main_health(runs, REQUIRED_CHECKS)[0] == "green"
+
+
+def test_main_health_red_on_failing_commit_status_even_with_green_check_runs():
+    # A required context can report as a commit *status* instead of a check
+    # run; a present-and-failing status must always block (review P2).
+    statuses = [{"context": "lint", "state": "failure"}]
+    state, details = me.evaluate_main_health(_main_runs_green(), REQUIRED_CHECKS, statuses)
+    assert state == "red"
+    assert any("lint" in d and "status" in d for d in details)
+
+
+def test_main_health_status_only_required_context_counts_as_present():
+    # 'lint' delivered ONLY as a commit status: success -> green;
+    # pending -> indeterminate (fail closed, no halt).
+    runs = [r for r in _main_runs_green() if r["name"] != "lint"]
+    ok = [{"context": "lint", "state": "success"}]
+    assert me.evaluate_main_health(runs, REQUIRED_CHECKS, ok)[0] == "green"
+    pending = [{"context": "lint", "state": "pending"}]
+    assert me.evaluate_main_health(runs, REQUIRED_CHECKS, pending)[0] == "indeterminate"
+
+
+def test_main_health_indeterminate_on_statuses_fetch_failure():
+    state, _ = me.evaluate_main_health(_main_runs_green(), REQUIRED_CHECKS, None)
+    assert state == "indeterminate"
 
 
 def test_dry_run_never_calls_merge_fn(tmp_path):
@@ -286,6 +311,58 @@ def test_apply_indeterminate_main_blocks_merges_without_marker(tmp_path):
     assert "blocked" in _actions(summary)[100]
 
 
+def _two_pr_harness() -> _Harness:
+    views = {1: _view(1, head="1" * 40), 2: _view(2, head="2" * 40)}
+    packets = {1: _packet(1, head="1" * 40), 2: _packet(2, head="2" * 40)}
+    return _Harness(views, packets)
+
+
+def test_health_flips_red_between_merges_blocks_second_and_halts(tmp_path):
+    # Health is re-evaluated before EACH merge (review P1): pass-start green,
+    # green before merge 1, red before merge 2 -> merge 2 blocked, marker written.
+    h = _two_pr_harness()
+    sequence = iter([_main_runs_green(), _main_runs_green(), _main_runs_red()])
+    summary = me.run_pass(
+        **_kwargs(
+            h,
+            tmp_path,
+            prs=[1, 2],
+            apply=True,
+            max_merges=2,
+            fetch_main_checks=lambda: next(sequence, _main_runs_red()),
+        )
+    )
+    assert [pr for pr, _ in h.merge_calls] == [1]
+    assert _actions(summary)[1] == "merged"
+    assert "blocked" in _actions(summary)[2]
+    assert summary["halted"] is True
+    assert json.loads((tmp_path / "halt.json").read_text())["reason"] == "main_red"
+
+
+def test_health_flips_pending_between_merges_blocks_second_without_marker(tmp_path):
+    # Pending main mid-pass (e.g. our own merge 1 landed) blocks the remainder
+    # of the pass fail-closed, but is not evidence of breakage: no halt marker,
+    # so the NEXT pass re-evaluates fresh instead of requiring human re-arm.
+    h = _two_pr_harness()
+    pending = _main_runs_green()
+    pending[0] = dict(pending[0], status="in_progress", conclusion="")
+    sequence = iter([_main_runs_green(), _main_runs_green(), pending])
+    summary = me.run_pass(
+        **_kwargs(
+            h,
+            tmp_path,
+            prs=[1, 2],
+            apply=True,
+            max_merges=2,
+            fetch_main_checks=lambda: next(sequence, pending),
+        )
+    )
+    assert [pr for pr, _ in h.merge_calls] == [1]
+    assert "blocked" in _actions(summary)[2]
+    assert summary["halted"] is False
+    assert not (tmp_path / "halt.json").exists()
+
+
 def test_existing_halt_marker_blocks_apply(tmp_path):
     (tmp_path / "halt.json").write_text("{}")
     h = _Harness({100: _view()}, {100: _packet()})
@@ -357,6 +434,7 @@ def test_main_json_output_dry_run(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(me, "fetch_view", lambda repo, pr: _view())
     monkeypatch.setattr(me, "fetch_packet", lambda repo, pr: _packet())
     monkeypatch.setattr(me, "fetch_main_checks", lambda repo, branch: _main_runs_green())
+    monkeypatch.setattr(me, "fetch_main_statuses", lambda repo, branch: [])
 
     rc = me.main(_cli_args(tmp_path))
     assert rc == 0
@@ -373,6 +451,7 @@ def test_main_apply_red_main_returns_halt_exit(tmp_path, monkeypatch):
     monkeypatch.setattr(me, "fetch_view", lambda repo, pr: _view())
     monkeypatch.setattr(me, "fetch_packet", lambda repo, pr: _packet())
     monkeypatch.setattr(me, "fetch_main_checks", lambda repo, branch: _main_runs_red())
+    monkeypatch.setattr(me, "fetch_main_statuses", lambda repo, branch: [])
     merge_calls: list[int] = []
     monkeypatch.setattr(
         me, "make_merge_fn", lambda repo: lambda pr, head: merge_calls.append(pr) or (True, "x")

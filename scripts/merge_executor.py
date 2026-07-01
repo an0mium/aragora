@@ -12,9 +12,11 @@ the pure defense-in-depth ``aragora.swarm.auto_merge_green.decide_auto_merge``.
 The executor shell adds: dry-run by default (the decision trace prints,
 nothing mutates); Tier 3-4 PRs never acted on (human-review digest only);
 ``--max-merges`` (default 1) bounding; exact-head re-verification immediately
-before each merge; auto-halt (red main writes a halt marker that blocks every
-later pass until a human deletes it); a one-way ``--disarm-file`` kill switch;
-and an operator receipt JSON per executed merge in ``--receipt-dir``.
+before each merge; auto-halt (main health — check runs AND commit statuses —
+re-evaluated before EVERY merge, not once per pass; red writes a halt marker
+that blocks every later pass until a human deletes it, non-green blocks the
+remainder of the pass); a one-way ``--disarm-file`` kill switch; and an
+operator receipt JSON per executed merge in ``--receipt-dir``.
 
 ARMING IS A HUMAN STEP: installing this under launchd and passing ``--apply``
 is Tier 4 per docs/AGENT_OPERATING_CONTRACT.md; this file only makes that step
@@ -32,7 +34,7 @@ import os
 import socket
 import subprocess
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -107,24 +109,50 @@ def fetch_main_checks(repo: str, branch: str = "main") -> list[dict[str, Any]] |
     return [run for run in runs if isinstance(run, dict)]
 
 
+def fetch_main_statuses(repo: str, branch: str = "main") -> list[dict[str, Any]] | None:
+    """Commit *statuses* on the tip of ``branch`` (combined status API; None on
+    any fetch problem). Required branch-protection contexts can be delivered as
+    statuses rather than check runs — reading only check-runs would leave a
+    failing required status context invisible."""
+    cmd = ["gh", "api", f"repos/{repo}/commits/{branch}/status", "--paginate"]
+    cmd += ["--jq", ".statuses[]"]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if out.returncode != 0:
+        return None
+    try:
+        statuses = [json.loads(line) for line in out.stdout.splitlines() if line.strip()]
+    except json.JSONDecodeError:
+        return None
+    return [st for st in statuses if isinstance(st, dict)]
+
+
 def evaluate_main_health(
     check_runs: list[dict[str, Any]] | None,
     required: Iterable[str] = REQUIRED_CHECKS,
+    statuses: Sequence[dict[str, Any]] | None = (),
 ) -> tuple[str, list[str]]:
     """Classify main as ``green`` / ``red`` / ``indeterminate``.
 
-    red: any required check's LATEST run completed failing (auto-halt trigger).
-    green: every required check PRESENT completed ``success`` — absent required
-    checks are not-applicable, NOT blockers (verified live: "Generate & Validate"
-    and "TypeScript SDK Type Check" only run on PRs, never on main-push commits;
-    treating absence as pending would make green unreachable when armed).
-    indeterminate: fetch failed, a present check pending/inconclusive, or none
-    reported. Indeterminate blocks merging (fail closed) but does NOT halt — a
-    merge freshly landed by a previous pass leaves main pending, which is not
-    evidence of breakage.
+    A required context may report as a check *run* or as a commit *status*
+    (branch protection accepts both); both sources are consulted and a
+    present-and-failing entry in EITHER always blocks.
+
+    red: any required context's LATEST report completed failing (auto-halt).
+    green: every required context PRESENT in either source reports ``success``
+    — a context absent from BOTH sources is not-applicable, NOT a blocker
+    (verified live: "Generate & Validate" and "TypeScript SDK Type Check" only
+    run on PRs, never on main-push commits; treating absence as pending would
+    make green unreachable when armed).
+    indeterminate: a fetch failed (``None``), a present context is pending or
+    inconclusive, or no required context reported at all. Indeterminate blocks
+    merging (fail closed) but does NOT halt — a merge freshly landed by a
+    previous pass leaves main pending, which is not evidence of breakage.
     """
-    if check_runs is None:
-        return ("indeterminate", ["check-runs fetch failed"])
+    if check_runs is None or statuses is None:
+        return ("indeterminate", ["check-runs/commit-status fetch failed"])
 
     def _run_id(run: dict[str, Any]) -> int:
         try:
@@ -138,22 +166,39 @@ def evaluate_main_health(
         if name:
             latest[name] = run
 
+    # Combined status API already returns the latest status per context.
+    status_states: dict[str, str] = {}
+    for st in statuses:
+        if isinstance(st, dict):
+            context = str(st.get("context") or "").strip()
+            if context:
+                status_states[context] = str(st.get("state") or "").strip().lower()
+
     red: list[str] = []
     not_green: list[str] = []
     present = 0
     for name in sorted(required):
+        seen = False
         latest_run = latest.get(name)
-        if latest_run is None:
-            continue  # not-applicable on this commit (PR-only check)
-        present += 1
-        status = str(latest_run.get("status") or "").strip().lower()
-        conclusion = str(latest_run.get("conclusion") or "").strip().lower()
-        if status != "completed":
-            not_green.append(f"{name}: {status or 'pending'}")
-        elif conclusion in _RED_CONCLUSIONS:
-            red.append(f"{name}: {conclusion}")
-        elif conclusion != "success":
-            not_green.append(f"{name}: {conclusion or 'no conclusion'}")
+        if latest_run is not None:
+            seen = True
+            status = str(latest_run.get("status") or "").strip().lower()
+            conclusion = str(latest_run.get("conclusion") or "").strip().lower()
+            if status != "completed":
+                not_green.append(f"{name}: {status or 'pending'}")
+            elif conclusion in _RED_CONCLUSIONS:
+                red.append(f"{name}: {conclusion}")
+            elif conclusion != "success":
+                not_green.append(f"{name}: {conclusion or 'no conclusion'}")
+        state = status_states.get(name)
+        if state is not None:
+            seen = True
+            if state in {"failure", "error"}:
+                red.append(f"{name}: status {state}")
+            elif state != "success":
+                not_green.append(f"{name}: status {state or 'pending'}")
+        if seen:
+            present += 1
     if red:
         return ("red", red)
     if present == 0:
@@ -223,13 +268,18 @@ def run_pass(
     promising: Callable[[dict[str, Any]], bool],
     merge_fn: Callable[[int, str], tuple[bool, str]],
     fetch_main_checks: Callable[[], list[dict[str, Any]] | None],
+    fetch_main_statuses: Callable[[], list[dict[str, Any]] | None],
 ) -> dict[str, Any]:
     """One bounded pass: discover -> gate -> (re-verify -> merge -> receipt).
     Read-only unless ``apply`` AND no kill switch / halt condition is active.
     Returns the full decision trace as a JSON-serializable summary."""
     disarmed = disarm_file.exists()
     previously_halted = halt_file.exists()
-    health, health_details = evaluate_main_health(fetch_main_checks(), REQUIRED_CHECKS)
+
+    def _main_health() -> tuple[str, list[str]]:
+        return evaluate_main_health(fetch_main_checks(), REQUIRED_CHECKS, fetch_main_statuses())
+
+    health, health_details = _main_health()
 
     halted = previously_halted
     if apply and not disarmed and not previously_halted and health == "red":
@@ -258,7 +308,6 @@ def run_pass(
             continue
         eligible.append(record)
 
-    can_merge = apply and not disarmed and not halted and health == "green"
     merged_count = 0
     for record in eligible:
         pr = record["pr"]
@@ -273,7 +322,7 @@ def run_pass(
         elif not apply:
             record["action"] = "would-merge"
             merged_count += 1
-        elif can_merge:
+        else:
             if disarm_file.exists():  # live kill switch, honored mid-pass
                 record["action"] = "blocked (disarm file appeared mid-pass)"
                 results.append(record)
@@ -294,6 +343,19 @@ def run_pass(
                 record["blockers"] = ["re-verification regressed: " + b for b in decision2.blockers]
                 results.append(record)
                 continue
+            # Re-evaluate main health immediately before EACH merge — the
+            # pass-start read is stale the moment main advances (including by
+            # our own previous merge). Red mid-pass halts the remainder and
+            # writes the halt marker; any non-green blocks the remainder.
+            health, health_details = _main_health()
+            if health != "green":
+                if health == "red":
+                    if not halt_file.exists():
+                        _write_halt_marker(halt_file, repo=repo, details=health_details)
+                    halted = True
+                record["action"] = f"blocked (main health {health} at merge time)"
+                results.append(record)
+                continue
             ok, detail = merge_fn(pr, record["head"])
             record["detail"] = detail
             if ok:
@@ -312,7 +374,7 @@ def run_pass(
                     "merged_at": _now_iso(),
                     "executor": _executor_identity(),
                     "merge_detail": detail,
-                    "main_health_at_pass_start": health,
+                    "main_health_at_merge": health,
                     "packet_entry": packet2,
                     "authority": authority,
                 }
@@ -401,6 +463,7 @@ def main(argv: list[str] | None = None) -> int:
         promising=_amqg._cheaply_promising,
         merge_fn=make_merge_fn(args.repo),
         fetch_main_checks=lambda: fetch_main_checks(args.repo, args.branch),
+        fetch_main_statuses=lambda: fetch_main_statuses(args.repo, args.branch),
     )
 
     if args.json:
