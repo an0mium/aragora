@@ -19,7 +19,7 @@ _SPEC.loader.exec_module(digest)
 
 def _write_rollout(tmp_path: Path) -> Path:
     rows = [
-        {"type": "session_meta", "id": "test"},
+        {"type": "session_meta"},
         {
             "type": "response_item",
             "payload": {"role": "user", "content": "Repair PR #8718 dissent"},
@@ -188,6 +188,58 @@ def test_main_all_mode(tmp_path: Path, capsys) -> None:
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert any(r["session_id"] == "019f197d" for r in out)
+
+
+def test_extract_turns_reads_user_message_events(tmp_path: Path) -> None:
+    """Codex stores human prompts as event_msg/user_message — must be captured."""
+    rollout = tmp_path / "rollout-2026-06-30T12-00-00-usermsg.jsonl"
+    rows = [
+        {"type": "event_msg", "payload": {"type": "user_message", "message": "fix PR #8730"}},
+        {"type": "event_msg", "payload": {"type": "agent_message", "message": "on it"}},
+    ]
+    rollout.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    turns = digest.extract_turns(rollout)
+    assert turns["counts"]["prompts"] == 1
+    assert "fix PR #8730" in turns["prompts"]
+    assert "8730" in turns["prs_referenced"]
+
+
+def test_extract_turns_dedupes_message_in_both_representations(tmp_path: Path) -> None:
+    """A turn present as BOTH event_msg and response_item is counted once."""
+    rollout = tmp_path / "rollout-2026-06-30T12-00-00-dedupe.jsonl"
+    rows = [
+        {"type": "event_msg", "payload": {"type": "agent_message", "message": "same decision"}},
+        {
+            "type": "response_item",
+            "payload": {"role": "assistant", "content": [{"text": "same decision"}]},
+        },
+    ]
+    rollout.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    turns = digest.extract_turns(rollout)
+    assert turns["counts"]["decisions"] == 1
+
+
+def test_extract_turns_reads_session_id_from_payload(tmp_path: Path) -> None:
+    """Canonical rollouts nest the id under payload — the meta-id path must work."""
+    rollout = tmp_path / "rollout-2026-06-30T12-00-00-metaid.jsonl"
+    rows = [{"type": "session_meta", "payload": {"id": "canonical-sid"}}]
+    rollout.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    turns = digest.extract_turns(rollout)
+    assert turns["session_id"] == "canonical-sid"
+
+
+def test_iter_rollouts_limit_is_respected(tmp_path: Path) -> None:
+    """The scan cap is injectable; limit=None is exhaustive (session lookups need it)."""
+    import os
+
+    for i in range(3):
+        f = tmp_path / f"rollout-2026-06-30T12-00-0{i}-sess{i}.jsonl"
+        f.write_text("", encoding="utf-8")
+        os.utime(f, (1000 + i, 1000 + i))
+    assert len(list(digest._iter_rollouts(tmp_path, limit=2))) == 2
+    assert len(list(digest._iter_rollouts(tmp_path, limit=None))) == 3
+    # An older session (not among the newest) is still resolvable by --session.
+    assert digest.find_rollout(path=None, session="sess0", latest=False, root=tmp_path) is not None
 
 
 def test_main_json_output(tmp_path: Path, capsys) -> None:

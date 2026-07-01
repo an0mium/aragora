@@ -33,7 +33,6 @@ def default_sessions_root() -> Path:
     return default_codex_home() / "sessions"
 
 
-DEFAULT_SESSIONS_ROOT = default_sessions_root()
 MAX_ROLLOUT_SCAN = 200
 _PR_RE = re.compile(r"#(\d{3,6})\b")
 _CMD_RE = re.compile(r'"cmd"\s*:\s*"([^"]{0,160})')
@@ -50,7 +49,20 @@ def _rollout_session_id(path: Path, meta_id: str | None = None) -> str:
     return path.stem
 
 
-def _iter_rollouts(root: Path, *, since_hours: float | None = None, now: float | None = None):
+def _iter_rollouts(
+    root: Path,
+    *,
+    since_hours: float | None = None,
+    now: float | None = None,
+    limit: int | None = MAX_ROLLOUT_SCAN,
+):
+    """Yield rollout files newest-first.
+
+    ``limit`` caps the scan to the N most-recent rollouts (the default keeps the
+    coordinator view bounded). Pass ``limit=None`` for an exhaustive scan — an
+    exact ``--session <id>`` lookup must not silently miss an older session just
+    because more than ``MAX_ROLLOUT_SCAN`` rollouts exist.
+    """
     cutoff = (
         None
         if since_hours is None
@@ -68,7 +80,8 @@ def _iter_rollouts(root: Path, *, since_hours: float | None = None, now: float |
                 continue
             candidates.append((mtime, rollout))
     candidates.sort(key=lambda item: item[0], reverse=True)
-    for _, rollout in candidates[:MAX_ROLLOUT_SCAN]:
+    selected = candidates if limit is None else candidates[:limit]
+    for _, rollout in selected:
         yield rollout
 
 
@@ -77,13 +90,12 @@ def find_rollout(*, path: str | None, session: str | None, latest: bool, root: P
     if path:
         p = Path(path)
         return p if p.is_file() else None
-    candidates = list(_iter_rollouts(root))
-    if not candidates:
-        return None
     if latest:
-        return candidates[0]
+        return next(iter(_iter_rollouts(root)), None)
     if session:
-        for c in candidates:
+        # Explicit session lookup is an exact request, not a recency scan — scan
+        # uncapped so an older session (beyond MAX_ROLLOUT_SCAN) is still found.
+        for c in _iter_rollouts(root, limit=None):
             if session in c.name:
                 return c
     return None
@@ -124,6 +136,18 @@ def extract_turns(rollout: Path) -> dict[str, Any]:
     commands: list[str] = []
     prs: set[str] = set()
     session_id: str | None = None
+    # Real rollouts carry the same human-visible turn as BOTH an ``event_msg``
+    # (agent_message/user_message) and a ``response_item`` (role assistant/user);
+    # dedupe by text so a turn present in both representations is counted once.
+    seen_prompts: set[str] = set()
+    seen_decisions: set[str] = set()
+
+    def _add(bucket: list[str], seen: set[str], text: str) -> None:
+        if text in seen:
+            return
+        seen.add(text)
+        bucket.append(text)
+
     try:
         handle = rollout.open("r", encoding="utf-8", errors="replace")
     except OSError:
@@ -149,16 +173,24 @@ def extract_turns(rollout: Path) -> dict[str, Any]:
                 continue
             payload = rec.get("payload") if isinstance(rec.get("payload"), dict) else {}
             if rec.get("type") == "session_meta":
-                sid = payload.get("id")
+                # Canonical rollouts nest the id under ``payload`` (codex_source.py);
+                # tolerate a top-level ``id`` too so either shape resolves.
+                sid = payload.get("id") or rec.get("id")
                 if isinstance(sid, str) and sid:
                     session_id = sid
                 continue
             if rec.get("type") == "event_msg":
-                if payload.get("type") == "agent_message":
-                    message = payload.get("message")
-                    if isinstance(message, str) and message.strip():
-                        text = message.strip()
-                        decisions.append(text[:300])
+                etype = payload.get("type")
+                message = payload.get("message")
+                if isinstance(message, str) and message.strip():
+                    text = message.strip()[:300]
+                    if etype == "agent_message":
+                        _add(decisions, seen_decisions, text)
+                        prs.update(_PR_RE.findall(text))
+                    elif etype == "user_message":
+                        # Codex stores human prompts as event_msg/user_message;
+                        # without this the tool's advertised prompt summary is empty.
+                        _add(prompts, seen_prompts, text)
                         prs.update(_PR_RE.findall(text))
                 continue
             if rec.get("type") != "response_item":
@@ -194,7 +226,10 @@ def extract_turns(rollout: Path) -> dict[str, Any]:
                 if not text:
                     continue
                 prs.update(_PR_RE.findall(text))
-                (prompts if item.get("role") == "user" else decisions).append(text[:300])
+                if item.get("role") == "user":
+                    _add(prompts, seen_prompts, text[:300])
+                else:
+                    _add(decisions, seen_decisions, text[:300])
     session_id = _rollout_session_id(rollout, session_id)
     return {
         "rollout": str(rollout),
@@ -280,6 +315,10 @@ def rlm_summary(turns: dict[str, Any], question: str) -> str | None:
                 text=True,
                 timeout=180,
             )
+            if q.returncode != 0:
+                # A failed query (e.g. missing context) must not be surfaced as
+                # a "summary"; the compress step already guards its returncode.
+                return None
             return q.stdout.strip() or None
     except (subprocess.SubprocessError, OSError):
         return None
