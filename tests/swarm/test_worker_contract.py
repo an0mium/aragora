@@ -56,6 +56,52 @@ def test_build_worker_contract_includes_mission_lineage_and_context_policy(tmp_p
     contract.validate()
 
 
+def test_build_worker_contract_carries_native_mission_control_context(tmp_path) -> None:
+    worktree = tmp_path / "repo"
+    worktree.mkdir()
+    config = LaunchConfig(
+        allow_codex_full_auto=True,
+        execution_mode=ExecutionMode.AUTONOMOUS,
+    )
+
+    contract = build_worker_contract(
+        agent="codex",
+        config=config,
+        worktree_path=str(worktree),
+        env={},
+        work_order={
+            "mission_id": "zenith-native",
+            "stage_id": "m1",
+            "assertion_ids": ["VAL-API"],
+            "file_scope": ["aragora/missions/state.py"],
+            "contract_assertions": [
+                {
+                    "assertion_id": "VAL-API",
+                    "statement": "API behavior remains compatible",
+                    "evidence_expectations": ["pytest tests/missions"],
+                }
+            ],
+            "role_specs": {"implementer": {"agent": "codex", "model": "default"}},
+            "skill_seeds": [{"id": "debug-imports", "body": "Run import checks first."}],
+            "mission_library": ["Known setup: run targeted mission tests before full suite."],
+        },
+    )
+
+    payload = contract.to_dict()
+
+    assert payload["contract_assertions"][0]["assertion_id"] == "VAL-API"
+    assert payload["role_specs"]["implementer"]["agent"] == "codex"
+    assert payload["skill_seeds"][0]["id"] == "debug-imports"
+    assert payload["mission_library"] == [
+        "Known setup: run targeted mission tests before full suite."
+    ]
+    assert "contract_assertion" in payload["mission_context_policy"]["allowed_artifact_classes"]
+    assert "role_spec" in payload["mission_context_policy"]["allowed_artifact_classes"]
+    assert "mission_skill_seed" in payload["mission_context_policy"]["allowed_artifact_classes"]
+    assert WorkerContract.from_dict(payload).to_dict() == payload
+    contract.validate()
+
+
 def test_worker_contract_from_dict_round_trips_valid_contract() -> None:
     contract = _make_valid_contract()
 

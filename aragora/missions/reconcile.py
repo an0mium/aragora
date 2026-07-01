@@ -17,7 +17,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .state import Feature, MissionState, Status
+from .state import ContractStatus, Feature, FeatureKind, MissionState, Status
 
 
 class ArtifactCategory(str, Enum):
@@ -289,13 +289,16 @@ def inject_validation_features(
     *,
     milestone: str,
     validation_kinds: tuple[str, ...] = ("tests", "scrutiny"),
+    include_gate: bool = False,
 ) -> list[Feature]:
     """Insert validator features for a completed milestone if not already present."""
     milestone_features = [f for f in state.features if f.milestone == milestone]
     if not milestone_features:
         return []
     non_validators = [
-        f for f in milestone_features if f.metadata.get("validation_for") != milestone
+        f
+        for f in milestone_features
+        if f.kind == FeatureKind.WORK and f.metadata.get("validation_for") != milestone
     ]
     if not non_validators or not all(f.status == Status.COMPLETED for f in non_validators):
         return []
@@ -325,6 +328,7 @@ def inject_validation_features(
             description=f"Validate milestone {milestone} with {kind}",
             milestone=milestone,
             skill="validator",
+            kind=FeatureKind.VALIDATE,
             preconditions=list(preconditions),
             fulfills=list(fulfills),
             metadata={
@@ -336,6 +340,36 @@ def inject_validation_features(
         )
         state.insert_feature(feature)
         injected.append(feature)
+
+    if include_gate:
+        gate_id = f"gate-{_slug(milestone)}"
+        if gate_id not in existing_ids:
+            validator_ids = [
+                f.id
+                for f in state.features
+                if f.milestone == milestone
+                and (
+                    f.kind == FeatureKind.VALIDATE or f.metadata.get("validation_for") == milestone
+                )
+            ]
+            gate = Feature(
+                id=gate_id,
+                description=f"Seal milestone {milestone}",
+                milestone=milestone,
+                skill="gate",
+                kind=FeatureKind.GATE,
+                preconditions=[f"feature:{feature_id}" for feature_id in validator_ids],
+                fulfills=list(fulfills),
+                metadata={
+                    "validation_for": milestone,
+                    "validation_kind": "gate",
+                    "validates": [f.id for f in non_validators],
+                    "validator_features": validator_ids,
+                    "paths": paths,
+                },
+            )
+            state.insert_feature(gate)
+            injected.append(gate)
     return injected
 
 
@@ -351,6 +385,12 @@ def apply_validation_result(
     validator = state.get(validator_feature_id)
     if passed:
         validator.status = Status.COMPLETED
+        for assertion_id in validator.fulfills:
+            contract_state = state.contract_state.get(assertion_id)
+            if contract_state is not None:
+                contract_state.status = ContractStatus.PASSED
+                if validator.id not in contract_state.validator_feature_ids:
+                    contract_state.validator_feature_ids.append(validator.id)
         return
 
     ledger = None
@@ -360,6 +400,12 @@ def apply_validation_result(
         ledger = Ledger(ledger_path)
 
     state.mark_blocked(validator_feature_id, reason or "validation failed")
+    for assertion_id in validator.fulfills:
+        contract_state = state.contract_state.get(assertion_id)
+        if contract_state is not None:
+            contract_state.status = ContractStatus.FAILED
+            if validator.id not in contract_state.validator_feature_ids:
+                contract_state.validator_feature_ids.append(validator.id)
     validates = validator.metadata.get("validates", [])
     if not isinstance(validates, list):
         validates = []

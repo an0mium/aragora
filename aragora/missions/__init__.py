@@ -11,6 +11,15 @@ Public surface::
 
 from .ledger import Constraint, Ledger, Lease, select_for
 from .live_gate import LiveBossLoopGate
+from .boundary import (
+    MissionBoundaryAction,
+    MissionBoundaryController,
+    MissionBoundaryDecision,
+    MissionBoundaryEvent,
+    apply_boundary_decision,
+    layered_validation_kinds,
+    validate_contract_coverage,
+)
 from .orchestrator import Handoff, MissionOrchestrator
 from .reconcile import (
     AdmissionDecision,
@@ -27,7 +36,11 @@ from .reconcile import (
 )
 from .runtime import MissionRuntimeConfig
 from .state import (
+    ContractAssertion,
+    ContractState,
+    ContractStatus,
     Feature,
+    FeatureKind,
     MissionOwnershipError,
     MissionState,
     Status,
@@ -37,11 +50,19 @@ from .swarm import SwarmResult, reconcile_from_ledger, run_worker
 
 __all__ = [
     "Constraint",
+    "ContractAssertion",
+    "ContractState",
+    "ContractStatus",
     "Feature",
+    "FeatureKind",
     "Handoff",
     "Ledger",
     "Lease",
     "LiveBossLoopGate",
+    "MissionBoundaryAction",
+    "MissionBoundaryController",
+    "MissionBoundaryDecision",
+    "MissionBoundaryEvent",
     "MissionOrchestrator",
     "MissionOwnershipError",
     "MissionRuntimeConfig",
@@ -55,12 +76,15 @@ __all__ = [
     "Status",
     "SwarmResult",
     "WorkArtifact",
+    "apply_boundary_decision",
     "apply_validation_result",
     "classify_artifact",
     "inject_validation_features",
+    "layered_validation_kinds",
     "mission_owner_lock",
     "reconcile_from_ledger",
     "run_worker",
     "select_for",
+    "validate_contract_coverage",
     "write_operator_receipt",
 ]

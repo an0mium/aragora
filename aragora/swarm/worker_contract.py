@@ -4,8 +4,9 @@ import hashlib
 import json
 import os
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.mission import normalize_context_policies
@@ -48,6 +49,10 @@ class WorkerContract:
     assertion_ids: list[str] | None = None
     evidence_expectations: list[str] | None = None
     mission_context_policy: dict[str, Any] | None = None
+    contract_assertions: list[dict[str, Any]] | None = None
+    role_specs: dict[str, Any] | None = None
+    skill_seeds: list[dict[str, Any]] | None = None
+    mission_library: list[str] | None = None
     contract_version: str = _CONTRACT_VERSION
     _expected_checksum: str = field(default="", init=False, repr=False)
 
@@ -77,6 +82,18 @@ class WorkerContract:
                 if str(item).strip()
             ],
             "mission_context_policy": dict(self.mission_context_policy or {}),
+            "contract_assertions": [
+                dict(item)
+                for item in list(self.contract_assertions or [])
+                if isinstance(item, Mapping)
+            ],
+            "role_specs": dict(self.role_specs or {}),
+            "skill_seeds": [
+                dict(item) for item in list(self.skill_seeds or []) if isinstance(item, Mapping)
+            ],
+            "mission_library": [
+                str(item).strip() for item in list(self.mission_library or []) if str(item).strip()
+            ],
             "contract_version": self.contract_version,
         }
 
@@ -106,6 +123,22 @@ class WorkerContract:
                 if str(item).strip()
             ],
             mission_context_policy=dict(data.get("mission_context_policy", {}) or {}),
+            contract_assertions=[
+                dict(item)
+                for item in list(data.get("contract_assertions", []) or [])
+                if isinstance(item, Mapping)
+            ],
+            role_specs=dict(data.get("role_specs", {}) or {}),
+            skill_seeds=[
+                dict(item)
+                for item in list(data.get("skill_seeds", []) or [])
+                if isinstance(item, Mapping)
+            ],
+            mission_library=[
+                str(item).strip()
+                for item in list(data.get("mission_library", []) or [])
+                if str(item).strip()
+            ],
             contract_version=str(data.get("contract_version", _CONTRACT_VERSION) or ""),
         )
 
@@ -300,4 +333,20 @@ def build_worker_contract(
         ],
         evidence_expectations=evidence_expectations,
         mission_context_policy=context_policy,
+        contract_assertions=[
+            dict(item)
+            for item in list(work_order_data.get("contract_assertions", []) or [])
+            if isinstance(item, Mapping)
+        ],
+        role_specs=dict(work_order_data.get("role_specs", {}) or {}),
+        skill_seeds=[
+            dict(item)
+            for item in list(work_order_data.get("skill_seeds", []) or [])
+            if isinstance(item, Mapping)
+        ],
+        mission_library=[
+            str(item).strip()
+            for item in list(work_order_data.get("mission_library", []) or [])
+            if str(item).strip()
+        ],
     )

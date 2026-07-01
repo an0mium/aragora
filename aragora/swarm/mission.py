@@ -275,6 +275,10 @@ def default_context_policy(
             allowed_artifact_classes=[
                 "mission_envelope",
                 "mission_stage",
+                "contract_assertion",
+                "role_spec",
+                "mission_skill_seed",
+                "mission_library_snippet",
                 "validation_command",
                 "acceptance_criteria",
                 "receipt",
@@ -295,6 +299,10 @@ def default_context_policy(
         allowed_artifact_classes=[
             "mission_envelope",
             "mission_stage",
+            "contract_assertion",
+            "role_spec",
+            "mission_skill_seed",
+            "mission_library_snippet",
             "swarm_spec",
             "file_scope",
             "validation_command",

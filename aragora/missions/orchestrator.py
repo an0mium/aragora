@@ -18,8 +18,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .boundary import (
+    MissionBoundaryController,
+    MissionBoundaryEvent,
+    apply_boundary_decision,
+)
 from .ledger import LedgerCorruptError
-from .state import Feature, MissionState, Status, mission_owner_lock
+from .reconcile import apply_validation_result
+from .state import Feature, FeatureKind, MissionState, Status, mission_owner_lock
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +212,10 @@ class MissionOrchestrator:
                 state.insert_feature(follow)
                 logger.info("handoff inserted accepted follow-up feature %s", follow.id)
 
+        if _native_contract_enabled(state):
+            self._triage_with_boundary_controller(state, feat, handoff)
+            return
+
         if handoff.success:
             state.mark_completed(feature_id)
             return
@@ -218,6 +228,48 @@ class MissionOrchestrator:
             state.mark_blocked(feature_id, reason)
         else:
             feat.status = Status.PENDING  # bounded retry
+
+    def _triage_with_boundary_controller(
+        self,
+        state: MissionState,
+        feat: Feature,
+        handoff: Handoff,
+    ) -> None:
+        controller = MissionBoundaryController(max_retries=self.max_retries)
+        risk_tier = _feature_risk_tier(feat)
+        reason = handoff.blocked_reason or "feature boundary reached"
+
+        if handoff.success:
+            if feat.kind == FeatureKind.VALIDATE:
+                apply_validation_result(state, feat.id, passed=True, reason=reason)
+            else:
+                state.mark_completed(feat.id)
+            decision = controller.evaluate(
+                state,
+                MissionBoundaryEvent(
+                    kind="feature_completed",
+                    feature_id=feat.id,
+                    reason=reason,
+                    risk_tier=risk_tier,
+                ),
+            )
+            if decision.action.value != "continue":
+                apply_boundary_decision(state, decision)
+            return
+
+        event_kind = "validation_failed" if feat.kind == FeatureKind.VALIDATE else "worker_failed"
+        decision = controller.evaluate(
+            state,
+            MissionBoundaryEvent(
+                kind=event_kind,
+                feature_id=feat.id,
+                reason=reason,
+                terminal=handoff.terminal,
+                risk_tier=risk_tier,
+                failed_assertions=list(feat.fulfills),
+            ),
+        )
+        apply_boundary_decision(state, decision)
 
     def _block_unrunnable_pending(self, state: MissionState, reason: str) -> bool:
         changed = False
@@ -303,3 +355,17 @@ class MissionOrchestrator:
             return self.ledger_path
         default_path = self.state_path.with_name("ledger.json")
         return default_path if default_path.exists() else None
+
+
+def _native_contract_enabled(state: MissionState) -> bool:
+    return bool(state.contract)
+
+
+def _feature_risk_tier(feature: Feature) -> int | None:
+    raw = feature.metadata.get("risk_tier", feature.metadata.get("tier"))
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None

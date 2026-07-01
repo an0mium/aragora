@@ -112,6 +112,26 @@ class Status:
     ALL = frozenset({PENDING, IN_PROGRESS, COMPLETED, BLOCKED})
 
 
+class FeatureKind:
+    """Native mission task kinds, matching the work/validate/gate control shape."""
+
+    WORK = "work"
+    VALIDATE = "validate"
+    GATE = "gate"
+
+    ALL = frozenset({WORK, VALIDATE, GATE})
+
+
+class ContractStatus:
+    """Assertion lifecycle states."""
+
+    PENDING = "pending"
+    PASSED = "passed"
+    FAILED = "failed"
+
+    ALL = frozenset({PENDING, PASSED, FAILED})
+
+
 def preconditions_met(preconditions: list[str], completed: set[str]) -> bool:
     """Return True iff every precondition is explicitly satisfied.
 
@@ -123,6 +143,40 @@ def preconditions_met(preconditions: list[str], completed: set[str]) -> bool:
 
 
 @dataclass
+class ContractAssertion:
+    """A checkable mission contract assertion.
+
+    Assertion ids intentionally use the ``VAL-*`` namespace so work, validators,
+    gates, receipts, and handoffs can refer to the same acceptance surface.
+    """
+
+    assertion_id: str
+    statement: str
+    evidence_expectations: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not str(self.assertion_id or "").startswith("VAL-"):
+            raise ValueError("contract assertion ids must start with 'VAL-'")
+        if not str(self.statement or "").strip():
+            raise ValueError("contract assertion statement must be non-empty")
+
+
+@dataclass
+class ContractState:
+    """Runtime verdict and ownership state for one contract assertion."""
+
+    status: str = ContractStatus.PENDING
+    owner_feature_id: str = ""
+    validator_feature_ids: list[str] = field(default_factory=list)
+    notes: str = ""
+
+    def __post_init__(self) -> None:
+        if self.status not in ContractStatus.ALL:
+            raise ValueError(f"invalid contract status {self.status!r}")
+
+
+@dataclass
 class Feature:
     """One unit of mission work — the atom the orchestrator dispatches."""
 
@@ -131,6 +185,7 @@ class Feature:
     milestone: str
     skill: str = "worker"
     status: str = Status.PENDING
+    kind: str = FeatureKind.WORK
     preconditions: list[str] = field(default_factory=list)
     expected_behavior: list[str] = field(default_factory=list)
     fulfills: list[str] = field(default_factory=list)  # assertion ids (Phase B)
@@ -143,6 +198,8 @@ class Feature:
     def __post_init__(self) -> None:
         if self.status not in Status.ALL:
             raise ValueError(f"invalid status {self.status!r} for feature {self.id!r}")
+        if self.kind not in FeatureKind.ALL:
+            raise ValueError(f"invalid kind {self.kind!r} for feature {self.id!r}")
 
 
 @dataclass
@@ -153,6 +210,11 @@ class MissionState:
     goal: str
     milestones: list[str] = field(default_factory=list)
     features: list[Feature] = field(default_factory=list)
+    contract: list[ContractAssertion] = field(default_factory=list)
+    contract_state: dict[str, ContractState] = field(default_factory=dict)
+    role_specs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    skill_seeds: list[dict[str, Any]] = field(default_factory=list)
+    decision_trace: list[dict[str, Any]] = field(default_factory=list)
 
     # ---- queue / advance API -------------------------------------------------
 
@@ -240,15 +302,36 @@ class MissionState:
             "goal": self.goal,
             "milestones": list(self.milestones),
             "features": [asdict(f) for f in self.features],
+            "contract": [asdict(item) for item in self.contract],
+            "contract_state": {
+                assertion_id: asdict(state) for assertion_id, state in self.contract_state.items()
+            },
+            "role_specs": dict(self.role_specs),
+            "skill_seeds": list(self.skill_seeds),
+            "decision_trace": list(self.decision_trace),
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> MissionState:
+        raw_contract_state = data.get("contract_state", {}) or {}
         return cls(
             mission_id=data["mission_id"],
             goal=data["goal"],
             milestones=list(data.get("milestones", [])),
             features=[from_known_fields(Feature, f) for f in data.get("features", [])],
+            contract=[
+                from_known_fields(ContractAssertion, item)
+                for item in data.get("contract", [])
+                if isinstance(item, dict)
+            ],
+            contract_state={
+                str(assertion_id): from_known_fields(ContractState, state)
+                for assertion_id, state in dict(raw_contract_state).items()
+                if isinstance(state, dict)
+            },
+            role_specs=dict(data.get("role_specs", {}) or {}),
+            skill_seeds=list(data.get("skill_seeds", []) or []),
+            decision_trace=list(data.get("decision_trace", []) or []),
         )
 
     def save(self, path: str | Path) -> None:
