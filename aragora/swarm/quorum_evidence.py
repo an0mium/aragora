@@ -48,6 +48,10 @@ from pathlib import Path
 from typing import Any
 
 from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
+from aragora.cli.commands.review_queue_transport import (
+    GITHUB_TRANSPORT_BLOCKED_STATUS,
+    _is_github_transport_error,
+)
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -294,6 +298,7 @@ QUORUM_RERUN_MAX_PER_HEAD = 3
 QUORUM_STATE_LOCK_TIMEOUT_SECONDS = 60.0
 QUORUM_STATE_LOCK_POLL_SECONDS = 0.2
 QUORUM_STATE_LOCK_STALE_SECONDS = 15 * 60
+_PREFLIGHT_CONTEXT_ATTEMPTS = 2
 _REVIEWER_RESULT_QUEUE_TIMEOUT = 1.0
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
@@ -583,6 +588,64 @@ class CollectOutcome:
                 for item in self.items
             ],
             "failures": [{"family": f.family, "error": f.error} for f in self.failures],
+        }
+
+
+class CollectPreflightTransportError(RuntimeError):
+    """Fail-closed diagnostic for PR-context transport failure before reviewers."""
+
+    def __init__(
+        self,
+        *,
+        repo: str,
+        pr: int,
+        phase: str,
+        error: BaseException,
+        attempts: int,
+    ) -> None:
+        self.repo = repo
+        self.pr = pr
+        self.phase = phase
+        self.error = error
+        self.attempts = attempts
+        super().__init__(
+            f"GitHub transport blocked during {phase} for {repo}#{pr} "
+            f"after {attempts} attempts: {error}"
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mode": "collect_evidence",
+            "status": GITHUB_TRANSPORT_BLOCKED_STATUS,
+            "transport_blocked": True,
+            "preserve_no_mutate": True,
+            "retryable": True,
+            "phase": self.phase,
+            "repo": self.repo,
+            "pr_number": self.pr,
+            "error": str(self.error),
+            "attempts": self.attempts,
+            "head_sha": "",
+            "head_committed_at": "",
+            "tier": None,
+            "tiered_gate": tiered_merge_gate_enabled(),
+            "policy_version": QUORUM_POLICY_VERSION,
+            "action": "prepare",
+            "action_reason": (
+                "GitHub transport blocked before reviewer execution; prepared evidence only"
+            ),
+            "counting_families": [],
+            "supportive_families": [],
+            "dissenting_families": [],
+            "has_supportive_quorum": False,
+            "posted_families": [],
+            "post_errors": [],
+            "quorum_rerun": None,
+            "orchestration_timeout": False,
+            "timed_out_families": [],
+            "overall_timeout_seconds": None,
+            "items": [],
+            "failures": [],
         }
 
 
@@ -1878,7 +1941,7 @@ def collect_evidence(
     overall_timeout_seconds = _positive_timeout_seconds(
         overall_timeout_seconds, "overall_timeout_seconds"
     )
-    ctx = context_fetcher(repo, pr)
+    ctx = _fetch_preflight_context(repo, pr, context_fetcher)
     head_sha = str(ctx.get("head_sha") or "").strip()
     head_committed_at = str(ctx.get("head_committed_at") or "")
     if not head_sha:
@@ -2049,6 +2112,36 @@ def collect_evidence(
                 outcome.quorum_rerun = {"applied": False, "error": str(exc)[:200]}
 
     return outcome
+
+
+def _fetch_preflight_context(
+    repo: str,
+    pr: int,
+    context_fetcher: Callable[[str, int], dict[str, Any]],
+    *,
+    attempts: int = _PREFLIGHT_CONTEXT_ATTEMPTS,
+) -> dict[str, Any]:
+    """Fetch initial PR context with bounded transport-only retries."""
+    bounded_attempts = max(1, attempts)
+    last_transport_error: BaseException | None = None
+    for attempt in range(1, bounded_attempts + 1):
+        try:
+            return context_fetcher(repo, pr)
+        except Exception as exc:  # noqa: BLE001 - classify injected/live transport errors.
+            if not _is_github_transport_error(exc):
+                raise
+            last_transport_error = exc
+            if attempt >= bounded_attempts:
+                break
+    if last_transport_error is None:  # pragma: no cover - defensive future-proofing.
+        last_transport_error = RuntimeError("preflight context unavailable")
+    raise CollectPreflightTransportError(
+        repo=repo,
+        pr=pr,
+        phase="preflight_pr_context",
+        error=last_transport_error,
+        attempts=bounded_attempts,
+    )
 
 
 def _clone_prepared_items(
@@ -2425,6 +2518,12 @@ def run_collect_cli(
                     env=merge_quorum_io.aragora_env(),
                     quorum_reconciler=default_quorum_reconciler if apply else None,
                 )
+    except CollectPreflightTransportError as exc:
+        if json_output:
+            printer(json.dumps(exc.to_dict(), indent=2))
+        else:
+            printer(f"error: {exc}")
+        return 1
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
             printer(json.dumps({"mode": "collect_evidence", "error": str(exc)}, indent=2))

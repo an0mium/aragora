@@ -1220,6 +1220,81 @@ def test_collect_severity_gated_finding_free_changes_requested_is_advisory(
     assert all("changes-requested" not in body.lower() for _repo, body in posted)
 
 
+def test_collect_preflight_transport_retries_then_fails_closed_without_reviewers() -> None:
+    attempts = 0
+    reviewer_calls: list[str] = []
+    fakes, posted = _fakes(tier=1)
+
+    def flaky_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("error connecting to api.github.com")
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        reviewer_calls.append(family)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["context_fetcher"] = flaky_context_fetcher
+    fakes["reviewer_runner"] = reviewer_runner
+
+    with pytest.raises(qe.CollectPreflightTransportError) as raised:
+        collect_evidence(
+            repo="o/r",
+            pr=1,
+            families=["claude", "grok"],
+            author="me",
+            apply=True,
+            **fakes,
+        )
+
+    assert attempts == 2
+    assert reviewer_calls == []
+    assert posted == []
+    payload = raised.value.to_dict()
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+    assert payload["preserve_no_mutate"] is True
+    assert payload["phase"] == "preflight_pr_context"
+    assert payload["posted_families"] == []
+    assert payload["items"] == []
+    assert payload["failures"] == []
+
+
+def test_collect_preflight_transport_retry_can_recover_and_run_reviewers() -> None:
+    attempts = 0
+    reviewer_calls: list[str] = []
+    fakes, posted = _fakes(tier=1)
+
+    def flaky_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("error connecting to api.github.com")
+        return {"head_sha": HEAD, "head_committed_at": COMMITTED}
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        reviewer_calls.append(family)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["context_fetcher"] = flaky_context_fetcher
+    fakes["reviewer_runner"] = reviewer_runner
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert attempts >= 2
+    assert sorted(reviewer_calls) == ["claude", "grok"]
+    assert outcome.action == "post"
+    assert sorted(outcome.posted) == ["claude", "grok"]
+    assert len(posted) == 2
+
+
 def test_evidence_item_dissenting_uses_captured_outcome_policy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2464,6 +2539,36 @@ def test_run_collect_cli_catches_runtime_error(monkeypatch, capsys) -> None:
     )
     assert rc == 1
     assert "empty diff" in capsys.readouterr().out
+
+
+def test_run_collect_cli_preflight_transport_error_serializes_fail_closed_json(
+    monkeypatch, capsys
+) -> None:
+    def boom(**kwargs):
+        raise qe.CollectPreflightTransportError(
+            repo="o/r",
+            pr=1,
+            phase="preflight_pr_context",
+            error=RuntimeError("error connecting to api.github.com"),
+            attempts=2,
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", boom)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=True
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "collect_evidence"
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+    assert payload["preserve_no_mutate"] is True
+    assert payload["phase"] == "preflight_pr_context"
+    assert payload["posted_families"] == []
+    assert payload["items"] == []
+    assert payload["failures"] == []
 
 
 # --- build_review_prompt: complete file list + fair per-file body bounding ---
