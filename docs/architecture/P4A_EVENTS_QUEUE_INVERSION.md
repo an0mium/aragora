@@ -180,16 +180,18 @@ class CrossSubscriberManager:     # dispatch-only; iterates registered subscribe
   move or break - only the manager's *internals* change (domain-free), not its
   public accessor or import path.
 - `aragora.queue` keeps the transport (`base`, `config`, `job`, `retry`, the
-  Redis-Streams `Worker` base) plus a **domain-free job-handler registry**
-  (`register_worker`/`register_job_handler` + `get`/`reset`). The
-  domain-coupled `DebateExecutor`/`create_default_executor` re-exports are
-  **dropped** from `queue/__init__.py` (no re-export shim - a re-export would
-  create `queue -> application`, §5.2).
+  `DebateWorker` base + the domain-free `DebateExecutor` type alias) plus a
+  **domain-free job-handler registry** (`register_worker`/`register_job_handler`
+  + `get`/`reset`). Only the domain-coupled `create_default_executor` factory
+  re-export is **dropped** from `queue/__init__.py` (no re-export shim - a
+  re-export would re-create `queue -> {agents,debate}`, §5.2). `DebateWorker` and
+  `DebateExecutor` re-exports STAY (both are public, domain-free).
 
 ### 4.2 Home-assignment rule (the governing invariant)
 
 > **A relocated handler/worker must live in a package whose layer is at or above
-> the highest layer among all packages it imports.** ("home layer >= max import
+> the highest layer among all packages it imports** - **counting eager, lazy, and
+> `TYPE_CHECKING` imports** (grimp counts all three). ("home layer >= max import
 > layer.")
 
 Because cross-imports *within* a layer are legal (siblings are colon-separated =
@@ -218,6 +220,25 @@ exists, so **no `module_tiers.yaml` drift** results (§9).
 | `aragora/workflow/event_subscribers.py` | application | `subscribers.workflow_automation` (PostDebateWorkflowSubscriber) + `handlers.strategic` workflow reaction (`workflow.engine.get_workflow_engine`) + `handlers.basic._handle_debate_end_to_workflow` |
 | `aragora/nomic/...` (existing testfixer surface) | application | `subscribers.testfixer_handlers` (`nomic.testfixer.http_api`, `nomic.improvement_queue`) |
 | `aragora/server/event_subscribers.py` | interface | server-coupled reactions: `handlers.basic` webhook delivery (`server.handlers.webhooks.get_webhook_store`), `handlers.culture` (`server.stream.state_manager`), `subscribers.execution_handlers` emitter (`server.stream.emitter`), `subscribers.notification_handlers` (delivery via `aragora.notifications`) |
+
+Queue worker homes (derived the same way; home layer >= each worker's highest
+import, counting lazy imports):
+
+| New home | Layer | Worker (source) | Highest import (drives home) |
+|---|---|---|---|
+| `aragora/debate/queue_executor.py` | domain | `create_default_executor` (from `queue/worker.py`) | `debate.orchestrator`, `agents.base` (domain) |
+| `aragora/memory/consensus_healing_worker.py` | domain | `workers.consensus_healing_worker` | `memory.consensus` (domain) |
+| `aragora/nomic/testfixer/queue_worker.py` | application | `workers.testfixer_worker` | `nomic.testfixer` (application) |
+| `aragora/server/workers/gauntlet_worker.py` | interface | `workers.gauntlet_worker` | `server.stream.gauntlet_emitter` (interface, lazy) |
+| `aragora/server/workers/routing_worker.py` | interface | `workers.routing_worker` | `server.debate_origin`, `integrations.email_reply_loop` (interface) |
+| (stays in `queue`, or `aragora/transcription/`) | infra/unlayered | `workers.transcription_worker` | only unlayered `transcription` (no layered edge) |
+
+> The two `server` worker homes are dictated by a **lazy** `server.stream`/
+> `server.debate_origin` import, which is exactly why §4.2 counts lazy imports. If a
+> team prefers those workers in their domain/application package, it must first
+> **invert** the server coupling to event emission (Q3 alternative); otherwise an
+> `application -> interface` edge appears. No new-home filename collides with an
+> existing module (verified).
 
 Rationale: this honors "subscribers belong with their domains" for the pure-domain
 reactions, and uses **existing** application (`workflow`, `nomic`) and interface
@@ -257,6 +278,34 @@ explicit bootstrap** at each composition root imports the relevant modules:
 > would recreate an upward import). The domain-subset bootstrap lives in `debate`
 > (domain) and imports only sibling-domain home modules.
 
+**Composition roots that MUST call a bootstrap** (a miss = silently lost
+reactions). Today registration is a side effect of importing
+`events.cross_subscribers.manager` (its handler mixins register at class-definition
+time); after the inversion, registration happens only when a home module is
+imported, so every entry point that currently relies on that side effect must call
+a bootstrap explicitly. Enumerated from the current
+`get_cross_subscriber_manager()` consumers + the product entry points:
+
+| Composition root | File(s) | Bootstrap |
+|---|---|---|
+| Server startup / lifecycle | `aragora/server/startup/*` (e.g. `knowledge_mound.py:214`), `server/background.py:246`, `server/shutdown_sequence.py:281` | **superset** (once, at startup) |
+| CLI entry | `aragora/cli/main.py` (+ `cli/commands/stats.py:321`) | **superset** (once, at CLI init) |
+| Arena / debate library | `aragora/debate/orchestrator.py` (Arena init), consumed by `debate/knowledge_manager.py`, `debate/extensions.py` | **domain-subset** |
+| Standalone scripts (run debates/workflows without the server) | `scripts/nomic_loop.py`, `scripts/run_nomic_with_stream.py`, `scripts/self_develop.py`, `scripts/queue_worker.py` | superset if they touch workflow/server/queue; domain-subset for pure debate |
+| Direct-constructor tests | any test asserting a reaction | call the bootstrap or import the specific home module |
+
+> This list is derived from the ~13 current `get_cross_subscriber_manager()`
+> consumers; E1's acceptance requires re-running that grep to confirm every root is
+> covered. Idempotency: `register_subscriber` is keyed, so repeated bootstrap calls
+> are no-ops.
+
+**Registration-completeness safeguard (E1 acceptance):** because a missed root
+fails *silently*, add (a) a startup log/metric of the registered subscriber count,
+and (b) a test asserting the superset bootstrap registers the **full expected set**
+(parity with the pre-inversion registered subscriber list, captured before E2
+begins). Any drop between the pre-inversion set and the post-bootstrap set fails the
+batch.
+
 ## 5. SPLIT modules and cross-handler coupling inversion
 
 Three events modules and one queue module are **SPLIT** rather than fully moved:
@@ -281,27 +330,54 @@ surface STAYS in `events`/`queue` and only the domain-coupled functions relocate
   home. Clears the `security_dispatcher` contributor to `events -> debate`.
 - **`arena_bridge.py` (184 LOC).** Its only domain import
   (`from aragora.debate.event_bus import DebateEvent, EventBus`) is
-  **`TYPE_CHECKING`-only**. Two acceptable fixes; prefer (a):
-  (a) **Relocate** `arena_bridge` to `aragora/debate/` (domain) - it is really a
-  debate-side adapter that bridges the domain `EventBus` to the domain-free
-  cross-subscriber registry; `debate -> events.cross_subscribers` is downward,
-  legal. (b) **Drop-type-only-import** per the sanctioned `billing -> agents`
-  precedent (P4A_LAYERING_DISPOSITION §Batch 3c): the file already has
-  `from __future__ import annotations`, so delete the `TYPE_CHECKING` block and use
-  stringized annotations - "no runtime coupling, no shim, NOT `ignore_imports`."
-  Either clears the `arena_bridge` contributor to `events -> debate`.
+  **`TYPE_CHECKING`-only**. **Preferred fix (a) - relocate** `arena_bridge` to
+  `aragora/debate/` (domain): it is really a debate-side adapter that bridges the
+  domain `EventBus` to the domain-free cross-subscriber registry, so
+  `debate -> events.cross_subscribers` is downward, legal. Relocation keeps the
+  `DebateEvent`/`EventBus` names resolvable (they are siblings in `debate`), so
+  mypy stays clean (the tree is at 0 mypy errors). **Fallback (b) -
+  drop-type-only-import** per the `billing -> agents` precedent
+  (P4A_LAYERING_DISPOSITION §Batch 3c): the file already has
+  `from __future__ import annotations`. **Caveat:** simply deleting the
+  `TYPE_CHECKING` import would leave `DebateEvent`/`EventBus` as unresolvable
+  forward refs (mypy `Name ... is not defined`); (b) is only valid if the
+  annotations are made resolvable another way (a `Protocol` in a same-or-lower
+  layer, or replacing the annotations with `object`/`Any`). Because (b) is
+  fiddlier and `arena_bridge` genuinely belongs in `debate`, **prefer (a)**.
+  Consumers of `aragora.events.arena_bridge` to repoint (§6.3):
+  `aragora/server/handlers/cross_pollination.py` (`EVENT_TYPE_MAP`, interface ->
+  `debate`, downward legal) and `aragora/debate/orchestrator_memory.py`
+  (`ArenaEventBridge`, debate -> debate). Either fix clears the `arena_bridge`
+  contributor to `events -> debate`.
 
 ### 5.2 queue SPLIT
 
-- **`queue/worker.py` (353 LOC).** KEEP (domain-free, stays in queue): the
-  transport base (`Worker`, job dispatch loop) importing only
-  `queue.{base,config,job,retry}`, `core`, `exceptions`. MOVE (domain-coupled):
-  `DebateExecutor` + `create_default_executor` (import `agents.base`,
-  `debate.orchestrator`) -> a debate/application executor home
-  (e.g. `aragora/debate/queue_executor.py`). DROP the `DebateExecutor`/
-  `create_default_executor`/`DebateWorker` re-exports from `queue/__init__.py`
-  (no shim). Clears `queue -> debate` and the `worker` contributor to
-  `queue -> agents`.
+- **`queue/worker.py` (353 LOC).** KEEP (domain-free, stays in queue):
+  - `DebateWorker` (the transport base, `worker.py:32`) - imports only
+    `queue.{base,config,job,retry}`, `core`, `exceptions`.
+  - `DebateExecutor` (the **type alias** `Callable[[Job], Coroutine[..., dict]]`
+    at `worker.py:31`) - domain-free; it is part of `DebateWorker`'s public
+    signature (`DebateWorker.__init__(executor: DebateExecutor)`). It must NOT
+    move: relocating it would either break `DebateWorker`'s retained signature or
+    force `queue/worker.py` to `from aragora.debate... import DebateExecutor`,
+    **re-creating the `queue -> debate` edge** (the exact anti-pattern §1 warns
+    against).
+
+  MOVE (the ONLY domain-coupled symbol): `create_default_executor`
+  (`worker.py:~294`) - its nested `execute_debate` lazily imports
+  `agents.base.create_agent`, `core`, `debate.orchestrator.Arena`, and it drives
+  the `TYPE_CHECKING` `AgentType` import at `worker.py:21` (used only via
+  `cast("AgentType", ...)` inside it). Move it to an executor home
+  (e.g. `aragora/debate/queue_executor.py`, domain); once it leaves,
+  `worker.py`'s `AgentType` `TYPE_CHECKING` import is unused and is deleted too.
+
+  In `queue/__init__.py`: **KEEP** the `DebateExecutor` + `DebateWorker`
+  re-exports (both stay, both are public - `DebateWorker` is documented in
+  `aragora/queue/README.md:136`); **DROP only** the `create_default_executor`
+  re-export (no shim - a re-export would create `queue -> debate`). Clears
+  `queue -> debate` and the `worker` contributor to `queue -> agents`. (This
+  matches §7's simulation, which SPLITs `queue.worker` - keeps its surface,
+  removes only its domain imports.)
 
 ### 5.3 Cross-handler coupling must invert to event emission (not direct import)
 
@@ -342,7 +418,7 @@ moved paths. Census (grep across `aragora/`, `tests/`, `scripts/`, `sdk/`):
   - `tests/nomic/testfixer/test_event_integration.py` (`subscribers.testfixer_handlers`)
   - `tests/events/test_post_debate_workflow.py` (`subscribers.workflow_automation.PostDebateWorkflowSubscriber`)
 
-### 6.2 Moved worker paths (`queue.workers.*`, `DebateExecutor`, `create_default_executor`)
+### 6.2 Moved worker paths (`queue.workers.*`, `create_default_executor`)
 
 - **No `sdk/` consumer.** Runtime consumers are **interface-layer + scripts**, all
   repointable to the new homes:
@@ -354,8 +430,48 @@ moved paths. Census (grep across `aragora/`, `tests/`, `scripts/`, `sdk/`):
 - `aragora/debate/model_combinations.py`'s `SingleDebateExecutor` is an unrelated
   `Callable` type alias, NOT a consumer of `queue.worker.DebateExecutor`.
 
-**Verdict:** no public/external/SDK consumer of any moved path -> the no-shim
-relocate-UP exemption (§8) is safe. The repoint set is finite and enumerated above.
+### 6.3 SPLIT-moved symbols (functions relocated out of a retained module)
+
+The §5.1/§5.2 SPLITs move *symbols* out of a module whose surface stays. Because
+there is no shim, every consumer of the **old symbol path** repoints. Census:
+
+- **`security_events.build_security_debate_question`** -> new home
+  `aragora/debate/security_response.py`. It is ALSO re-exported by
+  `aragora/events/__init__.py` (line 88, and in `__all__` line 160): **DROP that
+  re-export** (no shim - keeping it makes `events -> debate`), and remove it from
+  `events.__all__`. Consumers to repoint:
+  - `aragora/debate/security_debate.py:61,64` (runtime; lazy import + call ->
+    `debate -> debate`, legal).
+  - `tests/debate/test_security_debate.py` - **8** `@patch(
+    "aragora.events.security_events.build_security_debate_question")` sites
+    (lines 123,147,179,280,306,329,357,382).
+  - `tests/events/test_security_events.py` - direct import (line 23) + call sites
+    (~lines 1230-1330) + 2 `@patch` sites (lines 1802,1843). The
+    `build_security_debate_question` tests move with the symbol to
+    `tests/debate/`.
+- **`security_dispatcher`'s Arena-runner function** (the single
+  `debate.orchestrator.Arena` lazy import, ~line 363) -> `aragora/debate/`
+  security home. Consumers: internal to `security_dispatcher` (the dispatch
+  surface stays and calls the relocated fn via the domain-free registry / a
+  callback param) + its tests in `tests/events/test_security_dispatcher.py`
+  (repoint the `@patch` of the Arena path). No `sdk/`/`__init__` consumer.
+- **`events.arena_bridge`** -> `aragora/debate/arena_bridge.py` (preferred option
+  (a), §5.1). Consumers to repoint: `aragora/server/handlers/cross_pollination.py`
+  (`EVENT_TYPE_MAP`), `aragora/debate/orchestrator_memory.py` (`ArenaEventBridge`),
+  and `tests/events/test_arena_bridge.py`. (The `control_plane.arena_bridge`
+  matches in grep are a DIFFERENT, unrelated module - not moved.)
+
+No `sdk/` or public-API consumer of any SPLIT-moved symbol exists, so the no-shim
+exemption holds for the SPLITs too. **Public docs/READMEs** that reference dropped
+symbols must also repoint (grok [P3]): `aragora/queue/README.md` and the
+`queue/__init__.py` docstring examples use `create_default_executor` (repoint to
+the new home) but KEEP `DebateWorker`/`DebateExecutor`; any events docs that show
+`from aragora.events import build_security_debate_question` update to the debate
+home. These are part of the owning batch's diff, not a separate task.
+
+**Verdict:** no public/external/SDK consumer of any moved path or moved symbol ->
+the no-shim relocate-UP exemption (§8) is safe. The repoint set is finite and
+enumerated above.
 
 ## 7. Grimp evidence: the edges clear with zero new un-baselined edge
 
@@ -415,11 +531,19 @@ Reading of the result:
 > emission, not import) is therefore load-bearing and is called out as a batch
 > acceptance criterion (§10).
 
-**Reproduce:** from the worktree root,
-`SX_REPO_ROOT="$PWD" python3 /tmp/sx_grimp_sim.py` (evidence scripts are throwaway,
-not committed). The authoritative gate remains
-`python3 scripts/ci/check_import_contracts.py --layers foundation,infrastructure`
-run after each impl batch lands.
+**Reproduce:** the full simulation script is committed inline in **Appendix A
+(§12)** so the load-bearing evidence is auditable, not a throwaway. From the
+worktree root: save §12 to a file and run
+`SX_REPO_ROOT="$PWD" python3 <file>` (requires `grimp>=3.14`). The authoritative
+gate remains `python3 scripts/ci/check_import_contracts.py --layers
+foundation,infrastructure` run after each impl batch lands.
+
+> Note on `transcription_worker`: it is listed in the FULL-MOVE set above for
+> package cohesion, but it imports only the **unlayered** `aragora.transcription`
+> (+ `events.types`), so it contributes **no** `queue -> {domain}` contract edge.
+> Removing it in the simulation is immaterial to the result (the `queue` target
+> set is already empty without it); it may equally STAY in `queue`. It is called
+> out so an implementer does not hunt for a phantom edge contributor.
 
 ## 8. Shim policy: the relocate-UP no-shim exemption
 
@@ -526,19 +650,24 @@ cleared; `events -> server` remains (Batch 1b-sweep/2c).
 
 | # | Sub-feature | Scope | Clears | ~LOC |
 |---|---|---|---|---|
-| Q1 | Domain-free job-handler registry | `queue/__init__.py` + `queue/worker.py`: expose `register_worker`/`register_job_handler` + `get`/`reset`; keep transport base; DROP `DebateExecutor`/`create_default_executor`/`DebateWorker` re-exports from `__init__` (no shim). | none (enabler; no new edge) | ~500 |
-| Q2 | DebateExecutor -> executor home | Move `DebateExecutor` + `create_default_executor` out of `queue/worker.py` -> `aragora/debate/queue_executor.py`; repoint `scripts/queue_worker.py`, tests. | `queue->debate` + `worker` share of `queue->agents` | ~500 |
-| Q3 | gauntlet + ranking + memory workers | Move `workers.gauntlet_worker` -> `aragora/gauntlet/`, `workers.consensus_healing_worker` -> `aragora/memory/`; repoint `server/startup/workers.py`, `server/handlers/gauntlet/runner.py`, tests. **Split gauntlet vs consensus if >800.** | `queue->{gauntlet,ranking,memory}` + gauntlet share of `queue->{agents,server}` | ~800 |
-| Q4 | routing + testfixer + transcription workers | Move `workers.routing_worker` -> integrations/application home, `workers.testfixer_worker` -> `aragora/nomic/`, `workers.transcription_worker` -> `aragora/transcription/`; repoint tests. | `queue->{integrations,nomic}` + routing share of `queue->server` | ~800 |
+| Q1 | Domain-free job-handler registry | `queue/__init__.py` + `queue/worker.py`: expose `register_worker`/`register_job_handler` + `get`/`reset`; keep transport base (`DebateWorker`); DROP only the `create_default_executor` re-export from `__init__` (no shim). **KEEP** the `DebateWorker` + `DebateExecutor` (type alias) re-exports. | none (enabler; no new edge) | ~500 |
+| Q2 | executor factory -> debate home | Move only `create_default_executor` (the domain-coupled factory; its nested `execute_debate` lazily imports `agents.base`/`core`/`debate.orchestrator`) out of `queue/worker.py` -> `aragora/debate/queue_executor.py` (domain: debate->agents/debate downward, legal); delete `worker.py`'s now-unused `AgentType` `TYPE_CHECKING` import; `DebateExecutor` type alias + `DebateWorker` STAY in `queue`; repoint `scripts/queue_worker.py`, `queue/README.md`/docstring examples, tests. | `queue->debate` + `worker` share of `queue->agents` | ~500 |
+| Q3 | gauntlet + memory workers | Move `workers.gauntlet_worker` -> **interface** home `aragora/server/workers/gauntlet_worker.py` (it lazily imports `server.stream.gauntlet_emitter` (L0 interface) + `gauntlet`/`agents`/`ranking`; home MUST be interface - an `aragora/gauntlet/` (application) home would create a NEW `application->interface` edge). Move `workers.consensus_healing_worker` -> **domain** home `aragora/memory/consensus_healing_worker.py` (imports only `memory.consensus`). Repoint `server/startup/workers.py`, `server/handlers/gauntlet/runner.py`, tests. **Split gauntlet vs consensus if >800.** *(Cleaner-but-more-work alternative for gauntlet_worker: invert the `gauntlet_emitter` coupling to event emission, then it may live in `aragora/gauntlet/`.)* | `queue->{gauntlet,ranking,memory}` + gauntlet share of `queue->{agents,server}` | ~800 |
+| Q4 | routing + testfixer (+ transcription) workers | Move `workers.routing_worker` -> **interface** home `aragora/server/workers/routing_worker.py` (it imports `server.debate_origin` + `integrations.email_reply_loop`, both L0 interface; home MUST be interface). Move `workers.testfixer_worker` -> **application** home `aragora/nomic/testfixer/queue_worker.py` (imports `nomic.testfixer`, L1). `workers.transcription_worker` clears no layered edge (unlayered `transcription`); MAY stay in `queue` or move to `aragora/transcription/` for cohesion. Repoint tests. **No target-home filename collisions** (verified: none of `aragora/{server/workers,memory,nomic/testfixer}/<worker>.py` exist today). | `queue->{integrations,nomic}` + routing share of `queue->server` | ~700 |
 
 After Q1-Q4: `queue -> {agents,debate,gauntlet,integrations,memory,nomic,ranking,server}`
 fully cleared.
 
 **Per-batch acceptance criteria:** (1)
 `check_import_contracts.py --layers foundation,infrastructure` shows no NEW edge and
-the targeted contributor(s) removed; (2) NO re-export shim at any moved path;
-(3) all repointed consumers/tests pass; (4) `get_cross_subscriber_manager()` import
-path unchanged.
+the targeted contributor(s) removed; (2) a **full-layer** re-check -
+`check_import_contracts.py` with NO `--layers` filter (all 5 layers) OR a targeted
+grimp assertion - shows the batch introduced **no new domain/application/interface
+edge** (guards the §5.3 coupling inversion: no domain-home module may retain a
+cross-layer import of an application/interface home, e.g. `debate -> workflow`, and
+guards that each worker's new home is at/above its highest import); (3) NO re-export
+shim at any moved path; (4) all repointed consumers/tests pass; (5)
+`get_cross_subscriber_manager()` import path unchanged.
 
 ## 11. References
 
@@ -551,5 +680,164 @@ path unchanged.
   `{missionDir}/library/shims.md`.
 - `.importlinter` (5-layer contract), `scripts/ci/check_import_contracts.py`,
   `scripts/baselines/import_contracts_baseline.json` (frozen at `5ce80610c6`).
-- Grimp evidence scripts (throwaway, not committed): `/tmp/sx_grimp_evidence.py`,
-  `/tmp/sx_grimp_sim.py`.
+- Grimp simulation script: **Appendix A (§12)** below (committed inline for
+  reproducibility).
+
+## 12. Appendix A: grimp simulation script (reproduces §7)
+
+The exact read-only simulation that produced §7's result. It manipulates the grimp
+graph in memory only (no repo files change). Save to a file and run from the
+worktree root with `SX_REPO_ROOT="$PWD" python3 <file>` (requires `grimp>=3.14`).
+It prints `SIMULATION PASS` when `events` reduces to `{server}`, `queue` reduces to
+`{}`, and no new illegal edge is introduced.
+
+```python
+"""P4a events/queue inversion - grimp SIMULATION (read-only; proves edges clear).
+
+Simulates the end state of the inversion by manipulating the grimp graph
+in-memory (no repo files change):
+  * FULL-MOVE modules (domain-coupled handlers/workers) are removed from the
+    events/queue subtree (they relocate to domain/application/interface homes,
+    with NO re-export shim at the old path).
+  * SPLIT modules (security_events/security_dispatcher/arena_bridge, queue.worker)
+    keep their domain-free surface in place but lose their domain imports (the
+    domain-coupled functions relocate).
+Then re-runs import-linter's layer primitive and shows events->{domain} and
+queue->{domain} are gone, with no NEW illegal edge introduced.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+
+REPO_ROOT = os.environ.get("SX_REPO_ROOT") or os.getcwd()
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
+import grimp  # noqa: E402
+
+LAYERS = [
+    ["server", "cli", "mcp", "gateway", "bots", "channels", "integrations", "connectors"],
+    ["workflow", "pipeline", "nomic", "swarm", "gauntlet", "goals", "implement",
+     "modes", "verticals", "autonomous", "broadcast", "canvas", "spectate"],
+    ["debate", "agents", "memory", "knowledge", "ranking", "reasoning",
+     "evidence", "evaluation", "explainability", "learning", "ml"],
+    ["storage", "resilience", "events", "observability", "security",
+     "queue", "db", "caching", "billing", "backup", "migrations"],
+    ["config", "core_types", "exceptions", "errors", "utils", "protocols", "types"],
+]
+
+# packages whose import FROM events/queue is an UPWARD (illegal) edge
+DOMAIN_APP_IF = set(LAYERS[0]) | set(LAYERS[1]) | set(LAYERS[2])
+DOMAIN_ONLY = set(LAYERS[2])
+
+
+def make_layers():
+    return [grimp.Layer(*names, independent=False) for names in LAYERS]
+
+
+def illegal_edges(graph):
+    deps = graph.find_illegal_dependencies_for_layers(
+        layers=make_layers(), containers={"aragora"}
+    )
+    return {(d.importer, d.imported): d for d in deps}
+
+
+def heads_for(dep):
+    hs = set()
+    for r in dep.routes:
+        hs |= set(r.heads)
+    return sorted(hs)
+
+
+def targets(edges, pkg):
+    return {
+        imp_tgt[1].split(".")[-1]: dep
+        for imp_tgt, dep in edges.items()
+        if imp_tgt[0] == pkg
+    }
+
+
+def descendants(graph, package):
+    return {m for m in graph.modules if m == package or m.startswith(package + ".")}
+
+
+def remove_domain_imports(graph, module, domain_pkgs):
+    """Remove module's direct imports into any of the given top-level domain pkgs."""
+    removed = []
+    for imported in list(graph.find_modules_directly_imported_by(module)):
+        top = imported.split(".")[1] if imported.count(".") >= 1 else imported
+        if top in domain_pkgs:
+            graph.remove_import(importer=module, imported=imported)
+            removed.append(imported)
+    return removed
+
+
+graph = grimp.build_graph("aragora")
+before = illegal_edges(graph)
+ev_before = targets(before, "aragora.events")
+q_before = targets(before, "aragora.queue")
+print("BEFORE events targets:", sorted(ev_before))
+print("BEFORE queue  targets:", sorted(q_before))
+edge_keys_before = set(before.keys())
+
+# ---- EVENTS move-set ----
+FULL_MOVE_EVENTS = sorted(descendants(graph, "aragora.events.cross_subscribers.handlers"))
+for m in ["debate_handlers", "execution_handlers", "mound_handlers",
+          "testfixer_handlers", "workflow_automation", "notification_handlers"]:
+    FULL_MOVE_EVENTS.append(f"aragora.events.subscribers.{m}")
+SPLIT_EVENTS = [
+    "aragora.events.security_events",
+    "aragora.events.security_dispatcher",
+    "aragora.events.arena_bridge",
+]
+# ---- QUEUE move-set ----
+FULL_MOVE_QUEUE = [
+    "aragora.queue.workers.gauntlet_worker",
+    "aragora.queue.workers.routing_worker",
+    "aragora.queue.workers.testfixer_worker",
+    "aragora.queue.workers.consensus_healing_worker",
+    "aragora.queue.workers.transcription_worker",  # immaterial: clears no layered edge
+]
+SPLIT_QUEUE = ["aragora.queue.worker"]  # keeps DebateWorker/DebateExecutor; loses create_default_executor imports
+
+print("\nFULL-MOVE (remove_module):")
+for m in FULL_MOVE_EVENTS + FULL_MOVE_QUEUE:
+    if m in graph.modules:
+        graph.remove_module(m)
+        print("  removed module", m)
+    else:
+        print("  (absent)", m)
+
+print("\nSPLIT (remove domain imports only, module stays):")
+for m in SPLIT_EVENTS + SPLIT_QUEUE:
+    if m in graph.modules:
+        rm = remove_domain_imports(graph, m, DOMAIN_APP_IF)
+        print(f"  {m}: removed imports -> {rm}")
+
+after = illegal_edges(graph)
+ev_after = targets(after, "aragora.events")
+q_after = targets(after, "aragora.queue")
+
+print("\n================ RESULT ================")
+print("AFTER events targets:", sorted(ev_after))
+print("AFTER queue  targets:", sorted(q_after))
+print("\nevents->DOMAIN edges remaining (must be empty):", sorted(set(ev_after) - {"server"}))
+if "server" in ev_after:
+    print("  events->server remaining heads (expect dispatcher/async_dispatcher/registry"
+          " = Batch1b-sweep/2c):", heads_for(ev_after["server"]))
+print("queue-> edges remaining (must be empty):", sorted(q_after))
+
+new_edges = set(after.keys()) - edge_keys_before
+print("\nNEW illegal edges introduced by the simulation (must be empty):", sorted(new_edges))
+
+ok = (set(ev_after) - {"server"}) == set() and set(q_after) == set() and new_edges == set()
+print("\nSIMULATION", "PASS" if ok else "FAIL")
+sys.exit(0 if ok else 1)
+```
+
+> This appendix simulates the **destination-free** view (removed/de-domained
+> source modules). The home-assignment rule (§4.2) plus the per-batch full-layer
+> re-check (§10 acceptance criterion 2) are what prove the *destinations* add no new
+> edge; the two together cover both directions.
