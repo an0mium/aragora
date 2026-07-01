@@ -3079,6 +3079,30 @@ class TestAdvisoryDissentSettleGate:
         assert q["verdict"] != "advisory_settle"
         assert q["admin_squash_allowed"] is False
 
+    def test_flag_on_bot_authored_advisory_cr_is_not_genuine_dissent(self, monkeypatch) -> None:
+        # #8729 openai [P1] (r4): a valid WF approval PLUS a github-actions[bot]
+        # advisory CR must NOT settle — the bot CR is not genuine (validated-source)
+        # advisory dissent, so there is nothing legitimate to waive.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        pr = _make_pr(files=["aragora/agents/router.py"])
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {self.HEAD}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "github-actions[bot]"},
+                "body": (
+                    "## Claude independent model review\nModel family: claude\n"
+                    f"Current head: {self.HEAD}\nVerdict: CHANGES-REQUESTED\n[P2] nit."
+                ),
+            },
+        ]
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
     def test_flag_on_bot_authored_wf_review_does_not_settle(self, monkeypatch) -> None:
         # #8729 openai [P1] (r2): a github-actions[bot]-authored "Claude" advisory
         # comment must NOT satisfy the WF prerequisite — the strict signal path

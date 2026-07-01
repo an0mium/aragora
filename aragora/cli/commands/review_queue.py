@@ -3100,30 +3100,37 @@ def _explicit_merged_pr_merge_packet_entry(
 
 
 def _is_recognized_model_review(body: str) -> bool:
-    """Whether a comment body is a recognized model review.
-
-    Uses the SAME identity resolver as signal/dissent recognition rather than a
-    fixed heading-token list, so a grounded review with a different heading cannot
-    drift between the recognizers (#8729 openai [P2]).
-    """
+    """Whether a comment body is a recognized model review (identity resolver, not
+    a fixed heading-token list, so recognizers cannot drift — #8729 openai [P2])."""
     return _resolve_model_review_identity(body).surface_reviewer_id != "unknown_model_reviewer"
 
 
-def _any_review_has_blocking_finding(
+def _advisory_settle_review_signals(
     comments: list[Any],
     *,
     head_sha: str = "",
     head_committed_at: str = "",
-) -> bool:
-    """Whether ANY recognized model-review comment grounded on the exact head
-    carries a blocking ``[P0]``/``[P1]`` finding or a populated Blocker label.
+) -> tuple[bool, bool, bool]:
+    """Single-pass classification of grounded reviews for advisory_settle.
 
-    Fail-closed input to the advisory_settle path: that path is available ONLY
-    when every review is free of blocking findings. Scans ALL grounded reviews —
-    including CHANGES-REQUESTED ones — because the blocking findings live there.
-    Recognition uses ``_is_recognized_model_review`` (identity resolver), so no
-    recognized review can slip a ``[P1]`` past this scan via an unlisted heading.
+    Returns ``(has_valid_wf_review, has_valid_advisory_dissent, has_blocking_finding)``.
+
+    Source-validation is applied UNIFORMLY so every *positive* input to the gate
+    passes the SAME filters the strict quorum path uses — closing the class of
+    bypasses #8729's review round surfaced one input at a time (spoofed identity,
+    bot author, uncountable advisory CR):
+
+    * positive signals (a western-frontier review present; genuine advisory
+      dissent) require a grounded, NON-bot author with a countable, non-conflicted
+      identity (``IDENTITY_COUNT_BLOCKERS``);
+    * the blocking-finding scan is deliberately PERMISSIVE / fail-closed: a
+      ``[P0]``/``[P1]`` in ANY recognized grounded review (bot or not) blocks
+      advisory_settle, so a blocking finding can never be laundered by an
+      untrusted source.
     """
+    has_wf = False
+    has_advisory_dissent = False
+    has_blocking = False
     for comment in comments or []:
         if not isinstance(comment, dict):
             continue
@@ -3132,54 +3139,26 @@ def _any_review_has_blocking_finding(
         body = str(comment.get("body", "") or "")
         if not _is_recognized_model_review(body):
             continue
+        # Permissive, fail-closed blocking scan (any recognized grounded review).
         if _has_blocking_finding_or_label(body):
-            return True
-    return False
-
-
-def _has_western_frontier_review_at_head(
-    comments: list[Any],
-    *,
-    head_sha: str = "",
-    head_committed_at: str = "",
-) -> bool:
-    """Whether a western-frontier (claude/openai) review is present at the exact
-    head, REGARDLESS of verdict (supportive PASS **or** advisory CHANGES-REQUESTED).
-
-    advisory_settle's motivating case is "thorough western-frontier reviewers
-    returned advisory-only CRs, so no supportive PASS is reachable." The first cut
-    keyed eligibility on the *supportive-only* signal, which made the branch dead
-    for its own target case (#8729 claude [P1]/[P2]). This counts a grounded WF
-    review that exists at head even when its verdict is CHANGES-REQUESTED.
-    """
-    for comment in comments or []:
-        if not isinstance(comment, dict):
-            continue
-        if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
-            continue
-        # Reject synthetic/bot authors (github-actions[bot]) exactly as the strict
-        # signal builder does: a bot-authored "Claude/OpenAI" comment must not fake
-        # the western-frontier prerequisite (#8729 openai [P1]).
+            has_blocking = True
+        # Positive signals require a validated source (non-bot + countable identity).
         author_payload = comment.get("author")
         author = (
             str(author_payload.get("login", "") or "") if isinstance(author_payload, dict) else ""
         )
         if _is_github_actions_author(author):
             continue
-        body = str(comment.get("body", "") or "")
         identity = _resolve_model_review_identity(body)
-        if identity.surface_reviewer_id == "unknown_model_reviewer":
-            continue
-        # Apply the SAME identity-count validation the strict quorum path uses:
-        # a conflicted/uncountable identity (e.g. a "## Grok" heading with a claimed
-        # "Model family: claude") must NOT satisfy the WF requirement, or the opt-in
-        # gate could be spoofed into settling on a fake western-frontier signal
-        # (#8729 openai [P1]).
         if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
             continue
         if str(identity.model_family or "").strip().lower() in WESTERN_FRONTIER_FAMILIES:
-            return True
-    return False
+            has_wf = True
+        # Genuine advisory dissent: a CHANGES-REQUESTED verdict from a validated
+        # source with no blocking [P0]/[P1] finding.
+        if _has_blocking_or_negative_verdict(body) and not _has_blocking_finding_or_label(body):
+            has_advisory_dissent = True
+    return has_wf, has_advisory_dissent, has_blocking
 
 
 def _build_model_review_quorum(
@@ -3310,6 +3289,19 @@ def _build_model_review_quorum(
     # This is a strict fallback: it is only consulted when the strict quorum was NOT
     # satisfied, and it never relaxes the blocking-finding bar.
     advisory_findings = list(advisory_views)
+    # Single validated pass over grounded reviews — all positive inputs share the
+    # strict path's source filters (non-bot + countable identity); the blocking
+    # scan is fail-closed (#8729: closes the spoofed-identity / bot-author /
+    # uncountable-advisory-CR bypass class in one place).
+    (
+        _wf_review_present,
+        _genuine_advisory_dissent,
+        _any_blocking_finding,
+    ) = _advisory_settle_review_signals(
+        pr.get("comments") or [],
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
     advisory_settle_eligible = (
         advisory_dissent_settle_enabled()
         and tier is not None
@@ -3318,35 +3310,22 @@ def _build_model_review_quorum(
         and not quorum_satisfied
         and not settlement_recorded
         # NOTE (#8729 claude [P2]): advisory_settle deliberately does NOT require
-        # ``has_required_dogfood``. Its target case is "thorough western-frontier
-        # reviewers returned advisory CRs" — and dogfood evidence is skipped for
-        # negative-verdict comments (see _dogfood_evidence_from_comments), so a
-        # dogfood gate here would re-create the same self-defeating contradiction
-        # the WF-any-verdict fix removed. The adversarial evidence IS the WF review
-        # plus the hard zero-[P0]/[P1] bar below.
-        # No other blocker may be in play: only the model-quorum check is failing,
-        # and nothing is pending/unavailable/workflow-blocking.
+        # ``has_required_dogfood`` — dogfood is skipped for negative-verdict comments,
+        # so a dogfood gate would re-create the self-defeating contradiction the
+        # WF-any-verdict fix removed. The adversarial evidence IS the validated WF
+        # review plus the hard zero-[P0]/[P1] bar.
+        # No other blocker may be in play: only the model-quorum check is failing.
         and not has_pending
         and not checks_unavailable
         and not blocking_workflow_state
-        # A western-frontier review must EXIST at head, in ANY verdict (the target
-        # case is advisory-only CRs with no supportive PASS) — not the supportive-
-        # only signal, which was self-contradictory (#8729 claude [P1]/[P2]).
-        and _has_western_frontier_review_at_head(
-            pr.get("comments") or [],
-            head_sha=head_sha,
-            head_committed_at=head_committed_at,
-        )
-        # There must be GENUINE advisory dissent being waived — otherwise a lone
-        # approving comment with no dissent would be a one-review quorum bypass
-        # (#8729 openai [P1]).
-        and bool(advisory_findings)
+        # A validated western-frontier review must EXIST at head in ANY verdict, and
+        # there must be GENUINE (validated-source) advisory dissent being waived —
+        # not a lone approval (a one-review bypass) — and NO blocking finding in any
+        # recognized review, and no unresolved dissent.
+        and _wf_review_present
+        and _genuine_advisory_dissent
         and not unresolved_dissent
-        and not _any_review_has_blocking_finding(
-            pr.get("comments") or [],
-            head_sha=head_sha,
-            head_committed_at=head_committed_at,
-        )
+        and not _any_blocking_finding
     )
     # The incomplete-quorum check only acts as an ACTIVE blocker when advisory_settle
     # is NOT rescuing this PR; otherwise the merge-quorum check is treated as resolved
