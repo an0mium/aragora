@@ -56,10 +56,14 @@ try:
     from aragora.config.settings import get_settings as _get_settings
 
     _SETTINGS_AVAILABLE = True
+
+    def get_settings() -> "Settings | None":
+        return _get_settings()
+
 except ImportError:
     _SETTINGS_AVAILABLE = False
 
-    def _get_settings() -> "Settings | None":  # type: ignore[misc]
+    def get_settings() -> "Settings | None":
         return None
 
 
@@ -76,7 +80,7 @@ class KnowledgeEventSubscriber:
     """
 
     def __init__(self) -> None:
-        self._settings = _get_settings() if _SETTINGS_AVAILABLE else None
+        self._settings = get_settings() if _SETTINGS_AVAILABLE else None
 
     def _is_km_handler_enabled(self, handler_name: str) -> bool:
         """Check whether a KM handler is enabled via feature flags (default on)."""
