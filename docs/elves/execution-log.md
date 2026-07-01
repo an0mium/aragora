@@ -48,6 +48,24 @@
   - **#8460** (T2, withheld owner): evidence collection planned read-only after 8389/8519.
   - **#8519** (T3): evidence collection queued after 8389 re-gate.
 
+- **Wave-1 continued (2026-07-01 evening):**
+  - **#8389 PARKED at attempt cap (2 gate cycles).** Round-2 at e0e7df74: claude PASS, openai new [P1] (schema enforcement gap) → filed #8765. Human may settle 8389 with #8765 as accepted follow-up, or wait for the fix. Dissent verbatim in /tmp/ce8389b.json (also summarized in #8765).
+  - **#8282 second repair:** CI on merged head revealed (a) lint ratchet breach `type: ignore 701>700`, (b) 6 route-ownership test failures — the merge had silently re-applied the branch's stale re-addition of the shadowed `/summary` route that main deliberately removed. Restored main's explainability.py wholesale (fixes both; 241 handler tests pass); pushed 8631f2d01a. Also: 12 cancelled workflows across 8282/8289 re-triggered via `gh run rerun` (cancellation, not failure — known flake). Enforcing quorum job confirmed running with all 3 settlement flags ON.
+  - **#8519 evidence collected (Tier 3, prepare-only):** claude supportive; openai [P2] says `_check_expiry` wall-clock check discards valid pre-expiry events processed late. INVESTIGATED: that behavior is encoded in an intentional characterization test (`test_already_expired_claim_does_not_resolve_from_historical_event`) — design disagreement, NOT a clear bug. No autonomous semantic change; both positions recorded for human settlement. Worktree removed clean.
+  - **#8460 evidence collection launched (Tier 2, owner-withheld → read-only).**
+
+## Open human-settlement queue (B1)
+
+| Item | Tier | State | What the human decides |
+| --- | --- | --- | --- |
+| #8282 | 3 | conflicts repaired ×2, head 8631f2d01a, CI re-running | risk-accept after quorum evidence collected on stable head |
+| #8289 | 3 | conflict repaired, head 3f93e84a, CI re-running | risk-accept after quorum evidence |
+| #8389 | 1 | PARKED: claude PASS / openai P1 → #8765 | settle with #8765 as follow-up risk, or wait for fix |
+| #8519 | 3 | evidence prepared; openai P2 = design disagreement w/ characterization test | adjudicate: event-time vs wall-clock expiry semantics |
+| #8405 | 4 | conflict + 1/2 quorum, packet recorded | Tier-4 preapproval + conflict repair authorization |
+| #8406 | 4 | conflict + 0/2 quorum, packet recorded | Tier-4 preapproval |
+| #8461 | 3 | owner-withheld; conflict + 0/2 | release/claim decision |
+
 _(per-batch template below)_
 
 ## Batch N: <name>

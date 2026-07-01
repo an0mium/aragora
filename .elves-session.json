@@ -5,9 +5,26 @@
   "epic": 8762,
   "current_batch": "B1",
   "batch_status": "in_progress",
-  "test_baseline": {"missions_quorum_slice": 312, "mypy_errors": 2646, "mypy_baseline": 3115},
+  "test_baseline": {
+    "missions_quorum_slice": 312,
+    "mypy_errors": 2646,
+    "mypy_baseline": 3115
+  },
   "receipt_dir": ".aragora/run-close-the-loop-20260701/receipts",
-  "continuation_guard": {"stop_allowed": false, "reason": "B1 in progress; B2-B8 pending"},
-  "b1_dispositions": {},
-  "notes": "Evidence for 8389 launched 2026-07-01 ~18:05 CDT. Off-limits: 8726, 8720, timeout-family files."
+  "continuation_guard": {
+    "stop_allowed": false,
+    "reason": "B1 in progress; B2-B8 pending"
+  },
+  "b1_dispositions": {
+    "8282": "repaired x2 (8631f2d01a); awaiting CI+quorum; T3 human settle",
+    "8289": "repaired (3f93e84a); awaiting CI+quorum; T3 human settle",
+    "8389": "PARKED attempt cap; claude PASS, openai P1 -> issue 8765",
+    "8519": "evidence prepared; openai P2 = design disagreement; T3 human settle",
+    "8405": "T4 packet recorded, human queue",
+    "8406": "T4 packet recorded, human queue",
+    "8461": "owner-withheld, packet recorded",
+    "8460": "evidence in flight (read-only)",
+    "8726/8720/8472": "off-limits (Codex lane)"
+  },
+  "notes": "B1 wave-1 near-complete; B2 (ad4bef9e...) and B3 (aa24478b...) lanes running. Next: 8460 result, then B4 harvest engine or B5 packet; B6 cleanup after. Follow-up issue filed: 8765."
 }
