@@ -112,3 +112,15 @@ _(per-batch template below)_
 
 ## Batch 2 status: PR #8766 revised (12cc13a9: branch_hint + graceful park + content-derived ids; 137 tests) — re-gate in flight.
 ## Batch 4 status: PR #8768 revised (b15dd673: idempotent apply path + signal dedup; 32 tests) — re-gate in flight.
+
+## Batch 4: Harvest engine (#8760 / PR #8768) — SETTLED (Tier 2)
+- Round-2 PASS 2-0 at b15dd673, evidence posted. Receipt: .aragora/run-close-the-loop-20260701/receipts/b4-8768-settlement.json — verify → valid:True. Draft PR awaits user merge.
+
+## Batch 2: intake bridge (#8758 / PR #8766) — PARKED at attempt cap
+- Round-2: claude PASS, openai [P1] unclaimable-parked-children + [P2] terminal-on-decomposer-exception. Recorded on #8758; PR draft at 12cc13a9. Human may settle-with-follow-ups or a future batch extends ledger state semantics.
+
+## Batches B7/B8 (ODR) — SKIPPED with reasons
+- ODR-1 schema/export already on main (odr_export.py, ODR_VERSION); ODR-3 verifier IS parked PR #8389 (awaiting human settlement + #8765 fix). New lanes would duplicate/conflict with in-flight work. T4 thrust progresses via the human settlement queue.
+
+## Batch 6: queue-drain cleanup batch 1 — LANE LAUNCHED (G1/G2 granted)
+- Lane b6-queue-drain-cleanup: pre-step spot-check, Part B (≤45 patch-equivalent), Part C (≤100 orphans, exclusions honored), Part A (≤30 conservative churn closes), manifests-before-delete, batch-1-only then stop.
