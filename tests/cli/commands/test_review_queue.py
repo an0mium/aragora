@@ -3056,6 +3056,29 @@ class TestAdvisoryDissentSettleGate:
         assert q["verdict"] != "advisory_settle"
         assert q["admin_squash_allowed"] is False
 
+    def test_flag_on_spoofed_wf_identity_does_not_settle(self, monkeypatch) -> None:
+        # #8729 openai [P1]: a conflicted/uncountable identity (a "## Grok" heading
+        # with a claimed "Model family: claude") must NOT satisfy the WF requirement
+        # — it is not a countable western-frontier signal on the strict path either.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        pr = _make_pr(files=["aragora/agents/router.py"])
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Grok independent model review\n"
+                    "Model family: claude\n"  # conflicts with the Grok heading
+                    f"Current head: {self.HEAD}\n"
+                    "Verdict: CHANGES-REQUESTED\n[P2] follow-up."
+                ),
+            },
+        ]
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
 
 class TestHasBlockingOrNegativeVerdict:
     def test_blocker_value_starting_with_no_letters_is_still_blocking(self) -> None:

@@ -31,7 +31,7 @@ extend the gate so a PR is settleable when **all** hold:
 - ≥1 **western-frontier** model review collected at the exact head;
 - **zero [P0]/[P1] blocking findings** across all reviews (i.e. every CR is severity-gated
   advisory per `EvidenceItem.dissenting`, `quorum_evidence.py:437-452`);
-- the advisory findings are **auto-filed as follow-up issues** on settle (value preserved).
+- the advisory findings are **surfaced in the merge-packet (`advisory_findings`)** so a caller can file them as follow-ups (the gate itself does not create issues; wiring a caller is a separate step).
 
 Change site: `tier_quorum_rule` / `TierQuorumRule.is_satisfied` (`quorum_evidence.py:162-208`) and
 the packet builder `_build_merge_authorization_packet` (`aragora/cli/commands/review_queue.py:2908`).
@@ -41,7 +41,7 @@ no blocking findings, mark `status=satisfied, verdict=advisory_settle` and emit 
 ## Risk + mitigations
 - **Risk:** lowers the bar from "2 PASS" to "reviewed + no blocking findings + 1 western-frontier".
 - **Mitigations:** still requires green CI; still requires a western-frontier reviewer; **still
-  hard-blocks on any [P0]/[P1]**; advisory findings are not discarded (auto-filed); applies to
+  hard-blocks on any [P0]/[P1]**; advisory findings are not discarded (surfaced in the packet for a caller to file); applies to
   Tier 0-2 only (Tier 3-4 keep human settlement). Net: nothing crash-unsafe or incorrect merges;
   only *advisory robustness/style* nits stop being merge-blockers.
 - This is a **merge-authority self-modification → Tier 4**; it must itself settle via human

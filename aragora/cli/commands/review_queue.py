@@ -3158,10 +3158,17 @@ def _has_western_frontier_review_at_head(
         if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
             continue
         body = str(comment.get("body", "") or "")
-        if not _is_recognized_model_review(body):
+        identity = _resolve_model_review_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
             continue
-        family = str(_resolve_model_review_identity(body).model_family or "").strip().lower()
-        if family in WESTERN_FRONTIER_FAMILIES:
+        # Apply the SAME identity-count validation the strict quorum path uses:
+        # a conflicted/uncountable identity (e.g. a "## Grok" heading with a claimed
+        # "Model family: claude") must NOT satisfy the WF requirement, or the opt-in
+        # gate could be spoofed into settling on a fake western-frontier signal
+        # (#8729 openai [P1]).
+        if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
+            continue
+        if str(identity.model_family or "").strip().lower() in WESTERN_FRONTIER_FAMILIES:
             return True
     return False
 
@@ -3301,6 +3308,13 @@ def _build_model_review_quorum(
         and quorum_only_required_failure
         and not quorum_satisfied
         and not settlement_recorded
+        # NOTE (#8729 claude [P2]): advisory_settle deliberately does NOT require
+        # ``has_required_dogfood``. Its target case is "thorough western-frontier
+        # reviewers returned advisory CRs" — and dogfood evidence is skipped for
+        # negative-verdict comments (see _dogfood_evidence_from_comments), so a
+        # dogfood gate here would re-create the same self-defeating contradiction
+        # the WF-any-verdict fix removed. The adversarial evidence IS the WF review
+        # plus the hard zero-[P0]/[P1] bar below.
         # No other blocker may be in play: only the model-quorum check is failing,
         # and nothing is pending/unavailable/workflow-blocking.
         and not has_pending
