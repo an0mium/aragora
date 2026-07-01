@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -62,11 +63,14 @@ _DRIFT_TERMS = (
     "current gate",
 )
 _STRATEGY_MISSION_GATED_TERMS = (
+    "8665",
     "#8665",
+    "epic 8665",
     "issues/8665",
     "strategy mission cadence",
     "strategy mission queue",
 )
+_STRATEGY_MISSION_QUEUE_REGISTER_PATH = Path("docs/status/ROADMAP_INTAKE_REGISTER.md")
 _REV4_STAGING_CORPUS_PATH = Path("tests/benchmarks/corpus_rev4.json")
 
 
@@ -86,6 +90,10 @@ def _normalize_text(*parts: str) -> str:
 
 def _matched_terms(text: str, terms: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(term for term in terms if term in text)
+
+
+def _tokens(text: str) -> frozenset[str]:
+    return frozenset(re.findall(r"[a-z0-9]+", text))
 
 
 def _load_policy(
@@ -142,6 +150,73 @@ def _is_explicit_staged_rev4_issue(
     return normalized_issue_number in _staged_rev4_issue_numbers(str(Path(repo_root)))
 
 
+def _split_markdown_row(line: str) -> list[str]:
+    stripped = line.strip()
+    if not stripped.startswith("|") or not stripped.endswith("|"):
+        return []
+    return [cell.strip() for cell in stripped.strip("|").split("|")]
+
+
+@lru_cache(maxsize=8)
+def _active_strategy_mission_rows(repo_root: str) -> tuple[dict[str, str], ...]:
+    path = Path(repo_root) / _STRATEGY_MISSION_QUEUE_REGISTER_PATH
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return ()
+
+    in_section = False
+    header: list[str] | None = None
+    rows: list[dict[str, str]] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "## Strategy Mission Queue":
+            in_section = True
+            continue
+        if in_section and stripped.startswith("## "):
+            break
+        if not in_section or not stripped.startswith("|"):
+            continue
+
+        cells = _split_markdown_row(stripped)
+        if not cells:
+            continue
+        if all(set(cell) <= {"-", ":"} for cell in cells):
+            continue
+        if header is None:
+            header = [cell.lower() for cell in cells]
+            continue
+        if len(cells) != len(header):
+            continue
+        row = dict(zip(header, cells, strict=True))
+        if row.get("status", "").strip().lower() == "active":
+            rows.append(row)
+    return tuple(rows)
+
+
+def _active_strategy_mission_match_terms(
+    normalized_text: str,
+    *,
+    repo_root: Path | str | None,
+) -> tuple[str, ...]:
+    """Return active queue-row terms matched by this issue, if source truth proves one."""
+
+    if repo_root is None:
+        return ()
+    text_tokens = _tokens(normalized_text)
+    terms: list[str] = []
+    for row in _active_strategy_mission_rows(str(Path(repo_root))):
+        row_id = row.get("id", "").strip().lower()
+        title = row.get("title", "").strip().lower()
+        title_prefix = title.split("(", 1)[0].strip()
+        if row_id and row_id in text_tokens:
+            terms.append(f"active:{row_id}")
+            continue
+        if title_prefix and title_prefix in normalized_text:
+            terms.append(f"active:{row_id or title_prefix}")
+    return tuple(terms)
+
+
 def classify_proof_first_queue_issue(
     title: str,
     body: str = "",
@@ -180,6 +255,19 @@ def classify_proof_first_queue_issue(
 
     strategy_mission_matches = _matched_terms(normalized_text, _STRATEGY_MISSION_GATED_TERMS)
     if strategy_mission_matches:
+        active_strategy_terms = _active_strategy_mission_match_terms(
+            normalized_text,
+            repo_root=repo_root,
+        )
+        if active_strategy_terms:
+            return ProofFirstQueueDecision(
+                allowed=True,
+                lane="strategy_mission_active_row",
+                reason="matches an explicitly active Strategy Mission Queue row",
+                matched_terms=strategy_mission_matches + active_strategy_terms,
+                roadmap_codes=roadmap_codes,
+                blocked_codes=(),
+            )
         return ProofFirstQueueDecision(
             allowed=False,
             lane="strategy_mission_gated",

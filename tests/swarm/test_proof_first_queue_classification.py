@@ -15,6 +15,30 @@ _ROADMAP_POLICY = RoadmapPriorityPolicy(
 )
 
 
+def _write_strategy_mission_register(tmp_path, *, status: str = "queued") -> None:
+    register_path = tmp_path / "docs" / "status" / "ROADMAP_INTAKE_REGISTER.md"
+    register_path.parent.mkdir(parents=True)
+    register_path.write_text(
+        "\n".join(
+            [
+                "# Roadmap Intake Register",
+                "",
+                "## Strategy Mission Queue",
+                "",
+                "| id | title | tier | status | external-proof gate | tracking |",
+                "|---|---|---|---|---|---|",
+                (
+                    "| M1 | ODR v1.0 GA (docs + verification only) | 0-1 | "
+                    f"{status} | aragora-verify checks the example | Epic #8665 |"
+                ),
+                "",
+                "## Maintenance",
+                "",
+            ]
+        )
+    )
+
+
 @pytest.mark.parametrize(
     ("title", "body", "expected_codes"),
     [
@@ -100,6 +124,16 @@ def test_classifies_blocked_roadmap_lane(
             "Roadmap proof drift should stay queued until the prior external gate verifies.",
             "strategy mission queue",
         ),
+        (
+            "Strategy mission intake for issues/8665",
+            "Proof drift stays planning truth until the queue gate opens.",
+            "8665",
+        ),
+        (
+            "Epic 8665 proof-drift candidate",
+            "Docs proof drift wording should not bypass the strategy-mission gate.",
+            "8665",
+        ),
     ],
 )
 def test_strategy_mission_tracking_stays_out_of_boss_ready(
@@ -115,6 +149,35 @@ def test_strategy_mission_tracking_stays_out_of_boss_ready(
     assert decision.lane == "strategy_mission_gated"
     assert expected_term in decision.matched_terms
     assert "docs_proof_drift" != decision.lane
+
+
+def test_strategy_mission_queue_row_stays_blocked_until_register_marks_active(tmp_path) -> None:
+    _write_strategy_mission_register(tmp_path, status="queued")
+
+    decision = classify_proof_first_queue_issue(
+        "M1 ODR v1.0 GA proof drift worker for Epic #8665",
+        "The strategy mission queue row is still queued, so boss-ready is premature.",
+        labels=("boss-ready",),
+        repo_root=tmp_path,
+    )
+
+    assert decision.allowed is False
+    assert decision.lane == "strategy_mission_gated"
+
+
+def test_strategy_mission_active_queue_row_can_enter_boss_ready(tmp_path) -> None:
+    _write_strategy_mission_register(tmp_path, status="active")
+
+    decision = classify_proof_first_queue_issue(
+        "M1 ODR v1.0 GA proof drift worker for Epic #8665",
+        "The specifically opened strategy mission queue row is active.",
+        labels=("boss-ready",),
+        repo_root=tmp_path,
+    )
+
+    assert decision.allowed is True
+    assert decision.lane == "strategy_mission_active_row"
+    assert "active:m1" in decision.matched_terms
 
 
 @pytest.mark.parametrize(
