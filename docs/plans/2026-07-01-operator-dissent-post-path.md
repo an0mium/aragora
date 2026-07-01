@@ -2,7 +2,7 @@
 
 **Epic:** #8747 (Primitive composition) · **Precursor to:** M0 Review Adjudicator (#8748)
 **Refs:** #8574 (severity-gated dissent), #8729/#8738/#8741 (advisory-settle gate), #8730/#8755 (proof PR + follow-up)
-**Tier:** 2 (tooling; no merge-authority self-modification) · **Status:** DRAFT
+**Tier:** 2 (tooling; no merge-authority self-modification) · **Status:** implemented in this PR
 
 ## Problem (verified 2026-07-01)
 
@@ -60,10 +60,15 @@ Add to `collect_quorum_evidence.py` (and surface via `settle_pr.py`) an opt-in p
 5. An explicit approval point is present: operator opt-in flag AND (for CLI) `--operator-login`.
    The flag is the revocable approval — absent it, behavior is byte-identical to today.
 
+Implementation note: `scripts/collect_quorum_evidence.py` and `scripts/settle_pr.py` now expose
+`--post-advisory-dissent`, `--operator-login`, and repeatable `--followup-issue`. The lower-level
+collector keeps the default path unchanged unless those explicit inputs are present.
+
 ### The Advisory Settlement Record (posted comment)
 
-One composed comment whose heading the canonical quorum parser recognizes (same lint contract as
-today's evidence comment — validated by `review-queue evidence-lint` **before** posting). It carries:
+One composed comment whose heading and exact-head grounding the canonical quorum parser recognizes
+as a model-review advisory signal. It is not a supportive `would_count` review; it is deliberately a
+negative-but-advisory review record that the `advisory_settle` path can see. It carries:
 
 - head SHA + committed-at (exact-head binding; re-verified immediately before posting, as L1954).
 - the supportive counting review(s) verbatim (as today).
@@ -102,7 +107,8 @@ severity-gated-dissent contract (#8574) made durable. (#8755 is the manual insta
 - Flag OFF (default) → behavior byte-identical to today (dissent ⇒ prepare-only).
 - Tier 3-4 → never auto-posts; surfaces the record + `settle_tier4_pr.py` command.
 - Every suppressed finding has a linked follow-up issue before the record posts.
-- `review-queue evidence-lint` validates the composed record before any network write.
+- Unit coverage validates the composed record against the same advisory-settle signal parser the
+  merge packet uses before this path is considered safe to post.
 
 ## Relationship to M0 (#8748)
 
