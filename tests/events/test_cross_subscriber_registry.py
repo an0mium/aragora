@@ -92,6 +92,27 @@ GOLDEN_SUBSCRIBER_NAMES = frozenset(
     }
 )
 
+# Handlers relocated OUT of the manager's built-in set into their coupled home
+# modules by the P4a EventBus inversion (E2-E7). The bare manager no longer
+# registers these; each self-registers via its home module plus a bootstrap. The
+# superset bootstrap must still yield full GOLDEN parity (see the parity test).
+# E2a: knowledge_mound reactions -> aragora/knowledge/event_subscribers.py.
+RELOCATED_SUBSCRIBER_NAMES = frozenset(
+    {
+        "memory_to_mound",
+        "mound_to_memory_retrieval",
+        "belief_to_mound",
+        "mound_to_belief",
+        "rlm_to_mound",
+        "mound_to_rlm",
+        "elo_to_mound",
+        "mound_to_team_selection",
+        "insight_to_mound",
+        "flip_to_mound",
+        "mound_to_trickster",
+    }
+)
+
 
 class _FakeSubscriber:
     """Minimal subscriber that wires one handler into the manager on register."""
@@ -197,11 +218,56 @@ def test_get_cross_subscriber_manager_path_unchanged():
 
 
 def test_builtin_handlers_still_registered_via_manager():
-    """E1 keeps handlers in place: constructing the manager registers the set."""
+    """The bare manager registers every NON-relocated built-in handler.
+
+    After the P4a inversion (E2+), relocated reactions self-register via their home
+    module plus a bootstrap, so constructing the manager alone must (a) still
+    register every built-in that has NOT been relocated and (b) NOT register any
+    relocated one (proving the reaction truly left infrastructure ``events``).
+    Full parity is covered by ``test_superset_bootstrap_completeness_parity``.
+    """
     manager = get_cross_subscriber_manager()
     registered = set(manager.get_stats())
-    missing = GOLDEN_SUBSCRIBER_NAMES - registered
-    assert not missing, f"builtin subscribers dropped by E1: {sorted(missing)}"
+
+    still_builtin = GOLDEN_SUBSCRIBER_NAMES - RELOCATED_SUBSCRIBER_NAMES
+    missing = still_builtin - registered
+    assert not missing, f"non-relocated builtin subscribers dropped: {sorted(missing)}"
+
+    leaked = RELOCATED_SUBSCRIBER_NAMES & registered
+    assert not leaked, f"relocated handlers still built into the bare manager: {sorted(leaked)}"
+
+
+def test_direct_manager_does_not_implicitly_apply_relocated_home_subscribers():
+    """Direct construction must not depend on prior home-module import order."""
+    from aragora.events.cross_subscribers import CrossSubscriberManager
+    from aragora.knowledge import event_subscribers as knowledge_home
+
+    knowledge_home.register()
+
+    manager = CrossSubscriberManager()
+    registered = set(manager.get_stats())
+
+    leaked = RELOCATED_SUBSCRIBER_NAMES & registered
+    assert not leaked, (
+        "direct manager construction implicitly applied relocated handlers; "
+        f"use an explicit bootstrap instead: {sorted(leaked)}"
+    )
+
+
+def test_domain_bootstrap_fails_closed_when_knowledge_home_registration_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A missing knowledge-home registration must fail instead of silently dropping KM."""
+    from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+    from aragora.events.cross_subscribers import reset_cross_subscriber_manager, reset_registry
+    from aragora.knowledge import event_subscribers as knowledge_home
+
+    reset_registry()
+    reset_cross_subscriber_manager()
+    monkeypatch.setattr(knowledge_home, "register", lambda: None)
+
+    with pytest.raises(RuntimeError, match="Knowledge event subscriber bootstrap incomplete"):
+        bootstrap_debate_event_subscribers()
 
 
 def test_domain_subset_bootstrap_returns_manager():
@@ -221,6 +287,22 @@ def test_superset_bootstrap_completeness_parity():
 
     missing = GOLDEN_SUBSCRIBER_NAMES - registered
     assert not missing, f"superset bootstrap dropped subscribers: {sorted(missing)}"
+
+
+def test_relocated_reactions_registered_via_home_bootstrap():
+    """E2+: relocated reactions self-register through their domain home module.
+
+    The domain-subset bootstrap imports the domain home modules; every relocated
+    name must then be wired into the manager (parity for the relocated slice, so a
+    silently dropped home import is caught here and not only in the superset test).
+    """
+    from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+
+    manager = bootstrap_debate_event_subscribers()
+    registered = set(manager.get_stats())
+
+    missing = RELOCATED_SUBSCRIBER_NAMES - registered
+    assert not missing, f"home bootstrap failed to wire relocated reactions: {sorted(missing)}"
 
 
 def test_registry_module_has_zero_domain_imports():

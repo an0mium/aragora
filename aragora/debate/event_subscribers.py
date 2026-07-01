@@ -33,9 +33,20 @@ def bootstrap_debate_event_subscribers() -> CrossSubscriberManager:
     Returns:
         The registry-backed cross-subscriber manager singleton.
     """
-    # Domain home-module imports are added here by E2-E6 as handlers relocate,
-    # e.g. ``import aragora.knowledge.event_subscribers`` (a side-effect import
-    # for registration; mark it with a noqa F401 to silence unused-import lint).
+    # Domain home modules register their subscribers here. ``register()`` is called
+    # explicitly (not just import side-effect) so registration survives a cached
+    # re-import after ``reset_registry`` in tests. More are added by E3-E6 as
+    # handlers relocate (e.g. memory/debate/reasoning/ranking).
+    from aragora.knowledge import event_subscribers as knowledge_home
+
+    knowledge_home.register()
+
     from aragora.events.cross_subscribers import bootstrap
 
-    return bootstrap()
+    manager = bootstrap()
+    missing = knowledge_home.KNOWLEDGE_EVENT_SUBSCRIBER_HANDLER_NAMES - set(manager.get_stats())
+    if missing:
+        raise RuntimeError(
+            f"Knowledge event subscriber bootstrap incomplete; missing handlers: {sorted(missing)}"
+        )
+    return manager
