@@ -185,8 +185,10 @@ def _dispatch_for(args: argparse.Namespace, *, state_path: Path | None = None):
             receipt_dir=receipt_dir,
         )
         if intake_bridge_enabled():
-            # Seeded intake features get decomposed into branch-backed work
-            # before the merge gate ever sees them (#8758). Kill-switch:
+            # Seeded intake features get decomposed into claimable child
+            # features (#8758); children without a live worker-recorded
+            # metadata.branch are parked gracefully by the bridge instead of
+            # crashing the merge gate on a nonexistent ref. Kill-switch:
             # ARAGORA_DISABLE_MISSION_INTAKE_BRIDGE=1 restores park-on-intake.
             return IntakeBridgeDispatch(dispatch)
         return dispatch

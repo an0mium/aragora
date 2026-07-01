@@ -1,4 +1,4 @@
-"""Intake bridge — turn a seeded mission-intake feature into branch-backed work.
+"""Intake bridge — turn a seeded mission-intake feature into dispatchable work.
 
 ``aragora mission seed --goal "..."`` creates a single intake feature with no
 ``metadata.branch``. :class:`~aragora.missions.dispatch.BossLoopDispatch`
@@ -9,25 +9,36 @@ branch — so before this bridge a freshly seeded mission parked forever (#8758)
 feature is intake-shaped it decomposes the goal via the existing nomic
 :class:`~aragora.nomic.task_decomposer.TaskDecomposer` (heuristic by default —
 its LLM paths are key-gated and fall through silently, so no API keys are
-required) into 1+ child Features, each carrying a deterministic
-``metadata.branch`` so it is claimable by the existing dispatch/lease
-machinery. The children ride back through the orchestrator's own
-propose/accept handoff triage (``follow_ups`` + ``accept_follow_ups=True``),
-so no new state-mutation path is introduced: triage inserts the children,
-completes the intake (non-terminal), and folds the provenance note into
-``notes``. Child ids derive from subtask titles (not list position), so a
-crash-retried decomposition converges on the same ids and triage's duplicate
-check makes the re-tick a no-op.
+required) into 1+ child Features. The children ride back through the
+orchestrator's own propose/accept handoff triage (``follow_ups`` +
+``accept_follow_ups=True``), so no new state-mutation path is introduced:
+triage inserts the children, completes the intake (non-terminal), and folds
+the provenance note into ``notes``. Child ids derive from subtask content
+(never list position), so a crash-retried decomposition converges on the same
+ids and triage's duplicate check makes the re-tick a no-op.
+
+Children do **not** carry a fabricated ``metadata.branch`` — the merge gate
+rev-parses that value, and a branch nobody has created yet would turn every
+follow-up tick into a crash/retry loop mislabeled as a poison dispatch. They
+instead carry a deterministic ``metadata.branch_hint`` a worker should adopt
+when it claims the unit (the existing swarm lease machinery claims by feature
+id and needs no branch). Until a worker records a real ``metadata.branch``,
+the bridge parks the child gracefully — an accurate, non-terminal
+"awaiting worker claim/branch creation" diagnostic, zero git subprocesses —
+preserving the pre-bridge graceful-park property for anything not yet
+executable. Once a live branch is recorded, the child flows through to the
+inner dispatch and the merge gate as before.
 
 Failure to decompose parks the intake with a diagnostic reason — it never
 crashes the tick loop. The bridge is default-ON for auto-drain and only ever
-activates on intake-shaped features (i.e. freshly seeded missions); the
-``ARAGORA_DISABLE_MISSION_INTAKE_BRIDGE=1`` kill-switch restores the previous
-park-on-intake behavior.
+activates on intake-shaped or intake-derived features (i.e. freshly seeded
+missions); the ``ARAGORA_DISABLE_MISSION_INTAKE_BRIDGE=1`` kill-switch
+restores the previous park-on-intake behavior.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -58,8 +69,7 @@ def is_intake_feature(feature: Feature) -> bool:
     (the seeded ``mission-intake`` id, or a ``metadata.kind == "intake"``
     marker). A branch-backed feature is never intake, whatever its id.
     """
-    branch = feature.metadata.get("branch")
-    if isinstance(branch, str) and branch.strip():
+    if _has_live_branch(feature):
         return False
     if feature.metadata.get("kind") == INTAKE_KIND:
         return True
@@ -78,6 +88,11 @@ class IntakeBridgeDispatch:
     and the orchestrator's handoff triage (``accept_follow_ups``) inserts the
     children and completes the intake. Provenance (which decomposer, when,
     child ids) travels on the children's metadata and the intake's notes.
+
+    A decomposed child without a live ``metadata.branch`` is parked here with
+    an accurate diagnostic instead of reaching the inner dispatch: the live
+    merge gate would rev-parse a branch that does not exist yet, and the
+    resulting raise would be miscounted as a crash-looping poison dispatch.
     """
 
     def __init__(
@@ -99,9 +114,27 @@ class IntakeBridgeDispatch:
             self.decomposer_name = getattr(decompose, "__qualname__", repr(decompose))
 
     def __call__(self, feature: Feature) -> Handoff:
-        if not is_intake_feature(feature):
-            return self.inner(feature)
+        if is_intake_feature(feature):
+            return self._decompose_intake(feature)
+        if _awaiting_live_branch(feature):
+            # Graceful park (the pre-bridge property, now with an accurate
+            # reason): retrying is cheap and lets a worker-attached branch
+            # self-heal, so this is non-terminal — the orchestrator's retry
+            # cap parks it if no branch ever appears. No git is touched.
+            hint = feature.metadata.get("branch_hint")
+            return Handoff(
+                success=False,
+                blocked_reason=(
+                    f"decomposed feature {feature.id} is awaiting worker claim/branch "
+                    "creation; no live metadata.branch yet"
+                    + (f" (suggested branch_hint: {hint})" if hint else "")
+                ),
+            )
+        return self.inner(feature)
 
+    # ---- intake decomposition ---------------------------------------------------
+
+    def _decompose_intake(self, feature: Feature) -> Handoff:
         goal = feature.description.strip()
         if not goal:
             return Handoff(
@@ -139,7 +172,7 @@ class IntakeBridgeDispatch:
     # ---- child construction ---------------------------------------------------
 
     def _child_features(self, intake: Feature, subtasks: list[SubTask]) -> list[Feature]:
-        """Deterministic branch-backed children (mirror the goal when empty).
+        """Deterministic children claimable by the lease machinery.
 
         An empty decomposition means the goal is a bounded, single-unit change —
         mirror it into one child rather than parking a perfectly workable goal.
@@ -148,22 +181,22 @@ class IntakeBridgeDispatch:
             return [self._mirrored_child(intake)]
 
         decomposed_at = self.clock()
-        # First pass: stable ids from titles (not positions), so a crash-retried
-        # decomposition converges on the same ids even if subtask order shifts.
-        child_ids: dict[str, str] = {}
-        used: set[str] = set()
-        for idx, subtask in enumerate(subtasks, start=1):
-            base = f"{intake.id}-{_slug(subtask.title or subtask.id or str(idx))}"
-            child_id = base if base not in used else f"{base}-{idx}"
-            used.add(child_id)
-            child_ids[subtask.id] = child_id
+        child_ids = _assign_child_ids(intake.id, subtasks)
 
         children: list[Feature] = []
+        seen: set[str] = set()
         for subtask in subtasks:
             child_id = child_ids[subtask.id]
-            preconditions = [
-                f"feature:{child_ids[dep]}" for dep in subtask.dependencies if dep in child_ids
-            ]
+            if child_id in seen:  # exact-content duplicate: same work, one child
+                continue
+            seen.add(child_id)
+            preconditions = sorted(
+                {
+                    f"feature:{child_ids[dep]}"
+                    for dep in subtask.dependencies
+                    if dep in child_ids and child_ids[dep] != child_id
+                }
+            )
             metadata = self._child_metadata(intake, child_id, decomposed_at)
             if subtask.file_scope:
                 metadata["paths"] = sorted(set(subtask.file_scope))
@@ -195,12 +228,43 @@ class IntakeBridgeDispatch:
     ) -> dict[str, Any]:
         metadata = {k: v for k, v in intake.metadata.items() if k != "kind"}
         metadata.update(
-            branch=f"mission/{child_id}",
+            # NOT "branch": the merge gate rev-parses that value. The hint is
+            # the deterministic name a worker should adopt when it does the work.
+            branch_hint=f"mission/{child_id}",
             intake_parent=intake.id,
             decomposer=self.decomposer_name,
             decomposed_at=decomposed_at,
         )
         return metadata
+
+
+def _assign_child_ids(intake_id: str, subtasks: list[SubTask]) -> dict[str, str]:
+    """subtask.id -> child feature id; stable under subtask reordering.
+
+    Ids derive from slugged titles. When several subtasks share a slug, every
+    member of that group gets a content-derived suffix (never a positional
+    one), so a crash-retried decomposition that returns the same subtasks in a
+    different order still converges on identical ids. Exact-content duplicates
+    within a group intentionally share one id (collapsed by the caller).
+    """
+    groups: dict[str, list[SubTask]] = {}
+    for subtask in subtasks:
+        base = f"{intake_id}-{_slug(subtask.title or subtask.id)}"
+        groups.setdefault(base, []).append(subtask)
+
+    child_ids: dict[str, str] = {}
+    for base, group in groups.items():
+        distinct = {_content_digest(s) for s in group}
+        for subtask in group:
+            child_ids[subtask.id] = (
+                base if len(distinct) == 1 else f"{base}-{_content_digest(subtask)}"
+            )
+    return child_ids
+
+
+def _content_digest(subtask: SubTask) -> str:
+    payload = "\n".join([subtask.title, subtask.description, *sorted(subtask.file_scope)])
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:8]
 
 
 def _task_decomposer_decompose(goal: str, paths: list[str]) -> list[SubTask]:
@@ -215,6 +279,16 @@ def _task_decomposer_decompose(goal: str, paths: list[str]) -> list[SubTask]:
 
     result = TaskDecomposer().analyze(goal, file_scope_hints=paths or None)
     return list(result.subtasks)
+
+
+def _has_live_branch(feature: Feature) -> bool:
+    branch = feature.metadata.get("branch")
+    return isinstance(branch, str) and bool(branch.strip())
+
+
+def _awaiting_live_branch(feature: Feature) -> bool:
+    """True iff ``feature`` is a decomposed child with no live branch yet."""
+    return feature.metadata.get("intake_parent") is not None and not _has_live_branch(feature)
 
 
 def _path_hints(feature: Feature) -> list[str]:
