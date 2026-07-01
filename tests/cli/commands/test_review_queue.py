@@ -2928,11 +2928,14 @@ class TestAdvisoryDissentSettleGate:
             ),
         }
 
-    def _tier1_pr_wf_advisory_cr(self) -> dict[str, Any]:
-        pr = _make_pr(files=["aragora/agents/router.py"])
+    def _pr_wf_advisory_cr(self, files: list[str]) -> dict[str, Any]:
+        pr = _make_pr(files=files)
         pr["headRefOid"] = self.HEAD
         pr["comments"] = [self._wf_advisory_cr_comment()]
         return pr
+
+    def _tier1_pr_wf_advisory_cr(self) -> dict[str, Any]:
+        return self._pr_wf_advisory_cr(["aragora/agents/router.py"])
 
     def _tier1_pr_lone_approval(self) -> dict[str, Any]:
         # A single western-frontier APPROVAL and no dissent at all.
@@ -2967,16 +2970,28 @@ class TestAdvisoryDissentSettleGate:
         assert q["verdict"] != "advisory_settle"
         assert q["admin_squash_allowed"] is False
 
-    def test_flag_on_wf_advisory_cr_settles_with_real_caller_has_failures(
-        self, monkeypatch
+    @pytest.mark.parametrize(
+        ("expected_tier", "files"),
+        [
+            (0, ["docs/status/queue.md"]),
+            (1, ["aragora/agents/router.py"]),
+            (2, ["aragora/cli/commands/swarm.py"]),
+        ],
+    )
+    def test_flag_on_wf_advisory_cr_settles_only_for_tier_zero_to_two(
+        self, monkeypatch, expected_tier: int, files: list[str]
     ) -> None:
         # THE regression: real caller passes has_failures=True (merge-quorum is the
         # failing check). advisory_settle must still be REACHED (not masked by the
-        # repair_or_wait branch — #8729 claude [P1]).
+        # repair_or_wait branch — #8729 claude [P1]), but only for Tier 0-2.
         monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
         monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
-        q = self._quorum(self._tier1_pr_wf_advisory_cr(), has_failures=True)
-        assert q["tier"] == 1
+        q = self._quorum(
+            self._pr_wf_advisory_cr(files),
+            has_failures=True,
+            files=files,
+        )
+        assert q["tier"] == expected_tier
         assert q["status"] == "satisfied"
         assert q["verdict"] == "advisory_settle"
         assert q["admin_squash_allowed"] is True
@@ -2998,7 +3013,8 @@ class TestAdvisoryDissentSettleGate:
         assert q["verdict"] != "advisory_settle"
         assert q["admin_squash_allowed"] is False
 
-    def test_flag_on_p1_finding_still_blocked(self, monkeypatch) -> None:
+    @pytest.mark.parametrize("severity", ["P0", "P1"])
+    def test_flag_on_p0_p1_finding_still_blocked(self, monkeypatch, severity: str) -> None:
         monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
         monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
         pr = self._tier1_pr_wf_advisory_cr()
@@ -3009,7 +3025,7 @@ class TestAdvisoryDissentSettleGate:
                     "## Codex review\nModel family: openai\n"
                     f"Current head: {self.HEAD}\n"
                     "Verdict: CHANGES-REQUESTED\n"
-                    "[P1] Merge gate dissent is unresolved."
+                    f"[{severity}] Merge gate dissent is unresolved."
                 ),
             }
         )
@@ -3017,16 +3033,23 @@ class TestAdvisoryDissentSettleGate:
         assert q["verdict"] != "advisory_settle"
         assert q["admin_squash_allowed"] is False
 
-    def test_flag_on_tier_three_unaffected(self, monkeypatch) -> None:
+    @pytest.mark.parametrize(
+        ("expected_tier", "files"),
+        [
+            (3, ["aragora/auth/session.py"]),
+            (4, [".github/workflows/aragora-merge-quorum.yml"]),
+        ],
+    )
+    def test_flag_on_tier_three_and_four_unaffected(
+        self, monkeypatch, expected_tier: int, files: list[str]
+    ) -> None:
         monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
         monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
-        pr = _make_pr(files=["aragora/auth/session.py"])
-        pr["headRefOid"] = self.HEAD
-        pr["comments"] = [self._wf_advisory_cr_comment()]
-        q = self._quorum(pr, files=["aragora/auth/session.py"])
-        assert q["tier"] == 3
+        q = self._quorum(self._pr_wf_advisory_cr(files), files=files)
+        assert q["tier"] == expected_tier
         assert q["verdict"] != "advisory_settle"
         assert q["admin_squash_allowed"] is False
+        assert q["requires_human_risk_settlement"] is True
 
     def test_flag_on_non_wf_only_does_not_settle(self, monkeypatch) -> None:
         # Only a NON-western-frontier (grok) review at head -> no WF review present.
