@@ -23,6 +23,7 @@ _NOW = datetime.now(tz=UTC)
 _EVENT_TIME = _NOW.isoformat()
 _FUTURE = (_NOW + timedelta(days=30)).isoformat()
 _PAST = (_NOW - timedelta(days=1)).isoformat()
+_BEFORE_PAST = (_NOW - timedelta(days=2)).isoformat()
 _AFTER_EXPIRY = (_NOW + timedelta(days=31)).isoformat()
 
 
@@ -240,18 +241,38 @@ class TestPRMergeResolution:
             question="Will a/b#13 merge?",
             question_type=QuestionType.PR_MERGE,
             target_ref="a/b#13",
-            expiry=_PAST,
+            expiry=_FUTURE,
         )
         event = GitHubEventPayload(
             event_type="pull_request",
             action="closed",
             target_ref="a/b#13",
-            occurred_at=_EVENT_TIME,
+            occurred_at=_AFTER_EXPIRY,
             merged=True,
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
         assert "after claim expiry" in result.evidence
+
+    def test_already_expired_claim_does_not_resolve_from_historical_event(self):
+        r = GitHubEventResolver()
+        claim = StakeableClaim(
+            claim_id="stale-pr",
+            question="Will a/b#15 merge?",
+            question_type=QuestionType.PR_MERGE,
+            target_ref="a/b#15",
+            expiry=_PAST,
+        )
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#15",
+            occurred_at=_BEFORE_PAST,
+            merged=True,
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert "already expired" in result.evidence
 
     def test_missing_event_timestamp_does_not_resolve(self):
         r = GitHubEventResolver()
@@ -310,6 +331,21 @@ class TestIssueCloseResolution:
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
+
+    def test_issue_closed_not_planned_does_not_resolve_yes(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.ISSUE_CLOSE, target_ref="x/y#6")
+        event = GitHubEventPayload(
+            event_type="issues",
+            action="closed",
+            target_ref="x/y#6",
+            occurred_at=_EVENT_TIME,
+            raw={"state_reason": "not_planned"},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert result.resolution_value is False
+        assert "not_planned" in result.evidence
 
 
 # ---------------------------------------------------------------------------

@@ -160,14 +160,6 @@ class GitHubEventResolver:
     def _check_expiry(
         self, claim: StakeableClaim, event: GitHubEventPayload
     ) -> ResolutionResult | None:
-        event_dt = self._parse_event_time(event)
-        if event_dt is None:
-            return ResolutionResult(
-                claim_id=claim.claim_id,
-                resolved=False,
-                resolution_value=False,
-                evidence="Event timestamp is missing or invalid; cannot compare against claim expiry.",
-            )
         expiry_dt = self._parse_datetime(claim.expiry)
         if expiry_dt is None:
             return ResolutionResult(
@@ -175,6 +167,24 @@ class GitHubEventResolver:
                 resolved=False,
                 resolution_value=False,
                 evidence=f"Claim expiry {claim.expiry!r} is invalid; cannot resolve safely.",
+            )
+        if datetime.now(tz=UTC) > expiry_dt:
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence=(
+                    f"Claim already expired at {expiry_dt.isoformat()}; "
+                    "leaving unresolved for expiry handling."
+                ),
+            )
+        event_dt = self._parse_event_time(event)
+        if event_dt is None:
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence="Event timestamp is missing or invalid; cannot compare against claim expiry.",
             )
         if event_dt > expiry_dt:
             return ResolutionResult(
@@ -249,6 +259,17 @@ class GitHubEventResolver:
                 resolution_value=False,
                 evidence=f"issues action {event.action!r} is not terminal; waiting.",
             )
+        state_reason = self._issue_state_reason(event)
+        if state_reason == "not_planned":
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence=(
+                    f"Issue {claim.target_ref} closed with state_reason='not_planned'; "
+                    "not counting as a positive resolution."
+                ),
+            )
         evidence = f"Issue {claim.target_ref} closed (action={event.action!r})."
         return ResolutionResult(
             claim_id=claim.claim_id,
@@ -305,3 +326,10 @@ class GitHubEventResolver:
             resolution_value=value,
             evidence=evidence,
         )
+
+    @staticmethod
+    def _issue_state_reason(event: GitHubEventPayload) -> str:
+        state_reason = event.raw.get("state_reason")
+        if state_reason is None and isinstance(event.raw.get("issue"), dict):
+            state_reason = event.raw["issue"].get("state_reason")
+        return str(state_reason or "").lower()
