@@ -1,4 +1,4 @@
-"""Tests for aragora.metrics.viah_signals (AGT-06 SD-2 / SD-3)."""
+"""Tests for aragora.evaluation.viah_signals (AGT-06 SD-2 / SD-3)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from aragora.metrics.viah_signals import (
+from aragora.evaluation.viah_signals import (
     DEFAULT_BRIER_THRESHOLD,
     count_crux_resolutions_correct,
     count_predictions_above_brier_threshold,

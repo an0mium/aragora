@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -161,6 +162,236 @@ lanes:
     ]
     assert mission.limits.queue_cap == 3
     assert mission.lanes[0].lane_id == "impl"
+
+
+def test_main_validate_json_suppresses_flush_time_broken_pipe_without_closing_wrapper(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import goal_conductor as mod
+
+    mission_path = tmp_path / "mission.yaml"
+    mission_path.write_text(
+        """
+name: pipe-smoke
+objective: Verify sampled JSON output.
+lanes:
+  - id: panel
+    mode: panel
+    goal: Review sampled output.
+    prompt: Review only.
+""",
+        encoding="utf-8",
+    )
+
+    class FlushBrokenStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+            self.closed = False
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = FlushBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    assert mod.main(["validate", "--mission", str(mission_path), "--json"]) == 0
+    assert stream.writes
+    assert stream.closed is False
+    assert mod.sys.stdout is stream
+
+
+def test_emit_output_suppresses_write_time_broken_pipe_without_closing_wrapper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import goal_conductor as mod
+
+    class WriteBrokenStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = WriteBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert stream.closed is False
+    assert mod.sys.stdout is stream
+
+
+def test_mute_stdout_redirects_fd_without_replacing_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import goal_conductor as mod
+
+    class FileStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def fileno(self) -> int:
+            return 123
+
+        def close(self) -> None:
+            self.closed = True
+
+    dup2_calls: list[tuple[int, int]] = []
+    close_calls: list[int] = []
+
+    stream = FileStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+    monkeypatch.setattr(mod.os, "open", lambda *_args: 456)
+    monkeypatch.setattr(mod.os, "dup2", lambda src, dst: dup2_calls.append((src, dst)))
+    monkeypatch.setattr(mod.os, "close", lambda fd: close_calls.append(fd))
+
+    assert mod._mute_stdout_after_broken_pipe() is True
+
+    assert dup2_calls == [(456, 123)]
+    assert close_calls == [456]
+    assert stream.closed is False
+    assert mod.sys.stdout is stream
+
+
+def test_mute_stdout_leaves_unfiled_stream_intact(monkeypatch: pytest.MonkeyPatch) -> None:
+    import goal_conductor as mod
+
+    class UnfiledStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = UnfiledStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    assert mod._mute_stdout_after_broken_pipe() is False
+
+    assert stream.closed is False
+    assert mod.sys.stdout is stream
+
+
+def test_emit_output_ignores_missing_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    import goal_conductor as mod
+
+    monkeypatch.setattr(mod.sys, "stdout", None)
+
+    mod._emit_output("payload")
+
+
+def test_emit_output_accepts_stream_without_flush(monkeypatch: pytest.MonkeyPatch) -> None:
+    import goal_conductor as mod
+
+    class WriteOnlyStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+    stream = WriteOnlyStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert stream.writes == ["payload", "\n"]
+
+
+def test_emit_output_propagates_closed_stream_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import goal_conductor as mod
+
+    class ClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, text: str) -> int:
+            raise ValueError("I/O operation on closed file")
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = ClosedStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    with pytest.raises(ValueError, match="closed file"):
+        mod._emit_output("payload")
+
+    assert stream.closed is False
+    assert mod.sys.stdout is stream
+
+
+def test_emit_output_propagates_bad_file_descriptor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import errno
+
+    import goal_conductor as mod
+
+    class BadFdStdout:
+        def write(self, text: str) -> int:
+            raise OSError(errno.EBADF, "bad file descriptor")
+
+    stream = BadFdStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    with pytest.raises(OSError) as exc_info:
+        mod._emit_output("payload")
+
+    assert exc_info.value.errno == errno.EBADF
+    assert mod.sys.stdout is stream
+
+
+def test_validate_json_real_pipe_close_exits_zero(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    mission_path.write_text(
+        """
+name: pipe-smoke
+objective: Verify real early-close pipe behavior.
+lanes:
+  - id: panel
+    mode: panel
+    goal: Review sampled output.
+    prompt: Review only.
+""",
+        encoding="utf-8",
+    )
+
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            str(SCRIPTS_DIR / "goal_conductor.py"),
+            "validate",
+            "--mission",
+            str(mission_path),
+            "--json",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert proc.stdout is not None
+    proc.stdout.close()
+    _, stderr = proc.communicate(timeout=10)
+
+    assert proc.returncode == 0
+    assert "BrokenPipeError" not in stderr
 
 
 def test_run_once_blocks_mutating_lane_at_queue_cap_but_allows_panel(tmp_path: Path) -> None:

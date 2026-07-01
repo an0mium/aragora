@@ -1,0 +1,8 @@
+{
+  "_comment": "Shrink-only baseline for mutual import cycles measured by scripts/ci/measure_import_graph.py with TYPE_CHECKING-guarded imports excluded. 'measure_import_graph.py --check' fails on ANY growth above this value (a single new mutual cycle trips it); this value may only shrink as cycles are removed (then re-freeze).",
+  "metric": "mutual_import_cycles",
+  "exclude_type_checking_imports": true,
+  "value": 140,
+  "frozen_from_ref": "cecfc96c61c30999938f69cddd710ebeeb20aae9",
+  "frozen_at": "2026-06-13T00:21:30Z"
+}

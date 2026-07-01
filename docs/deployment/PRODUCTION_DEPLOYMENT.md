@@ -15,7 +15,7 @@ This guide covers deploying aragora.ai to production with Supabase as the databa
 # 1. Clone and install
 git clone https://github.com/synaptent/aragora.git
 cd aragora
-pip install -e ".[postgres]"
+pip install -e ".[enterprise]"
 
 # 2. Configure environment
 cp .env.example .env
@@ -150,7 +150,7 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY . .
 
-RUN pip install -e ".[postgres]"
+RUN pip install -e ".[enterprise]"
 
 # Initialize database on startup
 CMD python scripts/init_postgres_db.py && \
@@ -187,7 +187,7 @@ services:
   - type: web
     name: aragora
     env: python
-    buildCommand: pip install -e ".[postgres]" && python scripts/init_postgres_db.py
+    buildCommand: pip install -e ".[enterprise]" && python scripts/init_postgres_db.py
     startCommand: aragora serve --api-port $PORT --ws-port 8765
     envVars:
       - key: ARAGORA_POSTGRES_DSN

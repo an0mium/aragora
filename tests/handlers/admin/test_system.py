@@ -695,9 +695,15 @@ class TestRemovedLegacyRoutes:
         assert handler.can_handle("/metrics") is False
         assert "/metrics" not in handler.ROUTES
 
-    def test_no_post_handler_remains(self):
-        """SystemHandler defines no handle_post after revoke removal."""
-        assert "handle_post" not in SystemHandler.__dict__
+    def test_post_handler_is_noop_compat_hook(self):
+        """handle_post remains as a deliberate no-op after the revoke move.
+
+        It anchors OpenAPI placeholder-method inference (see
+        tests/server/test_route_ownership.py pins and issue #8325) and must
+        never claim a route.
+        """
+        assert "handle_post" in SystemHandler.__dict__
+        assert SystemHandler(ctx={}).handle_post("/api/auth/revoke", {}, None) is None
 
     def test_metrics_dispatch_returns_none(self, handler, mock_http):
         """handle() no longer dispatches /metrics (falls through to None)."""

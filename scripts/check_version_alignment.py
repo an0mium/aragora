@@ -170,7 +170,7 @@ def main() -> int:
         ),
     ]
     python_version_sources: list[tuple[str, Path]] = [
-        ("sdk/python/aragora/__init__.py", Path("sdk/python/aragora/__init__.py")),
+        ("sdk/python/aragora_sdk/__init__.py", Path("sdk/python/aragora_sdk/__init__.py")),
     ]
     doc_sources: list[tuple[str, Path, str]] = [
         (

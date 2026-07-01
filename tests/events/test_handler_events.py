@@ -104,7 +104,7 @@ def test_emit_handler_event_includes_trace_id():
         # We need to patch the import inside the function
         fake_tracing = MagicMock()
         fake_tracing.get_trace_id.return_value = "trace-abc"
-        with patch.dict("sys.modules", {"aragora.server.middleware.tracing": fake_tracing}):
+        with patch.dict("sys.modules", {"aragora.observability.middleware.tracing": fake_tracing}):
             emit_handler_event("debates", "completed")
 
     data = mock_dispatch.call_args[0][1]
@@ -118,15 +118,15 @@ def test_emit_handler_event_no_trace_id_when_unavailable():
         # Remove the tracing module so the import fails
         import sys
 
-        saved = sys.modules.pop("aragora.server.middleware.tracing", None)
-        sys.modules["aragora.server.middleware.tracing"] = None  # force ImportError
+        saved = sys.modules.pop("aragora.observability.middleware.tracing", None)
+        sys.modules["aragora.observability.middleware.tracing"] = None  # force ImportError
         try:
             emit_handler_event("debates", "completed")
         finally:
             if saved is not None:
-                sys.modules["aragora.server.middleware.tracing"] = saved
+                sys.modules["aragora.observability.middleware.tracing"] = saved
             else:
-                sys.modules.pop("aragora.server.middleware.tracing", None)
+                sys.modules.pop("aragora.observability.middleware.tracing", None)
 
     data = mock_dispatch.call_args[0][1]
     assert "trace_id" not in data

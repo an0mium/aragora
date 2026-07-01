@@ -24,7 +24,7 @@ from aragora.resilience import CircuitBreaker
 
 # Import metrics (optional - graceful fallback if not available)
 try:
-    from aragora.server.prometheus_cross_pollination import (
+    from aragora.observability.prometheus_cross_pollination import (
         record_event_dispatched as _record_event_dispatched,
         record_handler_call as _record_handler_call,
         set_circuit_breaker_state as _set_circuit_breaker_state,

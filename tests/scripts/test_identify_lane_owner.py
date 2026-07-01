@@ -223,6 +223,27 @@ class TestLoadAndFind:
         assert r is not None
         assert r["lane_id"] == "newer-released"
 
+    def test_find_by_pr_treats_expired_as_historical(self) -> None:
+        lanes = [
+            {
+                "lane_id": "older-released",
+                "owner_session": "codex-old",
+                "status": "released",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T04:00:00Z",
+            },
+            {
+                "lane_id": "newer-expired",
+                "owner_session": "codex-expired",
+                "status": "expired",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T05:00:00Z",
+            },
+        ]
+        r = ilo.find_lane(lanes, pr=7292)
+        assert r is not None
+        assert r["lane_id"] == "newer-expired"
+
 
 class TestHeartbeatSummary:
     def test_build_owner_info_includes_fresh_heartbeat(self, tmp_path: Path) -> None:
@@ -1003,6 +1024,34 @@ class TestBuildOwnerInfo:
             "treat as historical; run fresh cleanup inspection before any deletion"
         )
 
+    def test_owner_state_marks_expired_lane_as_stale_historical(self, tmp_path: Path) -> None:
+        bg = tmp_path / "factory_bg.json"
+        bg.write_text("[]", encoding="utf-8")
+        lane = {
+            "lane_id": "expired-lane",
+            "owner_session": "codex-expired",
+            "status": "expired",
+            "worktree": "/tmp/expired-worktree",
+        }
+
+        info = ilo.build_owner_info(
+            lane,
+            snapshot_provider=lambda: fake_snapshot_records([]),
+            sessions_root=tmp_path / "codex_sessions",
+            projects_root=tmp_path / "claude_projects",
+            bg_path=bg,
+            steering_inbox_root=tmp_path / "steering",
+        )
+
+        assert info.owner_state == "stale"
+        assert info.liveness_state == "missing_heartbeat"
+        assert info.cleanup_state == "historical_requires_cleanup_inspect"
+        assert info.dispatchable is False
+        assert (
+            info.dispatch_blocker == "lane status is expired; claim an active lane before steering"
+        )
+        assert info.owner_state_reason == "lane status is expired"
+
 
 # ---------------------------------------------------------------------------
 # main() CLI
@@ -1137,3 +1186,1265 @@ class TestEncodeCwdForClaude:
 
     def test_no_leading_slash_gets_dash(self) -> None:
         assert ilo._encode_cwd_for_claude("rel/path") == "-rel-path"
+
+
+# ---------------------------------------------------------------------------
+# Owner-lease liveness + stale-claim advisory (issue #8318)
+# ---------------------------------------------------------------------------
+
+
+LIVENESS_NOW = "2026-06-13T12:00:00Z"
+
+
+def _liveness_now() -> Any:
+    return ilo._parse_iso_utc(LIVENESS_NOW)
+
+
+def _hours_ago(hours: float) -> str:
+    from datetime import timedelta
+
+    return (_liveness_now() - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
+
+
+def _stale_worktree_lane(
+    tmp_path: Path,
+    *,
+    branch: str = "codex/stale-owner",
+    desired_head: str = "a" * 40,
+) -> tuple[dict[str, Any], dict[str, Any], Path]:
+    worktree = tmp_path / "missing-owner-worktree"
+    lane = {
+        "lane_id": "Q-stale-worktree",
+        "owner_session": "codex-q-stale",
+        "status": "active",
+        "branch": branch,
+        "worktree": str(worktree),
+        "desired_head_sha": desired_head,
+        "updated_at": _hours_ago(7.0),
+    }
+    ledger = {
+        "lane": "Q-stale-worktree",
+        "status": "in_progress",
+        "launched_at": _hours_ago(7.0),
+    }
+    return lane, ledger, worktree
+
+
+def write_lane_ledger(tmp_path: Path, entries: list[dict[str, Any]]) -> str:
+    """Write lane-ledger fixtures in the lane_janitor layout; return runs glob."""
+
+    lanes_dir = tmp_path / ".aragora" / "run-20260613-liveness" / "lanes"
+    lanes_dir.mkdir(parents=True, exist_ok=True)
+    for i, entry in enumerate(entries):
+        name = str(entry.get("lane") or f"lane-{i}")
+        (lanes_dir / f"{name}.json").write_text(json.dumps(entry), encoding="utf-8")
+    return str(tmp_path / ".aragora" / "run-*" / "lanes")
+
+
+def write_preservation_outbox(
+    tmp_path: Path,
+    *,
+    lane_id: str,
+    branch: str,
+    desired_head_sha: str,
+) -> Path:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True, exist_ok=True)
+    path = outbox / f"open-pr-{branch.replace('/', '-')}-{desired_head_sha[:8]}.json"
+    path.write_text(
+        json.dumps(
+            {
+                "lane_id": lane_id,
+                "branch": branch,
+                "desired_head_sha": desired_head_sha,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def completed(
+    cmd: list[str], *, stdout: str = "", returncode: int = 0
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr="")
+
+
+def safe_inspect_payload(*, exists: bool) -> str:
+    blockers = [] if exists else ["missing_path"]
+    return json.dumps(
+        {
+            "exists": exists,
+            "tracked_worktree": exists,
+            "active_session": False,
+            "dirty": False,
+            "blockers": blockers,
+            "cleanup_safety": {
+                "classification": "cleanup_candidate" if exists else "absent_noop",
+                "decision": "cleanup_candidate" if exists else "noop",
+            },
+        }
+    )
+
+
+def test_absent_worktree_merged_pr_commit_list_paginates_commits(tmp_path: Path) -> None:
+    desired_head = "317b94232d3ba41c3a1e546a94010dfdf069f85f"
+    lane, ledger, _worktree = _stale_worktree_lane(
+        tmp_path,
+        branch="codex/large-merged-pr",
+        desired_head=desired_head,
+    )
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        if "safe_worktree_cleanup.py" in " ".join(cmd):
+            return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+        if cmd[:3] == ["git", "ls-remote", "origin"]:
+            return completed(cmd, stdout="")
+        if cmd == ["git", "remote", "get-url", "origin"]:
+            return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+        if cmd[:2] == ["gh", "api"] and f"commits/{desired_head}/pulls" in cmd[-1]:
+            return completed(
+                cmd,
+                stdout=json.dumps(
+                    [{"number": 7825, "merged_at": LIVENESS_NOW, "base": {"ref": "main"}}]
+                ),
+            )
+        if cmd[:2] == ["gh", "api"] and "pulls/7825/commits" in cmd[-1]:
+            if "&page=1" in cmd[-1]:
+                return completed(
+                    cmd,
+                    stdout=json.dumps([{"sha": f"{i:040x}"} for i in range(100)]),
+                )
+            if "&page=2" in cmd[-1]:
+                return completed(cmd, stdout=json.dumps([{"sha": desired_head}]))
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    proof = ilo.build_worktree_reference_preservation_proof(
+        lane,
+        ledger_entry=ledger,
+        repo_root=tmp_path,
+        state_root=tmp_path / ".aragora",
+        runner=runner,
+    )
+
+    assert proof["available"] is True
+    assert proof["upstream_preservation"]["method"] == "merged_pr_commit_list"
+    assert proof["upstream_preservation"]["base_ref"] == "main"
+    commit_page_calls = [cmd for cmd in calls if "pulls/7825/commits" in cmd[-1]]
+    assert any("&page=1" in cmd[-1] for cmd in commit_page_calls)
+    assert any("&page=2" in cmd[-1] for cmd in commit_page_calls)
+
+
+class TestOwnerLeaseLiveness:
+    def test_live_owner_no_advisory(self) -> None:
+        lane = {
+            "lane_id": "Q1-live",
+            "owner_session": "codex-q1",
+            "status": "active",
+            "branch": "codex/q1",
+            "updated_at": _hours_ago(1.0),
+        }
+        ledger = {"lane": "Q1-live", "status": "in_progress", "launched_at": _hours_ago(1.0)}
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+        liveness = result["owner_liveness"]
+        assert liveness["assessed"] == "live"
+        assert liveness["lane_status"] == "in_progress"
+        assert liveness["lease_age_seconds"] == 3600
+        assert liveness["last_heartbeat_at"] is None
+        assert result["owner_blocking_state"] == "live_owner"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] is None
+
+    def test_terminal_completed_lane_yields_advisory(self) -> None:
+        lane = {
+            "lane_id": "Q2-done",
+            "owner_session": "codex-q2",
+            "status": "active",
+            "branch": "codex/q2",
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {"lane": "Q2-done", "status": "completed", "launched_at": _hours_ago(7.0)}
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+        assert result["owner_liveness"]["assessed"] == "terminal"
+        assert result["owner_liveness"]["lane_status"] == "completed"
+        assert result["owner_blocking_state"] == "stale_terminal_owner"
+        advisory = result["stale_claim_advisory"]
+        assert advisory is not None
+        assert advisory["available"] is True
+        assert advisory["protocol"] == "stale-claim-override"
+        assert advisory["required_ledger_record"] == (
+            "overriding lane must write an override entry naming the stale lane id"
+        )
+        assert any("terminal" in c for c in advisory["conditions_met"])
+        assert result["advisory_withheld"] is None
+
+    def test_expired_registry_status_without_ledger_yields_terminal_advisory(self) -> None:
+        lane = {
+            "lane_id": "Q2-expired",
+            "owner_session": "codex-q2",
+            "status": "expired",
+            "branch": "codex/q2-expired",
+            "updated_at": _hours_ago(1.0),
+        }
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=None, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["owner_liveness"]["assessed"] == "terminal"
+        assert result["owner_liveness"]["lane_status"] == "expired"
+        assert result["owner_blocking_state"] == "stale_terminal_owner"
+        advisory = result["stale_claim_advisory"]
+        assert advisory is not None
+        assert advisory["available"] is True
+        assert any("lane_status=expired" in c for c in advisory["conditions_met"])
+        assert result["advisory_withheld"] is None
+
+    @pytest.mark.parametrize("status", ["failed", "cancelled"])
+    def test_failed_and_cancelled_ledger_statuses_are_terminal(self, status: str) -> None:
+        lane = {"lane_id": "Q3", "owner_session": "x", "updated_at": _hours_ago(7.0)}
+        ledger = {"lane": "Q3", "status": status, "launched_at": _hours_ago(7.0)}
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+        assert result["owner_liveness"]["assessed"] == "terminal"
+        assert result["stale_claim_advisory"] is not None
+
+    def test_stale_in_progress_without_heartbeat_yields_advisory(self) -> None:
+        lane = {
+            "lane_id": "Q4-stale",
+            "owner_session": "codex-q4",
+            "status": "active",
+            "branch": "codex/q4",
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {"lane": "Q4-stale", "status": "in_progress", "launched_at": _hours_ago(7.0)}
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+        liveness = result["owner_liveness"]
+        assert liveness["assessed"] == "stale"
+        assert liveness["lane_status"] == "in_progress"
+        assert liveness["lease_age_seconds"] == 7 * 3600
+        assert result["owner_blocking_state"] == "stale_owner"
+        advisory = result["stale_claim_advisory"]
+        assert advisory is not None
+        assert advisory["available"] is True
+        assert any("lease_age_seconds" in c for c in advisory["conditions_met"])
+        assert any("no heartbeat" in c for c in advisory["conditions_met"])
+        assert result["advisory_withheld"] is None
+
+    def test_terminal_marked_heartbeat_does_not_keep_stale_owner_live(self) -> None:
+        lane = {
+            "lane_id": "Q4-terminal-heartbeat",
+            "owner_session": "codex-q4",
+            "status": "active",
+            "branch": "codex/q4",
+            "updated_at": _hours_ago(7.0),
+            "last_heartbeat_at": _hours_ago(0.1),
+        }
+        ledger = {
+            "lane": "Q4-terminal-heartbeat",
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+            "last_heartbeat_at": _hours_ago(0.1),
+        }
+        heartbeat = {
+            "last_seen_at": _hours_ago(0.1),
+            "terminal_outcome": "completed",
+            "terminal_finalized_at": _hours_ago(0.05),
+        }
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=heartbeat, now=_liveness_now()
+        )
+
+        liveness = result["owner_liveness"]
+        assert liveness["assessed"] == "stale"
+        assert liveness["last_heartbeat_at"] is None
+        assert liveness["terminal_heartbeat_outcome"] == "completed"
+        assert result["owner_blocking_state"] == "stale_owner"
+
+    def test_worktree_reference_withholds_advisory(self) -> None:
+        lane = {
+            "lane_id": "Q5-wt",
+            "owner_session": "codex-q5",
+            "status": "active",
+            "worktree": "/private/tmp/q5-worktree",
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {"lane": "Q5-wt", "status": "in_progress", "launched_at": _hours_ago(7.0)}
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["owner_blocking_state"] == "stale_owner"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_absent_worktree_with_remote_exact_head_yields_advisory(self, tmp_path: Path) -> None:
+        lane, ledger, worktree = _stale_worktree_lane(
+            tmp_path,
+            branch="codex/measure-work-loss-pending-outbox-primary-20260610",
+            desired_head="4966b95bec51fac1ae102443d5e7a2974e03065d",
+        )
+        calls: list[list[str]] = []
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            calls.append(cmd)
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(
+                    cmd,
+                    stdout=f"{lane['desired_head_sha']}\trefs/heads/{lane['branch']}\n",
+                )
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "remote_branch_exact_head"
+        assert not any(cmd[:2] == ["gh", "api"] for cmd in calls)
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
+    def test_absent_worktree_with_sha_in_merged_pr_yields_advisory(self, tmp_path: Path) -> None:
+        desired_head = "317b94232d3ba41c3a1e546a94010dfdf069f85f"
+        lane, ledger, worktree = _stale_worktree_lane(
+            tmp_path,
+            branch="codex/salvage-collect-evidence-quorum-rerun-20260606",
+            desired_head=desired_head,
+        )
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout="")
+            if cmd == ["git", "remote", "get-url", "origin"]:
+                return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+            if cmd[:2] == ["gh", "api"] and f"commits/{desired_head}/pulls" in cmd[-1]:
+                return completed(
+                    cmd, stdout=json.dumps([{"number": 7825, "merged_at": LIVENESS_NOW}])
+                )
+            if cmd[:2] == ["gh", "api"] and "pulls/7825/commits" in cmd[-1]:
+                return completed(cmd, stdout=json.dumps([{"sha": desired_head}]))
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "merged_pr_commit_list"
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
+    def test_existing_worktree_still_withholds_advisory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane, ledger, worktree = _stale_worktree_lane(tmp_path)
+        worktree.mkdir()
+
+        monkeypatch.setattr(
+            ilo,
+            "_safe_worktree_absent_noop",
+            lambda _path: False,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            ilo,
+            "_upstream_preservation_proof",
+            lambda _lane, _ledger: {
+                "method": "remote_branch_exact_head",
+                "desired_head": "a" * 40,
+            },
+            raising=False,
+        )
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_absent_worktree_without_upstream_proof_still_withholds_advisory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane, ledger, worktree = _stale_worktree_lane(tmp_path)
+
+        monkeypatch.setattr(
+            ilo,
+            "_safe_worktree_absent_noop",
+            lambda path: Path(path) == worktree,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            ilo,
+            "_upstream_preservation_proof",
+            lambda _lane, _ledger: None,
+            raising=False,
+        )
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_dirty_marker_overrides_absent_worktree_upstream_proof(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane, ledger, worktree = _stale_worktree_lane(tmp_path)
+        lane["dirty"] = True
+
+        monkeypatch.setattr(
+            ilo,
+            "_safe_worktree_absent_noop",
+            lambda path: Path(path) == worktree,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            ilo,
+            "_upstream_preservation_proof",
+            lambda _lane, _ledger: {
+                "method": "remote_branch_exact_head",
+                "desired_head": "a" * 40,
+            },
+            raising=False,
+        )
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_upstream_proof_rest_calls_use_bounded_gh_api(self, tmp_path: Path) -> None:
+        desired_head = "b" * 40
+        lane, ledger, _worktree = _stale_worktree_lane(
+            tmp_path,
+            branch="codex/app-token-proof",
+            desired_head=desired_head,
+        )
+        calls: list[list[str]] = []
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            calls.append(cmd)
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout="")
+            if cmd == ["git", "remote", "get-url", "origin"]:
+                return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+            if cmd[:2] == ["gh", "api"]:
+                assert "graphql" not in cmd
+                assert "pr" not in cmd
+                assert "list" not in cmd
+                if f"commits/{desired_head}/pulls" in cmd[-1]:
+                    return completed(
+                        cmd,
+                        stdout=json.dumps([{"number": 7825, "merged_at": LIVENESS_NOW}]),
+                    )
+                if "pulls/7825/commits" in cmd[-1]:
+                    return completed(cmd, stdout=json.dumps([{"sha": desired_head}]))
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "merged_pr_commit_list"
+        assert any(cmd[:2] == ["gh", "api"] for cmd in calls)
+        assert not any(str(ilo.REPO_ROOT / "scripts" / "gh_app_env.py") in cmd for cmd in calls)
+
+    def test_uncommitted_work_claim_withholds_advisory(self) -> None:
+        lane = {"lane_id": "Q6-dirty", "owner_session": "codex-q6", "updated_at": _hours_ago(7.0)}
+        ledger = {
+            "lane": "Q6-dirty",
+            "status": "completed",
+            "launched_at": _hours_ago(7.0),
+            "uncommitted_changes": True,
+        }
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+        assert result["owner_liveness"]["assessed"] == "terminal"
+        assert result["owner_blocking_state"] == "stale_owner"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_unknown_timestamps_never_produce_advisory(self) -> None:
+        lane = {"lane_id": "Q7-unknown", "owner_session": "codex-q7", "status": "active"}
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=None, heartbeat=None, now=_liveness_now()
+        )
+        liveness = result["owner_liveness"]
+        assert liveness["assessed"] == "unknown"
+        assert liveness["lease_age_seconds"] is None
+        assert liveness["lane_status"] == "unknown"
+        assert liveness["last_heartbeat_at"] is None
+        assert result["owner_blocking_state"] == "unknown_owner"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] is None
+
+    def test_lease_just_under_stale_hours_is_live(self) -> None:
+        # 1 minute inside the default 6h window → live, no advisory.
+        from datetime import timedelta
+
+        updated = (_liveness_now() - timedelta(hours=6) + timedelta(minutes=1)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        lane = {"lane_id": "Q8-boundary", "owner_session": "codex-q8", "updated_at": updated}
+        ledger = {"lane": "Q8-boundary", "status": "in_progress", "launched_at": updated}
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+        assert result["owner_liveness"]["assessed"] == "live"
+        assert result["owner_blocking_state"] == "live_owner"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] is None
+
+    def test_fresh_heartbeat_keeps_old_lease_live(self) -> None:
+        lane = {"lane_id": "Q9-hb", "owner_session": "codex-q9", "updated_at": _hours_ago(7.0)}
+        heartbeat = {"last_seen_at": _hours_ago(0.1)}
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=None, heartbeat=heartbeat, now=_liveness_now()
+        )
+        liveness = result["owner_liveness"]
+        assert liveness["assessed"] == "live"
+        assert liveness["last_heartbeat_at"] == _hours_ago(0.1)
+        assert result["stale_claim_advisory"] is None
+
+    def test_find_lane_ledger_entry_matches_by_branch_and_picks_newest(
+        self, tmp_path: Path
+    ) -> None:
+        runs_glob = write_lane_ledger(
+            tmp_path,
+            [
+                {
+                    "lane": "older-attempt",
+                    "branch": "codex/shared",
+                    "status": "dead",
+                    "launched_at": _hours_ago(30.0),
+                },
+                {
+                    "lane": "newer-attempt",
+                    "branch": "codex/shared",
+                    "status": "in_progress",
+                    "launched_at": _hours_ago(2.0),
+                },
+            ],
+        )
+        lane = {"lane_id": "not-in-ledger", "branch": "codex/shared"}
+        entry = ilo.find_lane_ledger_entry(lane, runs_glob=runs_glob)
+        assert entry is not None
+        assert entry["lane"] == "newer-attempt"
+        assert entry["status"] == "in_progress"
+
+    def test_find_lane_ledger_entry_missing_returns_none(self, tmp_path: Path) -> None:
+        runs_glob = write_lane_ledger(tmp_path, [])
+        assert ilo.find_lane_ledger_entry({"lane_id": "nope"}, runs_glob=runs_glob) is None
+
+
+class TestWorktreeReferencePreservationProof:
+    def test_q467_absent_worktree_remote_branch_exact_head_yields_advisory(
+        self, tmp_path: Path
+    ) -> None:
+        desired_sha = "4966b95bec51fac1ae102443d5e7a2974e03065d"
+        branch = "codex/measure-work-loss-pending-outbox-primary-20260610"
+        lane = {
+            "lane_id": "Q467-primary-measure-work-loss-pending-outbox",
+            "owner_session": "codex-q467",
+            "branch": branch,
+            "worktree": str(tmp_path / "absent-q467"),
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+        write_preservation_outbox(
+            tmp_path,
+            lane_id=lane["lane_id"],
+            branch=branch,
+            desired_head_sha=desired_sha,
+        )
+        calls: list[list[str]] = []
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            calls.append(cmd)
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout=f"{desired_sha}\trefs/heads/{branch}\n")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "remote_branch_exact_head"
+        assert not any(cmd[:2] == ["gh", "api"] for cmd in calls)
+
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
+    def test_q379_absent_worktree_merged_pr_commit_yields_advisory_when_remote_gone(
+        self, tmp_path: Path
+    ) -> None:
+        desired_sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        branch = "codex/salvage-collect-evidence-quorum-rerun-20260606"
+        lane = {
+            "lane_id": "Q379-primary-salvage",
+            "owner_session": "codex-q379",
+            "branch": branch,
+            "worktree": str(tmp_path / "absent-q379"),
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "completed",
+            "launched_at": _hours_ago(7.0),
+        }
+        write_preservation_outbox(
+            tmp_path,
+            lane_id=lane["lane_id"],
+            branch=branch,
+            desired_head_sha=desired_sha,
+        )
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout="")
+            if cmd == ["git", "remote", "get-url", "origin"]:
+                return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+            if cmd[:2] == ["gh", "api"] and f"commits/{desired_sha}/pulls" in cmd[-1]:
+                return completed(
+                    cmd, stdout=json.dumps([{"number": 8396, "merged_at": LIVENESS_NOW}])
+                )
+            if cmd[:2] == ["gh", "api"] and "pulls/8396/commits" in cmd[-1]:
+                return completed(cmd, stdout=json.dumps([{"sha": desired_sha}]))
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "merged_pr_commit_list"
+
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
+    def test_present_worktree_still_withholds_possible_unpushed_work(self, tmp_path: Path) -> None:
+        desired_sha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        branch = "codex/present-worktree"
+        lane = {
+            "lane_id": "Q-present",
+            "owner_session": "codex-present",
+            "branch": branch,
+            "worktree": str(tmp_path / "present-worktree"),
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+        write_preservation_outbox(
+            tmp_path,
+            lane_id=lane["lane_id"],
+            branch=branch,
+            desired_head_sha=desired_sha,
+        )
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=True))
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert proof["available"] is False
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_absent_worktree_without_upstream_proof_still_withholds(self, tmp_path: Path) -> None:
+        desired_sha = "cccccccccccccccccccccccccccccccccccccccc"
+        branch = "codex/no-upstream-proof"
+        lane = {
+            "lane_id": "Q-no-proof",
+            "owner_session": "codex-no-proof",
+            "branch": branch,
+            "worktree": str(tmp_path / "absent-no-proof"),
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+        write_preservation_outbox(
+            tmp_path,
+            lane_id=lane["lane_id"],
+            branch=branch,
+            desired_head_sha=desired_sha,
+        )
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout="")
+            if cmd == ["git", "remote", "get-url", "origin"]:
+                return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+            if cmd[:2] == ["gh", "api"] and f"commits/{desired_sha}/pulls" in cmd[-1]:
+                return completed(cmd, stdout="[]")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert proof["available"] is False
+        assert proof["reason"] == "upstream_preservation_unproven"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_dirty_marker_set_still_withholds_possible_unpushed_work(self, tmp_path: Path) -> None:
+        branch = "codex/dirty-marker"
+        lane = {
+            "lane_id": "Q-dirty-marker",
+            "owner_session": "codex-dirty-marker",
+            "branch": branch,
+            "worktree": str(tmp_path / "absent-dirty"),
+            "local_work": True,
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert proof["available"] is False
+        assert proof["reason"] == "local_work_claim_present"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+
+class TestLivenessCLI:
+    def _cli_args(
+        self, registry: Path, tmp_path: Path, *, heartbeat_path: Path | None = None
+    ) -> list[str]:
+        return [
+            "--registry-path",
+            str(registry),
+            "--codex-sessions-root",
+            str(tmp_path / "no_codex"),
+            "--claude-projects-root",
+            str(tmp_path / "no_claude"),
+            "--factory-bg-path",
+            str(tmp_path / "no_factory.json"),
+            "--steering-inbox-root",
+            str(tmp_path / "no_steering"),
+            "--heartbeat-path",
+            str(heartbeat_path or tmp_path / "no_heartbeats.json"),
+        ]
+
+    def _stale_fixture(self, tmp_path: Path) -> tuple[Path, str]:
+        registry = write_lane_registry(
+            tmp_path,
+            [
+                {
+                    "lane_id": "Q379-stale-owner",
+                    "owner_session": "codex-q379",
+                    "source": "codex",
+                    "status": "active",
+                    "branch": "codex/q379",
+                    "pr_number": 7825,
+                    "updated_at": _hours_ago(7.0),
+                }
+            ],
+        )
+        runs_glob = write_lane_ledger(
+            tmp_path,
+            [
+                {
+                    "lane": "Q379-stale-owner",
+                    "branch": "codex/q379",
+                    "status": "in_progress",
+                    "launched_at": _hours_ago(7.0),
+                }
+            ],
+        )
+        return registry, runs_glob
+
+    def _stale_heartbeat_fixture(self, tmp_path: Path) -> tuple[Path, str, Path]:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "Q379-stale-owner",
+                        "owner_session": "codex-q379",
+                        "branch": "codex/q379",
+                        "pr_number": 7825,
+                        "last_seen_at": _hours_ago(1.0),
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return registry, runs_glob, heartbeat_path
+
+    def test_json_includes_owner_liveness_and_advisory(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--json",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        # Existing fields still present and unchanged.
+        assert data["lane_id"] == "Q379-stale-owner"
+        assert data["owner_session"] == "codex-q379"
+        assert data["pr_number"] == 7825
+        # New advisory-only enrichment.
+        assert data["owner_liveness"]["assessed"] == "stale"
+        assert data["owner_liveness"]["lane_status"] == "in_progress"
+        assert data["owner_liveness"]["lease_age_seconds"] == 7 * 3600
+        assert data["owner_blocking_state"] == "stale_owner"
+        assert data["owner_liveness_precedence"] == (
+            "owner_blocking_state controls dispatch/reassignment; cleanup_state and "
+            "recommended_operator_action control mutation/cleanup"
+        )
+        assert data["owner_liveness_alignment"]["applied"] is False
+        assert data["cleanup_state"] == "preserve_unverified_owner"
+        assert data["stale_claim_advisory"]["available"] is True
+        assert data["stale_claim_advisory"]["protocol"] == "stale-claim-override"
+        assert data["advisory_withheld"] is None
+
+    def test_json_marks_expired_registry_row_as_stale_terminal_owner(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry = write_lane_registry(
+            tmp_path,
+            [
+                {
+                    "lane_id": "Q-expired-owner",
+                    "owner_session": "codex-expired",
+                    "source": "codex",
+                    "status": "expired",
+                    "branch": "codex/expired",
+                    "pr_number": 7826,
+                    "updated_at": _hours_ago(1.0),
+                }
+            ],
+        )
+
+        rc = ilo.main(
+            [
+                "--pr",
+                "7826",
+                "--json",
+                "--runs-glob",
+                str(tmp_path / "missing" / "lanes"),
+                "--now",
+                LIVENESS_NOW,
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["dispatchable"] is False
+        assert data["dispatch_blocker"] == (
+            "lane status is expired; claim an active lane before steering"
+        )
+        assert data["owner_liveness"]["assessed"] == "terminal"
+        assert data["owner_liveness"]["lane_status"] == "expired"
+        assert data["owner_blocking_state"] == "stale_terminal_owner"
+        assert data["stale_claim_advisory"]["available"] is True
+        assert data["advisory_withheld"] is None
+
+    def test_custom_stale_hours_flag_keeps_owner_live(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--json",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                "--stale-hours",
+                "8",
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["owner_liveness"]["assessed"] == "live"
+        assert data["owner_liveness"]["stale_threshold_hours"] == 8.0
+        assert data["owner_blocking_state"] == "live_owner"
+        assert data["liveness_state"] == "missing_heartbeat"
+        assert data["cleanup_state"] == "preserve_unverified_owner"
+        assert data["owner_liveness_alignment"] == {
+            "applied": True,
+            "dispatch_field": "owner_blocking_state",
+            "dispatch_value": "live_owner",
+            "cleanup_field": "cleanup_state",
+            "cleanup_value": "preserve_unverified_owner",
+            "action_field": "recommended_operator_action",
+            "action_value": "preserve; start or refresh agent heartbeat before cleanup decisions",
+            "legacy_liveness_state": "missing_heartbeat",
+            "lease_assessment": "live",
+            "reason": (
+                "dispatch/reassignment follows live owner lease evidence; mutation/cleanup "
+                "keeps conservative heartbeat-derived guidance"
+            ),
+        }
+        assert data["owner_state_reason"] == (
+            "active lane has current owner lease evidence but no matched harness heartbeat row"
+        )
+        assert data["recommended_operator_action"] == (
+            "preserve; start or refresh agent heartbeat before cleanup decisions"
+        )
+        assert data["stale_claim_advisory"] is None
+
+    def test_live_lease_without_heartbeat_preserves_unverified_cleanup(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--json",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                "--stale-hours",
+                "8",
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["owner_liveness"]["assessed"] == "live"
+        assert data["owner_blocking_state"] == "live_owner"
+        assert data["liveness_state"] == "missing_heartbeat"
+        assert data["cleanup_state"] == "preserve_unverified_owner"
+        assert data["owner_liveness_alignment"]["applied"] is True
+        assert data["owner_liveness_alignment"]["dispatch_field"] == "owner_blocking_state"
+        assert data["owner_liveness_alignment"]["cleanup_field"] == "cleanup_state"
+        assert data["owner_state_reason"] == (
+            "active lane has current owner lease evidence but no matched harness heartbeat row"
+        )
+        assert data["recommended_operator_action"] == (
+            "preserve; start or refresh agent heartbeat before cleanup decisions"
+        )
+
+    def test_live_lease_with_stale_heartbeat_preserves_stale_cleanup(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob, heartbeat_path = self._stale_heartbeat_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--json",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                "--stale-hours",
+                "8",
+                *self._cli_args(registry, tmp_path, heartbeat_path=heartbeat_path),
+            ]
+        )
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["owner_liveness"]["assessed"] == "live"
+        assert data["owner_blocking_state"] == "live_owner"
+        assert data["liveness_state"] == "stale_heartbeat"
+        assert data["cleanup_state"] == "preserve_stale_owner"
+        assert data["owner_liveness_alignment"]["applied"] is True
+        assert data["owner_liveness_alignment"]["legacy_liveness_state"] == "stale_heartbeat"
+        assert data["owner_liveness_alignment"]["cleanup_value"] == "preserve_stale_owner"
+        assert data["owner_state_reason"] == (
+            "active lane has current owner lease evidence but matched harness heartbeat is stale"
+        )
+        assert data["recommended_operator_action"] == (
+            "preserve; refresh heartbeat or contact owner before mutation or cleanup"
+        )
+
+    def test_human_output_uses_liveness_aligned_owner_state(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                "--stale-hours",
+                "8",
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "cleanup_state:  preserve_unverified_owner" in out
+        assert (
+            "owner_reason:   active lane has current owner lease evidence "
+            "but no matched harness heartbeat row"
+        ) in out
+        assert (
+            "recommended_action: preserve; start or refresh agent heartbeat "
+            "before cleanup decisions"
+        ) in out
+
+    def test_direct_owner_liveness_helper_matches_cli_alignment(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        lane = ilo.find_lane(ilo.load_lane_records(registry), lane_id="Q379-stale-owner")
+        assert lane is not None
+        info = ilo.build_owner_info(
+            lane,
+            sessions_root=tmp_path / "no_codex",
+            projects_root=tmp_path / "no_claude",
+            bg_path=tmp_path / "no_factory.json",
+            steering_inbox_root=tmp_path / "no_steering",
+            heartbeat_path=tmp_path / "no_heartbeats.json",
+        )
+        ledger_entry = ilo.find_lane_ledger_entry(lane, runs_glob=runs_glob)
+        liveness_payload = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger_entry,
+            heartbeat=info.latest_heartbeat,
+            now=ilo._parse_iso_utc(LIVENESS_NOW),
+            stale_hours=8.0,
+        )
+
+        aligned_info, payload = ilo.owner_info_with_aligned_liveness(info, liveness_payload)
+
+        assert aligned_info.cleanup_state == "preserve_unverified_owner"
+        assert aligned_info.recommended_operator_action == (
+            "preserve; start or refresh agent heartbeat before cleanup decisions"
+        )
+        assert aligned_info.owner_state_reason == (
+            "active lane has current owner lease evidence but no matched harness heartbeat row"
+        )
+        assert payload["owner_blocking_state"] == "live_owner"
+        assert payload["owner_liveness_alignment"]["applied"] is True
+        assert payload["owner_liveness_alignment"]["dispatch_value"] == "live_owner"
+        assert payload["owner_liveness_alignment"]["cleanup_value"] == "preserve_unverified_owner"
+        capsys.readouterr()
+
+    def test_no_liveness_output_is_byte_identical_to_legacy_schema(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import dataclasses as _dataclasses
+
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--json",
+                "--no-liveness",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+        assert rc == 0
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        legacy_fields = {f.name for f in _dataclasses.fields(ilo.LaneOwnerInfo)}
+        assert set(data.keys()) == legacy_fields
+        # Byte-identical to the pre-#8318 serialization of the same info.
+        lane = ilo.find_lane(ilo.load_lane_records(registry), lane_id="Q379-stale-owner")
+        assert lane is not None
+        info = ilo.build_owner_info(
+            lane,
+            sessions_root=tmp_path / "no_codex",
+            projects_root=tmp_path / "no_claude",
+            bg_path=tmp_path / "no_factory.json",
+            steering_inbox_root=tmp_path / "no_steering",
+            heartbeat_path=tmp_path / "no_heartbeats.json",
+        )
+        expected = json.dumps(_dataclasses.asdict(info), indent=2, sort_keys=True) + "\n"
+        assert out == expected
+
+    def test_human_output_gains_single_summary_line(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+        assert rc == 0
+        out = capsys.readouterr().out
+        summary_lines = [line for line in out.splitlines() if line.startswith("owner_liveness: ")]
+        assert len(summary_lines) == 1
+        assert "assessed=stale" in summary_lines[0]
+        assert "owner_blocking_state=stale_owner" in summary_lines[0]
+        assert "stale_claim_advisory=available" in summary_lines[0]
+
+    def test_human_output_omits_summary_with_no_liveness(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--no-liveness",
+                "--runs-glob",
+                runs_glob,
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+        assert rc == 0
+        assert "owner_liveness: " not in capsys.readouterr().out

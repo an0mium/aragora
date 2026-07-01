@@ -458,7 +458,7 @@ class StreamEvent:
         if not self.correlation_id and not self.trace_id:
             try:
                 # Lazy import to avoid circular dependency with server layer
-                from aragora.server.middleware.tracing import get_trace_id, get_span_id
+                from aragora.observability.middleware.tracing import get_trace_id, get_span_id
 
                 trace_id = get_trace_id()
                 if isinstance(trace_id, str) and trace_id:

@@ -252,6 +252,31 @@ def test_summary_only_payload_omits_core_writer_prompts(tmp_path: Path) -> None:
     )
 
 
+def test_main_defaults_root_from_codex_home_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import check_codex_desktop_automations as mod
+
+    codex_home = tmp_path / "custom-codex-home"
+    automation_root = codex_home / "automations"
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            automation_root,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    assert mod.main(["--json", "--summary-only"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["root"] == str(automation_root)
+    assert payload["summary"] == {"active_count": 4, "error_count": 0, "warning_count": 0}
+
+
 def test_main_summary_only_json_omits_prompts(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

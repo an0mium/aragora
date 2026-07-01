@@ -16,6 +16,47 @@ def _proc(stdout: str, returncode: int = 0) -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(args=["gh"], returncode=returncode, stdout=stdout, stderr="")
 
 
+def test_read_env_prefers_app_installation_token(monkeypatch) -> None:
+    from aragora.swarm import github_app_auth
+
+    monkeypatch.setattr(
+        github_app_auth, "get_github_app_installation_token", lambda env=None: "fake-app-token"
+    )
+    env = m._read_env()
+    assert env["GH_TOKEN"] == "fake-app-token"
+    assert env["GITHUB_TOKEN"] == "fake-app-token"
+    assert env["ARAGORA_GITHUB_AUTH_SOURCE"] == "github_app_installation"
+
+
+def test_read_env_degrades_to_ambient_auth_without_app_config(monkeypatch) -> None:
+    from aragora.swarm import github_app_auth
+
+    # No App config -> mint returns None -> read env carries no App-source tag, so
+    # gh falls back to the operator's ambient auth instead of crashing.
+    monkeypatch.setattr(github_app_auth, "get_github_app_installation_token", lambda env=None: None)
+    env = m._read_env()
+    assert env.get("ARAGORA_GITHUB_AUTH_SOURCE") != "github_app_installation"
+
+
+def test_fetch_pr_context_routes_reads_through_app_token(monkeypatch) -> None:
+    from aragora.swarm import github_app_auth
+
+    monkeypatch.setattr(
+        github_app_auth, "get_github_app_installation_token", lambda env=None: "fake-app-token"
+    )
+    captured_envs: list[dict] = []
+
+    def capture_run(args, *, env=None, timeout=m._GH_TIMEOUT):
+        captured_envs.append(env or {})
+        return _proc(json.dumps({"headRefOid": "abc", "commits": [], "statusCheckRollup": []}))
+
+    monkeypatch.setattr(m, "run", capture_run)
+    m.fetch_pr_context("o/r", 1)
+    assert captured_envs, "expected fetch_pr_context to shell out to gh"
+    assert captured_envs[0].get("GH_TOKEN") == "fake-app-token"
+    assert captured_envs[0].get("ARAGORA_GITHUB_AUTH_SOURCE") == "github_app_installation"
+
+
 def test_fetch_pr_tier_reads_nested_entries(monkeypatch) -> None:
     payload = {
         "version": "merge_authorization_packet.v1",

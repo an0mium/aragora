@@ -326,10 +326,12 @@ class ArenaKnowledgeManager:
             return
 
         try:
-            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+            from aragora.debate.event_subscribers import (
+                bootstrap_debate_event_subscribers,
+            )
             from aragora.events.types import StreamEvent, StreamEventType
 
-            manager = get_cross_subscriber_manager()
+            manager = bootstrap_debate_event_subscribers()
 
             # Emit DEBATE_START to trigger KM→subsystem flows
             event = StreamEvent(
@@ -368,9 +370,11 @@ class ArenaKnowledgeManager:
             return {}
 
         try:
-            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+            from aragora.debate.event_subscribers import (
+                bootstrap_debate_event_subscribers,
+            )
 
-            manager = get_cross_subscriber_manager()
+            manager = bootstrap_debate_event_subscribers()
             hints = manager.get_debate_culture_hints(debate_id)
             if hints:
                 logger.debug(

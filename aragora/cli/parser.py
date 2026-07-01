@@ -8,6 +8,7 @@ Separated from command implementations for clarity and maintainability.
 import argparse
 import os
 
+from aragora.cli._mission_parser import add_mission_parser
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 DEFAULT_CAMPAIGN_MANIFEST = ".aragora/campaign_manifest.yaml"
@@ -163,6 +164,7 @@ Examples:
     _add_mcp_parser(subparsers)
     _add_marketplace_parser(subparsers)
     _add_skills_parser(subparsers)
+    add_mission_parser(subparsers, _lazy)
     _add_nomic_parser(subparsers)
     _add_workflow_parser(subparsers)
     _add_deploy_parser(subparsers)
@@ -2506,6 +2508,62 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Output as JSON",
     )
     merge_packet_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
+    conductor_parser = queue_subparsers.add_parser(
+        "conductor",
+        help="Build an owner-aware queue conductor packet and next prompt",
+        description=(
+            "Read-only queue conductor that combines open PR metadata, required checks, "
+            "branch owner lookup, operator steering, merge-packet status, head-change "
+            "detection, and supersession hints into one JSON packet plus one next prompt."
+        ),
+    )
+    conductor_parser.add_argument(
+        "--limit",
+        type=int,
+        default=30,
+        help="Max open PRs to inspect when --pr is not supplied",
+    )
+    conductor_parser.add_argument(
+        "--pr",
+        action="append",
+        default=[],
+        help="Specific PR number/ref to include. Repeatable. Defaults to open queue.",
+    )
+    conductor_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    conductor_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root used for settlement receipt lookups.",
+    )
+    conductor_parser.add_argument(
+        "--owner-timeout-seconds",
+        type=float,
+        default=8.0,
+        help="Timeout for owner and steering helper lookup. Timeout means preserve/no-mutate.",
+    )
+    conductor_parser.add_argument(
+        "--mode",
+        choices=("queue", "ready-boundary"),
+        default="queue",
+        help=(
+            "Conductor routing mode. ready-boundary emits mark-ready authorization "
+            "classification for draft PRs that are otherwise ready."
+        ),
+    )
+    conductor_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    conductor_parser.set_defaults(
         func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
     )
 

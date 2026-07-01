@@ -1,0 +1,94 @@
+{
+  "attestation": {
+    "disposition": "autonomous"
+  },
+  "claim": {
+    "statement": "Merge synaptent/aragora#8667 @ aaaaaaaaaaaa",
+    "verdict": "CHANGES_REQUESTED"
+  },
+  "confidence": {
+    "calibration": {
+      "provenance_ref": {
+        "receipt_id": "pr-8667-aaaaaaaaaaaa",
+        "type": "aragora.settlement_metadata"
+      },
+      "status": "present"
+    },
+    "scale": "unit_interval",
+    "status": "present",
+    "value": 0.6666666666666666
+  },
+  "cruxes": {
+    "reason": "no crux set recorded for this decision (DecisionReceipt does not carry one; supply crux_set= from a CruxReceipt)",
+    "status": "absent"
+  },
+  "issued_at": "2026-06-27T08:00:00+00:00",
+  "odr_version": "0.1",
+  "profile": "https://aragora.ai/specs/open-decision-receipt/v0.1",
+  "quorum": {
+    "dissent": {
+      "dissenting_agents": [
+        "grok"
+      ],
+      "present": true,
+      "views": [
+        "grok: [P1] correctness: off-by-one in the loop bound"
+      ]
+    },
+    "independence": {
+      "disclosed": true,
+      "distinct_model_families": 3,
+      "model_families": [
+        "anthropic",
+        "openai",
+        "xai"
+      ]
+    },
+    "method": "merge-quorum",
+    "participants": [
+      {
+        "agent": "claude",
+        "model_family": "anthropic",
+        "model_id": "undisclosed"
+      },
+      {
+        "agent": "grok",
+        "model_family": "xai",
+        "model_id": "undisclosed"
+      },
+      {
+        "agent": "openai",
+        "model_family": "openai",
+        "model_id": "undisclosed"
+      }
+    ],
+    "reached": false,
+    "status": "present",
+    "supporting_agents": []
+  },
+  "reasoning": {
+    "status": "present",
+    "summary": "reviewer dissent present (grok); prepared evidence only"
+  },
+  "receipt_id": "pr-8667-aaaaaaaaaaaa",
+  "routing": {
+    "status": "reserved"
+  },
+  "signatures": [],
+  "source": {
+    "artifact_hash": "70fcd54049d756ffd786836c1ca9f2034f5d99dca2eebe6a59f9366c8b1bc2ef",
+    "receipt_id": "pr-8667-aaaaaaaaaaaa",
+    "schema": "aragora.gauntlet.DecisionReceipt",
+    "schema_version": "1.1",
+    "system": "aragora"
+  },
+  "subject": {
+    "digest": {
+      "alg": "sha-256",
+      "status": "present",
+      "value": "31c7851cd104503c7ed716b4a655ccf2e3eef3bd03d8e8d92b0912aff705518e"
+    },
+    "identifier": "merge-quorum/synaptent/aragora#8667",
+    "summary": "Merge synaptent/aragora#8667 @ aaaaaaaaaaaa"
+  }
+}
