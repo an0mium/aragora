@@ -57,7 +57,7 @@ jobs:
 
       - name: Publish draft PR for automation branch
         id: publish
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PUBLISH_GUARD_ALLOW: ${{ steps.publish_guard.outputs.allow }}
           PUBLISH_GUARD_REASON: ${{ steps.publish_guard.outputs.reason }}

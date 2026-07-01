@@ -175,7 +175,7 @@ jobs:
       # ── Post results to PR ──────────────────────────────────────────
       - name: Post regression report on PR
         if: always() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const report = `${{ steps.regression-check.outputs.report }}`;
