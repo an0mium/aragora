@@ -89,3 +89,14 @@ _(per-batch template below)_
 | --- | --- | --- | --- | --- | --- |
 | B3-arming (merge executor) | 4 | — | pending dry-run evidence | — | conditionally pre-approved; needs dry-run evidence + final operator confirm |
 | B5 (adjudicator wiring #8748) | 4 | — | to be prepared | — | prepare-only |
+
+## Batch 2 gate (2026-07-01 ~19:00): PR #8766 round-1 = dissent, revise cycle dispatched
+
+- Evidence at e6161abc: BOTH families CHANGES-REQUESTED (nothing posted). Converged root cause:
+  bridge fabricates `metadata.branch=mission/<id>` for branches that don't exist → next tick
+  live dispatch rev-parses → crash-loop → children blocked as "poison" (regression vs the old
+  single graceful park). Plus openai [P2]: position-suffix child ids break idempotency under
+  reordered duplicates. Findings sent back to the B2 lane verbatim with repair direction
+  (no fabricated branches; graceful park for not-yet-executable children; order-independent ids;
+  truthful docstring; regression test for the post-decomposition tick). This is B2's one revise
+  cycle; still-dissenting after re-gate → park per attempt cap.
