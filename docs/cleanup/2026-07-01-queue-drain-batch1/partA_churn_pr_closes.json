@@ -1,6 +1,6 @@
 {
  "prepared_at": "2026-07-01T23:50:55.084696+00:00",
- "executed": false,
+ "executed": true,
  "cap": 30,
  "note": "Deterministic filter yielded only 4 confident candidates out of 46 open PRs; per plan, not stretching criteria. #8488 excluded (MERGEABLE/CLEAN, borderline 14-day staleness).",
  "closes": [
@@ -44,5 +44,7 @@
    "last_commit": "2026-06-21T18:03:45Z",
    "criteria": "fix( on settle substrate; codex lane; CONFLICTING/DIRTY; last commit 10d ago; no an0mium commits in last 7d"
   }
- ]
+ ],
+ "executed_at": "2026-07-01T23:52:56.183595+00:00",
+ "close_comment": "Closing per queue-drain cleanup plan (2026-06-30, G1 sign-off 2026-07-01, epic #8762): classified substrate-churn; branch retained for now; reopen freely if you dispute the classification."
 }

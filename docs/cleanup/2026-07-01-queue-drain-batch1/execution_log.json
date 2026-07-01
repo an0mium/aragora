@@ -1,0 +1,36 @@
+{
+ "executed_at": "2026-07-01T23:52:56.183595+00:00",
+ "partB": {
+  "identified": 45,
+  "deleted": 44,
+  "excluded": [
+   {
+    "branch": "codex/next-steps-proof-surface-primary-20260606",
+    "reason": "open PR #8128 at manifest time; PR since closed in Part A - branch now eligible for batch 2"
+   }
+  ],
+  "verified_remote_empty": true
+ },
+ "partC": {
+  "orphans_total": 124,
+  "qualified": 124,
+  "value_flagged_excluded": 44,
+  "deleted": 80,
+  "verified_remote_empty": true,
+  "remaining_batch2": "44 flagged March-memo-cluster branches (operator review)"
+ },
+ "partA": {
+  "open_prs_scanned": 46,
+  "confident_candidates": 4,
+  "closed": [
+   8128,
+   8143,
+   8405,
+   8406
+  ],
+  "cap": 30,
+  "borderline_excluded": [
+   8488
+  ]
+ }
+}
