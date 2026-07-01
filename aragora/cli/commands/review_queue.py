@@ -3099,6 +3099,16 @@ def _explicit_merged_pr_merge_packet_entry(
     }
 
 
+def _is_recognized_model_review(body: str) -> bool:
+    """Whether a comment body is a recognized model review.
+
+    Uses the SAME identity resolver as signal/dissent recognition rather than a
+    fixed heading-token list, so a grounded review with a different heading cannot
+    drift between the recognizers (#8729 openai [P2]).
+    """
+    return _resolve_model_review_identity(body).surface_reviewer_id != "unknown_model_reviewer"
+
+
 def _any_review_has_blocking_finding(
     comments: list[Any],
     *,
@@ -3109,12 +3119,10 @@ def _any_review_has_blocking_finding(
     carries a blocking ``[P0]``/``[P1]`` finding or a populated Blocker label.
 
     Fail-closed input to the advisory_settle path: that path is available ONLY
-    when every review is free of blocking findings. Unlike
-    ``_model_review_signals_from_comments`` (which skips negative-verdict comments
-    when collecting *supportive* signals), this scans ALL recognized review
-    bodies — including CHANGES-REQUESTED ones — because the blocking findings live
-    in exactly those. Recognition mirrors the signal builder (head-grounded +
-    review-heading token) so the two halves cannot drift.
+    when every review is free of blocking findings. Scans ALL grounded reviews —
+    including CHANGES-REQUESTED ones — because the blocking findings live there.
+    Recognition uses ``_is_recognized_model_review`` (identity resolver), so no
+    recognized review can slip a ``[P1]`` past this scan via an unlisted heading.
     """
     for comment in comments or []:
         if not isinstance(comment, dict):
@@ -3122,21 +3130,38 @@ def _any_review_has_blocking_finding(
         if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
             continue
         body = str(comment.get("body", "") or "")
-        lower = body.lower()
-        if not any(
-            token in lower
-            for token in (
-                "codex review",
-                "claude review",
-                "grok independent",
-                "gemini independent",
-                "independent semantic review",
-                "independent model review",
-                "model-family semantic signal",
-            )
-        ):
+        if not _is_recognized_model_review(body):
             continue
         if _has_blocking_finding_or_label(body):
+            return True
+    return False
+
+
+def _has_western_frontier_review_at_head(
+    comments: list[Any],
+    *,
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> bool:
+    """Whether a western-frontier (claude/openai) review is present at the exact
+    head, REGARDLESS of verdict (supportive PASS **or** advisory CHANGES-REQUESTED).
+
+    advisory_settle's motivating case is "thorough western-frontier reviewers
+    returned advisory-only CRs, so no supportive PASS is reachable." The first cut
+    keyed eligibility on the *supportive-only* signal, which made the branch dead
+    for its own target case (#8729 claude [P1]/[P2]). This counts a grounded WF
+    review that exists at head even when its verdict is CHANGES-REQUESTED.
+    """
+    for comment in comments or []:
+        if not isinstance(comment, dict):
+            continue
+        if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
+            continue
+        body = str(comment.get("body", "") or "")
+        if not _is_recognized_model_review(body):
+            continue
+        family = str(_resolve_model_review_identity(body).model_family or "").strip().lower()
+        if family in WESTERN_FRONTIER_FAMILIES:
             return True
     return False
 
@@ -3276,7 +3301,23 @@ def _build_model_review_quorum(
         and quorum_only_required_failure
         and not quorum_satisfied
         and not settlement_recorded
-        and has_western_frontier_signal
+        # No other blocker may be in play: only the model-quorum check is failing,
+        # and nothing is pending/unavailable/workflow-blocking.
+        and not has_pending
+        and not checks_unavailable
+        and not blocking_workflow_state
+        # A western-frontier review must EXIST at head, in ANY verdict (the target
+        # case is advisory-only CRs with no supportive PASS) — not the supportive-
+        # only signal, which was self-contradictory (#8729 claude [P1]/[P2]).
+        and _has_western_frontier_review_at_head(
+            pr.get("comments") or [],
+            head_sha=head_sha,
+            head_committed_at=head_committed_at,
+        )
+        # There must be GENUINE advisory dissent being waived — otherwise a lone
+        # approving comment with no dissent would be a one-review quorum bypass
+        # (#8729 openai [P1]).
+        and bool(advisory_findings)
         and not unresolved_dissent
         and not _any_review_has_blocking_finding(
             pr.get("comments") or [],
@@ -3324,7 +3365,12 @@ def _build_model_review_quorum(
         reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
-    if has_failures and not settlement_recorded and not missing_quorum_is_active_check_blocker:
+    if (
+        has_failures
+        and not settlement_recorded
+        and not missing_quorum_is_active_check_blocker
+        and not advisory_settle_eligible
+    ):
         reasons.append("checks are failing; repair before settlement")
     elif missing_quorum_is_active_check_blocker:
         reasons.append(
@@ -3390,10 +3436,18 @@ def _build_model_review_quorum(
         verdict = "already_merged_settlement_recorded"
         requires_human_risk_settlement = False
     elif (
-        (has_failures and not missing_quorum_is_active_check_blocker)
+        (
+            has_failures
+            and not missing_quorum_is_active_check_blocker
+            and not advisory_settle_eligible
+        )
         or has_pending
         or checks_unavailable
-        or (machine_recommendation == "repair_first" and not missing_quorum_is_active_check_blocker)
+        or (
+            machine_recommendation == "repair_first"
+            and not missing_quorum_is_active_check_blocker
+            and not advisory_settle_eligible
+        )
         or stale_quorum_check_after_satisfied_evidence
         or blocking_workflow_state
     ):

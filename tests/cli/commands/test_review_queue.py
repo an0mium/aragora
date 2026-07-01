@@ -2893,10 +2893,15 @@ class TestAdvisoryDissentSettleGate:
     """The opt-in advisory_settle path (ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE).
 
     Default OFF — byte-identical to today. When ON, a Tier 0-2 PR whose only
-    failing required check is the model-quorum check, with at least one
-    western-frontier review at head and ZERO [P0]/[P1] blocking findings across
-    all reviews, settles via verdict=advisory_settle even when the strict model
-    quorum is not met.
+    failing required check is the model-quorum check settles via
+    verdict=advisory_settle when (and only when): a western-frontier review is
+    present at head IN ANY VERDICT, there is GENUINE advisory dissent being waived
+    (advisory_findings non-empty), zero [P0]/[P1] blocking findings across all
+    reviews, and nothing else is pending/unavailable/blocking.
+
+    These tests exercise the REAL caller shape: the quorum-only failure means the
+    merge-quorum required check IS failing, so ``has_failures=True`` (the first
+    cut's ``has_failures=False`` masked the dead-code path — #8729 claude [P1]).
     """
 
     HEAD = "cd87c5a1b2db34f04167906553502db3ede9525e"
@@ -2904,15 +2909,33 @@ class TestAdvisoryDissentSettleGate:
     @pytest.fixture(autouse=True)
     def _strict_tiered_gate(self, monkeypatch) -> None:
         # Pin the (separate) tiered-merge-gate flag OFF so a lone western-frontier
-        # signal does NOT satisfy the strict Tier 1-2 quorum on its own. This keeps
-        # these tests exercising the advisory_settle rescue path rather than the
-        # tiered-gate relaxation, regardless of ambient env.
+        # signal does NOT satisfy strict Tier 1-2 quorum on its own — keeps these
+        # tests on the advisory_settle rescue path, not the tiered-gate relaxation.
         monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
 
-    def _tier_one_pr_with_lone_wf_signal(self) -> dict[str, Any]:
-        # Tier 1 (bounded internal code surface) needs 2 distinct families under
-        # the strict (default) gate; a single western-frontier (codex/openai)
-        # signal + dogfood therefore does NOT satisfy the quorum.
+    def _wf_advisory_cr_comment(self) -> dict[str, Any]:
+        # A western-frontier (claude) review at head whose verdict is an advisory
+        # [P2] CHANGES-REQUESTED (no [P0]/[P1]). Advisory only when the severity
+        # gate is ON.
+        return {
+            "author": {"login": "an0mium"},
+            "body": (
+                "## Claude independent model review\n"
+                "Model family: claude\n"
+                f"Current head: {self.HEAD}\n"
+                "Verdict: CHANGES-REQUESTED\n"
+                "[P2] Add stronger smoke coverage in a follow-up."
+            ),
+        }
+
+    def _tier1_pr_wf_advisory_cr(self) -> dict[str, Any]:
+        pr = _make_pr(files=["aragora/agents/router.py"])
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [self._wf_advisory_cr_comment()]
+        return pr
+
+    def _tier1_pr_lone_approval(self) -> dict[str, Any]:
+        # A single western-frontier APPROVAL and no dissent at all.
         pr = _make_pr(files=["aragora/agents/router.py"])
         pr["headRefOid"] = self.HEAD
         pr["comments"] = [
@@ -2925,215 +2948,113 @@ class TestAdvisoryDissentSettleGate:
         ]
         return pr
 
-    def test_flag_off_lone_wf_signal_still_blocked(self, monkeypatch) -> None:
-        # Flag OFF (default): the advisory_settle path is dormant, so a lone
-        # western-frontier signal at Tier 1 stays blocked exactly as today.
+    def _quorum(self, pr, *, has_failures=True, has_pending=False, files=None):
+        return _build_model_review_quorum(
+            pr=pr,
+            files=files or ["aragora/agents/router.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="repair_first" if has_failures else "approve_candidate",
+            has_pending=has_pending,
+            has_failures=has_failures,
+            check_surfaces=_QUORUM_ONLY_FAILURE_SURFACES,
+        )
+
+    def test_flag_off_advisory_cr_still_blocked(self, monkeypatch) -> None:
+        # Flag OFF (default): advisory_settle dormant; behavior byte-identical.
         monkeypatch.delenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", raising=False)
-        pr = self._tier_one_pr_with_lone_wf_signal()
-        quorum = _build_model_review_quorum(
-            pr=pr,
-            files=["aragora/agents/router.py"],
-            protocol={"status": "metadata_heuristic"},
-            machine_recommendation="approve_candidate",
-            has_pending=False,
-            has_failures=False,
-            check_surfaces=_QUORUM_ONLY_FAILURE_SURFACES,
-        )
-        assert quorum["tier"] == 1
-        assert quorum["status"] == "needs_model_review_quorum"
-        assert quorum["verdict"] == "collect_model_quorum_before_merge"
-        assert quorum["admin_squash_allowed"] is False
-        assert "advisory_findings" not in quorum or quorum["advisory_findings"] == []
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(self._tier1_pr_wf_advisory_cr())
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
 
-    def test_flag_off_advisory_only_cr_still_blocked(self, monkeypatch) -> None:
-        # Flag OFF + an advisory-only ([P2]) CHANGES-REQUESTED: still does NOT
-        # settle (severity-gated dissent is a SEPARATE flag; here it is OFF too,
-        # so the [P2] CR even blocks as today).
-        monkeypatch.delenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", raising=False)
-        monkeypatch.delenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", raising=False)
-        pr = self._tier_one_pr_with_lone_wf_signal()
-        pr["comments"].append(
-            {
-                "author": {"login": "an0mium"},
-                "body": (
-                    "## Claude independent model review\n"
-                    f"Current head: {self.HEAD}\n"
-                    "Verdict: CHANGES-REQUESTED\n"
-                    "[P2] Add stronger smoke coverage in a follow-up."
-                ),
-            }
-        )
-        quorum = _build_model_review_quorum(
-            pr=pr,
-            files=["aragora/agents/router.py"],
-            protocol={"status": "metadata_heuristic"},
-            machine_recommendation="approve_candidate",
-            has_pending=False,
-            has_failures=False,
-            check_surfaces=_QUORUM_ONLY_FAILURE_SURFACES,
-        )
-        assert quorum["status"] != "satisfied"
-        assert quorum["verdict"] != "advisory_settle"
-        assert quorum["admin_squash_allowed"] is False
-
-    def test_flag_on_lone_wf_signal_advisory_settles(self, monkeypatch) -> None:
-        # Flag ON, Tier 1, one western-frontier signal at head, all non-quorum
-        # required checks green, zero [P0]/[P1] findings -> advisory_settle.
-        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
-        pr = self._tier_one_pr_with_lone_wf_signal()
-        quorum = _build_model_review_quorum(
-            pr=pr,
-            files=["aragora/agents/router.py"],
-            protocol={"status": "metadata_heuristic"},
-            machine_recommendation="approve_candidate",
-            has_pending=False,
-            has_failures=False,
-            check_surfaces=_QUORUM_ONLY_FAILURE_SURFACES,
-        )
-        assert quorum["tier"] == 1
-        assert quorum["status"] == "satisfied"
-        assert quorum["verdict"] == "advisory_settle"
-        assert quorum["admin_squash_allowed"] is True
-        assert quorum["requires_human_risk_settlement"] is False
-        assert quorum["advisory_findings"] == []
-        assert any("advisory-dissent settle" in r for r in quorum["reasons"])
-
-    def test_flag_on_surfaces_advisory_findings(self, monkeypatch) -> None:
-        # Flag ON + severity-gated dissent ON: a [P2]-only CR is advisory (non-
-        # blocking). It must be surfaced in advisory_findings so a caller can file
-        # follow-up issues.
+    def test_flag_on_wf_advisory_cr_settles_with_real_caller_has_failures(
+        self, monkeypatch
+    ) -> None:
+        # THE regression: real caller passes has_failures=True (merge-quorum is the
+        # failing check). advisory_settle must still be REACHED (not masked by the
+        # repair_or_wait branch — #8729 claude [P1]).
         monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
         monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
-        pr = self._tier_one_pr_with_lone_wf_signal()
-        pr["comments"].append(
-            {
-                "author": {"login": "an0mium"},
-                "body": (
-                    "## Claude independent model review\n"
-                    f"Current head: {self.HEAD}\n"
-                    "Verdict: CHANGES-REQUESTED\n"
-                    "[P2] Add stronger smoke coverage in a follow-up."
-                ),
-            }
-        )
-        quorum = _build_model_review_quorum(
-            pr=pr,
-            files=["aragora/agents/router.py"],
-            protocol={"status": "metadata_heuristic"},
-            machine_recommendation="approve_candidate",
-            has_pending=False,
-            has_failures=False,
-            check_surfaces=_QUORUM_ONLY_FAILURE_SURFACES,
-        )
-        assert quorum["status"] == "satisfied"
-        assert quorum["verdict"] == "advisory_settle"
-        assert quorum["unresolved_dissent"] is False
-        assert len(quorum["advisory_findings"]) == 1
-        assert quorum["advisory_findings"][0]["position"] == "advisory_changes_requested"
+        q = self._quorum(self._tier1_pr_wf_advisory_cr(), has_failures=True)
+        assert q["tier"] == 1
+        assert q["status"] == "satisfied"
+        assert q["verdict"] == "advisory_settle"
+        assert q["admin_squash_allowed"] is True
+        assert q["unresolved_dissent"] is False
+
+    def test_flag_on_surfaces_advisory_findings(self, monkeypatch) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(self._tier1_pr_wf_advisory_cr())
+        assert q["verdict"] == "advisory_settle"
+        assert len(q["advisory_findings"]) >= 1
+
+    def test_flag_on_lone_approval_no_dissent_does_not_settle(self, monkeypatch) -> None:
+        # #8729 openai [P1]: a lone approving WF comment with NO advisory dissent
+        # must NOT settle (that would be a one-review quorum bypass).
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(self._tier1_pr_lone_approval())
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
 
     def test_flag_on_p1_finding_still_blocked(self, monkeypatch) -> None:
-        # Flag ON: a real [P1] finding in ANY review blocks advisory_settle, even
-        # when severity-gated dissent would otherwise not apply. The strong-finding
-        # invariant always holds.
         monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
-        pr = self._tier_one_pr_with_lone_wf_signal()
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        pr = self._tier1_pr_wf_advisory_cr()
         pr["comments"].append(
             {
                 "author": {"login": "an0mium"},
                 "body": (
-                    "## Claude independent model review\n"
+                    "## Codex review\nModel family: openai\n"
                     f"Current head: {self.HEAD}\n"
                     "Verdict: CHANGES-REQUESTED\n"
                     "[P1] Merge gate dissent is unresolved."
                 ),
             }
         )
-        quorum = _build_model_review_quorum(
-            pr=pr,
-            files=["aragora/agents/router.py"],
-            protocol={"status": "metadata_heuristic"},
-            machine_recommendation="approve_candidate",
-            has_pending=False,
-            has_failures=False,
-            check_surfaces=_QUORUM_ONLY_FAILURE_SURFACES,
-        )
-        assert quorum["verdict"] != "advisory_settle"
-        assert quorum["status"] != "satisfied"
-        assert quorum["admin_squash_allowed"] is False
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
 
     def test_flag_on_tier_three_unaffected(self, monkeypatch) -> None:
-        # Tier 3 keeps human settlement: advisory_settle never applies above Tier 2.
         monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
         pr = _make_pr(files=["aragora/auth/session.py"])
         pr["headRefOid"] = self.HEAD
-        pr["comments"] = [
-            _codex_openai_review_comment(
-                body=(
-                    f"Current head: {self.HEAD}\nVerdict: approve.\n"
-                    "Focused adversarial dogfood passed."
-                )
-            ),
-        ]
-        quorum = _build_model_review_quorum(
-            pr=pr,
-            files=["aragora/auth/session.py"],
-            protocol={"status": "metadata_heuristic"},
-            machine_recommendation="approve_candidate",
-            has_pending=False,
-            has_failures=False,
-            check_surfaces=_QUORUM_ONLY_FAILURE_SURFACES,
-        )
-        assert quorum["tier"] == 3
-        assert quorum["verdict"] != "advisory_settle"
-        assert quorum["verdict"] == "collect_model_quorum_before_merge"
-        assert quorum["admin_squash_allowed"] is False
+        pr["comments"] = [self._wf_advisory_cr_comment()]
+        q = self._quorum(pr, files=["aragora/auth/session.py"])
+        assert q["tier"] == 3
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
 
-    def test_flag_on_requires_western_frontier_signal(self, monkeypatch) -> None:
-        # Flag ON but only a NON-western-frontier (grok) signal at head: condition
-        # (3) fails, so advisory_settle does NOT apply.
+    def test_flag_on_non_wf_only_does_not_settle(self, monkeypatch) -> None:
+        # Only a NON-western-frontier (grok) review at head -> no WF review present.
         monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
         pr = _make_pr(files=["aragora/agents/router.py"])
         pr["headRefOid"] = self.HEAD
         pr["comments"] = [
             {
                 "author": {"login": "an0mium"},
                 "body": (
-                    "## Grok independent model review\n"
-                    f"Current head: {self.HEAD}\nVerdict: approve.\n"
-                    "Focused adversarial dogfood passed."
+                    "## Grok independent model review\nModel family: grok\n"
+                    f"Current head: {self.HEAD}\n"
+                    "Verdict: CHANGES-REQUESTED\n[P2] follow-up."
                 ),
             },
         ]
-        quorum = _build_model_review_quorum(
-            pr=pr,
-            files=["aragora/agents/router.py"],
-            protocol={"status": "metadata_heuristic"},
-            machine_recommendation="approve_candidate",
-            has_pending=False,
-            has_failures=False,
-            check_surfaces=_QUORUM_ONLY_FAILURE_SURFACES,
-        )
-        assert quorum["tier"] == 1
-        assert quorum["verdict"] != "advisory_settle"
-        assert quorum["admin_squash_allowed"] is False
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
 
-    def test_flag_on_requires_quorum_only_failure(self, monkeypatch) -> None:
-        # Flag ON but a non-quorum required check is ALSO failing
-        # (quorum_only_failure False): condition (2) fails, advisory_settle does
-        # not apply (other failing checks must be repaired first).
+    def test_flag_on_pending_checks_does_not_settle(self, monkeypatch) -> None:
+        # A pending check is a real "wait" condition; advisory_settle must not fire.
         monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
-        pr = self._tier_one_pr_with_lone_wf_signal()
-        quorum = _build_model_review_quorum(
-            pr=pr,
-            files=["aragora/agents/router.py"],
-            protocol={"status": "metadata_heuristic"},
-            machine_recommendation="approve_candidate",
-            has_pending=False,
-            has_failures=False,
-            check_surfaces={"required_pr_checks": {"quorum_only_failure": False}},
-        )
-        assert quorum["verdict"] != "advisory_settle"
-        assert quorum["admin_squash_allowed"] is False
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(self._tier1_pr_wf_advisory_cr(), has_failures=False, has_pending=True)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
 
 
 class TestHasBlockingOrNegativeVerdict:
