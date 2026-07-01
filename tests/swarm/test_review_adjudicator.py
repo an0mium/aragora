@@ -173,3 +173,29 @@ class TestReviewFindingsFixes:
         items = [_pass("claude"), _Item("openai", _BLOCKING_P1, "changes_requested")]
         r = adjudicate(items, scorer=boom)  # must not raise
         assert r.verdict is AdjudicationVerdict.BLOCK
+
+    def test_scorer_failure_fails_closed_to_escalate(self) -> None:
+        # openai [P2] round 2: on an ADVISORY stall, a scorer failure must NOT
+        # fail open to SETTLE (which would suppress a possibly-real finding) — it
+        # must fail closed to ESCALATE for human settlement.
+        def boom(_body: str) -> float:
+            raise RuntimeError("analyzer down")
+
+        items = [_pass("claude"), _Item("openai", _THIN_P3, "changes_requested")]
+        r = adjudicate(items, scorer=boom)
+        assert r.verdict is AdjudicationVerdict.ESCALATE
+        assert r.verdict is not AdjudicationVerdict.SETTLE
+
+    def test_hard_bar_never_imports_default_analyzer(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # claude [P3] round 2: a definite [P0]/[P1] block must not construct (or
+        # import) the default analyzer, so a missing aragora_debate never crashes
+        # a hard block.
+        import aragora_debate.evidence as ev
+
+        def _explode(*_a: object, **_k: object) -> None:
+            raise ImportError("aragora_debate unavailable")
+
+        monkeypatch.setattr(ev, "EvidenceQualityAnalyzer", _explode)
+        items = [_pass("claude"), _Item("openai", _BLOCKING_P1, "changes_requested")]
+        r = adjudicate(items)  # scorer=None default; must not raise
+        assert r.verdict is AdjudicationVerdict.BLOCK

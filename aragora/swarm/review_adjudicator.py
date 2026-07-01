@@ -178,6 +178,33 @@ def adjudicate(
     """
     items = list(items)
 
+    # Hard bar FIRST, using ONLY the [P0]/[P1] detector — never the scorer and
+    # never the default analyzer. A definite block must not depend on the scorer
+    # being present or working (#8749 openai [P2]), and must not import
+    # aragora_debate at all when that package is unavailable (#8749 claude [P3]).
+    blocking_flags = [has_blocking_finding_or_label(it.body) for it in items]
+    if any(blocking_flags):
+        assessments = [
+            FindingAssessment(
+                family=it.family,
+                verdict=it.verdict,
+                is_blocking=flag,
+                highest_severity=highest_blocking_severity(it.body),
+                groundedness=0.0,  # deliberately unscored on the hard-bar path
+                grounded=False,
+            )
+            for it, flag in zip(items, blocking_flags)
+        ]
+        return AdjudicationResult(
+            verdict=AdjudicationVerdict.BLOCK,
+            reason="blocking [P0]/[P1] finding present; hard bar — not adjudicable",
+            assessments=assessments,
+            blocking_findings=[it.body for it, flag in zip(items, blocking_flags) if flag],
+            groundedness_bar=groundedness_bar,
+        )
+
+    # Only now (no hard block) build the default scorer + its single analyzer
+    # (deferred past the block return — #8749 claude [P3]).
     if scorer is None:
         from aragora_debate.evidence import EvidenceQualityAnalyzer
 
@@ -186,41 +213,28 @@ def adjudicate(
         def scorer(body: str) -> float:
             return score_groundedness(body, analyzer=_analyzer)
 
-    # Single pass: [P0]/[P1] flag once per item (#8749 claude [P3]).
-    blocking_flags = [has_blocking_finding_or_label(it.body) for it in items]
-    any_blocking = any(blocking_flags)
-
-    assessments: list[FindingAssessment] = []
-    for it, is_blocking in zip(items, blocking_flags):
-        if any_blocking:
-            # Hard bar wins regardless of groundedness — do NOT run the scorer on
-            # this path so it can never crash a definite block (#8749 openai [P2]).
+    # Score each item exactly once. A scorer failure FAILS CLOSED (openai [P2]):
+    # we never let an exception make a grounded finding look thin and get
+    # suppressed — instead we flag it and escalate to a human below.
+    scorer_failed = False
+    assessments = []
+    for it in items:
+        try:
+            groundedness = scorer(it.body)
+            grounded = groundedness >= groundedness_bar
+        except Exception:  # noqa: BLE001 - fail closed, never crash the gate
+            scorer_failed = True
             groundedness = 0.0
             grounded = False
-        else:
-            try:
-                groundedness = scorer(it.body)
-            except Exception:  # noqa: BLE001 - a scorer failure must never crash the gate
-                groundedness = 0.0
-            grounded = groundedness >= groundedness_bar
         assessments.append(
             FindingAssessment(
                 family=it.family,
                 verdict=it.verdict,
-                is_blocking=is_blocking,
+                is_blocking=False,
                 highest_severity=highest_blocking_severity(it.body),
                 groundedness=groundedness,
                 grounded=grounded,
             )
-        )
-
-    if any_blocking:
-        return AdjudicationResult(
-            verdict=AdjudicationVerdict.BLOCK,
-            reason="blocking [P0]/[P1] finding present; hard bar — not adjudicable",
-            assessments=assessments,
-            blocking_findings=[it.body for it, flag in zip(items, blocking_flags) if flag],
-            groundedness_bar=groundedness_bar,
         )
 
     # Drive the verdict off the single per-item assessment (never re-score).
@@ -240,6 +254,21 @@ def adjudicate(
             verdict=AdjudicationVerdict.NOT_APPLICABLE,
             reason="no supportive signal; genuine rejection, not a stall",
             assessments=assessments,
+            groundedness_bar=groundedness_bar,
+        )
+
+    # Fail closed (openai [P2]): if groundedness scoring failed for any item, do
+    # NOT risk suppressing a real finding as "thin" — escalate to human settlement.
+    if scorer_failed:
+        return AdjudicationResult(
+            verdict=AdjudicationVerdict.ESCALATE,
+            reason=(
+                "groundedness scoring failed for one or more findings; failing "
+                "closed to human settlement rather than risk suppressing a real "
+                "finding"
+            ),
+            assessments=assessments,
+            escalated_findings=[it.body for it, _ in dissenting],
             groundedness_bar=groundedness_bar,
         )
 
