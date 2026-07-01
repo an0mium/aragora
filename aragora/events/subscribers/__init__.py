@@ -9,7 +9,6 @@ from aragora.events.subscribers.config import (
     SubscriberStats,
     AsyncDispatchConfig,
 )
-from aragora.events.subscribers.mound_handlers import MoundHandlersMixin
 from aragora.events.subscribers.debate_handlers import DebateHandlersMixin
 from aragora.events.subscribers.execution_handlers import ExecutionHandlersMixin
 from aragora.events.subscribers.notification_handlers import NotificationHandlersMixin
@@ -23,7 +22,6 @@ __all__ = [
     "RetryConfig",
     "SubscriberStats",
     "AsyncDispatchConfig",
-    "MoundHandlersMixin",
     "DebateHandlersMixin",
     "ExecutionHandlersMixin",
     "NotificationHandlersMixin",

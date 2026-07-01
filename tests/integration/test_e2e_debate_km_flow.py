@@ -10,6 +10,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 from aragora.events.types import StreamEvent, StreamEventType
+from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
 from aragora.events.cross_subscribers import (
     CrossSubscriberManager,
     get_cross_subscriber_manager,
@@ -180,6 +181,13 @@ def consensus_event(debate_result):
 @pytest.fixture
 def subscriber_manager():
     """Get cross-subscriber manager."""
+    from aragora.events.cross_subscribers import reset_cross_subscriber_manager
+    from aragora.debate.event_subscribers import (
+        bootstrap_debate_event_subscribers,
+    )
+
+    reset_cross_subscriber_manager()
+    bootstrap_debate_event_subscribers()
     return get_cross_subscriber_manager()
 
 
@@ -270,7 +278,7 @@ class TestKMIngestion:
     """Tests for Knowledge Mound ingestion of consensus."""
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    @patch("aragora.events.cross_subscribers.handlers.validation.record_km_inbound_event")
+    @patch("aragora.knowledge.event_subscribers.record_km_inbound_event")
     def test_consensus_ingested_to_km(
         self, mock_record, mock_get_mound, subscriber_manager, consensus_event, mock_knowledge_mound
     ):
@@ -288,7 +296,7 @@ class TestKMIngestion:
         assert consensus_handler is not None
 
         # Execute handler
-        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+        with patch.object(KnowledgeEventSubscriber, "_is_km_handler_enabled", return_value=True):
             consensus_handler(consensus_event)
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
@@ -309,7 +317,7 @@ class TestKMIngestion:
                 consensus_handler = handler
                 break
 
-        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+        with patch.object(KnowledgeEventSubscriber, "_is_km_handler_enabled", return_value=True):
             consensus_handler(consensus_event)
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
@@ -337,7 +345,7 @@ class TestKMIngestion:
                 consensus_handler = handler
                 break
 
-        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+        with patch.object(KnowledgeEventSubscriber, "_is_km_handler_enabled", return_value=True):
             consensus_handler(event)
 
         # Store should not be called for no-consensus events
@@ -404,7 +412,7 @@ class TestFullE2EFlow:
     """Tests for the complete end-to-end flow."""
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    @patch("aragora.events.cross_subscribers.handlers.validation.record_km_inbound_event")
+    @patch("aragora.knowledge.event_subscribers.record_km_inbound_event")
     @pytest.mark.asyncio
     async def test_debate_to_query_flow(
         self,
@@ -442,7 +450,7 @@ class TestFullE2EFlow:
                 consensus_handler = handler
                 break
 
-        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+        with patch.object(KnowledgeEventSubscriber, "_is_km_handler_enabled", return_value=True):
             consensus_handler(consensus_event)
 
         # Step 3: Manually store the consensus (simulating what handler does internally)
@@ -566,7 +574,7 @@ class TestEdgeCasesAndErrors:
                 break
 
         # Should not raise even when KM unavailable
-        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+        with patch.object(KnowledgeEventSubscriber, "_is_km_handler_enabled", return_value=True):
             consensus_handler(event)  # Should not raise
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
@@ -596,7 +604,7 @@ class TestEdgeCasesAndErrors:
                 break
 
         # Should not raise even when store fails
-        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+        with patch.object(KnowledgeEventSubscriber, "_is_km_handler_enabled", return_value=True):
             consensus_handler(event)  # Should not raise
 
     def test_malformed_event_handling(self, subscriber_manager):
@@ -617,7 +625,7 @@ class TestEdgeCasesAndErrors:
                 consensus_handler = handler
                 break
 
-        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+        with patch.object(KnowledgeEventSubscriber, "_is_km_handler_enabled", return_value=True):
             with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
                 consensus_handler(event)  # Should handle gracefully
 
@@ -742,7 +750,7 @@ class TestIntegrationVerification:
 
         initial_count = subscriber_manager._stats.get("consensus_to_mound").events_processed
 
-        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+        with patch.object(KnowledgeEventSubscriber, "_is_km_handler_enabled", return_value=True):
             consensus_handler(event)
 
         # Stats should be updated
