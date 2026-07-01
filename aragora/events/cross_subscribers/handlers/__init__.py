@@ -6,14 +6,12 @@ organized by subsystem category.
 """
 
 from .basic import BasicHandlersMixin
-from .knowledge_mound import KnowledgeMoundHandlersMixin
 from .culture import CultureHandlersMixin
 from .validation import ValidationHandlersMixin
 from .strategic import StrategicHandlersMixin
 
 __all__ = [
     "BasicHandlersMixin",
-    "KnowledgeMoundHandlersMixin",
     "CultureHandlersMixin",
     "ValidationHandlersMixin",
     "StrategicHandlersMixin",
