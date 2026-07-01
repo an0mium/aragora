@@ -154,8 +154,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--reviewers",
         nargs="+",
-        default=["claude", "grok"],
-        help="reviewer model families (default: claude grok)",
+        default=["claude", "openai"],
+        help="reviewer model families (default: claude openai — western-frontier pair)",
     )
     ap.add_argument(
         "--operator-login",
