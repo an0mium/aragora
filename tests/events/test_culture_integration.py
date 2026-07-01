@@ -206,8 +206,8 @@ class TestCultureProfileProcessing:
 class TestOrchestratorCultureIntegration:
     """Tests for orchestrator culture hint application."""
 
-    @patch("aragora.events.cross_subscribers.get_cross_subscriber_manager")
-    def test_orchestrator_gets_culture_hints(self, mock_get_manager, monkeypatch):
+    @patch("aragora.debate.event_subscribers.bootstrap_debate_event_subscribers")
+    def test_orchestrator_gets_culture_hints(self, mock_bootstrap, monkeypatch):
         """Test that orchestrator retrieves culture hints."""
         from aragora.debate.orchestrator import Arena
         from aragora.core_types import Environment
@@ -216,7 +216,7 @@ class TestOrchestratorCultureIntegration:
 
         mock_manager = MagicMock()
         mock_manager.get_debate_culture_hints.return_value = {"recommended_consensus": "majority"}
-        mock_get_manager.return_value = mock_manager
+        mock_bootstrap.return_value = mock_manager
 
         # Create minimal arena
         environment = Environment(task="Test question")

@@ -237,6 +237,39 @@ def test_builtin_handlers_still_registered_via_manager():
     assert not leaked, f"relocated handlers still built into the bare manager: {sorted(leaked)}"
 
 
+def test_direct_manager_does_not_implicitly_apply_relocated_home_subscribers():
+    """Direct construction must not depend on prior home-module import order."""
+    from aragora.events.cross_subscribers import CrossSubscriberManager
+    from aragora.knowledge import event_subscribers as knowledge_home
+
+    knowledge_home.register()
+
+    manager = CrossSubscriberManager()
+    registered = set(manager.get_stats())
+
+    leaked = RELOCATED_SUBSCRIBER_NAMES & registered
+    assert not leaked, (
+        "direct manager construction implicitly applied relocated handlers; "
+        f"use an explicit bootstrap instead: {sorted(leaked)}"
+    )
+
+
+def test_domain_bootstrap_fails_closed_when_knowledge_home_registration_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A missing knowledge-home registration must fail instead of silently dropping KM."""
+    from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+    from aragora.events.cross_subscribers import reset_cross_subscriber_manager, reset_registry
+    from aragora.knowledge import event_subscribers as knowledge_home
+
+    reset_registry()
+    reset_cross_subscriber_manager()
+    monkeypatch.setattr(knowledge_home, "register", lambda: None)
+
+    with pytest.raises(RuntimeError, match="Knowledge event subscriber bootstrap incomplete"):
+        bootstrap_debate_event_subscribers()
+
+
 def test_domain_subset_bootstrap_returns_manager():
     from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
 

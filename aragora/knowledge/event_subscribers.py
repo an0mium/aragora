@@ -69,6 +69,22 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+KNOWLEDGE_EVENT_SUBSCRIBER_HANDLER_NAMES = frozenset(
+    {
+        "memory_to_mound",
+        "mound_to_memory_retrieval",
+        "belief_to_mound",
+        "mound_to_belief",
+        "rlm_to_mound",
+        "mound_to_rlm",
+        "elo_to_mound",
+        "mound_to_team_selection",
+        "insight_to_mound",
+        "flip_to_mound",
+        "mound_to_trickster",
+    }
+)
+
 
 class KnowledgeEventSubscriber:
     """Knowledge-domain cross-subscriber: KM ingest/mound reactions.

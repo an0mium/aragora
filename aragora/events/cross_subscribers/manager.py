@@ -139,8 +139,9 @@ class CrossSubscriberManager(
         # Register built-in cross-subsystem handlers
         self._register_builtin_subscribers()
 
-        # Wire any subscribers registered via the domain-free registry
-        self.apply_registered_subscribers()
+        # Registry subscribers are wired only by explicit layered bootstraps.
+        # Direct construction stays infrastructure-only, so relocated domain
+        # reactions cannot appear or disappear based on prior import order.
 
     def apply_registered_subscribers(self) -> int:
         """Wire registry subscribers not yet applied into this manager.

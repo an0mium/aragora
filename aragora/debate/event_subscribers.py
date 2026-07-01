@@ -43,4 +43,10 @@ def bootstrap_debate_event_subscribers() -> CrossSubscriberManager:
 
     from aragora.events.cross_subscribers import bootstrap
 
-    return bootstrap()
+    manager = bootstrap()
+    missing = knowledge_home.KNOWLEDGE_EVENT_SUBSCRIBER_HANDLER_NAMES - set(manager.get_stats())
+    if missing:
+        raise RuntimeError(
+            f"Knowledge event subscriber bootstrap incomplete; missing handlers: {sorted(missing)}"
+        )
+    return manager
