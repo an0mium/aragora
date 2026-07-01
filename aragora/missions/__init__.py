@@ -9,6 +9,7 @@ Public surface::
     from aragora.missions import MissionState, MissionOrchestrator, Handoff
 """
 
+from .intake import IntakeBridgeDispatch, intake_bridge_enabled, is_intake_feature
 from .ledger import Constraint, Ledger, Lease, select_for
 from .live_gate import LiveBossLoopGate
 from .orchestrator import Handoff, MissionOrchestrator
@@ -39,6 +40,7 @@ __all__ = [
     "Constraint",
     "Feature",
     "Handoff",
+    "IntakeBridgeDispatch",
     "Ledger",
     "Lease",
     "LiveBossLoopGate",
@@ -58,6 +60,8 @@ __all__ = [
     "apply_validation_result",
     "classify_artifact",
     "inject_validation_features",
+    "intake_bridge_enabled",
+    "is_intake_feature",
     "mission_owner_lock",
     "reconcile_from_ledger",
     "run_worker",

@@ -348,7 +348,11 @@ def test_cmd_mission_run_report_mode_does_not_mutate_state(
 def test_cmd_mission_auto_drain_parks_seeded_intake_without_branch_metadata(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # With the intake→decomposition bridge disabled (#8758 kill-switch), a
+    # seeded intake still parks gracefully instead of hitting live git. The
+    # default (bridge ON) path is covered by tests/missions/test_intake.py.
     monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "1")
+    monkeypatch.setenv("ARAGORA_DISABLE_MISSION_INTAKE_BRIDGE", "1")
     monkeypatch.setattr("aragora.cli.commands.mission._load_artifacts", lambda *a, **k: [])
     parser = build_parser()
     state_path = tmp_path / "state.json"
