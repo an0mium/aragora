@@ -136,3 +136,40 @@ class TestFlag:
     def test_flag_on(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ARAGORA_ENABLE_REVIEW_ADJUDICATOR", "1")
         assert review_adjudicator_enabled() is True
+
+
+class TestReviewFindingsFixes:
+    """#8749 frontier-review fixes: single-score consistency + hard-bar robustness."""
+
+    def test_verdict_consistent_with_assessments_under_nondeterministic_scorer(self) -> None:
+        # claude [P2]: score each item ONCE. A scorer that would return different
+        # values on repeated calls must not make the verdict contradict the
+        # assessments embedded in the same receipt.
+        calls: dict[str, int] = {}
+
+        def flaky(body: str) -> float:
+            calls[body] = calls.get(body, 0) + 1
+            # high on the 1st call, low on any subsequent call for the same body
+            return 0.9 if calls[body] == 1 else 0.0
+
+        items = [_pass("claude"), _Item("openai", _GROUNDED_P2, "changes_requested")]
+        r = adjudicate(items, scorer=flaky)
+        # each body scored exactly once (no re-scoring in the verdict paths)
+        assert all(v == 1 for v in calls.values())
+        # both bodies score grounded on their single call → the verdict must be
+        # consistent with those assessments (ESCALATE). The OLD re-scoring code
+        # would have re-scored to 0.0 and returned SETTLE — contradicting a
+        # receipt that records grounded=True.
+        openai_a = next(a for a in r.assessments if a.family == "openai")
+        assert openai_a.grounded is True
+        assert r.verdict is AdjudicationVerdict.ESCALATE
+        assert r.verdict is not AdjudicationVerdict.SETTLE
+
+    def test_hard_bar_survives_raising_scorer(self) -> None:
+        # openai [P2]: a [P0]/[P1] must hard-block even if the scorer raises.
+        def boom(_body: str) -> float:
+            raise RuntimeError("scorer exploded")
+
+        items = [_pass("claude"), _Item("openai", _BLOCKING_P1, "changes_requested")]
+        r = adjudicate(items, scorer=boom)  # must not raise
+        assert r.verdict is AdjudicationVerdict.BLOCK

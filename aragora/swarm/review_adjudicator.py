@@ -160,44 +160,73 @@ def adjudicate(
     items: Sequence[_ReviewFinding],
     *,
     groundedness_bar: float = DEFAULT_GROUNDEDNESS_BAR,
-    scorer: Callable[[str], float] = score_groundedness,
+    scorer: Callable[[str], float] | None = None,
 ) -> AdjudicationResult:
     """Adjudicate a stalled review over ``items`` (EvidenceItem-shaped).
 
-    Pure and deterministic given a deterministic ``scorer``. Does not mutate the
-    items and never contacts the network.
+    Each item is scored **exactly once**; both the recorded ``assessments`` and
+    the returned verdict are driven off that single value, so the emitted receipt
+    can never contradict itself even when a non-deterministic scorer (e.g.
+    ``LLMJudge``) is plugged in (#8749 claude [P2]). The ``[P0]/[P1]`` hard bar is
+    evaluated WITHOUT invoking the scorer, so a missing/raising scorer can never
+    turn a definite block into a crash (#8749 openai [P2]). Pure and side-effect
+    free; does not mutate the items and never contacts the network.
+
+    ``scorer`` defaults to :func:`score_groundedness` bound to a single hoisted
+    :class:`EvidenceQualityAnalyzer` (one build per call, not per item — #8749
+    claude [P3]).
     """
     items = list(items)
 
-    # Hard bar first: any [P0]/[P1] anywhere -> BLOCK, no scoring, no exceptions.
-    blocking = [it for it in items if has_blocking_finding_or_label(it.body)]
+    if scorer is None:
+        from aragora_debate.evidence import EvidenceQualityAnalyzer
+
+        _analyzer = EvidenceQualityAnalyzer()
+
+        def scorer(body: str) -> float:
+            return score_groundedness(body, analyzer=_analyzer)
+
+    # Single pass: [P0]/[P1] flag once per item (#8749 claude [P3]).
+    blocking_flags = [has_blocking_finding_or_label(it.body) for it in items]
+    any_blocking = any(blocking_flags)
 
     assessments: list[FindingAssessment] = []
-    for it in items:
-        is_blocking = has_blocking_finding_or_label(it.body)
-        grounded_score = scorer(it.body)
+    for it, is_blocking in zip(items, blocking_flags):
+        if any_blocking:
+            # Hard bar wins regardless of groundedness — do NOT run the scorer on
+            # this path so it can never crash a definite block (#8749 openai [P2]).
+            groundedness = 0.0
+            grounded = False
+        else:
+            try:
+                groundedness = scorer(it.body)
+            except Exception:  # noqa: BLE001 - a scorer failure must never crash the gate
+                groundedness = 0.0
+            grounded = groundedness >= groundedness_bar
         assessments.append(
             FindingAssessment(
                 family=it.family,
                 verdict=it.verdict,
                 is_blocking=is_blocking,
                 highest_severity=highest_blocking_severity(it.body),
-                groundedness=grounded_score,
-                grounded=grounded_score >= groundedness_bar,
+                groundedness=groundedness,
+                grounded=grounded,
             )
         )
 
-    if blocking:
+    if any_blocking:
         return AdjudicationResult(
             verdict=AdjudicationVerdict.BLOCK,
             reason="blocking [P0]/[P1] finding present; hard bar — not adjudicable",
             assessments=assessments,
-            blocking_findings=[it.body for it in blocking],
+            blocking_findings=[it.body for it, flag in zip(items, blocking_flags) if flag],
             groundedness_bar=groundedness_bar,
         )
 
-    dissenting = [it for it in items if it.verdict == "changes_requested"]
-    supportive = [it for it in items if getattr(it, "supportive", it.verdict == "pass")]
+    # Drive the verdict off the single per-item assessment (never re-score).
+    paired = list(zip(items, assessments))
+    dissenting = [(it, a) for it, a in paired if it.verdict == "changes_requested"]
+    supportive = [(it, a) for it, a in paired if getattr(it, "supportive", it.verdict == "pass")]
 
     if not dissenting:
         return AdjudicationResult(
@@ -214,7 +243,7 @@ def adjudicate(
             groundedness_bar=groundedness_bar,
         )
 
-    grounded_dissent = [it for it in dissenting if scorer(it.body) >= groundedness_bar]
+    grounded_dissent = [(it, a) for it, a in dissenting if a.grounded]
     if not grounded_dissent:
         return AdjudicationResult(
             verdict=AdjudicationVerdict.SETTLE,
@@ -223,11 +252,11 @@ def adjudicate(
                 "and filing the findings for follow-up"
             ),
             assessments=assessments,
-            settled_findings=[it.body for it in dissenting],
+            settled_findings=[it.body for it, _ in dissenting],
             groundedness_bar=groundedness_bar,
         )
 
-    grounded_support = [it for it in supportive if scorer(it.body) >= groundedness_bar]
+    grounded_support = [(it, a) for it, a in supportive if a.grounded]
     if grounded_support:
         return AdjudicationResult(
             verdict=AdjudicationVerdict.ESCALATE,
@@ -236,7 +265,7 @@ def adjudicate(
                 "disagreement (crux) — escalating for human settlement"
             ),
             assessments=assessments,
-            escalated_findings=[it.body for it in grounded_dissent],
+            escalated_findings=[it.body for it, _ in grounded_dissent],
             groundedness_bar=groundedness_bar,
         )
 
@@ -247,6 +276,6 @@ def adjudicate(
             "the finding must be addressed"
         ),
         assessments=assessments,
-        blocking_findings=[it.body for it in grounded_dissent],
+        blocking_findings=[it.body for it, _ in grounded_dissent],
         groundedness_bar=groundedness_bar,
     )
