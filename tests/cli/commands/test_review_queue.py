@@ -3079,6 +3079,29 @@ class TestAdvisoryDissentSettleGate:
         assert q["verdict"] != "advisory_settle"
         assert q["admin_squash_allowed"] is False
 
+    def test_flag_on_bot_authored_wf_review_does_not_settle(self, monkeypatch) -> None:
+        # #8729 openai [P1] (r2): a github-actions[bot]-authored "Claude" advisory
+        # comment must NOT satisfy the WF prerequisite — the strict signal path
+        # rejects synthetic authors, and so must advisory_settle.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        pr = _make_pr(files=["aragora/agents/router.py"])
+        pr["headRefOid"] = self.HEAD
+        pr["comments"] = [
+            {
+                "author": {"login": "github-actions[bot]"},
+                "body": (
+                    "## Claude independent model review\n"
+                    "Model family: claude\n"
+                    f"Current head: {self.HEAD}\n"
+                    "Verdict: CHANGES-REQUESTED\n[P2] follow-up."
+                ),
+            },
+        ]
+        q = self._quorum(pr)
+        assert q["verdict"] != "advisory_settle"
+        assert q["admin_squash_allowed"] is False
+
 
 class TestHasBlockingOrNegativeVerdict:
     def test_blocker_value_starting_with_no_letters_is_still_blocking(self) -> None:

@@ -3157,6 +3157,15 @@ def _has_western_frontier_review_at_head(
             continue
         if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
             continue
+        # Reject synthetic/bot authors (github-actions[bot]) exactly as the strict
+        # signal builder does: a bot-authored "Claude/OpenAI" comment must not fake
+        # the western-frontier prerequisite (#8729 openai [P1]).
+        author_payload = comment.get("author")
+        author = (
+            str(author_payload.get("login", "") or "") if isinstance(author_payload, dict) else ""
+        )
+        if _is_github_actions_author(author):
+            continue
         body = str(comment.get("body", "") or "")
         identity = _resolve_model_review_identity(body)
         if identity.surface_reviewer_id == "unknown_model_reviewer":
