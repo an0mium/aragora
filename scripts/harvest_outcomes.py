@@ -123,6 +123,27 @@ def fetch_open_pr_head_refs(*, repo: str) -> set[str]:
     return {row.get("headRefName", "") for row in json.loads(proc.stdout or "[]")}
 
 
+def _verify_origin_fresh(repo_root: Path) -> None:
+    """Fail loud if local origin/main is stale vs the remote.
+
+    Branch ancestry facts (merge-base, is-ancestor, ahead counts) are only
+    meaningful against fresh remote-tracking refs. ``git ls-remote`` is a
+    read-only network check; on mismatch we refuse rather than misclassify.
+    """
+    local = run_git(["rev-parse", "refs/remotes/origin/main"], repo_root)
+    remote = run_git(["ls-remote", "origin", "refs/heads/main"], repo_root, timeout=120)
+    if local.returncode != 0 or remote.returncode != 0:
+        raise RuntimeError(
+            "cannot verify origin/main freshness; run `git fetch origin --prune` and retry"
+        )
+    remote_sha = remote.stdout.split()[0] if remote.stdout.split() else ""
+    if remote_sha and remote_sha != local.stdout.strip():
+        raise RuntimeError(
+            f"local origin/main ({local.stdout.strip()[:12]}) is stale vs remote "
+            f"({remote_sha[:12]}); run `git fetch origin --prune` before harvesting"
+        )
+
+
 def fetch_stale_branches(
     *,
     repo_root: Path,
@@ -130,7 +151,8 @@ def fetch_stale_branches(
     max_branches: int,
     exclude_refs: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Discover stale remote branches (read-only; never mutates refs)."""
+    """Discover stale remote branches (read-only; requires fresh origin refs)."""
+    _verify_origin_fresh(repo_root)
     fmt = "%(refname:short)%09%(objectname)%09%(committerdate:iso8601-strict)"
     proc = run_git(
         ["for-each-ref", "--sort=-committerdate", "refs/remotes/origin/", f"--format={fmt}"],
@@ -301,42 +323,86 @@ def load_filed_sources(ledger_path: Path) -> set[str]:
     return sources
 
 
-def emit_learned_signals(items: list[HarvestItem], signal_log: Path) -> int:
-    """Append one OutcomeSignal per learned-pattern item to the signal log.
+def load_emitted_signal_sources(ledger_path: Path) -> set[str]:
+    """Sources whose learner signal was already emitted in a prior run."""
+    if not ledger_path.exists():
+        return set()
+    sources: set[str] = set()
+    try:
+        with open(ledger_path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                for source in record.get("signal_sources", []) or []:
+                    sources.add(str(source))
+    except OSError:
+        pass
+    return sources
+
+
+def emit_learned_signals(items: list[HarvestItem], signal_log: Path, ledger_path: Path) -> int:
+    """Append one OutcomeSignal per not-yet-emitted learned-pattern item.
 
     ``aragora.swarm.outcome_learner.load_category_success_rates`` consumes this
-    JSONL log, so appending here is exactly "feeding the learner". Falls back
-    to a plain-dict row (same schema) if the aragora package is unavailable.
+    JSONL log, so appending here is exactly "feeding the learner" (plain-dict
+    fallback if the aragora package is unavailable). Emission is deduped by
+    source via the ledger so repeated --apply runs over overlapping windows
+    never double-count; sources actually written are ledgered even if a
+    mid-batch write fails.
     """
+    already = load_emitted_signal_sources(ledger_path)
+    to_emit = [i for i in items if i.source not in already]
+    if not to_emit:
+        return 0
     signal_log.parent.mkdir(parents=True, exist_ok=True)
-    emitted = 0
-    with open(signal_log, "a", encoding="utf-8") as f:
-        for item in items:
-            ref = str(item.details.get("headRefName") or item.identifier).lower()
-            agent = next(
-                (a for a in ("codex", "claude", "gemini", "grok") if ref.startswith(f"{a}/")), ""
+    written: list[str] = []
+    try:
+        with open(signal_log, "a", encoding="utf-8") as f:
+            for item in to_emit:
+                ref = str(item.details.get("headRefName") or item.identifier).lower()
+                agent = next(
+                    (a for a in ("codex", "claude", "gemini", "grok") if ref.startswith(f"{a}/")),
+                    "",
+                )
+                base: dict[str, Any] = {
+                    "source_loop": "harvest",
+                    "signal_type": "completed",
+                    "entity_id": item.source,
+                    "entity_title": item.title,
+                    "did_merge": "merged" in item.reason or "landed" in item.reason,
+                    "agent_type": agent,
+                }
+                try:
+                    from aragora.swarm.outcome_signals import OutcomeSignal
+
+                    row = OutcomeSignal(**base).to_dict()
+                except ImportError:
+                    row = {**base, "timestamp": datetime.now(UTC).isoformat()}
+                f.write(json.dumps(row) + "\n")
+                written.append(item.source)
+    finally:
+        if written:
+            append_ledger(
+                ledger_path,
+                {
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "event": "signals_emitted",
+                    "signal_sources": written,
+                },
             )
-            base: dict[str, Any] = {
-                "source_loop": "harvest",
-                "signal_type": "completed",
-                "entity_id": item.source,
-                "entity_title": item.title,
-                "did_merge": "merged" in item.reason or "landed" in item.reason,
-                "agent_type": agent,
-            }
-            try:
-                from aragora.swarm.outcome_signals import OutcomeSignal
-
-                row = OutcomeSignal(**base).to_dict()
-            except ImportError:
-                row = {**base, "timestamp": datetime.now(UTC).isoformat()}
-            f.write(json.dumps(row) + "\n")
-            emitted += 1
-    return emitted
+    return len(written)
 
 
-def file_salvage_issues(repo: str, items: list[HarvestItem]) -> list[dict[str, str]]:
-    """The ONLY gh write path in this script; called only under --apply."""
+def file_salvage_issues(
+    repo: str, items: list[HarvestItem], ledger_path: Path
+) -> list[dict[str, str]]:
+    """The ONLY gh write path in this script; called only under --apply.
+
+    Each successfully-created issue is ledgered IMMEDIATELY so a mid-batch gh
+    failure leaves the ledger true and the next run's dedup skips it.
+    """
     filed = []
     for item in items:
         issue = build_salvage_issue(item)
@@ -345,8 +411,18 @@ def file_salvage_issues(repo: str, items: list[HarvestItem]) -> list[dict[str, s
         )
         if proc.returncode != 0:
             raise RuntimeError(f"gh issue create failed for {item.source}: {proc.stderr.strip()}")
-        url = str(proc.stdout or "").strip().splitlines()[-1].strip()
-        filed.append({"source": item.source, "title": issue["title"], "url": url})
+        lines = str(proc.stdout or "").strip().splitlines()
+        url = lines[-1].strip() if lines else ""
+        record = {"source": item.source, "title": issue["title"], "url": url}
+        append_ledger(
+            ledger_path,
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "event": "issue_filed",
+                "issues_filed": [record],
+            },
+        )
+        filed.append(record)
     return filed
 
 
@@ -414,12 +490,15 @@ def run_harvest(
     issues_filed: list[dict[str, str]] = []
     signals_emitted = 0
     if apply:
-        issues_filed = file_salvage_issues(repo, to_file)
-        signals_emitted = emit_learned_signals(learned, signal_log)
+        # Both steps ledger their own successes incrementally, so a mid-batch
+        # failure in either leaves the ledger true for the next run's dedup.
+        issues_filed = file_salvage_issues(repo, to_file, ledger_path)
+        signals_emitted = emit_learned_signals(learned, signal_log, ledger_path)
         append_ledger(
             ledger_path,
             {
                 "timestamp": datetime.now(UTC).isoformat(),
+                "event": "run_summary",
                 "repo": repo,
                 "since_days": since_days,
                 "counts": counts,
@@ -450,7 +529,8 @@ def run_harvest(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    description = next((line for line in (__doc__ or "").splitlines() if line.strip()), "")
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--since-days", type=int, default=DEFAULT_SINCE_DAYS)

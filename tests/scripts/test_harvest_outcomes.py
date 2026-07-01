@@ -229,6 +229,11 @@ class TestRunHarvestDryRun:
         assert len(result["salvage"]["to_file"]) == 2  # still rendered for inspection
 
 
+def _ledger_records(ledger: Path, event: str | None = None) -> list[dict[str, Any]]:
+    records = [json.loads(line) for line in ledger.read_text().strip().splitlines()]
+    return [r for r in records if event is None or r.get("event") == event]
+
+
 class TestRunHarvestApply:
     def test_apply_files_issues_and_appends_ledger(self, harness):
         result = _run(harness, apply=True)
@@ -236,19 +241,58 @@ class TestRunHarvestApply:
         creates = [c for c in harness["gh_calls"] if c[:2] == ["issue", "create"]]
         assert len(creates) == 2
         assert len(result["issues_filed"]) == 2
-        lines = harness["ledger"].read_text().strip().splitlines()
-        assert len(lines) == 1
-        record = json.loads(lines[0])
-        assert record["counts"]["total"] == 6
-        assert len(record["issues_filed"]) == 2
+        # Each filed issue is ledgered immediately, then signals, then summary.
+        assert len(_ledger_records(harness["ledger"], "issue_filed")) == 2
+        summaries = _ledger_records(harness["ledger"], "run_summary")
+        assert len(summaries) == 1
+        assert summaries[0]["counts"]["total"] == 6
+        assert len(summaries[0]["issues_filed"]) == 2
 
     def test_apply_respects_wip_cap_and_records_deferred(self, harness):
         result = _run(harness, apply=True, max_issues=1)
         creates = [c for c in harness["gh_calls"] if c[:2] == ["issue", "create"]]
         assert len(creates) == 1
         assert len(result["salvage"]["deferred"]) == 1
-        record = json.loads(harness["ledger"].read_text().strip().splitlines()[0])
-        assert len(record["deferred"]) == 1  # deferred is never silently dropped
+        summary = _ledger_records(harness["ledger"], "run_summary")[0]
+        assert len(summary["deferred"]) == 1  # deferred is never silently dropped
+
+    def test_mid_batch_gh_failure_leaves_ledger_true(self, harness, monkeypatch):
+        """First create succeeds, second fails: the success is still ledgered
+        and the next run dedups it instead of re-filing a duplicate."""
+        calls = {"n": 0}
+
+        class Ok:
+            returncode = 0
+            stdout = "https://github.com/synaptent/aragora/issues/901\n"
+            stderr = ""
+
+        class Boom:
+            returncode = 1
+            stdout = ""
+            stderr = "HTTP 502"
+
+        def flaky_run_gh(args: list[str], timeout: int = 60) -> Any:
+            harness["gh_calls"].append(list(args))
+            calls["n"] += 1
+            return Ok() if calls["n"] == 1 else Boom()
+
+        monkeypatch.setattr(mod, "run_gh", flaky_run_gh)
+        with pytest.raises(RuntimeError):
+            _run(harness, apply=True)
+        filed = _ledger_records(harness["ledger"], "issue_filed")
+        assert len(filed) == 1  # the success survived the mid-batch failure
+        first_source = filed[0]["issues_filed"][0]["source"]
+
+        def healthy_run_gh(args: list[str], timeout: int = 60) -> Any:
+            harness["gh_calls"].append(list(args))
+            return Ok()
+
+        # Second run with healthy gh: the ledgered issue is NOT re-filed.
+        monkeypatch.setattr(mod, "run_gh", healthy_run_gh)
+        result = _run(harness, apply=True)
+        refiled = [f["source"] for f in result["issues_filed"]]
+        assert first_source not in refiled
+        assert len(refiled) == 1  # only the remaining candidate
 
     def test_apply_emits_learned_signals(self, harness):
         result = _run(harness, apply=True)
@@ -256,6 +300,28 @@ class TestRunHarvestApply:
         lines = harness["signal_log"].read_text().strip().splitlines()
         assert len(lines) == 2
         assert json.loads(lines[0])["source_loop"] == "harvest"
+
+    def test_double_apply_emits_no_duplicate_signals(self, harness):
+        first = _run(harness, apply=True)
+        second = _run(harness, apply=True)
+        assert first["signals_emitted"] == 2
+        assert second["signals_emitted"] == 0
+        # Same window twice: the learner input is never double-counted.
+        assert len(harness["signal_log"].read_text().strip().splitlines()) == 2
+
+    def test_empty_stdout_gh_success_is_handled(self, harness, monkeypatch):
+        class EmptyOk:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        def empty_run_gh(args: list[str], timeout: int = 60) -> Any:
+            harness["gh_calls"].append(list(args))
+            return EmptyOk()
+
+        monkeypatch.setattr(mod, "run_gh", empty_run_gh)
+        result = _run(harness, apply=True)  # must not raise IndexError
+        assert all(f["url"] == "" for f in result["issues_filed"])
 
     def test_apply_skips_sources_already_filed(self, harness):
         mod.append_ledger(
@@ -275,12 +341,47 @@ class TestRunHarvestApply:
             assert call[:2] == ["issue", "create"]
 
 
+class TestOriginFreshness:
+    @staticmethod
+    def _proc(rc: int, out: str) -> Any:
+        class P:
+            returncode = rc
+            stdout = out
+            stderr = ""
+
+        return P()
+
+    def test_stale_origin_main_fails_loud(self, monkeypatch):
+        def fake_run_git(args: list[str], repo_root: Path, timeout: int = 60) -> Any:
+            if args[0] == "rev-parse":
+                return self._proc(0, "aaa111\n")
+            return self._proc(0, "bbb222\trefs/heads/main\n")
+
+        monkeypatch.setattr(mod, "run_git", fake_run_git)
+        with pytest.raises(RuntimeError, match="stale"):
+            mod._verify_origin_fresh(Path("."))
+
+    def test_fresh_origin_main_passes(self, monkeypatch):
+        def fake_run_git(args: list[str], repo_root: Path, timeout: int = 60) -> Any:
+            if args[0] == "rev-parse":
+                return self._proc(0, "aaa111\n")
+            return self._proc(0, "aaa111\trefs/heads/main\n")
+
+        monkeypatch.setattr(mod, "run_git", fake_run_git)
+        mod._verify_origin_fresh(Path("."))  # must not raise
+
+
 class TestMain:
     def test_defaults(self):
         args = mod.build_parser().parse_args([])
         assert args.since_days == 7
         assert args.max_issues == 5
         assert args.apply is False
+
+    def test_help_description_is_first_nonempty_docstring_line(self):
+        description = mod.build_parser().description
+        assert description and description.strip()
+        assert "Harvest engine" in description
 
     def test_json_output(self, harness, capsys, monkeypatch):
         monkeypatch.setattr(mod, "run_harvest", lambda **kw: {"mode": "dry-run", "counts": {}})
