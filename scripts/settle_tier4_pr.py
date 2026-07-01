@@ -10,9 +10,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
+import time
 from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -790,6 +792,115 @@ def _required_check_visibility_skew_report(
             "refusing Tier 4 merge/apply before mergePullRequest can reject on stale state."
         ),
         "next_prompt": _visibility_skew_next_prompt(pr=pr, head=head),
+    }
+
+
+_RUN_ID_RE = re.compile(r"/actions/runs/(\d+)")
+
+
+def _superseded_run_ids(skew_report: Mapping[str, Any]) -> list[str]:
+    """Extract the workflow run IDs of the superseded stale-FAILURE contexts.
+
+    Every context in ``stale_failed_required_contexts`` is, by construction of
+    :func:`_required_check_visibility_skew_report`, a required check that GitHub's
+    ``--required`` surface reports GREEN (a newer successful run exists) yet the
+    GraphQL rollup still lists as failed. Re-running that superseded failed run so
+    it re-concludes green is therefore always safe — we never re-run a context
+    whose latest run is genuinely failing. Run IDs are parsed from each context's
+    ``details_url``; contexts without a parseable run URL are skipped.
+    """
+    run_ids: list[str] = []
+    for context in skew_report.get("stale_failed_required_contexts") or []:
+        if not isinstance(context, Mapping):
+            continue
+        url = str(context.get("details_url") or "")
+        match = _RUN_ID_RE.search(url)
+        if match:
+            run_id = match.group(1)
+            if run_id not in run_ids:
+                run_ids.append(run_id)
+    return run_ids
+
+
+def _rerun_workflow_run(run_id: str, *, cwd: Path, repo: str) -> bool:
+    """``gh run rerun <run_id>`` (a read-safe CI re-trigger). Returns success."""
+    try:
+        _run_text_command(["gh", "run", "rerun", run_id, "--repo", repo], cwd=cwd)
+        return True
+    except (subprocess.CalledProcessError, RuntimeError, OSError):
+        return False
+
+
+def _auto_resolve_visibility_skew(
+    *,
+    pr: int,
+    head: str,
+    repo: str,
+    cwd: Path,
+    skew_report: Mapping[str, Any],
+    max_reruns: int,
+    timeout_seconds: float,
+    poll_seconds: float,
+    load_inputs: Callable[[], tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]],
+    rerun_run: Callable[[str], bool] | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    monotonic: Callable[[], float] = time.monotonic,
+    log: Callable[[str], None] = lambda _msg: None,
+) -> dict[str, Any]:
+    """Bounded rerun-and-wait to clear a superseded required-check visibility skew.
+
+    Re-runs the superseded stale-FAILURE run(s), then polls the live rollup until
+    the skew clears or the budget is spent. The timeout is split into ``max_reruns``
+    windows; a fresh re-trigger opens each window. Purely mechanical: only re-runs
+    already-superseded runs (see :func:`_superseded_run_ids`), never edits files,
+    never touches branch protection. Dependencies are injected so this is unit-
+    testable without the network or real sleeps.
+
+    Returns ``{cleared: bool, reruns: [...], triggers: int, reason: str}``.
+    """
+    rerun = rerun_run or (lambda rid: _rerun_workflow_run(rid, cwd=cwd, repo=repo))
+    reruns: list[dict[str, Any]] = []
+    current_skew: Mapping[str, Any] | None = skew_report
+    max_reruns = max(1, int(max_reruns))
+    window = timeout_seconds / max_reruns
+
+    for trigger in range(max_reruns):
+        if current_skew is None:
+            break
+        run_ids = _superseded_run_ids(current_skew)
+        if not run_ids:
+            return {
+                "cleared": False,
+                "reruns": reruns,
+                "triggers": trigger,
+                "reason": "no parseable superseded run id in skew report; cannot auto-resolve",
+            }
+        for run_id in run_ids:
+            ok = rerun(run_id)
+            reruns.append({"run_id": run_id, "ok": ok})
+            log(f"re-ran superseded merge-quorum run {run_id} (ok={ok})")
+
+        window_deadline = monotonic() + window
+        while monotonic() < window_deadline:
+            sleep(poll_seconds)
+            pr_view, _packet, required_checks = load_inputs()
+            current_skew = _required_check_visibility_skew_report(
+                pr=pr, head=head, pr_view=pr_view, required_checks=required_checks
+            )
+            if current_skew is None:
+                log("required-check visibility skew cleared")
+                return {
+                    "cleared": True,
+                    "reruns": reruns,
+                    "triggers": trigger + 1,
+                    "reason": "skew cleared after rerun-and-wait",
+                }
+
+    return {
+        "cleared": False,
+        "reruns": reruns,
+        "triggers": max_reruns,
+        "reason": "skew persisted after auto-resolve budget was exhausted",
     }
 
 
@@ -2020,6 +2131,36 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--skew-auto-resolve",
+        action="store_true",
+        help=(
+            "On --merge-apply, if a required_check_visibility_skew is detected "
+            "(a superseded stale-FAILURE required run lingering beside a newer "
+            "SUCCESS at the same head), automatically re-run the superseded run(s) "
+            "and wait, bounded, for the rollup to clear before applying. Only "
+            "re-runs already-superseded runs; never touches branch protection. "
+            "Default OFF (falls back to today's block + operator prompt)."
+        ),
+    )
+    parser.add_argument(
+        "--skew-max-reruns",
+        type=int,
+        default=1,
+        help="Max superseded-run re-trigger rounds for --skew-auto-resolve (default: 1).",
+    )
+    parser.add_argument(
+        "--skew-timeout-seconds",
+        type=float,
+        default=300.0,
+        help="Total wall-clock budget for --skew-auto-resolve (default: 300).",
+    )
+    parser.add_argument(
+        "--skew-poll-seconds",
+        type=float,
+        default=20.0,
+        help="Poll interval while waiting for the skew to clear (default: 20).",
+    )
     return parser
 
 
@@ -2124,6 +2265,32 @@ def main(argv: Sequence[str] | None = None) -> int:
                 pr_view=pr_view,
                 required_checks=required_checks,
             )
+            skew_auto_resolution: dict[str, Any] | None = None
+            if visibility_skew is not None and args.skew_auto_resolve:
+                skew_auto_resolution = _auto_resolve_visibility_skew(
+                    pr=args.pr,
+                    head=args.head,
+                    repo=args.repo,
+                    cwd=args.cwd,
+                    skew_report=visibility_skew,
+                    max_reruns=args.skew_max_reruns,
+                    timeout_seconds=args.skew_timeout_seconds,
+                    poll_seconds=args.skew_poll_seconds,
+                    load_inputs=lambda: _load_live_inputs(args.pr, cwd=args.cwd, repo=args.repo),
+                    log=lambda msg: None if args.json else print(msg),
+                )
+                if skew_auto_resolution.get("cleared"):
+                    # Skew is gone (the superseded run re-concluded green). Re-read
+                    # live inputs so the merge acts on current truth.
+                    pr_view, merge_packet, required_checks = _load_live_inputs(
+                        args.pr, cwd=args.cwd, repo=args.repo
+                    )
+                    visibility_skew = _required_check_visibility_skew_report(
+                        pr=args.pr,
+                        head=args.head,
+                        pr_view=pr_view,
+                        required_checks=required_checks,
+                    )
             if visibility_skew is not None:
                 out = {
                     "ok": False,
@@ -2133,11 +2300,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "required_check_visibility_skew": visibility_skew,
                     "next_prompt": visibility_skew["next_prompt"],
                 }
+                if skew_auto_resolution is not None:
+                    out["skew_auto_resolution"] = skew_auto_resolution
                 if args.json:
                     print(json.dumps(out, indent=2, sort_keys=True))
                 else:
                     print("blocked")
                     print(f"- {REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER}")
+                    if skew_auto_resolution is not None:
+                        print(
+                            f"- skew-auto-resolve: {skew_auto_resolution.get('reason')} "
+                            f"(reruns={len(skew_auto_resolution.get('reruns') or [])})"
+                        )
                     print(visibility_skew["next_prompt"])
                 return 2
             applied_commands = _apply_merge(

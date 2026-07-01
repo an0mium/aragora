@@ -3263,3 +3263,186 @@ def test_check_text_prints_merge_packet_reasons_when_blocked(
     assert "checks: 1 failing / 42 total" in out
     assert "counted_model_families: 0 []" in out
     assert "reason: model quorum incomplete: 0/2 signal(s)" in out
+
+
+# --- #8742: --skew-auto-resolve (bounded rerun-and-wait) --------------------
+
+
+def _skew_report(run_url: str) -> dict[str, Any]:
+    return {
+        "blocker": "required_check_visibility_skew",
+        "stale_failed_required_contexts": [
+            {"context": "aragora-merge-quorum", "details_url": run_url}
+        ],
+        "next_prompt": "…",
+    }
+
+
+def _incrementing_clock(step: float = 1.0):
+    state = {"t": 0.0}
+
+    def _now() -> float:
+        state["t"] += step
+        return state["t"]
+
+    return _now
+
+
+def test_superseded_run_ids_extracts_from_details_url() -> None:
+    report = {
+        "stale_failed_required_contexts": [
+            {"details_url": "https://github.com/o/r/actions/runs/28535700881/job/84596779648"},
+            {"details_url": "https://github.com/o/r/actions/runs/999/job/1"},
+            {"details_url": "no-run-here"},
+            {"details_url": "https://github.com/o/r/actions/runs/28535700881/job/2"},  # dup
+        ]
+    }
+    assert settler._superseded_run_ids(report) == ["28535700881", "999"]
+
+
+def test_auto_resolve_clears_after_rerun(monkeypatch: Any) -> None:
+    url = "https://github.com/o/r/actions/runs/123/job/9"
+    reports = [_skew_report(url), None]  # still skewed on 1st poll, clear on 2nd
+    calls = {"i": 0}
+
+    def _report(**_kwargs: Any):
+        i = calls["i"]
+        calls["i"] += 1
+        return reports[i] if i < len(reports) else None
+
+    monkeypatch.setattr(settler, "_required_check_visibility_skew_report", _report)
+    reran: list[str] = []
+    result = settler._auto_resolve_visibility_skew(
+        pr=1,
+        head="h",
+        repo="r",
+        cwd=Path("."),
+        skew_report=_skew_report(url),
+        max_reruns=1,
+        timeout_seconds=1000.0,
+        poll_seconds=1.0,
+        load_inputs=lambda: ({}, {}, []),
+        rerun_run=lambda rid: (reran.append(rid) or True),
+        sleep=lambda _s: None,
+        monotonic=_incrementing_clock(step=1.0),
+    )
+    assert result["cleared"] is True
+    assert reran == ["123"]
+    assert result["reruns"] == [{"run_id": "123", "ok": True}]
+
+
+def test_auto_resolve_times_out_when_skew_persists(monkeypatch: Any) -> None:
+    url = "https://github.com/o/r/actions/runs/123/job/9"
+    monkeypatch.setattr(
+        settler, "_required_check_visibility_skew_report", lambda **_k: _skew_report(url)
+    )
+    reran: list[str] = []
+    result = settler._auto_resolve_visibility_skew(
+        pr=1,
+        head="h",
+        repo="r",
+        cwd=Path("."),
+        skew_report=_skew_report(url),
+        max_reruns=1,
+        timeout_seconds=5.0,
+        poll_seconds=1.0,
+        load_inputs=lambda: ({}, {}, []),
+        rerun_run=lambda rid: (reran.append(rid) or True),
+        sleep=lambda _s: None,
+        monotonic=_incrementing_clock(step=2.0),  # expires the 5s window fast
+    )
+    assert result["cleared"] is False
+    assert reran == ["123"]  # it did try
+    assert "exhausted" in result["reason"]
+
+
+def test_auto_resolve_abstains_without_parseable_run_id() -> None:
+    report = _skew_report("no-run-id-here")
+    result = settler._auto_resolve_visibility_skew(
+        pr=1,
+        head="h",
+        repo="r",
+        cwd=Path("."),
+        skew_report=report,
+        max_reruns=1,
+        timeout_seconds=10.0,
+        poll_seconds=1.0,
+        load_inputs=lambda: ({}, {}, []),
+        rerun_run=lambda _rid: True,
+        sleep=lambda _s: None,
+        monotonic=_incrementing_clock(),
+    )
+    assert result["cleared"] is False
+    assert "no parseable" in result["reason"]
+
+
+def _skewed_then_clean_inputs(head: str, monkeypatch: Any):
+    """_load_live_inputs stub: skewed rollup on call 1, clean on calls >=2."""
+    state = {"n": 0}
+    stale = {
+        "__typename": "CheckRun",
+        "name": "aragora-merge-quorum",
+        "status": "COMPLETED",
+        "conclusion": "FAILURE",
+        "detailsUrl": "https://github.com/o/r/actions/runs/456/job/1",
+        "completedAt": "2026-06-13T01:49:55Z",
+    }
+    ok = {
+        "__typename": "CheckRun",
+        "name": "aragora-merge-quorum",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/o/r/actions/runs/457/job/1",
+        "completedAt": "2026-06-13T01:50:41Z",
+    }
+
+    def _load(pr, cwd, repo=settler.DEFAULT_REPO):
+        state["n"] += 1
+        rollup = [stale, ok] if state["n"] == 1 else [ok]
+        return (
+            _pr_view(head, comments=[_authorized_comment(head)], extra_status_rollup=rollup),
+            _tier4_packet(),
+            _valid_checks(),
+        )
+
+    monkeypatch.setattr(settler, "_load_live_inputs", _load)
+    return state
+
+
+def test_merge_apply_auto_resolve_clears_skew_and_merges(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    _skewed_then_clean_inputs(head, monkeypatch)
+    commands: list[tuple[list[str], str | None]] = []
+    reran: list[str] = []
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_rerun_workflow_run",
+        lambda run_id, cwd, repo: (reran.append(run_id) or True),
+    )
+
+    rc = settler.main(
+        [
+            "--merge-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "--skew-auto-resolve",
+            "--skew-poll-seconds",
+            "0",
+        ]
+    )
+
+    assert reran == ["456"]  # re-ran the superseded failed run
+    assert commands != []  # merge proceeded after the skew cleared
+    assert rc == 0
