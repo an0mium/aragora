@@ -286,6 +286,10 @@ def load_public_key(data: bytes) -> Any:
             "signature verification requires the optional 'cryptography' dependency"
         )
     ed25519_cls, serialization, _ = loaded
+    # Raw keys are checked before strip(): a 32-byte key may legitimately
+    # begin or end with a whitespace byte, and stripping it would corrupt it.
+    if len(data) == 32:
+        return ed25519_cls.from_public_bytes(data)
     text = data.strip()
     if b"-----BEGIN" in text:
         return serialization.load_pem_public_key(text)
@@ -371,6 +375,7 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key: Any) -> 
     provided_key_id = compute_key_id(public_key)
     verified_any = False
     failed_matching = False
+    key_id_mismatch = False
     notes: list[str] = []
     for i, sig in enumerate(signatures):
         if not isinstance(sig, dict):
@@ -384,12 +389,23 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key: Any) -> 
             continue
         try:
             public_key.verify(raw_sig, message)
-            verified_any = True
-            notes.append(f"sig[{i}] (key_id={key_id or '?'}): verified")
         except invalid_signature:
             notes.append(f"sig[{i}] (key_id={key_id or '?'}): INVALID")
             if key_id == provided_key_id:
                 failed_matching = True
+            continue
+        # A signature only counts as verified when its recorded key_id binds
+        # to the supplied key; a cryptographically-valid signature under a
+        # mismatched key_id would let a tampered key_id claim a false signer.
+        if key_id == provided_key_id:
+            verified_any = True
+            notes.append(f"sig[{i}] (key_id={key_id or '?'}): verified")
+        else:
+            key_id_mismatch = True
+            notes.append(
+                f"sig[{i}]: signature verifies with the supplied key but key_id "
+                f"{key_id or '?'} != {provided_key_id} — signer identity not bound"
+            )
 
     detail = "; ".join(notes) or "no signatures evaluated"
     if failed_matching:
@@ -398,6 +414,12 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key: Any) -> 
         )
     if verified_any:
         return Check("signature", PASS, f"Ed25519 signature verified — {detail}")
+    if key_id_mismatch:
+        return Check(
+            "signature",
+            FAIL,
+            f"signature verifies but its key_id does not match the supplied key — {detail}",
+        )
     return Check("signature", FAIL, f"no signature verified with the supplied key — {detail}")
 
 
@@ -490,10 +512,22 @@ def _weakening_warnings(doc: dict[str, Any]) -> list[str]:
         if isinstance(independence, dict):
             if not independence.get("disclosed", False):
                 warnings.append("quorum.independence: model diversity not disclosed")
-            elif int(independence.get("distinct_model_families", 0) or 0) < 2:
-                warnings.append(
-                    "quorum.independence: single model family — limited adversarial diversity"
-                )
+            else:
+                # Weakening signals warn, never fail (spec §8): a non-numeric
+                # families value degrades to a warning instead of raising.
+                try:
+                    families = int(independence.get("distinct_model_families", 0) or 0)
+                except (TypeError, ValueError):
+                    families = None
+                if families is None:
+                    warnings.append(
+                        "quorum.independence: distinct_model_families is not numeric — "
+                        "adversarial diversity unverifiable"
+                    )
+                elif families < 2:
+                    warnings.append(
+                        "quorum.independence: single model family — limited adversarial diversity"
+                    )
         participants = quorum.get("participants", [])
         if isinstance(participants, list) and any(
             isinstance(p, dict) and p.get("model_family") == "undisclosed" for p in participants
@@ -564,11 +598,13 @@ def verify_odr_document(
     warnings: list[str] = []
     try:
         warnings = _weakening_warnings(doc)
-    except Exception as exc:  # noqa: BLE001 - boundary: malformed input -> FAIL, not crash
+    except Exception as exc:  # noqa: BLE001 - boundary: malformed input -> WARN, not crash
+        # Weakening signals warn, never fail (spec §8): an unscannable receipt
+        # loses its advisory signals but that alone cannot flip the verdict.
         checks.append(
             Check(
                 "weakening_signals",
-                FAIL,
+                WARN,
                 f"weakening-signal scan raised on malformed input: {type(exc).__name__}: {exc}",
             )
         )

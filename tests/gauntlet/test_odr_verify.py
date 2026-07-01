@@ -251,3 +251,36 @@ def test_to_dict_json_serializable() -> None:
 def test_load_public_key_rejects_garbage() -> None:
     with pytest.raises(ODRVerificationError):
         load_public_key(b"not a key")
+
+
+def test_tampered_key_id_fails_even_with_valid_signature() -> None:
+    # A cryptographically valid signature must not count when its recorded
+    # key_id does not bind to the supplied key (signer-identity binding).
+    priv = Ed25519PrivateKey.generate()
+    signed = _sign(_valid_odr(), priv)
+    signed["signatures"][0]["key_id"] = "ed25519-deadbeefdeadbeef"
+    result = verify_odr_document(signed, public_key=load_public_key(_pem(priv.public_key())))
+    assert result.ok is False
+    check = _check(result, "signature")
+    assert check.status == FAIL
+    assert "key_id" in check.detail
+
+
+def test_non_numeric_model_families_warns_not_fails() -> None:
+    # Weakening signals warn, never fail (spec §8): a non-numeric
+    # distinct_model_families degrades to a warning instead of a FAIL check.
+    doc = _valid_odr()
+    doc["quorum"]["independence"]["distinct_model_families"] = "n/a"
+    result = verify_odr_document(doc)
+    assert result.ok is True
+    assert not any(c.name == "weakening_signals" and c.status == FAIL for c in result.checks)
+    assert any("not numeric" in w for w in result.warnings)
+
+
+def test_raw_key_with_leading_whitespace_byte_loads() -> None:
+    # A raw 32-byte key may begin/end with a whitespace byte; strip() must
+    # not be applied to the raw form.
+    raw = b"\n" + b"\x11" * 31
+    key = load_public_key(raw)
+    got = key.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    assert got == raw
