@@ -1,5 +1,15 @@
-"""
-Knowledge Mound bidirectional event handlers.
+"""Knowledge-domain event-subscriber home (P4a EventBus inversion, Batch E2).
+
+Bidirectional Knowledge Mound cross-subsystem reactions, relocated here from
+infrastructure ``aragora.events.cross_subscribers.handlers.knowledge_mound`` so the
+knowledge-coupled reactions live in their DOMAIN home. The module self-registers via
+the domain-free registry (``aragora.events.cross_subscribers.register_subscriber`` -
+domain -> infrastructure, downward = legal); the layered bootstraps import it so
+``CrossSubscriberManager.apply_registered_subscribers`` wires these reactions in.
+
+Per the relocate-UP no-shim exemption (AGENTS.md "P4a Contracts-Thread Shared Rules"
+and docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §8) there is NO re-export shim at
+the old path; every consumer is repointed instead.
 
 Handles bidirectional data flow between subsystems and Knowledge Mound:
 - Memory ↔ KM: Sync high-importance memories
@@ -11,11 +21,17 @@ Handles bidirectional data flow between subsystems and Knowledge Mound:
 - Trickster ← KM: Query flip history
 """
 
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING, Any, cast
-from collections.abc import Callable
+
+from aragora.events.cross_subscribers import register_subscriber
+from aragora.events.types import StreamEventType
 
 if TYPE_CHECKING:
+    from aragora.config.settings import Settings
+    from aragora.events.cross_subscribers import CrossSubscriberManager
     from aragora.events.types import StreamEvent
     from aragora.knowledge.mound.facade import KnowledgeMound
 
@@ -34,14 +50,43 @@ except ImportError:
         pass
 
 
+# Feature-flag settings (mirrors the manager helper so the subscriber needs no
+# manager state at construction time).
+try:
+    from aragora.config.settings import get_settings as _get_settings
+
+    _SETTINGS_AVAILABLE = True
+except ImportError:
+    _SETTINGS_AVAILABLE = False
+
+    def _get_settings() -> "Settings | None":  # type: ignore[misc]
+        return None
+
+
 logger = logging.getLogger(__name__)
 
 
-class KnowledgeMoundHandlersMixin:
-    """Mixin providing Knowledge Mound bidirectional event handlers."""
+class KnowledgeEventSubscriber:
+    """Knowledge-domain cross-subscriber: KM ingest/mound reactions.
 
-    # Required from parent: _is_km_handler_enabled method
-    _is_km_handler_enabled: Callable[[str], bool]
+    Owns its reactions and wires them into the manager via :meth:`register` (invoked
+    by ``CrossSubscriberManager.apply_registered_subscribers`` at bootstrap). Feature
+    flags are read via :meth:`_is_km_handler_enabled`, a self-contained copy of the
+    manager helper.
+    """
+
+    def __init__(self) -> None:
+        self._settings = _get_settings() if _SETTINGS_AVAILABLE else None
+
+    def _is_km_handler_enabled(self, handler_name: str) -> bool:
+        """Check whether a KM handler is enabled via feature flags (default on)."""
+        if self._settings is None:
+            return True
+        try:
+            integration = self._settings.integration
+            return integration.is_km_handler_enabled(handler_name)
+        except (AttributeError, TypeError):
+            return True
 
     def _handle_memory_to_mound(self, event: "StreamEvent") -> None:
         """
@@ -548,3 +593,74 @@ class KnowledgeMoundHandlersMixin:
             pass
         except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug("KM→Trickster query failed: %s", e)
+
+    def register(self, manager: "CrossSubscriberManager") -> None:
+        """Wire the knowledge-domain reactions into ``manager`` (keyed/idempotent)."""
+        manager.register(
+            "memory_to_mound",
+            StreamEventType.MEMORY_STORED,
+            self._handle_memory_to_mound,
+        )
+        manager.register(
+            "mound_to_memory_retrieval",
+            StreamEventType.KNOWLEDGE_QUERIED,
+            self._handle_mound_to_memory_retrieval,
+        )
+        manager.register(
+            "belief_to_mound",
+            StreamEventType.BELIEF_CONVERGED,
+            self._handle_belief_to_mound,
+        )
+        manager.register(
+            "mound_to_belief",
+            StreamEventType.DEBATE_START,
+            self._handle_mound_to_belief,
+        )
+        manager.register(
+            "rlm_to_mound",
+            StreamEventType.RLM_COMPRESSION_COMPLETE,
+            self._handle_rlm_to_mound,
+        )
+        manager.register(
+            "mound_to_rlm",
+            StreamEventType.KNOWLEDGE_QUERIED,
+            self._handle_mound_to_rlm,
+        )
+        manager.register(
+            "elo_to_mound",
+            StreamEventType.AGENT_ELO_UPDATED,
+            self._handle_elo_to_mound,
+        )
+        manager.register(
+            "mound_to_team_selection",
+            StreamEventType.DEBATE_START,
+            self._handle_mound_to_team_selection,
+        )
+        manager.register(
+            "insight_to_mound",
+            StreamEventType.INSIGHT_EXTRACTED,
+            self._handle_insight_to_mound,
+        )
+        manager.register(
+            "flip_to_mound",
+            StreamEventType.FLIP_DETECTED,
+            self._handle_flip_to_mound,
+        )
+        manager.register(
+            "mound_to_trickster",
+            StreamEventType.DEBATE_START,
+            self._handle_mound_to_trickster,
+        )
+
+
+def register() -> None:
+    """(Re-)register this home's subscriber into the domain-free registry.
+
+    Idempotent (keyed by name). Called at import time for the running product and
+    again by the layered bootstraps so registration survives ``reset_registry`` in
+    tests - a cached re-import does not re-run module-level code.
+    """
+    register_subscriber("knowledge", KnowledgeEventSubscriber())
+
+
+register()
