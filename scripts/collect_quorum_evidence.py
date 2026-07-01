@@ -21,7 +21,7 @@ Examples
 
     python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr 7720
     python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr 7720 \\
-        --reviewers claude grok --apply
+        --reviewers claude openai --apply
 """
 
 from __future__ import annotations

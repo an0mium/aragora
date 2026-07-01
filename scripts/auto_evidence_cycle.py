@@ -77,7 +77,9 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 DEFAULT_REPO = "synaptent/aragora"
-DEFAULT_FAMILIES = ("claude", "grok")
+# Western-frontier pair (claude→opus-4.8, openai→gpt-5.5); see
+# aragora.swarm.quorum_evidence.DEFAULT_FAMILIES. Override with --families.
+DEFAULT_FAMILIES = ("claude", "openai")
 DEFAULT_ROUTING_RECORDS_DIR = os.path.join(".aragora", "automation-receipts", "routing")
 ROUTING_RECORD_SCHEMA = "aragora.routing_rationale/v1"
 SELECTABLE_STATUS = "needs_model_review_quorum"

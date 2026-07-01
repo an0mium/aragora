@@ -316,7 +316,13 @@ def canonical_family(name: str) -> str:
     return _FAMILY_ALIASES.get(fam, fam)
 
 
-DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
+# Default reviewer pair: the two western-frontier families (claude→opus-4.8,
+# openai→gpt-5.5). Chosen as the strongest, most-aligned adversarial reviewers so
+# a substantial diff can actually clear a 2-signal quorum, and because Tier 3-4
+# requires two western-frontier families. grok (xai) remains available via
+# --reviewers but is not western-frontier and empirically tends to reopen an
+# advisory nitpick loop on large diffs. Override per-run with --reviewers.
+DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "openai")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
 SETTLEMENT_TIER_FLOOR = 3
