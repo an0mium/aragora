@@ -100,3 +100,15 @@ _(per-batch template below)_
   (no fabricated branches; graceful park for not-yet-executable children; order-independent ids;
   truthful docstring; regression test for the post-decomposition tick). This is B2's one revise
   cycle; still-dissenting after re-gate → park per attempt cap.
+
+## Batch 3: Merge executor (#8759 / PR #8767) — SETTLED (Tier 2, implementation)
+
+- **Tier:** 2 (impl) / arming = Tier 4 human step
+- **Scope delivered:** scripts/merge_executor.py (502 lines) + tests (481 lines, 34 tests) — bounded single-pass Tier 0-2 executor composing auto_merge_quorum_green verbatim (composition-lock test); dry-run default; per-merge exact-head + main-health re-verification (checks AND commit statuses); red-main persistent halt marker; --disarm-file kill switch; per-merge operator receipts.
+- **Gate:** round-1 claude PASS / openai [P1][P2] (stale health reuse; status blindness) → repaired at d6a1a1e0 with 5 pinning tests → round-2 **PASS 2-0, evidence POSTED** by both families.
+- **Receipt:** .aragora/run-close-the-loop-20260701/receipts/b3-8767-settlement.json — `aragora verify` → **valid: True**
+- **Settlement:** settled_tier2_autonomous (implementation only). **ARMING AWAITS OPERATOR**: dry-run demo exists (12 PRs scanned, 0 eligible, fail-closed; trace in lane worktree docs/plans/2026-07-01-merge-executor-dryrun-demo.json); conditional pre-approval recorded on #8762 — operator reviews demo + confirms before launchd install/--apply.
+- **Commit:** PR #8767 head d6a1a1e0 (draft; user or armed executor merges — never this run).
+
+## Batch 2 status: PR #8766 revised (12cc13a9: branch_hint + graceful park + content-derived ids; 137 tests) — re-gate in flight.
+## Batch 4 status: PR #8768 revised (b15dd673: idempotent apply path + signal dedup; 32 tests) — re-gate in flight.
