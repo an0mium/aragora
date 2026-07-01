@@ -35,6 +35,7 @@ from .handlers.culture import CultureHandlersMixin
 from .handlers.knowledge_mound import KnowledgeMoundHandlersMixin
 from .handlers.strategic import StrategicHandlersMixin
 from .handlers.validation import ValidationHandlersMixin
+from .registry import get_registered_subscribers
 
 if TYPE_CHECKING:
     from aragora.config.settings import Settings
@@ -135,8 +136,35 @@ class CrossSubscriberManager(
         # Culture storage dict for CultureHandlersMixin
         self._debate_cultures: dict = {}
 
+        # Registry subscribers already wired into this manager instance
+        self._applied_subscribers: set[str] = set()
+
         # Register built-in cross-subsystem handlers
         self._register_builtin_subscribers()
+
+        # Wire any subscribers registered via the domain-free registry
+        self.apply_registered_subscribers()
+
+    def apply_registered_subscribers(self) -> int:
+        """Wire registry subscribers not yet applied into this manager.
+
+        Home modules (domain/application/interface) self-register their
+        subscribers via ``aragora.events.cross_subscribers.register_subscriber``;
+        this applies them by delegating to each subscriber's ``register`` method,
+        reusing the existing per-event dispatch/stats/retry machinery. Idempotent:
+        each subscriber is applied at most once per manager instance.
+
+        Returns:
+            The number of subscribers newly applied by this call.
+        """
+        applied = 0
+        for name, subscriber in get_registered_subscribers().items():
+            if name in self._applied_subscribers:
+                continue
+            subscriber.register(self)
+            self._applied_subscribers.add(name)
+            applied += 1
+        return applied
 
     def _create_async_config_from_settings(self) -> AsyncDispatchConfig:
         """Create AsyncDispatchConfig from settings or use defaults.

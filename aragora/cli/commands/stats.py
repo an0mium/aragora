@@ -318,9 +318,9 @@ def cmd_cross_pollination(args: argparse.Namespace) -> None:
     """Handle 'cross-pollination' command - view event system diagnostics."""
     import json as json_module
 
-    from aragora.events.cross_subscribers import get_cross_subscriber_manager
+    from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
 
-    manager = get_cross_subscriber_manager()
+    manager = bootstrap_event_subscribers()
     action = getattr(args, "action", "stats")
     output_json = getattr(args, "json", False)
 
