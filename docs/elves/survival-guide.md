@@ -48,11 +48,11 @@ timeout-family + Tier 4 merge-authority surface).
 
 ## Stop Gate
 
-- **Planned batches remaining:** 8
+- **Planned batches remaining:** 0 unblocked (B1,B3,B4,B6 done; B2 parked; B5 packet delivered; B7,B8 skipped w/ reasons)
 - **Batches blocked on human settlement (Tier 3-4):** none yet (B5 adjudicator-wiring and B6 cleanup-execution will queue packets; B3-arming waits on dry-run evidence)
-- **Stop allowed right now:** no
-- **Why:** run is staged but not launched; all batches pending.
-- **Next required action:** launch call — start Batch 1 (drain campaign wave 1).
+- **Stop allowed right now:** yes
+- **Why:** every remaining item is blocked on human settlement, operator decisions, or external CI.
+- **Next required action:** operator works the settlement queue (see final handoff on epic #8762).
 
 ---
 

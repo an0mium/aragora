@@ -124,3 +124,13 @@ _(per-batch template below)_
 
 ## Batch 6: queue-drain cleanup batch 1 — LANE LAUNCHED (G1/G2 granted)
 - Lane b6-queue-drain-cleanup: pre-step spot-check, Part B (≤45 patch-equivalent), Part C (≤100 orphans, exclusions honored), Part A (≤30 conservative churn closes), manifests-before-delete, batch-1-only then stop.
+
+## Batch 6: queue-drain cleanup batch 1 — EXECUTED (Tier 4, operator-preapproved)
+- 44 patch-equivalent branches deleted (cherry-proofs), 80 orphans deleted (of 124; 44-branch March memo cluster VALUE-FLAGGED and excluded), 4 churn PRs closed (#8128 #8143 #8405 #8406 — note discrepancy: 8405/8406 were also in B1's T4 packet queue; reversible, recorded on epic). Manifests: PR #8769. Receipt: docs/elves/receipts/b6-cleanup-batch1.json → valid:True.
+- State drift: 46 open PRs / 124 orphans remained vs plan's 231/645 — prior lanes drained most.
+
+## FINAL READINESS REVIEW (2026-07-01 ~20:30 CDT)
+- All 3 receipts verify (b3, b4, b6) — copies committed under docs/elves/receipts/.
+- Run branch contains only run artifacts + B5 spec packet. No stray changes.
+- 8282/8289: repair budget consumed; residual CI shard failures remain (Integration Smoke/test-fast) — need owner attention or a fresh batch; quorum evidence deferred until green.
+- Stop Gate: **stop allowed = YES** — every remaining item is blocked on human settlement (8282/8289/8389/8519/8461 packets, B2 state-machine decision, #8767/#8768 merges + arming, memo-cluster review, batch-2+ cleanup) or external CI.
