@@ -203,8 +203,43 @@ def adjudicate(
             groundedness_bar=groundedness_bar,
         )
 
-    # Only now (no hard block) build the default scorer + its single analyzer
-    # (deferred past the block return — #8749 claude [P3]).
+    # Applicability BEFORE scoring (#8749 openai [P2] r3): the NOT_APPLICABLE
+    # cases need only the verdicts, so decide them without building the default
+    # scorer/analyzer or scoring any finding (no import, no side effects on the
+    # not-a-stall paths).
+    def _unscored_assessments() -> list[FindingAssessment]:
+        return [
+            FindingAssessment(
+                family=it.family,
+                verdict=it.verdict,
+                is_blocking=False,
+                highest_severity=highest_blocking_severity(it.body),
+                groundedness=0.0,
+                grounded=False,
+            )
+            for it in items
+        ]
+
+    dissenting_items = [it for it in items if it.verdict == "changes_requested"]
+    supportive_items = [it for it in items if getattr(it, "supportive", it.verdict == "pass")]
+    if not dissenting_items:
+        return AdjudicationResult(
+            verdict=AdjudicationVerdict.NOT_APPLICABLE,
+            reason="no dissent to adjudicate",
+            assessments=_unscored_assessments(),
+            groundedness_bar=groundedness_bar,
+        )
+    if not supportive_items:
+        return AdjudicationResult(
+            verdict=AdjudicationVerdict.NOT_APPLICABLE,
+            reason="no supportive signal; genuine rejection, not a stall",
+            assessments=_unscored_assessments(),
+            groundedness_bar=groundedness_bar,
+        )
+
+    # It IS a stall worth adjudicating — only now build the default scorer + its
+    # single analyzer (deferred past both the hard-bar and NOT_APPLICABLE returns
+    # — #8749 claude [P3] / openai [P2]).
     if scorer is None:
         from aragora_debate.evidence import EvidenceQualityAnalyzer
 
@@ -214,8 +249,7 @@ def adjudicate(
             return score_groundedness(body, analyzer=_analyzer)
 
     # Score each item exactly once. A scorer failure FAILS CLOSED (openai [P2]):
-    # we never let an exception make a grounded finding look thin and get
-    # suppressed — instead we flag it and escalate to a human below.
+    # never let an exception make a grounded finding look thin and get suppressed.
     scorer_failed = False
     assessments = []
     for it in items:
@@ -241,21 +275,6 @@ def adjudicate(
     paired = list(zip(items, assessments))
     dissenting = [(it, a) for it, a in paired if it.verdict == "changes_requested"]
     supportive = [(it, a) for it, a in paired if getattr(it, "supportive", it.verdict == "pass")]
-
-    if not dissenting:
-        return AdjudicationResult(
-            verdict=AdjudicationVerdict.NOT_APPLICABLE,
-            reason="no dissent to adjudicate",
-            assessments=assessments,
-            groundedness_bar=groundedness_bar,
-        )
-    if not supportive:
-        return AdjudicationResult(
-            verdict=AdjudicationVerdict.NOT_APPLICABLE,
-            reason="no supportive signal; genuine rejection, not a stall",
-            assessments=assessments,
-            groundedness_bar=groundedness_bar,
-        )
 
     # Fail closed (openai [P2]): if groundedness scoring failed for any item, do
     # NOT risk suppressing a real finding as "thin" — escalate to human settlement.

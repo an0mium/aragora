@@ -199,3 +199,14 @@ class TestReviewFindingsFixes:
         items = [_pass("claude"), _Item("openai", _BLOCKING_P1, "changes_requested")]
         r = adjudicate(items)  # scorer=None default; must not raise
         assert r.verdict is AdjudicationVerdict.BLOCK
+
+    def test_not_applicable_never_invokes_scorer(self) -> None:
+        # openai [P2] r3: no-dissent / no-support cases must not build the scorer
+        # or score any finding (no import, no side effects on the not-a-stall path).
+        def boom(_body: str) -> float:
+            raise RuntimeError("scorer must not be called here")
+
+        no_dissent = [_pass("claude"), _pass("openai")]
+        assert adjudicate(no_dissent, scorer=boom).verdict is AdjudicationVerdict.NOT_APPLICABLE
+        no_support = [_Item("openai", _THIN_P3, "changes_requested")]
+        assert adjudicate(no_support, scorer=boom).verdict is AdjudicationVerdict.NOT_APPLICABLE
