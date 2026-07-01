@@ -2582,6 +2582,27 @@ def _build_packet(
             and not required_pending_checks
             and all(_is_merge_quorum_check(check) for check in required_failing_or_cancelled_checks)
         )
+        # Self-check-independent reachability predicate for advisory-dissent
+        # settlement (#8739). Unlike ``required_quorum_only_failure`` above, this
+        # does NOT require the merge-quorum row to be *visible* as a failing
+        # required check. Inside the enforcing Aragora Merge Quorum job the quorum
+        # row is the current self-check and is excluded from
+        # ``effective_required_checks``, so ``required_failing_or_cancelled_checks``
+        # is empty and ``required_quorum_only_failure`` is False even though the
+        # quorum signal is exactly what is missing. Externally the same row appears
+        # as a distinct failing entry. Both collapse to "no NON-quorum required
+        # check is failing/cancelled/pending" — the true condition advisory_settle
+        # needs. Computed separately so the in-job path is reachable WITHOUT
+        # disturbing the self-check semantics ``quorum_only_failure`` (and its guard
+        # tests) rely on. ``all(...)`` over an empty failing set is True (in-job);
+        # over a quorum-only failing set is True (external); over any non-quorum
+        # failure it is False (correctly keeps a real failing check blocking).
+        advisory_settle_surface_clear = (
+            required_available
+            and effective_required_count > 0
+            and not required_pending_checks
+            and all(_is_merge_quorum_check(check) for check in required_failing_or_cancelled_checks)
+        )
         # _rollup_non_green_diagnostics reports the raw GitHub rollup counts/sample
         # and is intentionally not filtered by ignore_own_quorum_check. The flag's
         # effect on the rollup is limited to the summary text computed above; the
@@ -2633,6 +2654,7 @@ def _build_packet(
                 :CHECK_SURFACE_DIAGNOSTIC_LIMIT
             ],
             "quorum_only_failure": required_quorum_only_failure,
+            "advisory_settle_surface_clear": advisory_settle_surface_clear,
         }
         if required_surface.get("error"):
             check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
@@ -3269,6 +3291,18 @@ def _build_model_review_quorum(
         isinstance(required_pr_check_surface, dict)
         and required_pr_check_surface.get("quorum_only_failure")
     )
+    # #8739: self-check-independent reachability for advisory_settle. In the
+    # enforcing merge-quorum job the quorum row is the excluded self-check, so
+    # ``quorum_only_failure`` is False; ``advisory_settle_surface_clear`` is True
+    # whenever no NON-quorum required check is failing/pending. Since
+    # ``quorum_only_failure`` implies a clear surface, the OR below is
+    # backward-compatible with external settle-tooling callers that only populate
+    # the older key.
+    advisory_settle_surface_clear = bool(
+        isinstance(required_pr_check_surface, dict)
+        and required_pr_check_surface.get("advisory_settle_surface_clear")
+    )
+    advisory_settle_reachable = advisory_settle_surface_clear or quorum_only_required_failure
     stale_quorum_check_after_satisfied_evidence = (
         quorum_only_required_failure and quorum_satisfied and not settlement_recorded
     )
@@ -3306,7 +3340,7 @@ def _build_model_review_quorum(
         advisory_dissent_settle_enabled()
         and tier is not None
         and 0 <= tier <= 2
-        and quorum_only_required_failure
+        and advisory_settle_reachable
         and not quorum_satisfied
         and not settlement_recorded
         # NOTE (#8729 claude [P2]): advisory_settle deliberately does NOT require
