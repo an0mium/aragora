@@ -2886,7 +2886,26 @@ class TestModelReviewQuorum:
         assert _dogfood_evidence_from_comments(comments, head_sha=head) == []
 
 
-_QUORUM_ONLY_FAILURE_SURFACES = {"required_pr_checks": {"quorum_only_failure": True}}
+_QUORUM_ONLY_FAILURE_SURFACES = {
+    "required_pr_checks": {
+        "quorum_only_failure": True,
+        # External settle-tooling shape: the merge-quorum row is a distinct failing
+        # required check, so the surface is also advisory_settle-clear.
+        "advisory_settle_surface_clear": True,
+    }
+}
+
+# In-job (#8739) shape: inside the enforcing Aragora Merge Quorum job the quorum row
+# is the excluded current self-check, so ``quorum_only_failure`` is False even though
+# the quorum signal is exactly what is missing. No NON-quorum required check is
+# failing/pending, so ``advisory_settle_surface_clear`` is True and advisory_settle
+# must still be reachable.
+_INJOB_QUORUM_SELF_CHECK_SURFACES = {
+    "required_pr_checks": {
+        "quorum_only_failure": False,
+        "advisory_settle_surface_clear": True,
+    }
+}
 
 
 class TestAdvisoryDissentSettleGate:
@@ -2951,7 +2970,7 @@ class TestAdvisoryDissentSettleGate:
         ]
         return pr
 
-    def _quorum(self, pr, *, has_failures=True, has_pending=False, files=None):
+    def _quorum(self, pr, *, has_failures=True, has_pending=False, files=None, check_surfaces=None):
         return _build_model_review_quorum(
             pr=pr,
             files=files or ["aragora/agents/router.py"],
@@ -2959,8 +2978,29 @@ class TestAdvisoryDissentSettleGate:
             machine_recommendation="repair_first" if has_failures else "approve_candidate",
             has_pending=has_pending,
             has_failures=has_failures,
-            check_surfaces=_QUORUM_ONLY_FAILURE_SURFACES,
+            check_surfaces=check_surfaces
+            if check_surfaces is not None
+            else _QUORUM_ONLY_FAILURE_SURFACES,
         )
+
+    def test_flag_on_settles_in_enforcing_job_via_surface_clear(self, monkeypatch) -> None:
+        # #8739 regression: inside the enforcing merge-quorum job the quorum row is
+        # the excluded self-check, so quorum_only_failure is False. advisory_settle
+        # must still be reachable via the self-check-independent
+        # advisory_settle_surface_clear predicate — otherwise enabling the flag
+        # (#8738) is a no-op in CI.
+        monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        q = self._quorum(
+            self._tier1_pr_wf_advisory_cr(),
+            has_failures=True,
+            check_surfaces=_INJOB_QUORUM_SELF_CHECK_SURFACES,
+        )
+        assert q["tier"] == 1
+        assert q["status"] == "satisfied"
+        assert q["verdict"] == "advisory_settle"
+        assert q["admin_squash_allowed"] is True
+        assert q["unresolved_dissent"] is False
 
     def test_flag_off_advisory_cr_still_blocked(self, monkeypatch) -> None:
         # Flag OFF (default): advisory_settle dormant; behavior byte-identical.
