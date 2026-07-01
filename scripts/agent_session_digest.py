@@ -26,9 +26,50 @@ import time
 from pathlib import Path
 from typing import Any
 
-DEFAULT_SESSIONS_ROOT = Path.home() / ".codex" / "sessions"
+from aragora.swarm.agent_bridge.codex_source import default_codex_home
+
+
+def default_sessions_root() -> Path:
+    return default_codex_home() / "sessions"
+
+
+DEFAULT_SESSIONS_ROOT = default_sessions_root()
+MAX_ROLLOUT_SCAN = 200
 _PR_RE = re.compile(r"#(\d{3,6})\b")
 _CMD_RE = re.compile(r'"cmd"\s*:\s*"([^"]{0,160})')
+
+
+def _rollout_session_id(path: Path, meta_id: str | None = None) -> str:
+    if meta_id:
+        return meta_id
+    name = path.name
+    if name.startswith("rollout-") and name.endswith(".jsonl"):
+        stem = name[len("rollout-") : -len(".jsonl")]
+        match = re.match(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(?P<sid>.+)", stem)
+        return match.group("sid") if match else stem
+    return path.stem
+
+
+def _iter_rollouts(root: Path, *, since_hours: float | None = None, now: float | None = None):
+    cutoff = (
+        None
+        if since_hours is None
+        else (now if now is not None else time.time()) - since_hours * 3600.0
+    )
+    candidates: list[tuple[float, Path]] = []
+    patterns = ("rollout-*.jsonl", "*/*/*/rollout-*.jsonl")
+    for pattern in patterns:
+        for rollout in root.glob(pattern):
+            try:
+                mtime = rollout.stat().st_mtime
+            except OSError:
+                continue
+            if cutoff is not None and mtime < cutoff:
+                continue
+            candidates.append((mtime, rollout))
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    for _, rollout in candidates[:MAX_ROLLOUT_SCAN]:
+        yield rollout
 
 
 def find_rollout(*, path: str | None, session: str | None, latest: bool, root: Path) -> Path | None:
@@ -36,9 +77,7 @@ def find_rollout(*, path: str | None, session: str | None, latest: bool, root: P
     if path:
         p = Path(path)
         return p if p.is_file() else None
-    candidates = sorted(
-        root.rglob("rollout-*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True
-    )
+    candidates = list(_iter_rollouts(root))
     if not candidates:
         return None
     if latest:
@@ -58,16 +97,10 @@ def coordinator_view(
     The single cross-agent view: run before editing shared files to see what
     sibling agents are touching (which PRs/files) and avoid collisions.
     """
-    cutoff = (now if now is not None else time.time()) - since_hours * 3600.0
     rows: list[dict[str, Any]] = []
-    for r in sorted(root.rglob("rollout-*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
-        try:
-            if r.stat().st_mtime < cutoff:
-                continue
-        except OSError:
-            continue
+    for r in _iter_rollouts(root, since_hours=since_hours, now=now):
         turns = extract_turns(r)
-        sid = r.name.split("-")[-1].replace(".jsonl", "")
+        sid = _rollout_session_id(r, turns.get("session_id"))
         rows.append(
             {
                 "session_id": sid,
@@ -90,37 +123,82 @@ def extract_turns(rollout: Path) -> dict[str, Any]:
     decisions: list[str] = []
     commands: list[str] = []
     prs: set[str] = set()
-    for line in rollout.read_text(errors="replace").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rec = json.loads(line)
-        except (ValueError, TypeError):
-            continue
-        if rec.get("type") != "response_item":
-            continue
-        item = rec.get("payload") or rec
-        itype = item.get("type")
-        if itype == "function_call":
-            args = str(item.get("arguments", ""))
-            m = _CMD_RE.search(args)
-            cmd = m.group(1) if m else f"{item.get('name', 'call')}: {args[:80]}"
-            commands.append(cmd)
-            prs.update(_PR_RE.findall(args))
-        elif item.get("role") in ("user", "assistant"):
-            content = item.get("content")
-            text = ""
-            if isinstance(content, list):
-                text = " ".join(x.get("text", "") for x in content if isinstance(x, dict)).strip()
-            elif isinstance(content, str):
-                text = content.strip()
-            if not text:
+    session_id: str | None = None
+    try:
+        handle = rollout.open("r", encoding="utf-8", errors="replace")
+    except OSError:
+        handle = None
+    if handle is None:
+        return {
+            "rollout": str(rollout),
+            "session_id": _rollout_session_id(rollout),
+            "prompts": [],
+            "decisions": [],
+            "commands": [],
+            "prs_referenced": [],
+            "counts": {"prompts": 0, "decisions": 0, "commands": 0, "prs": 0},
+        }
+    with handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line:
                 continue
-            prs.update(_PR_RE.findall(text))
-            (prompts if item.get("role") == "user" else decisions).append(text[:300])
+            try:
+                rec = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            payload = rec.get("payload") if isinstance(rec.get("payload"), dict) else {}
+            if rec.get("type") == "session_meta":
+                sid = payload.get("id")
+                if isinstance(sid, str) and sid:
+                    session_id = sid
+                continue
+            if rec.get("type") == "event_msg":
+                if payload.get("type") == "agent_message":
+                    message = payload.get("message")
+                    if isinstance(message, str) and message.strip():
+                        text = message.strip()
+                        decisions.append(text[:300])
+                        prs.update(_PR_RE.findall(text))
+                continue
+            if rec.get("type") != "response_item":
+                continue
+            item = payload or rec
+            itype = item.get("type")
+            if itype == "function_call":
+                args = item.get("arguments", "")
+                parsed_args = _parse_call_arguments(args)
+                if isinstance(parsed_args, dict) and isinstance(parsed_args.get("cmd"), str):
+                    cmd = parsed_args["cmd"][:160]
+                    arg_text = json.dumps(parsed_args, sort_keys=True, default=str)
+                    prs.update(_pr_ids_from_call_args(parsed_args))
+                else:
+                    arg_text = (
+                        args
+                        if isinstance(args, str)
+                        else json.dumps(args, sort_keys=True, default=str)
+                    )
+                    m = _CMD_RE.search(arg_text)
+                    cmd = m.group(1) if m else f"{item.get('name', 'call')}: {arg_text[:80]}"
+                commands.append(cmd)
+                prs.update(_PR_RE.findall(arg_text))
+            elif item.get("role") in ("user", "assistant"):
+                content = item.get("content")
+                text = ""
+                if isinstance(content, list):
+                    text = " ".join(
+                        x.get("text", "") for x in content if isinstance(x, dict)
+                    ).strip()
+                elif isinstance(content, str):
+                    text = content.strip()
+                if not text:
+                    continue
+                prs.update(_PR_RE.findall(text))
+                (prompts if item.get("role") == "user" else decisions).append(text[:300])
+    session_id = _rollout_session_id(rollout, session_id)
     return {
         "rollout": str(rollout),
+        "session_id": session_id,
         "prompts": prompts,
         "decisions": decisions,
         "commands": commands,
@@ -134,6 +212,28 @@ def extract_turns(rollout: Path) -> dict[str, Any]:
     }
 
 
+def _parse_call_arguments(arguments: Any) -> Any:
+    if isinstance(arguments, dict):
+        return arguments
+    if not isinstance(arguments, str):
+        return arguments
+    try:
+        return json.loads(arguments)
+    except (ValueError, TypeError):
+        return arguments
+
+
+def _pr_ids_from_call_args(arguments: dict[str, Any]) -> set[str]:
+    ids: set[str] = set()
+    for key in ("pr", "pr_number", "pull_request", "pull_request_number"):
+        value = arguments.get(key)
+        if isinstance(value, int):
+            ids.add(str(value))
+        elif isinstance(value, str) and value.isdigit():
+            ids.add(value)
+    return ids
+
+
 def rlm_summary(turns: dict[str, Any], question: str) -> str | None:
     """Best-effort recursive summary via Aragora's RLM CLI; None if unavailable."""
     import tempfile
@@ -142,45 +242,45 @@ def rlm_summary(turns: dict[str, Any], question: str) -> str | None:
         ["# Agent session decisions", *turns["decisions"], "# Commands", *turns["commands"]]
     )
     try:
-        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as src:
-            src.write(body)
-            src_path = src.name
-        ctx_path = src_path + ".ctx.json"
-        comp = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "aragora.cli.main",
-                "rlm",
-                "compress",
-                src_path,
-                "-o",
-                ctx_path,
-                "-t",
-                "document",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if comp.returncode != 0 or not Path(ctx_path).exists():
-            return None
-        q = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "aragora.cli.main",
-                "rlm",
-                "query",
-                question,
-                "--context",
-                ctx_path,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=180,
-        )
-        return q.stdout.strip() or None
+        with tempfile.TemporaryDirectory(prefix="agent-session-digest-") as tmp:
+            src_path = Path(tmp) / "session.txt"
+            ctx_path = Path(tmp) / "session.ctx.json"
+            src_path.write_text(body, encoding="utf-8")
+            comp = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "aragora.cli.main",
+                    "rlm",
+                    "compress",
+                    str(src_path),
+                    "-o",
+                    str(ctx_path),
+                    "-t",
+                    "document",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if comp.returncode != 0 or not ctx_path.exists():
+                return None
+            q = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "aragora.cli.main",
+                    "rlm",
+                    "query",
+                    question,
+                    "--context",
+                    str(ctx_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+            return q.stdout.strip() or None
     except (subprocess.SubprocessError, OSError):
         return None
 
@@ -224,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Also produce a recursive RLM summary (optional custom question)",
     )
-    ap.add_argument("--sessions-root", default=str(DEFAULT_SESSIONS_ROOT))
+    ap.add_argument("--sessions-root", default=str(default_sessions_root()))
     ap.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     args = ap.parse_args(argv)
 
