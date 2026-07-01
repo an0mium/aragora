@@ -471,15 +471,19 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
                 messages=[{"role": "user", "content": prompt}],
             )
 
+            # Anthropic's SDK is optional in baseline environments; accept any
+            # response block that exposes text content instead of importing SDK
+            # classes purely for an isinstance check.
             if not response.content:
                 logger.warning("Response does not contain content")
                 return None
 
             first_block = response.content[0]
-            if getattr(first_block, "type", None) != "text" or not hasattr(first_block, "text"):
+            content_text = getattr(first_block, "text", None)
+            if not isinstance(content_text, str):
                 logger.warning("Response does not contain text content")
                 return None
-            content: str = first_block.text.strip()
+            content: str = content_text.strip()
 
             # Extract JSON from response
             if "```json" in content:

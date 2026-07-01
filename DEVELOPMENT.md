@@ -22,7 +22,7 @@ pip install -e ".[dev,test]"
 python scripts/run_test_baseline.py
 
 # Start the development server
-python -m aragora.server --api-port 8080 --ws-port 8765
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Prerequisites
@@ -35,11 +35,11 @@ python -m aragora.server --api-port 8080 --ws-port 8765
 
 | Feature | Install Command | Notes |
 |---------|-----------------|-------|
-| PostgreSQL | `pip install psycopg2-binary` | Production database |
+| PostgreSQL | `pip install asyncpg` | Production database |
 | Redis | `pip install redis` | Rate limiting, caching |
-| Monitoring | `pip install -e ".[monitoring]"` | Prometheus, Sentry |
-| Observability | `pip install -e ".[observability]"` | OpenTelemetry |
-| Broadcast | `pip install -e ".[broadcast]"` | TTS, audio features |
+| Monitoring | `pip install prometheus-client sentry-sdk` | Prometheus, Sentry |
+| Observability | `pip install opentelemetry-sdk opentelemetry-exporter-otlp` | OpenTelemetry |
+| Broadcast | `pip install edge-tts pydub` | TTS, audio features |
 
 ## Project Structure
 
@@ -325,7 +325,7 @@ aragora/live/
 
 ```bash
 # Enable debug logging
-ARAGORA_LOG_LEVEL=DEBUG python -m aragora.server --api-port 8080 --ws-port 8765
+ARAGORA_LOG_LEVEL=DEBUG aragora serve --api-port 8080 --ws-port 8765
 
 # Profile a debate
 python -c "

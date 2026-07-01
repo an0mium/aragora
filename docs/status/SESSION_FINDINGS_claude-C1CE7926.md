@@ -21,11 +21,11 @@
    - **Recommended fix order:** write a `tests/cli/test_receipt_roundtrip.py` that produces a receipt via `aragora demo --receipt` and verifies it via `aragora receipt verify`. Drive the gap from there.
 
 3. **HIPAA compliance check is keyword-only.** `aragora compliance check --frameworks hipaa` on synthetic PHI (`SSN 123-45-6789, DOB 1980-03-15, ICD-10: E11.9, insurance member ID BC-9876543`) flagged only the keyword "diagnosis" (1 critical). SSNs, ICD codes, insurance IDs, DOBs, etc. were NOT detected.
-   - This **violates** [`feedback_use_real_intelligence.md`](../../.claude/projects/-Users-armand-Development-aragora/memory/feedback_use_real_intelligence.md): "frontier LLMs for all classification/routing/disambiguation."
+   - This **violates** `feedback_use_real_intelligence.md`: "frontier LLMs for all classification/routing/disambiguation."
    - Current rules in `aragora/compliance/` are regex/keyword-based. They should be either (a) augmented with frontier-LLM classification, or (b) at minimum extended with the standard PHI regex set (SSN, DOB, ICD-10, NPI, MRN, etc.).
    - This is one of the four EU AI Act recommendations from #7392 ("Improve robustness score"), now with a concrete repro.
 
-4. **`aragora doctor` flags "LLM Provider: NO API KEY SET" as a failure.** This is incorrect for the canonical local posture (AWS Secrets Manager via `aragora/config/secrets.py` per [`feedback_no_api_keys_in_local_env.md`](../../.claude/projects/-Users-armand-Development-aragora/memory/feedback_no_api_keys_in_local_env.md)). Should be either downgraded to "optional" / "info" with hint about AWS Secrets Manager, or doctor should attempt to load via the canonical secrets path before flagging.
+4. **`aragora doctor` flags "LLM Provider: NO API KEY SET" as a failure.** This is incorrect for the canonical local posture (AWS Secrets Manager via `aragora/config/secrets.py` per `feedback_no_api_keys_in_local_env.md`). Should be either downgraded to "optional" / "info" with hint about AWS Secrets Manager, or doctor should attempt to load via the canonical secrets path before flagging.
 
 5. **Production is healthy.** `https://api.aragora.ai/health` returns `{"status": "ok"}` in 143ms.
 

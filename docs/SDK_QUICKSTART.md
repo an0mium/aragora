@@ -249,7 +249,7 @@ the full platform for:
 pip install aragora[all]
 
 # Start the server (SQLite, no external dependencies)
-aragora serve --offline
+aragora serve --demo
 
 # Run a debate from the CLI
 aragora decide "Should we migrate to Kubernetes?" --rounds 3

@@ -44,8 +44,14 @@ Safety model (mirrors ``quorum_rerun_reconciler.py``):
   a merge-packet probe could not see them (transport_blocked / fetch failure)
   and nothing was posted, so an empty plan does NOT mean the queue is clear.
 
-Opt-in wiring: ``scripts/run_merge_arbiter.sh`` runs this before the arbiter
-when ``ARAGORA_AUTO_EVIDENCE=1`` (default off, non-fatal for the arbiter).
+Legacy opt-in wiring: ``scripts/run_merge_arbiter.sh`` only calls this legacy
+direct-apply path when both ``ARAGORA_AUTO_EVIDENCE=1`` and
+``ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1`` are set. Without the override,
+the wrapper logs that no legacy evidence collection/posting will run and still
+starts the merge-arbiter. Direct ``auto_evidence_cycle.py --apply`` and imported
+``run_cycle(..., apply=True)`` are guarded by the same explicit override and
+fail closed before posting. Conductor loops must use exact-head prepared-artifact
+replay instead of this direct apply path for countable evidence.
 
 Routing-rationale records (#8233 phase 1): each applied collect run also writes
 a standalone JSON artifact (``--routing-records-dir``, default
@@ -66,6 +72,7 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -76,6 +83,7 @@ ROUTING_RECORD_SCHEMA = "aragora.routing_rationale/v1"
 SELECTABLE_STATUS = "needs_model_review_quorum"
 AUTO_POSTABLE_TIERS = {0, 1, 2}
 REQUIRED_FAMILIES = 2
+LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV = "ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY"
 GH_TIMEOUT_SECONDS = 120
 PACKET_TIMEOUT_SECONDS = 300
 COLLECT_TIMEOUT_SECONDS = 1200
@@ -688,6 +696,10 @@ def default_lock_path() -> str:
     return os.path.join(os.path.expanduser("~"), ".aragora", "auto_evidence_cycle.lock")
 
 
+def legacy_auto_evidence_apply_allowed(env: Mapping[str, str] = os.environ) -> bool:
+    return env.get(LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV, "").strip() == "1"
+
+
 # --- Orchestrator --------------------------------------------------------------
 
 
@@ -710,6 +722,7 @@ def run_cycle(
     families: tuple[str, ...] = DEFAULT_FAMILIES,
     clock: Callable[[], float] = time.monotonic,
     log: Callable[[str], None] = print,
+    allow_legacy_apply: bool = False,
 ) -> dict[str, Any]:
     """Plan and (with ``apply``) execute one bounded auto-evidence cycle.
 
@@ -744,11 +757,28 @@ def run_cycle(
         "dogfood_skipped_prs": [],
         "routing_records": [],
         "routing_record_errors": [],
+        "legacy_apply_refused": False,
         "breaker_tripped": False,
         "budget_exhausted": False,
         "reconciler_exit": None,
         "exit_code": EXIT_OK,
     }
+
+    if apply and not allow_legacy_apply:
+        summary["legacy_apply_refused"] = True
+        summary["exit_code"] = EXIT_FAILURES
+        log(
+            json.dumps(
+                {
+                    "result": "legacy_apply_refused",
+                    "reason": (
+                        "legacy direct auto-evidence apply requires "
+                        f"{LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV}=1"
+                    ),
+                }
+            )
+        )
+        return summary
 
     candidates = stage1_candidates(list_prs())
     # ``--max-scan`` now bounds ELIGIBLE-or-INDETERMINATE examinations, not raw
@@ -1026,6 +1056,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: need >= {REQUIRED_FAMILIES} reviewer families", file=sys.stderr)
         return EXIT_FAILURES
 
+    if args.apply and not legacy_auto_evidence_apply_allowed():
+        print(
+            "error: legacy direct auto-evidence apply is disabled by §Conductor; "
+            f"set {LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV}=1 only for an explicit "
+            "operator override, or use prepared-artifact replay",
+            file=sys.stderr,
+        )
+        return EXIT_FAILURES
+
     release: Callable[[], None] = lambda: None
     if args.apply:
         # Mutations require the singleton lock: two racing --apply invocations
@@ -1072,6 +1111,7 @@ def main(argv: list[str] | None = None) -> int:
             max_scan=max(0, args.max_scan),
             budget_seconds=args.budget_seconds,
             breaker_threshold=max(1, args.breaker_threshold),
+            allow_legacy_apply=legacy_auto_evidence_apply_allowed(),
         )
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)

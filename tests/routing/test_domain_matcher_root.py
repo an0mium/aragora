@@ -10,16 +10,27 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-try:
-    from anthropic.types import TextBlock
-except ModuleNotFoundError:
-    TextBlock = SimpleNamespace
-
 from aragora.routing.domain_matcher import (
     DOMAIN_KEYWORDS,
     DomainDetector,
     _DomainCache,
 )
+
+try:
+    from anthropic.types import TextBlock
+except ModuleNotFoundError:
+
+    class TextBlock:
+        """Minimal stand-in for anthropic.types.TextBlock in smoke environments."""
+
+        def __init__(self, *, type: str, text: str) -> None:
+            self.type = type
+            self.text = text
+
+
+def text_block(text: str) -> SimpleNamespace:
+    """Return the minimal response shape consumed by DomainDetector."""
+    return SimpleNamespace(type="text", text=text)
 
 
 # =============================================================================
@@ -307,7 +318,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            TextBlock(type="text", text='{"domains": [{"name": "security", "confidence": 0.95}]}')
+            text_block('{"domains": [{"name": "security", "confidence": 0.95}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -323,9 +334,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            TextBlock(
-                type="text", text='```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```'
-            )
+            text_block('```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -384,7 +393,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            TextBlock(type="text", text='{"domains": [{"name": "security", "confidence": 0.9}]}')
+            text_block('{"domains": [{"name": "security", "confidence": 0.9}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 

@@ -46,15 +46,22 @@ from aragora.swarm.lane_conductor import (  # noqa: E402
     default_release,
     run_pass,
 )
+from aragora.swarm.lane_cycle import run_cycle  # noqa: E402
 from aragora.swarm.lane_dispatcher import DEFAULT_MAX_WORKERS  # noqa: E402
+from scripts.lane_supervisor import _worker_launcher_launch  # noqa: E402
 
 # mergeStateStatus values that mean "open and waiting on checks/quorum/settlement"
 # -- i.e. a candidate the swarm can usefully advance. CLEAN/DIRTY/DRAFT excluded.
 _BLOCKED_STATES = {"BLOCKED", "UNSTABLE"}
-# Owner-liveness assessments that mean the lane is NOT actively held, so it is
-# reassignable. Anything else (including unknown) is treated as live -- the
+# Owner blocking-state values that mean the lane is NOT actively held, so it is
+# reassignable. Anything else (including stale/unknown) is treated as live -- the
 # fail-safe direction is to avoid double-dispatching a possibly-live lane.
-_RECLAIMABLE_ASSESSMENTS = {"stale", "terminal", "absent", "reclaimable"}
+_RECLAIMABLE_OWNER_BLOCKING_STATES = {"stale_terminal_owner", "absent", "reclaimable"}
+
+# Compatibility for older identify_lane_owner output that predates
+# owner_blocking_state. Plain "stale" remains blocking until a reconciler/sweeper
+# has made the row terminal.
+_RECLAIMABLE_LEGACY_ASSESSMENTS = {"terminal", "absent", "reclaimable"}
 _UNKNOWN_OWNER = "owner-liveness-unavailable"
 # Per-probe timeout kept short: a single slow identify_lane_owner must not stall
 # the whole pass. Probes run concurrently across candidates (one slow probe no
@@ -176,11 +183,17 @@ def _resolve_owner(pr: int) -> tuple[int, str | None]:
     owner = str(data.get("owner_session") or "").strip()
     if not owner:
         return pr, None
+    owner_blocking_state = str(data.get("owner_blocking_state") or "").strip().lower()
+    if owner_blocking_state in _RECLAIMABLE_OWNER_BLOCKING_STATES:
+        return pr, None
+    if owner_blocking_state:
+        return pr, owner
+
     liveness = data.get("owner_liveness")
     assessment = (
         str((liveness.get("assessed") if isinstance(liveness, dict) else "") or "").strip().lower()
     )
-    if assessment in _RECLAIMABLE_ASSESSMENTS:
+    if assessment in _RECLAIMABLE_LEGACY_ASSESSMENTS:
         return pr, None
     return pr, owner
 
@@ -211,15 +224,60 @@ def main(argv: list[str] | None = None) -> int:
         help="repo root holding .aragora/lane_dispatch/ and lane claim scripts",
     )
     parser.add_argument("--max-workers", type=int, default=DEFAULT_MAX_WORKERS)
+    parser.add_argument(
+        "--max-launches",
+        type=int,
+        default=None,
+        help="launch cap when --launch-workers is set (default: --max-workers)",
+    )
     parser.add_argument("--target-agent", default=DEFAULT_TARGET_AGENT)
     parser.add_argument(
         "--execute",
         action="store_true",
         help="Write lane claims and dispatch work orders (default: dry-run preview).",
     )
+    parser.add_argument(
+        "--launch-workers",
+        action="store_true",
+        help=(
+            "After the conductor pass, drain the newly dispatched work orders through "
+            "the lane supervisor. Still dry-run unless --execute is also set."
+        ),
+    )
     parser.add_argument("--json", dest="json_output", action="store_true")
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
+
+    if args.launch_workers:
+        result = run_cycle(
+            repo=args.repo,
+            root=root,
+            fetch_candidates=fetch_candidates,
+            fetch_live_claims=fetch_live_claims,
+            max_workers=args.max_workers,
+            max_launches=args.max_launches,
+            target_agent=args.target_agent,
+            execute=args.execute,
+            claim_fn=lambda wo: default_claim(wo, repo_root=root),
+            dispatch_fn=lambda wo: default_dispatch(wo, repo_root=root),
+            launch_fn=lambda order: _worker_launcher_launch(order, repo_root=root),
+        )
+
+        if args.json_output:
+            print(json.dumps(result.to_dict(), indent=2))
+        else:
+            print(result.reason)
+            for wo in result.conductor.work_orders:
+                print(f"  -> PR #{wo.pr} ({wo.branch}) :: {wo.owner_session} [{wo.target_agent}]")
+            for path in result.conductor.dispatched:
+                print(f"  dispatched: {path}")
+            for wo_id in result.supervisor.launched:
+                print(f"  launched: {wo_id}")
+            for failure in result.supervisor.failed:
+                print(f"  FAILED: {failure['work_order_id']} -- {failure['error']}")
+            for wo_id in result.supervisor.deferred:
+                print(f"  deferred: {wo_id}")
+        return 0
 
     result = run_pass(
         repo=args.repo,

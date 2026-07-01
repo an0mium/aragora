@@ -8,7 +8,7 @@ from dataclasses import asdict
 from typing import Any
 
 from aragora.storage.interface import StorageInterface
-from aragora.server.storage import DebateStorage, DebateMetadata
+from aragora.storage.debate_storage import DebateStorage, DebateMetadata
 from aragora.export.artifact import DebateArtifact
 
 

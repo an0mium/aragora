@@ -57,7 +57,7 @@ This index intentionally links to actively maintained docs with validated paths.
 - [Feature Discovery](status/FEATURE_DISCOVERY.md)
 - [Feature Gap List](FEATURE_GAP_LIST.md)
 - [Next Steps (Canonical)](status/NEXT_STEPS_CANONICAL.md)
-- [Active 6-Week Execution Plan](archive/status/2026-02-25-EXECUTION_NEXT_6_WEEKS.md)
+- [Active 6-Week Execution Plan](status/EXECUTION_NEXT_6_WEEKS_2026-03-05.md)
 - [Documentation Hygiene Register](status/DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md)
 - [Roadmap](../ROADMAP.md)
 

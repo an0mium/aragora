@@ -13,7 +13,13 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-__version__ = "2.8.0"
+# Re-export the package version from the canonical single source of truth
+# (``aragora/__version__.py``), which CI keeps aligned with ``pyproject.toml``
+# via ``scripts/check_version_alignment.py``. Deriving it here instead of
+# hard-coding a literal prevents ``aragora.__version__`` from silently drifting
+# away from the declared/installed version. The version module is stdlib-only
+# and side-effect free, so importing it at package init is safe.
+from aragora.__version__ import __version__ as __version__
 
 _EXPORT_MAP = {
     "Agent": ("aragora.core", "Agent"),

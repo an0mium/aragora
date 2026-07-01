@@ -140,6 +140,30 @@ class TestPlanRerun:
         assert decision.should_rerun is False
         assert "max reruns" in decision.reason
 
+    def test_pr_budget_disabled_by_default(self) -> None:
+        # pr_round_budget defaults to 0 (disabled); a high consumed count is ignored.
+        decision = self._call(pr_rounds_consumed=99)
+        assert decision.should_rerun is True
+
+    def test_pr_budget_under_limit_allows(self) -> None:
+        decision = self._call(pr_rounds_consumed=2, pr_round_budget=6)
+        assert decision.should_rerun is True
+
+    def test_pr_budget_exhausted_demands_adjudication(self) -> None:
+        decision = self._call(pr_rounds_consumed=6, pr_round_budget=6)
+        assert decision.should_rerun is False
+        assert "round budget exhausted" in decision.reason
+        assert "net-value adjudication" in decision.reason
+
+    def test_pr_budget_bites_even_when_per_head_cap_is_fresh(self) -> None:
+        # THE fix: a repair push creates a new head, so the per-head cap resets
+        # (reruns_this_head=0). The per-PR budget must still bite across that drift.
+        decision = self._call(
+            reruns_this_head=0, max_reruns_per_head=3, pr_rounds_consumed=6, pr_round_budget=6
+        )
+        assert decision.should_rerun is False
+        assert "round budget exhausted" in decision.reason
+
     def test_within_cooldown(self) -> None:
         decision = self._call(last_rerun_at=NOW - timedelta(seconds=120), cooldown_seconds=600)
         assert decision.should_rerun is False
@@ -298,6 +322,42 @@ class TestSummarizeSettlement:
         status = self._call(tier=None, human_settlement_present=False)
         # Strict default requires human settlement.
         assert "human settlement" in status.next_action
+
+    # --- Jurisdiction consistency with the live gate (grok #8507 P2) -----------
+    # The diagnostic must apply the same Western-only / at-least-one-Western rules
+    # the gate enforces, so it can never tell an operator "settle-ready" for a
+    # pair the gate would block.
+
+    def test_tier3_chinese_routed_family_does_not_count_toward_settle_ready(self) -> None:
+        # Tier 3 claude+deepseek: the gate drops deepseek (advisory-only), so the
+        # diagnostic must report the quorum as incomplete, not settle-ready.
+        status = self._call(
+            tier=3,
+            comments=[_counting_comment("claude"), _counting_comment("deepseek")],
+        )
+        # Western-only counted quorum: only claude counts → needs one more Western.
+        assert "1 more distinct Western model signal" in status.next_action
+        assert "advisory-only" in status.next_action
+
+    def test_tier3_two_western_families_advance_past_signal_count(self) -> None:
+        # claude+grok are both Western: the signal count is met, so the hint moves
+        # on to the next requirement (human settlement) rather than "collect more".
+        status = self._call(
+            tier=3,
+            comments=[_counting_comment("claude"), _counting_comment("grok")],
+            human_settlement_present=False,
+        )
+        assert "Western model signal" not in status.next_action
+        assert "human settlement" in status.next_action
+
+    def test_tier2_no_western_family_is_not_settle_ready(self) -> None:
+        # Tier 2 deepseek+qwen: two distinct families but no Western → the gate
+        # blocks on the at-least-one-Western rule, so the diagnostic must too.
+        status = self._call(
+            tier=2,
+            comments=[_counting_comment("deepseek"), _counting_comment("qwen")],
+        )
+        assert "Western model signal" in status.next_action
 
 
 class TestLooksLikeShadow:
