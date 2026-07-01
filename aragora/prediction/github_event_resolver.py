@@ -52,7 +52,12 @@ class GitHubEventPayload:
         merged: For ``pull_request`` events: whether the PR was merged.
         conclusion: For ``check_run``/``workflow_run`` events: the final
             conclusion (``"success"``, ``"failure"``, ``"cancelled"``, …).
-        raw: Arbitrary additional fields preserved for traceability.
+        raw: Arbitrary additional fields preserved for traceability.  ``CI_PASS``
+            events resolve only when ``raw["aggregate"] is True``, which means
+            the caller has already reduced all required checks for ``target_ref``
+            to one verdict; individual check_run/workflow_run payloads must wait.
+            Issue-close payloads may carry ``state_reason`` at the top level or
+            under the nested ``issue`` object.
     """
 
     event_type: str
@@ -113,6 +118,10 @@ class GitHubEventResolver:
 
         Returns a :class:`ResolutionResult`.  When the event is not
         applicable, ``resolved=False`` is returned instead of raising.
+
+        Expired claims are left unresolved here for the claim store's expiry
+        path; this adapter only resolves matching events for currently open,
+        unexpired claims.
         """
         _require_enabled()
 
@@ -290,14 +299,15 @@ class GitHubEventResolver:
                     f"check_run/workflow_run action {event.action!r} is not terminal; waiting."
                 ),
             )
-        if not event.raw.get("aggregate"):
+        if event.raw.get("aggregate") is not True:
             return ResolutionResult(
                 claim_id=claim.claim_id,
                 resolved=False,
                 resolution_value=False,
                 evidence=(
-                    f"{event.event_type} event for {claim.target_ref} is not marked as an "
-                    "aggregate required-check result; waiting for a pre-aggregated CI event."
+                    f"{event.event_type} event for {claim.target_ref} is not marked with "
+                    "aggregate=True for a required-check-set verdict; waiting for a "
+                    "pre-aggregated CI event."
                 ),
             )
         try:
@@ -317,7 +327,7 @@ class GitHubEventResolver:
             )
         value = event.conclusion == "success"
         evidence = (
-            f"CI {event.event_type} for {claim.target_ref} completed with "
+            f"Aggregate CI {event.event_type} for {claim.target_ref} completed with "
             f"conclusion={event.conclusion!r}; {'pass' if value else 'fail'}."
         )
         return ResolutionResult(

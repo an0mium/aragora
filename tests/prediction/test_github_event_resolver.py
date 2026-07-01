@@ -347,6 +347,21 @@ class TestIssueCloseResolution:
         assert result.resolution_value is False
         assert "not_planned" in result.evidence
 
+    def test_issue_closed_not_planned_nested_payload_does_not_resolve_yes(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.ISSUE_CLOSE, target_ref="x/y#7")
+        event = GitHubEventPayload(
+            event_type="issues",
+            action="closed",
+            target_ref="x/y#7",
+            occurred_at=_EVENT_TIME,
+            raw={"issue": {"state_reason": "not_planned"}},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert result.resolution_value is False
+        assert "not_planned" in result.evidence
+
 
 # ---------------------------------------------------------------------------
 # CI pass resolution
@@ -440,7 +455,23 @@ class TestCIPassResolution:
         )
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
-        assert "not marked as an aggregate" in result.evidence
+        assert "aggregate=True" in result.evidence
+
+    def test_truthy_aggregate_marker_does_not_resolve_ci_claim(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="p/q#13")
+        event = GitHubEventPayload(
+            event_type="check_run",
+            action="completed",
+            target_ref="p/q#13",
+            occurred_at=_EVENT_TIME,
+            conclusion="success",
+            raw={"aggregate": "true", "run_attempt": 1},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert result.resolution_value is False
+        assert "aggregate=True" in result.evidence
 
     def test_rerun_ci_event_does_not_resolve_first_run_claim(self):
         r = GitHubEventResolver()
