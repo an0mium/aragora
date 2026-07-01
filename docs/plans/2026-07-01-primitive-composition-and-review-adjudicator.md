@@ -3,6 +3,7 @@
 **Date:** 2026-07-01
 **Author:** Claude Code session (with founder, scarmani)
 **Status:** proposed — M0 ready to start; M1-M4 are bounded consolidation missions
+**Tracking:** epic #8747 · M0 issue #8748 · this doc PR #8746
 **Related:** #8574 (severity-gated dissent), #8729/#8739/#8741 (advisory-settle), #8738 (enablement),
 #8745 (frontier reviewer default), docs/plans/2026-06-30-advisory-dissent-settlement-gate-packet.md
 
