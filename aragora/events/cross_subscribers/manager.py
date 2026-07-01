@@ -9,7 +9,6 @@ The heavy lifting is delegated to specialized mixins:
 - AdminMixin: Stats reporting, enable/disable, sampling, filtering, retry config
 - BasicHandlersMixin: Core subsystem event handlers
 - CultureHandlersMixin: Culture pattern handlers
-- ValidationHandlersMixin: Consensus and validation handlers
 - StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis, budget, alerts)
 """
 
@@ -32,7 +31,6 @@ from .dispatch import DispatchMixin
 from .handlers.basic import BasicHandlersMixin
 from .handlers.culture import CultureHandlersMixin
 from .handlers.strategic import StrategicHandlersMixin
-from .handlers.validation import ValidationHandlersMixin
 from .registry import get_registered_subscribers
 
 if TYPE_CHECKING:
@@ -64,7 +62,6 @@ class CrossSubscriberManager(
     AdminMixin,
     BasicHandlersMixin,
     CultureHandlersMixin,
-    ValidationHandlersMixin,
     StrategicHandlersMixin,
 ):
     """
@@ -268,34 +265,6 @@ class CrossSubscriberManager(
             "staleness_to_debate",
             StreamEventType.KNOWLEDGE_STALE,
             self._handle_staleness_to_debate,
-        )
-
-        # Phase 8: Provenance → KM
-        self.register(
-            "provenance_to_mound",
-            StreamEventType.CONSENSUS,
-            self._handle_provenance_to_mound,
-        )
-
-        # Phase 8: KM → Provenance
-        self.register(
-            "mound_to_provenance",
-            StreamEventType.CLAIM_VERIFICATION_RESULT,
-            self._handle_mound_to_provenance,
-        )
-
-        # Phase 9: Consensus → KM (direct content ingestion)
-        self.register(
-            "consensus_to_mound",
-            StreamEventType.CONSENSUS,
-            self._handle_consensus_to_mound,
-        )
-
-        # Phase 10: KM Validation Feedback (reverse flow quality improvement)
-        self.register(
-            "km_validation_feedback",
-            StreamEventType.CONSENSUS,
-            self._handle_km_validation_feedback,
         )
 
         # Explainability: Debate End → Explanation auto-trigger
