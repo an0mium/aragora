@@ -15,6 +15,7 @@ import asyncio
 import json
 import multiprocessing
 import os
+import queue
 import signal
 import subprocess
 import threading
@@ -1232,6 +1233,27 @@ def test_signal_reviewer_process_group_falls_back_when_group_missing_but_process
     monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
 
     assert qe._signal_reviewer_process_group(FakeProcess(), signal.SIGTERM) is False  # type: ignore[arg-type]
+
+
+def test_read_reviewer_worker_result_waits_briefly_for_queue_feeder() -> None:
+    events: list[str] = []
+
+    class FakeQueue:
+        def get_nowait(self) -> ReviewerResult:
+            events.append("get_nowait")
+            raise queue.Empty
+
+        def get(self, timeout: float) -> ReviewerResult:
+            events.append(f"get:{timeout}")
+            return ReviewerResult("grok", "Verdict: PASS", True)
+
+    result = qe._read_reviewer_worker_result(
+        qe._ReviewerWorker("grok", SimpleNamespace(), FakeQueue())  # type: ignore[arg-type]
+    )
+
+    assert result.ok is True
+    assert result.family == "grok"
+    assert events == ["get_nowait", f"get:{qe._REVIEWER_RESULT_QUEUE_TIMEOUT}"]
 
 
 def test_collect_preserves_family_order_despite_completion_order() -> None:

@@ -2280,12 +2280,15 @@ def _read_reviewer_worker_result(worker: _ReviewerWorker) -> ReviewerResult:
     try:
         payload = worker.result_queue.get_nowait()
     except queue.Empty:
-        return ReviewerResult(
-            worker.family,
-            "",
-            False,
-            f"{worker.family} reviewer exited without returning a result",
-        )
+        try:
+            payload = worker.result_queue.get(timeout=_REVIEWER_RESULT_QUEUE_TIMEOUT)
+        except queue.Empty:
+            return ReviewerResult(
+                worker.family,
+                "",
+                False,
+                f"{worker.family} reviewer exited without returning a result",
+            )
     if isinstance(payload, ReviewerResult):
         return payload
     if isinstance(payload, dict):
