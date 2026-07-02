@@ -320,10 +320,11 @@ def patch_docs(stats: Stats, write: bool) -> int:
         "python_files",
         f"{stats.python_modules:,}",
     )
+    top_level_modules_fallback = _canonical_count(canonical, "modules", modules_approx)
     exact_top_level_modules = _canonical_count(
         metrics_doc,
         "top_level_modules",
-        modules_approx,
+        top_level_modules_fallback,
     )
     exact_tests = _canonical_count(metrics_doc, "tests", tests_approx)
     exact_test_files = _canonical_count(metrics_doc, "test_files", test_files_approx)
@@ -445,22 +446,6 @@ def patch_docs(stats: Stats, write: bool) -> int:
             ),
         ],
         "CLAUDE.md": [
-            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
-            (
-                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*(?:\+)?\s+tests",
-                lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
-                0,
-            ),
-            (
-                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*(?:\+)?\s+test files",
-                lambda m, value=test_files_approx: f"{m.group(1)}{value} test files",
-                0,
-            ),
-            (
-                r"\*\*Test Suite:\*\*\s*\d[\d,]*(?:\+)?\s+tests\s+across\s+\d[\d,]*(?:\+)?\s+test files",
-                f"**Test Suite:** {tests_approx} tests across {test_files_approx} test files",
-                0,
-            ),
             (r"\d[\d,]*(?:\+)?\s+API operations", f"{api_ops_approx} API operations", 0),
             (r"\d[\d,]*(?:\+)?\s+paths", f"{api_paths_approx} paths", 0),
             (r"\d+\s+KM adapters", f"{km_adapters_registered} KM adapters", 0),
