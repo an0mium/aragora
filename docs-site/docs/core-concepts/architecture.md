@@ -179,7 +179,7 @@ aragora/
 │   └── public/            # Static assets
 │
 ├── server/                 # WebSocket/HTTP server
-│   ├── unified_server.py  # Unified server (3,100+ API operations across 2,900+ paths)
+│   ├── unified_server.py  # Unified server (3,297 API operations across 2,870 paths)
 │   ├── handlers/          # Request handlers by domain
 │   │   ├── base.py        # BaseHandler, ttl_cache decorator
 │   │   ├── debates.py     # Debate CRUD and exports
@@ -755,10 +755,10 @@ Critical operations use explicit transactions:
 
 - **Debate latency**: 2-5 seconds per round (depends on agent response time)
 - **Memory tiers**: Fast (1min TTL), Medium (1hr), Slow (1day), Glacial (1week)
-- **Test coverage**: 210,000+ tests across 5,000+ test files
+- **Test coverage**: 222,878 tests across 5,421 test files
 - **Type safety**: 250+ modules in strict mypy mode
-- **Source modules**: 3,800+ Python modules
+- **Source modules**: 144 Python modules
 - **Storage tests**: 4,300+ tests across all backends including KM (Phase A2)
-- **API surface**: 3,100+ API operations across 2,900+ paths
+- **API surface**: 3,297 API operations across 2,870 paths
 - **SDK breadth**: 185 Python / 183 TypeScript SDK namespaces
 - **KM adapters**: 41 registered adapters (see `aragora/knowledge/mound/adapters/`)

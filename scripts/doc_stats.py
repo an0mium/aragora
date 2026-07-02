@@ -517,6 +517,13 @@ def patch_docs(stats: Stats, write: bool) -> int:
         ],
         "docs/status/FEATURE_DISCOVERY.md": [
             (
+                r"\*\*Total\*\*: 230\+ features \| [^\n]+",
+                f"**Total**: 230+ features | {modules_approx} Python modules | "
+                f"{tests_approx} tests | {api_ops_approx} API operations across "
+                f"{api_paths_approx} paths",
+                0,
+            ),
+            (
                 r"\d+\s+registered adapter specs",
                 f"{km_adapters_registered} registered adapter specs",
                 0,
@@ -537,12 +544,43 @@ def patch_docs(stats: Stats, write: bool) -> int:
         ],
         "docs/architecture/ARCHITECTURE.md": [
             (
+                r"(unified_server\.py\s+# Unified server \()\d[\d,]*(?:\+)?\s+API operations across\s+\d[\d,]*(?:\+)?\s+paths(?=\))",
+                lambda m, ops=api_ops_approx, paths=api_paths_approx: (
+                    f"{m.group(1)}{ops} API operations across {paths} paths"
+                ),
+                0,
+            ),
+            (
+                r"(\*\*Test coverage\*\*: )\d[\d,]*(?:\+)?\s+tests across\s+\d[\d,]*(?:\+)?\s+test files",
+                lambda m, tests=tests_approx, files=test_files_approx: (
+                    f"{m.group(1)}{tests} tests across {files} test files"
+                ),
+                0,
+            ),
+            (
+                r"(\*\*Source modules\*\*: )\d[\d,]*(?:\+)?\s+Python modules",
+                lambda m, modules=modules_approx: f"{m.group(1)}{modules} Python modules",
+                0,
+            ),
+            (
+                r"(\*\*API surface\*\*: )\d[\d,]*(?:\+)?\s+API operations across\s+\d[\d,]*(?:\+)?\s+paths",
+                lambda m, ops=api_ops_approx, paths=api_paths_approx: (
+                    f"{m.group(1)}{ops} API operations across {paths} paths"
+                ),
+                0,
+            ),
+            (
                 r"\d+\s+registered adapters",
                 f"{km_adapters_registered} registered adapters",
                 0,
             ),
         ],
         "docs/STATUS.md": [
+            (
+                r"(\*\*Python modules\*\*: )\d[\d,]*(?:\+)?",
+                lambda m, modules=modules_approx: f"{m.group(1)}{modules}",
+                0,
+            ),
             (
                 r"(\*\*Tests\*\*: )\d[\d,]*(?:\+)?\s+across\s+\d[\d,]*(?:\+)?\s+test files",
                 lambda m, tests=tests_approx, files=test_files_approx: (
@@ -560,6 +598,12 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 lambda m, ops=api_ops_approx, paths=api_paths_approx: (
                     f"{m.group(1)}{ops} across {paths} paths"
                 ),
+                0,
+            ),
+            (
+                r"- \d[\d,]*(?:\+)?\s+API operations across\s+\d[\d,]*(?:\+)?\s+paths, 580\+ HTTP handler modules",
+                f"- {api_ops_approx} API operations across {api_paths_approx} paths, "
+                "580+ HTTP handler modules",
                 0,
             ),
         ],
