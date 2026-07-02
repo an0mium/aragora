@@ -11,19 +11,21 @@ Backends, in order:
 1. ``claude`` CLI (subscription auth) — routed through the authenticated
    ``claude_profile.sh`` pool when available, with ``--model`` forwarded and a
    hard subprocess timeout.
-2. Anthropic Messages API — used only if the CLI is missing, fails, or times
-   out. The key comes from ``ANTHROPIC_API_KEY`` or the aragora secrets
-   manager; if neither is present the fallback is skipped silently.
+2. Anthropic Messages API — used only with explicit ``--api-fallback`` opt-in
+   after CLI attempts fail. The key comes from ``ANTHROPIC_API_KEY`` or the
+   aragora secrets manager; if neither is present the fallback is skipped
+   silently.
 
 Output is the raw model text on stdout, or a JSON envelope with ``--json``.
-Exit codes: 0 ok, 2 all backends timed out, 3 no prompt, 4 all backends
-failed, 64 usage/config error.
+Exit codes: 0 ok, 2 all backends timed out, 3 no prompt, 4 all backends failed
+or budget exhausted, 64 usage/config error.
 
 Examples::
 
     python scripts/consult_claude.py "Which PR should I settle next?"
     python scripts/consult_claude.py --prompt-file /tmp/question.md --json
     echo "$QUESTION" | python scripts/consult_claude.py --timeout 300 --overall-timeout 1200
+    python scripts/consult_claude.py --api-fallback --prompt-file /tmp/question.md
 """
 
 from __future__ import annotations
@@ -52,6 +54,7 @@ FALLBACK_MODEL = "claude-opus-4-8"
 DEFAULT_TIMEOUT_SECONDS = 600
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 API_MAX_TOKENS = 8192
+API_UNSUPPORTED_MODELS = {"claude-fable-5"}
 
 EXIT_OK = 0
 EXIT_TIMEOUT = 2
@@ -280,7 +283,7 @@ def _append_budget_exhausted(attempts: list[dict], *, model: str, backend: str) 
             "model": model,
             "ok": False,
             "backend": backend,
-            "timed_out": True,
+            "budget_exhausted": True,
             "error": "overall consult timeout exhausted before attempt",
         }
     )
@@ -289,7 +292,7 @@ def _append_budget_exhausted(attempts: list[dict], *, model: str, backend: str) 
 def _api_models(model: str, fallback_model: str | None) -> list[str]:
     models: list[str] = []
     for candidate in (model, fallback_model):
-        if candidate and candidate not in models:
+        if candidate and candidate not in API_UNSUPPORTED_MODELS and candidate not in models:
             models.append(candidate)
     return models
 
@@ -317,7 +320,7 @@ def consult(
     overall_timeout: float | None = None,
     fallback_model: str | None = FALLBACK_MODEL,
     system: str | None = None,
-    api_fallback: bool = True,
+    api_fallback: bool = False,
 ) -> dict:
     """Run the consult across backends and return the first success.
 
@@ -355,9 +358,7 @@ def consult(
             if result.get("ok"):
                 return {**result, "model": fallback_model, "attempts": attempts}
     if api_fallback:
-        for api_model in (model, fallback_model):
-            if not api_model:
-                continue
+        for api_model in _api_models(model, fallback_model):
             if any(
                 attempt.get("backend") == "api" and attempt.get("model") == api_model
                 for attempt in attempts
@@ -372,10 +373,12 @@ def consult(
             if result.get("ok"):
                 return {**result, "model": api_model, "attempts": attempts}
     timed_out = all(a.get("timed_out") for a in attempts) and bool(attempts)
+    budget_exhausted = any(a.get("budget_exhausted") for a in attempts)
     return {
         "ok": False,
         "model": model,
         "timed_out": timed_out,
+        "budget_exhausted": budget_exhausted,
         "attempts": attempts,
         "error": "; ".join(str(a.get("error")) for a in attempts),
     }
@@ -409,10 +412,19 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument("--system", help="Optional system-style preamble prepended to the prompt")
-    parser.add_argument(
-        "--no-api-fallback",
+    parser.set_defaults(api_fallback=False)
+    api_fallback_group = parser.add_mutually_exclusive_group()
+    api_fallback_group.add_argument(
+        "--api-fallback",
+        dest="api_fallback",
         action="store_true",
-        help="Do not fall back to the Anthropic API when the CLI fails",
+        help=("Opt in to Anthropic API fallback when CLI attempts fail (may use paid API credits)"),
+    )
+    api_fallback_group.add_argument(
+        "--no-api-fallback",
+        dest="api_fallback",
+        action="store_false",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument("--json", action="store_true", help="Emit a JSON result envelope")
     args = parser.parse_args(argv)
@@ -453,7 +465,7 @@ def main(argv: list[str] | None = None) -> int:
         overall_timeout=args.overall_timeout,
         fallback_model=args.fallback_model or None,
         system=args.system,
-        api_fallback=not args.no_api_fallback,
+        api_fallback=args.api_fallback,
     )
     if args.json:
         print(json.dumps(result, indent=2))
