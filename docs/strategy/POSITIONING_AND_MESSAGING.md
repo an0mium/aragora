@@ -276,6 +276,18 @@ The honest comparison is:
 - Aragora owns the judgment-heavy control points inside those flows
 - the wedge is not "more DAGs"; it is "better governed decisions inside DAGs"
 
+What to say:
+
+- Aragora already has queue, pipeline, and workflow components.
+- Those components are most useful when tied to receipts, approvals, and review evidence.
+- Aragora can be the policy and evidence layer around a broader execution stack.
+
+What not to say:
+
+- Aragora should replace purpose-built workflow infrastructure everywhere.
+- generic workflow breadth is the differentiator buyers should care about first.
+- durable execution alone creates a moat.
+
 The clean line is:
 
 **Use workflow tooling to move work reliably. Use Aragora where the workflow
