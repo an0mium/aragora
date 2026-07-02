@@ -226,7 +226,7 @@ XAI_API_KEY=xai-xxx
 **Verification Commands:**
 ```bash
 # Check if TRUE RLM is available
-python -c "from aragora.rlm import HAS_OFFICIAL_RLM; print(f'TRUE RLM: \{HAS_OFFICIAL_RLM\}')"
+python -c "from aragora.rlm import HAS_OFFICIAL_RLM; print(f'TRUE RLM: {HAS_OFFICIAL_RLM}')"
 # Expected: TRUE RLM: True
 
 # Check server logs after startup

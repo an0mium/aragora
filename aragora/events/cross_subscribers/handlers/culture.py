@@ -3,12 +3,15 @@ Culture-related event handlers.
 
 Handles organizational culture patterns and debate protocol hints:
 - Culture patterns → Debate protocol
-- Debate start → Load culture from KM
 - Knowledge staleness → Debate warnings
+
+Debate start → Load culture from KM (``mound_to_culture``) relocated to
+``aragora.knowledge.event_subscribers.KnowledgeEventSubscriber`` (P4a Batch E2c);
+it is knowledge-coupled while this module is not.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from collections.abc import Callable
 
 if TYPE_CHECKING:
@@ -31,9 +34,6 @@ class CultureHandlersMixin:
 
     # Required from parent: _is_km_handler_enabled method
     _is_km_handler_enabled: Callable[[str], bool]
-
-    # Culture storage dict - will be initialized lazily
-    _debate_cultures: dict
 
     def _handle_culture_to_debate(self, event: "StreamEvent") -> None:
         """
@@ -60,152 +60,6 @@ class CultureHandlersMixin:
 
         # Culture patterns are used passively during debate initialization
         # by querying the CultureAccumulator
-
-    def _handle_mound_to_culture(self, event: "StreamEvent") -> None:
-        """
-        Debate start → Load culture patterns from KM.
-
-        Retrieve relevant culture patterns when a debate starts to inform
-        protocol selection and agent behavior. Patterns include:
-        - Decision style preferences (consensus vs majority)
-        - Risk tolerance (conservative vs aggressive)
-        - Domain expertise distribution
-        - Debate dynamics (rounds to consensus, critique patterns)
-        """
-        if not self._is_km_handler_enabled("mound_to_culture"):
-            return
-
-        data = event.data
-        debate_id = data.get("debate_id", "")
-        domain = data.get("domain", "")
-        data.get("protocol", {})
-
-        logger.debug("Loading culture patterns for debate %s, domain=%s", debate_id, domain)
-
-        # Record KM outbound metric
-        record_km_outbound_event("culture", event.type.value)
-
-        try:
-            from aragora.knowledge.mound import get_knowledge_mound
-
-            mound = get_knowledge_mound()
-            if not mound:
-                logger.debug("Knowledge Mound not available for culture retrieval")
-                return
-
-            # Check if mound is initialized
-            if not mound.is_initialized:
-                logger.debug("Knowledge Mound not initialized, skipping culture retrieval")
-                return
-
-            # Retrieve culture profile from mound
-            import asyncio
-
-            async def retrieve_culture():
-                if hasattr(mound, "get_culture_profile"):
-                    profile = await mound.get_culture_profile()
-                    return profile
-                return None
-
-            # Run async retrieval
-            try:
-                asyncio.get_running_loop()
-                task = asyncio.create_task(retrieve_culture())
-                task.add_done_callback(
-                    lambda t: logger.warning("Culture profile retrieval failed: %s", t.exception())
-                    if not t.cancelled() and t.exception()
-                    else None
-                )
-            except RuntimeError:
-                profile = asyncio.run(retrieve_culture())
-                if profile:
-                    self._store_debate_culture(debate_id, profile, domain)
-
-        except ImportError as e:
-            logger.debug("Culture retrieval import failed: %s", e)
-        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug("Culture→Debate retrieval failed: %s", e)
-
-    def _store_debate_culture(
-        self,
-        debate_id: str,
-        profile: Any,
-        domain: str,
-    ) -> None:
-        """Store culture profile for a debate to inform protocol behavior.
-
-        Args:
-            debate_id: Debate identifier
-            profile: CultureProfile from Knowledge Mound
-            domain: Detected debate domain
-        """
-        try:
-            # Store culture context for this debate
-            # This can be accessed by the orchestrator during debate execution
-            if not hasattr(self, "_debate_cultures"):
-                self._debate_cultures = {}
-
-            # Extract relevant protocol hints from culture
-            protocol_hints = {}
-
-            if hasattr(profile, "dominant_pattern"):
-                dominant = profile.dominant_pattern
-                if dominant:
-                    # Map decision style to protocol recommendations
-                    if hasattr(dominant, "pattern_type"):
-                        if str(dominant.pattern_type) == "decision_style":
-                            protocol_hints["recommended_consensus"] = dominant.value
-
-                    # Map risk tolerance to critique depth
-                    if hasattr(dominant, "pattern_type"):
-                        if str(dominant.pattern_type) == "risk_tolerance":
-                            if dominant.value == "conservative":
-                                protocol_hints["extra_critique_rounds"] = 1
-                            elif dominant.value == "aggressive":
-                                protocol_hints["early_consensus_threshold"] = 0.7
-
-            # Extract domain-specific patterns
-            if hasattr(profile, "patterns"):
-                domain_patterns = [
-                    p for p in profile.patterns if hasattr(p, "domain") and p.domain == domain
-                ]
-                if domain_patterns:
-                    protocol_hints["domain_patterns"] = [
-                        {
-                            "type": str(p.pattern_type),
-                            "value": p.value,
-                            "confidence": p.confidence,
-                        }
-                        for p in domain_patterns
-                    ]
-
-            self._debate_cultures[debate_id] = {
-                "profile": profile,
-                "protocol_hints": protocol_hints,
-                "domain": domain,
-            }
-
-            logger.info(
-                f"Stored culture context for debate {debate_id}: {len(protocol_hints)} hints"
-            )
-
-        except (TypeError, AttributeError, ValueError, KeyError) as e:
-            logger.debug("Failed to store debate culture: %s", e)
-
-    def get_debate_culture_hints(self, debate_id: str) -> dict:
-        """Get protocol hints from culture for a debate.
-
-        Args:
-            debate_id: Debate identifier
-
-        Returns:
-            Dict of protocol hints derived from organizational culture
-        """
-        if not hasattr(self, "_debate_cultures"):
-            return {}
-
-        culture_ctx = self._debate_cultures.get(debate_id, {})
-        return culture_ctx.get("protocol_hints", {})
 
     def _handle_staleness_to_debate(self, event: "StreamEvent") -> None:
         """

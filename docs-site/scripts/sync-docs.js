@@ -359,6 +359,7 @@ const DOC_MAP = {
   'status/FEATURE_DISCOVERY.md': 'contributing/feature-discovery.md',
   'FEATURE_GAP_LIST.md': 'contributing/feature-gap-list.md',
   'status/ACTIVE_EXECUTION_ISSUES.md': 'contributing/active-execution-issues.md',
+  'status/ROADMAP_INTAKE_REGISTER.md': 'contributing/roadmap-intake-register.md',
   'status/B0_BENCHMARK_TRUTH_STATUS.md': 'contributing/b0-benchmark-truth-status.md',
   'status/NEXT_STEPS_CANONICAL.md': 'contributing/next-steps-canonical.md',
   'status/EXECUTION_NEXT_6_WEEKS_2026-03-05.md':
@@ -376,6 +377,10 @@ const DOC_MAP = {
   'plans/PMF_DOGFOOD_EXECUTION_PLAN.md': 'contributing/pmf-dogfood-execution-plan.md',
   'plans/2026-03-26-pmf-14-day-execution-plan.md':
     'contributing/2026-03-26-pmf-14-day-execution-plan.md',
+  'superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md':
+    'contributing/strategy-as-bounded-mission-cadence-design.md',
+  'superpowers/plans/2026-06-26-mission-cadence-m0-m1.md':
+    'contributing/mission-cadence-m0-m1.md',
   'guides/CONDUCTOR_WORKFLOW.md': 'guides/conductor-workflow.md',
   'guides/SWARM_DOGFOOD_OPERATOR.md': 'guides/swarm-dogfood-operator.md',
   'guides/WORKER_PROMPT_PACK.md': 'guides/worker-prompt-pack.md',
@@ -460,6 +465,23 @@ function extractTitle(content) {
   return match ? match[1].replace(/[`*_]/g, '') : 'Documentation';
 }
 
+function escapeUrlParamBracesOutsideCodeFences(content) {
+  let inFence = false;
+  return content
+    .split('\n')
+    .map(line => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence;
+        return line;
+      }
+      if (inFence) {
+        return line;
+      }
+      return line.replace(/\{([\w-]+)\}/g, '\\{$1\\}');
+    })
+    .join('\n');
+}
+
 // Build reverse lookup from source file to destination path
 const REVERSE_LOOKUP = {};
 for (const [src, dest] of Object.entries(DOC_MAP)) {
@@ -479,10 +501,11 @@ function fixContent(content, destPath) {
   // Fix escaped backticks (common in generated docs)
   content = content.replace(/\\`\\`\\`/g, '```');
   content = content.replace(/\\`([^`\\]+)\\`/g, '`$1`');
+  content = content.replace(/[ \t]+$/gm, '');
 
   // Escape curly braces in URL patterns (e.g., {id} -> \{id\})
   // Only escape braces that look like URL params (word chars inside)
-  content = content.replace(/\{(\w+)\}/g, '\\{$1\\}');
+  content = escapeUrlParamBracesOutsideCodeFences(content);
 
   // Escape angle brackets in comparisons (e.g., <0.3 -> &lt;0.3)
   content = content.replace(/<(\d)/g, '&lt;$1');

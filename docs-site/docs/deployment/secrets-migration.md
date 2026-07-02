@@ -225,7 +225,7 @@ The following workflows are already configured to use GitHub Secrets:
            if key_name in secrets:
                return secrets[key_name]
 
-       raise ValueError(f"Secret \{key_name\} not found")
+       raise ValueError(f"Secret {key_name} not found")
    ```
 
 3. **Update configuration loading:**

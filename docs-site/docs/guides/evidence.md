@@ -299,7 +299,7 @@ try:
     results = connector.search("query")
 except ConnectorRateLimitError as e:
     delay = get_retry_delay(e)
-    print(f"Rate limited. Retry after \{delay\}s")
+    print(f"Rate limited. Retry after {delay}s")
 except ConnectorAuthError:
     print("Check your API credentials")
 except ConnectorError as e:

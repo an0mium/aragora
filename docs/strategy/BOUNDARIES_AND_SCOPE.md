@@ -25,6 +25,9 @@ Aragora exists to govern consequential AI-assisted execution with:
 Aragora does **not** exist to be the default runtime for every autonomous agent
 workflow.
 
+If a roadmap item, launch post, or sales claim conflicts with this ledger, the
+ledger wins unless leadership intentionally updates it.
+
 ### Explicit Non-Goals
 
 | Non-goal | Why it is out of scope | What Aragora does instead |
