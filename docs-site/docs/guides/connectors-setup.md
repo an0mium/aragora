@@ -105,7 +105,7 @@ class VaultCredentialProvider:
         # Fetch from HashiCorp Vault
         async with aiohttp.ClientSession() as session:
             resp = await session.get(
-                f"{self.vault_addr}/v1/secret/data/aragora/\{key\}",
+                f"{self.vault_addr}/v1/secret/data/aragora/{key}",
                 headers={"X-Vault-Token": self.vault_token}
             )
             data = await resp.json()
@@ -221,7 +221,7 @@ url = get_oauth_url(
     client_id="your-client-id",
     redirect_uri="http://localhost:8080/oauth/callback",
 )
-print(f"Visit: \{url\}")
+print(f"Visit: {url}")
 
 # After user authorizes, exchange code for tokens
 tokens = await exchange_code(
@@ -652,7 +652,7 @@ auth_url = get_oauth_url(
     redirect_uri="http://localhost:8080/oauth/callback",
     scope=["com.intuit.quickbooks.accounting"],
 )
-print(f"Visit: \{auth_url\}")
+print(f"Visit: {auth_url}")
 
 # Exchange code for tokens (after user authorizes)
 tokens = await exchange_code(
@@ -790,7 +790,7 @@ auth_url = get_oauth_url(
     client_id="your-client-id",
     redirect_uri="http://localhost:8080/oauth/callback",
 )
-print(f"Visit: \{auth_url\}")
+print(f"Visit: {auth_url}")
 
 # Exchange code for tokens
 tokens = await exchange_code(
@@ -882,7 +882,7 @@ auth_url = get_oauth_url(
     redirect_uri="http://localhost:8080/oauth/callback",
     scope=["openid", "profile", "email", "accounting.transactions", "accounting.contacts"],
 )
-print(f"Visit: \{auth_url\}")
+print(f"Visit: {auth_url}")
 
 # Exchange code for tokens
 tokens = await exchange_code(
@@ -1037,7 +1037,7 @@ print(f"Errors: {status['errors']}")
 
 ```python
 def on_progress(synced: int, total: int):
-    print(f"Progress: \{synced\}/\{total\}")
+    print(f"Progress: {synced}/{total}")
 
 def on_item(item):
     print(f"Synced: {item.title}")
@@ -1075,7 +1075,7 @@ result = await github.sync(
 if not result.success:
     print(f"Failed items: {result.items_failed}")
     for error in result.errors:
-        print(f"  - \{error\}")
+        print(f"  - {error}")
 ```
 
 ### Cancellation

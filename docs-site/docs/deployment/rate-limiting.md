@@ -122,7 +122,7 @@ RATE_LIMIT_CONFIG = {
 ### Redis Key Structure
 
 ```
-ratelimit:\{api_key\}:\{endpoint_type\}:\{window\}
+ratelimit:{api_key}:{endpoint_type}:{window}
 ```
 
 Example:
@@ -166,13 +166,13 @@ def api_request(url, **kwargs):
 ```javascript
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, options);
-  
+
   if (response.status === 429) {
     const retryAfter = parseInt(response.headers.get('Retry-After') || '30');
     await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
     return apiRequest(url, options);  // Retry
   }
-  
+
   return response;
 }
 ```

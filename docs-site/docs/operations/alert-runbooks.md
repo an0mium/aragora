@@ -524,7 +524,7 @@ receipt_verification_failure_ratio_15m > 0.02 for 10m
 
 **Initial Update:**
 ```
-[INCIDENT] Aragora - \{AlertName\}
+[INCIDENT] Aragora - {AlertName}
 Impact: {Description of user impact}
 Status: Investigating
 ETA: Assessing
@@ -532,7 +532,7 @@ ETA: Assessing
 
 **Resolution Update:**
 ```
-[RESOLVED] Aragora - \{AlertName\}
+[RESOLVED] Aragora - {AlertName}
 Impact: {Description of user impact}
 Resolution: {What fixed it}
 Duration: {How long}

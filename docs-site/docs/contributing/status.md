@@ -157,12 +157,12 @@ For the full current-status narrative, use the canonical doc:
 - **98 tests** (89 swarm + 9 reconciler)
 
 ### Codebase Metrics (March 6, 2026)
-- **Python modules**: 3,700+
-- **Tests**: 210,000+ across 5,000+ test files
+- **Python modules**: 4,256
+- **Tests**: 222,878 across 5,421 test files
 - **HTTP handlers**: 700+
-- **KM adapters**: 42 registered adapter specs
+- **KM adapters**: 41 registered adapter specs
 - **Agent types**: 43
-- **API operations**: 3,100+ across 2,600+ paths
+- **API operations**: 3,297 across 2,870 paths
 - **RBAC permissions**: 420+
 - **Version**: v2.8.0
 
@@ -2930,7 +2930,7 @@ The nomic loop (`scripts/nomic_loop.py`) implements a 6-phase self-improvement c
 - `on_meta_analyzed`, `on_elo_recorded`, `on_claims_extracted`, `on_belief_network_built`
 
 The codebase is **feature-rich with improving exposure**:
-- 3,100+ API operations across 2,600+ paths, 580+ HTTP handler modules
+- 3,297 API operations across 2,870 paths, 580+ HTTP handler modules
 - Many sophisticated features now surfaced via new APIs
 - WebSocket-first architecture for real-time, REST for data access
 

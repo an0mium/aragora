@@ -322,7 +322,7 @@ cost = calculate_token_cost(
     tokens_in=1500,
     tokens_out=800,
 )
-print(f"Cost: $\{cost\}")  # Based on provider pricing
+print(f"Cost: ${cost}")  # Based on provider pricing
 
 # Get usage summary
 summary = tracker.get_usage_summary(
@@ -375,7 +375,7 @@ try:
     )
     # Redirect user to session.url
 except StripeConfigError as e:
-    print(f"Stripe not configured: \{e\}")
+    print(f"Stripe not configured: {e}")
 ```
 
 ### Handling Webhooks
