@@ -39,7 +39,6 @@
         "aragora.evaluation -> aragora.server",
         "aragora.events -> aragora.agents",
         "aragora.events -> aragora.debate",
-        "aragora.events -> aragora.knowledge",
         "aragora.events -> aragora.memory",
         "aragora.events -> aragora.nomic",
         "aragora.events -> aragora.ranking",

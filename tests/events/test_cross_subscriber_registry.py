@@ -98,6 +98,8 @@ GOLDEN_SUBSCRIBER_NAMES = frozenset(
 # superset bootstrap must still yield full GOLDEN parity (see the parity test).
 # E2a: knowledge_mound reactions -> aragora/knowledge/event_subscribers.py.
 # E2b: validation/consensus/provenance KM reactions -> the same knowledge home.
+# E2c: the knowledge-coupled reactions embedded in the basic/culture/strategic
+# mixins -> the same knowledge home; this closes out events->knowledge.
 RELOCATED_SUBSCRIBER_NAMES = frozenset(
     {
         "memory_to_mound",
@@ -115,6 +117,13 @@ RELOCATED_SUBSCRIBER_NAMES = frozenset(
         "mound_to_provenance",
         "consensus_to_mound",
         "km_validation_feedback",
+        "mound_to_culture",
+        "debate_outcome_to_knowledge",
+        "workflow_complete_to_supermemory",
+        "workflow_failed_to_supermemory",
+        "tier_demotion_to_revalidation",
+        "tier_promotion_to_knowledge",
+        "approval_to_km_reinforcement",
     }
 )
 

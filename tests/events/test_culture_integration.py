@@ -13,11 +13,16 @@ from aragora.events.cross_subscribers import (
 
 @pytest.fixture
 def fresh_manager():
-    """Create a fresh manager for each test."""
-    reset_cross_subscriber_manager()
-    from aragora.events.cross_subscribers import get_cross_subscriber_manager
+    """Create a fresh manager for each test, with domain-home subscribers applied.
 
-    return get_cross_subscriber_manager()
+    ``mound_to_culture`` moved to ``KnowledgeEventSubscriber`` (P4a Batch E2c) and
+    is wired only via ``apply_registered_subscribers``, so this bootstraps rather
+    than using a bare ``CrossSubscriberManager()``.
+    """
+    reset_cross_subscriber_manager()
+    from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+
+    return bootstrap_debate_event_subscribers()
 
 
 class TestCultureToDebateHandler:
@@ -104,36 +109,51 @@ class TestMoundToCultureHandler:
 
 
 class TestDebateCultureHints:
-    """Tests for debate culture hints storage and retrieval."""
+    """Tests for debate culture hints storage and retrieval.
+
+    Storage lives on ``KnowledgeEventSubscriber``, not ``CrossSubscriberManager``
+    (P4a Batch E2c).
+    """
 
     def test_get_debate_culture_hints_empty(self, fresh_manager):
         """Test getting hints for non-existent debate."""
-        hints = fresh_manager.get_debate_culture_hints("nonexistent_debate")
+        from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
+
+        hints = get_knowledge_event_subscriber().get_debate_culture_hints("nonexistent_debate")
         assert hints == {}
 
     def test_store_and_retrieve_hints(self, fresh_manager):
         """Test storing and retrieving culture hints."""
+        from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
+
+        subscriber = get_knowledge_event_subscriber()
         # Manually store hints (simulating what _store_debate_culture does)
-        fresh_manager._debate_cultures = {
-            "debate_001": {
-                "protocol_hints": {
-                    "recommended_consensus": "unanimous",
-                    "extra_critique_rounds": 1,
-                },
-                "domain": "legal",
-            }
+        subscriber._debate_cultures["debate_001"] = {
+            "protocol_hints": {
+                "recommended_consensus": "unanimous",
+                "extra_critique_rounds": 1,
+            },
+            "domain": "legal",
         }
 
-        hints = fresh_manager.get_debate_culture_hints("debate_001")
+        hints = subscriber.get_debate_culture_hints("debate_001")
         assert hints["recommended_consensus"] == "unanimous"
         assert hints["extra_critique_rounds"] == 1
 
 
 class TestCultureProfileProcessing:
-    """Tests for processing CultureProfile into protocol hints."""
+    """Tests for processing CultureProfile into protocol hints.
+
+    ``_store_debate_culture``/``get_debate_culture_hints`` live on
+    ``KnowledgeEventSubscriber``, not ``CrossSubscriberManager`` (P4a Batch E2c).
+    """
 
     def test_store_debate_culture_with_decision_style(self, fresh_manager):
         """Test extracting decision style from culture profile."""
+        from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
+
+        subscriber = get_knowledge_event_subscriber()
+
         # Create mock profile with dominant pattern
         mock_profile = MagicMock()
         mock_pattern = MagicMock()
@@ -142,13 +162,17 @@ class TestCultureProfileProcessing:
         mock_profile.dominant_pattern = mock_pattern
         mock_profile.patterns = []
 
-        fresh_manager._store_debate_culture("debate_003", mock_profile, "general")
+        subscriber._store_debate_culture("debate_003", mock_profile, "general")
 
-        hints = fresh_manager.get_debate_culture_hints("debate_003")
+        hints = subscriber.get_debate_culture_hints("debate_003")
         assert hints.get("recommended_consensus") == "unanimous"
 
     def test_store_debate_culture_with_risk_tolerance_conservative(self, fresh_manager):
         """Test extracting conservative risk tolerance."""
+        from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
+
+        subscriber = get_knowledge_event_subscriber()
+
         mock_profile = MagicMock()
         mock_pattern = MagicMock()
         mock_pattern.pattern_type = "risk_tolerance"
@@ -156,13 +180,17 @@ class TestCultureProfileProcessing:
         mock_profile.dominant_pattern = mock_pattern
         mock_profile.patterns = []
 
-        fresh_manager._store_debate_culture("debate_004", mock_profile, "finance")
+        subscriber._store_debate_culture("debate_004", mock_profile, "finance")
 
-        hints = fresh_manager.get_debate_culture_hints("debate_004")
+        hints = subscriber.get_debate_culture_hints("debate_004")
         assert hints.get("extra_critique_rounds") == 1
 
     def test_store_debate_culture_with_risk_tolerance_aggressive(self, fresh_manager):
         """Test extracting aggressive risk tolerance."""
+        from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
+
+        subscriber = get_knowledge_event_subscriber()
+
         mock_profile = MagicMock()
         mock_pattern = MagicMock()
         mock_pattern.pattern_type = "risk_tolerance"
@@ -170,13 +198,17 @@ class TestCultureProfileProcessing:
         mock_profile.dominant_pattern = mock_pattern
         mock_profile.patterns = []
 
-        fresh_manager._store_debate_culture("debate_005", mock_profile, "startup")
+        subscriber._store_debate_culture("debate_005", mock_profile, "startup")
 
-        hints = fresh_manager.get_debate_culture_hints("debate_005")
+        hints = subscriber.get_debate_culture_hints("debate_005")
         assert hints.get("early_consensus_threshold") == 0.7
 
     def test_store_debate_culture_with_domain_patterns(self, fresh_manager):
         """Test extracting domain-specific patterns."""
+        from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
+
+        subscriber = get_knowledge_event_subscriber()
+
         mock_profile = MagicMock()
         mock_profile.dominant_pattern = None
 
@@ -195,9 +227,9 @@ class TestCultureProfileProcessing:
 
         mock_profile.patterns = [mock_pattern1, mock_pattern2]
 
-        fresh_manager._store_debate_culture("debate_006", mock_profile, "legal")
+        subscriber._store_debate_culture("debate_006", mock_profile, "legal")
 
-        hints = fresh_manager.get_debate_culture_hints("debate_006")
+        hints = subscriber.get_debate_culture_hints("debate_006")
         domain_patterns = hints.get("domain_patterns", [])
         assert len(domain_patterns) == 1
         assert domain_patterns[0]["value"] == "conservative"
@@ -206,17 +238,22 @@ class TestCultureProfileProcessing:
 class TestOrchestratorCultureIntegration:
     """Tests for orchestrator culture hint application."""
 
+    @patch("aragora.knowledge.event_subscribers.get_knowledge_event_subscriber")
     @patch("aragora.debate.event_subscribers.bootstrap_debate_event_subscribers")
-    def test_orchestrator_gets_culture_hints(self, mock_bootstrap, monkeypatch):
+    def test_orchestrator_gets_culture_hints(
+        self, mock_bootstrap, mock_get_subscriber, monkeypatch
+    ):
         """Test that orchestrator retrieves culture hints."""
         from aragora.debate.orchestrator import Arena
         from aragora.core_types import Environment
 
         monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
 
-        mock_manager = MagicMock()
-        mock_manager.get_debate_culture_hints.return_value = {"recommended_consensus": "majority"}
-        mock_bootstrap.return_value = mock_manager
+        mock_subscriber = MagicMock()
+        mock_subscriber.get_debate_culture_hints.return_value = {
+            "recommended_consensus": "majority"
+        }
+        mock_get_subscriber.return_value = mock_subscriber
 
         # Create minimal arena
         environment = Environment(task="Test question")

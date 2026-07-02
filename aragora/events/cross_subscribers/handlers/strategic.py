@@ -5,7 +5,6 @@ Closes feedback loops between subsystems that emit events (Tiers 1-4)
 and subsystems that should consume them:
 - Risk Warning → Health Registry: Degrade component health on security anomalies
 - Agent Birth/Death → Control Plane: Sync genesis events to agent registry
-- Approval Approved → KM Reinforcement: Human approvals boost knowledge confidence
 - Budget Alert → Team Selection: Cost constraints limit debate composition
 - Alert Escalated → Workflow Brake: Critical alerts pause active workflows
 - Meta-Learning Adjusted → Team Selection: Hyperparameter changes inform selection
@@ -154,51 +153,6 @@ class StrategicHandlersMixin:
             pass  # Control plane not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("Genesis → control plane sync failed: %s", e)
-
-    def _handle_approval_to_km_reinforcement(self, event: StreamEvent) -> None:
-        """Human approval → KM confidence reinforcement.
-
-        When a human approves a decision (via the approval flow),
-        boost the confidence of related knowledge in the Knowledge Mound.
-        This creates a feedback loop where human judgment improves
-        the quality of future AI-driven decisions.
-        """
-        data = event.data
-        decision_id = data.get("decision_id", data.get("request_id", ""))
-        debate_id = data.get("debate_id", "")
-        topic = data.get("topic", data.get("description", ""))
-
-        if not topic:
-            return
-
-        logger.debug(
-            "Approval → KM reinforcement: decision=%s debate=%s",
-            decision_id,
-            debate_id,
-        )
-
-        try:
-            from aragora.knowledge.mound import get_knowledge_mound
-
-            mound = get_knowledge_mound()
-            if mound is None:
-                return
-
-            # Boost importance of knowledge related to the approved decision
-            if hasattr(mound, "boost_importance"):
-                source = f"debate:{debate_id}" if debate_id else f"decision:{decision_id}"
-                mound.boost_importance(
-                    source=source,
-                    factor=1.15,  # 15% confidence boost from human approval
-                )
-                logger.info(
-                    "Boosted KM confidence for approved decision %s",
-                    decision_id or debate_id,
-                )
-        except ImportError:
-            pass  # Knowledge Mound not available
-        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug("KM reinforcement from approval failed: %s", e)
 
     def _handle_budget_alert_to_team_selection(self, event: StreamEvent) -> None:
         """Budget alert → Team selection constraint.

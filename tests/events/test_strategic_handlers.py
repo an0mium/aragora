@@ -233,12 +233,16 @@ class TestGenesisToControlPlane:
 
 
 class TestApprovalToKMReinforcement:
-    """Test approval approved → KM confidence reinforcement handler."""
+    """Test approval approved → KM confidence reinforcement handler.
+
+    Relocated to ``KnowledgeEventSubscriber`` (P4a Batch E2c): it is
+    knowledge-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    """
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
 
-        return StrategicHandlersMixin()
+        return KnowledgeEventSubscriber()
 
     def test_skips_when_no_topic(self, make_event):
         handler = self._get_handler()
@@ -533,7 +537,6 @@ class TestStrategicHandlersRegistration:
             "agent_birth_to_control_plane",
             "agent_death_to_control_plane",
             "agent_evolution_to_control_plane",
-            "approval_to_km_reinforcement",
             "budget_alert_to_team_selection",
             "alert_escalated_to_workflow_brake",
             "meta_learning_to_team_selection",
@@ -541,18 +544,23 @@ class TestStrategicHandlersRegistration:
         assert expected.issubset(registered_names), (
             f"Missing handlers: {expected - registered_names}"
         )
+        # approval_to_km_reinforcement relocated to KnowledgeEventSubscriber
+        # (P4a Batch E2c); a bare manager no longer registers it directly.
+        assert "approval_to_km_reinforcement" not in registered_names
 
     def test_strategic_event_types_have_subscribers(self):
         from aragora.events.cross_subscribers.manager import CrossSubscriberManager
 
         manager = CrossSubscriberManager()
 
+        # APPROVAL_APPROVED excluded: its only bare-manager subscriber
+        # (approval_to_km_reinforcement) relocated to KnowledgeEventSubscriber
+        # (P4a Batch E2c) and is wired only via apply_registered_subscribers.
         expected_event_types = {
             StreamEventType.RISK_WARNING,
             StreamEventType.AGENT_BIRTH,
             StreamEventType.AGENT_DEATH,
             StreamEventType.AGENT_EVOLUTION,
-            StreamEventType.APPROVAL_APPROVED,
             StreamEventType.BUDGET_ALERT,
             StreamEventType.ALERT_ESCALATED,
             StreamEventType.META_LEARNING_ADJUSTED,

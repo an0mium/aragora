@@ -27,7 +27,7 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
-from aragora.events.cross_subscribers import register_subscriber
+from aragora.events.cross_subscribers import get_registered_subscribers, register_subscriber
 from aragora.events.types import StreamEventType
 
 if TYPE_CHECKING:
@@ -87,6 +87,13 @@ KNOWLEDGE_EVENT_SUBSCRIBER_HANDLER_NAMES = frozenset(
         "mound_to_provenance",
         "consensus_to_mound",
         "km_validation_feedback",
+        "mound_to_culture",
+        "debate_outcome_to_knowledge",
+        "workflow_complete_to_supermemory",
+        "workflow_failed_to_supermemory",
+        "tier_demotion_to_revalidation",
+        "tier_promotion_to_knowledge",
+        "approval_to_km_reinforcement",
     }
 )
 
@@ -102,6 +109,10 @@ class KnowledgeEventSubscriber:
 
     def __init__(self) -> None:
         self._settings = get_settings() if _SETTINGS_AVAILABLE else None
+        # Per-debate culture protocol hints, populated by _store_debate_culture
+        # and read back via get_debate_culture_hints (relocated from
+        # CrossSubscriberManager._debate_cultures, P4a Batch E2c).
+        self._debate_cultures: dict[str, dict[str, Any]] = {}
 
     def _is_km_handler_enabled(self, handler_name: str) -> bool:
         """Check whether a KM handler is enabled via feature flags (default on)."""
@@ -1248,6 +1259,401 @@ class KnowledgeEventSubscriber:
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
             logger.warning("KM validation feedback failed: %s", e)
 
+    # ------------------------------------------------------------------
+    # Culture / debate-outcome / workflow / tier / approval reactions
+    # (relocated from events.cross_subscribers.handlers.{basic,culture,
+    # strategic}, P4a Batch E2c). Each mixin's other-domain reactions stay
+    # in place there for E3-E6 to relocate to their own domain homes.
+    # ------------------------------------------------------------------
+    def _handle_mound_to_culture(self, event: "StreamEvent") -> None:
+        """
+        Debate start → Load culture patterns from KM.
+
+        Retrieve relevant culture patterns when a debate starts to inform
+        protocol selection and agent behavior. Patterns include:
+        - Decision style preferences (consensus vs majority)
+        - Risk tolerance (conservative vs aggressive)
+        - Domain expertise distribution
+        - Debate dynamics (rounds to consensus, critique patterns)
+        """
+        if not self._is_km_handler_enabled("mound_to_culture"):
+            return
+
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        domain = data.get("domain", "")
+        data.get("protocol", {})
+
+        logger.debug("Loading culture patterns for debate %s, domain=%s", debate_id, domain)
+
+        # Record KM outbound metric
+        record_km_outbound_event("culture", event.type.value)
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if not mound:
+                logger.debug("Knowledge Mound not available for culture retrieval")
+                return
+
+            # Check if mound is initialized
+            if not mound.is_initialized:
+                logger.debug("Knowledge Mound not initialized, skipping culture retrieval")
+                return
+
+            # Retrieve culture profile from mound
+            import asyncio
+
+            async def retrieve_culture():
+                if hasattr(mound, "get_culture_profile"):
+                    profile = await mound.get_culture_profile()
+                    return profile
+                return None
+
+            # Run async retrieval
+            try:
+                asyncio.get_running_loop()
+                task = asyncio.create_task(retrieve_culture())
+                task.add_done_callback(
+                    lambda t: logger.warning("Culture profile retrieval failed: %s", t.exception())
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
+            except RuntimeError:
+                profile = asyncio.run(retrieve_culture())
+                if profile:
+                    self._store_debate_culture(debate_id, profile, domain)
+
+        except ImportError as e:
+            logger.debug("Culture retrieval import failed: %s", e)
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
+            logger.debug("Culture→Debate retrieval failed: %s", e)
+
+    def _store_debate_culture(
+        self,
+        debate_id: str,
+        profile: Any,
+        domain: str,
+    ) -> None:
+        """Store culture profile for a debate to inform protocol behavior.
+
+        Args:
+            debate_id: Debate identifier
+            profile: CultureProfile from Knowledge Mound
+            domain: Detected debate domain
+        """
+        try:
+            # Extract relevant protocol hints from culture
+            protocol_hints = {}
+
+            if hasattr(profile, "dominant_pattern"):
+                dominant = profile.dominant_pattern
+                if dominant:
+                    # Map decision style to protocol recommendations
+                    if hasattr(dominant, "pattern_type"):
+                        if str(dominant.pattern_type) == "decision_style":
+                            protocol_hints["recommended_consensus"] = dominant.value
+
+                    # Map risk tolerance to critique depth
+                    if hasattr(dominant, "pattern_type"):
+                        if str(dominant.pattern_type) == "risk_tolerance":
+                            if dominant.value == "conservative":
+                                protocol_hints["extra_critique_rounds"] = 1
+                            elif dominant.value == "aggressive":
+                                protocol_hints["early_consensus_threshold"] = 0.7
+
+            # Extract domain-specific patterns
+            if hasattr(profile, "patterns"):
+                domain_patterns = [
+                    p for p in profile.patterns if hasattr(p, "domain") and p.domain == domain
+                ]
+                if domain_patterns:
+                    protocol_hints["domain_patterns"] = [
+                        {
+                            "type": str(p.pattern_type),
+                            "value": p.value,
+                            "confidence": p.confidence,
+                        }
+                        for p in domain_patterns
+                    ]
+
+            self._debate_cultures[debate_id] = {
+                "profile": profile,
+                "protocol_hints": protocol_hints,
+                "domain": domain,
+            }
+
+            logger.info(
+                f"Stored culture context for debate {debate_id}: {len(protocol_hints)} hints"
+            )
+
+        except (TypeError, AttributeError, ValueError, KeyError) as e:
+            logger.debug("Failed to store debate culture: %s", e)
+
+    def get_debate_culture_hints(self, debate_id: str) -> dict:
+        """Get protocol hints from culture for a debate.
+
+        Args:
+            debate_id: Debate identifier
+
+        Returns:
+            Dict of protocol hints derived from organizational culture
+        """
+        culture_ctx = self._debate_cultures.get(debate_id, {})
+        return culture_ctx.get("protocol_hints", {})
+
+    def _handle_debate_outcome_to_knowledge(self, event: "StreamEvent") -> None:
+        """Debate end → Knowledge Mound outcome persistence.
+
+        When a debate ends, persist the outcome (winning position,
+        key arguments, consensus strength) into the Knowledge Mound
+        for future debate context enrichment.
+        """
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        consensus = data.get("consensus_reached", False)
+        confidence = data.get("confidence", 0.0)
+        task = data.get("task", "")
+
+        if not consensus or confidence < 0.6:
+            return  # Only persist high-confidence outcomes
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if mound is None:
+                return
+
+            outcome_content = {
+                "debate_id": debate_id,
+                "task": task[:500] if task else "",
+                "consensus_reached": consensus,
+                "confidence": confidence,
+                "winning_position": data.get("winning_position", ""),
+                "key_arguments": data.get("key_arguments", [])[:10],
+            }
+
+            import asyncio
+
+            item = {
+                "content": str(outcome_content),
+                "source": f"debate:{debate_id}",
+                "node_type": "debate_outcome",
+                "metadata": outcome_content,
+            }
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(mound.ingest(item))
+            except RuntimeError:
+                asyncio.run(mound.ingest(item))
+            logger.debug("Persisted debate outcome to KM: %s", debate_id)
+        except ImportError:
+            pass  # Knowledge Mound not available
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
+            logger.debug("KM outcome persistence failed: %s", e)
+
+    def _handle_workflow_outcome_to_supermemory(self, event: "StreamEvent") -> None:
+        """Workflow completion/failure → Supermemory persistence.
+
+        When a workflow completes or fails, store the outcome in supermemory
+        for cross-workflow learning. This creates institutional memory of
+        what worked and what didn't, enabling future workflows to benefit
+        from past experience.
+        """
+        data = event.data
+        workflow_id = data.get("workflow_id", "")
+        definition_id = data.get("definition_id", "")
+        success = data.get("success", False)
+
+        if not workflow_id:
+            return
+
+        logger.info(
+            "Storing workflow outcome in supermemory: workflow=%s success=%s",
+            workflow_id,
+            success,
+        )
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if mound is None:
+                return
+
+            outcome = {
+                "workflow_id": workflow_id,
+                "definition_id": definition_id,
+                "success": success,
+                "duration_ms": data.get("duration_ms", 0),
+                "steps_executed": data.get("steps_executed", 0),
+                "error": data.get("error", ""),
+            }
+
+            status = "completed successfully" if success else "failed"
+            content = (
+                f"Workflow {definition_id or workflow_id} {status}. "
+                f"Steps: {outcome['steps_executed']}, "
+                f"Duration: {outcome['duration_ms']}ms"
+            )
+            if not success and outcome["error"]:
+                content += f". Error: {outcome['error'][:200]}"
+
+            import asyncio
+
+            wf_item = {
+                "content": content,
+                "source": f"workflow:{workflow_id}",
+                "node_type": "workflow_outcome",
+                "metadata": outcome,
+            }
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(mound.ingest(wf_item))
+            except RuntimeError:
+                asyncio.run(mound.ingest(wf_item))
+            logger.debug("Workflow outcome stored in KM: %s", workflow_id)
+        except ImportError:
+            pass  # Knowledge Mound not available
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
+            logger.debug("KM workflow storage failed: %s", e)
+
+    def _handle_tier_demotion_to_revalidation(self, event: "StreamEvent") -> None:
+        """Memory tier demotion → Re-validation trigger.
+
+        When a memory entry is demoted to slow or glacial tier, trigger
+        re-validation to ensure the content is still accurate before
+        it becomes harder to access. This prevents stale or incorrect
+        knowledge from persisting in lower tiers without review.
+        """
+        data = event.data
+        memory_id = data.get("memory_id", "")
+        to_tier = data.get("to_tier", "")
+        from_tier = data.get("from_tier", "")
+
+        if not memory_id:
+            return
+
+        # Only re-validate on demotion to slow or glacial tiers
+        if to_tier not in ("slow", "glacial"):
+            return
+
+        logger.info(
+            "Tier demotion re-validation: memory=%s from=%s to=%s",
+            memory_id,
+            from_tier,
+            to_tier,
+        )
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if mound is None:
+                return
+
+            # Mark for re-validation in KM
+            if hasattr(mound, "mark_for_revalidation"):
+                mound.mark_for_revalidation(
+                    source=f"continuum:{memory_id}",
+                    reason=f"tier_demotion:{from_tier}->{to_tier}",
+                )
+                logger.debug(
+                    "Marked memory %s for KM re-validation after demotion",
+                    memory_id,
+                )
+        except ImportError:
+            pass  # Knowledge Mound not available
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("KM re-validation trigger failed: %s", e)
+
+    def _handle_tier_promotion_to_knowledge(self, event: "StreamEvent") -> None:
+        """Memory tier promotion → Knowledge Mound notification.
+
+        When a memory entry is promoted to a faster tier, notify KM
+        so it can prioritize that knowledge for retrieval and ensure
+        the entry's importance is reflected in search rankings.
+        """
+        data = event.data
+        memory_id = data.get("memory_id", "")
+        to_tier = data.get("to_tier", "")
+        surprise_score = data.get("surprise_score", 0.0)
+
+        if not memory_id:
+            return
+
+        logger.debug(
+            "Tier promotion notification: memory=%s to=%s surprise=%.3f",
+            memory_id,
+            to_tier,
+            surprise_score,
+        )
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if mound is None:
+                return
+
+            # Boost importance in KM based on promotion
+            if hasattr(mound, "boost_importance"):
+                mound.boost_importance(
+                    source=f"continuum:{memory_id}",
+                    factor=1.0 + surprise_score,
+                )
+        except ImportError:
+            pass  # Knowledge Mound not available
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("KM importance boost failed: %s", e)
+
+    def _handle_approval_to_km_reinforcement(self, event: "StreamEvent") -> None:
+        """Human approval → KM confidence reinforcement.
+
+        When a human approves a decision (via the approval flow),
+        boost the confidence of related knowledge in the Knowledge Mound.
+        This creates a feedback loop where human judgment improves
+        the quality of future AI-driven decisions.
+        """
+        data = event.data
+        decision_id = data.get("decision_id", data.get("request_id", ""))
+        debate_id = data.get("debate_id", "")
+        topic = data.get("topic", data.get("description", ""))
+
+        if not topic:
+            return
+
+        logger.debug(
+            "Approval → KM reinforcement: decision=%s debate=%s",
+            decision_id,
+            debate_id,
+        )
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if mound is None:
+                return
+
+            # Boost importance of knowledge related to the approved decision
+            if hasattr(mound, "boost_importance"):
+                source = f"debate:{debate_id}" if debate_id else f"decision:{decision_id}"
+                mound.boost_importance(
+                    source=source,
+                    factor=1.15,  # 15% confidence boost from human approval
+                )
+                logger.info(
+                    "Boosted KM confidence for approved decision %s",
+                    decision_id or debate_id,
+                )
+        except ImportError:
+            pass  # Knowledge Mound not available
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
+            logger.debug("KM reinforcement from approval failed: %s", e)
+
     def register(self, manager: "CrossSubscriberManager") -> None:
         """Wire the knowledge-domain reactions into ``manager`` (keyed/idempotent)."""
         manager.register(
@@ -1325,6 +1731,57 @@ class KnowledgeEventSubscriber:
             StreamEventType.CONSENSUS,
             self._handle_km_validation_feedback,
         )
+        manager.register(
+            "mound_to_culture",
+            StreamEventType.DEBATE_START,
+            self._handle_mound_to_culture,
+        )
+        manager.register(
+            "debate_outcome_to_knowledge",
+            StreamEventType.DEBATE_END,
+            self._handle_debate_outcome_to_knowledge,
+        )
+        manager.register(
+            "workflow_complete_to_supermemory",
+            StreamEventType.WORKFLOW_COMPLETE,
+            self._handle_workflow_outcome_to_supermemory,
+        )
+        manager.register(
+            "workflow_failed_to_supermemory",
+            StreamEventType.WORKFLOW_FAILED,
+            self._handle_workflow_outcome_to_supermemory,
+        )
+        manager.register(
+            "tier_demotion_to_revalidation",
+            StreamEventType.MEMORY_TIER_DEMOTION,
+            self._handle_tier_demotion_to_revalidation,
+        )
+        manager.register(
+            "tier_promotion_to_knowledge",
+            StreamEventType.MEMORY_TIER_PROMOTION,
+            self._handle_tier_promotion_to_knowledge,
+        )
+        manager.register(
+            "approval_to_km_reinforcement",
+            StreamEventType.APPROVAL_APPROVED,
+            self._handle_approval_to_km_reinforcement,
+        )
+
+
+def get_knowledge_event_subscriber() -> KnowledgeEventSubscriber:
+    """Return the ``KnowledgeEventSubscriber`` currently wired into the registry.
+
+    Domain callers that need subscriber-local state - e.g.
+    ``aragora.debate.knowledge_manager`` reading per-debate culture hints - use
+    this instead of routing through ``CrossSubscriberManager``, which no longer
+    carries that state (P4a Batch E2c). Registers a fresh instance first if none
+    is present yet, mirroring :func:`register`.
+    """
+    subscriber = get_registered_subscribers().get("knowledge")
+    if not isinstance(subscriber, KnowledgeEventSubscriber):
+        subscriber = KnowledgeEventSubscriber()
+        register_subscriber("knowledge", subscriber)
+    return subscriber
 
 
 def register() -> None:
