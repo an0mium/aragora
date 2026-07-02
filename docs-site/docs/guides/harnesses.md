@@ -411,13 +411,13 @@ from aragora.harnesses import (
 try:
     result = await harness.analyze_repository(repo_path)
 except HarnessTimeoutError as e:
-    print(f"Analysis timed out: \{e\}")
+    print(f"Analysis timed out: {e}")
     # Handle timeout - maybe increase timeout or reduce scope
 except HarnessConfigError as e:
-    print(f"Configuration error: \{e\}")
+    print(f"Configuration error: {e}")
     # Handle config issues - check tool installation
 except HarnessError as e:
-    print(f"Harness error: {e.harness} - \{e\}")
+    print(f"Harness error: {e.harness} - {e}")
     # Handle general harness errors
 ```
 
@@ -448,7 +448,7 @@ service = DebateService()
 debate_result = await service.run(
     task=f"""Review these security findings and prioritize fixes:
 
-\{findings_summary\}
+{findings_summary}
 
 Which findings are most critical? What's the recommended fix order?""",
     options=DebateOptions(rounds=3),

@@ -559,22 +559,22 @@ WhatsApp requires pre-approved templates for proactive messages. Create template
    ```
    *Debate Complete*
 
-   Topic: {\{1\}}
-   Consensus: {\{2\}}
-   Confidence: {\{3\}}%
+   Topic: {{1}}
+   Consensus: {{2}}
+   Confidence: {{3}}%
 
-   View full results: {\{4\}}
+   View full results: {{4}}
    ```
 
 2. **Gauntlet Alert Template** (`aragora_gauntlet_alert`):
    ```
    *Validation Alert*
 
-   Statement: {\{1\}}
-   Status: {\{2\}}
-   Issues Found: {\{3\}}
+   Statement: {{1}}
+   Status: {{2}}
+   Issues Found: {{3}}
 
-   Details: {\{4\}}
+   Details: {{4}}
    ```
 
 Submit templates for review in WhatsApp Manager.

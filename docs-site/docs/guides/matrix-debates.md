@@ -319,7 +319,7 @@ async def run_matrix_debate():
 
         print("=== Universal Conclusions ===")
         for conclusion in result.get("universal_conclusions", []):
-            print(f"  - \{conclusion\}")
+            print(f"  - {conclusion}")
 
         print("\n=== Conditional Conclusions ===")
         for cond in result.get("conditional_conclusions", []):
