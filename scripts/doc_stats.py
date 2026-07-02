@@ -77,6 +77,45 @@ def _canonical_metrics() -> dict[str, CanonicalMetric]:
     return metrics
 
 
+def _metrics_doc_values() -> dict[str, CanonicalMetric]:
+    """Read exact generated values from docs/METRICS.md."""
+    path = ROOT / "docs" / "METRICS.md"
+    if not path.exists():
+        return {}
+
+    key_for = {
+        "python files under aragora/": "python_files",
+        "python lines of code under aragora/": "python_lines",
+        "top-level modules under aragora/": "top_level_modules",
+        "test files (test_*.py under tests/)": "test_files",
+        "test functions (class + module level)": "tests",
+        "openapi paths": "api_paths",
+        "openapi operations (http verbs)": "api_operations",
+        "allowlisted agent types": "allowlisted_agent_types",
+        "knowledge mound adapter specs": "adapter_specs",
+        "knowledge mound adapter files": "adapter_files",
+    }
+    metrics: dict[str, CanonicalMetric] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip().strip("*") for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        key = key_for.get(cells[0].lower())
+        if not key:
+            continue
+        value_text = cells[1].strip().strip("`")
+        num = re.search(r"\d+(?:,\d+)*", value_text)
+        if not num:
+            continue
+        metrics[key] = CanonicalMetric(
+            value=int(num.group(0).replace(",", "")),
+            has_plus="+" in value_text,
+        )
+    return metrics
+
+
 def _canonical_count(canonical: dict[str, CanonicalMetric], key: str, measured: str) -> str:
     metric = canonical.get(key)
     if not metric:
@@ -117,14 +156,33 @@ def _count_py_files(path: Path) -> int:
 def _count_tests() -> int:
     # Keep the docs baseline stable across platforms and CI environments by
     # counting only tracked test definitions under tests/.
-    tests_dir = ROOT / "tests"
-    if not tests_dir.exists():
-        return 0
-    pattern = re.compile(r"^\s*def test_", re.MULTILINE)
-    total = 0
-    for p in tests_dir.rglob("*.py"):
-        total += len(pattern.findall(p.read_text(errors="ignore")))
-    return total
+    try:
+        out = subprocess.check_output(
+            ["git", "grep", "-E", r"^[[:space:]]*(async )?def test_", "--", "tests"],
+            cwd=ROOT,
+            text=True,
+        )
+        return len(out.splitlines())
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        tests_dir = ROOT / "tests"
+        if not tests_dir.exists():
+            return 0
+        pattern = re.compile(r"^\s*(?:async\s+)?def test_", re.MULTILINE)
+        total = 0
+        for p in tests_dir.rglob("*.py"):
+            total += len(pattern.findall(p.read_text(errors="ignore")))
+        return total
+
+
+def _count_test_files() -> int:
+    try:
+        out = subprocess.check_output(["git", "ls-files", "tests"], cwd=ROOT, text=True)
+        return sum(1 for line in out.splitlines() if re.search(r"(^|/)test_[^/]*\.py$", line))
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        tests_dir = ROOT / "tests"
+        if not tests_dir.exists():
+            return 0
+        return sum(1 for p in tests_dir.rglob("test_*.py") if p.is_file())
 
 
 def _count_api_ops() -> tuple[int, int]:
@@ -180,7 +238,7 @@ def _count_km_adapters() -> int:
     if not path.exists():
         return 0
     text = path.read_text()
-    return len(re.findall(r'name="[^"]+"', text))
+    return len(re.findall(r'"\.[a-z_]+_adapter"', text))
 
 
 def _count_templates() -> int:
@@ -223,7 +281,7 @@ def _approx(value: int, step: int) -> str:
 def compute_stats() -> Stats:
     python_modules = _count_py_files(ROOT / "aragora")
     test_count = _count_tests()
-    test_files = _count_py_files(ROOT / "tests")
+    test_files = _count_test_files()
     api_paths, api_operations = _count_api_ops()
     ws_event_types = _count_ws_events()
     km_adapters_registered = _count_km_adapters()
@@ -256,20 +314,31 @@ def _apply_patterns(
 
 def patch_docs(stats: Stats, write: bool) -> int:
     canonical = _canonical_metrics()
-    modules_approx = _canonical_count(canonical, "modules", _approx(stats.python_modules, 1000))
-    tests_approx = _canonical_count(canonical, "tests", _approx(stats.test_count, 1000))
+    metrics_doc = _metrics_doc_values()
+    modules_approx = _canonical_count(
+        metrics_doc,
+        "python_files",
+        _canonical_count(canonical, "modules", _approx(stats.python_modules, 1000)),
+    )
+    tests_approx = _canonical_count(
+        metrics_doc,
+        "tests",
+        _canonical_count(canonical, "tests", _approx(stats.test_count, 1000)),
+    )
     test_files_approx = _canonical_count(
-        canonical,
+        metrics_doc,
         "test_files",
-        _approx(stats.test_files, 1000),
+        _canonical_count(canonical, "test_files", _approx(stats.test_files, 1000)),
     )
     api_ops_approx = _canonical_count(
-        canonical, "api_operations", _approx(stats.api_operations, 1000)
+        metrics_doc,
+        "api_operations",
+        _canonical_count(canonical, "api_operations", _approx(stats.api_operations, 1000)),
     )
     api_paths_approx = _canonical_count(
-        canonical,
+        metrics_doc,
         "api_paths",
-        _approx(stats.api_paths, 100),
+        _canonical_count(canonical, "api_paths", _approx(stats.api_paths, 100)),
     )
     ws_events_approx = _approx(stats.ws_event_types, 10)
     templates_approx = _approx(stats.workflow_templates, 10)
@@ -278,7 +347,91 @@ def patch_docs(stats: Stats, write: bool) -> int:
         "agent_types",
         _approx(stats.agent_types_allowlisted, 10),
     )
-    km_adapters_registered = _canonical_int(canonical, "adapters", stats.km_adapters_registered)
+    km_adapters_registered = _canonical_int(
+        metrics_doc,
+        "adapter_specs",
+        stats.km_adapters_registered,
+    )
+    km_adapter_files = _canonical_count(metrics_doc, "adapter_files", "missing")
+    exact_python_files = _canonical_count(
+        metrics_doc,
+        "python_files",
+        f"{stats.python_modules:,}",
+    )
+    exact_python_lines = _canonical_count(metrics_doc, "python_lines", "missing")
+    top_level_modules_fallback = _canonical_count(canonical, "modules", modules_approx)
+    exact_top_level_modules = _canonical_count(
+        metrics_doc,
+        "top_level_modules",
+        top_level_modules_fallback,
+    )
+    exact_tests = _canonical_count(metrics_doc, "tests", tests_approx)
+    exact_test_files = _canonical_count(metrics_doc, "test_files", test_files_approx)
+    exact_api_ops = _canonical_count(metrics_doc, "api_operations", api_ops_approx)
+    exact_api_paths = _canonical_count(metrics_doc, "api_paths", api_paths_approx)
+    claude_codebase_scale = (
+        f"**Codebase Scale:** {exact_python_files} tracked Python files | "
+        f"{exact_top_level_modules} top-level modules | {exact_tests} test functions | "
+        f"{exact_test_files} test files | {exact_api_ops} API operations across "
+        f"{exact_api_paths} paths | canonical counts in `docs/METRICS.md`"
+    )
+    extended_readme_scale = (
+        f"**Scale:** {exact_python_files} tracked Python files | "
+        f"{exact_top_level_modules} top-level modules | {exact_tests} test functions "
+        f"across {exact_test_files} test files | canonical counts in [METRICS.md](METRICS.md)"
+    )
+    protected_metrics_keys = {
+        "python_files",
+        "python_lines",
+        "top_level_modules",
+        "tests",
+        "test_files",
+        "api_operations",
+        "api_paths",
+        "adapter_specs",
+        "adapter_files",
+    }
+    missing_protected_metrics = sorted(protected_metrics_keys - set(metrics_doc))
+    if write and missing_protected_metrics:
+        raise RuntimeError(
+            "refusing to update protected generated metric claims because "
+            "docs/METRICS.md is missing rows: " + ", ".join(missing_protected_metrics)
+        )
+    claude_metrics_keys = protected_metrics_keys - {"python_lines"}
+    missing_claude_metrics = sorted(claude_metrics_keys - set(metrics_doc))
+    claude_patterns: list[tuple[str, str | Callable[[re.Match], str], int]] = []
+    if not missing_claude_metrics:
+        claude_patterns.extend(
+            [
+                (
+                    r"(unified_server\.py\s+# Main server \()\d[\d,]*(?:\+)?\s+API operations(?=\))",
+                    lambda m, value=exact_api_ops: f"{m.group(1)}{value} API operations",
+                    0,
+                ),
+                (
+                    r"\*\*Codebase Scale:\*\*[^\n]*canonical counts in `docs/METRICS\.md`",
+                    claude_codebase_scale,
+                    0,
+                ),
+                (
+                    r"\*\*Test Suite:\*\*[^\n]*canonical counts in `docs/METRICS\.md`[^\n]*",
+                    f"**Test Suite:** {exact_tests} test functions across "
+                    f"{exact_test_files} test files (canonical counts in `docs/METRICS.md`)",
+                    0,
+                ),
+            ]
+        )
+    claude_patterns.extend(
+        [
+            (r"\d+\s+KM adapters", f"{km_adapters_registered} KM adapters", 0),
+            (
+                r"(adapters/\s+# KM adapters \()\d+\s+registered(?=\))",
+                lambda m, value=km_adapters_registered: f"{m.group(1)}{value} registered",
+                0,
+            ),
+            (r"\d[\d,]*\s+SDK namespaces", f"{stats.ts_namespaces} SDK namespaces", 0),
+        ]
+    )
 
     replacements = {
         "README.md": [
@@ -299,9 +452,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 f"{ws_events_approx} WebSocket event types",
                 0,
             ),
-            (r"\d[\d,]*(?:\+)?\s+templates", f"{templates_approx} templates", 0),
-            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
-            (r"\d[\d,]*(?:\+)?\s+tests", f"{tests_approx} tests", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python files", 0),
             (r"\(\d[\d,]*\s+namespaces\)", f"({stats.ts_namespaces} namespaces)", 0),
         ],
         "docs/EXTENDED_README.md": [
@@ -324,7 +475,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 0,
             ),
             (r"\d[\d,]*(?:\+)?\s+templates", f"{templates_approx} templates", 0),
-            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python files", 0),
             (
                 r"(\*\*Scale:\*\*[^\n]*?)\d[\d,]*(?:\+)?\s+tests",
                 lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
@@ -334,6 +485,11 @@ def patch_docs(stats: Stats, write: bool) -> int:
             (
                 r"\d[\d,]*\s+TypeScript SDK namespaces",
                 f"{stats.ts_namespaces} TypeScript SDK namespaces",
+                0,
+            ),
+            (
+                r"\*\*Scale:\*\*[^\n]*canonical counts in \[METRICS\.md\]\(METRICS\.md\)",
+                extended_readme_scale,
                 0,
             ),
         ],
@@ -352,7 +508,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
             (r"\d[\d,]*(?:\+)?\s+agent types", f"{agent_types_approx} agent types", 0),
         ],
         "docs/FEATURE_DISCOVERY.md": [
-            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python files", 0),
             (
                 r"(\*\*Total\*\*:[^\n]*?)\d[\d,]*(?:\+)?\s+tests",
                 lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
@@ -370,48 +526,147 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 0,
             ),
         ],
-        "docs/FEATURE_PARITY_MATRIX.md": [
+        "docs/status/FEATURE_DISCOVERY.md": [
+            (
+                r"\*\*Total\*\*: 230\+ features \| [^\n]+",
+                f"**Total**: 230+ features | {modules_approx} Python files | "
+                f"{tests_approx} tests | {api_ops_approx} API operations across "
+                f"{api_paths_approx} paths",
+                0,
+            ),
+            (
+                r"\d+\s+registered adapter specs",
+                f"{km_adapters_registered} registered adapter specs",
+                0,
+            ),
+        ],
+        "docs/status/FEATURE_PARITY_MATRIX.md": [
             (r"\d[\d,]*(?:\+)?\s+operations", f"{api_ops_approx} operations", 0),
         ],
-        "docs/WEBSOCKET_EVENTS.md": [
+        "docs/streaming/WEBSOCKET_EVENTS.md": [
             (r"\(\d+ event types", f"({stats.ws_event_types} event types", 0),
         ],
-        "docs/KNOWLEDGE_MOUND.md": [
+        "docs/knowledge/KNOWLEDGE_MOUND.md": [
+            (
+                r"\d+\s+registered adapter specs",
+                f"{km_adapters_registered} registered adapter specs",
+                0,
+            ),
+        ],
+        "docs/architecture/ARCHITECTURE.md": [
+            (
+                r"(unified_server\.py\s+# Unified server \()\d[\d,]*(?:\+)?\s+API operations across\s+\d[\d,]*(?:\+)?\s+paths(?=\))",
+                lambda m, ops=api_ops_approx, paths=api_paths_approx: (
+                    f"{m.group(1)}{ops} API operations across {paths} paths"
+                ),
+                0,
+            ),
+            (
+                r"(\*\*Test coverage\*\*: )\d[\d,]*(?:\+)?\s+tests across\s+\d[\d,]*(?:\+)?\s+test files",
+                lambda m, tests=tests_approx, files=test_files_approx: (
+                    f"{m.group(1)}{tests} tests across {files} test files"
+                ),
+                0,
+            ),
+            (
+                r"(\*\*Source modules\*\*: )\d[\d,]*(?:\+)?\s+Python modules",
+                lambda m, modules=modules_approx: f"{m.group(1)}{modules} Python modules",
+                0,
+            ),
+            (
+                r"(\*\*API surface\*\*: )\d[\d,]*(?:\+)?\s+API operations across\s+\d[\d,]*(?:\+)?\s+paths",
+                lambda m, ops=api_ops_approx, paths=api_paths_approx: (
+                    f"{m.group(1)}{ops} API operations across {paths} paths"
+                ),
+                0,
+            ),
             (
                 r"\d+\s+registered adapters",
                 f"{km_adapters_registered} registered adapters",
                 0,
             ),
         ],
-        "docs/DOCUMENTATION_HUB.md": [
+        "docs/STATUS.md": [
             (
-                r"\d+\s+registered adapters",
-                f"{km_adapters_registered} registered adapters",
+                r"(\*\*Python modules\*\*: )\d[\d,]*(?:\+)?",
+                lambda m, modules=modules_approx: f"{m.group(1)}{modules}",
+                0,
+            ),
+            (
+                r"(\*\*Tests\*\*: )\d[\d,]*(?:\+)?\s+across\s+\d[\d,]*(?:\+)?\s+test files",
+                lambda m, tests=tests_approx, files=test_files_approx: (
+                    f"{m.group(1)}{tests} across {files} test files"
+                ),
+                0,
+            ),
+            (
+                r"\d+\s+registered adapter specs",
+                f"{km_adapters_registered} registered adapter specs",
+                0,
+            ),
+            (
+                r"(\*\*API operations\*\*: )\d[\d,]*(?:\+)?\s+across\s+\d[\d,]*(?:\+)?\s+paths",
+                lambda m, ops=api_ops_approx, paths=api_paths_approx: (
+                    f"{m.group(1)}{ops} across {paths} paths"
+                ),
+                0,
+            ),
+            (
+                r"- \d[\d,]*(?:\+)?\s+API operations across\s+\d[\d,]*(?:\+)?\s+paths, 580\+ HTTP handler modules",
+                f"- {api_ops_approx} API operations across {api_paths_approx} paths, "
+                "580+ HTTP handler modules",
                 0,
             ),
         ],
-        "CLAUDE.md": [
-            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
+        "docs/CANONICAL_GOALS.md": [
             (
-                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*(?:\+)?\s+tests",
-                lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
+                r"(\| Python files under `aragora/` \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_python_files: f"{m.group(1)}{value}",
                 0,
             ),
             (
-                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*(?:\+)?\s+test files",
-                lambda m, value=test_files_approx: f"{m.group(1)}{value} test files",
+                r"(\| Python modules \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m,
+                value=exact_top_level_modules: f"{m.group(1)}{value} top-level package directories",
                 0,
             ),
             (
-                r"\*\*Test Suite:\*\*\s*\d[\d,]*(?:\+)?\s+tests\s+across\s+\d[\d,]*(?:\+)?\s+test files",
-                f"**Test Suite:** {tests_approx} tests across {test_files_approx} test files",
+                r"(\| Lines of code under `aragora/` \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_python_lines: f"{m.group(1)}{value}",
                 0,
             ),
-            (r"\d[\d,]*(?:\+)?\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\d[\d,]*(?:\+)?\s+paths", f"{api_paths_approx} paths", 0),
-            (r"\d+\s+KM adapters", f"{km_adapters_registered} KM adapters", 0),
-            (r"\d[\d,]*\s+SDK namespaces", f"{stats.ts_namespaces} SDK namespaces", 0),
+            (
+                r"(\| Automated tests \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_tests: f"{m.group(1)}{value} test functions",
+                0,
+            ),
+            (
+                r"(\| Test files \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_test_files: f"{m.group(1)}{value}",
+                0,
+            ),
+            (
+                r"(\| API operations \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, ops=exact_api_ops, paths=exact_api_paths: (
+                    f"{m.group(1)}{ops} across {paths} paths"
+                ),
+                0,
+            ),
+            (
+                r"(\| API paths \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_api_paths: f"{m.group(1)}{value}",
+                0,
+            ),
+            (
+                r"(\| Knowledge Mound adapters \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, files=km_adapter_files, specs=km_adapters_registered: (
+                    f"{m.group(1)}{files} adapter files / {specs} registered specs"
+                ),
+                0,
+            ),
         ],
+        "CLAUDE.md": claude_patterns,
+        "docs-site/docs/contributing/claude.md": claude_patterns,
         "docs/architecture/system-overview.md": [
             (
                 r"Agents Layer \(\d[\d,]*(?:\+)?\s+Agent Types\)",
@@ -456,21 +711,41 @@ def main() -> int:
     args = parser.parse_args()
 
     stats = compute_stats()
-    print("Doc stats:")
-    print(f"- Python modules (aragora/): {stats.python_modules}")
-    print(f"- Tests (def test_ across repo): {stats.test_count}")
-    print(f"- Test files (tests/): {stats.test_files}")
-    print(f"- API paths: {stats.api_paths}")
-    print(f"- API operations: {stats.api_operations}")
-    print(f"- WebSocket event types: {stats.ws_event_types}")
-    print(f"- KM adapters registered: {stats.km_adapters_registered}")
-    print(f"- Workflow templates: {stats.workflow_templates}")
-    print(f"- TypeScript namespaces: {stats.ts_namespaces}")
-    print(f"- Allowlisted agent types: {stats.agent_types_allowlisted}")
+    metrics_doc = _metrics_doc_values()
+    print("Live doc stats from repository scan:")
+    print(f"- Python modules (aragora/, live scan): {stats.python_modules}")
+    print(f"- Tests (def test_ across repo, live scan): {stats.test_count}")
+    print(f"- Test files (tests/, live scan): {stats.test_files}")
+    print(f"- API paths (docs/api/openapi.json): {stats.api_paths}")
+    print(f"- API operations (docs/api/openapi.json): {stats.api_operations}")
+    print(f"- WebSocket event types (live scan): {stats.ws_event_types}")
+    print(f"- KM adapters registered (live scan): {stats.km_adapters_registered}")
+    print(f"- Workflow templates (live scan): {stats.workflow_templates}")
+    print(f"- TypeScript namespaces (live scan): {stats.ts_namespaces}")
+    print(f"- Allowlisted agent types (settings allowlist): {stats.agent_types_allowlisted}")
+
+    if metrics_doc:
+        print("\nExact protected metrics from docs/METRICS.md:")
+        print(f"- Python files: {_canonical_count(metrics_doc, 'python_files', 'missing')}")
+        print(
+            f"- Top-level modules: {_canonical_count(metrics_doc, 'top_level_modules', 'missing')}"
+        )
+        print(f"- Tests: {_canonical_count(metrics_doc, 'tests', 'missing')}")
+        print(f"- Test files: {_canonical_count(metrics_doc, 'test_files', 'missing')}")
+        print(f"- API paths: {_canonical_count(metrics_doc, 'api_paths', 'missing')}")
+        print(f"- API operations: {_canonical_count(metrics_doc, 'api_operations', 'missing')}")
+        print(
+            "- Knowledge Mound adapter specs: "
+            f"{_canonical_count(metrics_doc, 'adapter_specs', 'missing')}"
+        )
+        print(
+            "- Knowledge Mound adapter files: "
+            f"{_canonical_count(metrics_doc, 'adapter_files', 'missing')}"
+        )
 
     if args.write:
         updated = patch_docs(stats, write=True)
-        print(f"\\nUpdated {updated} documentation files.")
+        print(f"\nUpdated {updated} documentation files.")
     return 0
 
 

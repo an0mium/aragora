@@ -94,11 +94,11 @@ def make_request_with_backoff(url, max_retries=5):
 Check the `X-RateLimit-Remaining` header to see how many requests you have left:
 
 ```python
-response = requests.get(f"\{API_BASE\}/api/debates")
+response = requests.get(f"{API_BASE}/api/debates")
 remaining = int(response.headers.get('X-RateLimit-Remaining', 0))
 
 if remaining < 10:
-    print(f"Warning: Only \{remaining\} requests remaining")
+    print(f"Warning: Only {remaining} requests remaining")
 ```
 
 ### 3. Batch Operations When Possible
@@ -108,10 +108,10 @@ Instead of making many small requests, use batch endpoints:
 ```python
 # Instead of this (10 requests):
 for debate_id in debate_ids:
-    response = requests.get(f"\{API_BASE\}/api/debates/\{debate_id\}")
+    response = requests.get(f"{API_BASE}/api/debates/{debate_id}")
 
 # Do this (1 request):
-response = requests.post(f"\{API_BASE\}/api/debates/batch", json={
+response = requests.post(f"{API_BASE}/api/debates/batch", json={
     "debate_ids": debate_ids
 })
 ```
@@ -129,7 +129,7 @@ Cache responses that don't change frequently:
 Instead of polling for debate status, register webhooks:
 
 ```python
-requests.post(f"\{API_BASE\}/api/webhooks", json={
+requests.post(f"{API_BASE}/api/webhooks", json={
     "url": "https://your-app.com/webhook",
     "events": ["debate.completed", "debate.verdict"]
 })
@@ -247,7 +247,7 @@ curl -v https://api.aragora.ai/api/health 2>&1 | grep -i ratelimit
 Or in your code:
 
 ```python
-response = requests.get(f"\{API_BASE\}/api/health")
+response = requests.get(f"{API_BASE}/api/health")
 print(f"Limit: {response.headers.get('X-RateLimit-Limit')}")
 print(f"Remaining: {response.headers.get('X-RateLimit-Remaining')}")
 print(f"Resets at: {response.headers.get('X-RateLimit-Reset')}")

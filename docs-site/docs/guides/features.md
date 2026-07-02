@@ -521,7 +521,7 @@ from aragora.debate.checkpoint import GitCheckpointStore
 store = GitCheckpointStore(
     repo_path=".",
     continuous_mode=True,
-    commit_message_template="Debate \{debate_id\} round \{round\}",
+    commit_message_template="Debate {debate_id} round {round}",
 )
 ```
 
@@ -1595,7 +1595,7 @@ verifier = TelemetryVerifier()
 # Verify agent has required capabilities
 passed, missing = verifier.verify_agent(agent, ["generate", "name", "model"])
 if not passed:
-    print(f"Agent missing: \{missing\}")
+    print(f"Agent missing: {missing}")
 
 # Get verification report
 report = verifier.get_verification_report()
@@ -1775,7 +1775,7 @@ from aragora.fixtures import load_demo_consensus, ensure_demo_data
 from aragora.memory.consensus import ConsensusMemory
 memory = ConsensusMemory()
 seeded = load_demo_consensus(memory)
-print(f"Seeded \{seeded\} demo consensus records")
+print(f"Seeded {seeded} demo consensus records")
 
 # Auto-seed on server startup (called by unified_server.py)
 ensure_demo_data()  # Safe to call multiple times
