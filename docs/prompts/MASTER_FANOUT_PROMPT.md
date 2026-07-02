@@ -9,8 +9,10 @@ Every lane that faces adversarial review evidence obeys the attempt-cap contract
 2. **Parking is a legal terminal disposition, never a failure.** Park = push the branch,
    record the dissent verbatim on the tracking issue, file each surviving finding as its
    own bounded issue (boss-loop format), queue for human settlement, move on.
-3. **Never post evidence on dissent; never silence a reviewer; never stretch scope to
-   satisfy a reviewer's new-scope finding** — new scope in round 2 is a park-and-file
+3. **Never post SUPPORTIVE settlement evidence while dissent stands — but always RECORD
+   the dissent** (verbatim, on the tracking issue and in the parked handoff) so the human
+   settler has the full basis. Never silence a reviewer; never stretch scope to
+   satisfy a reviewer's new-scope finding — new scope in round 2 is a park-and-file
    signal, not a round 3.
 4. **A reviewer finding that contradicts an intentional characterization test is a design
    crux, not a bug** — escalate to the human with both positions; do not change semantics.
