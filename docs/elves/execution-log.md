@@ -174,3 +174,10 @@ _(per-batch template below)_
 - 12+ hours of treadmill ended by settle-don't-repair: grok's genuine P1 (units collision) surgically fixed at 397bd793; claude's residual P3s folded into #8792; quorum SUCCESS; merged under full approval chain. Codex conductor stopped its loop cleanly on the coordination comment and handed off (its 8 repair rounds left a genuinely hardened generator).
 - Cascade: main merged into 8771/8775/8776/8778/8785 (8778's docs/METRICS.md conflict resolved by regeneration); fresh evidence collecting; executor to merge.
 - Root cause + all folded findings: #8792 (counts-out-of-prose sweep + P3-advisory severity policy for doc counts).
+
+## 🎉 FLYWHEEL MILESTONE (2026-07-02 ~13:41 local): FIRST AUTONOMOUS EXECUTOR MERGES
+- com.aragora.ctl-merge-executor merged #8776 (18:24Z), #8775 (18:35Z), #8771 (18:41Z) — receipts in ~/.aragora/merge-executor-receipts/. The authorized→merged circuit (plan T1 endgame) is OPERATIONAL.
+- Memo cluster: all 44 branches deleted post-harvest (verified 0 remaining); tally on #8769.
+- #8795 (docs-churn killer): clean 2-0 posted at fbff2ddd8e, marked ready — executor path.
+- #8794 (adjudicator observe wiring): P2 trust-boundary flaw FIXED (6b251cd66d, 217 tests); round-2 P3-advisory-only; PARKED for operator click — Tier-4 merge-authority never auto-settles.
+- Codex: freeze RELEASED, #8726 parked by Codex itself.
