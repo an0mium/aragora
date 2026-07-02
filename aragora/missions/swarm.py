@@ -16,16 +16,142 @@ folds the swarm's results back into, from a single writer.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import subprocess
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .ledger import DEFAULT_LEASE_TTL, Ledger, select_for
 from .orchestrator import Dispatch, Handoff
-from .state import MissionState, Status, mission_owner_lock
+from .state import Feature, MissionState, Status, mission_owner_lock
 
 logger = logging.getLogger(__name__)
+
+# Same seam shape as live_gate.Runner: run argv in cwd, return stdout, raise on error.
+GitRunner = Callable[[list[str], Path], str]
+
+# (feature, ledger) -> live branch name. BranchMaterializer is the real one;
+# tests inject fakes. Raises BranchMaterializationError on git failure.
+Materialize = Callable[[Feature, Ledger], str]
+
+
+class BranchMaterializationError(RuntimeError):
+    """A worker could not turn ``metadata.branch_hint`` into a real branch."""
+
+
+class BranchMaterializer:
+    """Turn a claimed child's ``branch_hint`` into a REAL branch off the base (#8773).
+
+    The last link of seed -> PR: decomposed intake children are born
+    ``AWAITING_CLAIM`` carrying only a deterministic ``metadata.branch_hint``
+    (#8766 — a fabricated ``metadata.branch`` would make the merge gate
+    rev-parse a ref nobody created). When a swarm worker claims such a child,
+    this materializer creates the branch from ``origin/main``, records it in
+    the locked ledger (*after* the ref exists, never before), and returns the
+    name for the worker to set as ``metadata.branch``.
+
+    Idempotent across crash-retries: a ledger-recorded branch is adopted (and
+    re-created if the ref was deleted). A colliding hint that sits exactly at
+    the base head is our own crash orphan — adopted, no litter. A colliding
+    hint with foreign commits gets one deterministic content-derived suffix;
+    if that is also taken by foreign work, fail closed (the worker returns the
+    child to AWAITING_CLAIM, bounded by the existing park accounting).
+    """
+
+    def __init__(
+        self,
+        repo_root: str | Path,
+        *,
+        base: str = "origin/main",
+        runner: GitRunner | None = None,
+    ) -> None:
+        self.repo_root = Path(repo_root)
+        self.base = base
+        self.runner = runner or _run_git
+
+    def __call__(self, feature: Feature, ledger: Ledger) -> str:
+        try:
+            return self._materialize(feature, ledger)
+        except BranchMaterializationError:
+            raise
+        except RuntimeError as exc:  # git/subprocess failure — diagnosable, non-terminal
+            raise BranchMaterializationError(str(exc)) from exc
+
+    def _materialize(self, feature: Feature, ledger: Ledger) -> str:
+        recorded = ledger.materialized_branch(feature.id)
+        if recorded:
+            # A prior claim already materialized this unit: adopt its branch,
+            # re-creating the ref only if someone deleted it since.
+            if not self._ref_exists(recorded):
+                self._create_branch(recorded)
+            return recorded
+
+        hint = str(feature.metadata.get("branch_hint") or "").strip()
+        candidate = self._resolve_name(hint or f"mission/{feature.id}")
+        if not self._ref_exists(candidate):
+            self._create_branch(candidate)
+        # Record ONLY after the ref is real — reconcile folds this value into
+        # metadata.branch, and a record without a ref would re-open the
+        # fabricated-branch crash loop (#8766 round 1).
+        ledger.record_branch(feature.id, candidate)
+        return candidate
+
+    def _resolve_name(self, hint: str) -> str:
+        for candidate in (hint, self._suffixed(hint)):
+            if not self._ref_exists(candidate):
+                return candidate
+            if self._head_of(candidate) == self._head_of(self.base):
+                # Exactly at base: an empty crash orphan of ours — adopt it.
+                return candidate
+        raise BranchMaterializationError(
+            f"branch {hint} and its deterministic suffix are both taken by "
+            f"foreign commits; refusing to guess a third name"
+        )
+
+    @staticmethod
+    def _suffixed(hint: str) -> str:
+        return f"{hint}-{hashlib.sha256(hint.encode('utf-8')).hexdigest()[:8]}"
+
+    def _ref_exists(self, branch: str) -> bool:
+        try:
+            self._head_of(branch)
+        except RuntimeError:
+            return False
+        return True
+
+    def _head_of(self, ref: str) -> str:
+        return self.runner(
+            ["git", "rev-parse", "--verify", "--end-of-options", ref], self.repo_root
+        ).strip()
+
+    def _create_branch(self, branch: str) -> None:
+        self.runner(["git", "branch", branch, self.base], self.repo_root)
+        logger.info("materialized branch %s from %s", branch, self.base)
+
+
+def _run_git(cmd: list[str], cwd: Path) -> str:
+    try:
+        proc = subprocess.run(
+            cmd, cwd=cwd, text=True, capture_output=True, check=False, timeout=120
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"{cmd[0]} timed out after {exc.timeout}s") from exc
+    if proc.returncode != 0:
+        raise RuntimeError(
+            (proc.stderr or proc.stdout or f"{cmd[0]} exited {proc.returncode}").strip()
+        )
+    return proc.stdout
+
+
+def _needs_branch_materialization(feature: Feature) -> bool:
+    """A decomposed child waiting for a worker to create its branch (#8773)."""
+    branch = feature.metadata.get("branch")
+    if isinstance(branch, str) and branch.strip():
+        return False
+    return bool(feature.metadata.get("branch_hint") or feature.metadata.get("intake_parent"))
 
 
 class _LeaseHeartbeat:
@@ -95,6 +221,10 @@ class SwarmResult:
     parked: list[str] = field(default_factory=list)
     blocked: list[str] = field(default_factory=list)  # blocked attempts (incl. pre-park)
     lost_leases: list[str] = field(default_factory=list)
+    # Units yielded back untouched (still AWAITING_CLAIM, zero retry burn): a
+    # branch-hinted child this worker cannot materialize, or an awaiting_claim
+    # handoff from a bridge (#8773). Another (capable) worker can claim them.
+    awaiting_claim: list[str] = field(default_factory=list)
 
 
 def run_worker(
@@ -105,6 +235,7 @@ def run_worker(
     *,
     park_threshold: int = 2,
     max_units: int | None = None,
+    materialize: Materialize | None = None,
 ) -> SwarmResult:
     """Drain available units for ``worker_id`` until the queue is dry to it.
 
@@ -113,6 +244,15 @@ def run_worker(
     count reaches the threshold it is parked and the swarm moves on. Convergence
     is guaranteed: attempts accumulate in the ledger, so a persistent blocker is
     parked after at most ``park_threshold`` total attempts across the swarm.
+
+    ``materialize`` (#8773) makes claimed AWAITING_CLAIM children *executable*:
+    a claimed unit carrying only ``metadata.branch_hint`` gets a real branch
+    created from the base (via :class:`BranchMaterializer` or a test fake) and
+    ``metadata.branch`` set before dispatch — the branch is never fabricated
+    without the ref existing. A git failure returns the child to the claimable
+    pool with a diagnostic note (non-terminal, bounded by the same park
+    accounting). Without a materializer, such a unit is yielded back untouched
+    with ZERO retry burn, preserving #8766's no-burn property.
 
     Holds the *shared* side of :func:`mission_owner_lock` for its whole run: many
     workers coexist (shared), but an orchestrator (exclusive) cannot run against the
@@ -128,6 +268,7 @@ def run_worker(
             dispatch,
             park_threshold=park_threshold,
             max_units=max_units,
+            materialize=materialize,
         )
 
 
@@ -139,35 +280,78 @@ def _run_worker_fenced(
     *,
     park_threshold: int,
     max_units: int | None,
+    materialize: Materialize | None = None,
 ) -> SwarmResult:
     state = MissionState.load(state_path)
     ledger = Ledger(ledger_path)
     res = SwarmResult(worker_id=worker_id)
+    yielded: set[str] = set()  # units handed back this run; never re-claim (livelock)
 
     def abandon_lost_lease(unit: str) -> None:
         ledger.rollback_attempt(f"feature:{unit}")
         res.lost_leases.append(unit)
 
+    def yield_back(unit: str, reason: str) -> None:
+        """Hand a claimed unit back untouched — still AWAITING_CLAIM, ZERO retry
+        burn (#8766's property): no attempt, no park, lease released for a
+        capable worker. Locally excluded so this run cannot livelock on it."""
+        ledger.release(unit, worker_id)
+        yielded.add(unit)
+        res.awaiting_claim.append(unit)
+        logger.info("worker %s yielded %s back to the claimable pool: %s", worker_id, unit, reason)
+
     n = 0
     while max_units is None or n < max_units:
-        unit = select_for(state, ledger, worker_id)
+        unit = select_for(state, ledger, worker_id, exclude=yielded)
         if unit is None:
             break
+        feature = state.get(unit)
+
+        # A branch-hinted child needs its branch materialized before dispatch
+        # (#8773). A worker with no git capability yields it back untouched.
+        if materialize is None and _needs_branch_materialization(feature):
+            yield_back(unit, "no branch materializer available in this worker")
+            continue
         n += 1
 
-        # Count the attempt BEFORE dispatch so a *raising* dispatch is bounded too.
+        # Count the attempt BEFORE materialize/dispatch so a *raising* step is
+        # bounded too.
         attempts = ledger.bump_attempt(f"feature:{unit}")
-        try:
-            # Heartbeat keeps the lease fresh so a long dispatch isn't reclaimed.
-            heartbeat = _LeaseHeartbeat(ledger, unit, worker_id, DEFAULT_LEASE_TTL)
-            with heartbeat:
-                handoff = dispatch(state.get(unit))
-        except (
-            Exception
-        ) as exc:  # dispatch is an external callback — may raise anything  # noqa: BLE001
-            handoff = Handoff(success=False, blocked_reason=f"dispatch raised: {exc!r}")
 
-        if heartbeat.lost_reason:
+        handoff: Handoff | None = None
+        if materialize is not None and _needs_branch_materialization(feature):
+            try:
+                branch = materialize(feature, ledger)
+            except BranchMaterializationError as exc:
+                # Non-terminal by contract: a git blip must return the child to
+                # the claimable pool with a diagnostic, never BLOCK it outright.
+                # Repeated failures are still bounded by the park accounting.
+                handoff = Handoff(
+                    success=False,
+                    blocked_reason=f"branch materialization failed: {exc}",
+                    discovered=[
+                        f"branch materialization for {unit} failed; "
+                        f"returned to awaiting-claim: {exc}"
+                    ],
+                )
+            else:
+                # The ref exists (just created/adopted) — only now is it safe
+                # to hand the merge gate a live metadata.branch.
+                feature.metadata["branch"] = branch
+
+        heartbeat: _LeaseHeartbeat | None = None
+        if handoff is None:
+            try:
+                # Heartbeat keeps the lease fresh so a long dispatch isn't reclaimed.
+                heartbeat = _LeaseHeartbeat(ledger, unit, worker_id, DEFAULT_LEASE_TTL)
+                with heartbeat:
+                    handoff = dispatch(feature)
+            except (
+                Exception
+            ) as exc:  # dispatch is an external callback — may raise anything  # noqa: BLE001
+                handoff = Handoff(success=False, blocked_reason=f"dispatch raised: {exc!r}")
+
+        if heartbeat is not None and heartbeat.lost_reason:
             logger.warning(
                 "worker %s abandoned stale result for %s after losing the lease: %s",
                 worker_id,
@@ -175,6 +359,16 @@ def _run_worker_fenced(
                 heartbeat.lost_reason,
             )
             abandon_lost_lease(unit)
+            continue
+
+        # A bridge answering awaiting_claim is a non-failure (#8758): the unit
+        # is worker-bound work this dispatch cannot drive. Yield it back with
+        # zero retry burn instead of aging it toward a park.
+        if not handoff.success and handoff.awaiting_claim and not handoff.terminal:
+            for note in handoff.discovered:
+                ledger.record_discovery(unit, note)
+            ledger.rollback_attempt(f"feature:{unit}")
+            yield_back(unit, handoff.blocked_reason or "dispatch reported awaiting claim")
             continue
 
         # Discovered work is *advisory* in swarm mode (propose/accept boundary): the
@@ -295,6 +489,25 @@ def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
             if stamp not in feat.notes:
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + stamp
                 n += 1
+
+    # Fold worker-materialized branches (#8773): the ledger records a branch
+    # only after the ref was actually created, so setting metadata.branch here
+    # can never point the merge gate at a fabricated ref. An AWAITING_CLAIM
+    # child whose branch is now live is promoted to PENDING — it no longer
+    # waits on a worker, the orchestrator can drive it (parks folded above win:
+    # a BLOCKED/COMPLETED child only gains the branch as provenance).
+    for unit, branch in ledger.materialized_branches().items():
+        try:
+            feat = state.get(unit)
+        except KeyError:
+            continue
+        existing = feat.metadata.get("branch")
+        if not (isinstance(existing, str) and existing.strip()):
+            feat.metadata["branch"] = branch
+            n += 1
+        if feat.status == Status.AWAITING_CLAIM:
+            feat.status = Status.PENDING
+            n += 1
     if n:
         state.save(state_path)
     return n

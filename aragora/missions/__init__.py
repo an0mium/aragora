@@ -34,9 +34,17 @@ from .state import (
     Status,
     mission_owner_lock,
 )
-from .swarm import SwarmResult, reconcile_from_ledger, run_worker
+from .swarm import (
+    BranchMaterializationError,
+    BranchMaterializer,
+    SwarmResult,
+    reconcile_from_ledger,
+    run_worker,
+)
 
 __all__ = [
+    "BranchMaterializationError",
+    "BranchMaterializer",
     "Constraint",
     "Feature",
     "Handoff",
