@@ -28,11 +28,13 @@ async def test_debate_with_int_agents():
     """debate(task, agents=3) auto-creates DemoAgents and returns DebateResult."""
     result = await debate("Should we adopt microservices?", agents=3, rounds=1)
 
-    from aragora.core_types import DebateResult
+    from aragora.core_types import DebateResult, DebateStatus, normalize_debate_status
 
     assert isinstance(result, DebateResult)
     assert result.task == "Should we adopt microservices?"
-    assert result.status == "completed"
+    # Legacy status is "consensus_reached" or "completed" depending on whether
+    # the demo agents converge; both project to the canonical COMPLETED state.
+    assert normalize_debate_status(result.status) == DebateStatus.COMPLETED
     assert len(result.participants) == 3
 
 
@@ -284,9 +286,11 @@ def test_golden_imports_from_package():
     assert aragora.remember is golden_remember
     assert aragora.recall is golden_recall
     assert aragora.review is golden_review
-    assert aragora.workflow is golden_workflow
     assert aragora.receipt is golden_receipt
 
-    # debate() is directly usable from aragora.golden even if
-    # aragora.debate resolves to the subpackage in some import orders
+    # debate() and workflow() are directly usable from aragora.golden even
+    # though aragora.debate / aragora.workflow resolve to the subpackages
+    # once any other import has loaded them (submodule attributes win over
+    # the package-level lazy __getattr__ exports)
     assert callable(golden_debate)
+    assert callable(golden_workflow)
