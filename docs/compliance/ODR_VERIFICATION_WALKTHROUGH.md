@@ -54,6 +54,12 @@ the public key that verifies it. The only tool needed is **`aragora-verify`**,
 a free, standalone, MIT-licensed verifier published on PyPI whose only
 dependency is the `cryptography` package.
 
+> PyPI release verified: `pip install aragora-verify==0.1.0` from a clean
+> venv (real PyPI, no local wheel) installed and verified this fixture with
+> all checks PASS on 2026-07-02. CI additionally smoke-tests the CLI against
+> a wheel built from the in-repo [`aragora-verify/`](../../aragora-verify/)
+> source, which is the same code as the 0.1.0 release.
+
 ```bash
 # 1. Install the standalone verifier into a clean environment
 python3 -m venv odr-env && . odr-env/bin/activate

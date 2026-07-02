@@ -158,6 +158,10 @@ def installed_verifier(tmp_path_factory) -> Path:
         pass  # isolated build fetches the backend; fine wherever pip works
     built = subprocess.run(build_cmd, capture_output=True, text=True, check=False)
     if built.returncode != 0:
+        if os.environ.get("CI"):
+            pytest.fail(
+                f"aragora-verify wheel must build in CI; build failed: {built.stderr[-500:]}"
+            )
         pytest.skip(f"cannot build aragora-verify wheel here: {built.stderr[-500:]}")
     wheel = next(wheel_dir.glob("aragora_verify-*.whl"))
     target = tmp_path_factory.mktemp("aragora_verify_install")
