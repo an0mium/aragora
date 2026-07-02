@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -344,16 +345,16 @@ def patch_docs(stats: Stats, write: bool) -> int:
         "api_operations",
         "api_paths",
     }
+    missing_claude_metrics = sorted(claude_metrics_keys - set(metrics_doc))
     claude_patterns: list[tuple[str, str | Callable[[re.Match], str], int]] = []
-    if claude_metrics_keys.issubset(metrics_doc):
+    if not missing_claude_metrics:
         claude_patterns.extend(
             [
                 (
-                    r"\d[\d,]*(?:\+)?\s+API operations",
-                    f"{exact_api_ops} API operations",
+                    r"(unified_server\.py\s+# Main server \()\d[\d,]*(?:\+)?\s+API operations(?=\))",
+                    lambda m, value=exact_api_ops: f"{m.group(1)}{value} API operations",
                     0,
                 ),
-                (r"\d[\d,]*(?:\+)?\s+paths", f"{exact_api_paths} paths", 0),
                 (
                     r"\*\*Codebase Scale:\*\*[^\n]*canonical counts in `docs/METRICS\.md`",
                     claude_codebase_scale,
@@ -366,6 +367,12 @@ def patch_docs(stats: Stats, write: bool) -> int:
                     0,
                 ),
             ]
+        )
+    elif write:
+        print(
+            "warning: skipped protected CLAUDE.md scale/test rewrites because "
+            "docs/METRICS.md is missing rows: " + ", ".join(missing_claude_metrics),
+            file=sys.stderr,
         )
     claude_patterns.extend(
         [
@@ -483,6 +490,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
             ),
         ],
         "CLAUDE.md": claude_patterns,
+        "docs-site/docs/contributing/claude.md": claude_patterns,
         "docs/architecture/system-overview.md": [
             (
                 r"Agents Layer \(\d[\d,]*(?:\+)?\s+Agent Types\)",
@@ -527,17 +535,29 @@ def main() -> int:
     args = parser.parse_args()
 
     stats = compute_stats()
-    print("Doc stats:")
-    print(f"- Python modules (aragora/): {stats.python_modules}")
-    print(f"- Tests (def test_ across repo): {stats.test_count}")
-    print(f"- Test files (tests/): {stats.test_files}")
-    print(f"- API paths: {stats.api_paths}")
-    print(f"- API operations: {stats.api_operations}")
-    print(f"- WebSocket event types: {stats.ws_event_types}")
-    print(f"- KM adapters registered: {stats.km_adapters_registered}")
-    print(f"- Workflow templates: {stats.workflow_templates}")
-    print(f"- TypeScript namespaces: {stats.ts_namespaces}")
-    print(f"- Allowlisted agent types: {stats.agent_types_allowlisted}")
+    metrics_doc = _metrics_doc_values()
+    print("Live doc stats from repository scan:")
+    print(f"- Python modules (aragora/, live scan): {stats.python_modules}")
+    print(f"- Tests (def test_ across repo, live scan): {stats.test_count}")
+    print(f"- Test files (tests/, live scan): {stats.test_files}")
+    print(f"- API paths (docs/api/openapi.json): {stats.api_paths}")
+    print(f"- API operations (docs/api/openapi.json): {stats.api_operations}")
+    print(f"- WebSocket event types (live scan): {stats.ws_event_types}")
+    print(f"- KM adapters registered (live scan): {stats.km_adapters_registered}")
+    print(f"- Workflow templates (live scan): {stats.workflow_templates}")
+    print(f"- TypeScript namespaces (live scan): {stats.ts_namespaces}")
+    print(f"- Allowlisted agent types (settings allowlist): {stats.agent_types_allowlisted}")
+
+    if metrics_doc:
+        print("\nExact protected metrics from docs/METRICS.md:")
+        print(f"- Python files: {_canonical_count(metrics_doc, 'python_files', 'missing')}")
+        print(
+            f"- Top-level modules: {_canonical_count(metrics_doc, 'top_level_modules', 'missing')}"
+        )
+        print(f"- Tests: {_canonical_count(metrics_doc, 'tests', 'missing')}")
+        print(f"- Test files: {_canonical_count(metrics_doc, 'test_files', 'missing')}")
+        print(f"- API paths: {_canonical_count(metrics_doc, 'api_paths', 'missing')}")
+        print(f"- API operations: {_canonical_count(metrics_doc, 'api_operations', 'missing')}")
 
     if args.write:
         updated = patch_docs(stats, write=True)

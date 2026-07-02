@@ -97,6 +97,18 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
         ),
         encoding="utf-8",
     )
+    docs_site_contributing = root / "docs-site" / "docs" / "contributing"
+    docs_site_contributing.mkdir(parents=True)
+    (docs_site_contributing / "claude.md").write_text(
+        "\n".join(
+            [
+                "**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions | 5,078 test files | 3,386 API operations across 2,928 paths | canonical counts in `docs/METRICS.md`",
+                "**Test Suite:** 216,000+ test functions across 5,078 test files (canonical counts in `docs/METRICS.md`)",
+                "│   ├── unified_server.py   # Main server (3,386 API operations)",
+            ]
+        ),
+        encoding="utf-8",
+    )
     (root / "README.md").write_text(
         "\n".join(
             [
@@ -130,13 +142,17 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
     assert "3,297 API operations across 2,870 paths" in claude
     assert "**Test Suite:** 222,659 test functions across 5,402 test files" in claude
 
+    docs_site_claude = (docs_site_contributing / "claude.md").read_text(encoding="utf-8")
+    assert "222,659 test functions | 5,402 test files" in docs_site_claude
+    assert "│   ├── unified_server.py   # Main server (3,297 API operations)" in docs_site_claude
+
     readme = (root / "README.md").read_text(encoding="utf-8")
     assert "Workflow Engine — DAG automation with 50+ templates" in readme
     assert "**The Nomic Loop (✅, 233+ tests)." in readme
     assert "3,297 API operations across 2,870 paths" in readme
 
 
-def test_patch_docs_leaves_claude_scale_when_metrics_doc_is_partial(tmp_path, monkeypatch):
+def test_patch_docs_leaves_claude_scale_when_metrics_doc_is_partial(tmp_path, monkeypatch, capsys):
     mod = _load_module()
     root = tmp_path
     docs = root / "docs"
@@ -200,8 +216,12 @@ def test_patch_docs_leaves_claude_scale_when_metrics_doc_is_partial(tmp_path, mo
     )
 
     mod.patch_docs(stats, write=True)
+    captured = capsys.readouterr()
 
     claude = (root / "CLAUDE.md").read_text(encoding="utf-8")
     assert old_codebase_scale in claude
     assert old_test_suite in claude
     assert "3,386 API operations" in claude
+    assert "skipped protected CLAUDE.md scale/test rewrites" in captured.err
+    assert "api_paths" in captured.err
+    assert "test_files" in captured.err
