@@ -130,6 +130,42 @@ class TestCanResolve:
         )
         assert r.can_resolve(claim, event)
 
+    def test_mixed_case_owner_repo_with_branch_ref_resolves(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="Owner/Repo@main")
+        event = GitHubEventPayload(
+            event_type="check_run", action="completed", target_ref="owner/repo@main"
+        )
+        assert r.can_resolve(claim, event)
+
+    def test_format_variant_same_target_resolves(self):
+        # Same target, different formatting: casing + whitespace around
+        # the separator normalize to the canonical owner/repo#N form.
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.PR_MERGE, target_ref="Owner/Repo #42")
+        event = GitHubEventPayload(
+            event_type="pull_request", action="closed", target_ref=" owner/repo# 42"
+        )
+        assert r.can_resolve(claim, event)
+
+    def test_branch_ref_case_is_preserved(self):
+        # git refs are case-sensitive: only owner/repo is case-folded,
+        # so branch names differing in case are genuinely different targets.
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="owner/repo@Feature")
+        event = GitHubEventPayload(
+            event_type="check_run", action="completed", target_ref="owner/repo@feature"
+        )
+        assert not r.can_resolve(claim, event)
+
+    def test_genuinely_different_targets_do_not_resolve(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.PR_MERGE, target_ref="owner/repo#42")
+        event = GitHubEventPayload(
+            event_type="pull_request", action="closed", target_ref="owner/repo#43"
+        )
+        assert not r.can_resolve(claim, event)
+
     def test_unsupported_question_type_returns_false(self):
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.DEPENDENCY_RELEASE)

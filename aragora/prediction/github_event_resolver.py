@@ -50,7 +50,8 @@ class GitHubEventPayload:
             ``"workflow_run"``.
         action: Event action string (e.g. ``"closed"``, ``"completed"``).
         target_ref: ``owner/repo#number`` or ``owner/repo@branch`` — must
-            match the claim's ``target_ref`` for resolution to proceed.
+            match the claim's ``target_ref`` (after normalization: whitespace
+            stripped, owner/repo case-folded) for resolution to proceed.
         occurred_at: ISO-8601 UTC timestamp for when the event occurred.
         merged: For ``pull_request`` events: whether the PR was merged.
         conclusion: For ``check_run``/``workflow_run`` events: the final
@@ -106,16 +107,39 @@ class GitHubEventResolver:
     }
 
     @staticmethod
-    def _normalize_ref(ref: str) -> str:
-        return ref.strip().lower()
+    def _normalize_target_ref(ref: str) -> str:
+        """Canonicalize a target_ref for comparison.
+
+        GitHub owner/repo names are case-insensitive, but issue/PR
+        numbers and git refs (branch names) are matched verbatim.
+        Produces the canonical ``owner/repo#N`` / ``owner/repo@ref``
+        form: outer whitespace stripped, the owner/repo part case-folded,
+        and the part after the first ``#``/``@`` separator preserved
+        as-is (whitespace-stripped only).  A ref with no separator is
+        treated as a bare owner/repo and case-folded whole.
+        """
+        ref = ref.strip()
+        sep_idx = min((i for i in (ref.find("#"), ref.find("@")) if i != -1), default=-1)
+        if sep_idx == -1:
+            return ref.casefold()
+        prefix = ref[:sep_idx].strip().casefold()
+        suffix = ref[sep_idx + 1 :].strip()
+        return f"{prefix}{ref[sep_idx]}{suffix}"
 
     def can_resolve(self, claim: StakeableClaim, event: GitHubEventPayload) -> bool:
-        """Return True if *event* could update *claim*'s resolution state."""
+        """Return True if *event* could update *claim*'s resolution state.
+
+        ``target_ref`` on both the claim and the event is normalized via
+        :meth:`_normalize_target_ref` before comparison, so a formatting
+        or owner/repo-casing mismatch never silently expires a claim.
+        """
         if claim.question_type not in self._EVENT_TYPES:
             return False
-        return event.event_type in self._EVENT_TYPES[claim.question_type] and self._normalize_ref(
-            event.target_ref
-        ) == self._normalize_ref(claim.target_ref)
+        return event.event_type in self._EVENT_TYPES[
+            claim.question_type
+        ] and self._normalize_target_ref(event.target_ref) == self._normalize_target_ref(
+            claim.target_ref
+        )
 
     def resolve_from_event(
         self, claim: StakeableClaim, event: GitHubEventPayload
