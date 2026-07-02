@@ -452,7 +452,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 f"{ws_events_approx} WebSocket event types",
                 0,
             ),
-            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python files", 0),
             (r"\(\d[\d,]*\s+namespaces\)", f"({stats.ts_namespaces} namespaces)", 0),
         ],
         "docs/EXTENDED_README.md": [
@@ -475,7 +475,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 0,
             ),
             (r"\d[\d,]*(?:\+)?\s+templates", f"{templates_approx} templates", 0),
-            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python files", 0),
             (
                 r"(\*\*Scale:\*\*[^\n]*?)\d[\d,]*(?:\+)?\s+tests",
                 lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
@@ -508,7 +508,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
             (r"\d[\d,]*(?:\+)?\s+agent types", f"{agent_types_approx} agent types", 0),
         ],
         "docs/FEATURE_DISCOVERY.md": [
-            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python files", 0),
             (
                 r"(\*\*Total\*\*:[^\n]*?)\d[\d,]*(?:\+)?\s+tests",
                 lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
@@ -529,7 +529,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
         "docs/status/FEATURE_DISCOVERY.md": [
             (
                 r"\*\*Total\*\*: 230\+ features \| [^\n]+",
-                f"**Total**: 230+ features | {modules_approx} Python modules | "
+                f"**Total**: 230+ features | {modules_approx} Python files | "
                 f"{tests_approx} tests | {api_ops_approx} API operations across "
                 f"{api_paths_approx} paths",
                 0,
