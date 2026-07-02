@@ -1,8 +1,14 @@
-"""Tests for the in-package ODR verification engine (aragora.gauntlet.odr_verify).
+"""Signature-dependent tests for the ODR verification engine.
 
 Mirrors the standalone ``aragora-verify`` package's behavior; both must agree on
 the same content profile and signature construction so a receipt verifies
 identically here and for an external auditor.
+
+This module holds only the tests that need the optional ``cryptography``
+package (key generation, signing, key loading) and skips as a whole when it is
+absent. The dependency-free verifier tests (schema conformance, quorum
+cross-checks, chain linkage, weakening signals) live in
+``test_odr_verify_schema.py`` and must run without ``cryptography`` (#8765 P3).
 """
 
 from __future__ import annotations
@@ -18,7 +24,6 @@ from aragora.gauntlet.odr_verify import (
     FAIL,
     PASS,
     SKIP,
-    WARN,
     ODRVerificationError,
     compute_key_id,
     load_public_key,
@@ -97,32 +102,6 @@ def _check(result: Any, name: str) -> Any:
     return next(c for c in result.checks if c.name == name)
 
 
-def test_valid_unsigned_receipt_passes_structurally() -> None:
-    result = verify_odr_document(_valid_odr())
-    assert result.ok is True
-    assert _check(result, "schema_conformance").status == PASS
-    assert _check(result, "signature").status == WARN
-
-
-def test_digest_matches_emitter() -> None:
-    doc = _valid_odr()
-    assert verify_odr_document(doc).odr_digest == odr_content_digest(doc)
-
-
-def test_missing_member_fails_schema() -> None:
-    doc = _valid_odr()
-    del doc["claim"]
-    result = verify_odr_document(doc)
-    assert result.ok is False
-    assert _check(result, "schema_conformance").status == FAIL
-
-
-def test_routing_must_be_reserved() -> None:
-    doc = _valid_odr()
-    doc["routing"] = {"status": "active"}
-    assert verify_odr_document(doc).ok is False
-
-
 def test_signed_verifies_with_correct_key() -> None:
     priv = Ed25519PrivateKey.generate()
     signed = _sign(_valid_odr(), priv)
@@ -163,82 +142,6 @@ def test_raw_key_loads() -> None:
     assert verify_odr_document(signed, public_key=load_public_key(raw)).ok is True
 
 
-def test_quorum_inconsistency_fails() -> None:
-    doc = _valid_odr()
-    doc["quorum"]["supporting_agents"].append("ghost")
-    result = verify_odr_document(doc)
-    assert result.ok is False
-    assert _check(result, "quorum_consistency").status == FAIL
-    assert "ghost" in _check(result, "quorum_consistency").detail
-
-
-@pytest.mark.parametrize("field", ["participants", "supporting_agents"])
-def test_quorum_present_but_null_list_subfield_fails_not_crash(field: str) -> None:
-    # A present-but-null list subfield (e.g. ``participants: null``) is a
-    # malformed/tamper signal: ``dict.get(key, [])`` returns None on a present
-    # null, so the engine must turn it into a FAIL verdict, not raise TypeError
-    # downstream. Regression for the #8389 review finding.
-    doc = _valid_odr()
-    doc["quorum"][field] = None
-    result = verify_odr_document(doc)  # must not raise
-    assert result.ok is False
-
-
-def test_quorum_null_dissenting_agents_fails_not_crash() -> None:
-    doc = _valid_odr()
-    doc["quorum"]["dissent"] = {"status": "present", "dissenting_agents": None}
-    result = verify_odr_document(doc)  # must not raise
-    assert result.ok is False
-
-
-def test_malformed_subfields_produce_verdict_not_crash() -> None:
-    # Boundary contract: structurally-valid-but-malformed receipts must produce a
-    # verdict, never raise. Each mutation crashed a different check before the
-    # pipeline guard (review-finding class: malformed input -> FAIL, not crash).
-    mutations = [
-        lambda d: d["quorum"].__setitem__("participants", None),
-        lambda d: d["quorum"].__setitem__("supporting_agents", None),
-        lambda d: d.__setitem__(
-            "independence", {"status": "present", "distinct_model_families": object()}
-        ),
-    ]
-    for mutate in mutations:
-        doc = _valid_odr()
-        mutate(doc)
-        result = verify_odr_document(doc)  # must not raise
-        assert isinstance(result.ok, bool)
-
-
-def test_chain_non_dict_entry_does_not_crash() -> None:
-    doc = _valid_odr()
-    digest = odr_content_digest(doc)
-    chain = ["not-a-dict", {"hash": "h1", "odr_digest": digest}]
-    result = verify_odr_document(doc, chain=chain)  # must not raise
-    assert result.ok is False
-
-
-def test_chain_anchored_passes_and_broken_fails() -> None:
-    doc = _valid_odr()
-    digest = odr_content_digest(doc)
-    good = [{"hash": "h0"}, {"hash": "h1", "prev_hash": "h0", "odr_digest": digest}]
-    assert _check(verify_odr_document(doc, chain=good), "chain_link").status == PASS
-    bad = [{"hash": "h0"}, {"hash": "h1", "prev_hash": "WRONG", "odr_digest": digest}]
-    assert verify_odr_document(doc, chain=bad).ok is False
-
-
-def test_chain_unanchored_fails() -> None:
-    chain = [{"hash": "h0"}, {"hash": "h1", "prev_hash": "h0"}]
-    assert verify_odr_document(_valid_odr(), chain=chain).ok is False
-
-
-def test_weakening_signals_do_not_fail() -> None:
-    result = verify_odr_document(_valid_odr())
-    joined = " ".join(result.warnings)
-    assert "autonomous" in joined
-    assert "uncalibrated" in joined
-    assert result.ok is True
-
-
 def test_to_dict_json_serializable() -> None:
     import json
 
@@ -266,14 +169,17 @@ def test_tampered_key_id_fails_even_with_valid_signature() -> None:
     assert "key_id" in check.detail
 
 
-def test_non_numeric_model_families_warns_not_fails() -> None:
-    # Weakening signals warn, never fail (spec §8): a non-numeric
-    # distinct_model_families degrades to a warning instead of a FAIL check.
+def test_non_numeric_model_families_still_verifies_signed() -> None:
+    # The distinct_model_families warn-only carve-out (see
+    # test_odr_verify_schema.py) must hold on the signed path too: the schema
+    # deviation may not change what bytes were signed or how they verify.
+    priv = Ed25519PrivateKey.generate()
     doc = _valid_odr()
     doc["quorum"]["independence"]["distinct_model_families"] = "n/a"
-    result = verify_odr_document(doc)
+    signed = _sign(doc, priv)
+    result = verify_odr_document(signed, public_key=load_public_key(_pem(priv.public_key())))
     assert result.ok is True
-    assert not any(c.name == "weakening_signals" and c.status == FAIL for c in result.checks)
+    assert _check(result, "signature").status == PASS
     assert any("not numeric" in w for w in result.warnings)
 
 
