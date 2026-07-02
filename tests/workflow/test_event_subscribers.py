@@ -18,6 +18,12 @@ tests live in ``TestAlertEscalatedToWorkflowBrake`` in
 precedent as ``TestBudgetAlertToTeamSelection`` for the P4a Batch E4
 relocation). This module covers registration/dispatch integration plus the
 E5-specific invocation-count acceptance test.
+
+Only ``alert_escalated_to_workflow_brake`` is wired by
+``WorkflowEventSubscriber.register``: ``_handle_debate_end_to_workflow`` is
+relocated (and directly callable/testable) but intentionally NOT registered,
+since it had no live invocation path on origin/main either - see the module
+docstring on ``aragora.workflow.event_subscribers`` for the full rationale.
 """
 
 from __future__ import annotations
@@ -99,7 +105,6 @@ class TestWorkflowEventSubscriberRegistration:
     def test_handler_names_frozenset(self):
         assert WORKFLOW_EVENT_SUBSCRIBER_HANDLER_NAMES == frozenset(
             {
-                "debate_end_to_workflow",
                 "alert_escalated_to_workflow_brake",
             }
         )
@@ -113,13 +118,20 @@ class TestWorkflowEventSubscriberRegistration:
         registered = set(manager.get_stats())
         assert WORKFLOW_EVENT_SUBSCRIBER_HANDLER_NAMES <= registered
 
-    def test_register_dispatches_debate_end_to_workflow_through_manager(self):
+    def test_register_does_not_wire_debate_end_to_workflow(self):
+        """The relocated post-debate-workflow reaction stays unregistered.
+
+        ``debate_end_to_workflow`` had no live invocation path on
+        origin/main (its only caller was the dead, unregistered ``basic.py``
+        delegate); ``register`` must not resurrect it as a manager-dispatched
+        reaction merely because the backing code moved home.
+        """
         manager = CrossSubscriberManager()
         WorkflowEventSubscriber().register(manager)
 
-        # Patch _trigger_workflow so this dispatch-count check does not
-        # construct a real aragora.workflow.engine.WorkflowEngine.
-        with patch.object(PostDebateWorkflowSubscriber, "_trigger_workflow"):
+        assert "debate_end_to_workflow" not in manager.get_stats()
+
+        with patch.object(PostDebateWorkflowSubscriber, "handle_debate_end") as mock_handle:
             manager._dispatch_event(
                 make_stream_event(
                     StreamEventType.DEBATE_END,
@@ -127,8 +139,7 @@ class TestWorkflowEventSubscriberRegistration:
                 )
             )
 
-        stats = manager.get_stats()
-        assert stats["debate_end_to_workflow"]["events_processed"] == 1
+        mock_handle.assert_not_called()
 
     def test_register_dispatches_alert_escalated_to_workflow_brake_through_manager(self):
         manager = CrossSubscriberManager()
@@ -158,35 +169,37 @@ class TestWorkflowEventSubscriberRegistration:
         assert first is second
 
 
-class TestPostDebateWorkflowSubscriberFiresExactlyOnce:
+class TestPostDebateWorkflowSubscriberInvocationCount:
     """E5-specific acceptance test (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md
     §10 row E5, acceptance criterion 6): an INVOCATION-COUNT test proving
-    ``PostDebateWorkflowSubscriber`` fires EXACTLY ONCE per ``debate_end``
-    event after the coupling inversion.
+    ``PostDebateWorkflowSubscriber.handle_debate_end`` is invoked EXACTLY
+    ONCE per ``debate_end`` event wherever it IS wired, and not at all
+    through the default production composition root (see the module
+    docstring on ``aragora.workflow.event_subscribers`` for why the reaction
+    is relocated but deliberately left unregistered).
 
     A registration-count parity check (e.g.
     ``test_register_wires_all_handlers_into_manager`` above, or the
     golden-name parity tests in
     ``tests/events/test_cross_subscriber_registry.py``) is INSUFFICIENT: it
-    only proves ONE subscriber *name* was registered, not that the underlying
-    ``PostDebateWorkflowSubscriber.handle_debate_end`` was invoked exactly
-    once in total. Historically this reaction was reachable from TWO
+    only proves subscriber *names* were (or weren't) registered, not how many
+    times the underlying ``PostDebateWorkflowSubscriber.handle_debate_end``
+    actually ran. Historically this reaction was reachable from TWO
     independent delegating call sites - ``subscribers/debate_handlers.py:457``
     (deleted by P4a Batch E4) and ``cross_subscribers/handlers/basic.py:577``
     (deleted by this batch) - each of which instantiated its own throwaway
     ``PostDebateWorkflowSubscriber`` and called ``.handle_debate_end()``. A
-    residual second call site would raise the TOTAL invocation count to 2
-    while every PER-NAME registration/dispatch-count check would still
-    independently read 1, so only a class-level invocation count (patching
-    ``PostDebateWorkflowSubscriber.handle_debate_end`` itself, observed across
-    the whole dispatch) can catch that regression.
+    residual delegating site would go undetected by any PER-NAME
+    registration/dispatch-count check, so only a class-level invocation count
+    (patching ``PostDebateWorkflowSubscriber.handle_debate_end`` itself,
+    observed across the whole dispatch) can catch that regression.
     """
 
-    def test_fires_exactly_once_via_full_superset_bootstrap(self):
+    def test_not_invoked_via_full_superset_bootstrap(self):
         """Bootstrap the real interface-superset composition root (not a
-        hand-built manager) and dispatch ONE DEBATE_END event: the total
-        number of ``PostDebateWorkflowSubscriber.handle_debate_end`` calls
-        across the whole wired manager must be exactly 1."""
+        hand-built manager) and dispatch ONE DEBATE_END event: neither of
+        the historical delegating sites nor the new home's ``register``
+        route it to ``handle_debate_end``, so the total call count is 0."""
         from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
 
         manager = bootstrap_event_subscribers()
@@ -198,14 +211,22 @@ class TestPostDebateWorkflowSubscriberFiresExactlyOnce:
         with patch.object(PostDebateWorkflowSubscriber, "handle_debate_end") as mock_handle:
             manager._dispatch_event(event)
 
-        mock_handle.assert_called_once()
+        mock_handle.assert_not_called()
 
-    def test_fires_exactly_once_when_registered_directly_on_a_manager(self):
-        """Same guarantee at the unit level: the callable
-        ``WorkflowEventSubscriber.register`` wires into the manager calls
-        ``handle_debate_end`` exactly once per dispatched event."""
+    def test_fires_exactly_once_when_wired_directly(self):
+        """Guarantee at the unit level for whoever wires this reaction back
+        in later: registering ``_handle_debate_end_to_workflow`` directly
+        onto a manager (bypassing ``WorkflowEventSubscriber.register``, which
+        deliberately omits it) still routes to ``handle_debate_end`` exactly
+        once per dispatched event, i.e. the relocated code itself carries no
+        residual double-dispatch from the historical two-site bug."""
         manager = CrossSubscriberManager()
-        WorkflowEventSubscriber().register(manager)
+        subscriber = WorkflowEventSubscriber()
+        manager.register(
+            "debate_end_to_workflow",
+            StreamEventType.DEBATE_END,
+            subscriber._handle_debate_end_to_workflow,
+        )
         event = make_stream_event(StreamEventType.DEBATE_END, data={"debate_id": "d2"})
 
         with patch.object(PostDebateWorkflowSubscriber, "handle_debate_end") as mock_handle:
@@ -213,11 +234,11 @@ class TestPostDebateWorkflowSubscriberFiresExactlyOnce:
 
         mock_handle.assert_called_once()
 
-    def test_fires_exactly_once_after_repeated_bootstrap_calls(self):
+    def test_not_invoked_after_repeated_bootstrap_calls(self):
         """Bootstrap is documented as idempotent (repeated calls only apply
-        newly-registered subscribers): calling it twice must not create a
-        second live delegate, so DEBATE_END still reaches handle_debate_end
-        exactly once."""
+        newly-registered subscribers): calling it twice must not
+        retroactively wire the relocated reaction either, so DEBATE_END
+        still reaches ``handle_debate_end`` zero times."""
         from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
 
         bootstrap_event_subscribers()
@@ -227,7 +248,7 @@ class TestPostDebateWorkflowSubscriberFiresExactlyOnce:
         with patch.object(PostDebateWorkflowSubscriber, "handle_debate_end") as mock_handle:
             manager._dispatch_event(event)
 
-        mock_handle.assert_called_once()
+        mock_handle.assert_not_called()
 
 
 class TestLegacyDelegatingSitesRemoved:

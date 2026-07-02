@@ -16,10 +16,10 @@ relocate-UP); see that module for those handlers.
 The unregistered ``_handle_debate_end_to_workflow`` delegate (dead at runtime -
 it instantiated a throwaway ``PostDebateWorkflowSubscriber`` on every call but
 was never wired into ``CrossSubscriberManager``) was removed by the P4a Batch
-E5 coupling inversion rather than relocated: ``aragora.workflow.event_subscribers``
-now wires the single registered ``DEBATE_END`` → workflow-automation
-subscriber via the domain-free event bus, so this module keeps no direct
-import of (or edge to) workflow code.
+E5 coupling inversion rather than relocated: ``PostDebateWorkflowSubscriber``
+now lives in its application home (``aragora.workflow.event_subscribers``),
+relocated but - like this deleted delegate - still not wired into any live
+dispatch, so this module keeps no direct import of (or edge to) workflow code.
 """
 
 from __future__ import annotations
