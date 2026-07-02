@@ -390,7 +390,7 @@ Response:
 ### Get Plugin Details
 
 ```
-GET /api/plugins/\{name\}
+GET /api/plugins/{name}
 ```
 
 Response includes manifest plus runtime info:
@@ -407,7 +407,7 @@ Response includes manifest plus runtime info:
 ### Run Plugin
 
 ```
-POST /api/plugins/\{name\}/run
+POST /api/plugins/{name}/run
 ```
 
 Request:

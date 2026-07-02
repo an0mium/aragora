@@ -733,7 +733,7 @@ async def recover():
     t = await recover_interrupted_transcriptions()
     g = await recover_interrupted_gauntlets()
     r = await recover_interrupted_routing()
-    print(f'Recovered: \{t\} transcriptions, \{g\} gauntlets, \{r\} routing jobs')
+    print(f'Recovered: {t} transcriptions, {g} gauntlets, {r} routing jobs')
 
 asyncio.run(recover())
 "
@@ -822,7 +822,7 @@ Origin data (`aragora/server/debate_origin.py`) maps debates to their source (Sl
        store = get_origin_store()
        # SQLite-backed store
        count = await store.count()
-       print(f'Stored origins: \{count\}')
+       print(f'Stored origins: {count}')
 
    asyncio.run(check())
    "
@@ -851,7 +851,7 @@ Origin data (`aragora/server/debate_origin.py`) maps debates to their source (Sl
                )
                await origin_store.save(origin)
                recovered += 1
-       print(f'Recovered \{recovered\} origins from debate metadata')
+       print(f'Recovered {recovered} origins from debate metadata')
 
    asyncio.run(rebuild())
    "
@@ -946,7 +946,7 @@ import asyncio
 async def recover():
     node = HumanCheckpointNode()
     recovered = await node.recover_pending_approvals()
-    print(f'Recovered \{recovered\} pending approvals')
+    print(f'Recovered {recovered} pending approvals')
 
 asyncio.run(recover())
 "

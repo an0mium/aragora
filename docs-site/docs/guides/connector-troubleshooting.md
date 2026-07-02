@@ -44,11 +44,11 @@ try:
 except ConnectorError as e:
     if is_retryable_error(e):
         delay = get_retry_delay(e, default=5.0)
-        print(f"Retrying in \{delay\}s...")
+        print(f"Retrying in {delay}s...")
         await asyncio.sleep(delay)
         # Retry the operation
     else:
-        print(f"Non-retryable error: \{e\}")
+        print(f"Non-retryable error: {e}")
 ```
 
 ## Common Issues by Error Type
@@ -250,7 +250,7 @@ try:
     await connector.search("query")
 except ConnectorAPIError as e:
     print(f"Status: {e.status_code}")
-    print(f"Message: \{e\}")
+    print(f"Message: {e}")
 ```
 
 ### ConnectorParseError
@@ -393,7 +393,7 @@ connector._cache.clear()
 
 # Or clear only expired
 cleared = connector._cache_clear_expired()
-print(f"Cleared \{cleared\} expired entries")
+print(f"Cleared {cleared} expired entries")
 ```
 
 ### Test Connector Manually
@@ -517,7 +517,7 @@ async def search_with_fallback(query, connectors):
             if results:
                 return results
         except ConnectorError as e:
-            logger.warning(f"{connector.name} failed: \{e\}")
+            logger.warning(f"{connector.name} failed: {e}")
             continue
     return []
 
@@ -592,8 +592,8 @@ async def health_check():
 
 2. **Network connectivity:**
    ```bash
-   curl -s -o /dev/null -w "%\{http_code\}" https://api.github.com
-   curl -s -o /dev/null -w "%\{http_code\}" https://export.arxiv.org
+   curl -s -o /dev/null -w "%{http_code}" https://api.github.com
+   curl -s -o /dev/null -w "%{http_code}" https://export.arxiv.org
    ```
 
 3. **Python dependencies:**

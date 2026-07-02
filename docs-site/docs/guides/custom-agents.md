@@ -107,7 +107,7 @@ class MyProviderAgent(APIAgent):
 
 Analyze the following content and provide constructive criticism:
 
-\{content\}
+{content}
 
 Focus on:
 1. Logical flaws or unsupported claims
@@ -373,10 +373,10 @@ async def test_debate():
         "Should we use microservices or monolith?",
         context={"topic": "architecture"}
     )
-    print(f"Response: \{response\}")
+    print(f"Response: {response}")
 
     critique = await agent.critique(response)
-    print(f"Self-critique: \{critique\}")
+    print(f"Self-critique: {critique}")
 
 asyncio.run(test_debate())
 ```
