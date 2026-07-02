@@ -22,6 +22,8 @@ Endpoints:
     GET  /api/v2/receipts/stats                        - Receipt statistics
     POST /api/v2/receipts/:receipt_id/share            - Create shareable link
     GET  /api/v2/receipts/share/:token                 - Access receipt via share token
+    GET  /api/v2/receipts/signing-key                  - ODR signing public key (JSON envelope)
+    GET  /.well-known/aragora-odr-signing-key          - ODR signing public key (raw PEM)
     GET  /api/v1/receipts/deliveries                   - Legacy/frontend delivery history bridge
 
 These endpoints support the "defensible decisions" pillar with:
@@ -369,9 +371,15 @@ class ReceiptsHandler(BaseHandler):
         "/api/v2/receipts/*",
         "/api/v2/receipts/search",
         "/api/v2/receipts/stats",
+        "/api/v2/receipts/signing-key",
+        "/.well-known/aragora-odr-signing-key",
         "/api/v1/receipts/deliveries",
         "/api/v1/receipts/*/deliver",
     ]
+
+    #: How long a successfully resolved signing public key is cached before
+    #: re-reading it from Secrets Manager (allows key rotation without restart).
+    SIGNING_KEY_CACHE_TTL_SECONDS = 300.0
 
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
@@ -390,6 +398,9 @@ class ReceiptsHandler(BaseHandler):
         )
         self._store = None  # Set by tests or lazy init
         self._share_store = None  # Set by tests or lazy init
+        # Cached (monotonic_timestamp, (public_key_pem, key_id)) for the
+        # ODR signing-key endpoints; only PUBLIC key material is ever cached.
+        self._signing_key_cache: tuple[float, tuple[str, str]] | None = None
 
     def _get_store(self):
         """Get receipt store (lazy initialization)."""
@@ -405,6 +416,8 @@ class ReceiptsHandler(BaseHandler):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the request."""
+        if path == "/.well-known/aragora-odr-signing-key":
+            return method == "GET"
         if path.startswith("/api/v2/receipts"):
             return method in ("GET", "POST")
         if path == "/api/v1/receipts/deliveries":
@@ -479,6 +492,14 @@ class ReceiptsHandler(BaseHandler):
             headers = dict(handler.headers) if handler and hasattr(handler, "headers") else {}
 
         try:
+            # ODR signing public key trust anchor (public endpoints, issue #8804).
+            # Checked before the generic /api/v2/receipts/{id} parsing so
+            # "signing-key" is never treated as a receipt id.
+            if path == "/.well-known/aragora-odr-signing-key" and method == "GET":
+                return await self._get_signing_key_pem()
+            if path == "/api/v2/receipts/signing-key" and method == "GET":
+                return await self._get_signing_key()
+
             # Stats endpoint
             if path == "/api/v2/receipts/stats" and method == "GET":
                 return await self._get_stats()
@@ -1135,6 +1156,99 @@ class ReceiptsHandler(BaseHandler):
                 "stats": stats,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
+        )
+
+    @staticmethod
+    def _resolve_signing_public_key() -> tuple[str, str]:
+        """Load the configured ODR signing key and return (public_key_pem, key_id).
+
+        The private key never leaves this function: only the PEM of its public
+        half and the derived key id are returned. Raises
+        :class:`aragora.gauntlet.odr_signing.OdrSigningError` when no signing
+        key is configured or it cannot be loaded — the endpoints fail closed
+        (404) instead of ever generating a key on demand.
+        """
+        from aragora.gauntlet.odr_signing import (
+            compute_key_id,
+            load_signing_key_from_secrets,
+            public_key_pem,
+        )
+
+        private_key = load_signing_key_from_secrets()
+        return public_key_pem(private_key), compute_key_id(private_key.public_key())
+
+    async def _get_signing_public_key(self) -> tuple[str, str] | None:
+        """Return cached (public_key_pem, key_id), or None when unconfigured."""
+        import time
+
+        from aragora.gauntlet.odr_signing import OdrSigningError
+
+        now = time.monotonic()
+        cached = self._signing_key_cache
+        if cached is not None and now - cached[0] < self.SIGNING_KEY_CACHE_TTL_SECONDS:
+            return cached[1]
+
+        try:
+            resolved = await asyncio.to_thread(self._resolve_signing_public_key)
+        except OdrSigningError as e:
+            # Fail closed: no key configured/loadable means 404, never a
+            # generated key. Static message to callers; detail in logs only.
+            logger.info("ODR signing key unavailable: %s", e)
+            return None
+
+        self._signing_key_cache = (now, resolved)
+        return resolved
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v2/receipts/signing-key",
+        summary="Get ODR signing public key",
+        description=(
+            "Return the Ed25519 public key (PEM) used to sign Open Decision "
+            "Receipts on this deployment, with the derived key id. This is a "
+            "public trust anchor for offline verification via aragora-verify; "
+            "no authentication is required. Returns 404 when no signing key "
+            "is configured. Also served as raw PEM at "
+            "/.well-known/aragora-odr-signing-key."
+        ),
+        tags=["Receipts"],
+        operation_id="get_receipt_signing_key",
+        responses={
+            "200": {"description": "Signing public key returned"},
+            "404": {"description": "No ODR signing key is configured"},
+        },
+    )
+    async def _get_signing_key(self) -> HandlerResult:
+        """Serve the ODR signing public key as a stable JSON envelope."""
+        resolved = await self._get_signing_public_key()
+        if resolved is None:
+            return error_response("No ODR signing key is configured for this deployment", 404)
+
+        pem, key_id = resolved
+        return json_response(
+            {
+                "algorithm": "Ed25519",
+                "key_id": key_id,
+                "public_key_pem": pem,
+            },
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+
+    async def _get_signing_key_pem(self) -> HandlerResult:
+        """Serve the ODR signing public key as raw PEM (/.well-known route)."""
+        resolved = await self._get_signing_public_key()
+        if resolved is None:
+            return error_response("No ODR signing key is configured for this deployment", 404)
+
+        pem, key_id = resolved
+        return HandlerResult(
+            status_code=200,
+            content_type="application/x-pem-file; charset=utf-8",
+            body=pem.encode("utf-8"),
+            headers={
+                "Cache-Control": "public, max-age=300",
+                "X-Aragora-Key-Id": key_id,
+            },
         )
 
     @require_permission("receipts:read")

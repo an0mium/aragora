@@ -223,3 +223,57 @@ class TestReceiptsDeliveryBridge:
                 "/api/v1/receipts/r%2F123/anchor-status",
             )
             await client.close()
+
+
+class TestReceiptsSigningKey:
+    """Tests for the ODR signing public key trust anchor."""
+
+    def test_get_signing_key(self) -> None:
+        """Fetch the JSON signing-key envelope."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "algorithm": "Ed25519",
+                "key_id": "ed25519-abc",
+                "public_key_pem": "-----BEGIN PUBLIC KEY-----\n...",
+            }
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.receipts.get_signing_key()
+
+            mock_request.assert_called_once_with("GET", "/api/v2/receipts/signing-key")
+            client.close()
+
+    def test_get_signing_key_pem(self) -> None:
+        """Fetch the raw PEM from the well-known path."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = "-----BEGIN PUBLIC KEY-----\n..."
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.receipts.get_signing_key_pem()
+
+            mock_request.assert_called_once_with("GET", "/.well-known/aragora-odr-signing-key")
+            client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_get_signing_key(self) -> None:
+        """Fetch the JSON signing-key envelope (async)."""
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"algorithm": "Ed25519"}
+
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            await client.receipts.get_signing_key()
+
+            mock_request.assert_called_once_with("GET", "/api/v2/receipts/signing-key")
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_get_signing_key_pem(self) -> None:
+        """Fetch the raw PEM from the well-known path (async)."""
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = "-----BEGIN PUBLIC KEY-----\n..."
+
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            await client.receipts.get_signing_key_pem()
+
+            mock_request.assert_called_once_with("GET", "/.well-known/aragora-odr-signing-key")
+            await client.close()
