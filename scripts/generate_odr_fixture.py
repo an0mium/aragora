@@ -36,7 +36,6 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from aragora.gauntlet.odr_export import (  # noqa: E402
-    calibration_provenance_for_receipt,
     decision_receipt_to_odr,
     odr_content_digest,
 )
@@ -186,6 +185,22 @@ def build_sample_receipt() -> DecisionReceipt:
     )
 
 
+def export_receipt_to_odr(receipt: DecisionReceipt) -> dict:
+    """The exact (unsigned) export call used to produce the checked-in fixture.
+
+    Deliberately passes **no** ``calibration_provenance``: the walkthrough
+    fixture demonstrates the honest ``absent`` calibration marker, and
+    consulting the ambient calibration store would make regeneration depend on
+    whichever ELO/calibration records happen to exist on the generating
+    machine — breaking the "re-running changes only the key and signature"
+    guarantee. The regression tests in
+    ``tests/gauntlet/test_odr_walkthrough_fixture.py`` call this same function
+    so the fixture is always compared against the generator's actual export
+    path.
+    """
+    return decision_receipt_to_odr(receipt)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -200,10 +215,7 @@ def main() -> int:
     receipt = build_sample_receipt()
 
     # Native -> neutral ODR profile (never fabricates; absent markers are honest).
-    odr = decision_receipt_to_odr(
-        receipt,
-        calibration_provenance=calibration_provenance_for_receipt(receipt),
-    )
+    odr = export_receipt_to_odr(receipt)
 
     # Sign with a fresh demonstration key. The private half exists only in this
     # process; solely the public key is written out.
