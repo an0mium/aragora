@@ -161,3 +161,7 @@ _(per-batch template below)_
 - #8519: FINAL PARK at bb3c0082 after 6 rounds/4 families (design uncontested since round 4; #8782 landed — module_tiers vindicated as generator truth, main stale; rounds 4-6 advisory findings folded into #8781; settlement options recorded on PR).
 - Executor diagnosis (manual dry-run): correctly fail-closed but stricter than enforcing gate — advisory-dissent parity + docs-tier gaps filed as improvement issue. Root blocker for ALL PRs: **main-level doc-stats drift fails 'Ensure docs are synced' everywhere** → sync PR #8783 (contains protected CLAUDE.md counts hunk — PREPARED ONLY, operator approval required; critical path for the merge queue).
 - 8778 also blocked on the two known test-fast shards (pre-existing, its own fix subject) — will clear post-merge circularly via #8783 + its own fixes; re-verify after.
+
+## WAVE 5 close (2026-07-02 ~03:00): #8785 export-collision fix CLEAN 2-0 first try (posted, Tier 1)
+- Callable ModuleType subclasses on aragora/debate + aragora/workflow; protected __init__.py = comments only; 3 import orders pinned via subprocess isolation; 3,411 workflow tests green. Its one failing golden test is the pre-existing one #8778 fixes (interlocking, disclosed).
+- QUEUE STATE: 8771/8775/8776/8778/8785 ALL hold posted quorums; ALL blocked solely on main's docs-sync drift → operator approval of #8783 (protected CLAUDE.md counts hunk) is the single critical path. Codex #8726 unchanged (freeze holds).
