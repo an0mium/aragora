@@ -1748,6 +1748,10 @@ class ReceiptsHandler(BaseHandler):
             return error_response("Share link has expired", 410)
         if share_status == "limit_reached":
             return error_response("Share link access limit reached", 410)
+        if share_info is None:
+            # Defensive: every non-"ok" status is handled above, and "ok"
+            # always carries share_info.
+            return error_response("Share link not found", 404)
 
         # Get receipt
         store = self._get_store()
