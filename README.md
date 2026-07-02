@@ -371,7 +371,7 @@ red-team + cryptographic receipts (✅); Swarm orchestration — bounded work or
 worker launcher into managed worktrees, reconciler, leases, salvage queue (✅); Inbox
 Trust Wedge — Gmail → debate → signed receipt → approval → execute (✅ CLI, 🔮 web GUI
 for retest); Live Explainability, structural argument verification, outcome-feedback
-loop (✅); Workflow Engine — DAG automation with 50+ templates (✅); Prompt Engine —
+loop (✅); Workflow Engine — DAG automation with 60+ templates (✅); Prompt Engine —
 vague prompt → validated spec via debate (✅); Computer-Use bridge + OpenClaw
 compatibility (🔄).
 
@@ -408,7 +408,7 @@ tracked openly, not hidden *(docs/FEATURE_GAP_LIST.md dormant table)*:
 
 ### Self-improvement — the Nomic Loop & the flywheel
 
-**The Nomic Loop (✅, 233+ tests).** A five-phase autonomous self-improvement cycle:
+**The Nomic Loop (✅, 216,016 tests).** A five-phase autonomous self-improvement cycle:
 **Context → Debate → Design → Implement → Verify.** Heterogeneous agents propose and
 argue improvements, architect a solution, generate code in isolated worktrees, then
 gate on automated tests + cross-agent review + merge arbiter + Knowledge Mound learning.
