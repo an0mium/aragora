@@ -131,7 +131,7 @@ Token format: `\{loop_id\}:\{expires_timestamp\}:\{hmac_signature\}`
 TOKEN="<your_token>"
 curl -s -X POST "https://api.aragora.ai/api/debates" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $\{TOKEN\}" \
+  -H "Authorization: Bearer ${TOKEN}" \
   -d '{"question":"Test question","config":{"rounds":1}}'
 ```
 

@@ -493,8 +493,8 @@ services:
       - "8080:8080"
       - "8765:8765"
     environment:
-      - ANTHROPIC_API_KEY=$\{ANTHROPIC_API_KEY\}
-      - OPENAI_API_KEY=$\{OPENAI_API_KEY\}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - aragora_data:/data
 
