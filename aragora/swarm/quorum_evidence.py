@@ -504,6 +504,7 @@ class CollectOutcome:
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
     quorum_rerun: dict[str, Any] | None = None
+    adjudication: dict[str, Any] | None = None
     # Captured ONCE at construction (not re-read from os.environ per property
     # access) so a security-relevant gate decision stays deterministic within a
     # single settlement flow even if the process env mutates mid-run.
@@ -568,7 +569,7 @@ class CollectOutcome:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "mode": "collect_evidence",
             "repo": self.repo,
             "pr_number": self.pr,
@@ -603,6 +604,30 @@ class CollectOutcome:
                 for item in self.items
             ],
             "failures": [{"family": f.family, "error": f.error} for f in self.failures],
+        }
+        if self.adjudication is not None:
+            payload["adjudication"] = self.adjudication
+        return payload
+
+
+def _maybe_record_review_adjudication(outcome: CollectOutcome) -> None:
+    """Record observe-only Review Adjudicator output for stalled evidence."""
+    if outcome.adjudication is not None or not outcome.supportive_families:
+        return
+    if not any(item.verdict == "changes_requested" for item in outcome.items):
+        return
+    from aragora.swarm import review_adjudicator
+
+    if not review_adjudicator.review_adjudicator_enabled():
+        return
+    try:
+        outcome.adjudication = review_adjudicator.adjudicate(outcome.items).to_receipt_dict()
+    except Exception as exc:  # noqa: BLE001 - observe-only path must fail closed.
+        outcome.adjudication = {
+            "kind": "review_adjudication.v1",
+            "verdict": "adjudicated_block",
+            "reason": "review adjudicator failed during observe-only collection",
+            "error": f"{type(exc).__name__}: {str(exc)[:200]}",
         }
 
 
@@ -700,6 +725,9 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         post_errors=_string_list(data.get("post_errors")),
         quorum_rerun=data.get("quorum_rerun")
         if isinstance(data.get("quorum_rerun"), dict)
+        else None,
+        adjudication=data.get("adjudication")
+        if isinstance(data.get("adjudication"), dict)
         else None,
         **gate_kwargs,
     )
@@ -1977,6 +2005,8 @@ def collect_evidence(
             )
         )
 
+    _maybe_record_review_adjudication(outcome)
+
     if action == "post":
         if outcome.dissenting_families:
             outcome.action = "prepare"
@@ -2179,6 +2209,7 @@ def apply_prepared_evidence(
         items=_clone_prepared_items(prepared.items, live_severity_gated=live_severity_gated),
         failures=_clone_reviewer_failures(prepared.failures),
         tiered_gate=effective_tiered_gate,
+        adjudication=prepared.adjudication,
     )
 
     if prepared.head_sha != head_sha:
@@ -2220,6 +2251,7 @@ def apply_prepared_evidence(
             )
         )
     outcome.items = relinted_items
+    _maybe_record_review_adjudication(outcome)
 
     if action != "post":
         return outcome
@@ -2293,6 +2325,10 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         action = "applied" if rerun.get("applied") else "not applied"
         reason = rerun.get("reason") or rerun.get("error") or "unknown"
         lines.append(f"  quorum rerun: {action} ({reason})")
+    if outcome.adjudication:
+        verdict = outcome.adjudication.get("verdict") or "unknown"
+        reason = outcome.adjudication.get("reason") or "no reason"
+        lines.append(f"  adjudication: {verdict} ({reason})")
     for item in outcome.items:
         flag = "counts" if item.would_count else f"DOES NOT count ({', '.join(item.problems)})"
         lines.append(f"  - {item.family}: {flag}; verdict={item.verdict}")

@@ -1127,6 +1127,75 @@ def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
     assert outcome.quorum_rerun is None
 
 
+def test_collect_review_adjudicator_flag_off_omits_adjudication(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ARAGORA_ENABLE_REVIEW_ADJUDICATOR", raising=False)
+    fakes, _posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult("grok", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
+        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.adjudication is None
+    assert "adjudication" not in outcome.to_dict()
+
+
+def test_collect_review_adjudicator_flag_on_records_observe_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_REVIEW_ADJUDICATOR", "1")
+    fakes, posted = _fakes(tier=1)
+    seen: dict[str, list[str]] = {}
+
+    class FakeAdjudication:
+        def to_receipt_dict(self) -> dict:
+            return {
+                "kind": "review_adjudication.v1",
+                "verdict": "adjudicated_settle",
+                "reason": "thin advisory finding",
+            }
+
+    def fake_adjudicate(items) -> FakeAdjudication:
+        seen["families"] = [item.family for item in items]
+        return FakeAdjudication()
+
+    from aragora.swarm import review_adjudicator
+
+    monkeypatch.setattr(review_adjudicator, "adjudicate", fake_adjudicate)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\n- [P3] Consider an extra follow-up test.",
+                True,
+            )
+        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+
+    assert outcome.action == "prepare"
+    assert posted == []
+    assert seen["families"] == ["claude", "grok"]
+    assert outcome.adjudication == {
+        "kind": "review_adjudication.v1",
+        "verdict": "adjudicated_settle",
+        "reason": "thin advisory finding",
+    }
+    assert outcome.to_dict()["adjudication"]["verdict"] == "adjudicated_settle"
+
+
 def test_collect_severity_gated_p2_only_dissent_is_advisory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
