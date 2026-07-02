@@ -603,7 +603,7 @@ class CostTracker:
         # Emit stream event for real-time budget monitoring
         if self._event_emitter:
             try:
-                from aragora.server.stream.events import StreamEvent, StreamEventType
+                from aragora.events.types import StreamEvent, StreamEventType
 
                 self._event_emitter.emit(
                     StreamEvent(

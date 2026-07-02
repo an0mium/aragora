@@ -80,7 +80,7 @@ RETENTION_DAYS=30
 DATABASE="aragora"
 S3_BUCKET="aragora-backups"
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="$\{BACKUP_DIR\}/$\{DATABASE\}_$\{DATE\}.dump"
+BACKUP_FILE="${BACKUP_DIR}/${DATABASE}_${DATE}.dump"
 
 # Logging
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
@@ -88,36 +88,36 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
 log "Starting PostgreSQL backup..."
 
 # Create backup directory
-mkdir -p "$\{BACKUP_DIR\}"
+mkdir -p "${BACKUP_DIR}"
 
 # Full backup with compression
-pg_dump -Fc -Z 9 -d "$\{DATABASE\}" -f "$\{BACKUP_FILE\}"
+pg_dump -Fc -Z 9 -d "${DATABASE}" -f "${BACKUP_FILE}"
 
 # Verify backup
-pg_restore -l "$\{BACKUP_FILE\}" > /dev/null
+pg_restore -l "${BACKUP_FILE}" > /dev/null
 if [ $? -eq 0 ]; then
-    log "Backup verified successfully: $\{BACKUP_FILE\}"
+    log "Backup verified successfully: ${BACKUP_FILE}"
 else
     log "ERROR: Backup verification failed"
     exit 1
 fi
 
 # Get backup size
-SIZE=$(du -h "$\{BACKUP_FILE\}" | cut -f1)
-log "Backup size: $\{SIZE\}"
+SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+log "Backup size: ${SIZE}"
 
 # Upload to S3
-if [ -n "$\{S3_BUCKET\}" ]; then
-    aws s3 cp "$\{BACKUP_FILE\}" "s3://$\{S3_BUCKET\}/postgresql/daily/"
-    log "Uploaded to S3: s3://$\{S3_BUCKET\}/postgresql/daily/"
+if [ -n "${S3_BUCKET}" ]; then
+    aws s3 cp "${BACKUP_FILE}" "s3://${S3_BUCKET}/postgresql/daily/"
+    log "Uploaded to S3: s3://${S3_BUCKET}/postgresql/daily/"
 fi
 
 # Cleanup old backups (local)
-find "$\{BACKUP_DIR\}" -name "*.dump" -mtime +$\{RETENTION_DAYS\} -delete
-log "Cleaned up backups older than $\{RETENTION_DAYS\} days"
+find "${BACKUP_DIR}" -name "*.dump" -mtime +${RETENTION_DAYS} -delete
+log "Cleaned up backups older than ${RETENTION_DAYS} days"
 
 # Report metrics
-echo "backup_postgresql_success{database=\"$\{DATABASE\}\"} 1" | curl --data-binary @- http://pushgateway:9091/metrics/job/backup
+echo "backup_postgresql_success{database=\"${DATABASE}\"} 1" | curl --data-binary @- http://pushgateway:9091/metrics/job/backup
 
 log "Backup completed successfully"
 ```
@@ -202,7 +202,7 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
 
 log "Starting Redis backup..."
 
-mkdir -p "$\{BACKUP_DIR\}"
+mkdir -p "${BACKUP_DIR}"
 
 # Trigger RDB save
 redis-cli BGSAVE
@@ -214,10 +214,10 @@ while [ "$(redis-cli LASTSAVE)" == "$(redis-cli LASTSAVE)" ]; do
 done
 
 # Copy RDB file
-cp /var/lib/redis/dump.rdb "$\{BACKUP_DIR\}/dump_$\{DATE\}.rdb"
+cp /var/lib/redis/dump.rdb "${BACKUP_DIR}/dump_${DATE}.rdb"
 
 # Verify backup
-redis-check-rdb "$\{BACKUP_DIR\}/dump_$\{DATE\}.rdb"
+redis-check-rdb "${BACKUP_DIR}/dump_${DATE}.rdb"
 if [ $? -eq 0 ]; then
     log "RDB backup verified"
 else
@@ -226,10 +226,10 @@ else
 fi
 
 # Upload to S3
-aws s3 cp "$\{BACKUP_DIR\}/dump_$\{DATE\}.rdb" "s3://$\{S3_BUCKET\}/redis/"
+aws s3 cp "${BACKUP_DIR}/dump_${DATE}.rdb" "s3://${S3_BUCKET}/redis/"
 
 # Cleanup old backups
-find "$\{BACKUP_DIR\}" -name "*.rdb" -mtime +$\{RETENTION_DAYS\} -delete
+find "${BACKUP_DIR}" -name "*.rdb" -mtime +${RETENTION_DAYS} -delete
 
 log "Redis backup completed"
 ```
@@ -271,10 +271,10 @@ SLACK_WEBHOOK="${SLACK_WEBHOOK_URL:-}"
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
 alert() {
     log "ALERT: $1"
-    if [ -n "$\{SLACK_WEBHOOK\}" ]; then
+    if [ -n "${SLACK_WEBHOOK}" ]; then
         curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"Backup Validation Alert: $1\"}" \
-            "$\{SLACK_WEBHOOK\}"
+            "${SLACK_WEBHOOK}"
     fi
 }
 
@@ -282,46 +282,46 @@ log "Starting backup validation..."
 
 # Get latest backup
 LATEST_BACKUP=$(ls -t /backup/postgresql/daily/*.dump | head -1)
-log "Validating: $\{LATEST_BACKUP\}"
+log "Validating: ${LATEST_BACKUP}"
 
 # Create validation directory
-rm -rf "$\{VALIDATION_DIR\}"
-mkdir -p "$\{VALIDATION_DIR\}"
+rm -rf "${VALIDATION_DIR}"
+mkdir -p "${VALIDATION_DIR}"
 
 # Drop and recreate validation database
-psql -U postgres -c "DROP DATABASE IF EXISTS $\{VALIDATION_DB\};"
-psql -U postgres -c "CREATE DATABASE $\{VALIDATION_DB\};"
+psql -U postgres -c "DROP DATABASE IF EXISTS ${VALIDATION_DB};"
+psql -U postgres -c "CREATE DATABASE ${VALIDATION_DB};"
 
 # Restore backup to validation database
-pg_restore -d "$\{VALIDATION_DB\}" "$\{LATEST_BACKUP\}"
+pg_restore -d "${VALIDATION_DB}" "${LATEST_BACKUP}"
 if [ $? -ne 0 ]; then
-    alert "PostgreSQL backup restore failed: $\{LATEST_BACKUP\}"
+    alert "PostgreSQL backup restore failed: ${LATEST_BACKUP}"
     exit 1
 fi
 
 # Validate data integrity
-DEBATE_COUNT=$(psql -U postgres -d "$\{VALIDATION_DB\}" -t -c "SELECT COUNT(*) FROM debates;")
-USER_COUNT=$(psql -U postgres -d "$\{VALIDATION_DB\}" -t -c "SELECT COUNT(*) FROM users;")
-AUDIT_COUNT=$(psql -U postgres -d "$\{VALIDATION_DB\}" -t -c "SELECT COUNT(*) FROM audit_logs;")
+DEBATE_COUNT=$(psql -U postgres -d "${VALIDATION_DB}" -t -c "SELECT COUNT(*) FROM debates;")
+USER_COUNT=$(psql -U postgres -d "${VALIDATION_DB}" -t -c "SELECT COUNT(*) FROM users;")
+AUDIT_COUNT=$(psql -U postgres -d "${VALIDATION_DB}" -t -c "SELECT COUNT(*) FROM audit_logs;")
 
-log "Restored counts: debates=$\{DEBATE_COUNT\}, users=$\{USER_COUNT\}, audit_logs=$\{AUDIT_COUNT\}"
+log "Restored counts: debates=${DEBATE_COUNT}, users=${USER_COUNT}, audit_logs=${AUDIT_COUNT}"
 
 # Compare with production (optional)
 PROD_DEBATES=$(psql -U postgres -d aragora -t -c "SELECT COUNT(*) FROM debates;")
 DIFF=$((PROD_DEBATES - DEBATE_COUNT))
 
 if [ $DIFF -gt 100 ]; then
-    alert "Backup may be stale: $\{DIFF\} debates missing"
+    alert "Backup may be stale: ${DIFF} debates missing"
 fi
 
 # Cleanup
-psql -U postgres -c "DROP DATABASE $\{VALIDATION_DB\};"
+psql -U postgres -c "DROP DATABASE ${VALIDATION_DB};"
 
 # Redis validation
 LATEST_RDB=$(ls -t /backup/redis/rdb/*.rdb | head -1)
-redis-check-rdb "$\{LATEST_RDB\}"
+redis-check-rdb "${LATEST_RDB}"
 if [ $? -ne 0 ]; then
-    alert "Redis RDB validation failed: $\{LATEST_RDB\}"
+    alert "Redis RDB validation failed: ${LATEST_RDB}"
     exit 1
 fi
 
@@ -330,8 +330,8 @@ log "Backup validation completed successfully"
 # Report metrics
 cat << EOF | curl --data-binary @- http://pushgateway:9091/metrics/job/backup_validation
 backup_validation_success 1
-backup_validation_debates $\{DEBATE_COUNT\}
-backup_validation_users $\{USER_COUNT\}
+backup_validation_debates ${DEBATE_COUNT}
+backup_validation_users ${USER_COUNT}
 EOF
 ```
 
@@ -372,19 +372,19 @@ STORAGE_CLASS="STANDARD_IA"  # Infrequent access for cost savings
 source /etc/aragora/backup-s3.conf
 
 # Sync PostgreSQL backups
-aws s3 sync /backup/postgresql/ "s3://$\{S3_BUCKET\}/$\{S3_PREFIX\}/postgresql/" \
-    --storage-class "$\{STORAGE_CLASS\}" \
-    --sse "$\{ENCRYPTION\}" \
+aws s3 sync /backup/postgresql/ "s3://${S3_BUCKET}/${S3_PREFIX}/postgresql/" \
+    --storage-class "${STORAGE_CLASS}" \
+    --sse "${ENCRYPTION}" \
     --delete
 
 # Sync Redis backups
-aws s3 sync /backup/redis/ "s3://$\{S3_BUCKET\}/$\{S3_PREFIX\}/redis/" \
-    --storage-class "$\{STORAGE_CLASS\}" \
-    --sse "$\{ENCRYPTION\}" \
+aws s3 sync /backup/redis/ "s3://${S3_BUCKET}/${S3_PREFIX}/redis/" \
+    --storage-class "${STORAGE_CLASS}" \
+    --sse "${ENCRYPTION}" \
     --delete
 
 # Verify sync
-aws s3 ls "s3://$\{S3_BUCKET\}/$\{S3_PREFIX\}/" --recursive --summarize
+aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --recursive --summarize
 ```
 
 ### 4.3 Cross-Region Replication

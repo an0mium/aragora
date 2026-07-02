@@ -333,7 +333,7 @@ class SlackNotificationChannel(NotificationChannel):
     async def _post_webhook(self, payload: dict[str, Any]) -> None:
         """Post payload to Slack webhook."""
         try:
-            from aragora.server.http_client_pool import get_http_pool
+            from aragora.observability.http_client_pool import get_http_pool
 
             pool = get_http_pool()
             async with pool.get_session("slack-alerts") as client:
@@ -520,7 +520,7 @@ class PrometheusAlertManagerChannel(NotificationChannel):
         url = f"{self.alertmanager_url}/api/v2/alerts"
 
         try:
-            from aragora.server.http_client_pool import get_http_pool
+            from aragora.observability.http_client_pool import get_http_pool
 
             pool = get_http_pool()
             async with pool.get_session("alertmanager") as client:

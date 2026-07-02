@@ -40,12 +40,12 @@ from functools import wraps
 from typing import Any, TypeVar
 from collections.abc import Awaitable, Callable
 
-from aragora.server.middleware.correlation import (
+from aragora.observability.middleware.correlation import (
     CorrelationContext,
     get_or_create_correlation,
     init_correlation,
 )
-from aragora.server.middleware.tracing import (
+from aragora.observability.middleware.tracing import (
     generate_span_id,
     get_span_id,
     get_trace_id,

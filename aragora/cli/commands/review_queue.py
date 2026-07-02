@@ -143,6 +143,7 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
 from aragora.swarm.quorum_evidence import (  # noqa: E402
     WESTERN_FAMILIES as WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
+    advisory_dissent_settle_enabled as advisory_dissent_settle_enabled,
     severity_gated_dissent_enabled as severity_gated_dissent_enabled,
     tier_quorum_rule as tier_quorum_rule,
     tiered_merge_gate_enabled as tiered_merge_gate_enabled,
@@ -2581,6 +2582,27 @@ def _build_packet(
             and not required_pending_checks
             and all(_is_merge_quorum_check(check) for check in required_failing_or_cancelled_checks)
         )
+        # Self-check-independent reachability predicate for advisory-dissent
+        # settlement (#8739). Unlike ``required_quorum_only_failure`` above, this
+        # does NOT require the merge-quorum row to be *visible* as a failing
+        # required check. Inside the enforcing Aragora Merge Quorum job the quorum
+        # row is the current self-check and is excluded from
+        # ``effective_required_checks``, so ``required_failing_or_cancelled_checks``
+        # is empty and ``required_quorum_only_failure`` is False even though the
+        # quorum signal is exactly what is missing. Externally the same row appears
+        # as a distinct failing entry. Both collapse to "no NON-quorum required
+        # check is failing/cancelled/pending" — the true condition advisory_settle
+        # needs. Computed separately so the in-job path is reachable WITHOUT
+        # disturbing the self-check semantics ``quorum_only_failure`` (and its guard
+        # tests) rely on. ``all(...)`` over an empty failing set is True (in-job);
+        # over a quorum-only failing set is True (external); over any non-quorum
+        # failure it is False (correctly keeps a real failing check blocking).
+        advisory_settle_surface_clear = (
+            required_available
+            and effective_required_count > 0
+            and not required_pending_checks
+            and all(_is_merge_quorum_check(check) for check in required_failing_or_cancelled_checks)
+        )
         # _rollup_non_green_diagnostics reports the raw GitHub rollup counts/sample
         # and is intentionally not filtered by ignore_own_quorum_check. The flag's
         # effect on the rollup is limited to the summary text computed above; the
@@ -2632,6 +2654,7 @@ def _build_packet(
                 :CHECK_SURFACE_DIAGNOSTIC_LIMIT
             ],
             "quorum_only_failure": required_quorum_only_failure,
+            "advisory_settle_surface_clear": advisory_settle_surface_clear,
         }
         if required_surface.get("error"):
             check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
@@ -3098,6 +3121,68 @@ def _explicit_merged_pr_merge_packet_entry(
     }
 
 
+def _is_recognized_model_review(body: str) -> bool:
+    """Whether a comment body is a recognized model review (identity resolver, not
+    a fixed heading-token list, so recognizers cannot drift — #8729 openai [P2])."""
+    return _resolve_model_review_identity(body).surface_reviewer_id != "unknown_model_reviewer"
+
+
+def _advisory_settle_review_signals(
+    comments: list[Any],
+    *,
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> tuple[bool, bool, bool]:
+    """Single-pass classification of grounded reviews for advisory_settle.
+
+    Returns ``(has_valid_wf_review, has_valid_advisory_dissent, has_blocking_finding)``.
+
+    Source-validation is applied UNIFORMLY so every *positive* input to the gate
+    passes the SAME filters the strict quorum path uses — closing the class of
+    bypasses #8729's review round surfaced one input at a time (spoofed identity,
+    bot author, uncountable advisory CR):
+
+    * positive signals (a western-frontier review present; genuine advisory
+      dissent) require a grounded, NON-bot author with a countable, non-conflicted
+      identity (``IDENTITY_COUNT_BLOCKERS``);
+    * the blocking-finding scan is deliberately PERMISSIVE / fail-closed: a
+      ``[P0]``/``[P1]`` in ANY recognized grounded review (bot or not) blocks
+      advisory_settle, so a blocking finding can never be laundered by an
+      untrusted source.
+    """
+    has_wf = False
+    has_advisory_dissent = False
+    has_blocking = False
+    for comment in comments or []:
+        if not isinstance(comment, dict):
+            continue
+        if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
+            continue
+        body = str(comment.get("body", "") or "")
+        if not _is_recognized_model_review(body):
+            continue
+        # Permissive, fail-closed blocking scan (any recognized grounded review).
+        if _has_blocking_finding_or_label(body):
+            has_blocking = True
+        # Positive signals require a validated source (non-bot + countable identity).
+        author_payload = comment.get("author")
+        author = (
+            str(author_payload.get("login", "") or "") if isinstance(author_payload, dict) else ""
+        )
+        if _is_github_actions_author(author):
+            continue
+        identity = _resolve_model_review_identity(body)
+        if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
+            continue
+        if str(identity.model_family or "").strip().lower() in WESTERN_FRONTIER_FAMILIES:
+            has_wf = True
+        # Genuine advisory dissent: a CHANGES-REQUESTED verdict from a validated
+        # source with no blocking [P0]/[P1] finding.
+        if _has_blocking_or_negative_verdict(body) and not _has_blocking_finding_or_label(body):
+            has_advisory_dissent = True
+    return has_wf, has_advisory_dissent, has_blocking
+
+
 def _build_model_review_quorum(
     *,
     pr: dict[str, Any],
@@ -3206,11 +3291,84 @@ def _build_model_review_quorum(
         isinstance(required_pr_check_surface, dict)
         and required_pr_check_surface.get("quorum_only_failure")
     )
-    missing_quorum_is_active_check_blocker = (
-        quorum_only_required_failure and not quorum_satisfied and not settlement_recorded
+    # #8739: self-check-independent reachability for advisory_settle. In the
+    # enforcing merge-quorum job the quorum row is the excluded self-check, so
+    # ``quorum_only_failure`` is False; ``advisory_settle_surface_clear`` is True
+    # whenever no NON-quorum required check is failing/pending. Since
+    # ``quorum_only_failure`` implies a clear surface, the OR below is
+    # backward-compatible with external settle-tooling callers that only populate
+    # the older key.
+    advisory_settle_surface_clear = bool(
+        isinstance(required_pr_check_surface, dict)
+        and required_pr_check_surface.get("advisory_settle_surface_clear")
     )
+    advisory_settle_reachable = advisory_settle_surface_clear or quorum_only_required_failure
     stale_quorum_check_after_satisfied_evidence = (
         quorum_only_required_failure and quorum_satisfied and not settlement_recorded
+    )
+    # --- Advisory-dissent settlement (opt-in, default OFF) ------------------
+    # A PR that fails the strict model quorum may still settle via the distinct
+    # ``advisory_settle`` verdict when (and ONLY when) every condition holds:
+    #   1. the flag is ON (default OFF -> path dormant, behavior byte-identical);
+    #   2. tier is 0/1/2 (Tier 3-4 keep human settlement, unaffected);
+    #   3. the only failing required check is the model-quorum check itself
+    #      (``quorum_only_required_failure``) -> all OTHER required checks are green;
+    #   4. at least one western-frontier review (claude/openai) exists at the head;
+    #   5. ZERO `[P0]`/`[P1]` blocking findings across ALL collected reviews, AND no
+    #      unresolved protocol/comment dissent. Condition (5) reuses the SAME
+    #      ``has_blocking_finding_or_label`` helper the dissent half consults, scanned
+    #      over every grounded review body, so it holds regardless of whether the
+    #      separate severity-gated-dissent flag is on. Any blocking finding or
+    #      unresolved dissent disqualifies advisory_settle.
+    # This is a strict fallback: it is only consulted when the strict quorum was NOT
+    # satisfied, and it never relaxes the blocking-finding bar.
+    advisory_findings = list(advisory_views)
+    # Single validated pass over grounded reviews — all positive inputs share the
+    # strict path's source filters (non-bot + countable identity); the blocking
+    # scan is fail-closed (#8729: closes the spoofed-identity / bot-author /
+    # uncountable-advisory-CR bypass class in one place).
+    (
+        _wf_review_present,
+        _genuine_advisory_dissent,
+        _any_blocking_finding,
+    ) = _advisory_settle_review_signals(
+        pr.get("comments") or [],
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
+    advisory_settle_eligible = (
+        advisory_dissent_settle_enabled()
+        and tier is not None
+        and 0 <= tier <= 2
+        and advisory_settle_reachable
+        and not quorum_satisfied
+        and not settlement_recorded
+        # NOTE (#8729 claude [P2]): advisory_settle deliberately does NOT require
+        # ``has_required_dogfood`` — dogfood is skipped for negative-verdict comments,
+        # so a dogfood gate would re-create the self-defeating contradiction the
+        # WF-any-verdict fix removed. The adversarial evidence IS the validated WF
+        # review plus the hard zero-[P0]/[P1] bar.
+        # No other blocker may be in play: only the model-quorum check is failing.
+        and not has_pending
+        and not checks_unavailable
+        and not blocking_workflow_state
+        # A validated western-frontier review must EXIST at head in ANY verdict, and
+        # there must be GENUINE (validated-source) advisory dissent being waived —
+        # not a lone approval (a one-review bypass) — and NO blocking finding in any
+        # recognized review, and no unresolved dissent.
+        and _wf_review_present
+        and _genuine_advisory_dissent
+        and not unresolved_dissent
+        and not _any_blocking_finding
+    )
+    # The incomplete-quorum check only acts as an ACTIVE blocker when advisory_settle
+    # is NOT rescuing this PR; otherwise the merge-quorum check is treated as resolved
+    # by the advisory path (and the verdict chain reports advisory_settle instead).
+    missing_quorum_is_active_check_blocker = (
+        quorum_only_required_failure
+        and not quorum_satisfied
+        and not settlement_recorded
+        and not advisory_settle_eligible
     )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
     human_preapproval_recorded = (
@@ -3243,7 +3401,12 @@ def _build_model_review_quorum(
         reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
-    if has_failures and not settlement_recorded and not missing_quorum_is_active_check_blocker:
+    if (
+        has_failures
+        and not settlement_recorded
+        and not missing_quorum_is_active_check_blocker
+        and not advisory_settle_eligible
+    ):
         reasons.append("checks are failing; repair before settlement")
     elif missing_quorum_is_active_check_blocker:
         reasons.append(
@@ -3274,7 +3437,15 @@ def _build_model_review_quorum(
         reasons.append(
             f"advisory finding from {family}: {sev_note} — not blocking (severity-gated dissent)"
         )
-    if not quorum_satisfied and not settlement_recorded:
+    if advisory_settle_eligible:
+        reasons.append(
+            "advisory-dissent settle: only the model-quorum check is failing, a "
+            "western-frontier review is present at head, and no [P0]/[P1] blocking "
+            "findings remain; settling on advisory findings only"
+        )
+        if advisory_findings:
+            reasons.append(f"{len(advisory_findings)} advisory finding(s) surfaced for follow-up")
+    if not quorum_satisfied and not settlement_recorded and not advisory_settle_eligible:
         if signal_count < requirement["required_model_signals"]:
             reasons.append(
                 "model quorum incomplete: "
@@ -3301,15 +3472,31 @@ def _build_model_review_quorum(
         verdict = "already_merged_settlement_recorded"
         requires_human_risk_settlement = False
     elif (
-        (has_failures and not missing_quorum_is_active_check_blocker)
+        (
+            has_failures
+            and not missing_quorum_is_active_check_blocker
+            and not advisory_settle_eligible
+        )
         or has_pending
         or checks_unavailable
-        or (machine_recommendation == "repair_first" and not missing_quorum_is_active_check_blocker)
+        or (
+            machine_recommendation == "repair_first"
+            and not missing_quorum_is_active_check_blocker
+            and not advisory_settle_eligible
+        )
         or stale_quorum_check_after_satisfied_evidence
         or blocking_workflow_state
     ):
         status = "repair_or_wait"
         verdict = "not_ready_for_settlement"
+    elif advisory_settle_eligible:
+        # Opt-in advisory-dissent settlement: a distinct, auditable verdict (NOT
+        # ``admin_squash_allowed``) so the audit trail records that this settled on
+        # advisory findings only. Tier 0-2 only; no human risk settlement required.
+        status = "satisfied"
+        verdict = "advisory_settle"
+        requires_human_risk_settlement = False
+        admin_squash_allowed = True
     elif not quorum_satisfied:
         status = "needs_model_review_quorum"
         verdict = "collect_model_quorum_before_merge"
@@ -3365,6 +3552,12 @@ def _build_model_review_quorum(
         "counted_model_families": counted_reviewer_ids,
         "dissenting_views": dissenting_views,
         "advisory_views": advisory_views,
+        # Advisory findings surfaced for follow-up issue-filing by a caller when the
+        # PR settles via the advisory_settle path. Populated only when that path is
+        # eligible (otherwise empty); issue-filing itself is a caller concern, not
+        # this gate's. Mirrors ``advisory_views`` content for the eligible case.
+        "advisory_findings": advisory_findings if advisory_settle_eligible else [],
+        "advisory_settle": advisory_settle_eligible,
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
     }

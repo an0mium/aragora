@@ -147,6 +147,38 @@ def severity_gated_dissent_enabled(env: dict[str, str] | None = None) -> bool:
     )
 
 
+# Opt-in flag for the advisory-dissent settlement path. When OFF (default), a PR
+# that fails the strict model-quorum bar stays blocked — byte-identical to today.
+# When ON, a Tier 0-2 PR whose ONLY failing required check is the model-quorum
+# check, that has at least one western-frontier review at the exact head, and that
+# carries ZERO `[P0]`/`[P1]` blocking findings across ALL collected reviews, may
+# settle via a distinct ``verdict="advisory_settle"`` even though the strict quorum
+# (e.g. two distinct supportive families) was never reached. This unblocks PRs that
+# two thorough reviewers only ever raise *advisory* findings on, without lowering
+# the bar for blocking findings.
+#
+# IMPORTANT — the flag is opt-in and default OFF: with it unset, this path is fully
+# dormant and the gate behaves exactly as it does on current main. Enabling it is a
+# separate, deliberate workflow edit (the in-tree audit point for the operator's
+# approval). The advisory_settle path is UNAVAILABLE at Tier 3-4, which keep human
+# settlement regardless of this flag. See
+# docs/plans/2026-06-30-advisory-dissent-settlement-gate-packet.md.
+_ADVISORY_DISSENT_SETTLE_ENV = "ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE"
+_ADVISORY_DISSENT_SETTLE_TRUE = frozenset(("1", "true", "yes", "on"))
+
+
+def advisory_dissent_settle_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in advisory-dissent settlement path is active. Default OFF;
+    a Tier 0-2 PR with only advisory (non-`[P0]`/`[P1]`) findings settles via
+    ``advisory_settle`` only when this is ON. See
+    :data:`_ADVISORY_DISSENT_SETTLE_ENV`."""
+    source = os.environ if env is None else env
+    return (
+        str(source.get(_ADVISORY_DISSENT_SETTLE_ENV, "")).strip().lower()
+        in _ADVISORY_DISSENT_SETTLE_TRUE
+    )
+
+
 def _coerce_relaxed_flag(value: Any) -> bool:
     """Coerce a serialized gate-regime flag (``severity_gated`` / ``tiered_gate``) to
     bool, fail-closed. A real bool passes through; a string counts as relaxed ONLY for
@@ -284,7 +316,13 @@ def canonical_family(name: str) -> str:
     return _FAMILY_ALIASES.get(fam, fam)
 
 
-DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
+# Default reviewer pair: the two western-frontier families (claude→opus-4.8,
+# openai→gpt-5.5). Chosen as the strongest, most-aligned adversarial reviewers so
+# a substantial diff can actually clear a 2-signal quorum, and because Tier 3-4
+# requires two western-frontier families. grok (xai) remains available via
+# --reviewers but is not western-frontier and empirically tends to reopen an
+# advisory nitpick loop on large diffs. Override per-run with --reviewers.
+DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "openai")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
 SETTLEMENT_TIER_FLOOR = 3

@@ -106,9 +106,17 @@ class TestArenaEventBridge:
         assert received_events[0].data["tier"] == "medium"
 
     def test_elo_event_triggers_handler(self):
-        """Test ELO events trigger built-in handler."""
+        """Test ELO events trigger the debate-domain handler once wired.
+
+        elo_to_debate relocated to ``DebateEventSubscriber`` (P4a Batch E4); a
+        bare ``CrossSubscriberManager`` no longer registers it, so the bridge
+        test wires it explicitly here (mirroring what a real bootstrap does).
+        """
+        from aragora.debate.event_subscribers import DebateEventSubscriber
+
         event_bus = EventBus()
         cross_manager = CrossSubscriberManager()
+        DebateEventSubscriber().register(cross_manager)
 
         bridge = ArenaEventBridge(event_bus, cross_manager)
         bridge.connect_to_cross_subscribers()
@@ -122,7 +130,7 @@ class TestArenaEventBridge:
             delta=100,
         )
 
-        # Check built-in handler was called
+        # Check debate-domain handler was called
         stats = cross_manager.get_stats()
         assert stats["elo_to_debate"]["events_processed"] == 1
 

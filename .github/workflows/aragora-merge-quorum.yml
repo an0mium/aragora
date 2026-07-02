@@ -121,6 +121,13 @@ jobs:
           # Tier 3-4 are UNAFFECTED: Tier 3-4 still require two Western families plus human settlement. The
           # gate reads this flag live; reverting is a single env flip back OFF (another Tier-4 edit).
           ARAGORA_ENABLE_TIERED_MERGE_GATE: "1"
+          # Activate advisory-dissent settlement (code merged in #8729, default OFF).
+          # A Tier 0-2 PR whose ONLY failing required check is model-quorum settles via
+          # verdict=advisory_settle when a validated western-frontier review is present at
+          # head, there is genuine (validated-source) advisory dissent, and ZERO [P0]/[P1]
+          # blocking findings remain — surfacing advisory_findings for follow-up. Tier 3-4
+          # unaffected (human settlement). Reverting is a single env flip back OFF.
+          ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE: "1"
         shell: bash
         run: |
           set -euo pipefail
