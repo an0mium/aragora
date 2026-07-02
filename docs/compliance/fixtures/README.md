@@ -18,9 +18,9 @@ aragora-verify sample_decision_receipt.odr.json --pubkey odr_sample_signing_publ
 
 **Demonstration key notice:** the keypair was generated solely to sign this
 fixture; the private half was discarded and is not Aragora's production ODR
-signing key (that key lives in AWS Secrets Manager and its public half is
-served at `/.well-known/aragora-odr-signing-key` by a deployment). Trust
-receipts signed with this fixture key for nothing beyond this walkthrough.
+signing key (that key lives in AWS Secrets Manager; public-key discovery for
+deployments is tracked in issue #8804). Trust receipts signed with this
+fixture key for nothing beyond this walkthrough.
 
 Regenerate (fresh key, same receipt content) from a repo checkout — no API
 keys, network, or AWS access needed:

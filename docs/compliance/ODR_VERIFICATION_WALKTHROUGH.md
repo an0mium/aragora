@@ -96,18 +96,17 @@ file.
 
 ### Verifying a receipt from a live Aragora deployment
 
-The procedure is identical; only the key source changes. A deployment
-publishes its ODR signing public key at:
-
-```
-GET /.well-known/aragora-odr-signing-key
-GET /api/v2/receipts/signing-key
-```
-
-Retrieve the key once through a channel you trust, then verify any number of
-that deployment's receipts offline. (The fixture key is a demonstration key
-generated only for this walkthrough — see
-[`fixtures/README.md`](fixtures/README.md).)
+The procedure is identical; only the key source changes: obtain the
+deployment's ODR signing **public** key once, through a channel you trust
+(the deployment operator; a planned discovery endpoint
+`GET /.well-known/aragora-odr-signing-key` is tracked in issue #8804), then
+verify any number of that deployment's receipts offline. Note that as of this
+writing, receipts exported by `aragora receipt export --format odr` are
+emitted **unsigned** (`signatures: []` — the verifier reports them WARN/
+unsigned, never falsely VERIFIED); wiring the Ed25519 signer into the
+production export path is tracked in issues #8544 and #8546. The fixture key
+here is a demonstration key generated only for this walkthrough — see
+[`fixtures/README.md`](fixtures/README.md).
 
 ## 3. What each check proves
 
@@ -210,8 +209,9 @@ changes only the key and signature, never the receipt content.
 
 In production the flow is the same with two differences: receipts come from
 real debates (`aragora receipt export --format odr <receipt-id>`), and signing
-uses the deployment key held in AWS Secrets Manager whose public half is
-served at `/.well-known/aragora-odr-signing-key`.
+uses the deployment key held in AWS Secrets Manager (only its public half is
+ever distributed to verifiers). Signed export and public-key discovery for
+live deployments are tracked in issues #8544, #8546, and #8804.
 
 ## 6. Reference
 
