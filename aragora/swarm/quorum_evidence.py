@@ -2165,13 +2165,10 @@ def _reviewer_process_worker(
     prompt: str,
     result_queue: multiprocessing.Queue,
 ) -> None:
-    try:
-        result = _run_reviewer_with_infra_retry(reviewer_runner, family, prompt)
-    except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort orchestration.
-        result = ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+    result = _run_reviewer_with_infra_retry(reviewer_runner, family, prompt)
     try:
         result_queue.put(result)
-    except Exception:
+    except (OSError, ValueError):
         # Parent will report "exited without returning a result"; do not let a
         # broken queue keep the worker alive.
         pass
@@ -2203,11 +2200,11 @@ def _start_reviewer_worker(
 def _close_reviewer_worker(worker: _ReviewerWorker) -> None:
     try:
         worker.result_queue.close()
-    except Exception:
+    except (OSError, ValueError):
         pass
     try:
         worker.result_queue.join_thread()
-    except Exception:
+    except (AssertionError, OSError, ValueError):
         pass
 
 
@@ -2216,13 +2213,13 @@ def _terminate_reviewer_worker(worker: _ReviewerWorker) -> None:
     if process.is_alive():
         try:
             process.terminate()
-        except Exception:
+        except (OSError, ValueError):
             pass
         process.join(_REVIEWER_CLEANUP_TIMEOUT)
     if process.is_alive():
         try:
             process.kill()
-        except Exception:
+        except (OSError, ValueError):
             pass
         process.join(_REVIEWER_CLEANUP_TIMEOUT)
     _close_reviewer_worker(worker)
@@ -2271,7 +2268,7 @@ def _run_reviewers_with_overall_timeout(
             family = pending.pop(0)
             try:
                 active.append(_start_reviewer_worker(ctx, reviewer_runner, family, prompt))
-            except Exception as exc:  # noqa: BLE001 - report start failures as reviewer failures.
+            except (OSError, RuntimeError, ValueError) as exc:
                 results[family] = ReviewerResult(
                     family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
                 )
