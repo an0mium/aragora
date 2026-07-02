@@ -37,8 +37,10 @@ import os
 import queue
 import re
 import secrets
+import signal
 import subprocess
 import tempfile
+import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
@@ -48,6 +50,10 @@ from pathlib import Path
 from typing import Any
 
 from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
+from aragora.cli.commands.review_queue_transport import (
+    GITHUB_TRANSPORT_BLOCKED_STATUS,
+    _is_github_transport_error,
+)
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -332,6 +338,8 @@ QUORUM_RERUN_MAX_PER_HEAD = 3
 QUORUM_STATE_LOCK_TIMEOUT_SECONDS = 60.0
 QUORUM_STATE_LOCK_POLL_SECONDS = 0.2
 QUORUM_STATE_LOCK_STALE_SECONDS = 15 * 60
+_PREFLIGHT_CONTEXT_ATTEMPTS = 2
+_PREFLIGHT_CONTEXT_RETRY_DELAY_SECONDS = 0.5
 _REVIEWER_RESULT_QUEUE_TIMEOUT = 1.0
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
@@ -433,6 +441,18 @@ def _timeout_seconds(env_name: str, default: int) -> float:
     return value
 
 
+def _positive_timeout_seconds(value: float | int | str | None, name: str) -> float | None:
+    if value is None:
+        return None
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a positive finite number of seconds") from exc
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise ValueError(f"{name} must be a positive finite number of seconds")
+    return seconds
+
+
 def _format_seconds(seconds: float) -> str:
     return f"{seconds:g}"
 
@@ -504,6 +524,9 @@ class CollectOutcome:
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
     quorum_rerun: dict[str, Any] | None = None
+    orchestration_timeout: bool = False
+    timed_out_families: list[str] = field(default_factory=list)
+    overall_timeout_seconds: float | None = None
     # Captured ONCE at construction (not re-read from os.environ per property
     # access) so a security-relevant gate decision stays deterministic within a
     # single settlement flow even if the process env mutates mid-run.
@@ -586,6 +609,9 @@ class CollectOutcome:
             "posted_families": list(self.posted),
             "post_errors": list(self.post_errors),
             "quorum_rerun": self.quorum_rerun,
+            "orchestration_timeout": self.orchestration_timeout,
+            "timed_out_families": list(self.timed_out_families),
+            "overall_timeout_seconds": self.overall_timeout_seconds,
             "items": [
                 {
                     "family": item.family,
@@ -603,6 +629,64 @@ class CollectOutcome:
                 for item in self.items
             ],
             "failures": [{"family": f.family, "error": f.error} for f in self.failures],
+        }
+
+
+class CollectPreflightTransportError(RuntimeError):
+    """Fail-closed diagnostic for PR-context transport failure before reviewers."""
+
+    def __init__(
+        self,
+        *,
+        repo: str,
+        pr: int,
+        phase: str,
+        error: BaseException,
+        attempts: int,
+    ) -> None:
+        self.repo = repo
+        self.pr = pr
+        self.phase = phase
+        self.error = error
+        self.attempts = attempts
+        super().__init__(
+            f"GitHub transport blocked during {phase} for {repo}#{pr} "
+            f"after {attempts} attempts: {error}"
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mode": "collect_evidence",
+            "status": GITHUB_TRANSPORT_BLOCKED_STATUS,
+            "transport_blocked": True,
+            "preserve_no_mutate": True,
+            "retryable": True,
+            "phase": self.phase,
+            "repo": self.repo,
+            "pr_number": self.pr,
+            "error": str(self.error),
+            "attempts": self.attempts,
+            "head_sha": "",
+            "head_committed_at": "",
+            "tier": None,
+            "tiered_gate": tiered_merge_gate_enabled(),
+            "policy_version": QUORUM_POLICY_VERSION,
+            "action": "prepare",
+            "action_reason": (
+                "GitHub transport blocked before reviewer execution; prepared evidence only"
+            ),
+            "counting_families": [],
+            "supportive_families": [],
+            "dissenting_families": [],
+            "has_supportive_quorum": False,
+            "posted_families": [],
+            "post_errors": [],
+            "quorum_rerun": None,
+            "orchestration_timeout": False,
+            "timed_out_families": [],
+            "overall_timeout_seconds": None,
+            "items": [],
+            "failures": [],
         }
 
 
@@ -1289,10 +1373,12 @@ def _run_grok_reviewer(prompt: str) -> ReviewerResult:
     """
     grok_bin = _resolve_grok_build_bin()
     if os.path.isfile(grok_bin) and os.access(grok_bin, os.X_OK):
+        timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
         result = _run_argv_cli_reviewer(
             "grok",
             [grok_bin, "--sandbox", "read-only", "--no-plan", "-p", prompt],
             _GROK_BUILD_HARNESS,
+            timeout=timeout,
         )
         if result.ok or not _env_key_present("XAI_API_KEY", "GROK_API_KEY"):
             return result
@@ -1310,8 +1396,12 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
 
     agy_path = shutil.which("agy")
     if agy_path:
+        timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
         result = _run_argv_cli_reviewer(
-            "gemini", [agy_path, "--sandbox", "-p", prompt], _ANTIGRAVITY_HARNESS
+            "gemini",
+            [agy_path, "--sandbox", "-p", prompt],
+            _ANTIGRAVITY_HARNESS,
+            timeout=timeout,
         )
         if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):
             return result
@@ -1886,9 +1976,13 @@ def collect_evidence(
     poster: Callable[[str, int, str], None] = default_poster,
     quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
+    overall_timeout_seconds: float | None = None,
 ) -> CollectOutcome:
     """Run reviewers, validate evidence, and post only when tier-gating allows."""
-    ctx = context_fetcher(repo, pr)
+    overall_timeout_seconds = _positive_timeout_seconds(
+        overall_timeout_seconds, "overall_timeout_seconds"
+    )
+    ctx = _fetch_preflight_context(repo, pr, context_fetcher)
     head_sha = str(ctx.get("head_sha") or "").strip()
     head_committed_at = str(ctx.get("head_committed_at") or "")
     if not head_sha:
@@ -1905,6 +1999,7 @@ def collect_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
+        overall_timeout_seconds=overall_timeout_seconds,
     )
 
     prompt = prompt_builder(repo, pr, ctx)
@@ -1921,27 +2016,49 @@ def collect_evidence(
         seen.add(family)
         ordered_families.append(family)
 
-    # Run the supported reviewers concurrently. Each runner already bounds itself
-    # with its own timeout and isolates its work in a child subprocess/process, so
-    # threads here only wait -- but they turn serial wall-time (sum of timeouts)
-    # into roughly the slowest single reviewer. One reviewer raising never aborts
-    # the run; it is recorded as a failure like any empty/non-ok result.
+    # Run the supported reviewers concurrently. Without an orchestration timeout,
+    # a ThreadPoolExecutor is sufficient and keeps test fakes simple. With an
+    # orchestration timeout, use process-supervised reviewer workers so the
+    # collector can fail closed at the deadline without waiting for a stuck
+    # reviewer thread during executor shutdown.
     supported = [family for family in ordered_families if family in FAMILY_PROVIDERS]
     reviews: dict[str, ReviewerResult] = {}
     if supported:
-        max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-            future_to_family = {
-                pool.submit(_run_reviewer_with_infra_retry, reviewer_runner, family, prompt): family
-                for family in supported
-            }
-            for future in concurrent.futures.as_completed(future_to_family):
-                family = future_to_family[future]
-                try:
-                    reviews[family] = future.result()
-                except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
+        if overall_timeout_seconds is None:
+            max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+                future_to_family = {
+                    pool.submit(
+                        _run_reviewer_with_infra_retry, reviewer_runner, family, prompt
+                    ): family
+                    for family in supported
+                }
+                done = set(concurrent.futures.as_completed(future_to_family))
+                for future in done:
+                    family = future_to_family[future]
+                    try:
+                        reviews[family] = future.result()
+                    except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort.
+                        reviews[family] = ReviewerResult(
+                            family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                        )
+        else:
+            reviews, timed_out_families = _run_reviewers_with_overall_timeout(
+                reviewer_runner=reviewer_runner,
+                prompt=prompt,
+                families=supported,
+                overall_timeout_seconds=overall_timeout_seconds,
+            )
+            if timed_out_families:
+                outcome.orchestration_timeout = True
+                outcome.timed_out_families = timed_out_families
+                for family in timed_out_families:
                     reviews[family] = ReviewerResult(
-                        family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                        family,
+                        "",
+                        False,
+                        "reviewer orchestration timed out after "
+                        f"{_format_seconds(overall_timeout_seconds or 0)}s",
                     )
 
     for family in ordered_families:
@@ -1976,6 +2093,15 @@ def collect_evidence(
                 problems=list(lint.get("problems") or []),
             )
         )
+
+    if outcome.orchestration_timeout:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            "reviewer orchestration timeout "
+            f"({', '.join(outcome.timed_out_families) or 'deadline expired'}); "
+            "prepared evidence only"
+        )
+        return outcome
 
     if action == "post":
         if outcome.dissenting_families:
@@ -2027,6 +2153,305 @@ def collect_evidence(
                 outcome.quorum_rerun = {"applied": False, "error": str(exc)[:200]}
 
     return outcome
+
+
+def _fetch_preflight_context(
+    repo: str,
+    pr: int,
+    context_fetcher: Callable[[str, int], dict[str, Any]],
+    *,
+    attempts: int = _PREFLIGHT_CONTEXT_ATTEMPTS,
+    retry_delay_seconds: float = _PREFLIGHT_CONTEXT_RETRY_DELAY_SECONDS,
+) -> dict[str, Any]:
+    """Fetch initial PR context with bounded transport-only retries."""
+    bounded_attempts = max(1, attempts)
+    last_transport_error: BaseException | None = None
+    for attempt in range(1, bounded_attempts + 1):
+        try:
+            return context_fetcher(repo, pr)
+        except Exception as exc:  # noqa: BLE001 - classify injected/live transport errors.
+            if not _is_preflight_context_transport_error(exc):
+                raise
+            last_transport_error = exc
+            if attempt >= bounded_attempts:
+                break
+            if retry_delay_seconds > 0:
+                time.sleep(retry_delay_seconds)
+    if last_transport_error is None:  # pragma: no cover - defensive future-proofing.
+        last_transport_error = RuntimeError("preflight context unavailable")
+    raise CollectPreflightTransportError(
+        repo=repo,
+        pr=pr,
+        phase="preflight_pr_context",
+        error=last_transport_error,
+        attempts=bounded_attempts,
+    )
+
+
+_PREFLIGHT_TIMEOUT_MARKERS = (
+    "client.timeout exceeded",
+    "command timed out",
+    "context deadline exceeded",
+    "operation timed out",
+    "timeout awaiting response headers",
+    "timed out after",
+    "tls handshake timeout",
+)
+_PREFLIGHT_GITHUB_ANCHORS = (
+    " api.github.com",
+    "github.com",
+    "gh ",
+    "gh:",
+    "gh.exe",
+    "gh pr ",
+    "gh api ",
+    "repos/",
+)
+
+
+def _is_preflight_context_transport_error(error: BaseException) -> bool:
+    """Classify only GitHub transport failures as preflight transport blockers.
+
+    ``context_fetcher`` is injected in tests and in future orchestration callers.
+    Timeout-shaped words in arbitrary business/auth/parser exceptions should not
+    be retried or reported as GitHub transport just because they contain
+    "timed out after". Raw ``subprocess.TimeoutExpired`` is still transport for
+    this preflight phase because the supported live fetcher shells out to ``gh``.
+    """
+    if isinstance(error, subprocess.TimeoutExpired):
+        return True
+    if not _is_github_transport_error(error):
+        return False
+    text = str(error or "").lower()
+    if any(marker in text for marker in _PREFLIGHT_TIMEOUT_MARKERS):
+        return any(anchor in text for anchor in _PREFLIGHT_GITHUB_ANCHORS)
+    return True
+
+
+def _reviewer_process_context() -> Any:
+    """Return a process context usable for locally injected reviewer callables."""
+    try:
+        methods = multiprocessing.get_all_start_methods()
+    except (AttributeError, ValueError):  # pragma: no cover - platform defensive.
+        methods = []
+    if threading.active_count() > 1:
+        for method in ("forkserver", "spawn"):
+            if method in methods:
+                return multiprocessing.get_context(method)
+        raise RuntimeError("cannot safely fork reviewer workers from a multi-threaded parent")
+    if "fork" in methods:
+        return multiprocessing.get_context("fork")
+    return multiprocessing.get_context()
+
+
+def _reviewer_process_worker(
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+    result_queue: multiprocessing.Queue,
+) -> None:
+    _isolate_reviewer_worker_process_group()
+    result = _run_reviewer_with_infra_retry(reviewer_runner, family, prompt)
+    try:
+        result_queue.put(result)
+    except (OSError, ValueError):
+        # Parent will report "exited without returning a result"; do not let a
+        # broken queue keep the worker alive.
+        pass
+
+
+def _isolate_reviewer_worker_process_group() -> None:
+    """Put POSIX reviewer workers in their own process group.
+
+    CLI reviewer subprocesses inherit this group, letting the parent terminate
+    the whole timed-out reviewer tree instead of only the Python supervisor.
+    Guard the main process because unit tests may call the worker directly.
+    """
+    if os.name != "posix" or not hasattr(os, "setsid"):
+        return
+    try:
+        if multiprocessing.current_process().name == "MainProcess":
+            return
+    except Exception:  # pragma: no cover - defensive for nonstandard contexts.
+        return
+    try:
+        os.setsid()
+    except OSError:
+        pass
+
+
+@dataclass
+class _ReviewerWorker:
+    family: str
+    process: multiprocessing.Process
+    result_queue: multiprocessing.Queue
+
+
+def _signal_reviewer_process_group(
+    process: multiprocessing.Process,
+    sig: signal.Signals,
+) -> bool:
+    """Signal a reviewer process group when available.
+
+    Returns ``True`` when the group signal was sent or the group is already
+    gone. Returns ``False`` when the caller should fall back to signaling the
+    supervisor process only.
+    """
+    if os.name != "posix" or not hasattr(os, "killpg"):
+        return False
+    pid = getattr(process, "pid", None)
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.killpg(pid, sig)
+    except ProcessLookupError:
+        try:
+            return not process.is_alive()
+        except (OSError, ValueError):
+            return False
+    except OSError:
+        return False
+    return True
+
+
+def _start_reviewer_worker(
+    ctx: Any,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+) -> _ReviewerWorker:
+    result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
+    process = ctx.Process(
+        target=_reviewer_process_worker,
+        args=(reviewer_runner, family, prompt, result_queue),
+        daemon=False,
+    )
+    process.start()
+    return _ReviewerWorker(family=family, process=process, result_queue=result_queue)
+
+
+def _close_reviewer_worker(worker: _ReviewerWorker) -> None:
+    try:
+        worker.result_queue.close()
+    except (OSError, ValueError):
+        pass
+    try:
+        worker.result_queue.join_thread()
+    except (AssertionError, OSError, ValueError):
+        pass
+
+
+def _terminate_reviewer_worker(worker: _ReviewerWorker) -> None:
+    process = worker.process
+    if process.is_alive():
+        if not _signal_reviewer_process_group(process, signal.SIGTERM):
+            try:
+                process.terminate()
+            except (OSError, ValueError):
+                pass
+        process.join(_REVIEWER_CLEANUP_TIMEOUT)
+    if process.is_alive():
+        if not _signal_reviewer_process_group(process, signal.SIGKILL):
+            try:
+                process.kill()
+            except (OSError, ValueError):
+                pass
+        process.join(_REVIEWER_CLEANUP_TIMEOUT)
+    _close_reviewer_worker(worker)
+
+
+def _read_reviewer_worker_result(worker: _ReviewerWorker) -> ReviewerResult:
+    try:
+        payload = worker.result_queue.get_nowait()
+    except queue.Empty:
+        try:
+            payload = worker.result_queue.get(timeout=_REVIEWER_RESULT_QUEUE_TIMEOUT)
+        except queue.Empty:
+            return ReviewerResult(
+                worker.family,
+                "",
+                False,
+                f"{worker.family} reviewer exited without returning a result",
+            )
+    if isinstance(payload, ReviewerResult):
+        return payload
+    if isinstance(payload, dict):
+        return ReviewerResult(
+            str(payload.get("family") or worker.family),
+            str(payload.get("text") or ""),
+            bool(payload.get("ok")),
+            str(payload.get("error") or ""),
+            str(payload.get("harness") or ""),
+        )
+    return ReviewerResult(worker.family, "", False, "reviewer returned invalid result")
+
+
+def _run_reviewers_with_overall_timeout(
+    *,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    prompt: str,
+    families: Sequence[str],
+    overall_timeout_seconds: float,
+) -> tuple[dict[str, ReviewerResult], list[str]]:
+    """Run reviewers with a hard orchestration deadline and terminate stragglers."""
+    try:
+        ctx = _reviewer_process_context()
+    except (OSError, RuntimeError, ValueError) as exc:
+        return (
+            {
+                family: ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+                for family in families
+            },
+            [],
+        )
+    deadline = time.monotonic() + overall_timeout_seconds
+    pending = list(families)
+    active: list[_ReviewerWorker] = []
+    results: dict[str, ReviewerResult] = {}
+    timed_out: list[str] = []
+
+    def start_more() -> None:
+        while pending and len(active) < _MAX_REVIEWER_WORKERS:
+            family = pending.pop(0)
+            try:
+                active.append(_start_reviewer_worker(ctx, reviewer_runner, family, prompt))
+            except (OSError, RuntimeError, ValueError) as exc:
+                results[family] = ReviewerResult(
+                    family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                )
+
+    def reap_finished() -> None:
+        finished = [worker for worker in active if not worker.process.is_alive()]
+        for worker in finished:
+            worker.process.join(0)
+            results[worker.family] = _read_reviewer_worker_result(worker)
+            _close_reviewer_worker(worker)
+            active.remove(worker)
+        if finished:
+            start_more()
+
+    start_more()
+    while active or pending:
+        reap_finished()
+        if not active and not pending:
+            break
+
+        if time.monotonic() >= deadline:
+            reap_finished()
+            if not active and not pending:
+                break
+            timed_out.extend(worker.family for worker in active)
+            timed_out.extend(pending)
+            pending.clear()
+            for worker in active:
+                _terminate_reviewer_worker(worker)
+            active.clear()
+            break
+
+        remaining = max(0.0, deadline - time.monotonic())
+        time.sleep(min(0.01, remaining))
+
+    return results, timed_out
 
 
 def _clone_prepared_items(
@@ -2308,6 +2733,48 @@ def _render_outcome(outcome: CollectOutcome) -> str:
     return "\n".join(lines)
 
 
+@contextmanager
+def _scoped_env(overrides: dict[str, str]) -> Iterator[None]:
+    previous = {key: os.environ.get(key) for key in overrides}
+    try:
+        os.environ.update(overrides)
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def _reviewer_timeout_env_overrides(
+    reviewer_timeout_seconds: float | None,
+    overall_timeout_seconds: float | None,
+) -> dict[str, str]:
+    reviewer_timeout_seconds = _positive_timeout_seconds(
+        reviewer_timeout_seconds, "reviewer_timeout_seconds"
+    )
+    overall_timeout_seconds = _positive_timeout_seconds(
+        overall_timeout_seconds, "overall_timeout_seconds"
+    )
+    if reviewer_timeout_seconds is None and overall_timeout_seconds is None:
+        return {}
+    if reviewer_timeout_seconds is None:
+        effective = overall_timeout_seconds
+    elif overall_timeout_seconds is None:
+        effective = reviewer_timeout_seconds
+    else:
+        effective = min(reviewer_timeout_seconds, overall_timeout_seconds)
+    if effective is None:  # pragma: no cover - defensive guard for future edits.
+        return {}
+    value = _format_seconds(effective)
+    return {
+        _CLAUDE_TIMEOUT_ENV: value,
+        _CODEX_TIMEOUT_ENV: value,
+        _REVIEWER_TIMEOUT_ENV: value,
+    }
+
+
 def run_collect_cli(
     *,
     repo: str,
@@ -2317,6 +2784,8 @@ def run_collect_cli(
     apply: bool,
     json_output: bool,
     prepared_json: Path | None = None,
+    reviewer_timeout_seconds: float | None = None,
+    overall_timeout_seconds: float | None = None,
     printer: Callable[[str], None] = print,
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
@@ -2330,27 +2799,41 @@ def run_collect_cli(
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()
     try:
-        if prepared_json is None:
-            outcome = collect_evidence(
-                repo=repo,
-                pr=pr,
-                families=fams,
-                author=resolved_author,
-                apply=apply,
-                env=merge_quorum_io.aragora_env(),
-                quorum_reconciler=default_quorum_reconciler if apply else None,
-            )
+        overall_timeout_seconds = _positive_timeout_seconds(
+            overall_timeout_seconds, "overall_timeout_seconds"
+        )
+        env_overrides = _reviewer_timeout_env_overrides(
+            reviewer_timeout_seconds, overall_timeout_seconds
+        )
+        with _scoped_env(env_overrides):
+            if prepared_json is None:
+                outcome = collect_evidence(
+                    repo=repo,
+                    pr=pr,
+                    families=fams,
+                    author=resolved_author,
+                    apply=apply,
+                    env=merge_quorum_io.aragora_env(),
+                    quorum_reconciler=default_quorum_reconciler if apply else None,
+                    overall_timeout_seconds=overall_timeout_seconds,
+                )
+            else:
+                outcome = apply_prepared_evidence(
+                    repo=repo,
+                    pr=pr,
+                    prepared_json=prepared_json,
+                    author=resolved_author,
+                    apply=apply,
+                    families=fams,
+                    env=merge_quorum_io.aragora_env(),
+                    quorum_reconciler=default_quorum_reconciler if apply else None,
+                )
+    except CollectPreflightTransportError as exc:
+        if json_output:
+            printer(json.dumps(exc.to_dict(), indent=2))
         else:
-            outcome = apply_prepared_evidence(
-                repo=repo,
-                pr=pr,
-                prepared_json=prepared_json,
-                author=resolved_author,
-                apply=apply,
-                families=fams,
-                env=merge_quorum_io.aragora_env(),
-                quorum_reconciler=default_quorum_reconciler if apply else None,
-            )
+            printer(f"error: {exc}")
+        return 1
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
             printer(json.dumps({"mode": "collect_evidence", "error": str(exc)}, indent=2))
@@ -2362,4 +2845,4 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
-    return 0 if outcome.has_supportive_quorum else 1
+    return 0 if outcome.has_supportive_quorum and not outcome.orchestration_timeout else 1
