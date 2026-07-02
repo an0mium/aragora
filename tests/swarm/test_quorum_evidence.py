@@ -15,6 +15,7 @@ import asyncio
 import json
 import multiprocessing
 import os
+import signal
 import subprocess
 import threading
 import time
@@ -1096,6 +1097,121 @@ def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
     assert outcome.timed_out_families == ["grok"]
     assert outcome.action == "prepare"
     assert posted == []
+
+
+def test_start_reviewer_worker_is_not_daemon_so_api_fallback_can_spawn_children() -> None:
+    created: dict[str, object] = {}
+
+    class FakeQueue:
+        pass
+
+    class FakeProcess:
+        def __init__(self, *, target, args, daemon) -> None:
+            created["target"] = target
+            created["args"] = args
+            created["daemon"] = daemon
+
+        def start(self) -> None:
+            created["started"] = True
+
+    class FakeContext:
+        def Queue(self, maxsize: int) -> FakeQueue:
+            assert maxsize == 1
+            return FakeQueue()
+
+        def Process(self, *, target, args, daemon) -> FakeProcess:
+            return FakeProcess(target=target, args=args, daemon=daemon)
+
+    worker = qe._start_reviewer_worker(
+        FakeContext(),
+        lambda family, prompt: ReviewerResult(family, prompt, True),
+        "grok",
+        "review prompt",
+    )
+
+    assert worker.family == "grok"
+    assert created["started"] is True
+    assert created["daemon"] is False
+
+
+def test_reviewer_process_worker_creates_posix_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "setsid"):
+        pytest.skip("process-group isolation is POSIX-only")
+    events: list[str] = []
+
+    class FakeQueue:
+        def put(self, result: ReviewerResult) -> None:
+            events.append(f"put:{result.family}:{result.ok}")
+
+    monkeypatch.setattr(qe.os, "setsid", lambda: events.append("setsid"), raising=False)
+    monkeypatch.setattr(
+        qe.multiprocessing,
+        "current_process",
+        lambda: SimpleNamespace(name="ForkProcess-1"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_reviewer_with_infra_retry",
+        lambda runner, family, prompt: ReviewerResult(family, "Verdict: PASS", True),
+    )
+
+    qe._reviewer_process_worker(
+        lambda family, prompt: ReviewerResult(family, prompt, True),
+        "grok",
+        "review prompt",
+        FakeQueue(),
+    )
+
+    assert events == ["setsid", "put:grok:True"]
+
+
+def test_terminate_reviewer_worker_signals_posix_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "killpg"):
+        pytest.skip("process-group termination is POSIX-only")
+    events: list[tuple[str, int, int] | tuple[str, float]] = []
+
+    class FakeQueue:
+        def close(self) -> None:
+            pass
+
+        def join_thread(self) -> None:
+            pass
+
+    class FakeProcess:
+        pid = 4242
+
+        def __init__(self) -> None:
+            self.alive = True
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+        def join(self, timeout: float) -> None:
+            events.append(("join", timeout))
+
+        def terminate(self) -> None:
+            raise AssertionError("process-group cleanup should not fall back first")
+
+        def kill(self) -> None:
+            raise AssertionError("hard kill should not be needed after SIGTERM")
+
+    fake_process = FakeProcess()
+
+    def fake_killpg(pid: int, sig: int) -> None:
+        events.append(("killpg", pid, sig))
+        fake_process.alive = False
+
+    monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
+    qe._terminate_reviewer_worker(
+        qe._ReviewerWorker("grok", fake_process, FakeQueue())  # type: ignore[arg-type]
+    )
+
+    assert events == [("killpg", 4242, signal.SIGTERM), ("join", qe._REVIEWER_CLEANUP_TIMEOUT)]
 
 
 def test_collect_preserves_family_order_despite_completion_order() -> None:

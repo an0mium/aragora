@@ -37,6 +37,7 @@ import os
 import queue
 import re
 import secrets
+import signal
 import subprocess
 import tempfile
 import time
@@ -2165,6 +2166,7 @@ def _reviewer_process_worker(
     prompt: str,
     result_queue: multiprocessing.Queue,
 ) -> None:
+    _isolate_reviewer_worker_process_group()
     result = _run_reviewer_with_infra_retry(reviewer_runner, family, prompt)
     try:
         result_queue.put(result)
@@ -2174,11 +2176,55 @@ def _reviewer_process_worker(
         pass
 
 
+def _isolate_reviewer_worker_process_group() -> None:
+    """Put POSIX reviewer workers in their own process group.
+
+    CLI reviewer subprocesses inherit this group, letting the parent terminate
+    the whole timed-out reviewer tree instead of only the Python supervisor.
+    Guard the main process because unit tests may call the worker directly.
+    """
+    if os.name != "posix" or not hasattr(os, "setsid"):
+        return
+    try:
+        if multiprocessing.current_process().name == "MainProcess":
+            return
+    except Exception:  # pragma: no cover - defensive for nonstandard contexts.
+        return
+    try:
+        os.setsid()
+    except OSError:
+        pass
+
+
 @dataclass
 class _ReviewerWorker:
     family: str
     process: multiprocessing.Process
     result_queue: multiprocessing.Queue
+
+
+def _signal_reviewer_process_group(
+    process: multiprocessing.Process,
+    sig: signal.Signals,
+) -> bool:
+    """Signal a reviewer process group when available.
+
+    Returns ``True`` when the group signal was sent or the group is already
+    gone. Returns ``False`` when the caller should fall back to signaling the
+    supervisor process only.
+    """
+    if os.name != "posix" or not hasattr(os, "killpg"):
+        return False
+    pid = getattr(process, "pid", None)
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.killpg(pid, sig)
+    except ProcessLookupError:
+        return True
+    except OSError:
+        return False
+    return True
 
 
 def _start_reviewer_worker(
@@ -2191,7 +2237,7 @@ def _start_reviewer_worker(
     process = ctx.Process(
         target=_reviewer_process_worker,
         args=(reviewer_runner, family, prompt, result_queue),
-        daemon=True,
+        daemon=False,
     )
     process.start()
     return _ReviewerWorker(family=family, process=process, result_queue=result_queue)
@@ -2211,16 +2257,18 @@ def _close_reviewer_worker(worker: _ReviewerWorker) -> None:
 def _terminate_reviewer_worker(worker: _ReviewerWorker) -> None:
     process = worker.process
     if process.is_alive():
-        try:
-            process.terminate()
-        except (OSError, ValueError):
-            pass
+        if not _signal_reviewer_process_group(process, signal.SIGTERM):
+            try:
+                process.terminate()
+            except (OSError, ValueError):
+                pass
         process.join(_REVIEWER_CLEANUP_TIMEOUT)
     if process.is_alive():
-        try:
-            process.kill()
-        except (OSError, ValueError):
-            pass
+        if not _signal_reviewer_process_group(process, signal.SIGKILL):
+            try:
+                process.kill()
+            except (OSError, ValueError):
+                pass
         process.join(_REVIEWER_CLEANUP_TIMEOUT)
     _close_reviewer_worker(worker)
 
