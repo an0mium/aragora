@@ -280,8 +280,8 @@ class GitHubEventResolver:
                 resolved=False,
                 resolution_value=False,
                 evidence=(
-                    f"PR {claim.target_ref} closed without merge before expiry; "
-                    "waiting because the PR can reopen before the claim window closes."
+                    f"PR {claim.target_ref} closed without merge; not a terminal resolution for this claim. "
+                    "Claim will expire unless the PR is reopened before expiry."
                 ),
             )
         evidence = f"PR {claim.target_ref} merged (action={event.action!r}, merged=True)."
