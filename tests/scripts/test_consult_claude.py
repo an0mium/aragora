@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -29,35 +30,47 @@ def test_build_cli_command_disables_mcp() -> None:
         assert command[command.index("--model") + 1] == "claude-fable-5"
 
 
-def test_run_cli_uses_stdin_prompt_and_timeout(monkeypatch) -> None:
+def test_run_cli_uses_stdin_prompt_timeout_and_redacts_stderr(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
-    def fake_run(command, *, input, capture_output, text, timeout):
-        mcp_config_path = Path(command[command.index("--mcp-config") + 1])
-        captured.update(
-            {
-                "command": command,
-                "input": input,
-                "capture_output": capture_output,
-                "text": text,
-                "timeout": timeout,
-                "mcp_exists_during_run": mcp_config_path.exists(),
-                "mcp_json": json.loads(mcp_config_path.read_text(encoding="utf-8")),
-            }
-        )
-        return SimpleNamespace(returncode=0, stdout="answer\n", stderr="")
+    class FakePopen:
+        returncode = 1
+        pid = 12345
+
+        def __init__(self, command, *, stdin, stdout, stderr, text, start_new_session):
+            mcp_config_path = Path(command[command.index("--mcp-config") + 1])
+            captured.update(
+                {
+                    "command": command,
+                    "stdin": stdin,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "text": text,
+                    "start_new_session": start_new_session,
+                    "mcp_exists_during_run": mcp_config_path.exists(),
+                    "mcp_json": json.loads(mcp_config_path.read_text(encoding="utf-8")),
+                }
+            )
+
+        def communicate(self, input, timeout):
+            captured["input"] = input
+            captured["timeout"] = timeout
+            return "", "Using profile home: /secret/profile\nCommand: claude --print\ntoken=secret"
 
     monkeypatch.setattr(consult_claude.shutil, "which", lambda name: "/usr/bin/claude")
-    monkeypatch.setattr(consult_claude.subprocess, "run", fake_run)
+    monkeypatch.setattr(consult_claude.subprocess, "Popen", FakePopen)
 
     result = consult_claude._run_cli("live prompt", "claude-fable-5", 12.5)
 
-    assert result["ok"] is True
-    assert result["text"] == "answer"
+    assert result["ok"] is False
+    assert result["error"] == "claude CLI failed, rc=1, empty=True"
+    assert "secret" not in json.dumps(result)
+    assert "profile" not in json.dumps(result).lower()
     assert captured["input"] == "live prompt"
     assert captured["timeout"] == 12.5
     assert captured["mcp_exists_during_run"] is True
     assert captured["mcp_json"] == {"mcpServers": {}}
+    assert captured["start_new_session"] is True
     assert "-p" in captured["command"]
     assert captured["command"][captured["command"].index("-p") + 1] == "-"
 
@@ -115,6 +128,70 @@ def test_consult_reports_timeout_only_when_all_attempts_timeout(monkeypatch) -> 
     assert result["timed_out"] is True
     assert [attempt["model"] for attempt in result["attempts"]] == [
         consult_claude.DEFAULT_MODEL,
+        consult_claude.FALLBACK_MODEL,
         consult_claude.DEFAULT_MODEL,
         consult_claude.FALLBACK_MODEL,
     ]
+
+
+def test_run_cli_timeout_kills_process_group(monkeypatch) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class FakePopen:
+        returncode = None
+        pid = 6789
+
+        def __init__(self, *args, **kwargs):
+            calls.append(("popen", kwargs["start_new_session"]))
+
+        def communicate(self, input, timeout):
+            calls.append(("communicate", timeout))
+            raise subprocess.TimeoutExpired(cmd=["claude"], timeout=timeout)
+
+        def wait(self, timeout):
+            calls.append(("wait", timeout))
+
+    monkeypatch.setattr(consult_claude.shutil, "which", lambda name: "/usr/bin/claude")
+    monkeypatch.setattr(consult_claude.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(consult_claude.os, "killpg", lambda pid, sig: calls.append(("killpg", pid)))
+
+    result = consult_claude._run_cli("question", "claude-fable-5", 1.5)
+
+    assert result["timed_out"] is True
+    assert ("popen", True) in calls
+    assert ("killpg", 6789) in calls
+    assert ("wait", 5) in calls
+
+
+def test_consult_tries_fallback_cli_after_primary_timeout(monkeypatch) -> None:
+    cli_models: list[str] = []
+
+    def fake_cli(_prompt: str, model: str, _timeout: float) -> dict:
+        cli_models.append(model)
+        if model == consult_claude.DEFAULT_MODEL:
+            return {"ok": False, "backend": "cli", "timed_out": True, "error": "timeout"}
+        return {"ok": True, "backend": "cli", "text": "fallback cli answer", "elapsed_s": 0.1}
+
+    monkeypatch.setattr(consult_claude, "_run_cli", fake_cli)
+
+    result = consult_claude.consult("question", api_fallback=False)
+
+    assert result["ok"] is True
+    assert result["model"] == consult_claude.FALLBACK_MODEL
+    assert cli_models == [consult_claude.DEFAULT_MODEL, consult_claude.FALLBACK_MODEL]
+
+
+def test_main_rejects_non_positive_timeout(capsys) -> None:
+    rc = consult_claude.main(["--timeout", "0", "question"])
+
+    assert rc == consult_claude.EXIT_NO_PROMPT
+    assert "positive finite" in capsys.readouterr().err
+
+
+def test_main_reports_missing_prompt_file(capsys, tmp_path) -> None:
+    missing = tmp_path / "missing.md"
+
+    rc = consult_claude.main(["--prompt-file", str(missing)])
+
+    assert rc == consult_claude.EXIT_NO_PROMPT
+    assert "cannot read --prompt-file" in capsys.readouterr().err

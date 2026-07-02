@@ -29,8 +29,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -54,6 +56,17 @@ EXIT_OK = 0
 EXIT_TIMEOUT = 2
 EXIT_NO_PROMPT = 3
 EXIT_ALL_FAILED = 4
+
+
+def _safe_cli_error(*, returncode: int | None = None, empty: bool | None = None) -> str:
+    """Public CLI failure string safe for JSON logs and durable artifacts."""
+
+    parts = ["claude CLI failed"]
+    if returncode is not None:
+        parts.append(f"rc={returncode}")
+    if empty is not None:
+        parts.append(f"empty={empty}")
+    return ", ".join(parts)
 
 
 @contextmanager
@@ -106,18 +119,23 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
     if shutil.which("claude") is None:
         return {"ok": False, "backend": "cli", "error": "claude CLI not on PATH"}
     started = time.monotonic()
+    proc: subprocess.Popen[str] | None = None
     try:
         with _claude_empty_mcp_config_file() as mcp_config_path:
             command, used_profile = _build_cli_command(model, mcp_config_path)
-            backend = "cli-profile" if used_profile else "cli"
-            proc = subprocess.run(
+            backend = "cli"
+            proc = subprocess.Popen(
                 command,
-                input=prompt,
-                capture_output=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=timeout,
+                start_new_session=True,
             )
+            stdout, _stderr = proc.communicate(prompt, timeout=timeout)
     except subprocess.TimeoutExpired:
+        if proc is not None:
+            _kill_process_group(proc)
         return {
             "ok": False,
             "backend": locals().get("backend", "cli"),
@@ -125,23 +143,40 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
             "elapsed_s": round(time.monotonic() - started, 1),
             "error": f"claude CLI exceeded {timeout:.0f}s timeout",
         }
-    except OSError as exc:
+    except (OSError, UnicodeError, ValueError) as exc:
         return {
             "ok": False,
             "backend": locals().get("backend", "cli"),
-            "error": f"claude CLI launch failed: {exc}",
+            "error": f"claude CLI launch failed: {type(exc).__name__}",
         }
     elapsed = round(time.monotonic() - started, 1)
-    text = _strip_preamble(proc.stdout) if used_profile else proc.stdout.strip()
+    text = _strip_preamble(stdout) if used_profile else stdout.strip()
     if proc.returncode != 0 or not text:
-        stderr_tail = (proc.stderr or "").strip()[-500:]
         return {
             "ok": False,
             "backend": backend,
             "elapsed_s": elapsed,
-            "error": f"claude CLI rc={proc.returncode}, empty={not text}: {stderr_tail}",
+            "error": _safe_cli_error(returncode=proc.returncode, empty=not text),
         }
     return {"ok": True, "backend": backend, "elapsed_s": elapsed, "text": text}
+
+
+def _kill_process_group(proc: subprocess.Popen[str]) -> None:
+    """Best-effort cleanup for spawned Claude and any nested child process."""
+
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    except OSError:
+        try:
+            proc.kill()
+        except OSError:
+            return
+    try:
+        proc.wait(timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
 
 
 def _resolve_api_key() -> str | None:
@@ -226,7 +261,7 @@ def consult(
     attempts.append({"model": model, **result})
     if result.get("ok"):
         return {**result, "model": model, "attempts": attempts}
-    if fallback_model and fallback_model != model and not result.get("timed_out"):
+    if fallback_model and fallback_model != model:
         result = _run_cli(prompt, fallback_model, timeout)
         attempts.append({"model": fallback_model, **result})
         if result.get("ok"):
@@ -281,9 +316,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="Emit a JSON result envelope")
     args = parser.parse_args(argv)
 
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        print("error: --timeout must be a positive finite number", file=sys.stderr)
+        return EXIT_NO_PROMPT
+
     if args.prompt_file:
-        with open(args.prompt_file, encoding="utf-8") as handle:
-            prompt = handle.read()
+        try:
+            with open(args.prompt_file, encoding="utf-8") as handle:
+                prompt = handle.read()
+        except OSError as exc:
+            print(f"error: cannot read --prompt-file: {exc}", file=sys.stderr)
+            return EXIT_NO_PROMPT
     elif args.prompt:
         prompt = args.prompt
     elif not sys.stdin.isatty():
