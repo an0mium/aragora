@@ -145,3 +145,12 @@ _(per-batch template below)_
 - Learnings: claude CLI reviewer failed once (exit 1, transport) — openai+grok fallback worked all night; settle_tier4_pr requires quorum-satisfied packet BEFORE --settle-only (M0a #8756 is the real gap); manual operator-authorized posting of collector-prepared bodies is a working M0a stopgap.
 
 ## Stop Gate (final): stop allowed = YES — remaining items are operator-only (8519 crux, memo cluster, Codex freeze, #8770) or filed issues (#8772, #8773).
+
+## OPERATOR-DIRECTED WAVES 3-4 (2026-07-02) — COMPLETE
+
+- **#8519 design crux RESOLVED BY RESEARCH:** 6-domain consensus (Augur/UMA/Polymarket-MSTR-precedent/Kalshi/ISDA/occurrence-insurance/Flink) = "truth by event-time, finality by processing-time + grace." Reviewers were right; my pre-research lean was wrong. Implemented (event-time gate, 24h-grace sweeper, CAS race pins, late-event side-output, terminal-timestamp allowlist, fail-closed run_attempt, expiry quarantine — 91 tests) across heads 83ad12cd→05165e48, incl. recovery from a concurrent an0mium push (their botched push self-reverted; merged their evidence-wording fix; aligned one assertion). **HARD PARKED after grok round-3 P1s** (module_tiers churn, target_ref normalization → #8782); advisory follow-ups #8779/#8781. Design record durable in PR comments.
+- **Memo cluster:** 24 unique memos digested; March-25 consolidation was verbatim; 2 dropped fragments harvested → PR #8776; branches deletable post-merge.
+- **Freeze check:** #8726 STILL ACTIVE (Codex pushed again); coordination comment posted (pull/8726#issuecomment-4861260418); operator advised NOT to exit Codex Desktop.
+- **#8770 → PR #8778:** lane stalled twice (watchdog) but had completed commit+PR; gated (claude PASS; openai P2 = export-collision blessing → disposition documented, underlying bug filed #8780 [needs operator approval: protected aragora/__init__.py]); skip-baseline drift (68→71, from #8389's crypto split) fixed on the PR; awaiting green → executor merges.
+- **Runbook:** docs/runbooks/CLOSE_THE_LOOP_DAEMONS.md → PR #8775.
+- Learnings: watchdog kills 600s-silent agent streams (chunk long test runs); pipe-through-tail swallows pytest exit codes (check exit inline); grok reviews the full branch diff incl. inherited churn — long-lived vision branches accumulate reviewable debt beyond the nominal change.
