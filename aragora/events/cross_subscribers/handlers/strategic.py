@@ -5,9 +5,11 @@ Closes feedback loops between subsystems that emit events (Tiers 1-4)
 and subsystems that should consume them:
 - Risk Warning → Health Registry: Degrade component health on security anomalies
 - Agent Birth/Death → Control Plane: Sync genesis events to agent registry
-- Budget Alert → Team Selection: Cost constraints limit debate composition
 - Alert Escalated → Workflow Brake: Critical alerts pause active workflows
-- Meta-Learning Adjusted → Team Selection: Hyperparameter changes inform selection
+
+The Budget Alert → Team Selection and Meta-Learning Adjusted → Team Selection
+reactions relocated to ``aragora.debate.event_subscribers`` (P4a Batch E4
+relocate-UP); see that module for those handlers.
 """
 
 from __future__ import annotations
@@ -154,58 +156,6 @@ class StrategicHandlersMixin:
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("Genesis → control plane sync failed: %s", e)
 
-    def _handle_budget_alert_to_team_selection(self, event: StreamEvent) -> None:
-        """Budget alert → Team selection constraint.
-
-        When a budget threshold is exceeded, record the constraint
-        so that future debate team selections prefer cheaper agents
-        and smaller team sizes. This prevents cost overruns while
-        maintaining decision quality.
-        """
-        data = event.data
-        alert_type = data.get("alert_type", data.get("type", ""))
-        threshold = data.get("threshold", 0.0)
-        current_spend = data.get("current_spend", data.get("current", 0.0))
-        workspace_id = data.get("workspace_id", "default")
-
-        logger.info(
-            "Budget alert → team selection: type=%s spend=%.2f threshold=%.2f workspace=%s",
-            alert_type,
-            current_spend,
-            threshold,
-            workspace_id,
-        )
-
-        try:
-            from aragora.debate.team_selector import TeamSelector
-
-            # Record budget constraint in TeamSelector's class-level state
-            if hasattr(TeamSelector, "record_budget_constraint"):
-                TeamSelector.record_budget_constraint(
-                    workspace_id=workspace_id,
-                    alert_type=alert_type,
-                    threshold=threshold,
-                    current_spend=current_spend,
-                )
-            else:
-                # Fallback: store in module-level dict for TeamSelector to query
-                if not hasattr(TeamSelector, "_budget_constraints"):
-                    TeamSelector._budget_constraints = {}  # type: ignore[attr-defined]
-                TeamSelector._budget_constraints[workspace_id] = {  # type: ignore[attr-defined]
-                    "alert_type": alert_type,
-                    "threshold": threshold,
-                    "current_spend": current_spend,
-                    "constrained": True,
-                }
-                logger.debug(
-                    "Stored budget constraint for workspace %s (fallback)",
-                    workspace_id,
-                )
-        except ImportError:
-            pass  # TeamSelector not available
-        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("Budget alert → team selection failed: %s", e)
-
     def _handle_alert_escalated_to_workflow_brake(self, event: StreamEvent) -> None:
         """Alert escalated → Workflow emergency brake.
 
@@ -249,51 +199,3 @@ class StrategicHandlersMixin:
             pass  # Workflow engine not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("Workflow emergency brake failed: %s", e)
-
-    def _handle_meta_learning_to_team_selection(self, event: StreamEvent) -> None:
-        """Meta-learning adjustment → Team selection recalibration.
-
-        When the MetaLearner auto-tunes hyperparameters based on
-        debate outcomes, propagate the adjustments to the team
-        selector so it can adapt its scoring weights accordingly.
-        This creates a self-improving selection loop.
-        """
-        data = event.data
-        adjustments = data.get("adjustments", {})
-        learning_rate = data.get("learning_rate", 0.0)
-        total_adjustments = data.get("total_adjustments", 0)
-
-        if not adjustments:
-            return
-
-        logger.debug(
-            "Meta-learning → team selection: %d adjustments, lr=%.4f",
-            total_adjustments,
-            learning_rate,
-        )
-
-        try:
-            from aragora.debate.team_selector import TeamSelector
-
-            # Propagate relevant hyperparameter adjustments
-            if hasattr(TeamSelector, "apply_meta_learning"):
-                TeamSelector.apply_meta_learning(
-                    adjustments=adjustments,
-                    learning_rate=learning_rate,
-                )
-            else:
-                # Fallback: store adjustments for TeamSelector to query
-                if not hasattr(TeamSelector, "_meta_learning_state"):
-                    TeamSelector._meta_learning_state = {}  # type: ignore[attr-defined]
-                TeamSelector._meta_learning_state.update(  # type: ignore[attr-defined]
-                    {
-                        "adjustments": adjustments,
-                        "learning_rate": learning_rate,
-                        "total_adjustments": total_adjustments,
-                    }
-                )
-                logger.debug("Stored meta-learning state for team selection (fallback)")
-        except ImportError:
-            pass  # TeamSelector not available
-        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("Meta-learning → team selection failed: %s", e)

@@ -104,6 +104,11 @@ GOLDEN_SUBSCRIBER_NAMES = frozenset(
 # aragora/memory/event_subscribers.py; the reasoning-coupled reaction embedded
 # in the basic mixin -> aragora/reasoning/event_subscribers.py; this closes out
 # events->memory and events->reasoning.
+# E4: the debate-coupled reactions embedded in the basic (ELO, calibration,
+# consensus, agent-message) and strategic (budget alert, meta-learning) mixins
+# -> aragora/debate/event_subscribers.py. events->debate is a shared edge (also
+# contributed by E7a security_dispatcher and E7b arena_bridge); only the last of
+# the three batches to land hand-shrinks the frozen baseline string.
 RELOCATED_SUBSCRIBER_NAMES = frozenset(
     {
         "memory_to_mound",
@@ -132,6 +137,12 @@ RELOCATED_SUBSCRIBER_NAMES = frozenset(
         "evidence_to_insight",
         "mound_to_memory",
         "vote_to_belief",
+        "elo_to_debate",
+        "calibration_to_agent",
+        "consensus_to_learning",
+        "agent_message_to_rhetorical",
+        "budget_alert_to_team_selection",
+        "meta_learning_to_team_selection",
     }
 )
 
@@ -322,6 +333,21 @@ def test_domain_bootstrap_fails_closed_when_reasoning_home_registration_is_missi
 
     with pytest.raises(RuntimeError, match="Domain event subscriber bootstrap incomplete"):
         bootstrap_debate_event_subscribers()
+
+
+def test_domain_bootstrap_fails_closed_when_debate_home_registration_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A missing debate-home (own) registration must fail instead of silently dropping it."""
+    import aragora.debate.event_subscribers as debate_home
+    from aragora.events.cross_subscribers import reset_cross_subscriber_manager, reset_registry
+
+    reset_registry()
+    reset_cross_subscriber_manager()
+    monkeypatch.setattr(debate_home, "register", lambda: None)
+
+    with pytest.raises(RuntimeError, match="Domain event subscriber bootstrap incomplete"):
+        debate_home.bootstrap_debate_event_subscribers()
 
 
 def test_domain_subset_bootstrap_returns_manager():

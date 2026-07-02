@@ -103,10 +103,19 @@ class TestEventFlowIntegration:
         assert received_events[0].data["node_id"] == "kn_001"
 
     def test_builtin_handlers_receive_events(self):
-        """Test built-in handlers process events and update stats."""
-        manager = CrossSubscriberManager()
+        """Test built-in + debate-domain handlers process events and update stats.
 
-        # Dispatch events that trigger built-in handlers
+        elo_to_debate / calibration_to_agent relocated to
+        ``DebateEventSubscriber`` (P4a Batch E4); a bare manager no longer
+        registers them by default, so this wires them explicitly (mirroring
+        what a real bootstrap does) to keep exercising the event-flow path.
+        """
+        from aragora.debate.event_subscribers import DebateEventSubscriber
+
+        manager = CrossSubscriberManager()
+        DebateEventSubscriber().register(manager)
+
+        # Dispatch events that trigger built-in + debate-domain handlers
         events = [
             StreamEvent(
                 type=StreamEventType.MEMORY_RETRIEVED,
@@ -127,7 +136,7 @@ class TestEventFlowIntegration:
 
         stats = manager.get_stats()
 
-        # Check that built-in handlers processed events
+        # Check that built-in + debate-domain handlers processed events
         assert stats["memory_to_rlm"]["events_processed"] == 1
         assert stats["elo_to_debate"]["events_processed"] == 1
         assert stats["calibration_to_agent"]["events_processed"] == 1
