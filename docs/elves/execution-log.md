@@ -169,3 +169,8 @@ _(per-batch template below)_
 ## MILESTONE (2026-07-02 07:15 local): harvest daemon first scheduled run — FULL SUCCESS
 - 173 classified: 64 learned (signals emitted to learner), 5 salvage, 104 write-off; exactly 3 issues filed under cap (#8787 mission-spine Phase A ex-#8628, #8788 lane dispatch contract ex-#8627, #8789 crux-finder exposure ex-#8543/#8227); 2 deferred over cap (logged, not dropped); ledger dedup records written. T3 backlog-regeneration loop operational.
 - Gates unchanged: #8783 awaiting operator; Codex #8726 idle since 00:59Z.
+
+## MILESTONE (2026-07-02 ~12:11 local): #8783 MERGED — critical path cleared
+- 12+ hours of treadmill ended by settle-don't-repair: grok's genuine P1 (units collision) surgically fixed at 397bd793; claude's residual P3s folded into #8792; quorum SUCCESS; merged under full approval chain. Codex conductor stopped its loop cleanly on the coordination comment and handed off (its 8 repair rounds left a genuinely hardened generator).
+- Cascade: main merged into 8771/8775/8776/8778/8785 (8778's docs/METRICS.md conflict resolved by regeneration); fresh evidence collecting; executor to merge.
+- Root cause + all folded findings: #8792 (counts-out-of-prose sweep + P3-advisory severity policy for doc counts).
