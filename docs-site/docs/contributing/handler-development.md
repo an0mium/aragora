@@ -39,7 +39,7 @@ My Feature endpoint handlers.
 
 Endpoints:
 - GET /api/myfeature - List items
-- GET /api/myfeature/\{id\} - Get item details
+- GET /api/myfeature/{id} - Get item details
 - POST /api/myfeature - Create item
 """
 
@@ -112,7 +112,7 @@ class MyFeatureHandler(BaseHandler):
         # Fetch item
         item = None  # Replace with actual fetch
         if not item:
-            return error_response(f"Item not found: \{item_id\}", 404)
+            return error_response(f"Item not found: {item_id}", 404)
 
         return json_response({"item": item})
 

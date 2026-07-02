@@ -341,7 +341,7 @@ aragora/
 └── cli/              # Command-line interface
 ```
 
-**Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions across 5,078 test files | canonical counts in [METRICS.md](METRICS.md)
+**Scale:** 4,219 tracked Python files | 144 top-level modules | 222,659 test functions across 5,402 test files | canonical counts in [METRICS.md](METRICS.md)
 
 ---
 

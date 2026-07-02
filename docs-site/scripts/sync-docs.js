@@ -465,6 +465,23 @@ function extractTitle(content) {
   return match ? match[1].replace(/[`*_]/g, '') : 'Documentation';
 }
 
+function escapeUrlParamBracesOutsideCodeFences(content) {
+  let inFence = false;
+  return content
+    .split('\n')
+    .map(line => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence;
+        return line;
+      }
+      if (inFence) {
+        return line;
+      }
+      return line.replace(/\{(\w+)\}/g, '\\{$1\\}');
+    })
+    .join('\n');
+}
+
 // Build reverse lookup from source file to destination path
 const REVERSE_LOOKUP = {};
 for (const [src, dest] of Object.entries(DOC_MAP)) {
@@ -484,10 +501,11 @@ function fixContent(content, destPath) {
   // Fix escaped backticks (common in generated docs)
   content = content.replace(/\\`\\`\\`/g, '```');
   content = content.replace(/\\`([^`\\]+)\\`/g, '`$1`');
+  content = content.replace(/[ \t]+$/gm, '');
 
   // Escape curly braces in URL patterns (e.g., {id} -> \{id\})
   // Only escape braces that look like URL params (word chars inside)
-  content = content.replace(/\{(\w+)\}/g, '\\{$1\\}');
+  content = escapeUrlParamBracesOutsideCodeFences(content);
 
   // Escape angle brackets in comparisons (e.g., <0.3 -> &lt;0.3)
   content = content.replace(/<(\d)/g, '&lt;$1');

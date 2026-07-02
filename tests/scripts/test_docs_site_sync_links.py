@@ -146,6 +146,15 @@ def test_roadmap_intake_register_links_to_synced_superpowers_pages() -> None:
     assert "../superpowers/" not in content
 
 
+def test_synced_plan_preserves_python_f_string_braces_inside_fences() -> None:
+    content = _read_docs_site("contributing/mission-cadence-m0-m1.md")
+
+    assert 'f"unexpected columns: {header}"' in content
+    assert 'f"missing mission rows: {ids}"' in content
+    assert r"\{header\}" not in content
+    assert r"\{ids\}" not in content
+
+
 def test_cli_reference_preserves_generated_catalog_description() -> None:
     content = _read_docs_site("api/cli.md")
 

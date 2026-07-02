@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sys
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -86,6 +85,7 @@ def _metrics_doc_values() -> dict[str, CanonicalMetric]:
 
     key_for = {
         "python files under aragora/": "python_files",
+        "python lines of code under aragora/": "python_lines",
         "top-level modules under aragora/": "top_level_modules",
         "test files (test_*.py under tests/)": "test_files",
         "test functions (class + module level)": "tests",
@@ -321,6 +321,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
         "python_files",
         f"{stats.python_modules:,}",
     )
+    exact_python_lines = _canonical_count(metrics_doc, "python_lines", "missing")
     top_level_modules_fallback = _canonical_count(canonical, "modules", modules_approx)
     exact_top_level_modules = _canonical_count(
         metrics_doc,
@@ -337,14 +338,27 @@ def patch_docs(stats: Stats, write: bool) -> int:
         f"{exact_test_files} test files | {exact_api_ops} API operations across "
         f"{exact_api_paths} paths | canonical counts in `docs/METRICS.md`"
     )
-    claude_metrics_keys = {
+    extended_readme_scale = (
+        f"**Scale:** {exact_python_files} tracked Python files | "
+        f"{exact_top_level_modules} top-level modules | {exact_tests} test functions "
+        f"across {exact_test_files} test files | canonical counts in [METRICS.md](METRICS.md)"
+    )
+    protected_metrics_keys = {
         "python_files",
+        "python_lines",
         "top_level_modules",
         "tests",
         "test_files",
         "api_operations",
         "api_paths",
     }
+    missing_protected_metrics = sorted(protected_metrics_keys - set(metrics_doc))
+    if write and missing_protected_metrics:
+        raise RuntimeError(
+            "refusing to update protected generated metric claims because "
+            "docs/METRICS.md is missing rows: " + ", ".join(missing_protected_metrics)
+        )
+    claude_metrics_keys = protected_metrics_keys - {"python_lines"}
     missing_claude_metrics = sorted(claude_metrics_keys - set(metrics_doc))
     claude_patterns: list[tuple[str, str | Callable[[re.Match], str], int]] = []
     if not missing_claude_metrics:
@@ -367,12 +381,6 @@ def patch_docs(stats: Stats, write: bool) -> int:
                     0,
                 ),
             ]
-        )
-    elif write:
-        print(
-            "warning: skipped protected CLAUDE.md scale/test rewrites because "
-            "docs/METRICS.md is missing rows: " + ", ".join(missing_claude_metrics),
-            file=sys.stderr,
         )
     claude_patterns.extend(
         [
@@ -435,6 +443,11 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 f"{stats.ts_namespaces} TypeScript SDK namespaces",
                 0,
             ),
+            (
+                r"\*\*Scale:\*\*[^\n]*canonical counts in \[METRICS\.md\]\(METRICS\.md\)",
+                extended_readme_scale,
+                0,
+            ),
         ],
         "docs/COMMERCIAL_OVERVIEW.md": [
             (
@@ -486,6 +499,46 @@ def patch_docs(stats: Stats, write: bool) -> int:
             (
                 r"\d+\s+registered adapters",
                 f"{km_adapters_registered} registered adapters",
+                0,
+            ),
+        ],
+        "docs/CANONICAL_GOALS.md": [
+            (
+                r"(\| Python files under `aragora/` \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_python_files: f"{m.group(1)}{value}",
+                0,
+            ),
+            (
+                r"(\| Python modules \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m,
+                value=exact_top_level_modules: f"{m.group(1)}{value} top-level package directories",
+                0,
+            ),
+            (
+                r"(\| Lines of code under `aragora/` \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_python_lines: f"{m.group(1)}{value}",
+                0,
+            ),
+            (
+                r"(\| Automated tests \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_tests: f"{m.group(1)}{value} test functions",
+                0,
+            ),
+            (
+                r"(\| Test files \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_test_files: f"{m.group(1)}{value}",
+                0,
+            ),
+            (
+                r"(\| API operations \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, ops=exact_api_ops, paths=exact_api_paths: (
+                    f"{m.group(1)}{ops} across {paths} paths"
+                ),
+                0,
+            ),
+            (
+                r"(\| API paths \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, value=exact_api_paths: f"{m.group(1)}{value}",
                 0,
             ),
         ],
@@ -561,7 +614,7 @@ def main() -> int:
 
     if args.write:
         updated = patch_docs(stats, write=True)
-        print(f"\\nUpdated {updated} documentation files.")
+        print(f"\nUpdated {updated} documentation files.")
     return 0
 
 

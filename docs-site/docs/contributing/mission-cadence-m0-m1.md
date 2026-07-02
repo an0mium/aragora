@@ -138,7 +138,7 @@ def test_mission_queue_section_exists_and_is_valid():
     rows = _rows(section)
     assert rows, "Strategy Mission Queue table is empty"
     header = [c.lower() for c in rows[0]]
-    assert header == REQUIRED_COLUMNS, f"unexpected columns: \{header\}"
+    assert header == REQUIRED_COLUMNS, f"unexpected columns: {header}"
     data = rows[1:]
     assert data, "no mission rows"
     statuses = [r[3] for r in data]
@@ -146,7 +146,7 @@ def test_mission_queue_section_exists_and_is_valid():
         assert s in VALID_STATUS, f"invalid status {s!r}"
     assert statuses.count("active") <= 1, "at most one mission may be active"
     ids = [r[0] for r in data]
-    assert {"M1", "M2", "M3"}.issubset(set(ids)), f"missing mission rows: \{ids\}"
+    assert {"M1", "M2", "M3"}.issubset(set(ids)), f"missing mission rows: {ids}"
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -259,8 +259,8 @@ MAPPING_DOC = Path("docs/specs/odr-native-mapping.md")
 def test_mapping_doc_covers_every_odr_field():
     odr = decision_receipt_to_odr(_full_receipt())
     doc = MAPPING_DOC.read_text(encoding="utf-8")
-    missing = [k for k in odr.keys() if f"`\{k\}`" not in doc]
-    assert not missing, f"mapping doc missing ODR fields: \{missing\}"
+    missing = [k for k in odr.keys() if f"`{k}`" not in doc]
+    assert not missing, f"mapping doc missing ODR fields: {missing}"
 ```
 
 > `_full_receipt()` is the existing factory in `tests/gauntlet/test_odr_export.py`

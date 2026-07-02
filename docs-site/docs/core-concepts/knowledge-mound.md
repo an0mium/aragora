@@ -1172,7 +1172,7 @@ Adapters sync in priority order (highest first). This ensures critical data is p
    status = coordinator.get_status()
    for name, adapter_status in status["adapters"].items():
        if adapter_status["forward_errors"] > 5:
-           logger.warning(f"Adapter \{name\} has {adapter_status['forward_errors']} errors")
+           logger.warning(f"Adapter {name} has {adapter_status['forward_errors']} errors")
    ```
 
 3. **Use sequential writes for critical data:**

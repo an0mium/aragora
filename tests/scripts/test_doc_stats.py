@@ -4,6 +4,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "doc_stats.py"
@@ -29,6 +31,7 @@ def test_metrics_doc_values_parse_exact_generated_metrics(tmp_path, monkeypatch)
                 "| Metric | Value | Source | Command |",
                 "|---|---|---|---|",
                 "| Python files under aragora/ | `4219` | `aragora/` | `cmd` |",
+                "| Python lines of code under aragora/ | `1972052` | `aragora/` | `cmd` |",
                 "| Top-level modules under aragora/ | `144` | `aragora/` | `cmd` |",
                 "| Test files (test_*.py under tests/) | `5402` | `tests/` | `cmd` |",
                 "| Test functions (class + module level) | `222659` | `tests/` | `cmd` |",
@@ -44,6 +47,7 @@ def test_metrics_doc_values_parse_exact_generated_metrics(tmp_path, monkeypatch)
     values = mod._metrics_doc_values()
 
     assert values["python_files"].value == 4219
+    assert values["python_lines"].value == 1972052
     assert values["top_level_modules"].value == 144
     assert values["test_files"].value == 5402
     assert values["tests"].value == 222659
@@ -62,6 +66,7 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
                 "| Metric | Value | Source | Command |",
                 "|---|---|---|---|",
                 "| Python files under aragora/ | `4219` | `aragora/` | `cmd` |",
+                "| Python lines of code under aragora/ | `1972052` | `aragora/` | `cmd` |",
                 "| Top-level modules under aragora/ | `144` | `aragora/` | `cmd` |",
                 "| Test files (test_*.py under tests/) | `5402` | `tests/` | `cmd` |",
                 "| Test functions (class + module level) | `222659` | `tests/` | `cmd` |",
@@ -76,7 +81,9 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
             [
                 "| Metric | Value | Source |",
                 "|--------|-------|--------|",
+                "| Python files under `aragora/` | 4,069 | `docs/METRICS.md` |",
                 "| Python modules | 135 top-level package directories | `docs/METRICS.md` |",
+                "| Lines of code under `aragora/` | 1,915,420 | `docs/METRICS.md` |",
                 "| Automated tests | 216,016 test functions | `docs/METRICS.md` |",
                 "| Test files | 5,078 | `docs/METRICS.md` |",
                 "| API operations | 3,297 across 2,870 paths | `docs/METRICS.md` |",
@@ -86,6 +93,11 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
                 "| Workflow templates | 50+ across 6 categories | template registry |",
             ]
         ),
+        encoding="utf-8",
+    )
+    (docs / "EXTENDED_README.md").write_text(
+        "**Scale:** 4,069 tracked Python files | 135 top-level modules | "
+        "216,000+ test functions across 5,078 test files | canonical counts in [METRICS.md](METRICS.md)",
         encoding="utf-8",
     )
     (root / "CLAUDE.md").write_text(
@@ -146,13 +158,23 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
     assert "222,659 test functions | 5,402 test files" in docs_site_claude
     assert "│   ├── unified_server.py   # Main server (3,297 API operations)" in docs_site_claude
 
+    canonical_goals = (docs / "CANONICAL_GOALS.md").read_text(encoding="utf-8")
+    assert "| Python files under `aragora/` | 4,219 | `docs/METRICS.md` |" in canonical_goals
+    assert "| Lines of code under `aragora/` | 1,972,052 | `docs/METRICS.md` |" in canonical_goals
+    assert "| Automated tests | 222,659 test functions | `docs/METRICS.md` |" in canonical_goals
+    assert "| Test files | 5,402 | `docs/METRICS.md` |" in canonical_goals
+
+    extended_readme = (docs / "EXTENDED_README.md").read_text(encoding="utf-8")
+    assert "4,219 tracked Python files | 144 top-level modules" in extended_readme
+    assert "222,659 test functions across 5,402 test files" in extended_readme
+
     readme = (root / "README.md").read_text(encoding="utf-8")
     assert "Workflow Engine — DAG automation with 50+ templates" in readme
     assert "**The Nomic Loop (✅, 233+ tests)." in readme
     assert "3,297 API operations across 2,870 paths" in readme
 
 
-def test_patch_docs_leaves_claude_scale_when_metrics_doc_is_partial(tmp_path, monkeypatch, capsys):
+def test_patch_docs_refuses_protected_writes_when_metrics_doc_is_partial(tmp_path, monkeypatch):
     mod = _load_module()
     root = tmp_path
     docs = root / "docs"
@@ -215,13 +237,16 @@ def test_patch_docs_leaves_claude_scale_when_metrics_doc_is_partial(tmp_path, mo
         agent_types_allowlisted=35,
     )
 
-    mod.patch_docs(stats, write=True)
-    captured = capsys.readouterr()
+    docs_site_contributing = root / "docs-site" / "docs" / "contributing"
+    docs_site_contributing.mkdir(parents=True)
+    (docs_site_contributing / "claude.md").write_text(old_codebase_scale, encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="docs/METRICS.md is missing rows"):
+        mod.patch_docs(stats, write=True)
 
     claude = (root / "CLAUDE.md").read_text(encoding="utf-8")
     assert old_codebase_scale in claude
     assert old_test_suite in claude
     assert "3,386 API operations" in claude
-    assert "skipped protected CLAUDE.md scale/test rewrites" in captured.err
-    assert "api_paths" in captured.err
-    assert "test_files" in captured.err
+    docs_site_claude = (docs_site_contributing / "claude.md").read_text(encoding="utf-8")
+    assert docs_site_claude == old_codebase_scale
