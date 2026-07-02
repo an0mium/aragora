@@ -104,7 +104,7 @@ the blocker remains an external penetration test that has not been commissioned.
 |---|---|
 | Python SDK | 198 modules (canonical in [`docs/METRICS.md`](METRICS.md)) |
 | TypeScript SDK | 215 modules (canonical in [`docs/METRICS.md`](METRICS.md)); parity tracked by the SDK-parity CI gate, not a hand-counted percentage |
-| REST API | 3,297 API operations across 2,870 OpenAPI paths (canonical in [`docs/METRICS.md`](METRICS.md)) |
+| REST API | Broad OpenAPI surface; operation/path counts canonical in [`docs/METRICS.md`](METRICS.md) |
 | WebSocket events | 190+ event types for real-time streaming |
 
 ---
