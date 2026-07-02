@@ -614,7 +614,10 @@ def _maybe_record_review_adjudication(outcome: CollectOutcome) -> None:
     """Record observe-only Review Adjudicator output for stalled evidence."""
     if outcome.adjudication is not None or not outcome.supportive_families:
         return
-    if not any(item.verdict == "changes_requested" for item in outcome.items):
+    # A stall requires COUNTED dissent (openai #8794 P3): severity-gated
+    # advisory-only changes_requested does not stall posting and must not
+    # be recorded as an adjudicated stall.
+    if not outcome.dissenting_families:
         return
     from aragora.swarm import review_adjudicator
 
@@ -2209,7 +2212,9 @@ def apply_prepared_evidence(
         items=_clone_prepared_items(prepared.items, live_severity_gated=live_severity_gated),
         failures=_clone_reviewer_failures(prepared.failures),
         tiered_gate=effective_tiered_gate,
-        adjudication=prepared.adjudication,
+        # Prepared artifacts are untrusted (openai #8794 P2): never carry their
+        # adjudication — it is recomputed from the re-linted items below.
+        adjudication=None,
     )
 
     if prepared.head_sha != head_sha:
