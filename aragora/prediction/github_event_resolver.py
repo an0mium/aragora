@@ -229,15 +229,27 @@ class GitHubEventResolver:
             )
         return None
 
+    # Per-event-type allowlist of terminal timestamps (#8777): generic
+    # created_at/updated_at can predate the terminal action (open time,
+    # last touch), letting an after-expiry event be backdated into the
+    # claim window. Only the timestamp of the terminal action itself may
+    # stand in for an explicit occurred_at.
+    _TERMINAL_TIME_KEYS: dict[str, tuple[str, ...]] = {
+        "pull_request": ("merged_at", "closed_at"),
+        "issues": ("closed_at",),
+        "check_run": ("completed_at",),
+        "workflow_run": ("completed_at",),
+    }
+
     @staticmethod
     def _parse_event_time(event: GitHubEventPayload) -> datetime | None:
-        raw_time = (
-            event.occurred_at
-            or event.raw.get("occurred_at")
-            or event.raw.get("completed_at")
-            or event.raw.get("updated_at")
-            or event.raw.get("created_at")
-        )
+        raw_time = event.occurred_at or event.raw.get("occurred_at")
+        if not raw_time:
+            for key in GitHubEventResolver._TERMINAL_TIME_KEYS.get(event.event_type, ()):
+                candidate = event.raw.get(key)
+                if candidate:
+                    raw_time = candidate
+                    break
         if not isinstance(raw_time, str) or not raw_time:
             return None
         return GitHubEventResolver._parse_datetime(raw_time)
@@ -332,8 +344,21 @@ class GitHubEventResolver:
                     "pre-aggregated CI event."
                 ),
             )
+        raw_attempt = event.raw.get("run_attempt")
+        if raw_attempt is None:
+            # Fail closed (#8777): an aggregate payload without attempt
+            # metadata may describe a rerun; never assume first-run.
+            return ResolutionResult(
+                claim_id=claim.claim_id,
+                resolved=False,
+                resolution_value=False,
+                evidence=(
+                    f"{event.event_type} event for {claim.target_ref} lacks run_attempt "
+                    "metadata; cannot verify first run — failing closed."
+                ),
+            )
         try:
-            run_attempt = int(event.raw.get("run_attempt", 1))
+            run_attempt = int(raw_attempt)
         except (TypeError, ValueError):
             run_attempt = 0
         if run_attempt != 1:

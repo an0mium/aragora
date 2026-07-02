@@ -736,3 +736,82 @@ class TestSettlementRaces:
             store.resolve("race-2", True, "late")
         assert store.get("race-2").resolution_status == ResolutionStatus.EXPIRED
         assert store.get("race-2").resolution_value is None
+
+
+class TestTerminalTimestampAllowlist:
+    """#8777: only terminal-action timestamps may stand in for occurred_at."""
+
+    def test_created_at_cannot_backdate_terminal_event(self):
+        # created_at predates the terminal action (it is the open time); a
+        # payload carrying only created_at must fail closed, not resolve.
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.PR_MERGE, target_ref="a/b#41")
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#41",
+            merged=True,
+            raw={"created_at": _NOW.isoformat()},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert "timestamp is missing or invalid" in result.evidence
+
+    def test_updated_at_cannot_backdate_terminal_event(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.PR_MERGE, target_ref="a/b#42")
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#42",
+            merged=True,
+            raw={"updated_at": _NOW.isoformat()},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+
+    def test_merged_at_is_accepted_terminal_timestamp(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.PR_MERGE, target_ref="a/b#43")
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#43",
+            merged=True,
+            raw={"merged_at": _NOW.isoformat()},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is True
+        assert result.resolution_value is True
+
+    def test_completed_at_accepted_for_ci(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="a/b@main")
+        event = GitHubEventPayload(
+            event_type="workflow_run",
+            action="completed",
+            target_ref="a/b@main",
+            conclusion="success",
+            raw={"completed_at": _NOW.isoformat(), "aggregate": True, "run_attempt": 1},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is True
+
+
+class TestRunAttemptFailClosed:
+    """#8777: missing run_attempt metadata must never be assumed first-run."""
+
+    def test_missing_run_attempt_fails_closed(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="a/b@main")
+        event = GitHubEventPayload(
+            event_type="workflow_run",
+            action="completed",
+            target_ref="a/b@main",
+            occurred_at=_NOW.isoformat(),
+            conclusion="success",
+            raw={"aggregate": True},
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert "lacks run_attempt" in result.evidence

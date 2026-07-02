@@ -21,11 +21,14 @@ Advances: issue #6065 (AGT-04), sub-deliverable 1 — synthetic market schema.
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +223,17 @@ class InMemoryStakeableClaimStore:
             try:
                 exp_dt = datetime.fromisoformat(claim.expiry)
             except ValueError:
+                # Quarantine, never a silent skip (#8777): a malformed expiry
+                # can neither qualify events (resolver fails closed on it) nor
+                # ever sweep, so skipping leaves a permanent zombie claim.
+                claim.resolution_status = ResolutionStatus.EXPIRED
+                expired_ids.append(claim.claim_id)
+                logger.warning(
+                    "prediction.expire_stale: claim %s has malformed expiry %r; "
+                    "quarantined as EXPIRED (#8777)",
+                    claim.claim_id,
+                    claim.expiry,
+                )
                 continue
             if exp_dt.tzinfo is None:
                 exp_dt = exp_dt.replace(tzinfo=UTC)

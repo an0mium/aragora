@@ -330,3 +330,25 @@ class TestGithubResolutionAdapterStub:
         stub = GithubResolutionAdapterStub()
         with pytest.raises(NotImplementedError, match="placeholder"):
             stub.resolve(_make_claim())
+
+
+class TestMalformedExpiryQuarantine:
+    """#8777: malformed expiry must quarantine, never leave a zombie claim."""
+
+    def test_malformed_expiry_is_quarantined_as_expired(self, caplog):
+        import logging as _logging
+
+        store = InMemoryStakeableClaimStore()
+        claim = StakeableClaim(
+            claim_id="zombie-1",
+            question="Will a/b#99 merge?",
+            question_type=QuestionType.PR_MERGE,
+            target_ref="a/b#99",
+            expiry="not-a-datetime",
+        )
+        store.add(claim)
+        with caplog.at_level(_logging.WARNING):
+            expired = store.expire_stale()
+        assert "zombie-1" in expired
+        assert claim.resolution_status == ResolutionStatus.EXPIRED
+        assert any("malformed expiry" in rec.message for rec in caplog.records)
