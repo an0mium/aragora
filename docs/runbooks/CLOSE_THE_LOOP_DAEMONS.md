@@ -73,4 +73,4 @@ rm ~/Library/LaunchAgents/com.aragora.ctl-{merge-executor,harvest}.plist
 | `MERGE_EXECUTOR_HALT` exists | main went red mid-pass | fix main, delete marker |
 | tick logs `disarmed: true` | disarm file present | intentional; remove file to resume |
 | no log lines for >30 min | launchd throttling after wrapper error | check `.err` file; `launchctl list \| grep ctl-` |
-| executor merges nothing for days | genuinely 0 eligible (quorum-satisfied Tier 0-2 is rare) | verify by running the wrapper manually without `--apply` |
+| executor merges nothing for days | genuinely 0 eligible (quorum-satisfied Tier 0-2 is rare) | verify with an explicit dry run of the underlying script — NOT the wrapper (the wrapper is apply-mode): `cd .claude/worktrees/daemon-ctl && python3 scripts/merge_executor.py --repo synaptent/aragora --json` (no `--apply` → mutates nothing) |
