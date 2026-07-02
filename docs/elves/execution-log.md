@@ -154,3 +154,10 @@ _(per-batch template below)_
 - **#8770 → PR #8778:** lane stalled twice (watchdog) but had completed commit+PR; gated (claude PASS; openai P2 = export-collision blessing → disposition documented, underlying bug filed #8780 [needs operator approval: protected aragora/__init__.py]); skip-baseline drift (68→71, from #8389's crypto split) fixed on the PR; awaiting green → executor merges.
 - **Runbook:** docs/runbooks/CLOSE_THE_LOOP_DAEMONS.md → PR #8775.
 - Learnings: watchdog kills 600s-silent agent streams (chunk long test runs); pipe-through-tail swallows pytest exit codes (check exit inline); grok reviews the full branch diff incl. inherited churn — long-lived vision branches accumulate reviewable debt beyond the nominal change.
+
+## WAVE 5 (2026-07-02 early AM) — flywheel hardening + critical path
+
+- Docs PRs: #8771 clean 2-0 POSTED (after wording fix per openai), #8775 clean 2-0 POSTED (after 2 fix rounds — claude caught a REAL kill-switch doc gap: bare command would use repo-root disarm/halt defaults; deployed wrapper verified correct), #8776 clean 2-0 POSTED first try.
+- #8519: FINAL PARK at bb3c0082 after 6 rounds/4 families (design uncontested since round 4; #8782 landed — module_tiers vindicated as generator truth, main stale; rounds 4-6 advisory findings folded into #8781; settlement options recorded on PR).
+- Executor diagnosis (manual dry-run): correctly fail-closed but stricter than enforcing gate — advisory-dissent parity + docs-tier gaps filed as improvement issue. Root blocker for ALL PRs: **main-level doc-stats drift fails 'Ensure docs are synced' everywhere** → sync PR #8783 (contains protected CLAUDE.md counts hunk — PREPARED ONLY, operator approval required; critical path for the merge queue).
+- 8778 also blocked on the two known test-fast shards (pre-existing, its own fix subject) — will clear post-merge circularly via #8783 + its own fixes; re-verify after.
