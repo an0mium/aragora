@@ -114,9 +114,14 @@ def _cmd_status(args: argparse.Namespace) -> int:
     state = MissionState.load(_state_path(args))
     done, total = state.progress()
     blocked = sum(1 for feature in state.features if feature.status == Status.BLOCKED)
+    parked = sum(1 for feature in state.features if feature.status == Status.PARKED)
+    terminal = sum(1 for feature in state.features if feature.status == Status.TERMINAL)
     in_progress = sum(1 for feature in state.features if feature.status == Status.IN_PROGRESS)
     print(f"Mission {state.mission_id}: {state.goal}")
-    print(f"Progress: {done}/{total} completed, {blocked} blocked, {in_progress} in progress")
+    print(
+        f"Progress: {done}/{total} completed, {blocked} blocked, {parked} parked, "
+        f"{terminal} terminal, {in_progress} in progress"
+    )
     for feature in state.features:
         print(f"  - {feature.id}: {feature.status} ({feature.milestone}) {feature.description}")
     return 0

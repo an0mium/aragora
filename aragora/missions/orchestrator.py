@@ -19,7 +19,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .ledger import LedgerCorruptError
-from .state import Feature, MissionState, Status, mission_owner_lock
+from .state import (
+    PARK_KIND_DECOMPOSITION,
+    PARK_KIND_MISSING_BRANCH,
+    Feature,
+    MissionState,
+    Status,
+    mission_owner_lock,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +46,20 @@ class Handoff:
     real work this dispatch cannot drive at all — it needs a *worker* to claim it
     (``Status.AWAITING_CLAIM``, claimable by ``ledger.select_for``) — so triage
     parks it claimable with **no retry accounting** instead of failing it toward
-    BLOCKED.
+    BLOCKED. ``parked`` is the fourth disposition (#8758 design decision,
+    2026-07-02): "not ready yet", never "dead" — triage moves the feature to the
+    retryable, reconciler-owned ``Status.PARKED`` (recording
+    ``parked_reason``/``parked_at``) instead of blocking it; ``parked_kind``
+    says why (``PARK_KIND_MISSING_BRANCH`` waits for a live ``metadata.branch``,
+    ``PARK_KIND_DECOMPOSITION`` is retry-bounded by ``retry_count`` → TERMINAL
+    after ``max_retries`` attempts).
     """
 
     success: bool = False
     terminal: bool = False  # True = do not retry; park/block immediately
     awaiting_claim: bool = False  # True = park claimable (AWAITING_CLAIM), no retry burn
+    parked: bool = False  # True = park retryably (PARKED); reconciler-owned exit
+    parked_kind: str | None = None  # PARK_KIND_* — what the reconciler re-verifies
     blocked_reason: str | None = None
     follow_ups: list[Feature] = field(default_factory=list)
     accept_follow_ups: bool = False
@@ -121,6 +136,12 @@ class MissionOrchestrator:
         if self._reclaim_with_cap(state):
             state.save(self.state_path)
 
+        # Reconciler re-evaluation (#8758 design decision): PARKED features are
+        # re-checked every tick; when the missing precondition appears (or a
+        # bounded decomposition retry is due) they transition parked → ready.
+        if self._reevaluate_parked(state):
+            state.save(self.state_path)
+
         feature = state.next_pending()
         if feature is None:
             if self._block_unrunnable_pending(
@@ -187,6 +208,45 @@ class MissionOrchestrator:
                 feat.status = Status.PENDING
         return changed
 
+    def _reevaluate_parked(self, state: MissionState) -> bool:
+        """Reconciler-owned re-evaluation of PARKED features (#8758 design decision).
+
+        ``parked`` is retryable and this is the ONLY path out of it:
+
+        * ``PARK_KIND_MISSING_BRANCH`` releases when a live ``metadata.branch``
+          has actually appeared (folded in by ledger reconcile, or recorded by
+          an operator). Release stays fail-closed: dispatch re-verifies the
+          branch at claim time (``BossLoopDispatch`` re-checks
+          ``metadata.branch`` before touching git), so a stale or lying state
+          file re-parks instead of dispatching without a branch.
+        * ``PARK_KIND_DECOMPOSITION`` releases unconditionally for one bounded
+          retry; triage counts each failed attempt in ``retry_count`` and marks
+          the feature TERMINAL at ``max_retries`` (default 3), so the
+          park/release cycle can never ping-pong forever.
+        * Unknown park kinds stay parked — fail-closed, for the operator.
+
+        TERMINAL features are never re-evaluated: nothing auto-transitions out.
+        Returns True if anything changed.
+        """
+        changed = False
+        for feat in state.features:
+            if feat.status != Status.PARKED:
+                continue
+            kind = feat.metadata.get("parked_kind")
+            if kind == PARK_KIND_MISSING_BRANCH:
+                branch = feat.metadata.get("branch")
+                if isinstance(branch, str) and branch.strip():
+                    state.unpark(feat.id, f"metadata.branch {branch} appeared")
+                    logger.info("reconciler released parked feature %s: branch appeared", feat.id)
+                    changed = True
+            elif kind == PARK_KIND_DECOMPOSITION:
+                state.unpark(feat.id, "retrying decomposition (bounded by the retry cap)")
+                logger.info(
+                    "reconciler released parked feature %s for a decomposition retry", feat.id
+                )
+                changed = True
+        return changed
+
     # ---- handoff triage ------------------------------------------------------
 
     def _triage(self, state: MissionState, feature_id: str, handoff: Handoff) -> None:
@@ -226,11 +286,32 @@ class MissionOrchestrator:
             feat.status = Status.AWAITING_CLAIM
             return
 
+        if handoff.parked and not handoff.terminal:
+            # Retryable park (#8758 design decision): "not ready yet" is not
+            # "dead". The reconciler's per-tick re-evaluation is the only exit.
+            reason = handoff.blocked_reason or "parked pending reconciler re-evaluation"
+            if handoff.parked_kind == PARK_KIND_DECOMPOSITION:
+                # Each failed decomposition attempt burns retry budget; after
+                # max_retries (default 3) the failure is permanent → TERMINAL.
+                feat.retry_count += 1
+                if feat.retry_count >= self.max_retries:
+                    state.mark_terminal(
+                        feature_id,
+                        f"decomposition failed after {feat.retry_count} attempts: {reason}",
+                    )
+                    return
+            state.mark_parked(feature_id, reason, kind=handoff.parked_kind or "")
+            return
+
         # Returned failure: bound by retry_count. Park a terminal block immediately
         # (never loop on operator-gated forks); retry a transient one until the cap.
         feat.retry_count += 1
         reason = handoff.blocked_reason or f"failed {feat.retry_count}x with no reason"
-        if handoff.terminal or feat.retry_count >= self.max_retries:
+        if handoff.terminal and handoff.parked_kind == PARK_KIND_DECOMPOSITION:
+            # Permanent decomposition failure that no retry can fix (e.g. a
+            # blank goal) — TERMINAL per the #8758 design decision, not BLOCKED.
+            state.mark_terminal(feature_id, reason)
+        elif handoff.terminal or feat.retry_count >= self.max_retries:
             state.mark_blocked(feature_id, reason)
         else:
             feat.status = Status.PENDING  # bounded retry
@@ -256,13 +337,16 @@ class MissionOrchestrator:
     @staticmethod
     def _may_yet_complete(state: MissionState) -> set[str]:
         """Feature ids that can still complete without operator intervention:
-        completed/worker-bound/in-flight features, plus (to a fixpoint) any
-        PENDING feature gated only on those. A PENDING feature outside this set
-        is a dead end — cycles and unsupported tokens never enter it."""
+        completed/worker-bound/in-flight/parked features (a PARKED feature is
+        retryable — the reconciler releases it when its precondition appears),
+        plus (to a fixpoint) any PENDING feature gated only on those. A PENDING
+        feature outside this set is a dead end — cycles, unsupported tokens, and
+        TERMINAL dependencies never enter it."""
         reachable = {
             f.id
             for f in state.features
-            if f.status in {Status.COMPLETED, Status.AWAITING_CLAIM, Status.IN_PROGRESS}
+            if f.status
+            in {Status.COMPLETED, Status.AWAITING_CLAIM, Status.IN_PROGRESS, Status.PARKED}
         }
         pending = [f for f in state.features if f.status == Status.PENDING]
         progressed = True
@@ -308,11 +392,16 @@ class MissionOrchestrator:
             )
         elif done < total:
             blocked = sum(1 for f in state.features if f.status == Status.BLOCKED)
+            parked = sum(1 for f in state.features if f.status == Status.PARKED)
+            terminal = sum(1 for f in state.features if f.status == Status.TERMINAL)
             logger.info(
-                "mission run drained: %d/%d done, %d blocked (queue has no runnable work)",
+                "mission run drained: %d/%d done, %d blocked, %d parked (retryable), "
+                "%d terminal (queue has no runnable work)",
                 done,
                 total,
                 blocked,
+                parked,
+                terminal,
             )
         else:
             logger.info("mission run complete: %d/%d features", done, total)

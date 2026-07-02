@@ -26,7 +26,13 @@ from pathlib import Path
 
 from .ledger import DEFAULT_LEASE_TTL, Ledger, select_for
 from .orchestrator import Dispatch, Handoff
-from .state import Feature, MissionState, Status, mission_owner_lock
+from .state import (
+    PARK_KIND_MISSING_BRANCH,
+    Feature,
+    MissionState,
+    Status,
+    mission_owner_lock,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -495,7 +501,10 @@ def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
     # can never point the merge gate at a fabricated ref. An AWAITING_CLAIM
     # child whose branch is now live is promoted to PENDING — it no longer
     # waits on a worker, the orchestrator can drive it (parks folded above win:
-    # a BLOCKED/COMPLETED child only gains the branch as provenance).
+    # a BLOCKED/COMPLETED child only gains the branch as provenance). A PARKED
+    # missing-branch feature is likewise released (#8758 design decision): its
+    # awaited precondition just appeared — and dispatch still re-verifies the
+    # branch at claim time, so this promotion is fail-closed.
     for unit, branch in ledger.materialized_branches().items():
         try:
             feat = state.get(unit)
@@ -507,6 +516,12 @@ def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
             n += 1
         if feat.status == Status.AWAITING_CLAIM:
             feat.status = Status.PENDING
+            n += 1
+        elif (
+            feat.status == Status.PARKED
+            and feat.metadata.get("parked_kind") == PARK_KIND_MISSING_BRANCH
+        ):
+            state.unpark(unit, f"worker materialized branch {branch}")
             n += 1
     if n:
         state.save(state_path)

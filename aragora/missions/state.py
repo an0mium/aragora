@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from dataclasses import fields as dataclass_fields
@@ -111,6 +112,21 @@ class Status:
     no retry/crash budget; the swarm's ``select_for`` treats it exactly like
     PENDING. It leaves the state when a worker completes it (ledger ``done`` →
     COMPLETED via reconcile) or parks it (constraint → BLOCKED).
+
+    ``PARKED`` is the retryable, **reconciler-owned** wait state (#8758 design
+    decision, 2026-07-02): "not ready yet", never "dead". A feature is parked
+    with ``parked_reason``/``parked_at``/``parked_kind`` recorded in metadata
+    (and ``retry_count`` bounding decomposition retries). Neither the
+    orchestrator's ``next_pending`` nor the swarm's ``select_for`` touches it —
+    the reconciler's re-evaluation is the ONLY path out, and it releases a park
+    only when the missing precondition actually appears (or, for decomposition
+    parks, for a bounded retry). Release is still fail-closed: dispatch
+    re-verifies the precondition at claim time instead of trusting stored
+    state.
+
+    ``TERMINAL`` is permanent: reserved for decomposition that failed after N
+    attempts (default 3) or an explicit :meth:`MissionState.cancel`. Nothing
+    auto-transitions out of terminal.
     """
 
     PENDING = "pending"
@@ -118,8 +134,16 @@ class Status:
     COMPLETED = "completed"
     BLOCKED = "blocked"
     AWAITING_CLAIM = "awaiting_claim"
+    PARKED = "parked"
+    TERMINAL = "terminal"
 
-    ALL = frozenset({PENDING, IN_PROGRESS, COMPLETED, BLOCKED, AWAITING_CLAIM})
+    ALL = frozenset({PENDING, IN_PROGRESS, COMPLETED, BLOCKED, AWAITING_CLAIM, PARKED, TERMINAL})
+
+
+# Park kinds (#8758): why a PARKED feature waits, and therefore what the
+# reconciler must see before releasing it.
+PARK_KIND_DECOMPOSITION = "decomposition-failed"  # retry-bounded → TERMINAL at the cap
+PARK_KIND_MISSING_BRANCH = "missing-branch"  # waits for a live metadata.branch to appear
 
 
 def preconditions_met(preconditions: list[str], completed: set[str]) -> bool:
@@ -210,6 +234,66 @@ class MissionState:
         feat.status = Status.BLOCKED
         if reason:
             feat.notes = (feat.notes + "\n" if feat.notes else "") + f"BLOCKED: {reason}"
+
+    def mark_parked(
+        self,
+        feature_id: str,
+        reason: str = "",
+        *,
+        kind: str = "",
+        parked_at: float | None = None,
+    ) -> None:
+        """Park a feature *retryably* (#8758 design decision): reconciler-owned.
+
+        Records the transition on the feature — ``parked_reason``/``parked_at``
+        (metadata) plus the pre-existing ``retry_count`` field — so an operator
+        (and the reconciler) can always tell why it waits and for how long.
+        Only the reconciler's re-evaluation transitions a PARKED feature back to
+        PENDING; nothing dispatches it while parked.
+        """
+        feat = self.get(feature_id)
+        feat.status = Status.PARKED
+        feat.metadata["parked_reason"] = reason or "parked pending reconciler re-evaluation"
+        feat.metadata["parked_at"] = time.time() if parked_at is None else parked_at
+        if kind:
+            feat.metadata["parked_kind"] = kind
+        if reason:
+            note = f"PARKED: {reason}"
+            if note not in feat.notes:
+                feat.notes = (feat.notes + "\n" if feat.notes else "") + note
+
+    def unpark(self, feature_id: str, reason: str = "") -> None:
+        """Reconciler-only exit from PARKED → PENDING (ready).
+
+        Clears the park bookkeeping (the release is recorded as a note instead)
+        but deliberately leaves ``retry_count`` intact: decomposition retries
+        stay bounded across park/release cycles (→ TERMINAL at the cap).
+        """
+        feat = self.get(feature_id)
+        if feat.status != Status.PARKED:
+            raise ValueError(f"cannot unpark feature {feature_id!r} in status {feat.status!r}")
+        feat.status = Status.PENDING
+        for key in ("parked_reason", "parked_at", "parked_kind"):
+            feat.metadata.pop(key, None)
+        if reason:
+            note = f"unparked: {reason}"
+            if note not in feat.notes:
+                feat.notes = (feat.notes + "\n" if feat.notes else "") + note
+
+    def mark_terminal(self, feature_id: str, reason: str = "") -> None:
+        """Permanent park (#8758 design decision): decomposition failed after N
+        attempts, or an explicit cancel. Nothing auto-transitions out of
+        TERMINAL — unlike PARKED, the reconciler never re-evaluates it."""
+        feat = self.get(feature_id)
+        feat.status = Status.TERMINAL
+        if reason:
+            note = f"TERMINAL: {reason}"
+            if note not in feat.notes:
+                feat.notes = (feat.notes + "\n" if feat.notes else "") + note
+
+    def cancel(self, feature_id: str, reason: str = "explicitly cancelled") -> None:
+        """Operator cancel — the only non-decomposition path into TERMINAL."""
+        self.mark_terminal(feature_id, reason)
 
     def reclaim_in_progress(self) -> list[str]:
         """Reset orphaned IN_PROGRESS features (from a dead worker) to PENDING.

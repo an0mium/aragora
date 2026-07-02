@@ -28,7 +28,7 @@ from typing import Protocol
 
 from .orchestrator import Handoff
 from .reconcile import write_operator_receipt
-from .state import Feature
+from .state import PARK_KIND_MISSING_BRANCH, Feature
 
 logger = logging.getLogger(__name__)
 
@@ -87,14 +87,24 @@ class BossLoopDispatch:
 
     def __call__(self, feature: Feature) -> Handoff:
         if _missing_live_branch(feature):
+            # Retryable park, NOT terminal (#8758 design decision): a missing
+            # branch means "not ready yet", never "dead" — the reconciler
+            # releases the park once a live branch appears (intake bridge /
+            # worker materialization / operator). Because this check runs on
+            # every dispatch, it is also the fail-closed claim-time
+            # re-verification: a parked feature promoted on stale state
+            # re-parks here instead of reaching the merge gate branchless.
             return Handoff(
                 success=False,
-                terminal=True,
+                parked=True,
+                parked_kind=PARK_KIND_MISSING_BRANCH,
                 blocked_reason=(
                     "auto-drain requires feature metadata.branch before live dispatch; "
-                    "seed/intake features must be converted into branch-backed work first"
+                    "parked (retryable) until intake/worker materializes a branch"
                 ),
-                discovered=[f"feature {feature.id} has no metadata.branch; parked for intake"],
+                discovered=[
+                    f"feature {feature.id} has no metadata.branch; parked non-terminally for intake"
+                ],
             )
 
         branch = self.gate.branch_for(feature)

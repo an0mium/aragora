@@ -33,11 +33,14 @@ claim/branch creation" note, zero git subprocesses, no retry accounting.
 Once a live ``metadata.branch`` is recorded, the child flows through to the
 inner dispatch and the merge gate as before.
 
-Failure to decompose parks the intake **non-terminally** with a diagnostic
-reason — a raising decomposer is a transient provider failure, so a later
-tick retries it (bounded by the orchestrator's existing retry cap) and it
-never crashes the tick loop. Only a blank goal, which no retry can fix, is
-terminal. The bridge is default-ON for auto-drain and only ever activates on
+Failure to decompose parks the intake **non-terminally** (#8758 design
+decision): the feature moves to the retryable, reconciler-owned
+``Status.PARKED`` with ``parked_reason``/``parked_at`` recorded — a raising
+decomposer is a transient provider failure, so each reconciler tick releases
+the park for a bounded retry (``retry_count`` → ``Status.TERMINAL`` after
+``max_retries`` attempts, default 3) and it never crashes the tick loop. Only
+a blank goal, which no retry can fix, is terminal immediately. The bridge is
+default-ON for auto-drain and only ever activates on
 intake-shaped or intake-derived features (i.e. freshly seeded missions); the
 ``ARAGORA_DISABLE_MISSION_INTAKE_BRIDGE=1`` kill-switch restores the previous
 park-on-intake behavior.
@@ -54,7 +57,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from .orchestrator import Dispatch, Handoff
-from .state import Feature, Status
+from .state import PARK_KIND_DECOMPOSITION, Feature, Status
 
 if TYPE_CHECKING:
     from aragora.nomic.task_decomposer import SubTask
@@ -147,9 +150,12 @@ class IntakeBridgeDispatch:
     def _decompose_intake(self, feature: Feature) -> Handoff:
         goal = feature.description.strip()
         if not goal:
+            # Permanent decomposition failure: no retry fixes a blank goal.
+            # parked_kind routes triage to TERMINAL (#8758 design decision).
             return Handoff(
                 success=False,
                 terminal=True,
+                parked_kind=PARK_KIND_DECOMPOSITION,
                 blocked_reason="intake feature has no goal/description to decompose",
                 discovered=[f"intake feature {feature.id} arrived with a blank goal"],
             )
@@ -159,11 +165,15 @@ class IntakeBridgeDispatch:
             subtasks = list(self._decompose(goal, paths))[: self.max_children]
         except Exception as exc:  # noqa: BLE001 - decomposer is an external boundary; park, never crash the tick loop
             logger.exception("intake decomposition failed for feature %s", feature.id)
-            # NON-terminal (park-and-retry contract): a raising decomposer is a
-            # transient provider failure — a later tick retries when it
-            # recovers, bounded by the orchestrator's existing retry cap.
+            # NON-terminal park (#8758 design decision): a raising decomposer is
+            # a transient provider failure — the feature moves to the retryable
+            # PARKED state (parked_reason/parked_at recorded) and the reconciler
+            # releases it each tick for a bounded retry; after max_retries
+            # failed attempts triage marks it TERMINAL.
             return Handoff(
                 success=False,
+                parked=True,
+                parked_kind=PARK_KIND_DECOMPOSITION,
                 blocked_reason=f"intake decomposition failed: {exc}",
                 discovered=[f"intake feature {feature.id} parked: {self.decomposer_name} raised"],
             )

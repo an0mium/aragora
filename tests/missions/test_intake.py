@@ -51,6 +51,7 @@ from aragora.missions.intake import (
     intake_bridge_enabled,
     is_intake_feature,
 )
+from aragora.missions.state import PARK_KIND_DECOMPOSITION
 from aragora.nomic.task_decomposer import SubTask
 
 GOAL = "Add a rate limiter to the API server"
@@ -402,8 +403,9 @@ def test_empty_decomposition_falls_back_to_single_mirrored_child():
 
 
 def test_decomposer_exception_parks_non_terminally_with_diagnostic(tmp_path):
-    """Round-2 quorum P2: a raising decomposer is a transient provider
-    failure — park-and-retry, never terminal=True on the first exception."""
+    """Round-2 quorum P2 + the #8758 design decision: a raising decomposer is
+    a transient provider failure — a retryable, reconciler-owned PARK with the
+    transition recorded on the feature, never terminal on the first exception."""
 
     def boom(goal: str, paths: list[str]) -> list[SubTask]:
         raise RuntimeError("no decomposition today")
@@ -415,8 +417,12 @@ def test_decomposer_exception_parks_non_terminally_with_diagnostic(tmp_path):
 
     state = MissionState.load(state_path)
     intake = state.get("mission-intake")
-    assert intake.status == Status.PENDING  # retryable, NOT blocked
-    assert intake.retry_count == 1  # bounded by the orchestrator's retry cap
+    assert intake.status == Status.PARKED  # retryable, NOT blocked/terminal
+    assert intake.retry_count == 1  # bounded: TERMINAL after max_retries attempts
+    # The transition is recorded on the feature (#8758 design decision).
+    assert "intake decomposition failed" in intake.metadata["parked_reason"]
+    assert isinstance(intake.metadata["parked_at"], float)
+    assert intake.metadata["parked_kind"] == PARK_KIND_DECOMPOSITION
     assert "raised" in intake.notes  # diagnostic survives for the operator
     assert len(state.features) == 1  # no half-inserted children
 
@@ -436,8 +442,8 @@ def test_transient_decomposer_failure_recovers_on_next_tick(tmp_path):
     bridge = IntakeBridgeDispatch(_refusing_inner, decompose=flaky)
     orch = MissionOrchestrator(state_path)
 
-    orch.tick(bridge)  # tick 1: decomposer raises → parked non-terminally
-    orch.tick(bridge)  # tick 2: decomposer recovered → decomposes
+    orch.tick(bridge)  # tick 1: decomposer raises → PARKED (retryable)
+    orch.tick(bridge)  # tick 2: reconciler releases the park → decomposes
 
     state = MissionState.load(state_path)
     assert state.get("mission-intake").status == Status.COMPLETED
@@ -457,8 +463,11 @@ def test_persistently_raising_decomposer_is_bounded_not_infinite(tmp_path):
 
     state = MissionState.load(state_path)
     intake = state.get("mission-intake")
-    assert intake.status == Status.BLOCKED  # bounded retry, then park
-    assert "intake decomposition failed" in intake.notes
+    # #8758 design decision: N failed decomposition attempts (default 3) is a
+    # PERMANENT failure → TERMINAL, the state nothing auto-transitions out of.
+    assert intake.status == Status.TERMINAL
+    assert intake.retry_count == 3
+    assert "decomposition failed after 3 attempts" in intake.notes
     assert "provider outage" in intake.notes
 
 
