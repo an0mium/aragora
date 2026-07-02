@@ -1100,6 +1100,74 @@ def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
     assert posted == []
 
 
+def test_overall_timeout_reaps_finished_reviewer_before_deadline_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    closed: list[str] = []
+
+    class FinishedProcess:
+        pid = 12345
+
+        def is_alive(self) -> bool:
+            return False
+
+        def join(self, timeout: float | None = None) -> None:
+            return None
+
+    def start_worker(ctx, reviewer_runner, family: str, prompt: str) -> qe._ReviewerWorker:
+        result_queue: queue.Queue[ReviewerResult] = queue.Queue(maxsize=1)
+        result_queue.put(ReviewerResult(family, f"Verdict: PASS from {family}", True))
+        return qe._ReviewerWorker(
+            family=family,
+            process=FinishedProcess(),
+            result_queue=result_queue,
+        )
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: object())
+    monkeypatch.setattr(qe, "_start_reviewer_worker", start_worker)
+    monkeypatch.setattr(qe, "_close_reviewer_worker", lambda worker: closed.append(worker.family))
+
+    results, timed_out = qe._run_reviewers_with_overall_timeout(
+        reviewer_runner=lambda family, prompt: ReviewerResult(family, "", True),
+        prompt="review prompt",
+        families=["claude"],
+        overall_timeout_seconds=0.0,
+    )
+
+    assert timed_out == []
+    assert results["claude"].ok is True
+    assert closed == ["claude"]
+
+
+def test_reviewer_process_context_avoids_fork_from_threaded_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested: list[str | None] = []
+
+    monkeypatch.setattr(qe.threading, "active_count", lambda: 2)
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["fork", "spawn"])
+
+    def fake_get_context(method: str | None = None) -> object:
+        requested.append(method)
+        return object()
+
+    monkeypatch.setattr(qe.multiprocessing, "get_context", fake_get_context)
+
+    qe._reviewer_process_context()
+
+    assert requested == ["spawn"]
+
+
+def test_reviewer_process_context_fails_closed_when_only_fork_is_available_in_threaded_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(qe.threading, "active_count", lambda: 2)
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["fork"])
+
+    with pytest.raises(RuntimeError, match="cannot safely fork reviewer workers"):
+        qe._reviewer_process_context()
+
+
 def test_start_reviewer_worker_is_not_daemon_so_api_fallback_can_spawn_children() -> None:
     created: dict[str, object] = {}
 
@@ -1451,7 +1519,52 @@ def test_collect_preflight_transport_retries_then_fails_closed_without_reviewers
 
 
 def test_collect_preflight_timeout_message_is_transport_error() -> None:
-    assert qe._is_github_transport_error(RuntimeError("gh pr view 1 timed out after 30s"))
+    assert qe._is_preflight_context_transport_error(
+        RuntimeError("gh pr view 1 timed out after 30s")
+    )
+
+
+def test_collect_preflight_raw_timeout_exception_is_transport_blocked() -> None:
+    attempts = 0
+
+    def timeout_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise subprocess.TimeoutExpired(["gh", "pr", "view", str(pr)], timeout=30)
+
+    with pytest.raises(qe.CollectPreflightTransportError) as raised:
+        qe._fetch_preflight_context(
+            "o/r",
+            1,
+            timeout_context_fetcher,
+            attempts=2,
+            retry_delay_seconds=0,
+        )
+
+    assert attempts == 2
+    payload = raised.value.to_dict()
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+
+
+def test_collect_preflight_non_github_timeout_message_is_not_transport_error() -> None:
+    attempts = 0
+
+    def logic_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("policy parser timed out after reading an invalid fixture")
+
+    with pytest.raises(RuntimeError, match="policy parser timed out"):
+        qe._fetch_preflight_context(
+            "o/r",
+            1,
+            logic_context_fetcher,
+            attempts=2,
+            retry_delay_seconds=0,
+        )
+
+    assert attempts == 1
 
 
 def test_collect_preflight_transport_retry_can_recover_and_run_reviewers() -> None:

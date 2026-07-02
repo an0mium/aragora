@@ -40,6 +40,7 @@ import secrets
 import signal
 import subprocess
 import tempfile
+import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
@@ -2131,7 +2132,7 @@ def _fetch_preflight_context(
         try:
             return context_fetcher(repo, pr)
         except Exception as exc:  # noqa: BLE001 - classify injected/live transport errors.
-            if not _is_github_transport_error(exc):
+            if not _is_preflight_context_transport_error(exc):
                 raise
             last_transport_error = exc
             if attempt >= bounded_attempts:
@@ -2149,12 +2150,57 @@ def _fetch_preflight_context(
     )
 
 
+_PREFLIGHT_TIMEOUT_MARKERS = (
+    "client.timeout exceeded",
+    "command timed out",
+    "context deadline exceeded",
+    "operation timed out",
+    "timeout awaiting response headers",
+    "timed out after",
+    "tls handshake timeout",
+)
+_PREFLIGHT_GITHUB_ANCHORS = (
+    " api.github.com",
+    "github.com",
+    "gh ",
+    "gh:",
+    "gh.exe",
+    "gh pr ",
+    "gh api ",
+    "repos/",
+)
+
+
+def _is_preflight_context_transport_error(error: BaseException) -> bool:
+    """Classify only GitHub transport failures as preflight transport blockers.
+
+    ``context_fetcher`` is injected in tests and in future orchestration callers.
+    Timeout-shaped words in arbitrary business/auth/parser exceptions should not
+    be retried or reported as GitHub transport just because they contain
+    "timed out after". Raw ``subprocess.TimeoutExpired`` is still transport for
+    this preflight phase because the supported live fetcher shells out to ``gh``.
+    """
+    if isinstance(error, subprocess.TimeoutExpired):
+        return True
+    if not _is_github_transport_error(error):
+        return False
+    text = str(error or "").lower()
+    if any(marker in text for marker in _PREFLIGHT_TIMEOUT_MARKERS):
+        return any(anchor in text for anchor in _PREFLIGHT_GITHUB_ANCHORS)
+    return True
+
+
 def _reviewer_process_context() -> Any:
     """Return a process context usable for locally injected reviewer callables."""
     try:
         methods = multiprocessing.get_all_start_methods()
     except (AttributeError, ValueError):  # pragma: no cover - platform defensive.
         methods = []
+    if threading.active_count() > 1:
+        for method in ("forkserver", "spawn"):
+            if method in methods:
+                return multiprocessing.get_context(method)
+        raise RuntimeError("cannot safely fork reviewer workers from a multi-threaded parent")
     if "fork" in methods:
         return multiprocessing.get_context("fork")
     return multiprocessing.get_context()
@@ -2310,7 +2356,16 @@ def _run_reviewers_with_overall_timeout(
     overall_timeout_seconds: float,
 ) -> tuple[dict[str, ReviewerResult], list[str]]:
     """Run reviewers with a hard orchestration deadline and terminate stragglers."""
-    ctx = _reviewer_process_context()
+    try:
+        ctx = _reviewer_process_context()
+    except (OSError, RuntimeError, ValueError) as exc:
+        return (
+            {
+                family: ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+                for family in families
+            },
+            [],
+        )
     deadline = time.monotonic() + overall_timeout_seconds
     pending = list(families)
     active: list[_ReviewerWorker] = []
@@ -2327,9 +2382,26 @@ def _run_reviewers_with_overall_timeout(
                     family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
                 )
 
+    def reap_finished() -> None:
+        finished = [worker for worker in active if not worker.process.is_alive()]
+        for worker in finished:
+            worker.process.join(0)
+            results[worker.family] = _read_reviewer_worker_result(worker)
+            _close_reviewer_worker(worker)
+            active.remove(worker)
+        if finished:
+            start_more()
+
     start_more()
     while active or pending:
+        reap_finished()
+        if not active and not pending:
+            break
+
         if time.monotonic() >= deadline:
+            reap_finished()
+            if not active and not pending:
+                break
             timed_out.extend(worker.family for worker in active)
             timed_out.extend(pending)
             pending.clear()
@@ -2338,16 +2410,8 @@ def _run_reviewers_with_overall_timeout(
             active.clear()
             break
 
-        finished = [worker for worker in active if not worker.process.is_alive()]
-        if not finished:
-            time.sleep(0.01)
-            continue
-        for worker in finished:
-            worker.process.join(0)
-            results[worker.family] = _read_reviewer_worker_result(worker)
-            _close_reviewer_worker(worker)
-            active.remove(worker)
-        start_more()
+        remaining = max(0.0, deadline - time.monotonic())
+        time.sleep(min(0.01, remaining))
 
     return results, timed_out
 
