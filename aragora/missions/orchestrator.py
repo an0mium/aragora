@@ -35,11 +35,16 @@ class Handoff:
     distinguishes a block that **cannot self-heal by retrying** (operator-gated,
     Tier-3, a contaminated branch needing re-derive) from a transient one — a
     structured flag instead of sniffing the reason string, so the orchestrator and
-    swarm agree.
+    swarm agree. ``awaiting_claim`` is a third disposition (#8758): the feature is
+    real work this dispatch cannot drive at all — it needs a *worker* to claim it
+    (``Status.AWAITING_CLAIM``, claimable by ``ledger.select_for``) — so triage
+    parks it claimable with **no retry accounting** instead of failing it toward
+    BLOCKED.
     """
 
     success: bool = False
     terminal: bool = False  # True = do not retry; park/block immediately
+    awaiting_claim: bool = False  # True = park claimable (AWAITING_CLAIM), no retry burn
     blocked_reason: str | None = None
     follow_ups: list[Feature] = field(default_factory=list)
     accept_follow_ups: bool = False
@@ -210,6 +215,17 @@ class MissionOrchestrator:
             state.mark_completed(feature_id)
             return
 
+        if handoff.awaiting_claim and not handoff.terminal:
+            # Claimable park (#8758): the work needs a worker, not a retry — move
+            # it where select_for can claim it and burn NO retry budget, so an
+            # auto-drain run can never age worker-bound work into BLOCKED.
+            reason = handoff.blocked_reason or "awaiting worker claim"
+            stamp = f"awaiting claim: {reason}"
+            if stamp not in feat.notes:
+                feat.notes = (feat.notes + "\n" if feat.notes else "") + stamp
+            feat.status = Status.AWAITING_CLAIM
+            return
+
         # Returned failure: bound by retry_count. Park a terminal block immediately
         # (never loop on operator-gated forks); retry a transient one until the cap.
         feat.retry_count += 1
@@ -220,9 +236,15 @@ class MissionOrchestrator:
             feat.status = Status.PENDING  # bounded retry
 
     def _block_unrunnable_pending(self, state: MissionState, reason: str) -> bool:
+        """Block PENDING features the mission can never reach — but leave alone any
+        whose precondition chain can still complete outside this loop (an
+        AWAITING_CLAIM child a worker will finish, or an IN_PROGRESS unit).
+        Genuine dead ends — unsupported precondition tokens, references to missing
+        or BLOCKED features, cycles — are still blocked, exactly as before."""
+        reachable = self._may_yet_complete(state)
         changed = False
         for feat in state.features:
-            if feat.status != Status.PENDING:
+            if feat.status != Status.PENDING or feat.id in reachable:
                 continue
             details = (
                 ", ".join(feat.preconditions) if feat.preconditions else "no runnable dispatch"
@@ -230,6 +252,29 @@ class MissionOrchestrator:
             state.mark_blocked(feat.id, f"{reason}: {details}")
             changed = True
         return changed
+
+    @staticmethod
+    def _may_yet_complete(state: MissionState) -> set[str]:
+        """Feature ids that can still complete without operator intervention:
+        completed/worker-bound/in-flight features, plus (to a fixpoint) any
+        PENDING feature gated only on those. A PENDING feature outside this set
+        is a dead end — cycles and unsupported tokens never enter it."""
+        reachable = {
+            f.id
+            for f in state.features
+            if f.status in {Status.COMPLETED, Status.AWAITING_CLAIM, Status.IN_PROGRESS}
+        }
+        pending = [f for f in state.features if f.status == Status.PENDING]
+        progressed = True
+        while progressed:
+            progressed = False
+            for feat in pending:
+                if feat.id in reachable:
+                    continue
+                if all(p.startswith("feature:") and p[8:] in reachable for p in feat.preconditions):
+                    reachable.add(feat.id)
+                    progressed = True
+        return reachable
 
     # ---- run loop ------------------------------------------------------------
 

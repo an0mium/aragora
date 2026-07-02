@@ -102,14 +102,24 @@ def mission_owner_lock(state_path: str | Path, *, exclusive: bool = True) -> Ite
 
 
 class Status:
-    """Feature lifecycle states (string constants for JSON-friendliness)."""
+    """Feature lifecycle states (string constants for JSON-friendliness).
+
+    ``AWAITING_CLAIM`` is the claimable-wait state (#8758): work that is real
+    and ready but needs a *worker* to pick it up (e.g. a decomposed intake
+    child with no ``metadata.branch`` yet). The orchestrator never dispatches
+    it — there is nothing the merge gate can do without a branch — so it burns
+    no retry/crash budget; the swarm's ``select_for`` treats it exactly like
+    PENDING. It leaves the state when a worker completes it (ledger ``done`` →
+    COMPLETED via reconcile) or parks it (constraint → BLOCKED).
+    """
 
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     BLOCKED = "blocked"
+    AWAITING_CLAIM = "awaiting_claim"
 
-    ALL = frozenset({PENDING, IN_PROGRESS, COMPLETED, BLOCKED})
+    ALL = frozenset({PENDING, IN_PROGRESS, COMPLETED, BLOCKED, AWAITING_CLAIM})
 
 
 def preconditions_met(preconditions: list[str], completed: set[str]) -> bool:
@@ -161,6 +171,8 @@ class MissionState:
 
         Ordering is array order (milestones are encoded by position, exactly like
         Factory's features.json), so callers control sequencing by list order.
+        AWAITING_CLAIM features are deliberately not returned: they wait for a
+        *worker* (``ledger.select_for``), not for the orchestrator's dispatch.
         """
         completed = {f.id for f in self.features if f.status == Status.COMPLETED}
         for feat in self.features:

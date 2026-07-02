@@ -5,19 +5,24 @@ A seeded mission (``aragora mission seed --goal ...``) starts as a single
 live dispatch parked it terminally. These tests pin the bridge contract:
 
 * intake-shaped features are decomposed via TaskDecomposer into 1+ child
-  Features claimable by the existing lease machinery, each carrying a
+  Features born in the claimable AWAITING_CLAIM state, each carrying a
   deterministic ``metadata.branch_hint`` (never a fabricated
   ``metadata.branch`` — the merge gate rev-parses that value);
 * the intake feature completes (non-terminal) with provenance notes;
-* on the ticks AFTER decomposition, branch-less children are parked
-  gracefully by the bridge with an accurate "awaiting worker claim/branch
-  creation" diagnostic — the merge gate is never invoked on a nonexistent
-  ref, so there is no crash/retry loop mislabeled as a poison dispatch;
+* after auto-drain, the children stay claimable by ``select_for`` with
+  ``crash_count == 0`` and zero manual status resets — the orchestrator
+  never dispatches an AWAITING_CLAIM child, so there is no retry-counter
+  burn, no BLOCKED children, and the merge gate is never invoked on a
+  nonexistent ref (the round-2 quorum P1);
+* a PENDING branch-less child (e.g. hand-reset state) triages back to
+  AWAITING_CLAIM via ``Handoff.awaiting_claim`` — never retried to BLOCKED;
 * children with a live worker-recorded ``metadata.branch`` flow through to
   the inner dispatch;
 * empty decompositions mirror the goal into one child instead of parking;
-* a raising decomposer parks the intake with a diagnostic — the tick loop
-  never crashes;
+* a raising decomposer parks the intake NON-terminally with a diagnostic
+  (the round-2 quorum P2): a later tick retries when the decomposer
+  recovers, bounded by the orchestrator's existing retry cap — and the
+  tick loop never crashes;
 * re-ticking after a crash never duplicates children, including when the
   decomposer returns duplicate-titled subtasks in a different order
   (child ids are content-derived, not positional);
@@ -160,7 +165,9 @@ def test_intake_decomposes_into_claimable_follow_ups():
     assert handoff.accept_follow_ups
     assert len(handoff.follow_ups) == 2
     for child in handoff.follow_ups:
-        assert child.status == Status.PENDING
+        # Born awaiting a worker: claimable by select_for, never dispatched
+        # (and never retry-burned) by the orchestrator until a branch exists.
+        assert child.status == Status.AWAITING_CLAIM
         assert not is_intake_feature(child)
         # Never a fabricated live branch — the merge gate rev-parses that.
         assert "branch" not in child.metadata
@@ -187,7 +194,7 @@ def test_tick_converts_intake_into_children_instead_of_parking(tmp_path):
     assert "decomposed" in intake.notes
     children = [f for f in state.features if f.id != "mission-intake"]
     assert len(children) == 2
-    assert all(f.status == Status.PENDING for f in children)
+    assert all(f.status == Status.AWAITING_CLAIM for f in children)
     assert all(str(f.metadata["branch_hint"]).startswith("mission/") for f in children)
 
 
@@ -225,6 +232,9 @@ def test_branchless_child_parks_gracefully_without_reaching_inner():
 
     assert not handoff.success
     assert not handoff.terminal  # a worker attaching a branch can self-heal
+    # The claimable-wait disposition: triage moves the child to AWAITING_CLAIM
+    # instead of burning retry_count toward BLOCKED (the round-2 quorum P1).
+    assert handoff.awaiting_claim
     assert "awaiting worker claim/branch creation" in (handoff.blocked_reason or "")
     assert "mission/mission-intake-tests" in (handoff.blocked_reason or "")
 
@@ -245,12 +255,37 @@ def test_follow_up_ticks_never_crash_loop_on_nonexistent_branches(tmp_path):
     children = [f for f in state.features if f.id != "mission-intake"]
     assert len(children) == 2
     for child in children:
-        assert child.status == Status.BLOCKED  # parked, with the accurate reason
-        assert "awaiting worker claim/branch creation" in child.notes
+        # Round-2 P1: awaiting a worker, NOT retried-to-BLOCKED.
+        assert child.status == Status.AWAITING_CLAIM
         assert "poison" not in child.notes
         assert "crash" not in child.notes.lower()
-        assert child.crash_count == 0  # dispatch always returned, never raised
+        assert child.crash_count == 0  # never dispatched, never raised
+        assert child.retry_count == 0  # no retry-counter burn
     assert gate.head_calls == 0  # live git never touched for branch-less children
+
+
+def test_auto_drain_leaves_children_claimable_by_select_for(tmp_path):
+    """Round-2 quorum P1 acceptance: fresh seed → auto-drain completes →
+    the decomposed children are claimable by the select_for/swarm machinery
+    with crash_count 0, zero manual status resets, and no BLOCKED children."""
+    state_path = _seeded_state(tmp_path)
+    gate = _RaisingHeadGate()
+    bridge = IntakeBridgeDispatch(BossLoopDispatch(gate), decompose=_two_subtasks)
+
+    MissionOrchestrator(state_path).run(bridge, max_ticks=50)
+
+    state = MissionState.load(state_path)
+    assert state.get("mission-intake").status == Status.COMPLETED
+    assert not any(f.status == Status.BLOCKED for f in state.features)
+    children = [f for f in state.features if f.id != "mission-intake"]
+    assert children and all(f.status == Status.AWAITING_CLAIM for f in children)
+    assert all(f.crash_count == 0 and f.retry_count == 0 for f in children)
+
+    # Zero manual status resets: the worker self-heal path claims as-is.
+    ledger = Ledger(tmp_path / "worker-ledger.json")
+    assert select_for(state, ledger, "worker-1") == children[0].id
+    # The dependent sibling stays precondition-gated until the first completes.
+    assert select_for(state, ledger, "worker-2") is None
 
 
 def test_child_with_live_branch_flows_through_to_inner_dispatch():
@@ -270,6 +305,80 @@ def test_child_with_live_branch_flows_through_to_inner_dispatch():
 
     assert bridge(child).success
     assert seen == ["mission-intake-tests"]
+
+
+def test_pending_branchless_child_triages_to_awaiting_claim_without_retry_burn(tmp_path):
+    """Defense in depth: a branchless child that is somehow PENDING (hand-reset
+    state, pre-fix state file) is moved back to AWAITING_CLAIM by one dispatch —
+    no retry_count burn, no BLOCKED (the round-2 quorum P1 failure path)."""
+    state_path = tmp_path / "state.json"
+    child = Feature(
+        id="mission-intake-tests",
+        description="Cover it",
+        milestone="mission",
+        metadata={
+            "intake_parent": "mission-intake",
+            "branch_hint": "mission/mission-intake-tests",
+        },
+    )
+    MissionState(
+        mission_id="mission-test", goal=GOAL, milestones=["mission"], features=[child]
+    ).save(state_path)
+    bridge = IntakeBridgeDispatch(_refusing_inner, decompose=_two_subtasks)
+
+    MissionOrchestrator(state_path).run(bridge, max_ticks=10)  # must drain
+
+    state = MissionState.load(state_path)
+    reloaded = state.get("mission-intake-tests")
+    assert reloaded.status == Status.AWAITING_CLAIM
+    assert reloaded.retry_count == 0
+    assert reloaded.crash_count == 0
+    assert "awaiting worker claim/branch creation" in reloaded.notes
+
+
+def test_drain_leaves_pending_work_gated_on_awaiting_claim_unblocked(tmp_path):
+    """A PENDING feature precondition-gated on an AWAITING_CLAIM child is still
+    reachable (a worker can complete the child), so drain must leave it PENDING
+    instead of blocking it as unrunnable."""
+    state_path = tmp_path / "state.json"
+    awaiting = Feature(
+        id="child-a",
+        description="do the work",
+        milestone="mission",
+        status=Status.AWAITING_CLAIM,
+        metadata={"intake_parent": "mission-intake", "branch_hint": "mission/child-a"},
+    )
+    gated = Feature(
+        id="validate-a",
+        description="validate the work",
+        milestone="mission",
+        preconditions=["feature:child-a"],
+        metadata={"branch": "mission/validate-a"},
+    )
+    MissionState(
+        mission_id="mission-test", goal=GOAL, milestones=["mission"], features=[awaiting, gated]
+    ).save(state_path)
+
+    MissionOrchestrator(state_path).run(_refusing_inner, max_ticks=10)  # drains untouched
+
+    state = MissionState.load(state_path)
+    assert state.get("child-a").status == Status.AWAITING_CLAIM
+    assert state.get("validate-a").status == Status.PENDING  # not BLOCKED
+
+
+def test_drain_still_blocks_true_precondition_deadlocks(tmp_path):
+    """The awaiting-claim reachability carve-out must not weaken deadlock
+    detection: a precondition cycle with no workable entry is still blocked."""
+    state_path = tmp_path / "state.json"
+    a = Feature(id="a", description="x", milestone="m", preconditions=["feature:b"])
+    b = Feature(id="b", description="y", milestone="m", preconditions=["feature:a"])
+    MissionState(mission_id="m", goal=GOAL, milestones=["m"], features=[a, b]).save(state_path)
+
+    MissionOrchestrator(state_path).run(_refusing_inner, max_ticks=10)
+
+    state = MissionState.load(state_path)
+    assert state.get("a").status == Status.BLOCKED
+    assert state.get("b").status == Status.BLOCKED
 
 
 # ---- empty decomposition ------------------------------------------------------
@@ -292,7 +401,10 @@ def test_empty_decomposition_falls_back_to_single_mirrored_child():
 # ---- failure paths ------------------------------------------------------------
 
 
-def test_decomposer_exception_parks_with_diagnostic_and_never_crashes_tick(tmp_path):
+def test_decomposer_exception_parks_non_terminally_with_diagnostic(tmp_path):
+    """Round-2 quorum P2: a raising decomposer is a transient provider
+    failure — park-and-retry, never terminal=True on the first exception."""
+
     def boom(goal: str, paths: list[str]) -> list[SubTask]:
         raise RuntimeError("no decomposition today")
 
@@ -303,10 +415,51 @@ def test_decomposer_exception_parks_with_diagnostic_and_never_crashes_tick(tmp_p
 
     state = MissionState.load(state_path)
     intake = state.get("mission-intake")
-    assert intake.status == Status.BLOCKED
-    assert "intake decomposition failed" in intake.notes
-    assert "no decomposition today" in intake.notes
+    assert intake.status == Status.PENDING  # retryable, NOT blocked
+    assert intake.retry_count == 1  # bounded by the orchestrator's retry cap
+    assert "raised" in intake.notes  # diagnostic survives for the operator
     assert len(state.features) == 1  # no half-inserted children
+
+
+def test_transient_decomposer_failure_recovers_on_next_tick(tmp_path):
+    """Round-2 quorum P2 acceptance: decomposer raises on tick 1 and succeeds
+    on tick 2 → the intake decomposes on tick 2."""
+    calls = {"n": 0}
+
+    def flaky(goal: str, paths: list[str]) -> list[SubTask]:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("provider hiccup")
+        return _two_subtasks(goal, paths)
+
+    state_path = _seeded_state(tmp_path)
+    bridge = IntakeBridgeDispatch(_refusing_inner, decompose=flaky)
+    orch = MissionOrchestrator(state_path)
+
+    orch.tick(bridge)  # tick 1: decomposer raises → parked non-terminally
+    orch.tick(bridge)  # tick 2: decomposer recovered → decomposes
+
+    state = MissionState.load(state_path)
+    assert state.get("mission-intake").status == Status.COMPLETED
+    children = [f for f in state.features if f.id != "mission-intake"]
+    assert len(children) == 2
+    assert all(f.status == Status.AWAITING_CLAIM for f in children)
+
+
+def test_persistently_raising_decomposer_is_bounded_not_infinite(tmp_path):
+    def boom(goal: str, paths: list[str]) -> list[SubTask]:
+        raise RuntimeError("provider outage")
+
+    state_path = _seeded_state(tmp_path)
+    bridge = IntakeBridgeDispatch(_refusing_inner, decompose=boom)
+
+    MissionOrchestrator(state_path).run(bridge, max_ticks=50)  # must drain
+
+    state = MissionState.load(state_path)
+    intake = state.get("mission-intake")
+    assert intake.status == Status.BLOCKED  # bounded retry, then park
+    assert "intake decomposition failed" in intake.notes
+    assert "provider outage" in intake.notes
 
 
 def test_blank_goal_parks_terminal():

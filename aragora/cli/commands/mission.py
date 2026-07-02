@@ -185,10 +185,11 @@ def _dispatch_for(args: argparse.Namespace, *, state_path: Path | None = None):
             receipt_dir=receipt_dir,
         )
         if intake_bridge_enabled():
-            # Seeded intake features get decomposed into claimable child
-            # features (#8758); children without a live worker-recorded
-            # metadata.branch are parked gracefully by the bridge instead of
-            # crashing the merge gate on a nonexistent ref. Kill-switch:
+            # Seeded intake features get decomposed into child features born in
+            # the claimable AWAITING_CLAIM state (#8758): auto-drain leaves them
+            # for the worker/lease machinery (select_for) with no retry burn and
+            # no BLOCKED children, and the merge gate is never invoked on a
+            # nonexistent ref. Kill-switch:
             # ARAGORA_DISABLE_MISSION_INTAKE_BRIDGE=1 restores park-on-intake.
             return IntakeBridgeDispatch(dispatch)
         return dispatch

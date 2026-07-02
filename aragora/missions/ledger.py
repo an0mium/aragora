@@ -426,9 +426,10 @@ def select_for(
 ) -> str | None:
     """Stigmergic pickup: atomic-claim the first available feature for ``worker_id``.
 
-    "Available" = pending or orphaned in-progress, known preconditions met, not done
-    (in state OR the ledger), not parked (active constraint), and not claimed by
-    another worker.
+    "Available" = pending, awaiting a worker claim (``Status.AWAITING_CLAIM`` —
+    e.g. a decomposed intake child with no branch yet, #8758), or orphaned
+    in-progress; known preconditions met; not done (in state OR the ledger); not
+    parked (active constraint); and not claimed by another worker.
     Returns the claimed feature id, or None if nothing is available to *this* worker.
 
     This is how non-overlapping fronts emerge with no central dispatcher: every
@@ -446,11 +447,14 @@ def select_for(
     done = {f.id for f in state.features if f.status == Status.COMPLETED} | ledger.done_units()
 
     for feat in state.features:
-        # PENDING is normal swarm work. IN_PROGRESS is also claimable here because
-        # run_worker holds the shared side of the owner fence; if an orchestrator
-        # were alive its exclusive lock would block the swarm before selection.
-        # That lets swarm-only recovery reclaim crash-orphaned checkpointed units.
-        if feat.status not in {Status.PENDING, Status.IN_PROGRESS} or feat.id in done:
+        # PENDING is normal swarm work. AWAITING_CLAIM is work whose whole point
+        # is to be claimed here (a decomposed child waiting for a worker/branch).
+        # IN_PROGRESS is also claimable because run_worker holds the shared side
+        # of the owner fence; if an orchestrator were alive its exclusive lock
+        # would block the swarm before selection. That lets swarm-only recovery
+        # reclaim crash-orphaned checkpointed units.
+        claimable = {Status.PENDING, Status.AWAITING_CLAIM, Status.IN_PROGRESS}
+        if feat.status not in claimable or feat.id in done:
             continue
         if not preconditions_met(feat.preconditions, done):
             continue

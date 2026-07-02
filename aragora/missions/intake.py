@@ -21,19 +21,26 @@ Children do **not** carry a fabricated ``metadata.branch`` — the merge gate
 rev-parses that value, and a branch nobody has created yet would turn every
 follow-up tick into a crash/retry loop mislabeled as a poison dispatch. They
 instead carry a deterministic ``metadata.branch_hint`` a worker should adopt
-when it claims the unit (the existing swarm lease machinery claims by feature
-id and needs no branch). Until a worker records a real ``metadata.branch``,
-the bridge parks the child gracefully — an accurate, non-terminal
-"awaiting worker claim/branch creation" diagnostic, zero git subprocesses —
-preserving the pre-bridge graceful-park property for anything not yet
-executable. Once a live branch is recorded, the child flows through to the
+when it claims the unit, and are born in :data:`Status.AWAITING_CLAIM` — the
+first-class claimable-wait state: ``ledger.select_for`` claims it exactly like
+PENDING, while the orchestrator never dispatches it (there is nothing the
+merge gate can do without a branch), so an auto-drain run leaves every child
+claimable with zero retry-counter burn and zero BLOCKED children. A child
+that is nevertheless PENDING without a branch (hand-reset state, pre-fix
+state file) is triaged back to AWAITING_CLAIM via the non-failure
+``Handoff.awaiting_claim`` disposition — an accurate "awaiting worker
+claim/branch creation" note, zero git subprocesses, no retry accounting.
+Once a live ``metadata.branch`` is recorded, the child flows through to the
 inner dispatch and the merge gate as before.
 
-Failure to decompose parks the intake with a diagnostic reason — it never
-crashes the tick loop. The bridge is default-ON for auto-drain and only ever
-activates on intake-shaped or intake-derived features (i.e. freshly seeded
-missions); the ``ARAGORA_DISABLE_MISSION_INTAKE_BRIDGE=1`` kill-switch
-restores the previous park-on-intake behavior.
+Failure to decompose parks the intake **non-terminally** with a diagnostic
+reason — a raising decomposer is a transient provider failure, so a later
+tick retries it (bounded by the orchestrator's existing retry cap) and it
+never crashes the tick loop. Only a blank goal, which no retry can fix, is
+terminal. The bridge is default-ON for auto-drain and only ever activates on
+intake-shaped or intake-derived features (i.e. freshly seeded missions); the
+``ARAGORA_DISABLE_MISSION_INTAKE_BRIDGE=1`` kill-switch restores the previous
+park-on-intake behavior.
 """
 
 from __future__ import annotations
@@ -47,7 +54,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from .orchestrator import Dispatch, Handoff
-from .state import Feature
+from .state import Feature, Status
 
 if TYPE_CHECKING:
     from aragora.nomic.task_decomposer import SubTask
@@ -89,10 +96,12 @@ class IntakeBridgeDispatch:
     children and completes the intake. Provenance (which decomposer, when,
     child ids) travels on the children's metadata and the intake's notes.
 
-    A decomposed child without a live ``metadata.branch`` is parked here with
-    an accurate diagnostic instead of reaching the inner dispatch: the live
-    merge gate would rev-parse a branch that does not exist yet, and the
-    resulting raise would be miscounted as a crash-looping poison dispatch.
+    A decomposed child without a live ``metadata.branch`` never reaches the
+    inner dispatch: the live merge gate would rev-parse a branch that does not
+    exist yet, and the resulting raise would be miscounted as a crash-looping
+    poison dispatch. Children are born in the claimable ``AWAITING_CLAIM``
+    state; if one is dispatched anyway (hand-reset to PENDING), it is triaged
+    back there via ``Handoff.awaiting_claim`` — never retried toward BLOCKED.
     """
 
     def __init__(
@@ -117,13 +126,14 @@ class IntakeBridgeDispatch:
         if is_intake_feature(feature):
             return self._decompose_intake(feature)
         if _awaiting_live_branch(feature):
-            # Graceful park (the pre-bridge property, now with an accurate
-            # reason): retrying is cheap and lets a worker-attached branch
-            # self-heal, so this is non-terminal — the orchestrator's retry
-            # cap parks it if no branch ever appears. No git is touched.
+            # Claimable park: this is worker-bound work, not a failure — the
+            # awaiting_claim disposition moves it to Status.AWAITING_CLAIM
+            # (claimable by select_for) with no retry accounting, so it can
+            # never age into BLOCKED while waiting. No git is touched.
             hint = feature.metadata.get("branch_hint")
             return Handoff(
                 success=False,
+                awaiting_claim=True,
                 blocked_reason=(
                     f"decomposed feature {feature.id} is awaiting worker claim/branch "
                     "creation; no live metadata.branch yet"
@@ -149,9 +159,11 @@ class IntakeBridgeDispatch:
             subtasks = list(self._decompose(goal, paths))[: self.max_children]
         except Exception as exc:  # noqa: BLE001 - decomposer is an external boundary; park, never crash the tick loop
             logger.exception("intake decomposition failed for feature %s", feature.id)
+            # NON-terminal (park-and-retry contract): a raising decomposer is a
+            # transient provider failure — a later tick retries when it
+            # recovers, bounded by the orchestrator's existing retry cap.
             return Handoff(
                 success=False,
-                terminal=True,
                 blocked_reason=f"intake decomposition failed: {exc}",
                 discovered=[f"intake feature {feature.id} parked: {self.decomposer_name} raised"],
             )
@@ -172,10 +184,14 @@ class IntakeBridgeDispatch:
     # ---- child construction ---------------------------------------------------
 
     def _child_features(self, intake: Feature, subtasks: list[SubTask]) -> list[Feature]:
-        """Deterministic children claimable by the lease machinery.
+        """Deterministic children, born AWAITING_CLAIM for the lease machinery.
 
-        An empty decomposition means the goal is a bounded, single-unit change —
-        mirror it into one child rather than parking a perfectly workable goal.
+        Awaiting-claim (not PENDING) from birth: the orchestrator has nothing to
+        dispatch until a worker records a branch, so the children sit directly in
+        the claimable-wait state — auto-drain leaves them for ``select_for`` with
+        zero retry burn. An empty decomposition means the goal is a bounded,
+        single-unit change — mirror it into one child rather than parking a
+        perfectly workable goal.
         """
         if not subtasks:
             return [self._mirrored_child(intake)]
@@ -207,6 +223,7 @@ class IntakeBridgeDispatch:
                     description=description,
                     milestone=intake.milestone,
                     skill=intake.skill,
+                    status=Status.AWAITING_CLAIM,
                     preconditions=preconditions,
                     metadata=metadata,
                 )
@@ -220,6 +237,7 @@ class IntakeBridgeDispatch:
             description=intake.description.strip(),
             milestone=intake.milestone,
             skill=intake.skill,
+            status=Status.AWAITING_CLAIM,
             metadata=self._child_metadata(intake, child_id, self.clock()),
         )
 
