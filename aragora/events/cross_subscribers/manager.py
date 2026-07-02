@@ -127,9 +127,6 @@ class CrossSubscriberManager(
             cooldown_seconds=cooldown_seconds,
         )
 
-        # Culture storage dict for CultureHandlersMixin
-        self._debate_cultures: dict = {}
-
         # Registry subscribers already wired into this manager instance
         self._applied_subscribers: set[str] = set()
 
@@ -253,12 +250,9 @@ class CrossSubscriberManager(
             self._handle_culture_to_debate,
         )
 
-        # Phase 6b: Debate Start → Load Culture (active retrieval)
-        self.register(
-            "mound_to_culture",
-            StreamEventType.DEBATE_START,
-            self._handle_mound_to_culture,
-        )
+        # Phase 6b: Debate Start → Load Culture (active retrieval) relocated to
+        # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
+        # via apply_registered_subscribers, not registered here.
 
         # Phase 7: Staleness → Debate
         self.register(
@@ -274,12 +268,9 @@ class CrossSubscriberManager(
             self._handle_debate_end_to_explainability,
         )
 
-        # Knowledge: Debate End → Outcome persistence
-        self.register(
-            "debate_outcome_to_knowledge",
-            StreamEventType.DEBATE_END,
-            self._handle_debate_outcome_to_knowledge,
-        )
+        # Knowledge: Debate End → Outcome persistence relocated to
+        # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
+        # via apply_registered_subscribers, not registered here.
 
         # =====================================================================
         # Phase 3: Cross-Subsystem Event Bridges
@@ -320,33 +311,10 @@ class CrossSubscriberManager(
             self._handle_vote_to_belief,
         )
 
-        # Workflow Complete → Supermemory (cross-workflow learning)
-        self.register(
-            "workflow_complete_to_supermemory",
-            StreamEventType.WORKFLOW_COMPLETE,
-            self._handle_workflow_outcome_to_supermemory,
-        )
-
-        # Workflow Failed → Supermemory (learn from failures)
-        self.register(
-            "workflow_failed_to_supermemory",
-            StreamEventType.WORKFLOW_FAILED,
-            self._handle_workflow_outcome_to_supermemory,
-        )
-
-        # Memory Tier Demotion → Re-validation
-        self.register(
-            "tier_demotion_to_revalidation",
-            StreamEventType.MEMORY_TIER_DEMOTION,
-            self._handle_tier_demotion_to_revalidation,
-        )
-
-        # Memory Tier Promotion → KM importance boost
-        self.register(
-            "tier_promotion_to_knowledge",
-            StreamEventType.MEMORY_TIER_PROMOTION,
-            self._handle_tier_promotion_to_knowledge,
-        )
+        # Workflow Complete/Failed → Supermemory and Memory Tier
+        # Demotion/Promotion → Knowledge Mound all relocated to
+        # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
+        # via apply_registered_subscribers, not registered here.
 
         # Register webhook delivery for all cross-pollination events
         webhook_event_types = [
@@ -399,12 +367,9 @@ class CrossSubscriberManager(
             self._handle_genesis_to_control_plane,
         )
 
-        # Approval Approved → KM Reinforcement
-        self.register(
-            "approval_to_km_reinforcement",
-            StreamEventType.APPROVAL_APPROVED,
-            self._handle_approval_to_km_reinforcement,
-        )
+        # Approval Approved → KM Reinforcement relocated to
+        # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
+        # via apply_registered_subscribers, not registered here.
 
         # Budget Alert → Team Selection Constraint
         self.register(
