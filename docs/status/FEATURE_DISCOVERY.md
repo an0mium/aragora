@@ -131,7 +131,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Memory Viewer** | Stable | HTML viewer for memory inspection | `aragora/server/handlers/memory/memory.py` | |
 | **Tool Usage Capture** | Optional | Opt-in tool usage capture into FAST tier | `aragora/memory/capture.py` | |
 | **Unified Memory Gateway** | Integrated | Fan-out query across ContinuumMemory, KM, Supermemory, claude-mem via `enable_unified_memory`; handler availability still depends on optional unified-memory backends | `aragora/memory/gateway.py`, `aragora/memory/retention_gate.py`, `aragora/memory/dedup.py` | |
-| **ClaudeMemAdapter** | Integrated | KM adapter wrapping claude-mem MCP connector (one of 42 registered adapter specs) | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` | |
+| **ClaudeMemAdapter** | Integrated | KM adapter wrapping claude-mem MCP connector (one of 41 registered adapter specs) | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` | |
 
 ### Unified Memory Gateway Components
 

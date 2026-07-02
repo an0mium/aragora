@@ -505,23 +505,37 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 0,
             ),
         ],
-        "docs/FEATURE_PARITY_MATRIX.md": [
+        "docs/status/FEATURE_DISCOVERY.md": [
+            (
+                r"\d+\s+registered adapter specs",
+                f"{km_adapters_registered} registered adapter specs",
+                0,
+            ),
+        ],
+        "docs/status/FEATURE_PARITY_MATRIX.md": [
             (r"\d[\d,]*(?:\+)?\s+operations", f"{api_ops_approx} operations", 0),
         ],
-        "docs/WEBSOCKET_EVENTS.md": [
+        "docs/streaming/WEBSOCKET_EVENTS.md": [
             (r"\(\d+ event types", f"({stats.ws_event_types} event types", 0),
         ],
-        "docs/KNOWLEDGE_MOUND.md": [
+        "docs/knowledge/KNOWLEDGE_MOUND.md": [
+            (
+                r"\d+\s+registered adapter specs",
+                f"{km_adapters_registered} registered adapter specs",
+                0,
+            ),
+        ],
+        "docs/architecture/ARCHITECTURE.md": [
             (
                 r"\d+\s+registered adapters",
                 f"{km_adapters_registered} registered adapters",
                 0,
             ),
         ],
-        "docs/DOCUMENTATION_HUB.md": [
+        "docs/STATUS.md": [
             (
-                r"\d+\s+registered adapters",
-                f"{km_adapters_registered} registered adapters",
+                r"\d+\s+registered adapter specs",
+                f"{km_adapters_registered} registered adapter specs",
                 0,
             ),
         ],

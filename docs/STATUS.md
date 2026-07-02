@@ -155,7 +155,7 @@ For the full current-status narrative, use the canonical doc:
 - **Python modules**: 3,700+
 - **Tests**: 210,000+ across 5,000+ test files
 - **HTTP handlers**: 700+
-- **KM adapters**: 42 registered adapter specs
+- **KM adapters**: 41 registered adapter specs
 - **Agent types**: 43
 - **API operations**: 3,100+ across 2,600+ paths
 - **RBAC permissions**: 420+
