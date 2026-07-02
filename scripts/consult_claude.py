@@ -2,9 +2,9 @@
 """Bounded advisory consult of a specific Claude model (default: Claude Fable 5).
 
 Gives any agent (Codex conductor, Droid, Claude Code, humans) a reliable way to
-ask a named Claude model for read-only advice with a hard timeout. The known
-failure mode this fixes: ad-hoc ``timeout 120 claude -p "..."`` calls hang or
-time out with no output and no diagnostics.
+ask a named Claude model for read-only advice with hard per-attempt and overall
+timeouts. The known failure mode this fixes: ad-hoc ``timeout 120 claude -p
+"..."`` calls hang or time out with no output and no diagnostics.
 
 Backends, in order:
 
@@ -16,13 +16,14 @@ Backends, in order:
    manager; if neither is present the fallback is skipped silently.
 
 Output is the raw model text on stdout, or a JSON envelope with ``--json``.
-Exit codes: 0 ok, 2 all backends timed out, 3 no prompt, 4 all backends failed.
+Exit codes: 0 ok, 2 all backends timed out, 3 no prompt, 4 all backends
+failed, 64 usage/config error.
 
 Examples::
 
     python scripts/consult_claude.py "Which PR should I settle next?"
     python scripts/consult_claude.py --prompt-file /tmp/question.md --json
-    echo "$QUESTION" | python scripts/consult_claude.py --timeout 900
+    echo "$QUESTION" | python scripts/consult_claude.py --timeout 300 --overall-timeout 900
 """
 
 from __future__ import annotations
@@ -49,6 +50,7 @@ if str(_REPO_ROOT) not in sys.path:
 DEFAULT_MODEL = "claude-fable-5"
 FALLBACK_MODEL = "claude-opus-4-8"
 DEFAULT_TIMEOUT_SECONDS = 600
+DEFAULT_OVERALL_TIMEOUT_SECONDS = 600
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 API_MAX_TOKENS = 8192
 
@@ -56,6 +58,7 @@ EXIT_OK = 0
 EXIT_TIMEOUT = 2
 EXIT_NO_PROMPT = 3
 EXIT_ALL_FAILED = 4
+EXIT_USAGE = 64
 
 
 def _safe_cli_error(*, returncode: int | None = None, empty: bool | None = None) -> str:
@@ -67,6 +70,12 @@ def _safe_cli_error(*, returncode: int | None = None, empty: bool | None = None)
     if empty is not None:
         parts.append(f"empty={empty}")
     return ", ".join(parts)
+
+
+def _safe_api_error(message: str) -> str:
+    """Public API failure string safe for JSON logs and durable artifacts."""
+
+    return f"API {message}"
 
 
 @contextmanager
@@ -216,20 +225,40 @@ def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dic
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             body = json.loads(response.read().decode())
+            if not isinstance(body, dict):
+                raise ValueError("API response JSON is not an object")
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")[:500]
-        return {"ok": False, "backend": "api", "error": f"API HTTP {exc.code}: {detail}"}
+        try:
+            exc.read()
+        except OSError:
+            pass
+        return {
+            "ok": False,
+            "backend": "api",
+            "error": _safe_api_error(f"HTTP {exc.code}: response body redacted"),
+        }
+    except (json.JSONDecodeError, UnicodeError, ValueError):
+        return {
+            "ok": False,
+            "backend": "api",
+            "error": _safe_api_error("response parse failed: response body redacted"),
+        }
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         timed_out = "timed out" in str(exc).lower() or isinstance(exc, TimeoutError)
         return {
             "ok": False,
             "backend": "api",
             "timed_out": timed_out,
-            "error": f"API request failed: {exc}",
+            "error": _safe_api_error(f"request failed: {type(exc).__name__}"),
         }
     elapsed = round(time.monotonic() - started, 1)
+    content = body.get("content", [])
+    if not isinstance(content, list):
+        content = []
     text = "".join(
-        block.get("text", "") for block in body.get("content", []) if block.get("type") == "text"
+        block.get("text", "")
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "text"
     ).strip()
     if not text:
         return {
@@ -241,31 +270,58 @@ def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dic
     return {"ok": True, "backend": "api", "elapsed_s": elapsed, "text": text}
 
 
+def _remaining_timeout(started: float, overall_timeout: float, per_attempt_timeout: float) -> float:
+    remaining = overall_timeout - (time.monotonic() - started)
+    return max(0.0, min(per_attempt_timeout, remaining))
+
+
+def _append_budget_exhausted(attempts: list[dict], *, model: str, backend: str) -> None:
+    attempts.append(
+        {
+            "model": model,
+            "ok": False,
+            "backend": backend,
+            "timed_out": True,
+            "error": "overall consult timeout exhausted before attempt",
+        }
+    )
+
+
 def consult(
     prompt: str,
     model: str = DEFAULT_MODEL,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    overall_timeout: float = DEFAULT_OVERALL_TIMEOUT_SECONDS,
     fallback_model: str | None = FALLBACK_MODEL,
     system: str | None = None,
     api_fallback: bool = True,
 ) -> dict:
     """Run the consult across backends and return the first success.
 
-    The full timeout budget is granted to each attempt independently so a CLI
-    hang cannot starve the API fallback of time.
+    ``timeout`` is the per-attempt ceiling. ``overall_timeout`` is the total
+    consult budget shared by every CLI/API attempt.
     """
     if system:
         prompt = f"{system}\n\n---\n\n{prompt}"
     attempts: list[dict] = []
-    result = _run_cli(prompt, model, timeout)
-    attempts.append({"model": model, **result})
-    if result.get("ok"):
-        return {**result, "model": model, "attempts": attempts}
-    if fallback_model and fallback_model != model:
-        result = _run_cli(prompt, fallback_model, timeout)
-        attempts.append({"model": fallback_model, **result})
+    started = time.monotonic()
+    attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
+    if attempt_timeout <= 0:
+        _append_budget_exhausted(attempts, model=model, backend="cli")
+    else:
+        result = _run_cli(prompt, model, attempt_timeout)
+        attempts.append({"model": model, **result})
         if result.get("ok"):
-            return {**result, "model": fallback_model, "attempts": attempts}
+            return {**result, "model": model, "attempts": attempts}
+    if fallback_model and fallback_model != model:
+        attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
+        if attempt_timeout <= 0:
+            _append_budget_exhausted(attempts, model=fallback_model, backend="cli")
+        else:
+            result = _run_cli(prompt, fallback_model, attempt_timeout)
+            attempts.append({"model": fallback_model, **result})
+            if result.get("ok"):
+                return {**result, "model": fallback_model, "attempts": attempts}
     if api_fallback:
         for api_model in (model, fallback_model):
             if not api_model:
@@ -275,7 +331,11 @@ def consult(
                 for attempt in attempts
             ):
                 continue
-            result = _run_api(prompt, api_model, timeout, system=None)
+            attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
+            if attempt_timeout <= 0:
+                _append_budget_exhausted(attempts, model=api_model, backend="api")
+                continue
+            result = _run_api(prompt, api_model, attempt_timeout, system=None)
             attempts.append({"model": api_model, **result})
             if result.get("ok"):
                 return {**result, "model": api_model, "attempts": attempts}
@@ -307,6 +367,12 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_TIMEOUT_SECONDS,
         help=f"Hard per-attempt timeout in seconds (default {DEFAULT_TIMEOUT_SECONDS})",
     )
+    parser.add_argument(
+        "--overall-timeout",
+        type=float,
+        default=DEFAULT_OVERALL_TIMEOUT_SECONDS,
+        help=f"Hard total consult timeout in seconds (default {DEFAULT_OVERALL_TIMEOUT_SECONDS})",
+    )
     parser.add_argument("--system", help="Optional system-style preamble prepended to the prompt")
     parser.add_argument(
         "--no-api-fallback",
@@ -318,7 +384,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if not math.isfinite(args.timeout) or args.timeout <= 0:
         print("error: --timeout must be a positive finite number", file=sys.stderr)
-        return EXIT_NO_PROMPT
+        return EXIT_USAGE
+    if not math.isfinite(args.overall_timeout) or args.overall_timeout <= 0:
+        print("error: --overall-timeout must be a positive finite number", file=sys.stderr)
+        return EXIT_USAGE
 
     if args.prompt_file:
         try:
@@ -344,6 +413,7 @@ def main(argv: list[str] | None = None) -> int:
         prompt,
         model=args.model,
         timeout=args.timeout,
+        overall_timeout=args.overall_timeout,
         fallback_model=args.fallback_model or None,
         system=args.system,
         api_fallback=not args.no_api_fallback,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import subprocess
 from pathlib import Path
@@ -101,6 +102,79 @@ def test_consult_api_fallback_tries_fallback_model(monkeypatch) -> None:
     assert api_models == [consult_claude.DEFAULT_MODEL, consult_claude.FALLBACK_MODEL]
 
 
+def test_run_api_redacts_http_error_body(monkeypatch) -> None:
+    class RaisingUrlopen:
+        def __call__(self, *_args, **_kwargs):
+            raise consult_claude.urllib.error.HTTPError(
+                url=consult_claude.ANTHROPIC_API_URL,
+                code=429,
+                msg="Too Many Requests",
+                hdrs={},
+                fp=io.BytesIO(b"profile=/secret/path token=secret prompt text"),
+            )
+
+    monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
+    monkeypatch.setattr(consult_claude.urllib.request, "urlopen", RaisingUrlopen())
+
+    result = consult_claude._run_api("secret prompt", "claude-fable-5", 1.0, None)
+
+    assert result["ok"] is False
+    assert result["error"] == "API HTTP 429: response body redacted"
+    assert "secret" not in json.dumps(result)
+    assert "profile" not in json.dumps(result).lower()
+
+
+def test_run_api_redacts_invalid_response_body(monkeypatch) -> None:
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self) -> bytes:
+            return b"\xff\xfe not utf-8"
+
+    monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
+    monkeypatch.setattr(
+        consult_claude.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(),
+    )
+
+    result = consult_claude._run_api("secret prompt", "claude-fable-5", 1.0, None)
+
+    assert result["ok"] is False
+    assert result["error"] == "API response parse failed: response body redacted"
+    assert "secret" not in json.dumps(result)
+
+
+def test_consult_enforces_overall_timeout_before_fallbacks(monkeypatch) -> None:
+    cli_models: list[str] = []
+    monotonic_values = iter([0.0, 0.0, 10.0, 10.0, 10.0])
+
+    def fake_cli(_prompt: str, model: str, _timeout: float) -> dict:
+        cli_models.append(model)
+        return {"ok": False, "backend": "cli", "timed_out": True, "error": "timeout"}
+
+    monkeypatch.setattr(consult_claude.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(consult_claude, "_run_cli", fake_cli)
+
+    result = consult_claude.consult("question", timeout=10, overall_timeout=10)
+
+    assert result["ok"] is False
+    assert result["timed_out"] is True
+    assert cli_models == [consult_claude.DEFAULT_MODEL]
+    assert [attempt["backend"] for attempt in result["attempts"]] == [
+        "cli",
+        "cli",
+        "api",
+        "api",
+    ]
+    assert all(attempt.get("timed_out") for attempt in result["attempts"])
+    assert "overall consult timeout exhausted before attempt" in result["error"]
+
+
 def test_consult_reports_timeout_only_when_all_attempts_timeout(monkeypatch) -> None:
     def fake_cli(_prompt: str, model: str, _timeout: float) -> dict:
         return {
@@ -184,7 +258,14 @@ def test_consult_tries_fallback_cli_after_primary_timeout(monkeypatch) -> None:
 def test_main_rejects_non_positive_timeout(capsys) -> None:
     rc = consult_claude.main(["--timeout", "0", "question"])
 
-    assert rc == consult_claude.EXIT_NO_PROMPT
+    assert rc == consult_claude.EXIT_USAGE
+    assert "positive finite" in capsys.readouterr().err
+
+
+def test_main_rejects_non_positive_overall_timeout(capsys) -> None:
+    rc = consult_claude.main(["--overall-timeout", "0", "question"])
+
+    assert rc == consult_claude.EXIT_USAGE
     assert "positive finite" in capsys.readouterr().err
 
 
