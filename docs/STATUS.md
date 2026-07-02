@@ -153,11 +153,11 @@ For the full current-status narrative, use the canonical doc:
 
 ### Codebase Metrics (March 6, 2026)
 - **Python modules**: 3,700+
-- **Tests**: 210,000+ across 5,000+ test files
+- **Tests**: 222,878 across 5,421 test files
 - **HTTP handlers**: 700+
 - **KM adapters**: 41 registered adapter specs
 - **Agent types**: 43
-- **API operations**: 3,100+ across 2,600+ paths
+- **API operations**: 3,297 across 2,870 paths
 - **RBAC permissions**: 420+
 - **Version**: v2.8.0
 

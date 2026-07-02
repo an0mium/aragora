@@ -477,7 +477,7 @@ function escapeUrlParamBracesOutsideCodeFences(content) {
       if (inFence) {
         return line;
       }
-      return line.replace(/\{(\w+)\}/g, '\\{$1\\}');
+      return line.replace(/\{([\w-]+)\}/g, '\\{$1\\}');
     })
     .join('\n');
 }

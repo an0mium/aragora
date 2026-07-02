@@ -304,20 +304,30 @@ def _apply_patterns(
 def patch_docs(stats: Stats, write: bool) -> int:
     canonical = _canonical_metrics()
     metrics_doc = _metrics_doc_values()
-    modules_approx = _canonical_count(canonical, "modules", _approx(stats.python_modules, 1000))
-    tests_approx = _canonical_count(canonical, "tests", _approx(stats.test_count, 1000))
+    modules_approx = _canonical_count(
+        metrics_doc,
+        "top_level_modules",
+        _canonical_count(canonical, "modules", _approx(stats.python_modules, 1000)),
+    )
+    tests_approx = _canonical_count(
+        metrics_doc,
+        "tests",
+        _canonical_count(canonical, "tests", _approx(stats.test_count, 1000)),
+    )
     test_files_approx = _canonical_count(
-        canonical,
+        metrics_doc,
         "test_files",
-        _approx(stats.test_files, 1000),
+        _canonical_count(canonical, "test_files", _approx(stats.test_files, 1000)),
     )
     api_ops_approx = _canonical_count(
-        canonical, "api_operations", _approx(stats.api_operations, 1000)
+        metrics_doc,
+        "api_operations",
+        _canonical_count(canonical, "api_operations", _approx(stats.api_operations, 1000)),
     )
     api_paths_approx = _canonical_count(
-        canonical,
+        metrics_doc,
         "api_paths",
-        _approx(stats.api_paths, 100),
+        _canonical_count(canonical, "api_paths", _approx(stats.api_paths, 100)),
     )
     ws_events_approx = _approx(stats.ws_event_types, 10)
     templates_approx = _approx(stats.workflow_templates, 10)
@@ -534,8 +544,22 @@ def patch_docs(stats: Stats, write: bool) -> int:
         ],
         "docs/STATUS.md": [
             (
+                r"(\*\*Tests\*\*: )\d[\d,]*(?:\+)?\s+across\s+\d[\d,]*(?:\+)?\s+test files",
+                lambda m, tests=tests_approx, files=test_files_approx: (
+                    f"{m.group(1)}{tests} across {files} test files"
+                ),
+                0,
+            ),
+            (
                 r"\d+\s+registered adapter specs",
                 f"{km_adapters_registered} registered adapter specs",
+                0,
+            ),
+            (
+                r"(\*\*API operations\*\*: )\d[\d,]*(?:\+)?\s+across\s+\d[\d,]*(?:\+)?\s+paths",
+                lambda m, ops=api_ops_approx, paths=api_paths_approx: (
+                    f"{m.group(1)}{ops} across {paths} paths"
+                ),
                 0,
             ),
         ],
