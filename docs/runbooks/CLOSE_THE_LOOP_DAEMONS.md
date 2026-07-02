@@ -11,7 +11,7 @@ back into the backlog.
 | Job | Label | Schedule | Command |
 |---|---|---|---|
 | Merge executor | `com.aragora.ctl-merge-executor` | every 600 s | `scripts/merge_executor.py --repo synaptent/aragora --apply --max-merges 1 --receipt-dir ~/.aragora/merge-executor-receipts --halt-file ~/.aragora/MERGE_EXECUTOR_HALT --disarm-file ~/.aragora/DISARM_MERGE_EXECUTOR` |
-| Harvest engine | `com.aragora.ctl-harvest` | daily 07:15 local | `scripts/harvest_outcomes.py --repo synaptent/aragora --apply --max-issues 3` |
+| Harvest engine | `com.aragora.ctl-harvest` | daily 07:15 local | `scripts/harvest_outcomes.py --repo synaptent/aragora --apply --max-issues 3 --ledger-path ~/.aragora/harvest_ledger.jsonl` |
 
 - Plists: `~/Library/LaunchAgents/com.aragora.ctl-{merge-executor,harvest}.plist`
 - Wrappers: `~/.aragora/bin/ctl_{merge_executor,harvest}_tick.sh` — each tick fetches
@@ -55,9 +55,11 @@ tail -20 ~/.aragora/logs/ctl-merge-executor.log
 ls ~/.aragora/merge-executor-receipts/
 tail -5 ~/.aragora/harvest_ledger.jsonl
 
-# Pause/resume the launchd jobs
+# Pause/resume the launchd jobs (repeat per job — both are listed here)
 launchctl unload ~/Library/LaunchAgents/com.aragora.ctl-merge-executor.plist
 launchctl load   ~/Library/LaunchAgents/com.aragora.ctl-merge-executor.plist
+launchctl unload ~/Library/LaunchAgents/com.aragora.ctl-harvest.plist
+launchctl load   ~/Library/LaunchAgents/com.aragora.ctl-harvest.plist
 
 # Full uninstall
 launchctl unload ~/Library/LaunchAgents/com.aragora.ctl-merge-executor.plist \
