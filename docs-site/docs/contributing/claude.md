@@ -196,7 +196,7 @@ Aragora is the **Decision Integrity Platform** -- orchestrating 46 agent types t
 
 **Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
 
-**Codebase Scale:** 4,256 tracked Python files | 144 top-level modules | 222,878 test functions | 5,421 test files | 3,297 API operations across 2,870 paths | canonical counts in `docs/METRICS.md`
+**Codebase Scale:** 4,260 tracked Python files | 144 top-level modules | 222,943 test functions | 5,426 test files | 3,297 API operations across 2,870 paths | canonical counts in `docs/METRICS.md`
 
 ## Architecture
 
@@ -444,7 +444,7 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 222,878 test functions across 5,421 test files (canonical counts in `docs/METRICS.md`)
+**Test Suite:** 222,943 test functions across 5,426 test files (canonical counts in `docs/METRICS.md`)
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)

@@ -755,9 +755,9 @@ Critical operations use explicit transactions:
 
 - **Debate latency**: 2-5 seconds per round (depends on agent response time)
 - **Memory tiers**: Fast (1min TTL), Medium (1hr), Slow (1day), Glacial (1week)
-- **Test coverage**: 222,878 tests across 5,421 test files
+- **Test coverage**: 222,943 tests across 5,426 test files
 - **Type safety**: 250+ modules in strict mypy mode
-- **Source modules**: 4,256 Python modules
+- **Source modules**: 4,260 Python modules
 - **Storage tests**: 4,300+ tests across all backends including KM (Phase A2)
 - **API surface**: 3,297 API operations across 2,870 paths
 - **SDK breadth**: 185 Python / 183 TypeScript SDK namespaces
