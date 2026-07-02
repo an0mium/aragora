@@ -105,14 +105,17 @@ class GitHubEventResolver:
         QuestionType.CI_PASS: frozenset({"check_run", "workflow_run"}),
     }
 
+    @staticmethod
+    def _normalize_ref(ref: str) -> str:
+        return ref.strip().lower()
+
     def can_resolve(self, claim: StakeableClaim, event: GitHubEventPayload) -> bool:
         """Return True if *event* could update *claim*'s resolution state."""
         if claim.question_type not in self._EVENT_TYPES:
             return False
-        return (
-            event.event_type in self._EVENT_TYPES[claim.question_type]
-            and event.target_ref == claim.target_ref
-        )
+        return event.event_type in self._EVENT_TYPES[claim.question_type] and self._normalize_ref(
+            event.target_ref
+        ) == self._normalize_ref(claim.target_ref)
 
     def resolve_from_event(
         self, claim: StakeableClaim, event: GitHubEventPayload

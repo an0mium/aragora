@@ -114,6 +114,22 @@ class TestCanResolve:
         )
         assert r.can_resolve(claim, event)
 
+    def test_can_resolve_is_case_insensitive(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.PR_MERGE, target_ref="Owner/Repo#42")
+        event = GitHubEventPayload(
+            event_type="pull_request", action="closed", target_ref="owner/repo#42"
+        )
+        assert r.can_resolve(claim, event)
+
+    def test_can_resolve_strips_whitespace(self):
+        r = GitHubEventResolver()
+        claim = _open_claim(question_type=QuestionType.PR_MERGE, target_ref="owner/repo#42")
+        event = GitHubEventPayload(
+            event_type="pull_request", action="closed", target_ref="  owner/repo#42  "
+        )
+        assert r.can_resolve(claim, event)
+
     def test_unsupported_question_type_returns_false(self):
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.DEPENDENCY_RELEASE)
