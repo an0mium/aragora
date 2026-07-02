@@ -2221,7 +2221,10 @@ def _signal_reviewer_process_group(
     try:
         os.killpg(pid, sig)
     except ProcessLookupError:
-        return True
+        try:
+            return not process.is_alive()
+        except (OSError, ValueError):
+            return False
     except OSError:
         return False
     return True

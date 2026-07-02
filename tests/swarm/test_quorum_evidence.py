@@ -1214,6 +1214,26 @@ def test_terminate_reviewer_worker_signals_posix_process_group(
     assert events == [("killpg", 4242, signal.SIGTERM), ("join", qe._REVIEWER_CLEANUP_TIMEOUT)]
 
 
+def test_signal_reviewer_process_group_falls_back_when_group_missing_but_process_alive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "killpg"):
+        pytest.skip("process-group termination is POSIX-only")
+
+    class FakeProcess:
+        pid = 4242
+
+        def is_alive(self) -> bool:
+            return True
+
+    def fake_killpg(pid: int, sig: int) -> None:
+        raise ProcessLookupError(pid)
+
+    monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
+
+    assert qe._signal_reviewer_process_group(FakeProcess(), signal.SIGTERM) is False  # type: ignore[arg-type]
+
+
 def test_collect_preserves_family_order_despite_completion_order() -> None:
     # The first-requested reviewer (claude) finishes last; items must still be
     # ordered by the caller's requested family order, not by completion.
