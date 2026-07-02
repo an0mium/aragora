@@ -1,5 +1,7 @@
 """Tests for Culture → Debate Protocol integration."""
 
+import asyncio
+
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 from datetime import datetime
@@ -106,6 +108,82 @@ class TestMoundToCultureHandler:
         fresh_manager.dispatch(event)
         stats = fresh_manager.get_stats()
         assert stats["mound_to_culture"]["events_processed"] == 1
+
+    @pytest.mark.asyncio
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
+    async def test_stores_profile_when_event_loop_already_running(
+        self, mock_get_mound, fresh_manager
+    ):
+        """The create_task() branch (running loop) must persist the profile too.
+
+        Regression test: previously only the ``asyncio.run`` fallback (no
+        running loop) called ``_store_debate_culture``; the common case of a
+        handler invoked from within an already-running loop scheduled the
+        retrieval via ``create_task`` and silently dropped the result.
+        """
+        from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
+
+        mock_mound = MagicMock()
+        mock_mound.is_initialized = True
+        mock_profile = MagicMock()
+        mock_profile.dominant_pattern = None
+        mock_profile.patterns = []
+        mock_mound.get_culture_profile = AsyncMock(return_value=mock_profile)
+        mock_get_mound.return_value = mock_mound
+
+        event = StreamEvent(
+            type=StreamEventType.DEBATE_START,
+            data={"debate_id": "debate_async_001", "domain": "software"},
+        )
+        # dispatch() is synchronous; called from this async test it runs with
+        # a loop already active, so the handler takes the create_task path.
+        fresh_manager.dispatch(event)
+
+        # Let the scheduled task and its done-callback run to completion.
+        await asyncio.sleep(0.05)
+
+        subscriber = get_knowledge_event_subscriber()
+        assert "debate_async_001" in subscriber._debate_cultures
+
+
+class TestKnowledgeSubscriberSurvivesRepeatedBootstrap:
+    """Regression: repeated bootstrap calls must not drop culture state.
+
+    Production calls ``bootstrap_debate_event_subscribers()`` from both
+    ``Arena.init_context`` (stores culture hints) and
+    ``Arena.get_culture_hints`` (reads them back), without resetting the
+    cross-subscriber manager in between. ``register()`` previously
+    unconditionally replaced the registered ``KnowledgeEventSubscriber``
+    instance on every call, so the second bootstrap call silently swapped in
+    a fresh, empty subscriber even though
+    ``CrossSubscriberManager.apply_registered_subscribers`` had already wired
+    the first instance's bound methods into the (still-live) manager.
+    """
+
+    def test_hints_survive_second_bootstrap_call(self, fresh_manager):
+        from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+        from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
+
+        subscriber = get_knowledge_event_subscriber()
+        subscriber._debate_cultures["debate_repeat_001"] = {
+            "protocol_hints": {"recommended_consensus": "unanimous"},
+            "domain": "legal",
+        }
+
+        # Simulate the second `bootstrap_debate_event_subscribers()` call that
+        # `get_culture_hints()` makes against the same, still-live manager.
+        bootstrap_debate_event_subscribers()
+
+        hints = get_knowledge_event_subscriber().get_debate_culture_hints("debate_repeat_001")
+        assert hints == {"recommended_consensus": "unanimous"}
+
+    def test_register_reuses_existing_instance(self, fresh_manager):
+        from aragora.knowledge import event_subscribers as knowledge_home
+
+        first = knowledge_home.get_knowledge_event_subscriber()
+        knowledge_home.register()
+        second = knowledge_home.get_knowledge_event_subscriber()
+        assert first is second
 
 
 class TestDebateCultureHints:

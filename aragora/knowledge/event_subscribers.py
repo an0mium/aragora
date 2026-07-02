@@ -1311,15 +1311,22 @@ class KnowledgeEventSubscriber:
                     return profile
                 return None
 
+            def _on_culture_retrieved(task: "asyncio.Task[Any]") -> None:
+                if task.cancelled():
+                    return
+                exc = task.exception()
+                if exc is not None:
+                    logger.warning("Culture profile retrieval failed: %s", exc)
+                    return
+                profile = task.result()
+                if profile:
+                    self._store_debate_culture(debate_id, profile, domain)
+
             # Run async retrieval
             try:
                 asyncio.get_running_loop()
                 task = asyncio.create_task(retrieve_culture())
-                task.add_done_callback(
-                    lambda t: logger.warning("Culture profile retrieval failed: %s", t.exception())
-                    if not t.cancelled() and t.exception()
-                    else None
-                )
+                task.add_done_callback(_on_culture_retrieved)
             except RuntimeError:
                 profile = asyncio.run(retrieve_culture())
                 if profile:
@@ -1775,7 +1782,8 @@ def get_knowledge_event_subscriber() -> KnowledgeEventSubscriber:
     ``aragora.debate.knowledge_manager`` reading per-debate culture hints - use
     this instead of routing through ``CrossSubscriberManager``, which no longer
     carries that state (P4a Batch E2c). Registers a fresh instance first if none
-    is present yet, mirroring :func:`register`.
+    is present yet, reusing the existing one otherwise so accumulated state
+    (e.g. ``_debate_cultures``) survives repeat calls.
     """
     subscriber = get_registered_subscribers().get("knowledge")
     if not isinstance(subscriber, KnowledgeEventSubscriber):
@@ -1787,11 +1795,20 @@ def get_knowledge_event_subscriber() -> KnowledgeEventSubscriber:
 def register() -> None:
     """(Re-)register this home's subscriber into the domain-free registry.
 
-    Idempotent (keyed by name). Called at import time for the running product and
-    again by the layered bootstraps so registration survives ``reset_registry`` in
-    tests - a cached re-import does not re-run module-level code.
+    Delegates to :func:`get_knowledge_event_subscriber`'s get-or-create so
+    repeated calls reuse the existing instance instead of replacing it.
+    ``CrossSubscriberManager.apply_registered_subscribers`` wires a given name
+    into a manager at most once (per manager instance), so a naive
+    unconditional re-register here would silently split the registry entry
+    from what the manager already dispatches to: production calls
+    ``bootstrap_debate_event_subscribers()`` from both
+    ``Arena.init_context`` (stores culture state) and ``get_culture_hints``
+    (reads it back) without resetting the manager in between, so the second
+    call must resolve to the SAME instance the first call populated. A fresh
+    subscriber is still created on first call or after ``reset_registry`` in
+    tests, so registration survives a cached re-import.
     """
-    register_subscriber("knowledge", KnowledgeEventSubscriber())
+    get_knowledge_event_subscriber()
 
 
 register()
