@@ -51,7 +51,7 @@ This checks:
 
 2. **Account may be locked:**
    ```bash
-   curl -X GET /api/v2/admin/users/\{user_id\}/lockout-status \
+   curl -X GET /api/v2/admin/users/{user_id}/lockout-status \
      -H "Authorization: Bearer $ADMIN_TOKEN"
    ```
 
@@ -79,7 +79,7 @@ Lockout durations:
 
 2. **Admin unlock:**
    ```bash
-   curl -X POST /api/v2/admin/users/\{user_id\}/unlock \
+   curl -X POST /api/v2/admin/users/{user_id}/unlock \
      -H "Authorization: Bearer $ADMIN_TOKEN"
    ```
 
@@ -106,7 +106,7 @@ Lockout durations:
 
 3. **Admin MFA reset:**
    ```bash
-   curl -X DELETE /api/v2/admin/users/\{user_id\}/mfa \
+   curl -X DELETE /api/v2/admin/users/{user_id}/mfa \
      -H "Authorization: Bearer $ADMIN_TOKEN"
    ```
 

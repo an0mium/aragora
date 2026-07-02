@@ -449,10 +449,10 @@ if [ "$LAG" -lt 0 ]; then
     echo "CRITICAL: Replication not running"
     exit 2
 elif [ "$LAG" -gt 60 ]; then
-    echo "WARNING: Replication lag $\{LAG\}s"
+    echo "WARNING: Replication lag ${LAG}s"
     exit 1
 else
-    echo "OK: Replication lag $\{LAG\}s"
+    echo "OK: Replication lag ${LAG}s"
     exit 0
 fi
 ```

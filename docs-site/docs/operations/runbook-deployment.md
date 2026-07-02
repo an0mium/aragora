@@ -116,7 +116,7 @@ npx vercel deploy --prod --yes
 git log --oneline -10
 
 # 2. SSH to target server
-ssh -i ~/.ssh/\{target\} user@host
+ssh -i ~/.ssh/{target} user@host
 
 # 3. Checkout specific commit
 cd ~/aragora

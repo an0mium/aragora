@@ -398,7 +398,7 @@ connector = SlackConnector(
 # Check circuit breaker manually
 can_proceed, error = connector._check_circuit_breaker()
 if not can_proceed:
-    print(f"Circuit open: \{error\}")
+    print(f"Circuit open: {error}")
 ```
 
 ## Voice Message Support
@@ -493,7 +493,7 @@ async def test_circuit_breaker_opens(mock_connector):
 async def api_call_example(self, endpoint: str, data: dict):
     try:
         result = await self._with_retry(
-            f"api_call_\{endpoint\}",
+            f"api_call_{endpoint}",
             self._http_post,
             endpoint,
             data,
@@ -501,7 +501,7 @@ async def api_call_example(self, endpoint: str, data: dict):
         )
         return result
     except Exception as e:
-        logger.error(f"{self.platform_name} API call failed: \{e\}")
+        logger.error(f"{self.platform_name} API call failed: {e}")
         raise
 ```
 
