@@ -299,6 +299,7 @@ QUORUM_STATE_LOCK_TIMEOUT_SECONDS = 60.0
 QUORUM_STATE_LOCK_POLL_SECONDS = 0.2
 QUORUM_STATE_LOCK_STALE_SECONDS = 15 * 60
 _PREFLIGHT_CONTEXT_ATTEMPTS = 2
+_PREFLIGHT_CONTEXT_RETRY_DELAY_SECONDS = 0.5
 _REVIEWER_RESULT_QUEUE_TIMEOUT = 1.0
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
@@ -1975,49 +1976,49 @@ def collect_evidence(
         seen.add(family)
         ordered_families.append(family)
 
-    # Run the supported reviewers concurrently. Each runner already bounds itself
-    # with its own timeout and isolates its work in a child subprocess/process, so
-    # threads here only wait -- but they turn serial wall-time (sum of timeouts)
-    # into roughly the slowest single reviewer. One reviewer raising never aborts
-    # the run; it is recorded as a failure like any empty/non-ok result.
+    # Run the supported reviewers concurrently. Without an orchestration timeout,
+    # a ThreadPoolExecutor is sufficient and keeps test fakes simple. With an
+    # orchestration timeout, use process-supervised reviewer workers so the
+    # collector can fail closed at the deadline without waiting for a stuck
+    # reviewer thread during executor shutdown.
     supported = [family for family in ordered_families if family in FAMILY_PROVIDERS]
     reviews: dict[str, ReviewerResult] = {}
     if supported:
-        max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-            future_to_family = {
-                pool.submit(_run_reviewer_with_infra_retry, reviewer_runner, family, prompt): family
-                for family in supported
-            }
-            if overall_timeout_seconds is None:
+        if overall_timeout_seconds is None:
+            max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+                future_to_family = {
+                    pool.submit(
+                        _run_reviewer_with_infra_retry, reviewer_runner, family, prompt
+                    ): family
+                    for family in supported
+                }
                 done = set(concurrent.futures.as_completed(future_to_family))
-                not_done: set[concurrent.futures.Future[ReviewerResult]] = set()
-            else:
-                done, not_done = concurrent.futures.wait(
-                    future_to_family, timeout=overall_timeout_seconds
-                )
-            if not_done:
-                outcome.orchestration_timeout = True
-                outcome.timed_out_families = [
-                    future_to_family[future] for future in future_to_family if future in not_done
-                ]
-                for future in not_done:
-                    future.cancel()
+                for future in done:
                     family = future_to_family[future]
+                    try:
+                        reviews[family] = future.result()
+                    except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort.
+                        reviews[family] = ReviewerResult(
+                            family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                        )
+        else:
+            reviews, timed_out_families = _run_reviewers_with_overall_timeout(
+                reviewer_runner=reviewer_runner,
+                prompt=prompt,
+                families=supported,
+                overall_timeout_seconds=overall_timeout_seconds,
+            )
+            if timed_out_families:
+                outcome.orchestration_timeout = True
+                outcome.timed_out_families = timed_out_families
+                for family in timed_out_families:
                     reviews[family] = ReviewerResult(
                         family,
                         "",
                         False,
                         "reviewer orchestration timed out after "
                         f"{_format_seconds(overall_timeout_seconds or 0)}s",
-                    )
-            for future in done:
-                family = future_to_family[future]
-                try:
-                    reviews[family] = future.result()
-                except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
-                    reviews[family] = ReviewerResult(
-                        family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
                     )
 
     for family in ordered_families:
@@ -2120,6 +2121,7 @@ def _fetch_preflight_context(
     context_fetcher: Callable[[str, int], dict[str, Any]],
     *,
     attempts: int = _PREFLIGHT_CONTEXT_ATTEMPTS,
+    retry_delay_seconds: float = _PREFLIGHT_CONTEXT_RETRY_DELAY_SECONDS,
 ) -> dict[str, Any]:
     """Fetch initial PR context with bounded transport-only retries."""
     bounded_attempts = max(1, attempts)
@@ -2133,6 +2135,8 @@ def _fetch_preflight_context(
             last_transport_error = exc
             if attempt >= bounded_attempts:
                 break
+            if retry_delay_seconds > 0:
+                time.sleep(retry_delay_seconds)
     if last_transport_error is None:  # pragma: no cover - defensive future-proofing.
         last_transport_error = RuntimeError("preflight context unavailable")
     raise CollectPreflightTransportError(
@@ -2142,6 +2146,159 @@ def _fetch_preflight_context(
         error=last_transport_error,
         attempts=bounded_attempts,
     )
+
+
+def _reviewer_process_context() -> Any:
+    """Return a process context usable for locally injected reviewer callables."""
+    try:
+        methods = multiprocessing.get_all_start_methods()
+    except (AttributeError, ValueError):  # pragma: no cover - platform defensive.
+        methods = []
+    if "fork" in methods:
+        return multiprocessing.get_context("fork")
+    return multiprocessing.get_context()
+
+
+def _reviewer_process_worker(
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+    result_queue: multiprocessing.Queue,
+) -> None:
+    try:
+        result = _run_reviewer_with_infra_retry(reviewer_runner, family, prompt)
+    except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort orchestration.
+        result = ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+    try:
+        result_queue.put(result)
+    except Exception:
+        # Parent will report "exited without returning a result"; do not let a
+        # broken queue keep the worker alive.
+        pass
+
+
+@dataclass
+class _ReviewerWorker:
+    family: str
+    process: multiprocessing.Process
+    result_queue: multiprocessing.Queue
+
+
+def _start_reviewer_worker(
+    ctx: Any,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+) -> _ReviewerWorker:
+    result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
+    process = ctx.Process(
+        target=_reviewer_process_worker,
+        args=(reviewer_runner, family, prompt, result_queue),
+        daemon=True,
+    )
+    process.start()
+    return _ReviewerWorker(family=family, process=process, result_queue=result_queue)
+
+
+def _close_reviewer_worker(worker: _ReviewerWorker) -> None:
+    try:
+        worker.result_queue.close()
+    except Exception:
+        pass
+    try:
+        worker.result_queue.join_thread()
+    except Exception:
+        pass
+
+
+def _terminate_reviewer_worker(worker: _ReviewerWorker) -> None:
+    process = worker.process
+    if process.is_alive():
+        try:
+            process.terminate()
+        except Exception:
+            pass
+        process.join(_REVIEWER_CLEANUP_TIMEOUT)
+    if process.is_alive():
+        try:
+            process.kill()
+        except Exception:
+            pass
+        process.join(_REVIEWER_CLEANUP_TIMEOUT)
+    _close_reviewer_worker(worker)
+
+
+def _read_reviewer_worker_result(worker: _ReviewerWorker) -> ReviewerResult:
+    try:
+        payload = worker.result_queue.get_nowait()
+    except queue.Empty:
+        return ReviewerResult(
+            worker.family,
+            "",
+            False,
+            f"{worker.family} reviewer exited without returning a result",
+        )
+    if isinstance(payload, ReviewerResult):
+        return payload
+    if isinstance(payload, dict):
+        return ReviewerResult(
+            str(payload.get("family") or worker.family),
+            str(payload.get("text") or ""),
+            bool(payload.get("ok")),
+            str(payload.get("error") or ""),
+            str(payload.get("harness") or ""),
+        )
+    return ReviewerResult(worker.family, "", False, "reviewer returned invalid result")
+
+
+def _run_reviewers_with_overall_timeout(
+    *,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    prompt: str,
+    families: Sequence[str],
+    overall_timeout_seconds: float,
+) -> tuple[dict[str, ReviewerResult], list[str]]:
+    """Run reviewers with a hard orchestration deadline and terminate stragglers."""
+    ctx = _reviewer_process_context()
+    deadline = time.monotonic() + overall_timeout_seconds
+    pending = list(families)
+    active: list[_ReviewerWorker] = []
+    results: dict[str, ReviewerResult] = {}
+    timed_out: list[str] = []
+
+    def start_more() -> None:
+        while pending and len(active) < _MAX_REVIEWER_WORKERS:
+            family = pending.pop(0)
+            try:
+                active.append(_start_reviewer_worker(ctx, reviewer_runner, family, prompt))
+            except Exception as exc:  # noqa: BLE001 - report start failures as reviewer failures.
+                results[family] = ReviewerResult(
+                    family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                )
+
+    start_more()
+    while active or pending:
+        if time.monotonic() >= deadline:
+            timed_out.extend(worker.family for worker in active)
+            timed_out.extend(pending)
+            pending.clear()
+            for worker in active:
+                _terminate_reviewer_worker(worker)
+            active.clear()
+            break
+
+        finished = [worker for worker in active if not worker.process.is_alive()]
+        if not finished:
+            time.sleep(0.01)
+            continue
+        for worker in finished:
+            worker.process.join(0)
+            results[worker.family] = _read_reviewer_worker_result(worker)
+            _close_reviewer_worker(worker)
+            active.remove(worker)
+        start_more()
+
+    return results, timed_out
 
 
 def _clone_prepared_items(

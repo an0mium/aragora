@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import multiprocessing
 import os
 import subprocess
 import threading
@@ -1043,7 +1044,7 @@ def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None
     def runner(family: str, prompt: str) -> ReviewerResult:
         if family == "claude":
             return ReviewerResult(family, "Verdict: PASS from claude", True)
-        time.sleep(0.05)
+        time.sleep(1.5)
         return ReviewerResult(family, "Verdict: PASS from grok", True)
 
     fakes["reviewer_runner"] = runner
@@ -1053,7 +1054,7 @@ def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None
         families=["claude", "grok"],
         author="me",
         apply=True,
-        overall_timeout_seconds=0.01,
+        overall_timeout_seconds=0.2,
         **fakes,
     )
 
@@ -1063,6 +1064,37 @@ def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None
     assert "reviewer orchestration timeout" in outcome.action_reason
     assert [item.family for item in outcome.items] == ["claude"]
     assert [failure.family for failure in outcome.failures] == ["grok"]
+    assert posted == []
+
+
+def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("process-supervised timeout regression requires fork context")
+    fakes, posted = _fakes(tier=0)
+
+    def runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "claude":
+            return ReviewerResult(family, "Verdict: PASS from claude", True)
+        time.sleep(10)
+        return ReviewerResult(family, "Verdict: PASS from grok", True)
+
+    fakes["reviewer_runner"] = runner
+    started_at = time.monotonic()
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=0.05,
+        **fakes,
+    )
+    elapsed = time.monotonic() - started_at
+
+    assert elapsed < 1.0
+    assert outcome.orchestration_timeout is True
+    assert outcome.timed_out_families == ["grok"]
+    assert outcome.action == "prepare"
     assert posted == []
 
 
@@ -1258,6 +1290,10 @@ def test_collect_preflight_transport_retries_then_fails_closed_without_reviewers
     assert payload["posted_families"] == []
     assert payload["items"] == []
     assert payload["failures"] == []
+
+
+def test_collect_preflight_timeout_message_is_transport_error() -> None:
+    assert qe._is_github_transport_error(RuntimeError("gh pr view 1 timed out after 30s"))
 
 
 def test_collect_preflight_transport_retry_can_recover_and_run_reviewers() -> None:
