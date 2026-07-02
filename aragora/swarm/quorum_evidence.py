@@ -527,6 +527,7 @@ class CollectOutcome:
     orchestration_timeout: bool = False
     timed_out_families: list[str] = field(default_factory=list)
     overall_timeout_seconds: float | None = None
+    adjudication: dict[str, Any] | None = None
     # Captured ONCE at construction (not re-read from os.environ per property
     # access) so a security-relevant gate decision stays deterministic within a
     # single settlement flow even if the process env mutates mid-run.
@@ -591,7 +592,7 @@ class CollectOutcome:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "mode": "collect_evidence",
             "repo": self.repo,
             "pr_number": self.pr,
@@ -630,6 +631,9 @@ class CollectOutcome:
             ],
             "failures": [{"family": f.family, "error": f.error} for f in self.failures],
         }
+        if self.adjudication is not None:
+            payload["adjudication"] = dict(self.adjudication)
+        return payload
 
 
 class CollectPreflightTransportError(RuntimeError):
@@ -784,6 +788,9 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         post_errors=_string_list(data.get("post_errors")),
         quorum_rerun=data.get("quorum_rerun")
         if isinstance(data.get("quorum_rerun"), dict)
+        else None,
+        adjudication=dict(data["adjudication"])
+        if isinstance(data.get("adjudication"), dict)
         else None,
         **gate_kwargs,
     )
@@ -1958,6 +1965,22 @@ def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
         return record
 
 
+def _record_review_adjudication_if_applicable(outcome: CollectOutcome) -> None:
+    """Attach observe-only adjudication for mixed-support prepare stalls."""
+    if outcome.adjudication is not None:
+        return
+    if outcome.action != "prepare":
+        return
+    if not outcome.supportive_families or not outcome.dissenting_families:
+        return
+
+    from aragora.swarm.review_adjudicator import adjudicate, review_adjudicator_enabled
+
+    if not review_adjudicator_enabled():
+        return
+    outcome.adjudication = adjudicate(outcome.items).to_receipt_dict()
+
+
 # --- Orchestrator ----------------------------------------------------------
 
 
@@ -2101,6 +2124,7 @@ def collect_evidence(
             f"({', '.join(outcome.timed_out_families) or 'deadline expired'}); "
             "prepared evidence only"
         )
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
 
     if action == "post":
@@ -2110,10 +2134,12 @@ def collect_evidence(
                 "reviewer dissent present "
                 f"({', '.join(outcome.dissenting_families)}); prepared evidence only"
             )
+            _record_review_adjudication_if_applicable(outcome)
             return outcome
         if not outcome.has_supportive_quorum:
             outcome.action = "prepare"
             outcome.action_reason = outcome.incomplete_quorum_reason
+            _record_review_adjudication_if_applicable(outcome)
             return outcome
         # Reviewers can take minutes; re-verify the head and tier immediately
         # before posting so a head that moved or a PR promoted to a settlement
@@ -2126,6 +2152,7 @@ def collect_evidence(
             outcome.action_reason = (
                 f"could not re-verify head/tier before posting ({str(exc)[:120]}); prepared only"
             )
+            _record_review_adjudication_if_applicable(outcome)
             return outcome
         recheck_action, recheck_reason = decide_action(recheck_tier, apply)
         if recheck_head != head_sha or recheck_action != "post":
@@ -2152,6 +2179,7 @@ def collect_evidence(
             except Exception as exc:  # noqa: BLE001 - evidence posts should remain reported.
                 outcome.quorum_rerun = {"applied": False, "error": str(exc)[:200]}
 
+    _record_review_adjudication_if_applicable(outcome)
     return outcome
 
 
@@ -2604,6 +2632,7 @@ def apply_prepared_evidence(
         items=_clone_prepared_items(prepared.items, live_severity_gated=live_severity_gated),
         failures=_clone_reviewer_failures(prepared.failures),
         tiered_gate=effective_tiered_gate,
+        adjudication=dict(prepared.adjudication) if prepared.adjudication is not None else None,
     )
 
     if prepared.head_sha != head_sha:
