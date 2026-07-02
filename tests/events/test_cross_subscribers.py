@@ -48,7 +48,7 @@ class TestCrossSubscriberManager:
         assert len(manager._stats) > 0
         assert "memory_to_rlm" in manager._stats
         assert "elo_to_debate" in manager._stats
-        assert "knowledge_to_memory" in manager._stats
+        assert "calibration_to_agent" in manager._stats
 
     def test_register_custom_subscriber(self):
         """Test registering a custom subscriber."""
@@ -153,18 +153,6 @@ class TestBuiltinHandlers:
         # Should not raise
         manager._dispatch_event(event)
 
-    def test_knowledge_to_memory_handler(self):
-        """Test knowledge indexed handler executes without error."""
-        manager = CrossSubscriberManager()
-
-        event = make_stream_event(
-            StreamEventType.KNOWLEDGE_INDEXED,
-            data={"node_id": "node_001", "content": "Test content", "node_type": "fact"},
-        )
-
-        # Should not raise
-        manager._dispatch_event(event)
-
     def test_calibration_to_agent_handler(self):
         """Test calibration update handler executes without error."""
         manager = CrossSubscriberManager()
@@ -172,18 +160,6 @@ class TestBuiltinHandlers:
         event = make_stream_event(
             StreamEventType.CALIBRATION_UPDATE,
             data={"agent": "claude", "score": 0.85},
-        )
-
-        # Should not raise
-        manager._dispatch_event(event)
-
-    def test_evidence_to_insight_handler(self):
-        """Test evidence found handler executes without error."""
-        manager = CrossSubscriberManager()
-
-        event = make_stream_event(
-            StreamEventType.EVIDENCE_FOUND,
-            data={"evidence_id": "ev_001", "source": "github"},
         )
 
         # Should not raise

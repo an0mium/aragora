@@ -26,27 +26,36 @@ def bootstrap_debate_event_subscribers() -> CrossSubscriberManager:
 
     Idempotent (registration is keyed by name). E1 is a pure enabler: no domain
     home modules exist yet, so this currently only ensures the manager is
-    initialized. E2-E6 add ``import aragora.<domain>.event_subscribers`` lines
-    here (e.g. knowledge/memory/debate/reasoning/ranking) as handlers relocate to
-    their home layers.
+    initialized. E2-E3 wired knowledge, memory, and reasoning; E4-E6 add further
+    ``import aragora.<domain>.event_subscribers`` lines here (e.g. debate/ranking)
+    as remaining handlers relocate to their home layers.
 
     Returns:
         The registry-backed cross-subscriber manager singleton.
     """
     # Domain home modules register their subscribers here. ``register()`` is called
     # explicitly (not just import side-effect) so registration survives a cached
-    # re-import after ``reset_registry`` in tests. More are added by E3-E6 as
-    # handlers relocate (e.g. memory/debate/reasoning/ranking).
+    # re-import after ``reset_registry`` in tests. More are added by E4-E6 as
+    # handlers relocate (e.g. debate/ranking).
     from aragora.knowledge import event_subscribers as knowledge_home
+    from aragora.memory import event_subscribers as memory_home
+    from aragora.reasoning import event_subscribers as reasoning_home
 
     knowledge_home.register()
+    memory_home.register()
+    reasoning_home.register()
 
     from aragora.events.cross_subscribers import bootstrap
 
     manager = bootstrap()
-    missing = knowledge_home.KNOWLEDGE_EVENT_SUBSCRIBER_HANDLER_NAMES - set(manager.get_stats())
+    expected_handlers = (
+        knowledge_home.KNOWLEDGE_EVENT_SUBSCRIBER_HANDLER_NAMES
+        | memory_home.MEMORY_EVENT_SUBSCRIBER_HANDLER_NAMES
+        | reasoning_home.REASONING_EVENT_SUBSCRIBER_HANDLER_NAMES
+    )
+    missing = expected_handlers - set(manager.get_stats())
     if missing:
         raise RuntimeError(
-            f"Knowledge event subscriber bootstrap incomplete; missing handlers: {sorted(missing)}"
+            f"Domain event subscriber bootstrap incomplete; missing handlers: {sorted(missing)}"
         )
     return manager
