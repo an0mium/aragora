@@ -20,6 +20,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from pydantic import ValidationError
+
 from aragora.agents.base import AgentType, create_agent
 from aragora.agents.spec import AgentSpec
 from aragora.config import (
@@ -2085,6 +2087,20 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 )
                 _print_decision_integrity_summary(package)
             return
+        except ValidationError as e:
+            # The server answered but returned a payload the SDK models could
+            # not parse (version skew, or a non-Aragora service on the port).
+            # Surface a friendly error instead of a raw pydantic traceback.
+            print(
+                f"API run failed: server at {server_url} returned an unexpected "
+                "response. If this is not an Aragora API server, rerun with "
+                "--local (or set ARAGORA_API_URL). Use --verbose for details.",
+                file=sys.stderr,
+            )
+            logger.debug("SDK response validation failed: %s", e)
+            if args.verbose:
+                print(f"Validation details: {e}", file=sys.stderr)
+            raise SystemExit(1)
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             if requested_api or graph_mode or matrix_mode:
                 print(f"API run failed: {e}", file=sys.stderr)
