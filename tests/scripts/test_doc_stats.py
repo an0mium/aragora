@@ -37,6 +37,9 @@ def test_metrics_doc_values_parse_exact_generated_metrics(tmp_path, monkeypatch)
                 "| Test functions (class + module level) | `222659` | `tests/` | `cmd` |",
                 "| OpenAPI paths | `2870` | `docs/api/openapi.json` | `cmd` |",
                 "| OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `cmd` |",
+                "| Allowlisted agent types | `35` | `aragora/config/settings.py` | `cmd` |",
+                "| Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `cmd` |",
+                "| Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `cmd` |",
             ]
         ),
         encoding="utf-8",
@@ -53,6 +56,9 @@ def test_metrics_doc_values_parse_exact_generated_metrics(tmp_path, monkeypatch)
     assert values["tests"].value == 222659
     assert values["api_paths"].value == 2870
     assert values["api_operations"].value == 3297
+    assert values["allowlisted_agent_types"].value == 35
+    assert values["adapter_specs"].value == 41
+    assert values["adapter_files"].value == 46
 
 
 def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_path, monkeypatch):
@@ -72,6 +78,9 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
                 "| Test functions (class + module level) | `222659` | `tests/` | `cmd` |",
                 "| OpenAPI paths | `2870` | `docs/api/openapi.json` | `cmd` |",
                 "| OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `cmd` |",
+                "| Allowlisted agent types | `35` | `aragora/config/settings.py` | `cmd` |",
+                "| Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `cmd` |",
+                "| Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `cmd` |",
             ]
         ),
         encoding="utf-8",
@@ -105,6 +114,7 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
             [
                 "**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions | 5,078 test files | 3,386 API operations across 2,928 paths | canonical counts in `docs/METRICS.md`",
                 "**Test Suite:** 216,000+ test functions across 5,078 test files (canonical counts in `docs/METRICS.md`)",
+                "│       └── adapters/       # KM adapters (42 registered)",
             ]
         ),
         encoding="utf-8",
@@ -117,6 +127,7 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
                 "**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions | 5,078 test files | 3,386 API operations across 2,928 paths | canonical counts in `docs/METRICS.md`",
                 "**Test Suite:** 216,000+ test functions across 5,078 test files (canonical counts in `docs/METRICS.md`)",
                 "│   ├── unified_server.py   # Main server (3,386 API operations)",
+                "│       └── adapters/       # KM adapters (42 registered)",
             ]
         ),
         encoding="utf-8",
@@ -153,16 +164,22 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
     assert "222,659 test functions | 5,402 test files" in claude
     assert "3,297 API operations across 2,870 paths" in claude
     assert "**Test Suite:** 222,659 test functions across 5,402 test files" in claude
+    assert "│       └── adapters/       # KM adapters (41 registered)" in claude
 
     docs_site_claude = (docs_site_contributing / "claude.md").read_text(encoding="utf-8")
     assert "222,659 test functions | 5,402 test files" in docs_site_claude
     assert "│   ├── unified_server.py   # Main server (3,297 API operations)" in docs_site_claude
+    assert "│       └── adapters/       # KM adapters (41 registered)" in docs_site_claude
 
     canonical_goals = (docs / "CANONICAL_GOALS.md").read_text(encoding="utf-8")
     assert "| Python files under `aragora/` | 4,219 | `docs/METRICS.md` |" in canonical_goals
     assert "| Lines of code under `aragora/` | 1,972,052 | `docs/METRICS.md` |" in canonical_goals
     assert "| Automated tests | 222,659 test functions | `docs/METRICS.md` |" in canonical_goals
     assert "| Test files | 5,402 | `docs/METRICS.md` |" in canonical_goals
+    assert (
+        "| Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |"
+        in canonical_goals
+    )
 
     extended_readme = (docs / "EXTENDED_README.md").read_text(encoding="utf-8")
     assert "4,219 tracked Python files | 144 top-level modules" in extended_readme

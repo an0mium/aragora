@@ -91,6 +91,9 @@ def _metrics_doc_values() -> dict[str, CanonicalMetric]:
         "test functions (class + module level)": "tests",
         "openapi paths": "api_paths",
         "openapi operations (http verbs)": "api_operations",
+        "allowlisted agent types": "allowlisted_agent_types",
+        "knowledge mound adapter specs": "adapter_specs",
+        "knowledge mound adapter files": "adapter_files",
     }
     metrics: dict[str, CanonicalMetric] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -153,14 +156,22 @@ def _count_py_files(path: Path) -> int:
 def _count_tests() -> int:
     # Keep the docs baseline stable across platforms and CI environments by
     # counting only tracked test definitions under tests/.
-    tests_dir = ROOT / "tests"
-    if not tests_dir.exists():
-        return 0
-    pattern = re.compile(r"^\s*def test_", re.MULTILINE)
-    total = 0
-    for p in tests_dir.rglob("*.py"):
-        total += len(pattern.findall(p.read_text(errors="ignore")))
-    return total
+    try:
+        out = subprocess.check_output(
+            ["git", "grep", "-E", r"^[[:space:]]*(async )?def test_", "--", "tests"],
+            cwd=ROOT,
+            text=True,
+        )
+        return len(out.splitlines())
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        tests_dir = ROOT / "tests"
+        if not tests_dir.exists():
+            return 0
+        pattern = re.compile(r"^\s*(?:async\s+)?def test_", re.MULTILINE)
+        total = 0
+        for p in tests_dir.rglob("*.py"):
+            total += len(pattern.findall(p.read_text(errors="ignore")))
+        return total
 
 
 def _count_api_ops() -> tuple[int, int]:
@@ -216,7 +227,7 @@ def _count_km_adapters() -> int:
     if not path.exists():
         return 0
     text = path.read_text()
-    return len(re.findall(r'name="[^"]+"', text))
+    return len(re.findall(r'"\.[a-z_]+_adapter"', text))
 
 
 def _count_templates() -> int:
@@ -315,7 +326,12 @@ def patch_docs(stats: Stats, write: bool) -> int:
         "agent_types",
         _approx(stats.agent_types_allowlisted, 10),
     )
-    km_adapters_registered = _canonical_int(canonical, "adapters", stats.km_adapters_registered)
+    km_adapters_registered = _canonical_int(
+        metrics_doc,
+        "adapter_specs",
+        stats.km_adapters_registered,
+    )
+    km_adapter_files = _canonical_count(metrics_doc, "adapter_files", "missing")
     exact_python_files = _canonical_count(
         metrics_doc,
         "python_files",
@@ -351,6 +367,8 @@ def patch_docs(stats: Stats, write: bool) -> int:
         "test_files",
         "api_operations",
         "api_paths",
+        "adapter_specs",
+        "adapter_files",
     }
     missing_protected_metrics = sorted(protected_metrics_keys - set(metrics_doc))
     if write and missing_protected_metrics:
@@ -385,6 +403,11 @@ def patch_docs(stats: Stats, write: bool) -> int:
     claude_patterns.extend(
         [
             (r"\d+\s+KM adapters", f"{km_adapters_registered} KM adapters", 0),
+            (
+                r"(adapters/\s+# KM adapters \()\d+\s+registered(?=\))",
+                lambda m, value=km_adapters_registered: f"{m.group(1)}{value} registered",
+                0,
+            ),
             (r"\d[\d,]*\s+SDK namespaces", f"{stats.ts_namespaces} SDK namespaces", 0),
         ]
     )
@@ -541,6 +564,13 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 lambda m, value=exact_api_paths: f"{m.group(1)}{value}",
                 0,
             ),
+            (
+                r"(\| Knowledge Mound adapters \| )[^|]+(?= \| `docs/METRICS\.md` \|)",
+                lambda m, files=km_adapter_files, specs=km_adapters_registered: (
+                    f"{m.group(1)}{files} adapter files / {specs} registered specs"
+                ),
+                0,
+            ),
         ],
         "CLAUDE.md": claude_patterns,
         "docs-site/docs/contributing/claude.md": claude_patterns,
@@ -611,6 +641,14 @@ def main() -> int:
         print(f"- Test files: {_canonical_count(metrics_doc, 'test_files', 'missing')}")
         print(f"- API paths: {_canonical_count(metrics_doc, 'api_paths', 'missing')}")
         print(f"- API operations: {_canonical_count(metrics_doc, 'api_operations', 'missing')}")
+        print(
+            "- Knowledge Mound adapter specs: "
+            f"{_canonical_count(metrics_doc, 'adapter_specs', 'missing')}"
+        )
+        print(
+            "- Knowledge Mound adapter files: "
+            f"{_canonical_count(metrics_doc, 'adapter_files', 'missing')}"
+        )
 
     if args.write:
         updated = patch_docs(stats, write=True)
