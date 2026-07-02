@@ -9,7 +9,7 @@ The heavy lifting is delegated to specialized mixins:
 - AdminMixin: Stats reporting, enable/disable, sampling, filtering, retry config
 - BasicHandlersMixin: Core subsystem event handlers
 - CultureHandlersMixin: Culture pattern handlers
-- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis, budget, alerts)
+- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis, alerts)
 """
 
 from __future__ import annotations
@@ -203,23 +203,17 @@ class CrossSubscriberManager(
             self._handle_memory_to_rlm,
         )
 
-        # Agent ELO → Debate team selection
-        self.register(
-            "elo_to_debate",
-            StreamEventType.AGENT_ELO_UPDATED,
-            self._handle_elo_to_debate,
-        )
+        # Agent ELO → Debate team selection relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
         # Knowledge → Memory sync relocated to aragora.memory.event_subscribers
         # (P4a Batch E3 relocate-UP); wired at bootstrap via
         # apply_registered_subscribers, not registered here.
 
-        # Calibration → Agent weights
-        self.register(
-            "calibration_to_agent",
-            StreamEventType.CALIBRATION_UPDATE,
-            self._handle_calibration_to_agent,
-        )
+        # Calibration → Agent weights relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
         # Evidence → Insight extraction and Mound structure → Memory/Debate sync
         # relocated to aragora.memory.event_subscribers (P4a Batch E3 relocate-UP);
@@ -277,19 +271,13 @@ class CrossSubscriberManager(
             self._handle_debate_end_to_cost_tracking,
         )
 
-        # Consensus → Selection Learning
-        self.register(
-            "consensus_to_learning",
-            StreamEventType.CONSENSUS,
-            self._handle_consensus_to_learning,
-        )
+        # Consensus → Selection Learning relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
-        # Agent Message → Rhetorical Analysis
-        self.register(
-            "agent_message_to_rhetorical",
-            StreamEventType.AGENT_MESSAGE,
-            self._handle_agent_message_to_rhetorical,
-        )
+        # Agent Message → Rhetorical Analysis relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
         # Vote → Belief Network relocated to aragora.reasoning.event_subscribers
         # (P4a Batch E3 relocate-UP); wired at bootstrap via
@@ -355,12 +343,9 @@ class CrossSubscriberManager(
         # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
         # via apply_registered_subscribers, not registered here.
 
-        # Budget Alert → Team Selection Constraint
-        self.register(
-            "budget_alert_to_team_selection",
-            StreamEventType.BUDGET_ALERT,
-            self._handle_budget_alert_to_team_selection,
-        )
+        # Budget Alert → Team Selection Constraint relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
         # Alert Escalated → Workflow Emergency Brake
         self.register(
@@ -369,12 +354,9 @@ class CrossSubscriberManager(
             self._handle_alert_escalated_to_workflow_brake,
         )
 
-        # Meta-Learning Adjusted → Team Selection Recalibration
-        self.register(
-            "meta_learning_to_team_selection",
-            StreamEventType.META_LEARNING_ADJUSTED,
-            self._handle_meta_learning_to_team_selection,
-        )
+        # Meta-Learning Adjusted → Team Selection Recalibration relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
         logger.debug("Registered built-in cross-subsystem subscribers")
 

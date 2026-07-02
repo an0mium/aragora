@@ -3,20 +3,21 @@ Basic cross-subsystem event handlers.
 
 Handles core subsystem integrations:
 - Memory → RLM: Retrieval patterns inform compression strategies
-- Agent ELO → Debate: Performance updates team selection weights
-- Calibration → Agent: Confidence weight updates
 - Webhook delivery: External system notifications
 
 The knowledge/evidence/mound → memory reactions and the vote → belief reaction
 relocated to their domain homes (``aragora.memory.event_subscribers`` and
 ``aragora.reasoning.event_subscribers``, P4a Batch E3 relocate-UP); see those
-modules for the memory-sync and belief-network handlers.
+modules for the memory-sync and belief-network handlers. The ELO → debate,
+calibration → agent, consensus → learning, and agent message → rhetorical
+reactions relocated to ``aragora.debate.event_subscribers`` (P4a Batch E4
+relocate-UP); see that module for those handlers.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from aragora.events.types import StreamEvent
@@ -34,23 +35,6 @@ class CompressorProtocol(Protocol):
         importance: float,
     ) -> None:
         """Record a memory access pattern for compression optimization."""
-        ...
-
-
-class AgentPoolProtocol(Protocol):
-    """Protocol for agent pool with ELO and calibration updates."""
-
-    def update_elo_weight(self, agent_name: str, elo: float) -> None:
-        """Update the ELO weight for an agent."""
-        ...
-
-    def update_calibration(
-        self,
-        agent_name: str,
-        score: float,
-        brier_score: float | None = None,
-    ) -> None:
-        """Update calibration data for an agent."""
         ...
 
 
@@ -93,77 +77,6 @@ class BasicHandlersMixin:
             pass  # RLM module not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("RLM pattern recording failed: %s", e)
-
-    def _handle_elo_to_debate(self, event: StreamEvent) -> None:
-        """
-        ELO update → Debate team selection weights.
-
-        When agent ELO changes, update team selection weights
-        for future debates. Significant changes are logged.
-        """
-        data = event.data
-        agent_name = data.get("agent", "")
-        new_elo = data.get("elo", 1500)
-        delta = data.get("delta", 0)
-        debate_id = data.get("debate_id", "")
-
-        # Log significant ELO changes
-        if abs(delta) > 50:
-            logger.info(
-                f"Significant ELO change: {agent_name} -> {new_elo} "
-                f"(Δ{delta:+.0f}) in debate {debate_id}"
-            )
-
-        # Update agent pool weights for future team selection
-        try:
-            import aragora.debate.agent_pool as agent_pool_module
-
-            # get_agent_pool may not exist yet (planned feature)
-            get_agent_pool = getattr(agent_pool_module, "get_agent_pool", None)
-            if get_agent_pool is None:
-                return
-
-            pool: AgentPoolProtocol | None = get_agent_pool()
-            if pool and hasattr(pool, "update_elo_weight"):
-                pool.update_elo_weight(agent_name, new_elo)
-        except ImportError:
-            pass  # AgentPool module not available
-        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("AgentPool weight update failed: %s", e)
-
-    def _handle_calibration_to_agent(self, event: StreamEvent) -> None:
-        """
-        Calibration update → Agent confidence weights.
-
-        When calibration data changes, update agent confidence
-        weights for vote weighting and team selection.
-        """
-        data = event.data
-        agent_name = data.get("agent", "")
-        calibration_score = data.get("score", 0.5)
-        brier_score = data.get("brier_score", None)
-        prediction_count = data.get("prediction_count", 0)
-
-        logger.debug(
-            f"Calibration update: {agent_name} -> {calibration_score:.2f} "
-            f"(predictions: {prediction_count})"
-        )
-
-        # Update agent pool with calibration data
-        try:
-            from aragora.debate.agent_pool import get_agent_pool
-
-            pool = cast("AgentPoolProtocol | None", get_agent_pool())
-            if pool and hasattr(pool, "update_calibration"):
-                pool.update_calibration(
-                    agent_name=agent_name,
-                    score=calibration_score,
-                    brier_score=brier_score,
-                )
-        except (ImportError, AttributeError):
-            pass  # AgentPool or get_agent_pool not available
-        except (RuntimeError, TypeError, ValueError) as e:
-            logger.debug("AgentPool calibration update failed: %s", e)
 
     def _handle_webhook_delivery(self, event: StreamEvent) -> None:
         """
@@ -278,66 +191,6 @@ class BasicHandlersMixin:
             pass  # CostTracker not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("Cost tracking record failed: %s", e)
-
-    def _handle_consensus_to_learning(self, event: StreamEvent) -> None:
-        """Consensus → Selection feedback learning.
-
-        When consensus is reached, feed the outcome to the
-        SelectionFeedbackLoop for performance-based agent selection.
-        """
-        data = event.data
-        debate_id = data.get("debate_id", "")
-        confidence = data.get("confidence", 0.0)
-        agents_used = data.get("agents", [])
-
-        if not agents_used or confidence < 0.5:
-            return
-
-        logger.debug(f"Learning from consensus: {debate_id} confidence={confidence:.2f}")
-
-        try:
-            from aragora.debate.selection_feedback import SelectionFeedbackLoop
-
-            loop = SelectionFeedbackLoop()
-            if hasattr(loop, "process_debate_outcome"):
-                loop.process_debate_outcome(
-                    debate_id=debate_id,
-                    participants=agents_used,
-                    winner=None,
-                    confidence=confidence,
-                )
-        except ImportError:
-            pass  # SelectionFeedbackLoop not available
-        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("Selection feedback learning failed: %s", e)
-
-    def _handle_agent_message_to_rhetorical(self, event: StreamEvent) -> None:
-        """Agent message → Rhetorical analysis.
-
-        When an agent sends a message, pass it to the RhetoricalObserver
-        for argumentation quality analysis.
-        """
-        data = event.data
-        agent_name = data.get("agent", "")
-        content = data.get("content", "")
-
-        if not content or len(content) < 20:
-            return
-
-        try:
-            from aragora.debate.rhetorical_observer import get_rhetorical_observer
-
-            observer = get_rhetorical_observer()
-            if observer and hasattr(observer, "analyze_message"):
-                observer.analyze_message(
-                    agent_name=agent_name,
-                    content=content,
-                    metadata=data,
-                )
-        except ImportError:
-            pass  # RhetoricalObserver not available
-        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("Rhetorical analysis failed: %s", e)
 
     def _handle_debate_end_to_explainability(self, event: StreamEvent) -> None:
         """Debate end → Explainability auto-trigger.

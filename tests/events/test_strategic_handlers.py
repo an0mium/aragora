@@ -309,12 +309,16 @@ class TestApprovalToKMReinforcement:
 
 
 class TestBudgetAlertToTeamSelection:
-    """Test budget alert → team selection constraint handler."""
+    """Test budget alert → team selection constraint handler.
+
+    Relocated to ``DebateEventSubscriber`` (P4a Batch E4): it is
+    debate-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    """
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.debate.event_subscribers import DebateEventSubscriber
 
-        return StrategicHandlersMixin()
+        return DebateEventSubscriber()
 
     def test_records_budget_constraint_via_method(self, make_event):
         handler = self._get_handler()
@@ -447,12 +451,16 @@ class TestAlertEscalatedToWorkflowBrake:
 
 
 class TestMetaLearningToTeamSelection:
-    """Test meta-learning → team selection recalibration handler."""
+    """Test meta-learning → team selection recalibration handler.
+
+    Relocated to ``DebateEventSubscriber`` (P4a Batch E4): it is
+    debate-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    """
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.debate.event_subscribers import DebateEventSubscriber
 
-        return StrategicHandlersMixin()
+        return DebateEventSubscriber()
 
     def test_skips_when_no_adjustments(self, make_event):
         handler = self._get_handler()
@@ -537,9 +545,7 @@ class TestStrategicHandlersRegistration:
             "agent_birth_to_control_plane",
             "agent_death_to_control_plane",
             "agent_evolution_to_control_plane",
-            "budget_alert_to_team_selection",
             "alert_escalated_to_workflow_brake",
-            "meta_learning_to_team_selection",
         }
         assert expected.issubset(registered_names), (
             f"Missing handlers: {expected - registered_names}"
@@ -547,6 +553,11 @@ class TestStrategicHandlersRegistration:
         # approval_to_km_reinforcement relocated to KnowledgeEventSubscriber
         # (P4a Batch E2c); a bare manager no longer registers it directly.
         assert "approval_to_km_reinforcement" not in registered_names
+        # budget_alert_to_team_selection / meta_learning_to_team_selection
+        # relocated to DebateEventSubscriber (P4a Batch E4); a bare manager no
+        # longer registers them directly.
+        assert "budget_alert_to_team_selection" not in registered_names
+        assert "meta_learning_to_team_selection" not in registered_names
 
     def test_strategic_event_types_have_subscribers(self):
         from aragora.events.cross_subscribers.manager import CrossSubscriberManager
@@ -556,14 +567,16 @@ class TestStrategicHandlersRegistration:
         # APPROVAL_APPROVED excluded: its only bare-manager subscriber
         # (approval_to_km_reinforcement) relocated to KnowledgeEventSubscriber
         # (P4a Batch E2c) and is wired only via apply_registered_subscribers.
+        # BUDGET_ALERT / META_LEARNING_ADJUSTED excluded: their only bare-manager
+        # subscribers (budget_alert_to_team_selection, meta_learning_to_team_selection)
+        # relocated to DebateEventSubscriber (P4a Batch E4) and are wired only via
+        # apply_registered_subscribers.
         expected_event_types = {
             StreamEventType.RISK_WARNING,
             StreamEventType.AGENT_BIRTH,
             StreamEventType.AGENT_DEATH,
             StreamEventType.AGENT_EVOLUTION,
-            StreamEventType.BUDGET_ALERT,
             StreamEventType.ALERT_ESCALATED,
-            StreamEventType.META_LEARNING_ADJUSTED,
         }
 
         for event_type in expected_event_types:
