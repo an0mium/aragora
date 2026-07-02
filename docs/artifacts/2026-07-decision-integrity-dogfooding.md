@@ -64,15 +64,37 @@ Receipted merge (executor)      ──  fail-closed, bounded, JSON receipt per m
 ## 30 days of numbers
 
 Window: **2026-06-02 to 2026-07-02**. Source: GitHub search API against
-`repo:synaptent/aragora` (queries reproduced below; comment-marker counts are
-GitHub-search matches and therefore approximate, not hand-audited).
+`repo:synaptent/aragora` (queries reproduced below, complete and runnable
+as written; comment-marker counts are GitHub-search matches and therefore
+approximate, not hand-audited). Counts collected 2026-07-02; re-running
+later may drift slightly as the search index updates.
 
-| Metric | Count | Query |
+| Metric | Count | Search query (full) |
 |---|---|---|
-| PRs merged | **579** | `is:pr is:merged merged:>=2026-06-02` |
-| Merged PRs carrying an "independent model review" evidence comment | **493** (85%) | `… "independent model review" in:comments` |
-| Merged PRs with an explicit `Verdict: PASS` in comments | **490** | `… "Verdict: PASS" in:comments` |
-| Merged PRs referencing the merge-quorum gate in comments | **173** | `… "merge-quorum" in:comments` |
+| PRs merged | **579** | `repo:synaptent/aragora is:pr is:merged merged:2026-06-02..2026-07-02` |
+| Merged PRs carrying an "independent model review" evidence comment | **493** (85%) | `repo:synaptent/aragora is:pr is:merged merged:2026-06-02..2026-07-02 "independent model review" in:comments` |
+| Merged PRs with an explicit `Verdict: PASS` in comments | **490** | `repo:synaptent/aragora is:pr is:merged merged:2026-06-02..2026-07-02 "Verdict: PASS" in:comments` |
+| Merged PRs referencing the merge-quorum gate in comments | **173** | `repo:synaptent/aragora is:pr is:merged merged:2026-06-02..2026-07-02 "merge-quorum" in:comments` |
+
+Run them yourself (each prints the corresponding count):
+
+```bash
+gh api -X GET search/issues \
+  -f q='repo:synaptent/aragora is:pr is:merged merged:2026-06-02..2026-07-02' \
+  --jq .total_count   # -> 579
+
+gh api -X GET search/issues \
+  -f q='repo:synaptent/aragora is:pr is:merged merged:2026-06-02..2026-07-02 "independent model review" in:comments' \
+  --jq .total_count   # -> 493
+
+gh api -X GET search/issues \
+  -f q='repo:synaptent/aragora is:pr is:merged merged:2026-06-02..2026-07-02 "Verdict: PASS" in:comments' \
+  --jq .total_count   # -> 490
+
+gh api -X GET search/issues \
+  -f q='repo:synaptent/aragora is:pr is:merged merged:2026-06-02..2026-07-02 "merge-quorum" in:comments' \
+  --jq .total_count   # -> 173
+```
 
 Two honest caveats on these numbers. First, not every merged PR carried quorum
 evidence: the volume includes doc-only and Tier-0 mechanical changes, plus PRs
@@ -99,7 +121,7 @@ the finding it addresses:
 
 Earlier in the PR's life, exact-head review on `35813c54` returned
 `CHANGES_REQUESTED` **from both Claude and Grok**, which blocked a queue-drain
-close outright ([comment, 2026-06-30](https://github.com/synaptent/aragora/pull/8389#issuecomment)).
+close outright ([comment, 2026-06-30](https://github.com/synaptent/aragora/pull/8389#issuecomment-4841335033)).
 Two further review rounds forced fixes for a null-subfield crash and a
 malformed-input crash class (commits `cfeffc3b`, `136f3002` — "guard verify
 pipeline so malformed input is a FAIL verdict, not a crash"). At the final
@@ -115,7 +137,7 @@ under the severity-gated dissent contract rather than discarded. The PR merged
 Round-1 quorum review of the mission intake→decomposition bridge caught the
 orchestrator fabricating branch names that didn't exist, producing a
 crash-loop. From the disposition record on
-[#8758 (comment, 2026-07-01)](https://github.com/synaptent/aragora/issues/8758#issuecomment):
+[#8758 (comment, 2026-07-01)](https://github.com/synaptent/aragora/issues/8758#issuecomment-4860885785):
 
 > "Round-1 findings (**fabricated `metadata.branch` → crash-loop**; positional
 > child-id suffixes) were repaired: children now carry `branch_hint` (no fake
@@ -145,7 +167,7 @@ The GitHub event-resolver PR resolved prediction claims using wall-clock
 expiry. OpenAI and Grok both returned `CHANGES-REQUESTED` on that semantics —
 two independent families against the design triggered an escalation instead of
 autonomous settlement. The adjudication
-([comment, 2026-07-02](https://github.com/synaptent/aragora/pull/8519#issuecomment))
+([comment, 2026-07-02](https://github.com/synaptent/aragora/pull/8519#issuecomment-4861274218))
 sided with the dissent after researching prior art:
 
 > "The reviewer dissent (openai + grok) is CORRECT; the wall-clock
