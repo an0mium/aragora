@@ -33,9 +33,16 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 DEFAULT_MODEL = "claude-fable-5"
 FALLBACK_MODEL = "claude-opus-4-8"
@@ -49,9 +56,34 @@ EXIT_NO_PROMPT = 3
 EXIT_ALL_FAILED = 4
 
 
-def _build_cli_command(model: str) -> tuple[list[str], bool]:
+@contextmanager
+def _claude_empty_mcp_config_file():
+    """Write an empty Claude MCP config to avoid wedged local server handshakes."""
+
+    fd, path_text = tempfile.mkstemp(prefix="aragora-consult-claude-mcp-", suffix=".json")
+    path = Path(path_text)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump({"mcpServers": {}}, handle)
+            handle.write("\n")
+        yield path
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _build_cli_command(model: str, mcp_config_path: Path) -> tuple[list[str], bool]:
     """Return the claude CLI command, profile-pool wrapped when possible."""
-    base = ["claude", "--print", "--model", model, "-p", "-"]
+    base = [
+        "claude",
+        "--print",
+        "--strict-mcp-config",
+        "--mcp-config",
+        str(mcp_config_path),
+        "--model",
+        model,
+        "-p",
+        "-",
+    ]
     try:
         from aragora.agents.claude_profile_pool import build_claude_command
 
@@ -73,27 +105,32 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
     """One bounded claude CLI attempt. Never raises; returns a result dict."""
     if shutil.which("claude") is None:
         return {"ok": False, "backend": "cli", "error": "claude CLI not on PATH"}
-    command, used_profile = _build_cli_command(model)
-    backend = "cli-profile" if used_profile else "cli"
     started = time.monotonic()
     try:
-        proc = subprocess.run(
-            command,
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        with _claude_empty_mcp_config_file() as mcp_config_path:
+            command, used_profile = _build_cli_command(model, mcp_config_path)
+            backend = "cli-profile" if used_profile else "cli"
+            proc = subprocess.run(
+                command,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
     except subprocess.TimeoutExpired:
         return {
             "ok": False,
-            "backend": backend,
+            "backend": locals().get("backend", "cli"),
             "timed_out": True,
             "elapsed_s": round(time.monotonic() - started, 1),
             "error": f"claude CLI exceeded {timeout:.0f}s timeout",
         }
     except OSError as exc:
-        return {"ok": False, "backend": backend, "error": f"claude CLI launch failed: {exc}"}
+        return {
+            "ok": False,
+            "backend": locals().get("backend", "cli"),
+            "error": f"claude CLI launch failed: {exc}",
+        }
     elapsed = round(time.monotonic() - started, 1)
     text = _strip_preamble(proc.stdout) if used_profile else proc.stdout.strip()
     if proc.returncode != 0 or not text:
@@ -195,10 +232,18 @@ def consult(
         if result.get("ok"):
             return {**result, "model": fallback_model, "attempts": attempts}
     if api_fallback:
-        result = _run_api(prompt, model, timeout, system=None)
-        attempts.append({"model": model, **result})
-        if result.get("ok"):
-            return {**result, "model": model, "attempts": attempts}
+        for api_model in (model, fallback_model):
+            if not api_model:
+                continue
+            if any(
+                attempt.get("backend") == "api" and attempt.get("model") == api_model
+                for attempt in attempts
+            ):
+                continue
+            result = _run_api(prompt, api_model, timeout, system=None)
+            attempts.append({"model": api_model, **result})
+            if result.get("ok"):
+                return {**result, "model": api_model, "attempts": attempts}
     timed_out = all(a.get("timed_out") for a in attempts) and bool(attempts)
     return {
         "ok": False,
