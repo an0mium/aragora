@@ -32,7 +32,13 @@ async def test_debate_with_int_agents():
 
     assert isinstance(result, DebateResult)
     assert result.task == "Should we adopt microservices?"
-    assert result.status == "completed"
+    # The legacy ``status`` field projects "consensus_reached" for completed
+    # debates that reached consensus (core_types.legacy_debate_status via
+    # orchestrator_runner._apply_result_debate_state); DemoAgents under
+    # majority consensus normally converge, so accept either projection and
+    # pin the canonical lifecycle field instead.
+    assert result.debate_status == "completed"
+    assert result.status in ("completed", "consensus_reached")
     assert len(result.participants) == 3
 
 
@@ -267,11 +273,14 @@ def test_receipt_rejects_unknown_type():
 def test_golden_imports_from_package():
     """Golden API functions are accessible from the aragora package.
 
-    Note: ``aragora.debate`` may resolve to the ``aragora.debate`` subpackage
-    module if it was imported before the lazy ``_EXPORT_MAP`` lookup fires.
-    We verify the *other* five names that have no subpackage collision, plus
-    verify ``debate`` is directly importable from ``aragora.golden``.
+    Note: ``aragora.debate`` and ``aragora.workflow`` may resolve to the
+    same-named subpackage modules if those were imported before the lazy
+    ``_EXPORT_MAP`` lookup fires (import order varies across the session).
+    We verify the names that have no subpackage collision, plus verify the
+    colliding names are directly importable from ``aragora.golden``.
     """
+    import sys
+
     import aragora
     from aragora.golden import debate as golden_debate
     from aragora.golden import recall as golden_recall
@@ -284,9 +293,16 @@ def test_golden_imports_from_package():
     assert aragora.remember is golden_remember
     assert aragora.recall is golden_recall
     assert aragora.review is golden_review
-    assert aragora.workflow is golden_workflow
     assert aragora.receipt is golden_receipt
 
-    # debate() is directly usable from aragora.golden even if
-    # aragora.debate resolves to the subpackage in some import orders
+    # ``workflow`` collides with the ``aragora.workflow`` subpackage exactly
+    # like ``debate`` (see note above): whichever import wins the package
+    # attribute first sticks for the session, so accept either resolution.
+    assert aragora.workflow is golden_workflow or aragora.workflow is sys.modules.get(
+        "aragora.workflow"
+    )
+
+    # debate()/workflow() are directly usable from aragora.golden even if
+    # the package attributes resolve to the subpackages in some import orders
     assert callable(golden_debate)
+    assert callable(golden_workflow)

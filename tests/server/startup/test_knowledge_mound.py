@@ -431,9 +431,12 @@ class TestInitKMAdapters:
     @pytest.mark.asyncio
     async def test_successful_initialization(self) -> None:
         """Test successful KM adapters initialization."""
+        # Since 7439a1466f (#8751, P4a E2a) init_km_adapters obtains the manager
+        # via the layered superset bootstrap (bootstrap_event_subscribers) instead
+        # of aragora.events.cross_subscribers.get_cross_subscriber_manager.
         mock_manager = MagicMock()
-        mock_cross_subs = MagicMock()
-        mock_cross_subs.get_cross_subscriber_manager = MagicMock(return_value=mock_manager)
+        mock_event_subs = MagicMock()
+        mock_event_subs.bootstrap_event_subscribers = MagicMock(return_value=mock_manager)
 
         mock_ranking_adapter = MagicMock()
         mock_rlm_adapter = MagicMock()
@@ -452,7 +455,7 @@ class TestInitKMAdapters:
         with patch.dict(
             "sys.modules",
             {
-                "aragora.events.cross_subscribers": mock_cross_subs,
+                "aragora.server.startup.event_subscribers": mock_event_subs,
                 "aragora.knowledge.mound.adapters": mock_adapters,
                 "aragora.knowledge.mound.metrics": mock_metrics,
                 "aragora.knowledge.mound.websocket_bridge": mock_bridge,
@@ -463,6 +466,7 @@ class TestInitKMAdapters:
             result = await init_km_adapters()
 
         assert result is True
+        mock_event_subs.bootstrap_event_subscribers.assert_called_once()
         mock_adapters.RankingAdapter.assert_called_once()
         mock_adapters.RlmAdapter.assert_called_once()
         mock_metrics.set_metrics.assert_called_once()
@@ -471,9 +475,10 @@ class TestInitKMAdapters:
     @pytest.mark.asyncio
     async def test_metrics_import_error_continues(self) -> None:
         """Test that metrics ImportError doesn't stop initialization."""
+        # Manager comes from bootstrap_event_subscribers since 7439a1466f (#8751).
         mock_manager = MagicMock()
-        mock_cross_subs = MagicMock()
-        mock_cross_subs.get_cross_subscriber_manager = MagicMock(return_value=mock_manager)
+        mock_event_subs = MagicMock()
+        mock_event_subs.bootstrap_event_subscribers = MagicMock(return_value=mock_manager)
 
         mock_adapters = MagicMock()
         mock_adapters.RankingAdapter = MagicMock()
@@ -482,7 +487,7 @@ class TestInitKMAdapters:
         with patch.dict(
             "sys.modules",
             {
-                "aragora.events.cross_subscribers": mock_cross_subs,
+                "aragora.server.startup.event_subscribers": mock_event_subs,
                 "aragora.knowledge.mound.adapters": mock_adapters,
                 "aragora.knowledge.mound.metrics": None,  # ImportError
                 "aragora.knowledge.mound.websocket_bridge": None,  # ImportError

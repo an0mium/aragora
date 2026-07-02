@@ -808,7 +808,12 @@ class TestBaseHandler:
         assert handler.get_nomic_dir() == server_context["nomic_dir"]
 
     # === Authentication ===
+    # These tests exercise BaseHandler's real auth methods, which the autouse
+    # mock_auth_for_handler_tests fixture in tests/handlers/conftest.py replaces
+    # wholesale. They need the documented no_auto_auth opt-out since d6ef78d62b
+    # (#8404) relocated this module under tests/handlers/ where that fixture applies.
 
+    @pytest.mark.no_auto_auth
     def test_get_current_user_authenticated(self, handler):
         """Test get_current_user when authenticated."""
         mock_user = MockUserContext()
@@ -820,6 +825,7 @@ class TestBaseHandler:
 
         assert result == mock_user
 
+    @pytest.mark.no_auto_auth
     def test_get_current_user_not_authenticated(self, handler):
         """Test get_current_user returns None when not authenticated."""
         mock_user = MockUserContext(is_authenticated=False)
@@ -831,6 +837,7 @@ class TestBaseHandler:
 
         assert result is None
 
+    @pytest.mark.no_auto_auth
     def test_require_auth_or_error_authenticated(self, handler):
         """Test require_auth_or_error when authenticated."""
         mock_user = MockUserContext()
@@ -843,6 +850,7 @@ class TestBaseHandler:
         assert user == mock_user
         assert err is None
 
+    @pytest.mark.no_auto_auth
     def test_require_auth_or_error_not_authenticated(self, handler):
         """Test require_auth_or_error when not authenticated."""
         mock_user = MockUserContext(is_authenticated=False)
@@ -865,8 +873,15 @@ class TestBaseHandler:
 
     def test_read_json_body_empty(self, handler):
         """Test reading empty body."""
+        # Content-Length: 0 still reads rfile (Cloudflare HTTP/2 -> HTTP/1.1
+        # proxies strip/zero the header; behavior pinned by
+        # tests/server/handlers/test_read_json_body_chunked.py, present since
+        # the 4352004c4f history baseline). A bare MagicMock rfile returns a
+        # truthy MagicMock from read(), which json.loads rejects -> None; an
+        # exhausted stream must return b"" for the documented {} contract.
         mock_h = MagicMock()
         mock_h.headers = {"Content-Length": "0"}
+        mock_h.rfile.read.return_value = b""
         result = handler.read_json_body(mock_h)
         assert result == {}
 
@@ -1053,6 +1068,10 @@ class TestBaseHandlerIntegration:
         assert parsed["limit"] == 5
         assert parsed["has_more"] is True
 
+    # no_auto_auth: this test mocks extract_user_from_request itself; the autouse
+    # auth bypass in tests/handlers/conftest.py would override get_current_user
+    # (applies since the d6ef78d62b/#8404 relocation into tests/handlers/).
+    @pytest.mark.no_auto_auth
     def test_handler_with_auth_and_body(self, server_context):
         """Test handler with authentication and JSON body."""
 
