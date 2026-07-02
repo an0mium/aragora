@@ -165,3 +165,7 @@ _(per-batch template below)_
 ## WAVE 5 close (2026-07-02 ~03:00): #8785 export-collision fix CLEAN 2-0 first try (posted, Tier 1)
 - Callable ModuleType subclasses on aragora/debate + aragora/workflow; protected __init__.py = comments only; 3 import orders pinned via subprocess isolation; 3,411 workflow tests green. Its one failing golden test is the pre-existing one #8778 fixes (interlocking, disclosed).
 - QUEUE STATE: 8771/8775/8776/8778/8785 ALL hold posted quorums; ALL blocked solely on main's docs-sync drift → operator approval of #8783 (protected CLAUDE.md counts hunk) is the single critical path. Codex #8726 unchanged (freeze holds).
+
+## MILESTONE (2026-07-02 07:15 local): harvest daemon first scheduled run — FULL SUCCESS
+- 173 classified: 64 learned (signals emitted to learner), 5 salvage, 104 write-off; exactly 3 issues filed under cap (#8787 mission-spine Phase A ex-#8628, #8788 lane dispatch contract ex-#8627, #8789 crux-finder exposure ex-#8543/#8227); 2 deferred over cap (logged, not dropped); ledger dedup records written. T3 backlog-regeneration loop operational.
+- Gates unchanged: #8783 awaiting operator; Codex #8726 idle since 00:59Z.
