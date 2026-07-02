@@ -134,3 +134,14 @@ _(per-batch template below)_
 - Run branch contains only run artifacts + B5 spec packet. No stray changes.
 - 8282/8289: repair budget consumed; residual CI shard failures remain (Integration Smoke/test-fast) — need owner attention or a fresh batch; quorum evidence deferred until green.
 - Stop Gate: **stop allowed = YES** — every remaining item is blocked on human settlement (8282/8289/8389/8519/8461 packets, B2 state-machine decision, #8767/#8768 merges + arming, memo-cluster review, batch-2+ cleanup) or external CI.
+
+## SECOND WAVE (2026-07-02, operator "yes to all") — COMPLETE
+
+- **MERGED to main:** #8767 merge executor, #8768 harvest engine (quorum-settled Tier 2), and **#8389 ODR verification engine** (Tier 1 via the advisory-settle path: round-3 claude PASS posted under recorded operator authority, openai [P2] chain-link preserved as #8772; 16-days-stuck → merged; T4 compliance wedge shipped).
+- **ARMED:** launchd com.aragora.ctl-merge-executor (600s, --apply --max-merges 1, receipts ~/.aragora/merge-executor-receipts, disarm file ~/.aragora/DISARM_MERGE_EXECUTOR) + com.aragora.ctl-harvest (daily 07:15, --max-issues 3). First armed tick: mode=apply, main green, 17 scanned, 0 eligible, fail-closed. Daemon worktree .claude/worktrees/daemon-ctl self-refreshes to origin/main per tick.
+- **#8766 PARKED FINAL** after round 3 (third new-scope P1: worker branch-materialization → filed #8773; claude CLI transport failure recorded). Three cycles delivered: decomposition, idempotent ids, AWAITING_CLAIM state (168 tests), non-terminal retry.
+- **#8519 ESCALATED** — grok joined openai in dissent (2 families vs claude PASS on expiry semantics); reversed my settle recommendation; genuinely the operator's crux.
+- **Filed:** #8770 (PR-lane shards failing on main-equivalent code — blocks 8282/8289), #8772 (chain-link anchoring), #8773 (worker materialization). **Shipped:** fanout v15 park-discipline PR #8771. **Recorded:** Tier-4 preapproval on #8748 (blocked on Codex freeze).
+- Learnings: claude CLI reviewer failed once (exit 1, transport) — openai+grok fallback worked all night; settle_tier4_pr requires quorum-satisfied packet BEFORE --settle-only (M0a #8756 is the real gap); manual operator-authorized posting of collector-prepared bodies is a working M0a stopgap.
+
+## Stop Gate (final): stop allowed = YES — remaining items are operator-only (8519 crux, memo cluster, Codex freeze, #8770) or filed issues (#8772, #8773).
