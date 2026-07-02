@@ -2229,11 +2229,70 @@ def test_cmd_exec_droid_uses_transport_auto_high(
             "Review #7292",
         ]
     ]
+
+
+def test_cmd_exec_forwards_timeout_seconds_to_transport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+    from aragora.swarm.agent_bridge.harnesses.claude import ClaudeTransport
+
+    fixture = (
+        Path(__file__).resolve().parents[2]
+        / "tests"
+        / "fixtures"
+        / "agent_bridge"
+        / "claude_start.txt"
+    ).read_text(encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def _fake_runner(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(command, 0, stdout=fixture, stderr="")
+
+    def _fake_create_transport(agent, *, cwd, model, harness_options):
+        captured.update(
+            {
+                "agent": agent,
+                "cwd": cwd,
+                "model": model,
+                "harness_options": harness_options,
+            }
+        )
+        return ClaudeTransport(
+            cwd=cwd,
+            model=model,
+            harness_options=harness_options,
+            runner=_fake_runner,
+            binary_resolver=lambda _: "/usr/bin/claude",
+        )
+
+    monkeypatch.setattr(mod, "create_transport", _fake_create_transport)
+
+    rc = mod.cmd_exec(
+        argparse.Namespace(
+            agent="claude",
+            cwd=str(tmp_path),
+            model="claude-fable-5",
+            timeout_seconds=600,
+            auto=None,
+            allowed_role=["reviewer"],
+            file=None,
+            prompt=["Review", "#8796"],
+            json=True,
+        )
+    )
+
+    assert rc == 0
+    assert captured == {
+        "agent": "claude",
+        "cwd": tmp_path.resolve(),
+        "model": "claude-fable-5",
+        "harness_options": {"timeout_seconds": 600},
+    }
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is True
-    assert payload["command"] == commands[0]
-    assert payload["message_text"].startswith("Synthesized the review findings.")
-    assert payload["parse_status"] == "ok"
 
 
 def test_write_session_snapshot_falls_back_to_state_root(

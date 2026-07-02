@@ -1994,6 +1994,9 @@ def cmd_exec(args: argparse.Namespace) -> int:
         harness_options["auto"] = auto_mode
     elif agent in {"droid", "factory"}:
         harness_options["auto"] = "high"
+    timeout_seconds = getattr(args, "timeout_seconds", None)
+    if timeout_seconds is not None:
+        harness_options["timeout_seconds"] = timeout_seconds
     allowed_roles = set(args.allowed_role or ["reviewer"])
 
     try:
@@ -3257,6 +3260,11 @@ def main() -> int:
         ),
     )
     exec_p.add_argument("--model", help="Model id to pass to the harness")
+    exec_p.add_argument(
+        "--timeout-seconds",
+        type=float,
+        help="Hard timeout for the harness subprocess",
+    )
     exec_p.add_argument("--auto", choices=("low", "medium", "high"), help="Droid autonomy level")
     exec_p.add_argument("--allowed-role", action="append", help="Allowed bridge footer role")
     exec_p.add_argument("prompt", nargs="*")

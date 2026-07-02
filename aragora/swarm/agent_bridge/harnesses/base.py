@@ -15,6 +15,7 @@ from typing import Sequence
 from ..exceptions import TransportLaunchError
 from ..exceptions import TransportNotAvailableError
 from ..exceptions import TransportResumeError
+from ..exceptions import TransportTimeoutError
 from ..types import ParsedTurn
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
@@ -26,6 +27,7 @@ RESERVED_HARNESS_OPTIONS = {
     "branch",
     "model",
     "auto",
+    "timeout_seconds",
 }
 
 
@@ -64,6 +66,9 @@ class Transport(ABC):
         self.cwd = Path(cwd)
         self.model = model
         self.harness_options = dict(harness_options or {})
+        self.timeout_seconds = self._parse_timeout_seconds(
+            self.harness_options.get("timeout_seconds")
+        )
         self._runner = runner
         self._binary_resolver = binary_resolver
 
@@ -140,14 +145,24 @@ class Transport(ABC):
             raise TransportNotAvailableError(f"{self.harness} is not installed")
 
     def _run_command(self, command: list[str]) -> subprocess.CompletedProcess[str]:
-        return self._runner(
-            command,
-            cwd=self.cwd,
-            stdin=subprocess.DEVNULL,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+        kwargs: dict[str, Any] = {
+            "cwd": self.cwd,
+            "stdin": subprocess.DEVNULL,
+            "text": True,
+            "capture_output": True,
+            "check": False,
+        }
+        if self.timeout_seconds is not None:
+            kwargs["timeout"] = self.timeout_seconds
+        try:
+            return self._runner(command, **kwargs)
+        except subprocess.TimeoutExpired as exc:
+            timeout_text = (
+                f"{self.timeout_seconds:g}s" if self.timeout_seconds is not None else "unknown"
+            )
+            raise TransportTimeoutError(
+                f"{self.harness} command timed out after {timeout_text}"
+            ) from exc
 
     def _process_error_message(self, process: subprocess.CompletedProcess[str]) -> str:
         parts: list[str] = []
@@ -156,6 +171,18 @@ class Transport(ABC):
         if process.stderr.strip():
             parts.append("stderr:\n" + process.stderr.strip()[:4000])
         return "\n".join(parts) if parts else self.harness
+
+    @staticmethod
+    def _parse_timeout_seconds(value: Any) -> float | None:
+        if value is None or value == "":
+            return None
+        try:
+            timeout = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("timeout_seconds must be a positive number") from exc
+        if timeout <= 0:
+            raise ValueError("timeout_seconds must be a positive number")
+        return timeout
 
     def _cli_option_args(self, extra_reserved: Sequence[str] = ()) -> list[str]:
         args: list[str] = []

@@ -4,6 +4,9 @@ import subprocess
 import uuid
 from pathlib import Path
 
+import pytest
+
+from aragora.swarm.agent_bridge.exceptions import TransportTimeoutError
 from aragora.swarm.agent_bridge.harnesses.claude import ClaudeTransport
 
 
@@ -58,3 +61,36 @@ def test_claude_launch_assigns_uuid4_and_resume_uses_resume_flag(tmp_path: Path)
         "Repair this",
     ]
     assert resumed.session_id == str(session_id)
+
+
+def test_claude_transport_applies_timeout_and_fails_closed(tmp_path: Path) -> None:
+    observed: dict[str, object] = {}
+    session_id = uuid.UUID("123e4567-e89b-42d3-a456-426614174000")
+
+    def runner(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        observed["command"] = command
+        observed["kwargs"] = kwargs
+        raise subprocess.TimeoutExpired(command, 600)
+
+    transport = ClaudeTransport(
+        cwd=tmp_path,
+        model="claude-fable-5",
+        harness_options={"timeout_seconds": 600},
+        runner=runner,
+        binary_resolver=lambda _: "/usr/bin/claude",
+        uuid_factory=lambda: session_id,
+    )
+
+    with pytest.raises(TransportTimeoutError, match="timed out after 600s"):
+        transport.launch("Review this", allowed_roles={"reviewer"})
+
+    assert observed["command"] == [
+        "claude",
+        "-p",
+        "--session-id",
+        str(session_id),
+        "--model",
+        "claude-fable-5",
+        "Review this",
+    ]
+    assert observed["kwargs"]["timeout"] == 600.0

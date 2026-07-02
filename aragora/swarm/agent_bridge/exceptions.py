@@ -21,6 +21,10 @@ class TransportResumeError(TransportError):
     """Raised when a resume command exits unsuccessfully."""
 
 
+class TransportTimeoutError(TransportError):
+    """Raised when a harness command exceeds its configured timeout."""
+
+
 class TransportOutputParseError(TransportError):
     """Raised when harness output cannot be parsed."""
 
