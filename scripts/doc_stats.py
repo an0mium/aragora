@@ -77,6 +77,41 @@ def _canonical_metrics() -> dict[str, CanonicalMetric]:
     return metrics
 
 
+def _metrics_doc_values() -> dict[str, CanonicalMetric]:
+    """Read exact generated values from docs/METRICS.md."""
+    path = ROOT / "docs" / "METRICS.md"
+    if not path.exists():
+        return {}
+
+    key_for = {
+        "python files under aragora/": "python_files",
+        "top-level modules under aragora/": "top_level_modules",
+        "test files (test_*.py under tests/)": "test_files",
+        "test functions (class + module level)": "tests",
+        "openapi paths": "api_paths",
+        "openapi operations (http verbs)": "api_operations",
+    }
+    metrics: dict[str, CanonicalMetric] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip().strip("*") for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        key = key_for.get(cells[0].lower())
+        if not key:
+            continue
+        value_text = cells[1].strip().strip("`")
+        num = re.search(r"\d+(?:,\d+)*", value_text)
+        if not num:
+            continue
+        metrics[key] = CanonicalMetric(
+            value=int(num.group(0).replace(",", "")),
+            has_plus="+" in value_text,
+        )
+    return metrics
+
+
 def _canonical_count(canonical: dict[str, CanonicalMetric], key: str, measured: str) -> str:
     metric = canonical.get(key)
     if not metric:
@@ -256,6 +291,7 @@ def _apply_patterns(
 
 def patch_docs(stats: Stats, write: bool) -> int:
     canonical = _canonical_metrics()
+    metrics_doc = _metrics_doc_values()
     modules_approx = _canonical_count(canonical, "modules", _approx(stats.python_modules, 1000))
     tests_approx = _canonical_count(canonical, "tests", _approx(stats.test_count, 1000))
     test_files_approx = _canonical_count(
@@ -279,6 +315,26 @@ def patch_docs(stats: Stats, write: bool) -> int:
         _approx(stats.agent_types_allowlisted, 10),
     )
     km_adapters_registered = _canonical_int(canonical, "adapters", stats.km_adapters_registered)
+    exact_python_files = _canonical_count(
+        metrics_doc,
+        "python_files",
+        f"{stats.python_modules:,}",
+    )
+    exact_top_level_modules = _canonical_count(
+        metrics_doc,
+        "top_level_modules",
+        modules_approx,
+    )
+    exact_tests = _canonical_count(metrics_doc, "tests", tests_approx)
+    exact_test_files = _canonical_count(metrics_doc, "test_files", test_files_approx)
+    exact_api_ops = _canonical_count(metrics_doc, "api_operations", api_ops_approx)
+    exact_api_paths = _canonical_count(metrics_doc, "api_paths", api_paths_approx)
+    claude_codebase_scale = (
+        f"**Codebase Scale:** {exact_python_files} tracked Python files | "
+        f"{exact_top_level_modules} top-level modules | {exact_tests} test functions | "
+        f"{exact_test_files} test files | {exact_api_ops} API operations across "
+        f"{exact_api_paths} paths | canonical counts in `docs/METRICS.md`"
+    )
 
     replacements = {
         "README.md": [
@@ -299,9 +355,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 f"{ws_events_approx} WebSocket event types",
                 0,
             ),
-            (r"\d[\d,]*(?:\+)?\s+templates", f"{templates_approx} templates", 0),
             (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
-            (r"\d[\d,]*(?:\+)?\s+tests", f"{tests_approx} tests", 0),
             (r"\(\d[\d,]*\s+namespaces\)", f"({stats.ts_namespaces} namespaces)", 0),
         ],
         "docs/EXTENDED_README.md": [
@@ -411,6 +465,17 @@ def patch_docs(stats: Stats, write: bool) -> int:
             (r"\d[\d,]*(?:\+)?\s+paths", f"{api_paths_approx} paths", 0),
             (r"\d+\s+KM adapters", f"{km_adapters_registered} KM adapters", 0),
             (r"\d[\d,]*\s+SDK namespaces", f"{stats.ts_namespaces} SDK namespaces", 0),
+            (
+                r"\*\*Codebase Scale:\*\*[^\n]*canonical counts in `docs/METRICS\.md`",
+                claude_codebase_scale,
+                0,
+            ),
+            (
+                r"\*\*Test Suite:\*\*[^\n]*canonical counts in `docs/METRICS\.md`\)",
+                f"**Test Suite:** {exact_tests} test functions across "
+                f"{exact_test_files} test files (canonical counts in `docs/METRICS.md`)",
+                0,
+            ),
         ],
         "docs/architecture/system-overview.md": [
             (
