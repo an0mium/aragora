@@ -10,7 +10,7 @@ back into the backlog.
 
 | Job | Label | Schedule | Command |
 |---|---|---|---|
-| Merge executor | `com.aragora.ctl-merge-executor` | every 600 s | `scripts/merge_executor.py --repo synaptent/aragora --apply --max-merges 1` |
+| Merge executor | `com.aragora.ctl-merge-executor` | every 600 s | `scripts/merge_executor.py --repo synaptent/aragora --apply --max-merges 1 --receipt-dir ~/.aragora/merge-executor-receipts --halt-file ~/.aragora/MERGE_EXECUTOR_HALT --disarm-file ~/.aragora/DISARM_MERGE_EXECUTOR` |
 | Harvest engine | `com.aragora.ctl-harvest` | daily 07:15 local | `scripts/harvest_outcomes.py --repo synaptent/aragora --apply --max-issues 3` |
 
 - Plists: `~/Library/LaunchAgents/com.aragora.ctl-{merge-executor,harvest}.plist`
@@ -21,6 +21,13 @@ back into the backlog.
 - Logs: `~/.aragora/logs/ctl-merge-executor.{log,err}`, `~/.aragora/logs/ctl-harvest.{log,err}`
 - Merge receipts (one JSON per executed merge): `~/.aragora/merge-executor-receipts/`
 - Harvest ledger (append-only JSONL): `~/.aragora/harvest_ledger.jsonl`
+
+> **The `--disarm-file`/`--halt-file` flags are load-bearing.** The script's built-in
+> defaults live under the *repo root* (`<repo>/.aragora/merge_executor.disarm`/`.halt`),
+> not `~/.aragora/`. The deployed wrapper (`~/.aragora/bin/ctl_merge_executor_tick.sh`)
+> passes the flags shown above — and also pre-checks the disarm file itself — so the
+> controls below work. If you ever run the executor by hand with `--apply`, pass the
+> same flags or your `~/.aragora` kill switch will not be consulted.
 
 ## Safety model (why an unattended merger is acceptable)
 
