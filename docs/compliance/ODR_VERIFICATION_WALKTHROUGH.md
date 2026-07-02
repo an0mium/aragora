@@ -58,7 +58,11 @@ dependency is the `cryptography` package.
 > venv (real PyPI, no local wheel) installed and verified this fixture with
 > all checks PASS on 2026-07-02. CI additionally smoke-tests the CLI against
 > a wheel built from the in-repo [`aragora-verify/`](../../aragora-verify/)
-> source, which is the same code as the 0.1.0 release.
+> source. **Version note:** the signer-label (`key_id`) binding described in
+> §"What each check proves" ships in 0.1.1 (in-repo source; PyPI publication
+> pending). 0.1.0 verifies content integrity and signature validity but does
+> not bind the recorded `key_id` to the supplied key — prefer 0.1.1+ or the
+> source build for full signer-label protection.
 
 ```bash
 # 1. Install the standalone verifier into a clean environment
@@ -120,7 +124,7 @@ here is a demonstration key generated only for this walkthrough — see
 |---|---|
 | `schema_conformance` | The document is a structurally well-formed ODR v0.1 receipt: all thirteen required members present, absent markers well-formed, no smuggled or malformed blocks. |
 | `canonical_digest` | The receipt's canonical content digest was recomputed deterministically: `SHA-256(JCS(document minus signatures))` per RFC 8785. This digest is the exact value the signature covers and is reproducible byte-for-byte by any independent implementation. |
-| `signature` | At least one Ed25519 detached signature over that digest verifies against the public key **you** supplied. Together with `canonical_digest`, this proves the receipt was signed by the holder of the corresponding private key and that **no field outside `signatures` has been altered since signing** — verdict, reasoning, participants, dissent, confidence, timestamps, all of it. |
+| `signature` | At least one Ed25519 detached signature over that digest verifies against the public key **you** supplied, **and** (0.1.1+) that signature's recorded `key_id` matches the id recomputed from your key — a relabeled `key_id` on an otherwise-valid signature FAILs as signer-label tampering. Together with `canonical_digest`, this proves the receipt was signed by the holder of the corresponding private key and that **no field outside `signatures` has been altered since signing** — verdict, reasoning, participants, dissent, confidence, timestamps, all of it. The `signatures` array itself is outside the signed digest; the `key_id` binding is what closes the signer-label spoofing gap there. |
 | `quorum_consistency` | Every agent named as supporting or dissenting is a disclosed participant. A mismatch is a malformed-receipt or tampering signal (spec §8), not a style issue. |
 | `chain_link` | Only when you pass `--chain <file.jsonl>`: the receipt's content digest is anchored in the supplied hash chain and declared links are self-consistent. Reported as WARN (not PASS) when links are present, because entry hashes are not independently recomputed — treat the chain as corroborating evidence, not a standalone proof. |
 

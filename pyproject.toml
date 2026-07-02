@@ -98,6 +98,10 @@ dev = [
     # do not need to fall back to `--no-verify`
     # (FIX-ENV-ONCE — docs/AGENT_OPERATING_CONTRACT.md §Conductor).
     "pre-commit>=4.6.0,<5.0",
+    # Build backend for the in-repo aragora-verify package so the ODR
+    # walkthrough CLI smoke tests build the wheel offline-deterministically
+    # in CI (tests/gauntlet/test_odr_walkthrough_fixture.py).
+    "hatchling>=1.18,<2.0",
 ]
 all = [
     "fastapi>=0.138.0,<1.0",

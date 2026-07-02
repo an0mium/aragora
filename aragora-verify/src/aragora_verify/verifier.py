@@ -215,8 +215,16 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
             continue
         try:
             public_key.verify(raw_sig, message)
-            verified_any = True
-            notes.append(f"sig[{i}] (key_id={key_id or '?'}): verified")
+            if key_id == provided_key_id:
+                verified_any = True
+                notes.append(f"sig[{i}] (key_id={key_id}): verified")
+            else:
+                failed_matching = True
+                notes.append(
+                    f"sig[{i}]: signature verifies with the supplied key but its recorded "
+                    f"key_id ({key_id or '?'}) does not match the supplied key's id "
+                    f"({provided_key_id}) — possible signer-label tampering"
+                )
         except InvalidSignature:
             notes.append(f"sig[{i}] (key_id={key_id or '?'}): INVALID")
             if key_id == provided_key_id:
@@ -224,9 +232,7 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
 
     detail = "; ".join(notes) or "no signatures evaluated"
     if failed_matching:
-        return Check(
-            "signature", FAIL, f"signature from the supplied key did not verify — {detail}"
-        )
+        return Check("signature", FAIL, f"signature check failed — {detail}")
     if verified_any:
         return Check("signature", PASS, f"Ed25519 signature verified — {detail}")
     return Check("signature", FAIL, f"no signature verified with the supplied key — {detail}")

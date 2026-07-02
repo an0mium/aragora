@@ -77,6 +77,20 @@ def test_mutated_byte_fails_signature() -> None:
     assert _check(result, "signature").status == FAIL
 
 
+def test_tampered_key_id_fails_signature() -> None:
+    # A cryptographically valid signature must not count when its recorded
+    # key_id has been relabeled: signatures[] is outside the signed digest,
+    # so key_id is attacker-mutable unless bound to the supplied key.
+    private_key, public_key = make_keypair()
+    signed = sign_odr(valid_odr(), private_key)
+    signed["signatures"][0]["key_id"] = "spoofed-signer-label"
+    result = verify(signed, public_key=load_public_key(_pubkey_bytes(public_key)))
+    assert result.ok is False
+    check = _check(result, "signature")
+    assert check.status == FAIL
+    assert "signer-label tampering" in check.detail
+
+
 def test_wrong_key_does_not_verify() -> None:
     private_key, _ = make_keypair()
     _, other_public = make_keypair()
