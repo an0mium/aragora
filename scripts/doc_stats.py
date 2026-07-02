@@ -336,6 +336,43 @@ def patch_docs(stats: Stats, write: bool) -> int:
         f"{exact_test_files} test files | {exact_api_ops} API operations across "
         f"{exact_api_paths} paths | canonical counts in `docs/METRICS.md`"
     )
+    claude_metrics_keys = {
+        "python_files",
+        "top_level_modules",
+        "tests",
+        "test_files",
+        "api_operations",
+        "api_paths",
+    }
+    claude_patterns: list[tuple[str, str | Callable[[re.Match], str], int]] = []
+    if claude_metrics_keys.issubset(metrics_doc):
+        claude_patterns.extend(
+            [
+                (
+                    r"\d[\d,]*(?:\+)?\s+API operations",
+                    f"{exact_api_ops} API operations",
+                    0,
+                ),
+                (r"\d[\d,]*(?:\+)?\s+paths", f"{exact_api_paths} paths", 0),
+                (
+                    r"\*\*Codebase Scale:\*\*[^\n]*canonical counts in `docs/METRICS\.md`",
+                    claude_codebase_scale,
+                    0,
+                ),
+                (
+                    r"\*\*Test Suite:\*\*[^\n]*canonical counts in `docs/METRICS\.md`[^\n]*",
+                    f"**Test Suite:** {exact_tests} test functions across "
+                    f"{exact_test_files} test files (canonical counts in `docs/METRICS.md`)",
+                    0,
+                ),
+            ]
+        )
+    claude_patterns.extend(
+        [
+            (r"\d+\s+KM adapters", f"{km_adapters_registered} KM adapters", 0),
+            (r"\d[\d,]*\s+SDK namespaces", f"{stats.ts_namespaces} SDK namespaces", 0),
+        ]
+    )
 
     replacements = {
         "README.md": [
@@ -445,23 +482,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
                 0,
             ),
         ],
-        "CLAUDE.md": [
-            (r"\d[\d,]*(?:\+)?\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\d[\d,]*(?:\+)?\s+paths", f"{api_paths_approx} paths", 0),
-            (r"\d+\s+KM adapters", f"{km_adapters_registered} KM adapters", 0),
-            (r"\d[\d,]*\s+SDK namespaces", f"{stats.ts_namespaces} SDK namespaces", 0),
-            (
-                r"\*\*Codebase Scale:\*\*[^\n]*canonical counts in `docs/METRICS\.md`",
-                claude_codebase_scale,
-                0,
-            ),
-            (
-                r"\*\*Test Suite:\*\*[^\n]*canonical counts in `docs/METRICS\.md`\)",
-                f"**Test Suite:** {exact_tests} test functions across "
-                f"{exact_test_files} test files (canonical counts in `docs/METRICS.md`)",
-                0,
-            ),
-        ],
+        "CLAUDE.md": claude_patterns,
         "docs/architecture/system-overview.md": [
             (
                 r"Agents Layer \(\d[\d,]*(?:\+)?\s+Agent Types\)",

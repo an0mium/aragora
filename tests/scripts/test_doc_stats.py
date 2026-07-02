@@ -134,3 +134,74 @@ def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_p
     assert "Workflow Engine — DAG automation with 50+ templates" in readme
     assert "**The Nomic Loop (✅, 233+ tests)." in readme
     assert "3,297 API operations across 2,870 paths" in readme
+
+
+def test_patch_docs_leaves_claude_scale_when_metrics_doc_is_partial(tmp_path, monkeypatch):
+    mod = _load_module()
+    root = tmp_path
+    docs = root / "docs"
+    docs.mkdir()
+    (docs / "METRICS.md").write_text(
+        "\n".join(
+            [
+                "| Metric | Value | Source | Command |",
+                "|---|---|---|---|",
+                "| Python files under aragora/ | `4219` | `aragora/` | `cmd` |",
+                "| OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `cmd` |",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (docs / "CANONICAL_GOALS.md").write_text(
+        "\n".join(
+            [
+                "| Metric | Value | Source |",
+                "|--------|-------|--------|",
+                "| API operations | 3,297 across 2,870 paths | `docs/METRICS.md` |",
+                "| API paths | 2,870 | `docs/METRICS.md` |",
+                "| Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    old_codebase_scale = (
+        "**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | "
+        "216,000+ test functions | 5,078 test files | 3,386 API operations across "
+        "2,928 paths | canonical counts in `docs/METRICS.md`"
+    )
+    old_test_suite = (
+        "**Test Suite:** 216,000+ test functions across 5,078 test files "
+        "(canonical counts in `docs/METRICS.md`)"
+    )
+    (root / "CLAUDE.md").write_text(
+        "\n".join(
+            [
+                old_codebase_scale,
+                "│       └── adapters/       # KM adapters (42 registered)",
+                "│   ├── unified_server.py   # Main server (3,386 API operations)",
+                old_test_suite,
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "ROOT", root)
+    stats = mod.Stats(
+        python_modules=4256,
+        test_count=163898,
+        test_files=5916,
+        api_paths=2870,
+        api_operations=3297,
+        ws_event_types=272,
+        km_adapters_registered=0,
+        workflow_templates=62,
+        ts_namespaces=191,
+        agent_types_allowlisted=35,
+    )
+
+    mod.patch_docs(stats, write=True)
+
+    claude = (root / "CLAUDE.md").read_text(encoding="utf-8")
+    assert old_codebase_scale in claude
+    assert old_test_suite in claude
+    assert "3,386 API operations" in claude

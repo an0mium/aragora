@@ -103,11 +103,13 @@ def test_docs_site_sync_creates_linked_status_and_planning_pages() -> None:
         DOCS_SITE_ROOT / "contributing" / "extended-readme.md",
         DOCS_SITE_ROOT / "contributing" / "feature-discovery.md",
         DOCS_SITE_ROOT / "contributing" / "feature-gap-list.md",
+        DOCS_SITE_ROOT / "contributing" / "mission-cadence-m0-m1.md",
         DOCS_SITE_ROOT / "contributing" / "next-steps-canonical.md",
         DOCS_SITE_ROOT / "contributing" / "pmf-dogfood-execution-plan.md",
         DOCS_SITE_ROOT / "contributing" / "pmf-scorecard.md",
         DOCS_SITE_ROOT / "contributing" / "roadmap.md",
         DOCS_SITE_ROOT / "contributing" / "roadmap-intake-register.md",
+        DOCS_SITE_ROOT / "contributing" / "strategy-as-bounded-mission-cadence-design.md",
         DOCS_SITE_ROOT / "contributing" / "tw03-rescue-productization-status.md",
         DOCS_SITE_ROOT / "guides" / "conductor-workflow.md",
         DOCS_SITE_ROOT / "guides" / "marketplace.md",
@@ -129,6 +131,19 @@ def test_active_execution_links_to_synced_roadmap_intake_register() -> None:
     assert "[Roadmap intake register](./roadmap-intake-register)" in roadmap
     assert "ROADMAP_INTAKE_REGISTER.md" not in active
     assert "docs/status/ROADMAP_INTAKE_REGISTER.md" not in roadmap
+
+
+def test_roadmap_intake_register_links_to_synced_superpowers_pages() -> None:
+    content = _read_docs_site("contributing/roadmap-intake-register.md")
+
+    assert (
+        "[`docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md`]"
+        "(./strategy-as-bounded-mission-cadence-design)"
+    ) in content
+    assert (
+        "[`docs/superpowers/plans/2026-06-26-mission-cadence-m0-m1.md`](./mission-cadence-m0-m1)"
+    ) in content
+    assert "../superpowers/" not in content
 
 
 def test_cli_reference_preserves_generated_catalog_description() -> None:

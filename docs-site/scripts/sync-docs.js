@@ -377,6 +377,10 @@ const DOC_MAP = {
   'plans/PMF_DOGFOOD_EXECUTION_PLAN.md': 'contributing/pmf-dogfood-execution-plan.md',
   'plans/2026-03-26-pmf-14-day-execution-plan.md':
     'contributing/2026-03-26-pmf-14-day-execution-plan.md',
+  'superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md':
+    'contributing/strategy-as-bounded-mission-cadence-design.md',
+  'superpowers/plans/2026-06-26-mission-cadence-m0-m1.md':
+    'contributing/mission-cadence-m0-m1.md',
   'guides/CONDUCTOR_WORKFLOW.md': 'guides/conductor-workflow.md',
   'guides/SWARM_DOGFOOD_OPERATOR.md': 'guides/swarm-dogfood-operator.md',
   'guides/WORKER_PROMPT_PACK.md': 'guides/worker-prompt-pack.md',

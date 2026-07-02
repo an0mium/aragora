@@ -105,9 +105,9 @@ Do not implement from this section.
 Bounded, exit-gated sub-missions for the "useful + unique" strategy mission.
 Advanced one at a time on a standing cadence; row N+1 stays `queued` until row
 N's external-proof gate verifies. See the design spec
-([`docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md`](../superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md))
+([`docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md`](./strategy-as-bounded-mission-cadence-design))
 and the M0+M1 plan
-([`docs/superpowers/plans/2026-06-26-mission-cadence-m0-m1.md`](../superpowers/plans/2026-06-26-mission-cadence-m0-m1.md))
+([`docs/superpowers/plans/2026-06-26-mission-cadence-m0-m1.md`](./mission-cadence-m0-m1))
 for the cadence mechanism.
 
 | id | title | tier | status | external-proof gate | tracking |
