@@ -175,8 +175,35 @@ def test_consult_enforces_overall_timeout_before_fallbacks(monkeypatch) -> None:
     assert "overall consult timeout exhausted before attempt" in result["error"]
 
 
+def test_consult_default_budget_allows_fallback_after_primary_timeout(monkeypatch) -> None:
+    cli_models: list[str] = []
+    cli_timeouts: list[float] = []
+    monotonic_values = iter([0.0, 0.0, 10.0])
+
+    def fake_cli(_prompt: str, model: str, timeout: float) -> dict:
+        cli_models.append(model)
+        cli_timeouts.append(timeout)
+        if model == consult_claude.DEFAULT_MODEL:
+            return {"ok": False, "backend": "cli", "timed_out": True, "error": "timeout"}
+        return {"ok": True, "backend": "cli", "text": "fallback cli answer", "elapsed_s": 0.1}
+
+    monkeypatch.setattr(consult_claude.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(consult_claude, "_run_cli", fake_cli)
+
+    result = consult_claude.consult("question", timeout=10)
+
+    assert result["ok"] is True
+    assert result["model"] == consult_claude.FALLBACK_MODEL
+    assert cli_models == [consult_claude.DEFAULT_MODEL, consult_claude.FALLBACK_MODEL]
+    assert cli_timeouts == [10, 10]
+
+
 def test_consult_reports_timeout_only_when_all_attempts_timeout(monkeypatch) -> None:
-    def fake_cli(_prompt: str, model: str, _timeout: float) -> dict:
+    attempt_timeouts: list[float] = []
+    monotonic_values = iter([0.0, 0.0, 10.0, 20.0, 30.0])
+
+    def fake_cli(_prompt: str, model: str, timeout: float) -> dict:
+        attempt_timeouts.append(timeout)
         return {
             "ok": False,
             "backend": "cli",
@@ -184,8 +211,9 @@ def test_consult_reports_timeout_only_when_all_attempts_timeout(monkeypatch) -> 
             "error": f"{model} timed out",
         }
 
-    def fake_api(_prompt: str, model: str, _timeout: float, *, system: str | None = None) -> dict:
+    def fake_api(_prompt: str, model: str, timeout: float, *, system: str | None = None) -> dict:
         del system
+        attempt_timeouts.append(timeout)
         return {
             "ok": False,
             "backend": "api",
@@ -195,6 +223,7 @@ def test_consult_reports_timeout_only_when_all_attempts_timeout(monkeypatch) -> 
 
     monkeypatch.setattr(consult_claude, "_run_cli", fake_cli)
     monkeypatch.setattr(consult_claude, "_run_api", fake_api)
+    monkeypatch.setattr(consult_claude.time, "monotonic", lambda: next(monotonic_values))
 
     result = consult_claude.consult("question")
 
@@ -206,6 +235,7 @@ def test_consult_reports_timeout_only_when_all_attempts_timeout(monkeypatch) -> 
         consult_claude.DEFAULT_MODEL,
         consult_claude.FALLBACK_MODEL,
     ]
+    assert attempt_timeouts == [600, 600, 600, 600]
 
 
 def test_run_cli_timeout_kills_process_group(monkeypatch) -> None:

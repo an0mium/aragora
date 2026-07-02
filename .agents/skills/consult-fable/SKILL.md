@@ -1,6 +1,6 @@
 ---
 name: consult-fable
-description: Bounded advisory consult of Claude Fable 5 from inside the aragora repo. Use when you are stuck on prioritization ("what should I work on next?"), need a second opinion on a design or a reviewer deadlock, want a plan sanity-checked, or were asked to "ask Claude / Fable" something. Runs scripts/consult_claude.py with per-attempt and total timeouts (defaults 600s), strict empty MCP config for CLI calls, and fail-closed backend attempts. Advice is input, not authority — it cannot approve merges, settle quorum, or override gates.
+description: Bounded advisory consult of Claude Fable 5 from inside the aragora repo. Use when you are stuck on prioritization ("what should I work on next?"), need a second opinion on a design or a reviewer deadlock, want a plan sanity-checked, or were asked to "ask Claude / Fable" something. Runs scripts/consult_claude.py with a per-attempt timeout and a derived total timeout, strict empty MCP config for CLI calls, and fail-closed backend attempts. Advice is input, not authority — it cannot approve merges, settle quorum, or override gates.
 license: MIT
 compatibility: Works with Codex (.agents/skills), Claude Code (.claude/skills), and any Agent Skills platform. Requires python3; uses the local `claude` CLI when present, then may use the Anthropic API via aragora's secrets manager unless disabled.
 metadata:
@@ -18,8 +18,11 @@ with no output. The tool passes the prompt via stdin, forwards `--model`,
 disables local MCP servers for CLI attempts, enforces per-attempt and overall
 timeouts, and falls back (claude CLI on `claude-opus-4-8`, then the Anthropic
 Messages API) if the primary attempt fails. `--timeout` is the maximum for a
-single backend attempt; `--overall-timeout` is the total consult budget shared
-across all CLI/API attempts.
+single backend attempt. By default, the total consult budget is derived from the
+enabled attempt plan (`--timeout` multiplied by CLI/API attempts), so the
+documented CLI primary -> CLI fallback -> API primary -> API fallback chain can
+still run after a full-timeout primary attempt. Pass `--overall-timeout` to set
+an explicit total cap shared across all attempts.
 
 API fallback can consume Anthropic API credits or billing when `ANTHROPIC_API_KEY`
 or aragora secrets are configured. Use `--no-api-fallback` when the consult must
@@ -30,14 +33,15 @@ stay CLI/subscription-only.
 From the repo root (any worktree):
 
 ```bash
-# Inline question, defaults: model claude-fable-5, timeout 600s, overall timeout 600s
+# Inline question, defaults: model claude-fable-5, timeout 600s per attempt
+# Default total budget is timeout multiplied by enabled backend attempts.
 python3 scripts/consult_claude.py "One-paragraph question with the live state inlined."
 
 # Long prompt from a file, machine-readable result
 python3 scripts/consult_claude.py --prompt-file /tmp/question.md --json
 
 # Bigger total budget for a hard question
-python3 scripts/consult_claude.py --timeout 300 --overall-timeout 900 --prompt-file /tmp/question.md
+python3 scripts/consult_claude.py --timeout 300 --overall-timeout 1200 --prompt-file /tmp/question.md
 
 # CLI-only consult with no paid API fallback
 python3 scripts/consult_claude.py --no-api-fallback --prompt-file /tmp/question.md

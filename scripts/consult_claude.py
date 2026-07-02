@@ -23,7 +23,7 @@ Examples::
 
     python scripts/consult_claude.py "Which PR should I settle next?"
     python scripts/consult_claude.py --prompt-file /tmp/question.md --json
-    echo "$QUESTION" | python scripts/consult_claude.py --timeout 300 --overall-timeout 900
+    echo "$QUESTION" | python scripts/consult_claude.py --timeout 300 --overall-timeout 1200
 """
 
 from __future__ import annotations
@@ -50,7 +50,6 @@ if str(_REPO_ROOT) not in sys.path:
 DEFAULT_MODEL = "claude-fable-5"
 FALLBACK_MODEL = "claude-opus-4-8"
 DEFAULT_TIMEOUT_SECONDS = 600
-DEFAULT_OVERALL_TIMEOUT_SECONDS = 600
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 API_MAX_TOKENS = 8192
 
@@ -287,11 +286,35 @@ def _append_budget_exhausted(attempts: list[dict], *, model: str, backend: str) 
     )
 
 
+def _api_models(model: str, fallback_model: str | None) -> list[str]:
+    models: list[str] = []
+    for candidate in (model, fallback_model):
+        if candidate and candidate not in models:
+            models.append(candidate)
+    return models
+
+
+def _planned_attempt_count(*, model: str, fallback_model: str | None, api_fallback: bool) -> int:
+    cli_attempts = 1 + int(bool(fallback_model and fallback_model != model))
+    api_attempts = len(_api_models(model, fallback_model)) if api_fallback else 0
+    return cli_attempts + api_attempts
+
+
+def _default_overall_timeout(
+    *, timeout: float, model: str, fallback_model: str | None, api_fallback: bool
+) -> float:
+    return timeout * _planned_attempt_count(
+        model=model,
+        fallback_model=fallback_model,
+        api_fallback=api_fallback,
+    )
+
+
 def consult(
     prompt: str,
     model: str = DEFAULT_MODEL,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
-    overall_timeout: float = DEFAULT_OVERALL_TIMEOUT_SECONDS,
+    overall_timeout: float | None = None,
     fallback_model: str | None = FALLBACK_MODEL,
     system: str | None = None,
     api_fallback: bool = True,
@@ -299,12 +322,21 @@ def consult(
     """Run the consult across backends and return the first success.
 
     ``timeout`` is the per-attempt ceiling. ``overall_timeout`` is the total
-    consult budget shared by every CLI/API attempt.
+    consult budget shared by every CLI/API attempt. When omitted, the default
+    budget is derived from the enabled attempt plan so each documented fallback
+    path can still run after a full-timeout primary attempt.
     """
     if system:
         prompt = f"{system}\n\n---\n\n{prompt}"
     attempts: list[dict] = []
     started = time.monotonic()
+    if overall_timeout is None:
+        overall_timeout = _default_overall_timeout(
+            timeout=timeout,
+            model=model,
+            fallback_model=fallback_model,
+            api_fallback=api_fallback,
+        )
     attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
     if attempt_timeout <= 0:
         _append_budget_exhausted(attempts, model=model, backend="cli")
@@ -370,8 +402,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--overall-timeout",
         type=float,
-        default=DEFAULT_OVERALL_TIMEOUT_SECONDS,
-        help=f"Hard total consult timeout in seconds (default {DEFAULT_OVERALL_TIMEOUT_SECONDS})",
+        default=None,
+        help=(
+            "Hard total consult timeout in seconds "
+            "(default: --timeout multiplied by enabled backend attempts)"
+        ),
     )
     parser.add_argument("--system", help="Optional system-style preamble prepended to the prompt")
     parser.add_argument(
@@ -385,7 +420,9 @@ def main(argv: list[str] | None = None) -> int:
     if not math.isfinite(args.timeout) or args.timeout <= 0:
         print("error: --timeout must be a positive finite number", file=sys.stderr)
         return EXIT_USAGE
-    if not math.isfinite(args.overall_timeout) or args.overall_timeout <= 0:
+    if args.overall_timeout is not None and (
+        not math.isfinite(args.overall_timeout) or args.overall_timeout <= 0
+    ):
         print("error: --overall-timeout must be a positive finite number", file=sys.stderr)
         return EXIT_USAGE
 
