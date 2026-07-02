@@ -12,6 +12,14 @@ modules for the memory-sync and belief-network handlers. The ELO → debate,
 calibration → agent, consensus → learning, and agent message → rhetorical
 reactions relocated to ``aragora.debate.event_subscribers`` (P4a Batch E4
 relocate-UP); see that module for those handlers.
+
+The unregistered ``_handle_debate_end_to_workflow`` delegate (dead at runtime -
+it instantiated a throwaway ``PostDebateWorkflowSubscriber`` on every call but
+was never wired into ``CrossSubscriberManager``) was removed by the P4a Batch
+E5 coupling inversion rather than relocated: ``aragora.workflow.event_subscribers``
+now wires the single registered ``DEBATE_END`` → workflow-automation
+subscriber via the domain-free event bus, so this module keeps no direct
+import of (or edge to) workflow code.
 """
 
 from __future__ import annotations
@@ -208,28 +216,3 @@ class BasicHandlersMixin:
             f"Debate ended for explainability: {debate_id} "
             f"consensus={consensus} confidence={confidence:.2f}"
         )
-
-    def _handle_debate_end_to_workflow(self, event: StreamEvent) -> None:
-        """Debate end -> post-debate workflow automation.
-
-        Delegates to PostDebateWorkflowSubscriber to classify the debate
-        outcome and trigger the appropriate workflow template.
-        """
-        try:
-            from aragora.events.subscribers.workflow_automation import (
-                PostDebateWorkflowSubscriber,
-            )
-
-            subscriber = PostDebateWorkflowSubscriber()
-            subscriber.handle_debate_end(event)
-
-            logger.debug(
-                "Post-debate workflow processed: events=%d workflows=%d errors=%d",
-                subscriber.stats["events_processed"],
-                subscriber.stats["workflows_triggered"],
-                subscriber.stats["errors"],
-            )
-        except ImportError:
-            logger.debug("PostDebateWorkflowSubscriber not available")
-        except (KeyError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("Debate end -> workflow handler error: %s", e)

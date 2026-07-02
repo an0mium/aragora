@@ -379,17 +379,24 @@ def bootstrap_debate_event_subscribers() -> CrossSubscriberManager:
     """Import domain event-subscriber home modules and wire them into the manager.
 
     Idempotent (registration is keyed by name). Wires knowledge, memory,
-    reasoning, and this module's own debate-domain subscriber. E5-E6 add further
-    ``import aragora.<domain>.event_subscribers`` lines here as remaining handlers
-    relocate to their (application/interface) home layers.
+    reasoning, and this module's own debate-domain subscriber. Further DOMAIN-tier
+    ``import aragora.<domain>.event_subscribers`` lines are added here as more
+    domain-coupled handlers relocate. APPLICATION/interface-tier homes (e.g.
+    ``aragora.workflow.event_subscribers``, P4a Batch E5) are deliberately NOT
+    imported here - importing an application-tier module from this domain-tier
+    bootstrap would recreate the very upward edge this inversion removes. They
+    are instead imported only by the interface-superset bootstrap
+    (``aragora.server.startup.event_subscribers.bootstrap_event_subscribers``);
+    a pure-domain debate with no workflow engine simply has no such reaction.
 
     Returns:
         The registry-backed cross-subscriber manager singleton.
     """
     # Domain home modules register their subscribers here. ``register()`` is called
     # explicitly (not just import side-effect) so registration survives a cached
-    # re-import after ``reset_registry`` in tests. More are added by E5-E6 as
-    # remaining (application/interface) handlers relocate.
+    # re-import after ``reset_registry`` in tests. More are added here as further
+    # DOMAIN-tier handlers relocate; application/interface-tier homes are wired
+    # only by the interface-superset bootstrap (see docstring above).
     from aragora.knowledge import event_subscribers as knowledge_home
     from aragora.memory import event_subscribers as memory_home
     from aragora.reasoning import event_subscribers as reasoning_home

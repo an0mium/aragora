@@ -109,6 +109,10 @@ GOLDEN_SUBSCRIBER_NAMES = frozenset(
 # -> aragora/debate/event_subscribers.py. events->debate is a shared edge (also
 # contributed by E7a security_dispatcher and E7b arena_bridge); only the last of
 # the three batches to land hand-shrinks the frozen baseline string.
+# E5: the workflow-coupled alert-escalation reaction embedded in the strategic
+# mixin -> aragora/workflow/event_subscribers.py (application-tier home, see
+# APPLICATION_TIER_SUBSCRIBER_NAMES below - it is wired only via the
+# interface-superset bootstrap, unlike E2-E4's domain-tier relocations).
 RELOCATED_SUBSCRIBER_NAMES = frozenset(
     {
         "memory_to_mound",
@@ -143,6 +147,20 @@ RELOCATED_SUBSCRIBER_NAMES = frozenset(
         "agent_message_to_rhetorical",
         "budget_alert_to_team_selection",
         "meta_learning_to_team_selection",
+        "alert_escalated_to_workflow_brake",
+    }
+)
+
+# Slice of RELOCATED_SUBSCRIBER_NAMES relocated to an APPLICATION (not domain)
+# home. These self-register via aragora/workflow/event_subscribers.py and are
+# wired ONLY by the interface-superset bootstrap
+# (aragora.server.startup.event_subscribers.bootstrap_event_subscribers), never
+# by the domain-subset bootstrap: a pure-library debate with no workflow
+# engine simply has no such reaction (matching the pre-inversion try/except
+# ImportError fallback). See docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.4.
+APPLICATION_TIER_SUBSCRIBER_NAMES = frozenset(
+    {
+        "alert_escalated_to_workflow_brake",
     }
 )
 
@@ -373,16 +391,62 @@ def test_relocated_reactions_registered_via_home_bootstrap():
     """E2+: relocated reactions self-register through their domain home module.
 
     The domain-subset bootstrap imports the domain home modules; every relocated
-    name must then be wired into the manager (parity for the relocated slice, so a
-    silently dropped home import is caught here and not only in the superset test).
+    DOMAIN-tier name must then be wired into the manager (parity for the relocated
+    slice, so a silently dropped home import is caught here and not only in the
+    superset test). APPLICATION_TIER_SUBSCRIBER_NAMES is excluded: those reactions
+    (e.g. alert_escalated_to_workflow_brake, P4a Batch E5) wire only via the
+    interface-superset bootstrap - see
+    ``test_application_tier_reactions_registered_via_superset_bootstrap``.
     """
     from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
 
     manager = bootstrap_debate_event_subscribers()
     registered = set(manager.get_stats())
 
-    missing = RELOCATED_SUBSCRIBER_NAMES - registered
+    missing = (RELOCATED_SUBSCRIBER_NAMES - APPLICATION_TIER_SUBSCRIBER_NAMES) - registered
     assert not missing, f"home bootstrap failed to wire relocated reactions: {sorted(missing)}"
+
+    leaked = APPLICATION_TIER_SUBSCRIBER_NAMES & registered
+    assert not leaked, (
+        "application-tier reactions must not be wired by the domain-subset "
+        f"bootstrap: {sorted(leaked)}"
+    )
+
+
+def test_application_tier_reactions_registered_via_superset_bootstrap():
+    """E5+: application-tier relocated reactions self-register through their
+    application home module, wired ONLY via the interface-superset bootstrap
+    (never the domain-subset one - see APPLICATION_TIER_SUBSCRIBER_NAMES)."""
+    from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+
+    manager = bootstrap_event_subscribers()
+    registered = set(manager.get_stats())
+
+    missing = APPLICATION_TIER_SUBSCRIBER_NAMES - registered
+    assert not missing, (
+        f"superset bootstrap failed to wire application-tier reactions: {sorted(missing)}"
+    )
+
+
+def test_superset_bootstrap_fails_closed_when_workflow_home_registration_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A missing workflow-home registration must fail instead of silently dropping it.
+
+    Mirrors the domain-subset fail-closed tests above, but for the
+    interface-superset bootstrap's own application-tier completeness check
+    (P4a Batch E5 is the first batch to add an application-home import there).
+    """
+    from aragora.events.cross_subscribers import reset_cross_subscriber_manager, reset_registry
+    from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+    from aragora.workflow import event_subscribers as workflow_home
+
+    reset_registry()
+    reset_cross_subscriber_manager()
+    monkeypatch.setattr(workflow_home, "register", lambda: None)
+
+    with pytest.raises(RuntimeError, match="Application event subscriber bootstrap incomplete"):
+        bootstrap_event_subscribers()
 
 
 def test_registry_module_has_zero_domain_imports():

@@ -9,7 +9,7 @@ The heavy lifting is delegated to specialized mixins:
 - AdminMixin: Stats reporting, enable/disable, sampling, filtering, retry config
 - BasicHandlersMixin: Core subsystem event handlers
 - CultureHandlersMixin: Culture pattern handlers
-- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis, alerts)
+- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis)
 """
 
 from __future__ import annotations
@@ -347,12 +347,11 @@ class CrossSubscriberManager(
         # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
         # bootstrap via apply_registered_subscribers, not registered here.
 
-        # Alert Escalated → Workflow Emergency Brake
-        self.register(
-            "alert_escalated_to_workflow_brake",
-            StreamEventType.ALERT_ESCALATED,
-            self._handle_alert_escalated_to_workflow_brake,
-        )
+        # Alert Escalated → Workflow Emergency Brake relocated to
+        # aragora.workflow.event_subscribers (P4a Batch E5 relocate-UP;
+        # application-tier home); wired at bootstrap via
+        # apply_registered_subscribers (interface-superset only - a pure-domain
+        # manager has no workflow engine to react through), not registered here.
 
         # Meta-Learning Adjusted → Team Selection Recalibration relocated to
         # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
