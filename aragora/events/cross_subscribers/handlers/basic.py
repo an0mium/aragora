@@ -4,21 +4,22 @@ Basic cross-subsystem event handlers.
 Handles core subsystem integrations:
 - Memory → RLM: Retrieval patterns inform compression strategies
 - Agent ELO → Debate: Performance updates team selection weights
-- Knowledge → Memory: Index updates sync to memory insights
 - Calibration → Agent: Confidence weight updates
-- Evidence → Insight: Extract insights from evidence
 - Webhook delivery: External system notifications
-- Mound → Memory: Structure updates sync
+
+The knowledge/evidence/mound → memory reactions and the vote → belief reaction
+relocated to their domain homes (``aragora.memory.event_subscribers`` and
+``aragora.reasoning.event_subscribers``, P4a Batch E3 relocate-UP); see those
+modules for the memory-sync and belief-network handlers.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 if TYPE_CHECKING:
     from aragora.events.types import StreamEvent
-    from aragora.memory.continuum import ContinuumMemory
 
 logger = logging.getLogger(__name__)
 
@@ -130,48 +131,6 @@ class BasicHandlersMixin:
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("AgentPool weight update failed: %s", e)
 
-    def _handle_knowledge_to_memory(self, event: StreamEvent) -> None:
-        """
-        Knowledge indexed → Memory sync.
-
-        When new knowledge is indexed, create corresponding
-        memory entries for cross-referencing in debates.
-        """
-        data = event.data
-        node_id = data.get("node_id", "")
-        content = data.get("content", "")
-        node_type = data.get("node_type", "fact")
-        workspace_id = data.get("workspace_id", "default")
-
-        logger.debug("Knowledge indexed: %s %s", node_type, node_id)
-
-        # Create memory entry referencing knowledge node
-        try:
-            from aragora.memory import get_continuum_memory
-
-            memory: ContinuumMemory | None = get_continuum_memory()
-            if memory:
-                # Store a reference to the knowledge node in memory
-                memory_content = f"[Knowledge:{node_type}] {content[:500]}"
-                entry_metadata: dict[str, Any] = {
-                    "source": "knowledge_mound",
-                    "node_id": node_id,
-                    "node_type": node_type,
-                    "workspace_id": workspace_id,
-                }
-                # Use synchronous add() since we're in a sync handler
-                memory.add(
-                    id=f"km_{node_id}",
-                    content=memory_content,
-                    importance=0.6,  # Default importance for knowledge references
-                    metadata=entry_metadata,
-                )
-                logger.debug("Created memory reference for knowledge node %s", node_id)
-        except ImportError:
-            pass  # ContinuumMemory not available
-        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug("Memory sync for knowledge failed: %s", e)
-
     def _handle_calibration_to_agent(self, event: StreamEvent) -> None:
         """
         Calibration update → Agent confidence weights.
@@ -205,56 +164,6 @@ class BasicHandlersMixin:
             pass  # AgentPool or get_agent_pool not available
         except (RuntimeError, TypeError, ValueError) as e:
             logger.debug("AgentPool calibration update failed: %s", e)
-
-    def _handle_evidence_to_insight(self, event: StreamEvent) -> None:
-        """
-        Evidence found → Insight extraction.
-
-        When new evidence is collected, attempt to extract
-        insights that can be stored in memory for future debates.
-        """
-        data = event.data
-        evidence_id = data.get("evidence_id", "")
-        source = data.get("source", "")
-        content = data.get("content", "")
-        claim = data.get("claim", "")
-        confidence = data.get("confidence", 0.5)
-
-        logger.debug("Evidence collected: %s from %s", evidence_id, source)
-
-        # Skip if no meaningful content
-        if not content or len(content) < 50:
-            return
-
-        # Store evidence-backed insight in memory
-        try:
-            from aragora.memory import get_continuum_memory
-
-            memory: ContinuumMemory | None = get_continuum_memory()
-            if memory and confidence >= 0.7:  # Only store high-confidence evidence
-                insight_content = (
-                    f"[Evidence from {source}] "
-                    f"Claim: {claim[:200] if claim else 'N/A'} | "
-                    f"Evidence: {content[:300]}"
-                )
-                insight_metadata: dict[str, Any] = {
-                    "source": source,
-                    "evidence_id": evidence_id,
-                    "confidence": confidence,
-                    "type": "evidence_insight",
-                }
-                # Use synchronous add() since we're in a sync handler
-                memory.add(
-                    id=f"evidence_{evidence_id}",
-                    content=insight_content,
-                    importance=confidence,
-                    metadata=insight_metadata,
-                )
-                logger.debug("Stored evidence insight from %s", source)
-        except ImportError:
-            pass  # ContinuumMemory not available
-        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
-            logger.debug("Evidence insight storage failed: %s", e)
 
     def _handle_webhook_delivery(self, event: StreamEvent) -> None:
         """
@@ -301,43 +210,6 @@ class BasicHandlersMixin:
             logger.debug("Webhook modules not available for event delivery")
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             logger.debug("Webhook delivery handler error: %s", e)
-
-    def _handle_mound_to_memory(self, event: StreamEvent) -> None:
-        """
-        Mound structure update → Memory/Debate sync.
-
-        When the Knowledge Mound structure changes significantly,
-        notify memory and debate systems to refresh their context.
-        """
-        data = event.data
-        update_type = data.get("update_type", "unknown")
-        workspace_id = data.get("workspace_id", "")
-
-        logger.debug("Mound updated: type=%s, workspace=%s", update_type, workspace_id)
-
-        # Handle culture pattern updates
-        if update_type == "culture_patterns":
-            patterns_count = data.get("patterns_count", 0)
-            debate_id = data.get("debate_id", "")
-            logger.info(
-                "Culture patterns updated: %s patterns from debate %s", patterns_count, debate_id
-            )
-
-        # Handle node deletions
-        elif update_type == "node_deleted":
-            node_id = data.get("node_id", "")
-            archived = data.get("archived", False)
-            logger.debug("Knowledge node removed: %s (archived=%s)", node_id, archived)
-
-            # Clear any cached references to this node
-            try:
-                from aragora.memory import get_continuum_memory
-
-                memory = get_continuum_memory()
-                if memory and hasattr(memory, "invalidate_reference"):
-                    memory.invalidate_reference(node_id)
-            except (ImportError, AttributeError):
-                pass
 
     def _handle_gauntlet_complete_to_notification(self, event: StreamEvent) -> None:
         """Gauntlet complete → Notification dispatch.
@@ -466,37 +338,6 @@ class BasicHandlersMixin:
             pass  # RhetoricalObserver not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("Rhetorical analysis failed: %s", e)
-
-    def _handle_vote_to_belief(self, event: StreamEvent) -> None:
-        """Vote → Belief network update.
-
-        When an agent casts a vote, update the belief network
-        with the position endorsement.
-        """
-        data = event.data
-        agent_name = data.get("agent", "")
-        position = data.get("position", "")
-        confidence = data.get("confidence", 0.5)
-        debate_id = data.get("debate_id", "")
-
-        if not position:
-            return
-
-        try:
-            from aragora.reasoning.belief import BeliefNetwork
-
-            network = BeliefNetwork()
-            if hasattr(network, "update_belief"):
-                network.update_belief(
-                    agent=agent_name,
-                    position=position,
-                    confidence=confidence,
-                    debate_id=debate_id,
-                )
-        except ImportError:
-            pass  # BeliefNetwork not available
-        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("Belief network update failed: %s", e)
 
     def _handle_debate_end_to_explainability(self, event: StreamEvent) -> None:
         """Debate end → Explainability auto-trigger.

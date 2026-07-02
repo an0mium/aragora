@@ -210,12 +210,9 @@ class CrossSubscriberManager(
             self._handle_elo_to_debate,
         )
 
-        # Knowledge → Memory sync
-        self.register(
-            "knowledge_to_memory",
-            StreamEventType.KNOWLEDGE_INDEXED,
-            self._handle_knowledge_to_memory,
-        )
+        # Knowledge → Memory sync relocated to aragora.memory.event_subscribers
+        # (P4a Batch E3 relocate-UP); wired at bootstrap via
+        # apply_registered_subscribers, not registered here.
 
         # Calibration → Agent weights
         self.register(
@@ -224,19 +221,9 @@ class CrossSubscriberManager(
             self._handle_calibration_to_agent,
         )
 
-        # Evidence → Insight extraction
-        self.register(
-            "evidence_to_insight",
-            StreamEventType.EVIDENCE_FOUND,
-            self._handle_evidence_to_insight,
-        )
-
-        # Mound structure → Memory/Debate sync
-        self.register(
-            "mound_to_memory",
-            StreamEventType.MOUND_UPDATED,
-            self._handle_mound_to_memory,
-        )
+        # Evidence → Insight extraction and Mound structure → Memory/Debate sync
+        # relocated to aragora.memory.event_subscribers (P4a Batch E3 relocate-UP);
+        # wired at bootstrap via apply_registered_subscribers, not registered here.
 
         # Bidirectional Knowledge Mound reactions relocated to their domain home
         # (aragora.knowledge.event_subscribers, P4a E2 relocate-UP): they self-register
@@ -304,12 +291,9 @@ class CrossSubscriberManager(
             self._handle_agent_message_to_rhetorical,
         )
 
-        # Vote → Belief Network
-        self.register(
-            "vote_to_belief",
-            StreamEventType.VOTE,
-            self._handle_vote_to_belief,
-        )
+        # Vote → Belief Network relocated to aragora.reasoning.event_subscribers
+        # (P4a Batch E3 relocate-UP); wired at bootstrap via
+        # apply_registered_subscribers, not registered here.
 
         # Workflow Complete/Failed → Supermemory and Memory Tier
         # Demotion/Promotion → Knowledge Mound all relocated to

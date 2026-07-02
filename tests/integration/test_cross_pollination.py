@@ -117,8 +117,8 @@ class TestEventFlowIntegration:
                 data={"agent": "gpt", "elo": 1550, "delta": -25},
             ),
             StreamEvent(
-                type=StreamEventType.KNOWLEDGE_INDEXED,
-                data={"node_id": "kn_002", "content": "Test", "node_type": "claim"},
+                type=StreamEventType.CALIBRATION_UPDATE,
+                data={"agent": "gpt", "score": 0.8},
             ),
         ]
 
@@ -130,7 +130,7 @@ class TestEventFlowIntegration:
         # Check that built-in handlers processed events
         assert stats["memory_to_rlm"]["events_processed"] == 1
         assert stats["elo_to_debate"]["events_processed"] == 1
-        assert stats["knowledge_to_memory"]["events_processed"] == 1
+        assert stats["calibration_to_agent"]["events_processed"] == 1
 
     def test_event_emitter_connection(self):
         """Test manager connects to and receives from event emitter."""
