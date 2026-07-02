@@ -186,7 +186,8 @@ class TestPRMergeResolution:
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
         assert result.resolution_value is False
-        assert "can reopen" in result.evidence
+        # Wording updated in 332c8130 (names expiry as the expected outcome).
+        assert "reopened before expiry" in result.evidence
 
     def test_opened_action_not_terminal(self):
         r = GitHubEventResolver()
