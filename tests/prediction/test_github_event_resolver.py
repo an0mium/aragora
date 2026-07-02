@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -254,7 +255,18 @@ class TestPRMergeResolution:
         assert result.resolved is False
         assert "after claim expiry" in result.evidence
 
-    def test_already_expired_claim_does_not_resolve_from_historical_event(self):
+    def test_historical_in_window_event_resolves_open_claim(self):
+        # CONTRACT CHANGE (adjudicated, PR #8519 — operator-requested design
+        # adjudication comment): expiry is gated on EVENT time, not wall-clock
+        # processing time.  "Truth is determined by event-time; finality is
+        # determined by processing-time."  This test previously characterized
+        # the claims-made model (test_already_expired_claim_does_not_resolve_
+        # from_historical_event) and asserted that an event occurring BEFORE
+        # the (now-past) expiry left the claim unresolved.  Under the
+        # adjudicated occurrence model, an in-window event resolves a claim
+        # that is still OPEN, even when processed after wall-clock expiry
+        # (webhook lag/redelivery).  Processing-time finality is enforced by
+        # the store sweeper's grace window (expire_stale), not the resolver.
         r = GitHubEventResolver()
         claim = StakeableClaim(
             claim_id="stale-pr",
@@ -271,8 +283,9 @@ class TestPRMergeResolution:
             merged=True,
         )
         result = r.resolve_from_event(claim, event)
-        assert result.resolved is False
-        assert "already expired" in result.evidence
+        assert result.resolved is True
+        assert result.resolution_value is True
+        assert "merged" in result.evidence
 
     def test_missing_event_timestamp_does_not_resolve(self):
         r = GitHubEventResolver()
@@ -560,3 +573,166 @@ class TestResolverWithStore:
         resolved = store.get("e2e-2")
         assert resolved.resolution_status == ResolutionStatus.RESOLVED_NO
         assert resolved.resolution_value is False
+
+
+# ---------------------------------------------------------------------------
+# Event-time resolution with finality guards (adjudicated design, PR #8519)
+# ---------------------------------------------------------------------------
+
+
+class TestEventTimeResolution:
+    """Truth by event-time; finality by processing-time (PR #8519 adjudication)."""
+
+    def test_in_window_event_processed_late_resolves(self):
+        # Webhook lag/redelivery: the merge occurred inside the claim window,
+        # but delivery is processed hours after wall-clock expiry — resolves.
+        r = GitHubEventResolver()
+        claim = StakeableClaim(
+            claim_id="late-delivery",
+            question="Will a/b#20 merge?",
+            question_type=QuestionType.PR_MERGE,
+            target_ref="a/b#20",
+            expiry=(_NOW - timedelta(hours=2)).isoformat(),
+        )
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#20",
+            occurred_at=(_NOW - timedelta(hours=3)).isoformat(),
+            merged=True,
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is True
+        assert result.resolution_value is True
+
+    def test_out_of_window_event_does_not_resolve_past_expiry_claim(self):
+        # Event occurred AFTER the (already past) expiry — non-qualifying.
+        r = GitHubEventResolver()
+        claim = StakeableClaim(
+            claim_id="out-of-window",
+            question="Will a/b#21 merge?",
+            question_type=QuestionType.PR_MERGE,
+            target_ref="a/b#21",
+            expiry=(_NOW - timedelta(hours=3)).isoformat(),
+        )
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#21",
+            occurred_at=(_NOW - timedelta(hours=1)).isoformat(),
+            merged=True,
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert "after claim expiry" in result.evidence
+
+    def test_late_evidence_for_expired_claim_logs_side_output(self, caplog):
+        # Late evidence for an already-voided claim is an auditable
+        # side-output: structured warning, no raise, no resurrection.
+        r = GitHubEventResolver()
+        claim = StakeableClaim(
+            claim_id="voided-1",
+            question="Will a/b#22 merge?",
+            question_type=QuestionType.PR_MERGE,
+            target_ref="a/b#22",
+            expiry=_PAST,
+            resolution_status=ResolutionStatus.EXPIRED,
+        )
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#22",
+            occurred_at=_BEFORE_PAST,
+            merged=True,
+        )
+        with caplog.at_level(logging.WARNING, logger="aragora.prediction.github_event_resolver"):
+            result = r.resolve_from_event(claim, event)
+        assert result.resolved is False
+        assert claim.resolution_status == ResolutionStatus.EXPIRED
+        assert any(
+            "prediction.late_event" in rec.message and "voided-1" in rec.getMessage()
+            for rec in caplog.records
+        )
+
+
+class TestSweeperGraceWindow:
+    """expire_stale voids only past expiry + grace (default 24h)."""
+
+    def test_sweeper_honors_default_grace(self):
+        store = InMemoryStakeableClaimStore()
+        recently = _open_claim(claim_id="recently-expired")
+        recently.expiry = (_NOW - timedelta(hours=1)).isoformat()
+        long_past = _open_claim(claim_id="long-expired")
+        long_past.expiry = (_NOW - timedelta(hours=25)).isoformat()
+        store.add(recently)
+        store.add(long_past)
+
+        expired = store.expire_stale()
+        # Within grace: still OPEN so a late-delivered in-window event can resolve.
+        assert "recently-expired" not in expired
+        assert store.get("recently-expired").resolution_status == ResolutionStatus.OPEN
+        # Past expiry + grace: voided.
+        assert "long-expired" in expired
+        assert store.get("long-expired").resolution_status == ResolutionStatus.EXPIRED
+
+    def test_sweeper_grace_accepts_seconds(self):
+        store = InMemoryStakeableClaimStore()
+        claim = _open_claim(claim_id="secs-grace")
+        claim.expiry = (_NOW - timedelta(hours=1)).isoformat()
+        store.add(claim)
+        assert store.expire_stale(grace=7200) == []  # 2h grace: still open
+        assert store.expire_stale(grace=0) == ["secs-grace"]  # no grace: voided
+
+
+class TestSettlementRaces:
+    """Resolver settles only OPEN; sweeper voids only OPEN — loser no-ops."""
+
+    def test_resolve_then_sweep_noops_sweeper(self):
+        store = InMemoryStakeableClaimStore()
+        claim = _open_claim(claim_id="race-1", target_ref="a/b#30")
+        claim.expiry = (_NOW - timedelta(hours=1)).isoformat()
+        store.add(claim)
+
+        r = GitHubEventResolver()
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#30",
+            occurred_at=(_NOW - timedelta(hours=2)).isoformat(),
+            merged=True,
+        )
+        result = r.resolve_from_event(claim, event)
+        assert result.resolved
+        store.resolve("race-1", result.resolution_value, result.evidence)
+
+        # Sweeper runs after settlement: must no-op, never overwrite.
+        assert store.expire_stale(grace=0) == []
+        assert store.get("race-1").resolution_status == ResolutionStatus.RESOLVED_YES
+        assert store.get("race-1").resolution_value is True
+
+    def test_sweep_then_resolve_noops_resolver(self):
+        store = InMemoryStakeableClaimStore()
+        claim = _open_claim(claim_id="race-2", target_ref="a/b#31")
+        claim.expiry = (_NOW - timedelta(hours=25)).isoformat()
+        store.add(claim)
+
+        assert store.expire_stale() == ["race-2"]
+        assert store.get("race-2").resolution_status == ResolutionStatus.EXPIRED
+
+        # Resolver sees the settled claim: side-output only, no resurrection.
+        r = GitHubEventResolver()
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#31",
+            occurred_at=(_NOW - timedelta(hours=26)).isoformat(),
+            merged=True,
+        )
+        result = r.resolve_from_event(store.get("race-2"), event)
+        assert result.resolved is False
+        assert "already expired" in result.evidence
+        # Store-level CAS guard: attempting to settle raises, state intact.
+        with pytest.raises(ValueError, match="already"):
+            store.resolve("race-2", True, "late")
+        assert store.get("race-2").resolution_status == ResolutionStatus.EXPIRED
+        assert store.get("race-2").resolution_value is None

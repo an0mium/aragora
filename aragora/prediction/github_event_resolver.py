@@ -11,6 +11,7 @@ Advances: issue #6065 (AGT-04), sub-deliverable 2 — GitHub event resolution.
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -23,6 +24,8 @@ from aragora.prediction.stakeable_claim import (
 )
 
 _ENV_FLAG = "ARAGORA_PREDICTION_MARKETS_ENABLED"
+
+logger = logging.getLogger(__name__)
 
 
 def _flag_enabled() -> bool:
@@ -119,13 +122,30 @@ class GitHubEventResolver:
         Returns a :class:`ResolutionResult`.  When the event is not
         applicable, ``resolved=False`` is returned instead of raising.
 
-        Expired claims are left unresolved here for the claim store's expiry
-        path; this adapter only resolves matching events for currently open,
-        unexpired claims.
+        Expiry is gated on *event time* (adjudicated design, PR #8519): an
+        event that occurred at or before the claim's expiry qualifies even
+        when it is processed after that expiry has passed on the wall clock
+        (webhook lag, redelivery, replay).  Processing-time finality is
+        enforced by the store sweeper's grace window, not here.
+
+        Evidence arriving for a claim that is already settled
+        (EXPIRED/RESOLVED_*) is emitted as an auditable side-output — a
+        structured warning log — and never resurrects the claim.
         """
         _require_enabled()
 
         if claim.resolution_status != ResolutionStatus.OPEN:
+            # Late-event side-output (adjudicated design, PR #8519):
+            # auditable log, never raises, never resurrects a settled claim.
+            logger.warning(
+                "prediction.late_event: evidence arrived for settled claim "
+                "claim_id=%s status=%s occurred_at=%s expiry=%s; "
+                "side-output only, claim is not resurrected",
+                claim.claim_id,
+                claim.resolution_status.value,
+                event.occurred_at or "<missing>",
+                claim.expiry,
+            )
             return ResolutionResult(
                 claim_id=claim.claim_id,
                 resolved=False,
@@ -169,6 +189,18 @@ class GitHubEventResolver:
     def _check_expiry(
         self, claim: StakeableClaim, event: GitHubEventPayload
     ) -> ResolutionResult | None:
+        """Event-time expiry gate (adjudicated design, PR #8519).
+
+        Truth is determined by event time; finality by processing time.
+        This gate never consults wall-clock ``now()``: an event with
+        ``occurred_at <= expiry`` qualifies (returns None so per-type
+        resolution proceeds) even when processed after the expiry has
+        passed, because GitHub webhooks can lag or be redelivered.  An
+        event with ``occurred_at > expiry`` is non-qualifying.  A missing
+        or unparseable event timestamp fails closed (unresolved, with
+        evidence).  Processing-time finality is bounded by the store
+        sweeper's grace window (``expire_stale``), not here.
+        """
         expiry_dt = self._parse_datetime(claim.expiry)
         if expiry_dt is None:
             return ResolutionResult(
@@ -176,16 +208,6 @@ class GitHubEventResolver:
                 resolved=False,
                 resolution_value=False,
                 evidence=f"Claim expiry {claim.expiry!r} is invalid; cannot resolve safely.",
-            )
-        if datetime.now(tz=UTC) > expiry_dt:
-            return ResolutionResult(
-                claim_id=claim.claim_id,
-                resolved=False,
-                resolution_value=False,
-                evidence=(
-                    f"Claim already expired at {expiry_dt.isoformat()}; "
-                    "leaving unresolved for expiry handling."
-                ),
             )
         event_dt = self._parse_event_time(event)
         if event_dt is None:
