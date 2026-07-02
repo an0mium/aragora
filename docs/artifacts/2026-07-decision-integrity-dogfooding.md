@@ -1,4 +1,4 @@
-# Decision Integrity, Dogfooded: 30 Days of Receipted Merges
+# Decision Integrity, Dogfooded: Our Merges Are Gated by Our Own Product
 
 **Date:** 2026-07-02
 **Repo:** [synaptent/aragora](https://github.com/synaptent/aragora)
@@ -12,14 +12,19 @@ Aragora sells decision integrity: adversarial multi-model review of a decision,
 severity-classified dissent, tiered settlement, and a verifiable receipt.
 
 The proof no vendor can fake with a demo: **this repository's own merge pipeline
-runs on that product.** For the last 30 days, the merges that built Aragora were
-gated by Aragora — heterogeneous frontier-model quorums reviewing every
-substantive PR at its exact head commit, dissent blocking or reshaping the code,
-and machine-verifiable receipts written for settlements and merges.
+runs on that product.** Over the 30-day window measured below (2026-06-02 to
+2026-07-02), heterogeneous frontier-model quorums reviewed substantive PRs at
+their exact head commits and dissent blocked or reshaped the code. The pipeline
+hardened as it went — severity-classified dissent and the tiered merge gate
+rolled out Jun 24–26, and the receipted autonomous merge executor was armed
+Jul 2 — so the strongest guarantees cover the most recent merges, and the
+numbers below span mechanisms of increasing strictness rather than one uniform
+gate across all 30 days.
 
 Everything below is drawn from the public PR/issue record of this repository and
 from artifacts committed to its branches. Every number has a query you can run
-yourself; every quote links to the comment it came from.
+yourself; every quote links to its source — a PR/issue comment or, where noted,
+a commit message.
 
 ## The mechanism
 
@@ -201,16 +206,23 @@ carries three `DecisionReceipt` JSONs under `docs/elves/receipts/`:
 | `b4-8768-settlement.json` | Harvest-engine PR #8768, Tier 2 | PASS, confidence 0.9 | claude+openai 2–0 at head `b15dd673` |
 | `b6-cleanup-batch1.json` | Cleanup batch 1 (Tier 4, operator-authorized) | PASS, confidence 0.85 | operator G1/G2 |
 
-All three verify with the in-tree verifier — re-run it yourself:
+All three verify with the in-tree verifier — re-run it yourself against every
+receipt in the directory:
 
 ```bash
 git fetch origin elves/close-the-loop-20260701
-git show FETCH_HEAD:docs/elves/receipts/b3-8767-settlement.json > /tmp/b3.json
+for f in b3-8767-settlement b4-8768-settlement b6-cleanup-batch1; do
+  git show FETCH_HEAD:docs/elves/receipts/$f.json > /tmp/$f.json
+done
 python3 - <<'EOF'
 import json
 from aragora.gauntlet.receipt_models import DecisionReceipt
-r = DecisionReceipt.from_dict(json.load(open("/tmp/b3.json")))
-print(r.verdict, r.verify_integrity())   # -> PASS True
+for f in ("b3-8767-settlement", "b4-8768-settlement", "b6-cleanup-batch1"):
+    r = DecisionReceipt.from_dict(json.load(open(f"/tmp/{f}.json")))
+    print(f, r.verdict, r.verify_integrity())
+# -> b3-8767-settlement PASS True
+# -> b4-8768-settlement PASS True
+# -> b6-cleanup-batch1 PASS True
 EOF
 ```
 
