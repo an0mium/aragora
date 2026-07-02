@@ -174,6 +174,17 @@ def _count_tests() -> int:
         return total
 
 
+def _count_test_files() -> int:
+    try:
+        out = subprocess.check_output(["git", "ls-files", "tests"], cwd=ROOT, text=True)
+        return sum(1 for line in out.splitlines() if re.search(r"(^|/)test_[^/]*\.py$", line))
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        tests_dir = ROOT / "tests"
+        if not tests_dir.exists():
+            return 0
+        return sum(1 for p in tests_dir.rglob("test_*.py") if p.is_file())
+
+
 def _count_api_ops() -> tuple[int, int]:
     candidates = [
         ROOT / "docs/api/openapi.json",
@@ -270,7 +281,7 @@ def _approx(value: int, step: int) -> str:
 def compute_stats() -> Stats:
     python_modules = _count_py_files(ROOT / "aragora")
     test_count = _count_tests()
-    test_files = _count_py_files(ROOT / "tests")
+    test_files = _count_test_files()
     api_paths, api_operations = _count_api_ops()
     ws_event_types = _count_ws_events()
     km_adapters_registered = _count_km_adapters()
@@ -306,7 +317,7 @@ def patch_docs(stats: Stats, write: bool) -> int:
     metrics_doc = _metrics_doc_values()
     modules_approx = _canonical_count(
         metrics_doc,
-        "top_level_modules",
+        "python_files",
         _canonical_count(canonical, "modules", _approx(stats.python_modules, 1000)),
     )
     tests_approx = _canonical_count(

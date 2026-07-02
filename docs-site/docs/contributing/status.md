@@ -157,7 +157,7 @@ For the full current-status narrative, use the canonical doc:
 - **98 tests** (89 swarm + 9 reconciler)
 
 ### Codebase Metrics (March 6, 2026)
-- **Python modules**: 144
+- **Python modules**: 4,256
 - **Tests**: 222,878 across 5,421 test files
 - **HTTP handlers**: 700+
 - **KM adapters**: 41 registered adapter specs
