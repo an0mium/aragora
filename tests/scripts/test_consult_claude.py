@@ -91,6 +91,7 @@ def test_run_cli_uses_stdin_prompt_timeout_and_redacts_stderr(monkeypatch) -> No
     assert "profile" not in json.dumps(result).lower()
     assert captured["input"] == "live prompt"
     assert captured["timeout"] == 12.5
+    assert captured["stderr"] == subprocess.DEVNULL
     assert captured["mcp_exists_during_run"] is True
     assert captured["mcp_json"] == {"mcpServers": {}}
     assert captured["start_new_session"] is True
@@ -426,6 +427,38 @@ def test_consult_rejects_non_positive_overall_timeout_for_programmatic_callers()
         raise AssertionError("expected ValueError")
 
 
+def test_consult_rejects_oversized_prompt_for_programmatic_callers(monkeypatch) -> None:
+    monkeypatch.setattr(consult_claude, "MAX_PROMPT_BYTES", 8)
+
+    def fail_cli(*_args, **_kwargs):
+        raise AssertionError("oversized prompt must be rejected before CLI")
+
+    monkeypatch.setattr(consult_claude, "_run_cli", fail_cli)
+
+    try:
+        consult_claude.consult("x" * 9)
+    except ValueError as exc:
+        assert "prompt exceeds maximum size" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+
+def test_consult_rejects_oversized_system_prompt_for_programmatic_callers(monkeypatch) -> None:
+    monkeypatch.setattr(consult_claude, "MAX_PROMPT_BYTES", 10)
+
+    def fail_cli(*_args, **_kwargs):
+        raise AssertionError("oversized prompt must be rejected before CLI")
+
+    monkeypatch.setattr(consult_claude, "_run_cli", fail_cli)
+
+    try:
+        consult_claude.consult("abc", system="system")
+    except ValueError as exc:
+        assert "prompt exceeds maximum size" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+
 def test_main_reports_missing_prompt_file(capsys, tmp_path) -> None:
     missing = tmp_path / "missing.md"
 
@@ -446,6 +479,20 @@ def test_main_rejects_oversized_prompt_file_before_consult(monkeypatch, capsys, 
     monkeypatch.setattr(consult_claude, "consult", fail_consult)
 
     rc = consult_claude.main(["--prompt-file", str(prompt_file), "--api-fallback"])
+
+    assert rc == consult_claude.EXIT_NO_PROMPT
+    assert "prompt exceeds maximum size" in capsys.readouterr().err
+
+
+def test_main_rejects_oversized_prompt_after_system_before_backend(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(consult_claude, "MAX_PROMPT_BYTES", 10)
+
+    def fail_cli(*_args, **_kwargs):
+        raise AssertionError("oversized prompt must be rejected before CLI")
+
+    monkeypatch.setattr(consult_claude, "_run_cli", fail_cli)
+
+    rc = consult_claude.main(["--system", "system", "abc"])
 
     assert rc == consult_claude.EXIT_NO_PROMPT
     assert "prompt exceeds maximum size" in capsys.readouterr().err

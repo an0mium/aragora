@@ -145,7 +145,7 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
                 command,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
                 text=True,
                 start_new_session=True,
             )
@@ -345,8 +345,7 @@ def consult(
     _validate_timeout(timeout, "timeout")
     if overall_timeout is not None:
         _validate_timeout(overall_timeout, "overall_timeout")
-    if system:
-        prompt = f"{system}\n\n---\n\n{prompt}"
+    prompt = _compose_prompt(prompt, system)
     attempts: list[dict] = []
     started = time.monotonic()
     if overall_timeout is None:
@@ -407,6 +406,13 @@ def _prompt_too_large_error() -> str:
 def _validate_prompt_bytes(prompt: str) -> None:
     if len(prompt.encode("utf-8")) > MAX_PROMPT_BYTES:
         raise ValueError(_prompt_too_large_error())
+
+
+def _compose_prompt(prompt: str, system: str | None) -> str:
+    if system:
+        prompt = f"{system}\n\n---\n\n{prompt}"
+    _validate_prompt_bytes(prompt)
+    return prompt
 
 
 def _read_prompt_file(path_text: str) -> str:
@@ -513,15 +519,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_NO_PROMPT
 
-    result = consult(
-        prompt,
-        model=args.model,
-        timeout=args.timeout,
-        overall_timeout=args.overall_timeout,
-        fallback_model=args.fallback_model or None,
-        system=args.system,
-        api_fallback=args.api_fallback,
-    )
+    try:
+        result = consult(
+            prompt,
+            model=args.model,
+            timeout=args.timeout,
+            overall_timeout=args.overall_timeout,
+            fallback_model=args.fallback_model or None,
+            system=args.system,
+            api_fallback=args.api_fallback,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_NO_PROMPT
     if args.json:
         print(json.dumps(result, indent=2))
     elif result.get("ok"):

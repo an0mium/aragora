@@ -25,7 +25,9 @@ Pass `--overall-timeout` to set an explicit total cap shared across all
 attempts.
 Prompts from inline args, `--prompt-file`, and stdin are capped at 512 KiB and
 are rejected before any CLI/API backend attempt, so oversized context cannot
-silently burn API tokens when `--api-fallback` is enabled.
+silently burn API tokens when `--api-fallback` is enabled. The cap also applies
+to programmatic `consult()` calls after any `--system`/system preamble is
+combined with the user prompt.
 
 API fallback is off by default because it can consume Anthropic API credits or
 billing when `ANTHROPIC_API_KEY` or aragora secrets are configured. Use
