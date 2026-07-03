@@ -163,7 +163,14 @@ class PostDebateWorkflowSubscriber:
         self._trigger_workflow(template_name, workflow_context)
 
     def _trigger_workflow(self, template_name: str, context: dict[str, Any]) -> None:
-        """Trigger a workflow from template with the given context."""
+        """Build a workflow definition for the given template/context.
+
+        Stub: constructs ``WorkflowDefinition``/``WorkflowEngine`` but never
+        submits either for execution (no queue/execute call is made).
+        ``stats["workflows_triggered"]`` counts these construction attempts,
+        not completed workflow runs - do not wire a caller of this method
+        into production event dispatch until it actually queues or executes.
+        """
         try:
             (
                 WorkflowEngine,
@@ -191,9 +198,9 @@ class PostDebateWorkflowSubscriber:
             )
 
             WorkflowEngine(config=WorkflowConfig())
-            # Queue for async execution -- don't block the event handler
-            logger.info(
-                "Queued post-debate workflow: template=%s debate=%s outcome=%s",
+            logger.debug(
+                "Built post-debate workflow definition (stub, not queued or "
+                "executed): template=%s debate=%s outcome=%s",
                 template_name,
                 context.get("debate_id", ""),
                 context.get("outcome", ""),
