@@ -250,12 +250,11 @@ class CrossSubscriberManager(
         # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
         # via apply_registered_subscribers, not registered here.
 
-        # Phase 7: Staleness → Debate
-        self.register(
-            "staleness_to_debate",
-            StreamEventType.KNOWLEDGE_STALE,
-            self._handle_staleness_to_debate,
-        )
+        # Phase 7: Staleness → Debate relocated to
+        # aragora.server.event_subscribers (P4a Batch E6 relocate-UP; interface-tier
+        # home); wired at bootstrap via apply_registered_subscribers
+        # (interface-superset only - a pure-domain manager has no WebSocket state
+        # manager to react through), not registered here.
 
         # Explainability: Debate End → Explanation auto-trigger
         self.register(
@@ -303,24 +302,11 @@ class CrossSubscriberManager(
         # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
         # via apply_registered_subscribers, not registered here.
 
-        # Register webhook delivery for all cross-pollination events
-        webhook_event_types = [
-            StreamEventType.MEMORY_STORED,
-            StreamEventType.MEMORY_RETRIEVED,
-            StreamEventType.AGENT_ELO_UPDATED,
-            StreamEventType.KNOWLEDGE_INDEXED,
-            StreamEventType.KNOWLEDGE_QUERIED,
-            StreamEventType.MOUND_UPDATED,
-            StreamEventType.CALIBRATION_UPDATE,
-            StreamEventType.EVIDENCE_FOUND,
-        ]
-
-        for event_type in webhook_event_types:
-            self.register(
-                f"webhook_{event_type.value.lower()}",
-                event_type,
-                self._handle_webhook_delivery,
-            )
+        # Webhook delivery for all cross-pollination events (8 webhook_* names)
+        # relocated to aragora.server.event_subscribers (P4a Batch E6
+        # relocate-UP; interface-tier home); wired at bootstrap via
+        # apply_registered_subscribers (interface-superset only - a pure-domain
+        # manager has no webhook store to react through), not registered here.
 
         # =====================================================================
         # Strategic Feedback Loops (Tier 5)
