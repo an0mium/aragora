@@ -240,6 +240,8 @@ def test_run_api_caps_oversized_response_body(monkeypatch) -> None:
                 return payload
             return payload[:amt]
 
+        read1 = read
+
     monkeypatch.setattr(consult_claude, "MAX_API_RESPONSE_BYTES", 8, raising=False)
     monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
     monkeypatch.setattr(
@@ -286,10 +288,108 @@ def test_run_api_times_out_slow_streaming_response(monkeypatch) -> None:
     assert result["timed_out"] is True
     assert result["error"] == "API request failed: TimeoutError"
     assert read_amounts == [
+        1,
+        1,
+    ]
+    assert "secret" not in json.dumps(result)
+
+
+def test_run_api_read1_uses_remaining_socket_timeout(monkeypatch) -> None:
+    clock = {"now": 0.0}
+    read_amounts: list[int] = []
+    socket_timeouts: list[float] = []
+
+    class FakeSocket:
+        def settimeout(self, timeout: float) -> None:
+            socket_timeouts.append(timeout)
+
+    class FakeRaw:
+        _sock = FakeSocket()
+
+    class FakeFp:
+        raw = FakeRaw()
+
+    class FakeResponse:
+        fp = FakeFp()
+
+        def __init__(self):
+            self._chunks = [
+                b'{"content":[{"type":"text","text":"bounded answer"}]}',
+                b"",
+            ]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read1(self, amount: int) -> bytes:
+            read_amounts.append(amount)
+            chunk = self._chunks.pop(0)
+            clock["now"] += 0.25
+            return chunk
+
+    monkeypatch.setattr(consult_claude.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
+    monkeypatch.setattr(
+        consult_claude.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(),
+    )
+
+    result = consult_claude._run_api("secret prompt", "claude-opus-4-8", 1.0, None)
+
+    assert result["ok"] is True
+    assert result["text"] == "bounded answer"
+    assert read_amounts == [
         consult_claude.API_RESPONSE_READ_CHUNK_BYTES,
         consult_claude.API_RESPONSE_READ_CHUNK_BYTES,
     ]
-    assert "secret" not in json.dumps(result)
+    assert socket_timeouts == [1.0, 0.75]
+
+
+def test_run_api_read1_timeout_after_single_socket_read(monkeypatch) -> None:
+    clock = {"now": 0.0}
+    socket_timeouts: list[float] = []
+
+    class FakeSocket:
+        def settimeout(self, timeout: float) -> None:
+            socket_timeouts.append(timeout)
+
+    class FakeRaw:
+        _sock = FakeSocket()
+
+    class FakeFp:
+        raw = FakeRaw()
+
+    class FakeResponse:
+        fp = FakeFp()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read1(self, _amount: int) -> bytes:
+            clock["now"] += 1.0
+            return b" "
+
+    monkeypatch.setattr(consult_claude.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
+    monkeypatch.setattr(
+        consult_claude.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(),
+    )
+
+    result = consult_claude._run_api("secret prompt", "claude-opus-4-8", 1.0, None)
+
+    assert result["ok"] is False
+    assert result["timed_out"] is True
+    assert result["error"] == "API request failed: TimeoutError"
+    assert socket_timeouts == [1.0]
 
 
 def test_consult_enforces_overall_timeout_before_fallbacks(monkeypatch) -> None:

@@ -220,6 +220,33 @@ def _resolve_api_key() -> str | None:
         return None
 
 
+def _response_socket(response):
+    fp = getattr(response, "fp", None)
+    raw = getattr(fp, "raw", None)
+    for candidate in (
+        getattr(raw, "_sock", None),
+        getattr(raw, "sock", None),
+        getattr(fp, "_sock", None),
+        getattr(response, "_sock", None),
+    ):
+        if hasattr(candidate, "settimeout"):
+            return candidate
+    return None
+
+
+def _set_response_timeout(response, timeout: float) -> None:
+    sock = _response_socket(response)
+    if sock is not None:
+        sock.settimeout(max(0.001, timeout))
+
+
+def _read_api_response_chunk(response, amount: int) -> bytes:
+    read1 = getattr(response, "read1", None)
+    if callable(read1):
+        return read1(amount)
+    return response.read(min(amount, 1))
+
+
 def _read_api_response_with_deadline(response, *, deadline: float) -> bytes:
     """Read a bounded API body without letting slow streams exceed the wall clock."""
 
@@ -227,11 +254,13 @@ def _read_api_response_with_deadline(response, *, deadline: float) -> bytes:
     total = 0
     limit = MAX_API_RESPONSE_BYTES + 1
     while total < limit:
-        if time.monotonic() >= deadline:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
             raise TimeoutError("API response read exceeded timeout")
         amount = min(API_RESPONSE_READ_CHUNK_BYTES, limit - total)
-        chunk = response.read(amount)
-        if time.monotonic() > deadline:
+        _set_response_timeout(response, remaining)
+        chunk = _read_api_response_chunk(response, amount)
+        if time.monotonic() >= deadline:
             raise TimeoutError("API response read exceeded timeout")
         if not chunk:
             break
