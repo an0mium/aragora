@@ -191,7 +191,11 @@ def validate_contract_coverage(state: MissionState) -> list[ContractCoverageErro
                     )
                 )
                 continue
-            if feature.kind == FeatureKind.WORK and feature.status != Status.BLOCKED:
+            if (
+                feature.kind == FeatureKind.WORK
+                and feature.status != Status.BLOCKED
+                and not feature.metadata.get("repair_for")
+            ):
                 owners[assertion_id].append(feature.id)
 
     for assertion_id, feature_ids in owners.items():
@@ -241,7 +245,13 @@ def apply_boundary_decision(state: MissionState, decision: MissionBoundaryDecisi
 
     if decision.action == MissionBoundaryAction.PARK:
         if decision.feature_id:
-            state.mark_blocked(decision.feature_id, decision.reason)
+            feature = state.get(decision.feature_id)
+            if feature.status == Status.COMPLETED:
+                note = f"PARKED: {decision.reason}"
+                if note not in feature.notes:
+                    feature.notes = (feature.notes + "\n" if feature.notes else "") + note
+            else:
+                state.mark_blocked(decision.feature_id, decision.reason)
         return
 
     if decision.action == MissionBoundaryAction.ADD_VALIDATOR:
@@ -266,11 +276,14 @@ def _apply_patch_plan(state: MissionState, decision: MissionBoundaryDecision) ->
         validator_feature_id=validator.id,
         passed=False,
         reason=decision.reason,
+        reopen_parents=False,
     )
     assertions = list(decision.assertion_ids or validator.fulfills)
     parent_paths = _paths_from_validated_parents(state, validator)
+    repair_preconditions: list[str] = []
     for assertion_id in assertions:
         feature_id = f"repair-{validator.id}-{_slug(assertion_id)}"
+        repair_preconditions.append(f"feature:{feature_id}")
         if _feature_or_none(state, feature_id) is not None:
             continue
         state.insert_feature(
@@ -287,6 +300,10 @@ def _apply_patch_plan(state: MissionState, decision: MissionBoundaryDecision) ->
                 },
             )
         )
+    validator.status = Status.PENDING
+    for precondition in repair_preconditions:
+        if precondition not in validator.preconditions:
+            validator.preconditions.append(precondition)
 
 
 def _needs_fidelity_validation(feature: Feature) -> bool:

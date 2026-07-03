@@ -380,17 +380,14 @@ def apply_validation_result(
     passed: bool,
     reason: str,
     ledger_path: str | Path | None = None,
+    reopen_parents: bool = True,
 ) -> None:
     """Apply a validator outcome and reopen parent work on failure."""
     validator = state.get(validator_feature_id)
     if passed:
         validator.status = Status.COMPLETED
-        for assertion_id in validator.fulfills:
-            contract_state = state.contract_state.get(assertion_id)
-            if contract_state is not None:
-                contract_state.status = ContractStatus.PASSED
-                if validator.id not in contract_state.validator_feature_ids:
-                    contract_state.validator_feature_ids.append(validator.id)
+        _record_validation_feature(state, validator)
+        _refresh_contract_status(state, validator)
         return
 
     ledger = None
@@ -406,6 +403,8 @@ def apply_validation_result(
             contract_state.status = ContractStatus.FAILED
             if validator.id not in contract_state.validator_feature_ids:
                 contract_state.validator_feature_ids.append(validator.id)
+    if not reopen_parents:
+        return
     validates = validator.metadata.get("validates", [])
     if not isinstance(validates, list):
         validates = []
@@ -426,6 +425,43 @@ def apply_validation_result(
             note = f"{note}: {reason}"
         if note not in parent.notes:
             parent.notes = (parent.notes + "\n" if parent.notes else "") + note
+
+
+def _record_validation_feature(state: MissionState, feature: Feature) -> None:
+    for assertion_id in feature.fulfills:
+        contract_state = state.contract_state.get(assertion_id)
+        if contract_state is None:
+            continue
+        if feature.id not in contract_state.validator_feature_ids:
+            contract_state.validator_feature_ids.append(feature.id)
+
+
+def _refresh_contract_status(state: MissionState, feature: Feature) -> None:
+    for assertion_id in feature.fulfills:
+        contract_state = state.contract_state.get(assertion_id)
+        if contract_state is None:
+            continue
+        if _all_validation_requirements_complete(state, feature.milestone, assertion_id):
+            contract_state.status = ContractStatus.PASSED
+        elif contract_state.status != ContractStatus.FAILED:
+            contract_state.status = ContractStatus.PENDING
+
+
+def _all_validation_requirements_complete(
+    state: MissionState,
+    milestone: str,
+    assertion_id: str,
+) -> bool:
+    requirements = [
+        feature
+        for feature in state.features
+        if feature.milestone == milestone
+        and assertion_id in feature.fulfills
+        and feature.kind in {FeatureKind.VALIDATE, FeatureKind.GATE}
+    ]
+    return bool(requirements) and all(
+        feature.status == Status.COMPLETED for feature in requirements
+    )
 
 
 def write_operator_receipt(

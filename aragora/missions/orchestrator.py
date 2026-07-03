@@ -240,7 +240,7 @@ class MissionOrchestrator:
         reason = handoff.blocked_reason or "feature boundary reached"
 
         if handoff.success:
-            if feat.kind == FeatureKind.VALIDATE:
+            if feat.kind in {FeatureKind.VALIDATE, FeatureKind.GATE}:
                 apply_validation_result(state, feat.id, passed=True, reason=reason)
             else:
                 state.mark_completed(feat.id)

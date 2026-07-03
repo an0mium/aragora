@@ -14,6 +14,7 @@ from aragora.missions import (
     MissionOrchestrator,
     MissionState,
     Status,
+    apply_validation_result,
     inject_validation_features,
 )
 from aragora.missions.boundary import (
@@ -209,6 +210,31 @@ def test_boundary_controller_parks_terminal_and_operator_tier_immediately() -> N
     assert "tier-3" in tier.reason
 
 
+def test_operator_tier_park_preserves_completed_feature() -> None:
+    state = MissionState(
+        mission_id="m",
+        goal="respect settlement boundaries",
+        features=[
+            Feature(
+                id="impl",
+                description="Implement high-risk feature",
+                milestone="m1",
+                status=Status.COMPLETED,
+            )
+        ],
+    )
+    controller = MissionBoundaryController(operator_tier=3)
+    decision = controller.evaluate(
+        state,
+        MissionBoundaryEvent(kind="feature_completed", feature_id="impl", risk_tier=3),
+    )
+
+    apply_boundary_decision(state, decision)
+
+    assert state.get("impl").status == Status.COMPLETED
+    assert "PARKED: tier-3" in state.get("impl").notes
+
+
 def test_validation_failure_reopens_parent_and_adds_bounded_followup() -> None:
     state = MissionState(
         mission_id="m",
@@ -250,13 +276,60 @@ def test_validation_failure_reopens_parent_and_adds_bounded_followup() -> None:
 
     apply_boundary_decision(state, decision)
 
-    assert state.get("impl-a").status == Status.PENDING
-    assert state.get("validate-m1-automated").status == Status.BLOCKED
+    assert state.get("impl-a").status == Status.COMPLETED
+    assert state.get("validate-m1-automated").status == Status.PENDING
     followup = state.get("repair-validate-m1-automated-val-a")
     assert followup.kind == "work"
     assert followup.fulfills == ["VAL-A"]
     assert followup.metadata["paths"] == ["aragora/missions/state.py"]
     assert "regression failed" in followup.description
+    assert (
+        "feature:repair-validate-m1-automated-val-a"
+        in state.get("validate-m1-automated").preconditions
+    )
+    assert validate_contract_coverage(state) == []
+
+
+def test_contract_state_passes_only_after_all_validators_and_gate_complete() -> None:
+    state = MissionState(
+        mission_id="m",
+        goal="seal assertions only after all validation gates",
+        milestones=["m1"],
+        contract=[ContractAssertion("VAL-A", "A must hold")],
+        contract_state={"VAL-A": ContractState()},
+        features=[
+            Feature(
+                id="validate-m1-automated",
+                description="Automated validation",
+                milestone="m1",
+                kind="validate",
+                fulfills=["VAL-A"],
+            ),
+            Feature(
+                id="validate-m1-review",
+                description="Review validation",
+                milestone="m1",
+                kind="validate",
+                fulfills=["VAL-A"],
+            ),
+            Feature(
+                id="gate-m1",
+                description="Gate milestone",
+                milestone="m1",
+                kind="gate",
+                fulfills=["VAL-A"],
+            ),
+        ],
+    )
+
+    apply_validation_result(state, "validate-m1-automated", passed=True, reason="")
+    assert state.contract_state["VAL-A"].status == "pending"
+
+    apply_validation_result(state, "validate-m1-review", passed=True, reason="")
+    assert state.contract_state["VAL-A"].status == "pending"
+
+    apply_validation_result(state, "gate-m1", passed=True, reason="")
+    assert state.contract_state["VAL-A"].status == "passed"
 
 
 def test_orchestrator_runs_native_contract_through_validators_and_gate(tmp_path) -> None:
@@ -334,7 +407,11 @@ def test_orchestrator_native_validation_failure_patches_plan(tmp_path) -> None:
     assert MissionOrchestrator(path).tick(dispatch) is True
     final = MissionState.load(path)
 
-    assert final.get("impl-a").status == Status.PENDING
-    assert final.get("validate-m1-automated").status == Status.BLOCKED
+    assert final.get("impl-a").status == Status.COMPLETED
+    assert final.get("validate-m1-automated").status == Status.PENDING
     assert final.get("repair-validate-m1-automated-val-a").fulfills == ["VAL-A"]
+    assert (
+        "feature:repair-validate-m1-automated-val-a"
+        in final.get("validate-m1-automated").preconditions
+    )
     assert final.decision_trace[-1]["action"] == "patch_plan"
