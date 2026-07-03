@@ -4,10 +4,12 @@ Welcome to Aragora's documentation. The `docs/` directory is the canonical
 source. The published site in `docs-site/` is synced from these files via
 `docs-site/scripts/sync-docs.js`.
 
-Aragora is an **auditable execution control plane for consequential
-AI-assisted work**. It uses multi-model review, receipts, provenance, and
-truthful gates so consequential work can be inspected instead of merely
-trusted.
+**Aragora is an auditable execution control plane for AI-assisted decisions:
+multi-model review in, a verifiable Decision Receipt out.** It coordinates
+heterogeneous models to adversarially review a change or a decision, preserves
+the dissent and provenance, and stops truthfully when evidence is thin. See the
+[root README](../README.md) for the full picture and the
+[proof ladder](../README.md#proof-ladder) for how to verify every claim here.
 
 ## What Are You Trying To Do?
 

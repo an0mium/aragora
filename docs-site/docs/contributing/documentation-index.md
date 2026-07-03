@@ -5,6 +5,15 @@ description: Aragora Documentation Index
 
 # Aragora Documentation Index
 
+**Aragora is an auditable execution control plane for AI-assisted decisions:
+multi-model review in, a verifiable Decision Receipt out.** It coordinates
+heterogeneous models to adversarially review a change or a decision, preserves
+the dissent and provenance, and stops truthfully when evidence is thin. See the
+[root README](../analysis/adr) for the full picture, the
+[proof ladder](../analysis/adr#proof-ladder) for how to verify every claim, and
+the [Open Decision Receipt spec](specs/OPEN_DECISION_RECEIPT.md) for the
+receipt format.
+
 Canonical documentation lives in `docs/` and is mirrored into `docs-site/`.
 
 This index intentionally links to actively maintained docs with validated paths.
