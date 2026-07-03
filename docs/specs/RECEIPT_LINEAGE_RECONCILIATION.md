@@ -64,11 +64,15 @@ must be kept in lockstep:
    document. `odr_verify.py` is exercised today by its own test suite
    (`tests/gauntlet/test_odr_verify.py`, `tests/gauntlet/test_odr_verify_schema.py`)
    and is available for internal callers to import directly.
-2. **`aragora-verify`** (this repo's `aragora-verify/` package, published standalone to
-   PyPI) — the "no-trust" path: pure stdlib + `cryptography`, zero Aragora dependency,
-   with its own real CLI entry point
+2. **`aragora-verify`** (this repo's standalone `aragora-verify/` package) — the
+   "no-trust" path: pure stdlib + `cryptography`, zero Aragora dependency, with its
+   own real CLI entry point
    (`aragora-verify RECEIPT.odr.json [--pubkey KEY.pem] [--chain CHAIN.jsonl]`) for an
-   external auditor who has never installed Aragora.
+   external auditor who has never installed Aragora. **Not yet on PyPI:** the publish
+   workflow merged via #8693, but no release has been run, so today the verifier is
+   invoked locally — `PYTHONPATH=src python -m aragora_verify <r>.odr.json` from
+   `aragora-verify/`, or `pip install ./aragora-verify` for the `aragora-verify`
+   console script. PyPI publish is pending until a release actually runs.
 
 Both engines are hand-rolled, dependency-light mirrors of the same normative artifact
 — `aragora/gauntlet/odr_schema.json`, also bundled inside the `aragora-verify` package
