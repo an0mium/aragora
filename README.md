@@ -6,7 +6,7 @@ multi-model review in, a verifiable Decision Receipt out.**
 It coordinates heterogeneous models to adversarially review a change or a
 decision, preserves the dissent and provenance, stops truthfully when evidence
 is thin, and emits a portable receipt anyone can verify offline with the
-standalone verifier. PyPI publishing for the verifier is pending.
+standalone verifier.
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -18,7 +18,7 @@ standalone verifier. PyPI publishing for the verifier is pending.
 | I want to… | Command |
 |------------|---------|
 | Run the standalone debate engine | `pip install aragora-debate` |
-| Verify a Decision Receipt with the standalone verifier | `PYTHONPATH=src python -m aragora_verify <receipt>` from `aragora-verify/`; PyPI publish pending |
+| Verify a Decision Receipt with the standalone verifier | `pip install aragora-verify` then `aragora-verify <receipt>` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
@@ -69,12 +69,13 @@ auditor, a customer — can verify it independently with the standalone
 `aragora-verify` verifier (no Aragora dependency):
 
 ```bash
-# PyPI publish pending; today it lives in this repo under aragora-verify/:
-cd aragora-verify
-PYTHONPATH=src python -m aragora_verify ../decision-receipt.odr.json
+# Install the standalone verifier from PyPI:
+pip install aragora-verify
+aragora-verify decision-receipt.odr.json
 
-# After PyPI publish:
-# aragora-verify decision-receipt.odr.json
+# Source checkout fallback:
+# cd aragora-verify
+# PYTHONPATH=src python -m aragora_verify ../docs/specs/examples/example-decision-receipt.odr.json
 ```
 
 ## Try it now
