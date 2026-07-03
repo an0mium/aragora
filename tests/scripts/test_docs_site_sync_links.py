@@ -160,3 +160,25 @@ def test_cli_reference_preserves_generated_catalog_description() -> None:
 
     assert "title: Aragora CLI Reference" in content
     assert "description: Generated Aragora CLI command catalog from live parser" in content
+
+
+def test_root_readme_link_resolves_to_its_own_page_not_adr() -> None:
+    # docs/EXTENDED_README.md links to the repo-root README via "../README.md" three
+    # times. Basename "README.md" is also used by ADR/README.md and
+    # case-studies/README.md, so this guards against the rewriter's basename
+    # fallback silently resolving to whichever of those is defined last in DOC_MAP.
+    content = _read_docs_site("contributing/extended-readme.md")
+
+    assert "[README](./readme)" in content
+    assert "analysis/adr" not in content
+
+    # A link with no DOC_MAP entry of its own ("algorithms/README.md") must be left
+    # unrewritten rather than guessing via the ambiguous "README.md" basename.
+    assert "[algorithms/README.md](algorithms/README.md)" in content
+
+
+def test_root_readme_synced_with_proof_ladder_anchor() -> None:
+    content = _read_docs_site("contributing/readme.md")
+
+    assert "title: Aragora" in content
+    assert '<a id="proof-ladder"></a>' in content
