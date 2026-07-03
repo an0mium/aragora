@@ -369,11 +369,15 @@ class TestStalenessBidirectional:
     """Test Staleness ↔ Debate integration."""
 
     def test_staleness_to_debate_warns_active(self):
-        """Test that staleness warnings are checked against active debates."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        """Test that staleness warnings are checked against active debates.
+
+        Relocated from ``CrossSubscriberManager`` (P4a Batch E6): it is
+        server-coupled, now living on ``ServerEventSubscriber``.
+        """
+        from aragora.server.event_subscribers import ServerEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = ServerEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.KNOWLEDGE_STALE,
@@ -385,7 +389,7 @@ class TestStalenessBidirectional:
         )
 
         # Should not raise
-        manager._handle_staleness_to_debate(event)
+        subscriber._handle_staleness_to_debate(event)
 
 
 class TestProvenanceBidirectional:
@@ -624,12 +628,14 @@ class TestEventTypeRegistration:
 
     def test_handlers_registered(self):
         """Test that all bidirectional handlers are registered."""
-        from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+        from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
 
         # Post-E2a the Knowledge Mound reactions self-register from their domain
         # home; a bare manager no longer builds them in, so bootstrap to wire the
-        # full set before asserting registration.
-        manager = bootstrap_debate_event_subscribers()
+        # full set before asserting registration. Use the interface-superset
+        # bootstrap (not the domain-subset one) since staleness_to_debate is now
+        # an interface-tier reaction (P4a Batch E6) wired only there.
+        manager = bootstrap_event_subscribers()
 
         # Check handler registrations
         stats = manager.get_stats()
