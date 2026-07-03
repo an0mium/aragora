@@ -195,6 +195,54 @@ class TestDecisionReceiptCreation:
         assert basic_receipt.gauntlet_id == "gauntlet-456"
         assert basic_receipt.verdict == "CONDITIONAL"
         assert basic_receipt.confidence == 0.75
+        assert basic_receipt.unverified == []
+        assert basic_receipt.assumptions == []
+        assert basic_receipt.falsification is None
+
+    def test_epistemic_blocks_round_trip_and_render(self):
+        """Optional epistemic receipt blocks serialize, verify, and render."""
+        receipt = DecisionReceipt(
+            receipt_id="test-receipt-epistemic",
+            gauntlet_id="gauntlet-epistemic",
+            timestamp="2024-01-15T10:30:00Z",
+            input_summary="Ship product bet",
+            input_hash="abc123def456",
+            risk_summary={"critical": 0, "high": 0, "medium": 1, "low": 1},
+            attacks_attempted=4,
+            attacks_successful=0,
+            probes_run=3,
+            vulnerabilities_found=1,
+            verdict="PASS",
+            confidence=0.8,
+            robustness_score=0.7,
+            unverified=["The support-load forecast was not independently checked."],
+            assumptions=["Enterprise buyers will accept the initial manual workflow."],
+            falsification={
+                "observation": "Trial-to-paid conversion stays below 8%.",
+                "owner": "growth",
+                "source": "billing dashboard",
+                "check_by": "2024-03-01",
+            },
+        )
+
+        data = receipt.to_dict()
+        assert data["unverified"] == ["The support-load forecast was not independently checked."]
+        assert data["assumptions"] == ["Enterprise buyers will accept the initial manual workflow."]
+        assert data["falsification"]["observation"] == "Trial-to-paid conversion stays below 8%."
+
+        restored = DecisionReceipt.from_dict(data)
+        assert restored.unverified == receipt.unverified
+        assert restored.assumptions == receipt.assumptions
+        assert restored.falsification == receipt.falsification
+        assert restored.verify_integrity()
+
+        markdown = restored.to_markdown()
+        html = restored.to_html()
+        assert "Epistemic Limits" in markdown
+        assert "Not verified" in markdown
+        assert "Trial-to-paid conversion stays below 8%." in markdown
+        assert "Epistemic Limits" in html
+        assert "billing dashboard" in html
 
     def test_auto_hash_generation(self, basic_receipt):
         """Test automatic artifact hash generation."""

@@ -24,6 +24,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.insights.receipt_followups import find_due_falsification_followups
+
 UTC = timezone.utc
 
 DEFAULT_REPO = "synaptent/aragora"
@@ -437,6 +439,8 @@ def run_harvest(
     ledger_path: Path = DEFAULT_LEDGER_PATH,
     signal_log: Path = DEFAULT_SIGNAL_LOG,
     apply: bool = False,
+    receipt_followups: list[Any] | None = None,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """One bounded harvest pass. Read-only unless ``apply`` is True."""
     items: list[HarvestItem] = []
@@ -523,6 +527,10 @@ def run_harvest(
         },
         "issues_filed": issues_filed,
         "signals_emitted": signals_emitted,
+        "receipt_followups": find_due_falsification_followups(
+            receipt_followups or [],
+            now=now,
+        ),
         "ledger_appended": apply,
         "ledger_path": str(ledger_path),
     }

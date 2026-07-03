@@ -165,6 +165,15 @@ from .proof_unit import (
     proof_unit_scan_enabled,
     reset_proof_unit_scan,
 )
+from .question_batteries import (
+    BATTERY_NAMES,
+    CORE_INTAKE_BATTERIES,
+    QuestionBattery,
+    build_intake_battery_questions,
+    get_question_battery,
+    iter_question_batteries,
+    should_offer_intake_battery,
+)
 from .genealogy import (
     CodeUnitGenealogy,
     GenealogyEntry,
@@ -204,6 +213,13 @@ __all__ = [
     "FailureAction",
     "FailureSeverity",
     "VerificationKind",
+    "BATTERY_NAMES",
+    "CORE_INTAKE_BATTERIES",
+    "QuestionBattery",
+    "build_intake_battery_questions",
+    "get_question_battery",
+    "iter_question_batteries",
+    "should_offer_intake_battery",
     "load_claims_from_dir",
     "CruxArbitration",
     "CruxArbitrationReversal",

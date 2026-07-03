@@ -176,6 +176,14 @@ def _full_receipt() -> DecisionReceipt:
             AgentResponseRecord(agent="grok-agent", response="Latency risk."),
         ],
         settlement_metadata={"settled": True, "quality": 0.9},
+        unverified=["No live load test was run against the enterprise tenant."],
+        assumptions=["Support can absorb initial manual reconciliation."],
+        falsification={
+            "observation": "P95 latency exceeds 600ms for paid tenants.",
+            "owner": "platform",
+            "source": "latency dashboard",
+            "check_by": "2026-07-15",
+        },
     )
 
 
@@ -229,6 +237,24 @@ class TestMappingLossless:
             "status": "present",
             "summary": "Consensus reached with strong agreement",
         }
+
+    def test_epistemic_blocks_export_when_present(self) -> None:
+        odr = decision_receipt_to_odr(_full_receipt())
+        assert odr["epistemic"] == {
+            "status": "present",
+            "unverified": ["No live load test was run against the enterprise tenant."],
+            "assumptions": ["Support can absorb initial manual reconciliation."],
+            "falsification": {
+                "observation": "P95 latency exceeds 600ms for paid tenants.",
+                "owner": "platform",
+                "source": "latency dashboard",
+                "check_by": "2026-07-15",
+            },
+        }
+
+    def test_epistemic_blocks_absent_when_empty(self) -> None:
+        odr = decision_receipt_to_odr(_minimal_receipt())
+        assert "epistemic" not in odr
 
     def test_quorum_block(self) -> None:
         odr = decision_receipt_to_odr(_full_receipt())

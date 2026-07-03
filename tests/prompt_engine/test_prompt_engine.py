@@ -415,6 +415,25 @@ class TestPromptInterrogator:
         assert "primary goal" in questions[0].question.lower()
 
     @pytest.mark.asyncio()
+    async def test_interrogate_fallback_adds_epistemic_battery_for_vague_prompt(self) -> None:
+        from aragora.prompt_engine.interrogator import PromptInterrogator
+
+        agent = AsyncMock()
+        agent.generate = AsyncMock(return_value="not json")
+        interrogator = PromptInterrogator(agent=agent)
+        intent = _make_intent(
+            prompt="Make our product better for enterprise customers",
+            ambiguities=[],
+            assumptions=[],
+        )
+        questions = await interrogator.interrogate(intent)
+        texts = [q.question for q in questions]
+
+        assert any("What would make this wrong" in text for text in texts)
+        assert any("What did we assume" in text for text in texts)
+        assert any("Should this be done" in text for text in texts)
+
+    @pytest.mark.asyncio()
     async def test_interrogate_fallback_with_ambiguities(self) -> None:
         from aragora.prompt_engine.interrogator import PromptInterrogator
 

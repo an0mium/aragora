@@ -21,10 +21,15 @@ from aragora.modes import custom  # Expose submodule for patching
 from aragora.modes.base import Mode, ModeRegistry
 from aragora.modes.builtin import (
     ArchitectMode,
+    AssumptionSurfacerMode,
     CoderMode,
     DebuggerMode,
+    DeleterMode,
     EpistemicHygieneMode,
+    FalsifierMode,
     OrchestratorMode,
+    OutsiderMode,
+    QuestionPersonaMode,
     ReviewerMode,
     register_all_builtins,
 )
@@ -117,6 +122,11 @@ __all__ = [
     "DebuggerMode",
     "OrchestratorMode",
     "EpistemicHygieneMode",
+    "QuestionPersonaMode",
+    "OutsiderMode",
+    "FalsifierMode",
+    "DeleterMode",
+    "AssumptionSurfacerMode",
     "register_all_builtins",
     # Debate Modes (lazy)
     "RedTeamMode",

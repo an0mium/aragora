@@ -47,6 +47,30 @@ def _normalize_live_explainability_number(value: Any) -> float | None:
     return None
 
 
+def _normalize_epistemic_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        text = item.strip()
+        if text:
+            normalized.append(text)
+    return normalized
+
+
+def _normalize_falsification(value: Any) -> dict[str, str] | None:
+    if not isinstance(value, dict):
+        return None
+    normalized: dict[str, str] = {}
+    for key in ("observation", "owner", "source", "check_by"):
+        raw = value.get(key)
+        if isinstance(raw, str) and raw.strip():
+            normalized[key] = raw.strip()
+    return normalized or None
+
+
 def normalize_live_explainability(payload: Any) -> dict[str, Any] | None:
     """Normalize live explainability snapshots before persisting them in receipts."""
     if not isinstance(payload, dict):
@@ -555,6 +579,11 @@ class DecisionReceipt:
     # Tracks queries, retrievals, and injection counts for cross-debate visibility
     km_operations: dict[str, Any] | None = None
 
+    # Epistemic decision limits (optional, externally valuable receipt block)
+    unverified: list[str] = field(default_factory=list)
+    assumptions: list[str] = field(default_factory=list)
+    falsification: dict[str, str] | None = None
+
     # Schema version for forward compatibility
     schema_version: str = "1.1"
 
@@ -570,6 +599,9 @@ class DecisionReceipt:
 
     def __post_init__(self):
         """Calculate artifact hash if not provided."""
+        self.unverified = _normalize_epistemic_string_list(self.unverified)
+        self.assumptions = _normalize_epistemic_string_list(self.assumptions)
+        self.falsification = _normalize_falsification(self.falsification)
         if not self.artifact_hash:
             self.artifact_hash = self._calculate_hash()
 
@@ -2047,6 +2079,12 @@ class DecisionReceipt:
             "artifact_hash": self.artifact_hash,
             "config_used": self.config_used,
         }
+        if self.unverified:
+            data["unverified"] = list(self.unverified)
+        if self.assumptions:
+            data["assumptions"] = list(self.assumptions)
+        if self.falsification:
+            data["falsification"] = dict(self.falsification)
         # Include signature fields if present
         if self.signature:
             data["signature"] = self.signature
@@ -2097,6 +2135,9 @@ class DecisionReceipt:
             settlement_metadata=data.get("settlement_metadata"),
             settlement_status=data.get("settlement_status"),
             explainability=data.get("explainability"),
+            unverified=data.get("unverified", []) or [],
+            assumptions=data.get("assumptions", []) or [],
+            falsification=data.get("falsification"),
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),
