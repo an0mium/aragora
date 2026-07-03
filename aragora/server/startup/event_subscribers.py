@@ -22,26 +22,33 @@ def bootstrap_event_subscribers() -> CrossSubscriberManager:
 
     Superset of the domain-subset bootstrap: it also imports application and
     interface home modules. Idempotent. Currently adds the workflow
-    application-tier home (P4a Batch E5): a pure-library debate with no
-    workflow engine has no such reaction, so ``aragora.workflow.event_subscribers``
-    is imported here rather than by the domain-subset bootstrap. Further
-    application/interface ``import aragora.<pkg>.event_subscribers`` lines
-    (e.g. notifications, server) are added here as remaining handlers relocate
-    to their home layers.
+    application-tier home (P4a Batch E5) and the server interface-tier home
+    (P4a Batch E6): a pure-library debate with no workflow engine or HTTP server
+    has no such reactions, so ``aragora.workflow.event_subscribers`` and
+    ``aragora.server.event_subscribers`` are imported here rather than by the
+    domain-subset bootstrap. Further application/interface
+    ``import aragora.<pkg>.event_subscribers`` lines (e.g. notifications) are
+    added here as remaining handlers relocate to their home layers.
 
     Returns:
         The registry-backed cross-subscriber manager singleton.
     """
     from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+    from aragora.server import event_subscribers as server_home
     from aragora.workflow import event_subscribers as workflow_home
 
     bootstrap_debate_event_subscribers()
     workflow_home.register()
+    server_home.register()
 
     from aragora.events.cross_subscribers import bootstrap
 
     manager = bootstrap()
-    missing = workflow_home.WORKFLOW_EVENT_SUBSCRIBER_HANDLER_NAMES - set(manager.get_stats())
+    expected_handlers = (
+        workflow_home.WORKFLOW_EVENT_SUBSCRIBER_HANDLER_NAMES
+        | server_home.SERVER_EVENT_SUBSCRIBER_HANDLER_NAMES
+    )
+    missing = expected_handlers - set(manager.get_stats())
     if missing:
         raise RuntimeError(
             f"Application event subscriber bootstrap incomplete; missing handlers: {sorted(missing)}"
