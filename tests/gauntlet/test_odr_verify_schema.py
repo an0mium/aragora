@@ -75,7 +75,9 @@ def _valid_odr() -> dict[str, Any]:
 
 
 def _check(result: Any, name: str) -> Any:
-    return next(c for c in result.checks if c.name == name)
+    check = next((c for c in result.checks if c.name == name), None)
+    assert check is not None, f"check {name!r} not found in {[c.name for c in result.checks]}"
+    return check
 
 
 # ---------------------------------------------------------------------------
