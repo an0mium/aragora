@@ -1108,8 +1108,9 @@ def _add_ask_parser(subparsers) -> None:
     )
     ask_parser.add_argument(
         "--api-url",
-        default=DEFAULT_API_URL,
-        help=f"API server URL (default: {DEFAULT_API_URL})",
+        default=None,
+        help=f"API server URL (default: {DEFAULT_API_URL}); passing the flag "
+        "explicitly opts in to that server even if it does not identify as Aragora",
     )
     ask_parser.add_argument(
         "--api-key",

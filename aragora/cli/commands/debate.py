@@ -350,14 +350,22 @@ def _probe_server_identity(server_url: str) -> str:
     return "foreign"
 
 
-def _is_explicitly_configured_api_url(server_url: str) -> bool:
-    """True when the user opted in to this API URL (env var or --api-url flag)."""
+def _is_explicitly_configured_api_url(server_url: str, *, flag_passed: bool = False) -> bool:
+    """True when the user opted in to this API URL (env var or --api-url flag).
+
+    ``flag_passed`` carries actual flag presence from argparse (the parser
+    defaults ``--api-url`` to ``None``), so ``--api-url http://localhost:8080``
+    counts as explicit even though it equals the default URL. The value
+    comparison remains as a fallback for callers without flag information.
+    """
+    if flag_passed:
+        return True
     if os.environ.get("ARAGORA_API_URL", "").strip():
         return True
     return server_url.rstrip("/") != DEFAULT_API_URL.rstrip("/")
 
 
-def _trusted_server_available(server_url: str) -> bool:
+def _trusted_server_available(server_url: str, *, flag_passed: bool = False) -> bool:
     """Availability gate for auto-discovery: reachable AND identifies as Aragora.
 
     Fail-closed trust check: port 8080 is the most commonly squatted dev port
@@ -368,7 +376,7 @@ def _trusted_server_available(server_url: str) -> bool:
     """
     if not _is_server_available(server_url):
         return False
-    if _is_explicitly_configured_api_url(server_url):
+    if _is_explicitly_configured_api_url(server_url, flag_passed=flag_passed):
         return True
     identity = _probe_server_identity(server_url)
     if identity == "aragora":
@@ -1845,7 +1853,9 @@ def cmd_ask(args: argparse.Namespace) -> None:
             }
         )
 
-    server_url = getattr(args, "api_url", DEFAULT_API_URL)
+    api_url_arg = getattr(args, "api_url", None)
+    api_url_flag_passed = api_url_arg is not None
+    server_url = api_url_arg or DEFAULT_API_URL
     api_key = (
         getattr(args, "api_key", None)
         or os.environ.get("ARAGORA_API_TOKEN")
@@ -2095,7 +2105,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
     use_api = requested_api
     if not requested_api and not requested_local:
-        use_api = _trusted_server_available(server_url)
+        use_api = _trusted_server_available(server_url, flag_passed=api_url_flag_passed)
 
     if use_api:
         try:

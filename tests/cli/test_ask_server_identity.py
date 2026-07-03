@@ -170,6 +170,24 @@ class TestTrustedServerAvailable:
         ):
             assert debate_cmd._trusted_server_available("http://intranet:8080") is True
 
+    def test_flag_passed_with_default_url_trusted_without_identity_check(self):
+        # Round-1 review [P2]: `--api-url http://localhost:8080` equals the
+        # default value, but the user typed the flag — that is an explicit
+        # opt-in and must skip the identity probe. Flag presence comes from
+        # argparse (parser default is None), threaded through flag_passed.
+        with (
+            patch.object(debate_cmd, "_is_server_available", return_value=True),
+            patch.object(
+                debate_cmd,
+                "_probe_server_identity",
+                side_effect=AssertionError("identity probe must be skipped for explicit URLs"),
+            ),
+        ):
+            assert (
+                debate_cmd._trusted_server_available(debate_cmd.DEFAULT_API_URL, flag_passed=True)
+                is True
+            )
+
     def test_explicit_url_still_requires_reachability(self, monkeypatch):
         monkeypatch.setenv("ARAGORA_API_URL", "http://localhost:9999")
         with patch.object(debate_cmd, "_is_server_available", return_value=False):
@@ -186,6 +204,14 @@ class TestExplicitConfigDetection:
 
     def test_non_default_url_is_explicit(self):
         assert debate_cmd._is_explicitly_configured_api_url("http://example.com:8080") is True
+
+    def test_flag_presence_makes_default_url_explicit(self):
+        assert (
+            debate_cmd._is_explicitly_configured_api_url(
+                debate_cmd.DEFAULT_API_URL, flag_passed=True
+            )
+            is True
+        )
 
     def test_trailing_slash_still_matches_default(self):
         assert (
