@@ -73,5 +73,12 @@
 
 Current baseline: **75** skips
 
+Baseline history: the enforced value lives in `tests/.skip_baseline` (68 →
+75 in PR #8800, with the per-skip audit of all 7 net-new markers in that
+PR's description). This document was previously regenerated on 2026-04-06
+when the count was 57 and had gone stale; the 57→75 jump in this file's
+diff reflects that staleness, not 18 unaudited skips — the enforced
+baseline only ever moved 68→75.
+
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.
