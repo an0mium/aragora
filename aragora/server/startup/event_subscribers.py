@@ -21,18 +21,29 @@ def bootstrap_event_subscribers() -> CrossSubscriberManager:
     """Import all event-subscriber home modules and wire them into the manager.
 
     Superset of the domain-subset bootstrap: it also imports application and
-    interface home modules. Idempotent. E1 is a pure enabler: no home modules
-    exist yet, so this currently composes the domain-subset bootstrap and ensures
-    the manager is initialized. E2-E7 add application/interface
-    ``import aragora.<pkg>.event_subscribers`` lines here (e.g. workflow,
-    notifications, server) as handlers relocate to their home layers.
+    interface home modules. Idempotent. Currently adds the workflow
+    application-tier home (P4a Batch E5): a pure-library debate with no
+    workflow engine has no such reaction, so ``aragora.workflow.event_subscribers``
+    is imported here rather than by the domain-subset bootstrap. Further
+    application/interface ``import aragora.<pkg>.event_subscribers`` lines
+    (e.g. notifications, server) are added here as remaining handlers relocate
+    to their home layers.
 
     Returns:
         The registry-backed cross-subscriber manager singleton.
     """
     from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+    from aragora.workflow import event_subscribers as workflow_home
 
-    # Application + interface home-module imports are added here by E2-E7, e.g.
-    # ``import aragora.workflow.event_subscribers`` (a side-effect import for
-    # registration; mark it with a noqa F401 to silence unused-import lint).
-    return bootstrap_debate_event_subscribers()
+    bootstrap_debate_event_subscribers()
+    workflow_home.register()
+
+    from aragora.events.cross_subscribers import bootstrap
+
+    manager = bootstrap()
+    missing = workflow_home.WORKFLOW_EVENT_SUBSCRIBER_HANDLER_NAMES - set(manager.get_stats())
+    if missing:
+        raise RuntimeError(
+            f"Application event subscriber bootstrap incomplete; missing handlers: {sorted(missing)}"
+        )
+    return manager

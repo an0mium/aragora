@@ -9,7 +9,7 @@ The heavy lifting is delegated to specialized mixins:
 - AdminMixin: Stats reporting, enable/disable, sampling, filtering, retry config
 - BasicHandlersMixin: Core subsystem event handlers
 - CultureHandlersMixin: Culture pattern handlers
-- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis, alerts)
+- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis)
 """
 
 from __future__ import annotations
@@ -137,7 +137,7 @@ class CrossSubscriberManager(
         # Direct construction stays infrastructure-only, so relocated domain
         # reactions cannot appear or disappear based on prior import order.
 
-    def apply_registered_subscribers(self) -> int:
+    def apply_registered_subscribers(self, *, include_names: set[str] | None = None) -> int:
         """Wire registry subscribers not yet applied into this manager.
 
         Home modules (domain/application/interface) self-register their
@@ -146,12 +146,27 @@ class CrossSubscriberManager(
         reusing the existing per-event dispatch/stats/retry machinery. Idempotent:
         each subscriber is applied at most once per manager instance.
 
+        Args:
+            include_names: When given, only registers subscribers whose home
+                name is in this set on THIS call; every other registered home
+                is left un-applied here (a later call - with a wider or no
+                filter - can still apply it). ``None`` (default) applies every
+                currently-registered home, the pre-existing behavior. This is
+                what lets a subset bootstrap (e.g. domain-only) stay narrow
+                even when an unrelated import has already populated the
+                process-wide registry with a wider-tier home's subscriber -
+                the registry itself has no tier concept, so without this the
+                subset would silently inherit whatever happened to be
+                registered first.
+
         Returns:
             The number of subscribers newly applied by this call.
         """
         applied = 0
         for name, subscriber in get_registered_subscribers().items():
             if name in self._applied_subscribers:
+                continue
+            if include_names is not None and name not in include_names:
                 continue
             subscriber.register(self)
             self._applied_subscribers.add(name)
@@ -347,12 +362,11 @@ class CrossSubscriberManager(
         # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
         # bootstrap via apply_registered_subscribers, not registered here.
 
-        # Alert Escalated → Workflow Emergency Brake
-        self.register(
-            "alert_escalated_to_workflow_brake",
-            StreamEventType.ALERT_ESCALATED,
-            self._handle_alert_escalated_to_workflow_brake,
-        )
+        # Alert Escalated → Workflow Emergency Brake relocated to
+        # aragora.workflow.event_subscribers (P4a Batch E5 relocate-UP;
+        # application-tier home); wired at bootstrap via
+        # apply_registered_subscribers (interface-superset only - a pure-domain
+        # manager has no workflow engine to react through), not registered here.
 
         # Meta-Learning Adjusted → Team Selection Recalibration relocated to
         # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
