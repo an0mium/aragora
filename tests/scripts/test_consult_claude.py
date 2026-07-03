@@ -96,8 +96,9 @@ def test_run_cli_uses_stdin_prompt_timeout_and_redacts_stderr(monkeypatch) -> No
     assert captured["mcp_exists_during_run"] is True
     assert captured["mcp_json"] == {"mcpServers": {}}
     assert captured["start_new_session"] is True
-    assert "-p" in captured["command"]
-    assert captured["command"][captured["command"].index("-p") + 1] == "-"
+    assert "--print" in captured["command"]
+    assert "-p" not in captured["command"]
+    assert "-" not in captured["command"]
 
 
 def test_run_cli_does_not_treat_nonzero_stdout_as_success(monkeypatch) -> None:

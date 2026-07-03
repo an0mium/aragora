@@ -114,8 +114,6 @@ def _build_cli_command(model: str, mcp_config_path: Path) -> tuple[list[str], bo
         str(mcp_config_path),
         "--model",
         model,
-        "-p",
-        "-",
     ]
     try:
         from aragora.agents.claude_profile_pool import build_claude_command
