@@ -13,8 +13,8 @@ Backends, in order:
    hard subprocess timeout.
 2. Anthropic Messages API — used only with explicit ``--api-fallback`` opt-in
    after CLI attempts fail. The key comes from ``ANTHROPIC_API_KEY`` or the
-   aragora secrets manager; if neither is present the fallback is skipped
-   silently.
+   aragora secrets manager; if neither is present the attempt is recorded as a
+   normal failed backend attempt.
 
 Output is the raw model text on stdout, or a JSON envelope with ``--json``.
 Exit codes: 0 ok, 2 all backends timed out, 3 no prompt, 4 all backends failed
@@ -78,6 +78,11 @@ def _safe_api_error(message: str) -> str:
     """Public API failure string safe for JSON logs and durable artifacts."""
 
     return f"API {message}"
+
+
+def _validate_timeout(value: float, name: str) -> None:
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a positive finite number")
 
 
 @contextmanager
@@ -162,14 +167,24 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
         }
     elapsed = round(time.monotonic() - started, 1)
     text = _strip_preamble(stdout) if used_profile else stdout.strip()
-    if proc.returncode != 0 or not text:
+    if text:
+        result = {"ok": True, "backend": backend, "elapsed_s": elapsed, "text": text}
+        if proc.returncode != 0:
+            result["warning"] = _safe_cli_error(returncode=proc.returncode, empty=False)
+        return result
+    if proc.returncode != 0:
         return {
             "ok": False,
             "backend": backend,
             "elapsed_s": elapsed,
             "error": _safe_cli_error(returncode=proc.returncode, empty=not text),
         }
-    return {"ok": True, "backend": backend, "elapsed_s": elapsed, "text": text}
+    return {
+        "ok": False,
+        "backend": backend,
+        "elapsed_s": elapsed,
+        "error": _safe_cli_error(empty=True),
+    }
 
 
 def _kill_process_group(proc: subprocess.Popen[str]) -> None:
@@ -329,6 +344,9 @@ def consult(
     budget is derived from the enabled attempt plan so each documented fallback
     path can still run after a full-timeout primary attempt.
     """
+    _validate_timeout(timeout, "timeout")
+    if overall_timeout is not None:
+        _validate_timeout(overall_timeout, "overall_timeout")
     if system:
         prompt = f"{system}\n\n---\n\n{prompt}"
     attempts: list[dict] = []
@@ -429,13 +447,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="Emit a JSON result envelope")
     args = parser.parse_args(argv)
 
-    if not math.isfinite(args.timeout) or args.timeout <= 0:
-        print("error: --timeout must be a positive finite number", file=sys.stderr)
-        return EXIT_USAGE
-    if args.overall_timeout is not None and (
-        not math.isfinite(args.overall_timeout) or args.overall_timeout <= 0
-    ):
-        print("error: --overall-timeout must be a positive finite number", file=sys.stderr)
+    try:
+        _validate_timeout(args.timeout, "--timeout")
+        if args.overall_timeout is not None:
+            _validate_timeout(args.overall_timeout, "--overall-timeout")
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
     if args.prompt_file:

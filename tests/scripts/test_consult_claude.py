@@ -76,6 +76,30 @@ def test_run_cli_uses_stdin_prompt_timeout_and_redacts_stderr(monkeypatch) -> No
     assert captured["command"][captured["command"].index("-p") + 1] == "-"
 
 
+def test_run_cli_preserves_stdout_from_nonzero_exit(monkeypatch) -> None:
+    class FakePopen:
+        returncode = 1
+        pid = 54321
+
+        def __init__(self, *args, **kwargs):
+            assert kwargs["start_new_session"] is True
+
+        def communicate(self, input, timeout):
+            assert input == "live prompt"
+            assert timeout == 12.5
+            return "usable advice\n", "auth warning with token=secret"
+
+    monkeypatch.setattr(consult_claude.shutil, "which", lambda name: "/usr/bin/claude")
+    monkeypatch.setattr(consult_claude.subprocess, "Popen", FakePopen)
+
+    result = consult_claude._run_cli("live prompt", "claude-fable-5", 12.5)
+
+    assert result["ok"] is True
+    assert result["text"] == "usable advice"
+    assert result["warning"] == "claude CLI failed, rc=1, empty=False"
+    assert "secret" not in json.dumps(result)
+
+
 def test_consult_default_is_cli_only(monkeypatch) -> None:
     cli_models: list[str] = []
 
@@ -360,6 +384,24 @@ def test_main_rejects_non_positive_overall_timeout(capsys) -> None:
 
     assert rc == consult_claude.EXIT_USAGE
     assert "positive finite" in capsys.readouterr().err
+
+
+def test_consult_rejects_non_positive_timeout_for_programmatic_callers() -> None:
+    try:
+        consult_claude.consult("question", timeout=0)
+    except ValueError as exc:
+        assert "timeout must be a positive finite number" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+
+def test_consult_rejects_non_positive_overall_timeout_for_programmatic_callers() -> None:
+    try:
+        consult_claude.consult("question", overall_timeout=0)
+    except ValueError as exc:
+        assert "overall_timeout must be a positive finite number" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
 
 
 def test_main_reports_missing_prompt_file(capsys, tmp_path) -> None:

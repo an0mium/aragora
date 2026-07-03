@@ -28,6 +28,8 @@ API fallback is off by default because it can consume Anthropic API credits or
 billing when `ANTHROPIC_API_KEY` or aragora secrets are configured. Use
 `--api-fallback` only when paid API fallback is acceptable; unsupported
 CLI-only model ids such as `claude-fable-5` are skipped for direct API calls.
+If no API key is available, the API backend records a normal failed attempt in
+the JSON envelope instead of being omitted.
 
 ## How to invoke
 
@@ -49,8 +51,10 @@ python3 scripts/consult_claude.py --api-fallback --prompt-file /tmp/question.md
 ```
 
 `--json` returns `{ok, model, backend, elapsed_s, text, attempts}`. Exit codes:
-`0` ok, `2` timed out, `3` no prompt, `4` all backends failed, `64`
-usage/config error.
+`0` ok, `2` timed out, `3` no prompt, `4` all backends failed or the explicit
+overall budget was exhausted before all fallback attempts could run, `64`
+usage/config error. In JSON, budget exhaustion is reported as
+`budget_exhausted: true`, distinct from backend `timed_out: true`.
 
 If `scripts/consult_claude.py` does not exist in your checkout yet, use an
 installed user skill copy such as `~/.codex/skills/consult-fable/consult_claude.py`.
