@@ -416,7 +416,7 @@ def decision_receipt_to_odr(
     Returns:
         A JSON-serializable dict conforming to ``aragora/gauntlet/odr_schema.json``.
     """
-    odr = {
+    odr: dict[str, Any] = {
         "odr_version": ODR_VERSION,
         "profile": ODR_PROFILE_URI,
         "receipt_id": receipt.receipt_id,
