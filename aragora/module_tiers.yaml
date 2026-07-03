@@ -36,7 +36,7 @@ modules:
     tier: core
     py_files: 83
     importer_count: 184
-    test_file_count: 167
+    test_file_count: 168
     override_reason: "Agent factory, 43 registered types"
   - name: billing
     tier: core
@@ -76,7 +76,7 @@ modules:
     tier: core
     py_files: 264
     importer_count: 161
-    test_file_count: 608
+    test_file_count: 609
     override_reason: "Arena + DebateProtocol + consensus — mainline flow"
   - name: events
     tier: core
@@ -594,7 +594,7 @@ modules:
     tier: integrated
     py_files: 100
     importer_count: 36
-    test_file_count: 76
+    test_file_count: 77
   - name: workspace
     tier: integrated
     py_files: 6
