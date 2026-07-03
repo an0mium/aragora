@@ -19,7 +19,7 @@ standalone verifier ([`pip install aragora-verify`](https://pypi.org/project/ara
 |------------|---------|
 | Run the standalone debate engine | `pip install aragora-debate` |
 | Verify a Decision Receipt with the standalone verifier | `pip install aragora-verify && aragora-verify <receipt> --pubkey <key.pem>` |
-| See a debate → receipt → verify loop in ~15 seconds, no API keys | `pip install aragora && aragora demo && aragora verify aragora-demo-receipt.json` |
+| See a debate → receipt → verify loop in ~15 seconds, no API keys | `pip install aragora && aragora demo --offline && aragora verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 

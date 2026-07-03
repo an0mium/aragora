@@ -117,6 +117,7 @@ artifacts/
 # (grep harnesses, doc-link validators, reviewers) believes they don't exist
 # even though they are tracked (#8824 evidence round 1).
 !docs/artifacts/
+!docs/artifacts/**
 smoke_output/
 replays/*.mp3
 
