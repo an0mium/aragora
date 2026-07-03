@@ -80,7 +80,7 @@ pip install ./aragora-verify
 We run this gate on our own repository — every substantive merge is reviewed
 by a heterogeneous model quorum, dissent preserved, receipts written. The
 evidence, with reproducible queries and caught-bug case studies:
-[**Decision Integrity, Dogfooded**](docs/artifacts/2026-07-decision-integrity-dogfooding.md).
+[**Decision Integrity, Dogfooded**](https://github.com/synaptent/aragora/blob/main/docs/artifacts/2026-07-decision-integrity-dogfooding.md).
 
 ## Try it now
 
