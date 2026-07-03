@@ -57,6 +57,7 @@ API_MAX_TOKENS = 8192
 MAX_API_RESPONSE_BYTES = 4 * 1024 * 1024
 API_UNSUPPORTED_MODELS = {"claude-fable-5"}
 MAX_PROMPT_BYTES = 512 * 1024
+API_RESPONSE_READ_CHUNK_BYTES = 64 * 1024
 
 EXIT_OK = 0
 EXIT_TIMEOUT = 2
@@ -218,6 +219,26 @@ def _resolve_api_key() -> str | None:
         return None
 
 
+def _read_api_response_with_deadline(response, *, deadline: float) -> bytes:
+    """Read a bounded API body without letting slow streams exceed the wall clock."""
+
+    chunks: list[bytes] = []
+    total = 0
+    limit = MAX_API_RESPONSE_BYTES + 1
+    while total < limit:
+        if time.monotonic() >= deadline:
+            raise TimeoutError("API response read exceeded timeout")
+        amount = min(API_RESPONSE_READ_CHUNK_BYTES, limit - total)
+        chunk = response.read(amount)
+        if time.monotonic() > deadline:
+            raise TimeoutError("API response read exceeded timeout")
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+    return b"".join(chunks)
+
+
 def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dict:
     """One bounded Anthropic Messages API attempt. Never raises."""
     key = _resolve_api_key()
@@ -240,9 +261,10 @@ def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dic
         },
     )
     started = time.monotonic()
+    deadline = started + timeout
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read(MAX_API_RESPONSE_BYTES + 1)
+            raw = _read_api_response_with_deadline(response, deadline=deadline)
             if len(raw) > MAX_API_RESPONSE_BYTES:
                 return {
                     "ok": False,
@@ -255,10 +277,6 @@ def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dic
             if not isinstance(body, dict):
                 raise ValueError("API response JSON is not an object")
     except urllib.error.HTTPError as exc:
-        try:
-            exc.read(MAX_API_RESPONSE_BYTES)
-        except OSError:
-            pass
         return {
             "ok": False,
             "backend": "api",

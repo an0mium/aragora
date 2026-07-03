@@ -193,6 +193,9 @@ def test_run_api_redacts_http_error_body(monkeypatch) -> None:
 
 def test_run_api_redacts_invalid_response_body(monkeypatch) -> None:
     class FakeResponse:
+        def __init__(self):
+            self._returned = False
+
         def __enter__(self):
             return self
 
@@ -200,6 +203,9 @@ def test_run_api_redacts_invalid_response_body(monkeypatch) -> None:
             return False
 
         def read(self, _amt=None) -> bytes:
+            if self._returned:
+                return b""
+            self._returned = True
             return b"\xff\xfe not utf-8"
 
     monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
@@ -246,6 +252,42 @@ def test_run_api_caps_oversized_response_body(monkeypatch) -> None:
     assert read_amounts == [9]
     assert result["ok"] is False
     assert result["error"] == "API response exceeds maximum size: response body redacted"
+    assert "secret" not in json.dumps(result)
+
+
+def test_run_api_times_out_slow_streaming_response(monkeypatch) -> None:
+    clock = {"now": 0.0}
+    read_amounts: list[int | None] = []
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, amt=None) -> bytes:
+            read_amounts.append(amt)
+            clock["now"] += 0.6
+            return b" "
+
+    monkeypatch.setattr(consult_claude.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
+    monkeypatch.setattr(
+        consult_claude.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(),
+    )
+
+    result = consult_claude._run_api("secret prompt", "claude-opus-4-8", 1.0, None)
+
+    assert result["ok"] is False
+    assert result["timed_out"] is True
+    assert result["error"] == "API request failed: TimeoutError"
+    assert read_amounts == [
+        consult_claude.API_RESPONSE_READ_CHUNK_BYTES,
+        consult_claude.API_RESPONSE_READ_CHUNK_BYTES,
+    ]
     assert "secret" not in json.dumps(result)
 
 
