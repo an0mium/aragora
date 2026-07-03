@@ -133,6 +133,29 @@ class Debate(BaseModel):
     completed_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("agents", mode="before")
+    @classmethod
+    def _coerce_agents(cls, value: Any) -> list[Any]:
+        """Accept agent specs echoed back by the server as dicts.
+
+        The create API accepts advanced agent specs (``{"provider": ...,
+        "name": ...}``) and the server stores and returns them verbatim, so a
+        GET can legitimately contain dicts. Coerce each entry to its display
+        name so ``agents`` stays ``list[str]`` for SDK consumers.
+        """
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            return value
+        coerced: list[Any] = []
+        for entry in value:
+            if isinstance(entry, dict):
+                name = entry.get("name") or entry.get("provider") or entry.get("agent")
+                coerced.append(str(name) if name else str(entry))
+            else:
+                coerced.append(entry)
+        return coerced
+
     @field_validator("rounds", mode="before")
     @classmethod
     def _coerce_rounds(cls, value: Any) -> list[Any]:

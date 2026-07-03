@@ -10,16 +10,10 @@ from aragora.events.subscribers.config import (
     AsyncDispatchConfig,
 )
 from aragora.events.subscribers.notification_handlers import NotificationHandlersMixin
-from aragora.events.subscribers.workflow_automation import (
-    PostDebateWorkflowSubscriber,
-    get_post_debate_subscriber,
-)
 
 __all__ = [
     "RetryConfig",
     "SubscriberStats",
     "AsyncDispatchConfig",
     "NotificationHandlersMixin",
-    "PostDebateWorkflowSubscriber",
-    "get_post_debate_subscriber",
 ]
