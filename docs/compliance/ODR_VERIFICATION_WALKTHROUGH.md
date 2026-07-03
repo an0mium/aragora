@@ -112,8 +112,10 @@ deployment's ODR signing **public** key once, through a channel you trust
 `GET /.well-known/aragora-odr-signing-key` is tracked in issue #8804), then
 verify any number of that deployment's receipts offline. Note that as of this
 writing, receipts exported by `aragora receipt export --format odr` are
-emitted **unsigned** (`signatures: []` — the verifier reports them WARN/
-unsigned, never falsely VERIFIED); wiring the Ed25519 signer into the
+emitted **unsigned** (`signatures: []`). The verifier surfaces this as WARN
+in the signature check, and when you supply `--pubkey` expecting authenticity
+the overall verdict is **UNVERIFIED** (exit 3) — an unsigned receipt is never
+presented as authenticated. Wiring the Ed25519 signer into the
 production export path is tracked in issues #8544 and #8546. The fixture key
 here is a demonstration key generated only for this walkthrough — see
 [`fixtures/README.md`](fixtures/README.md).
@@ -135,7 +137,7 @@ here is a demonstration key generated only for this walkthrough — see
 | `0` | VERIFIED — no check failed and every present signature was cryptographically checked. |
 | `1` | FAILED — at least one check failed (e.g. tampered content, invalid signature). |
 | `2` | Usage/input error (unreadable file, malformed JSON or key). |
-| `3` | UNVERIFIED — structurally sound, but the receipt carries signatures you did not check (no `--pubkey`). Deliberately not `0`: **authenticity has not been established.** |
+| `3` | UNVERIFIED — structurally sound, but authenticity was not established: the receipt carries signatures you did not check (no `--pubkey`), or you supplied a key and the receipt carries no signatures at all. Deliberately not `0`: **authenticity has not been established.** |
 
 ### Prove to yourself that tampering is detected
 
