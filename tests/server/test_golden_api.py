@@ -28,11 +28,13 @@ async def test_debate_with_int_agents():
     """debate(task, agents=3) auto-creates DemoAgents and returns DebateResult."""
     result = await debate("Should we adopt microservices?", agents=3, rounds=1)
 
-    from aragora.core_types import DebateResult
+    from aragora.core_types import DebateResult, DebateStatus, normalize_debate_status
 
     assert isinstance(result, DebateResult)
     assert result.task == "Should we adopt microservices?"
-    assert result.status == "completed"
+    # Legacy status is "consensus_reached" or "completed" depending on whether
+    # the demo agents converge; both project to the canonical COMPLETED state.
+    assert normalize_debate_status(result.status) == DebateStatus.COMPLETED
     assert len(result.participants) == 3
 
 
