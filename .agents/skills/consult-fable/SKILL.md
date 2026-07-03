@@ -23,6 +23,9 @@ attempt plan (`--timeout` multiplied by CLI/API attempts), so the documented CLI
 primary -> CLI fallback path can still run after a full-timeout primary attempt.
 Pass `--overall-timeout` to set an explicit total cap shared across all
 attempts.
+Prompts from inline args, `--prompt-file`, and stdin are capped at 512 KiB and
+are rejected before any CLI/API backend attempt, so oversized context cannot
+silently burn API tokens when `--api-fallback` is enabled.
 
 API fallback is off by default because it can consume Anthropic API credits or
 billing when `ANTHROPIC_API_KEY` or aragora secrets are configured. Use

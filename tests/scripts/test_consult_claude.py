@@ -9,6 +9,8 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
+from aragora.agents import claude_profile_pool
+
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "consult_claude.py"
 SPEC = importlib.util.spec_from_file_location("consult_claude_under_test", SCRIPT)
@@ -29,6 +31,26 @@ def test_build_cli_command_disables_mcp() -> None:
         assert json.loads(mcp_config_path.read_text(encoding="utf-8")) == {"mcpServers": {}}
         assert "--model" in command
         assert command[command.index("--model") + 1] == "claude-fable-5"
+
+
+def test_build_cli_command_routes_profile_pool_through_script_repo_root(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_build_claude_command(base_cmd, *, repo_root=None, index=None):
+        captured["base_cmd"] = base_cmd
+        captured["repo_root"] = repo_root
+        captured["index"] = index
+        return list(base_cmd), False
+
+    monkeypatch.setattr(claude_profile_pool, "build_claude_command", fake_build_claude_command)
+
+    with consult_claude._claude_empty_mcp_config_file() as mcp_config_path:
+        command, used_profile = consult_claude._build_cli_command("claude-fable-5", mcp_config_path)
+
+    assert command == captured["base_cmd"]
+    assert used_profile is False
+    assert captured["repo_root"] == consult_claude._REPO_ROOT
+    assert captured["index"] is None
 
 
 def test_run_cli_uses_stdin_prompt_timeout_and_redacts_stderr(monkeypatch) -> None:
@@ -76,7 +98,7 @@ def test_run_cli_uses_stdin_prompt_timeout_and_redacts_stderr(monkeypatch) -> No
     assert captured["command"][captured["command"].index("-p") + 1] == "-"
 
 
-def test_run_cli_preserves_stdout_from_nonzero_exit(monkeypatch) -> None:
+def test_run_cli_does_not_treat_nonzero_stdout_as_success(monkeypatch) -> None:
     class FakePopen:
         returncode = 1
         pid = 54321
@@ -94,9 +116,9 @@ def test_run_cli_preserves_stdout_from_nonzero_exit(monkeypatch) -> None:
 
     result = consult_claude._run_cli("live prompt", "claude-fable-5", 12.5)
 
-    assert result["ok"] is True
-    assert result["text"] == "usable advice"
-    assert result["warning"] == "claude CLI failed, rc=1, empty=False"
+    assert result["ok"] is False
+    assert "text" not in result
+    assert result["error"] == "claude CLI failed, rc=1, empty=False"
     assert "secret" not in json.dumps(result)
 
 
@@ -411,3 +433,34 @@ def test_main_reports_missing_prompt_file(capsys, tmp_path) -> None:
 
     assert rc == consult_claude.EXIT_NO_PROMPT
     assert "cannot read --prompt-file" in capsys.readouterr().err
+
+
+def test_main_rejects_oversized_prompt_file_before_consult(monkeypatch, capsys, tmp_path) -> None:
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("x" * 9, encoding="utf-8")
+    monkeypatch.setattr(consult_claude, "MAX_PROMPT_BYTES", 8)
+
+    def fail_consult(*_args, **_kwargs):
+        raise AssertionError("oversized prompt must be rejected before consult")
+
+    monkeypatch.setattr(consult_claude, "consult", fail_consult)
+
+    rc = consult_claude.main(["--prompt-file", str(prompt_file), "--api-fallback"])
+
+    assert rc == consult_claude.EXIT_NO_PROMPT
+    assert "prompt exceeds maximum size" in capsys.readouterr().err
+
+
+def test_main_rejects_oversized_stdin_before_consult(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(consult_claude, "MAX_PROMPT_BYTES", 8)
+    monkeypatch.setattr(consult_claude.sys, "stdin", io.StringIO("x" * 9))
+
+    def fail_consult(*_args, **_kwargs):
+        raise AssertionError("oversized prompt must be rejected before consult")
+
+    monkeypatch.setattr(consult_claude, "consult", fail_consult)
+
+    rc = consult_claude.main(["--json"])
+
+    assert rc == consult_claude.EXIT_NO_PROMPT
+    assert "prompt exceeds maximum size" in capsys.readouterr().err

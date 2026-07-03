@@ -55,6 +55,7 @@ DEFAULT_TIMEOUT_SECONDS = 600
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 API_MAX_TOKENS = 8192
 API_UNSUPPORTED_MODELS = {"claude-fable-5"}
+MAX_PROMPT_BYTES = 512 * 1024
 
 EXIT_OK = 0
 EXIT_TIMEOUT = 2
@@ -116,7 +117,7 @@ def _build_cli_command(model: str, mcp_config_path: Path) -> tuple[list[str], bo
     try:
         from aragora.agents.claude_profile_pool import build_claude_command
 
-        return build_claude_command(base)
+        return build_claude_command(base, repo_root=_REPO_ROOT)
     except Exception:
         return base, False
 
@@ -167,11 +168,6 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
         }
     elapsed = round(time.monotonic() - started, 1)
     text = _strip_preamble(stdout) if used_profile else stdout.strip()
-    if text:
-        result = {"ok": True, "backend": backend, "elapsed_s": elapsed, "text": text}
-        if proc.returncode != 0:
-            result["warning"] = _safe_cli_error(returncode=proc.returncode, empty=False)
-        return result
     if proc.returncode != 0:
         return {
             "ok": False,
@@ -179,6 +175,8 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
             "elapsed_s": elapsed,
             "error": _safe_cli_error(returncode=proc.returncode, empty=not text),
         }
+    if text:
+        return {"ok": True, "backend": backend, "elapsed_s": elapsed, "text": text}
     return {
         "ok": False,
         "backend": backend,
@@ -402,6 +400,38 @@ def consult(
     }
 
 
+def _prompt_too_large_error() -> str:
+    return f"prompt exceeds maximum size ({MAX_PROMPT_BYTES} bytes)"
+
+
+def _validate_prompt_bytes(prompt: str) -> None:
+    if len(prompt.encode("utf-8")) > MAX_PROMPT_BYTES:
+        raise ValueError(_prompt_too_large_error())
+
+
+def _read_prompt_file(path_text: str) -> str:
+    path = Path(path_text)
+    if path.stat().st_size > MAX_PROMPT_BYTES:
+        raise ValueError(_prompt_too_large_error())
+    data = path.read_bytes()
+    if len(data) > MAX_PROMPT_BYTES:
+        raise ValueError(_prompt_too_large_error())
+    return data.decode("utf-8")
+
+
+def _read_stdin_prompt() -> str:
+    stream = sys.stdin
+    buffer = getattr(stream, "buffer", None)
+    if buffer is not None:
+        data = buffer.read(MAX_PROMPT_BYTES + 1)
+        if len(data) > MAX_PROMPT_BYTES:
+            raise ValueError(_prompt_too_large_error())
+        return data.decode("utf-8")
+    prompt = stream.read(MAX_PROMPT_BYTES + 1)
+    _validate_prompt_bytes(prompt)
+    return prompt
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("prompt", nargs="?", help="Question text (or use --prompt-file / stdin)")
@@ -457,15 +487,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.prompt_file:
         try:
-            with open(args.prompt_file, encoding="utf-8") as handle:
-                prompt = handle.read()
-        except OSError as exc:
+            prompt = _read_prompt_file(args.prompt_file)
+        except (OSError, UnicodeError, ValueError) as exc:
             print(f"error: cannot read --prompt-file: {exc}", file=sys.stderr)
             return EXIT_NO_PROMPT
     elif args.prompt:
         prompt = args.prompt
     elif not sys.stdin.isatty():
-        prompt = sys.stdin.read()
+        try:
+            prompt = _read_stdin_prompt()
+        except (OSError, UnicodeError, ValueError) as exc:
+            print(f"error: cannot read stdin prompt: {exc}", file=sys.stderr)
+            return EXIT_NO_PROMPT
     else:
         parser.print_usage(sys.stderr)
         print("error: no prompt given (arg, --prompt-file, or stdin)", file=sys.stderr)
@@ -473,6 +506,11 @@ def main(argv: list[str] | None = None) -> int:
     prompt = prompt.strip()
     if not prompt:
         print("error: prompt is empty", file=sys.stderr)
+        return EXIT_NO_PROMPT
+    try:
+        _validate_prompt_bytes(prompt)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return EXIT_NO_PROMPT
 
     result = consult(
