@@ -284,5 +284,5 @@ All examples work offline with mock agents (no API keys needed).
 | REST API docs | [API Reference](../api/reference) |
 | Gauntlet (adversarial validation) | [Gauntlet Guide](./gauntlet) |
 | Streaming events (WebSocket) | [WebSocket Events](./websocket-events) |
-| Self-host with Docker | [`deploy/README.md`](../analysis/adr) |
+| Self-host with Docker | [`deploy/README.md`](../deploy/README.md) |
 | EU AI Act compliance | [EU AI Act Guide](../security/eu-ai-act-guide) |

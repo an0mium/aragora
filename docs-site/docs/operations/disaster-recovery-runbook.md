@@ -1436,7 +1436,7 @@ curl -s "https://api.cloudflare.com/client/v4/user/load_balancers/pools" \
 - [RUNBOOK_MULTI_REGION_SETUP.md](./runbook-multi-region-setup) - Multi-region architecture
 - [../POSTGRES_HA.md](../deployment/postgres-ha) - PostgreSQL HA configuration
 - [../DR_DRILL_PROCEDURES.md](../deployment/dr-drills) - Detailed drill procedures
-- [../enterprise/DISASTER_RECOVERY.md](./disaster-recovery-runbook) - Enterprise DR overview
+- [../enterprise/DISASTER_RECOVERY.md](../enterprise/DISASTER_RECOVERY.md) - Enterprise DR overview
 
 ---
 

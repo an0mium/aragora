@@ -372,6 +372,7 @@ const DOC_MAP = {
   'CANONICAL_GOALS.md': 'contributing/canonical-goals.md',
   '../CLAUDE.md': 'contributing/claude.md',
   'EXTENDED_README.md': 'contributing/extended-readme.md',
+  '../README.md': 'contributing/readme.md',
   '../ROADMAP.md': 'contributing/roadmap.md',
   'plans/ARAGORA_EVOLUTION_ROADMAP.md': 'contributing/aragora-evolution-roadmap.md',
   'plans/PMF_DOGFOOD_EXECUTION_PLAN.md': 'contributing/pmf-dogfood-execution-plan.md',
@@ -482,8 +483,29 @@ function escapeUrlParamBracesOutsideCodeFences(content) {
     .join('\n');
 }
 
-// Build reverse lookup from source file to destination path
+// Build reverse lookup from source file to destination path.
+//
+// REVERSE_LOOKUP is keyed by the full (qualified) source path -- e.g.
+// "ADR/README.md", "case-studies/README.md", "../README.md" -- which is
+// always unambiguous because DOC_MAP keys are themselves unique.
+//
+// BASENAME_LOOKUP is a secondary, basename-only index (e.g. "README.md")
+// used as a fallback when a link omits its directory. Several DOC_MAP
+// entries legitimately share a basename (root README.md, ADR/README.md,
+// case-studies/README.md all resolve to "README.md"), so a basename-only
+// key is only ever safe to use when it maps to exactly one DOC_MAP entry.
+// Populating it unconditionally would let whichever entry is defined last
+// silently win over the others for every ambiguous basename -- that is the
+// bug this guards against. Ambiguous basenames are intentionally left out
+// of BASENAME_LOOKUP so callers fall through to "no match" instead of
+// guessing.
 const REVERSE_LOOKUP = {};
+const BASENAME_LOOKUP = {};
+const basenameCounts = new Map();
+for (const src of Object.keys(DOC_MAP)) {
+  const srcName = path.basename(src.replace(/^\.\//, '').replace(/^\//, ''));
+  basenameCounts.set(srcName, (basenameCounts.get(srcName) || 0) + 1);
+}
 for (const [src, dest] of Object.entries(DOC_MAP)) {
   // Normalize source path variations
   const srcBase = src.replace(/^\.\//, '').replace(/^\//, '');
@@ -491,9 +513,33 @@ for (const [src, dest] of Object.entries(DOC_MAP)) {
 
   // Store both with and without .md extension
   REVERSE_LOOKUP[srcBase] = dest;
-  REVERSE_LOOKUP[srcName] = dest;
   REVERSE_LOOKUP[srcBase.replace('.md', '')] = dest.replace('.md', '');
-  REVERSE_LOOKUP[srcName.replace('.md', '')] = dest.replace('.md', '');
+
+  if (basenameCounts.get(srcName) === 1) {
+    BASENAME_LOOKUP[srcName] = dest;
+    BASENAME_LOOKUP[srcName.replace('.md', '')] = dest.replace('.md', '');
+  }
+}
+
+// Resolve a rewritten link's normalized target (leading "../" or "./" already
+// stripped) to a docs-site destination path, or undefined if none is known.
+//
+// A link written as "../FILE.md" almost always names a file one directory
+// above the *docs/* tree (e.g. the repo-root README.md, CLAUDE.md,
+// ROADMAP.md), which DOC_MAP records under an explicit "../FILE.md" key. We
+// check that qualified key first -- before the ambiguous basename fallback --
+// so a root-level "../README.md" resolves to the root README's own page
+// instead of colliding with ADR/README.md or case-studies/README.md, both of
+// which also end in the basename "README.md".
+function resolveLinkDestination(match, normalized) {
+  const hasParentPrefix = /^\]\(\.\.\//.test(match);
+  if (hasParentPrefix) {
+    const rootQualified = REVERSE_LOOKUP['../' + normalized];
+    if (rootQualified) {
+      return rootQualified;
+    }
+  }
+  return REVERSE_LOOKUP[normalized] || BASENAME_LOOKUP[path.basename(normalized)];
 }
 
 // Fix content for Docusaurus compatibility
@@ -520,7 +566,7 @@ function fixContent(content, destPath) {
     (match, filePath, anchor) => {
       // Try to find the destination path in our mapping
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
-      const newPath = REVERSE_LOOKUP[normalized] || REVERSE_LOOKUP[path.basename(normalized)];
+      const newPath = resolveLinkDestination(match, normalized);
 
       if (newPath) {
         // Calculate relative path from current doc to target doc
@@ -553,10 +599,8 @@ function fixContent(content, destPath) {
     (match, filePath, anchor) => {
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
       const newPath =
-        REVERSE_LOOKUP[normalized] ||
-        REVERSE_LOOKUP[path.basename(normalized)] ||
-        REVERSE_LOOKUP[normalized + '.md'] ||
-        REVERSE_LOOKUP[path.basename(normalized) + '.md'];
+        resolveLinkDestination(match, normalized) ||
+        resolveLinkDestination(match, normalized + '.md');
 
       if (newPath) {
         const targetDir = path.dirname(newPath);
