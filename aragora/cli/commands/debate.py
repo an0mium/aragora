@@ -298,6 +298,100 @@ def _is_server_available(server_url: str) -> bool:
         return False
 
 
+# Statuses Aragora's health endpoint can report. The public (unauthenticated)
+# ``/api/health`` response is exactly {"status": "healthy"|"degraded",
+# "timestamp": "<iso8601>Z"} (see aragora/server/handlers/admin/health).
+_ARAGORA_HEALTH_STATUSES = frozenset({"healthy", "degraded"})
+
+
+def _identifies_as_aragora(body: bytes) -> bool:
+    """Return True when a health response body matches Aragora's health schema.
+
+    This is a positive-signal check: the payload must be a JSON object whose
+    ``status`` is one of Aragora's health statuses and which carries a
+    ``timestamp`` field. Anything else (HTML login pages, Jenkins/Tomcat
+    banners, other projects' ``{"status": "ok"}`` probes) is rejected.
+    """
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    status = payload.get("status")
+    return (
+        isinstance(status, str)
+        and status.lower() in _ARAGORA_HEALTH_STATUSES
+        and "timestamp" in payload
+    )
+
+
+def _probe_server_identity(server_url: str) -> str:
+    """Probe ``server_url`` and classify what is listening.
+
+    Returns:
+        ``"aragora"``: HTTP 200 whose payload matches Aragora's health schema.
+        ``"foreign"``: something answered HTTP 200 but does not identify as an
+            Aragora server (e.g. another dev service squatting the port).
+        ``"unavailable"``: nothing healthy is listening.
+    """
+    try:
+        import urllib.request
+
+        with urllib.request.urlopen(f"{server_url}/api/health", timeout=2) as resp:  # noqa: S310 -- local server health check
+            status_code = getattr(resp, "status", None) or resp.getcode()
+            if status_code != 200:
+                return "unavailable"
+            body = resp.read(8192)
+    except (OSError, TimeoutError, ValueError) as e:
+        logger.debug("Server health probe failed at %s: %s", server_url, e)
+        return "unavailable"
+    if _identifies_as_aragora(body):
+        return "aragora"
+    logger.debug("Service at %s answered 200 but does not identify as Aragora", server_url)
+    return "foreign"
+
+
+def _is_explicitly_configured_api_url(server_url: str, *, flag_passed: bool = False) -> bool:
+    """True when the user opted in to this API URL (env var or --api-url flag).
+
+    ``flag_passed`` carries actual flag presence from argparse (the parser
+    defaults ``--api-url`` to ``None``), so ``--api-url http://localhost:8080``
+    counts as explicit even though it equals the default URL. The value
+    comparison remains as a fallback for callers without flag information.
+    """
+    if flag_passed:
+        return True
+    if os.environ.get("ARAGORA_API_URL", "").strip():
+        return True
+    return server_url.rstrip("/") != DEFAULT_API_URL.rstrip("/")
+
+
+def _trusted_server_available(server_url: str, *, flag_passed: bool = False) -> bool:
+    """Availability gate for auto-discovery: reachable AND identifies as Aragora.
+
+    Fail-closed trust check: port 8080 is the most commonly squatted dev port
+    (Jenkins, Tomcat, other projects' dev servers), so a bare HTTP 200 on
+    ``/api/health`` is not enough to route the user's debate content there.
+    An explicitly configured URL (``ARAGORA_API_URL`` or ``--api-url``) is
+    trusted as-is because the user opted in.
+    """
+    if not _is_server_available(server_url):
+        return False
+    if _is_explicitly_configured_api_url(server_url, flag_passed=flag_passed):
+        return True
+    identity = _probe_server_identity(server_url)
+    if identity == "aragora":
+        return True
+    if identity == "foreign":
+        print(
+            f"Note: service at {server_url} does not identify as an Aragora API server; "
+            "running the debate locally. Set ARAGORA_API_URL or pass --api-url to use it anyway.",
+            file=sys.stderr,
+        )
+    return False
+
+
 def _build_api_client(server_url: str, api_key: str | None):
     """Build an AragoraClient for API-backed runs."""
     from aragora.client import AragoraClient
@@ -1761,7 +1855,9 @@ def cmd_ask(args: argparse.Namespace) -> None:
             }
         )
 
-    server_url = getattr(args, "api_url", DEFAULT_API_URL)
+    api_url_arg = getattr(args, "api_url", None)
+    api_url_flag_passed = api_url_arg is not None
+    server_url = api_url_arg or DEFAULT_API_URL
     api_key = (
         getattr(args, "api_key", None)
         or os.environ.get("ARAGORA_API_TOKEN")
@@ -2011,7 +2107,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
     use_api = requested_api
     if not requested_api and not requested_local:
-        use_api = _is_server_available(server_url)
+        use_api = _trusted_server_available(server_url, flag_passed=api_url_flag_passed)
 
     if use_api:
         try:
