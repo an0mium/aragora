@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -31,6 +32,16 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from aragora.swarm.agent_bridge.codex_source import default_codex_home
+
+
+def _repo_python_env() -> dict[str, str]:
+    """Give child Python processes the same repo import root as this script."""
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "").strip()
+    env["PYTHONPATH"] = (
+        f"{REPO_ROOT}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else str(REPO_ROOT)
+    )
+    return env
 
 
 def default_sessions_root() -> Path:
@@ -280,6 +291,7 @@ def rlm_summary(turns: dict[str, Any], question: str) -> str | None:
     """Best-effort recursive summary via Aragora's RLM CLI; None if unavailable."""
     import tempfile
 
+    child_env = _repo_python_env()
     body = "\n".join(
         ["# Agent session decisions", *turns["decisions"], "# Commands", *turns["commands"]]
     )
@@ -304,6 +316,7 @@ def rlm_summary(turns: dict[str, Any], question: str) -> str | None:
                 capture_output=True,
                 text=True,
                 timeout=120,
+                env=child_env,
             )
             if comp.returncode != 0 or not ctx_path.exists():
                 return None
@@ -321,6 +334,7 @@ def rlm_summary(turns: dict[str, Any], question: str) -> str | None:
                 capture_output=True,
                 text=True,
                 timeout=180,
+                env=child_env,
             )
             if q.returncode != 0:
                 # A failed query (e.g. missing context) must not be surfaced as
