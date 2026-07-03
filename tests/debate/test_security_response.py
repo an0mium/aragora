@@ -8,6 +8,9 @@ event module (they import Arena, DebateProtocol, and API agents), so they
 live under aragora.debate rather than the domain-free events module.
 """
 
+import json
+import subprocess
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -237,3 +240,64 @@ class TestTriggerSecurityDebate:
                 assert event.debate_question == "Generated question"
                 assert result is not None
                 assert result.startswith("security_debate_")
+
+                # context must be a JSON string (Environment.context: str), not a
+                # raw dict -- regression test for a pre-existing bug where this
+                # was passed as cast(str, {...}) and only reached via the emitter;
+                # the dispatcher default path now also depends on this being real
+                # JSON (see aragora.events.security_dispatcher's default runner).
+                _, call_kwargs = mock_env.call_args
+                context = call_kwargs["context"]
+                assert isinstance(context, str)
+                decoded = json.loads(context)
+                assert decoded["security_event_id"] == event.id
+                assert decoded["repository"] == "org/repo"
+                assert decoded["findings"][0]["cve_id"] == "CVE-2024-99999"
+
+
+# =============================================================================
+# Consumer registration side effect (real cold-import, not mocked)
+# =============================================================================
+
+
+class TestConsumerRegistrationSideEffect:
+    """
+    Regression tests proving that importing a real production consumer
+    module -- without ever explicitly referencing aragora.debate -- leaves
+    the security debate runner registered.
+
+    Each check runs in a fresh subprocess so module-caching from other tests
+    (or from importing aragora.debate.security_response directly earlier in
+    this file) cannot mask a missing registration.
+    """
+
+    def _assert_runner_registered_after_import(self, import_line: str) -> None:
+        script = (
+            f"{import_line}\n"
+            "from aragora.events.security_events import get_security_debate_runner\n"
+            "runner = get_security_debate_runner()\n"
+            "assert runner is not None, 'no security debate runner registered'\n"
+            "assert runner.__name__ == 'trigger_security_debate'\n"
+            "print('OK')\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, (
+            f"subprocess failed (rc={result.returncode})\n"
+            f"stdout={result.stdout}\nstderr={result.stderr}"
+        )
+        assert "OK" in result.stdout
+
+    def test_sast_scanner_import_registers_runner(self):
+        """Importing the SAST scanner module alone must register the runner."""
+        self._assert_runner_registered_after_import("import aragora.analysis.codebase.sast.scanner")
+
+    def test_server_security_events_handler_import_registers_runner(self):
+        """Importing the server security-events handler alone must register the runner."""
+        self._assert_runner_registered_after_import(
+            "import aragora.server.handlers.codebase.security.events"
+        )

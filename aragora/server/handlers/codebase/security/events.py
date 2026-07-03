@@ -19,6 +19,12 @@ from aragora.events.security_events import (
     get_security_emitter,
 )
 
+# Explicitly wire up the security debate runner rather than relying on some
+# other transitive import having registered it first: the emitter's default
+# enable_auto_debate=True depends on aragora.debate.security_response having
+# been imported at least once in this process.
+from aragora.debate import security_response as _security_response  # noqa: F401
+
 if TYPE_CHECKING:
     from aragora.analysis.codebase import (
         SASTScanResult,

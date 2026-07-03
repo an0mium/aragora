@@ -11,16 +11,21 @@ Self-registers trigger_security_debate as the callback that
 aragora.events.security_events.SecurityEventEmitter invokes for its
 auto-debate path (see register_security_debate_runner), so the domain-free
 events module never imports aragora.debate or aragora.agents directly.
-Importing aragora.debate.orchestrator (Arena) imports this module eagerly,
-which guarantees the runner is registered before any Arena-backed process
-could emit a security event.
+Registration is a plain module-level side effect, so any composition root
+that imports this module first makes the runner available process-wide.
+Three composition roots import it explicitly rather than relying on
+incidental transitive imports: aragora.debate.orchestrator (Arena, for any
+Arena-backed process), aragora.analysis.codebase.sast.scanner (SAST auto-scan
+findings), and aragora.server.handlers.codebase.security.events (server-side
+scan event emission).
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
-from typing import Any, cast
+from typing import Any
 
 from aragora.events.security_events import (
     SecurityEvent,
@@ -109,14 +114,13 @@ async def trigger_security_debate(
         # Create environment
         env = Environment(
             task=question,
-            context=cast(
-                str,
+            context=json.dumps(
                 {
                     "security_event_id": event.id,
                     "repository": event.repository,
                     "scan_id": event.scan_id,
                     "findings": [f.to_dict() for f in event.findings],
-                },
+                }
             ),
         )
 
@@ -176,7 +180,7 @@ async def _get_security_debate_agents() -> list[Any]:
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent as AnthropicAgent
         from aragora.agents.api_agents.openai import OpenAIAPIAgent as OpenAIAgent
 
-        agents = []
+        agents: list[Any] = []
 
         try:
             agents.append(
