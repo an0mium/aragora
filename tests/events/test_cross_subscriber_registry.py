@@ -255,6 +255,40 @@ def test_bootstrap_is_idempotent():
     assert "only_once" in manager.get_stats()
 
 
+def test_bootstrap_include_names_restricts_which_subscribers_apply():
+    """``include_names`` lets a subset bootstrap ignore an already-registered
+    wider-tier home instead of silently inheriting it (the mechanism behind
+    the domain-subset bootstrap's tier isolation - see the end-to-end version
+    of this guard using the real workflow home below)."""
+    domain_sub = _FakeSubscriber("fake_domain_home")
+    app_sub = _FakeSubscriber("fake_app_home")
+    register_subscriber("fake_domain_home", domain_sub)
+    register_subscriber("fake_app_home", app_sub)
+
+    manager = bootstrap(include_names={"fake_domain_home"})
+
+    assert domain_sub.register_calls == 1
+    assert app_sub.register_calls == 0
+    assert "fake_domain_home" in manager.get_stats()
+    assert "fake_app_home" not in manager.get_stats()
+
+    # A later, wider (unfiltered) bootstrap call still picks up what the
+    # narrower call intentionally skipped - it isn't lost, only deferred.
+    bootstrap()
+    assert app_sub.register_calls == 1
+    assert "fake_app_home" in manager.get_stats()
+
+
+def test_bootstrap_include_names_none_preserves_apply_all_default():
+    sub = _FakeSubscriber("fake_default_home")
+    register_subscriber("fake_default_home", sub)
+
+    manager = bootstrap(include_names=None)
+
+    assert sub.register_calls == 1
+    assert "fake_default_home" in manager.get_stats()
+
+
 def test_get_cross_subscriber_manager_path_unchanged():
     """Acceptance #3: the public accessor stays at its historical import path."""
     import importlib
@@ -425,6 +459,38 @@ def test_application_tier_reactions_registered_via_superset_bootstrap():
     missing = APPLICATION_TIER_SUBSCRIBER_NAMES - registered
     assert not missing, (
         f"superset bootstrap failed to wire application-tier reactions: {sorted(missing)}"
+    )
+
+
+def test_domain_subset_bootstrap_does_not_leak_application_tier_via_prior_import():
+    """A pure-domain process must stay workflow-free even when something
+    unrelated already imported the workflow home first.
+
+    Registration happens at import time (module-level ``register()``), into a
+    single process-wide registry with no tier concept. Before
+    ``apply_registered_subscribers``/``bootstrap`` grew ``include_names``, ANY
+    prior import of ``aragora.workflow.event_subscribers`` - by the interface
+    superset, a test, or any other unrelated code path sharing the process -
+    left the application-tier reaction sitting in the registry ready to be
+    picked up by a *later* call to the domain-only bootstrap too, silently
+    reintroducing the debate->workflow coupling this batch removes and making
+    behavior depend on import order. Simulates that prior import explicitly
+    (the domain-subset bootstrap itself never imports the workflow home) and
+    asserts it is still excluded.
+    """
+    from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+    from aragora.workflow import event_subscribers as workflow_home
+
+    workflow_home.register()  # the "unrelated earlier import" elsewhere in-process
+    assert "workflow" in get_registered_subscribers()
+
+    manager = bootstrap_debate_event_subscribers()
+    registered = set(manager.get_stats())
+
+    leaked = APPLICATION_TIER_SUBSCRIBER_NAMES & registered
+    assert not leaked, (
+        "domain-subset bootstrap picked up an application-tier reaction left "
+        f"in the registry by a prior, unrelated import: {sorted(leaked)}"
     )
 
 
