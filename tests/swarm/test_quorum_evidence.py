@@ -13,7 +13,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import multiprocessing
 import os
+import queue
+import signal
 import subprocess
 import threading
 import time
@@ -1037,6 +1040,290 @@ def test_collect_runs_reviewers_concurrently() -> None:
     assert outcome.failures == []
 
 
+def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None:
+    fakes, posted = _fakes(tier=0)
+
+    def runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "claude":
+            return ReviewerResult(family, "Verdict: PASS from claude", True)
+        time.sleep(1.5)
+        return ReviewerResult(family, "Verdict: PASS from grok", True)
+
+    fakes["reviewer_runner"] = runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=0.2,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timeout is True
+    assert outcome.timed_out_families == ["grok"]
+    assert outcome.action == "prepare"
+    assert "reviewer orchestration timeout" in outcome.action_reason
+    assert [item.family for item in outcome.items] == ["claude"]
+    assert [failure.family for failure in outcome.failures] == ["grok"]
+    assert posted == []
+
+
+def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("process-supervised timeout regression requires fork context")
+    fakes, posted = _fakes(tier=0)
+
+    def runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "claude":
+            return ReviewerResult(family, "Verdict: PASS from claude", True)
+        time.sleep(10)
+        return ReviewerResult(family, "Verdict: PASS from grok", True)
+
+    fakes["reviewer_runner"] = runner
+    started_at = time.monotonic()
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=0.05,
+        **fakes,
+    )
+    elapsed = time.monotonic() - started_at
+
+    assert elapsed < 1.0
+    assert outcome.orchestration_timeout is True
+    assert outcome.timed_out_families == ["grok"]
+    assert outcome.action == "prepare"
+    assert posted == []
+
+
+def test_overall_timeout_reaps_finished_reviewer_before_deadline_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    closed: list[str] = []
+
+    class FinishedProcess:
+        pid = 12345
+
+        def is_alive(self) -> bool:
+            return False
+
+        def join(self, timeout: float | None = None) -> None:
+            return None
+
+    def start_worker(ctx, reviewer_runner, family: str, prompt: str) -> qe._ReviewerWorker:
+        result_queue: queue.Queue[ReviewerResult] = queue.Queue(maxsize=1)
+        result_queue.put(ReviewerResult(family, f"Verdict: PASS from {family}", True))
+        return qe._ReviewerWorker(
+            family=family,
+            process=FinishedProcess(),
+            result_queue=result_queue,
+        )
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: object())
+    monkeypatch.setattr(qe, "_start_reviewer_worker", start_worker)
+    monkeypatch.setattr(qe, "_close_reviewer_worker", lambda worker: closed.append(worker.family))
+
+    results, timed_out = qe._run_reviewers_with_overall_timeout(
+        reviewer_runner=lambda family, prompt: ReviewerResult(family, "", True),
+        prompt="review prompt",
+        families=["claude"],
+        overall_timeout_seconds=0.0,
+    )
+
+    assert timed_out == []
+    assert results["claude"].ok is True
+    assert closed == ["claude"]
+
+
+def test_reviewer_process_context_avoids_fork_from_threaded_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested: list[str | None] = []
+
+    monkeypatch.setattr(qe.threading, "active_count", lambda: 2)
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["fork", "spawn"])
+
+    def fake_get_context(method: str | None = None) -> object:
+        requested.append(method)
+        return object()
+
+    monkeypatch.setattr(qe.multiprocessing, "get_context", fake_get_context)
+
+    qe._reviewer_process_context()
+
+    assert requested == ["spawn"]
+
+
+def test_reviewer_process_context_fails_closed_when_only_fork_is_available_in_threaded_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(qe.threading, "active_count", lambda: 2)
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["fork"])
+
+    with pytest.raises(RuntimeError, match="cannot safely fork reviewer workers"):
+        qe._reviewer_process_context()
+
+
+def test_start_reviewer_worker_is_not_daemon_so_api_fallback_can_spawn_children() -> None:
+    created: dict[str, object] = {}
+
+    class FakeQueue:
+        pass
+
+    class FakeProcess:
+        def __init__(self, *, target, args, daemon) -> None:
+            created["target"] = target
+            created["args"] = args
+            created["daemon"] = daemon
+
+        def start(self) -> None:
+            created["started"] = True
+
+    class FakeContext:
+        def Queue(self, maxsize: int) -> FakeQueue:
+            assert maxsize == 1
+            return FakeQueue()
+
+        def Process(self, *, target, args, daemon) -> FakeProcess:
+            return FakeProcess(target=target, args=args, daemon=daemon)
+
+    worker = qe._start_reviewer_worker(
+        FakeContext(),
+        lambda family, prompt: ReviewerResult(family, prompt, True),
+        "grok",
+        "review prompt",
+    )
+
+    assert worker.family == "grok"
+    assert created["started"] is True
+    assert created["daemon"] is False
+
+
+def test_reviewer_process_worker_creates_posix_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "setsid"):
+        pytest.skip("process-group isolation is POSIX-only")
+    events: list[str] = []
+
+    class FakeQueue:
+        def put(self, result: ReviewerResult) -> None:
+            events.append(f"put:{result.family}:{result.ok}")
+
+    monkeypatch.setattr(qe.os, "setsid", lambda: events.append("setsid"), raising=False)
+    monkeypatch.setattr(
+        qe.multiprocessing,
+        "current_process",
+        lambda: SimpleNamespace(name="ForkProcess-1"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_reviewer_with_infra_retry",
+        lambda runner, family, prompt: ReviewerResult(family, "Verdict: PASS", True),
+    )
+
+    qe._reviewer_process_worker(
+        lambda family, prompt: ReviewerResult(family, prompt, True),
+        "grok",
+        "review prompt",
+        FakeQueue(),
+    )
+
+    assert events == ["setsid", "put:grok:True"]
+
+
+def test_terminate_reviewer_worker_signals_posix_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "killpg"):
+        pytest.skip("process-group termination is POSIX-only")
+    events: list[tuple[str, int, int] | tuple[str, float]] = []
+
+    class FakeQueue:
+        def close(self) -> None:
+            pass
+
+        def join_thread(self) -> None:
+            pass
+
+    class FakeProcess:
+        pid = 4242
+
+        def __init__(self) -> None:
+            self.alive = True
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+        def join(self, timeout: float) -> None:
+            events.append(("join", timeout))
+
+        def terminate(self) -> None:
+            raise AssertionError("process-group cleanup should not fall back first")
+
+        def kill(self) -> None:
+            raise AssertionError("hard kill should not be needed after SIGTERM")
+
+    fake_process = FakeProcess()
+
+    def fake_killpg(pid: int, sig: int) -> None:
+        events.append(("killpg", pid, sig))
+        fake_process.alive = False
+
+    monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
+    qe._terminate_reviewer_worker(
+        qe._ReviewerWorker("grok", fake_process, FakeQueue())  # type: ignore[arg-type]
+    )
+
+    assert events == [("killpg", 4242, signal.SIGTERM), ("join", qe._REVIEWER_CLEANUP_TIMEOUT)]
+
+
+def test_signal_reviewer_process_group_falls_back_when_group_missing_but_process_alive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "killpg"):
+        pytest.skip("process-group termination is POSIX-only")
+
+    class FakeProcess:
+        pid = 4242
+
+        def is_alive(self) -> bool:
+            return True
+
+    def fake_killpg(pid: int, sig: int) -> None:
+        raise ProcessLookupError(pid)
+
+    monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
+
+    assert qe._signal_reviewer_process_group(FakeProcess(), signal.SIGTERM) is False  # type: ignore[arg-type]
+
+
+def test_read_reviewer_worker_result_waits_briefly_for_queue_feeder() -> None:
+    events: list[str] = []
+
+    class FakeQueue:
+        def get_nowait(self) -> ReviewerResult:
+            events.append("get_nowait")
+            raise queue.Empty
+
+        def get(self, timeout: float) -> ReviewerResult:
+            events.append(f"get:{timeout}")
+            return ReviewerResult("grok", "Verdict: PASS", True)
+
+    result = qe._read_reviewer_worker_result(
+        qe._ReviewerWorker("grok", SimpleNamespace(), FakeQueue())  # type: ignore[arg-type]
+    )
+
+    assert result.ok is True
+    assert result.family == "grok"
+    assert events == ["get_nowait", f"get:{qe._REVIEWER_RESULT_QUEUE_TIMEOUT}"]
+
+
 def test_collect_preserves_family_order_despite_completion_order() -> None:
     # The first-requested reviewer (claude) finishes last; items must still be
     # ordered by the caller's requested family order, not by completion.
@@ -1189,6 +1476,130 @@ def test_collect_severity_gated_finding_free_changes_requested_is_advisory(
     assert sorted(outcome.supportive_families) == ["claude", "openai"]
     assert sorted(outcome.posted) == ["claude", "openai"]
     assert all("changes-requested" not in body.lower() for _repo, body in posted)
+
+
+def test_collect_preflight_transport_retries_then_fails_closed_without_reviewers() -> None:
+    attempts = 0
+    reviewer_calls: list[str] = []
+    fakes, posted = _fakes(tier=1)
+
+    def flaky_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("error connecting to api.github.com")
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        reviewer_calls.append(family)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["context_fetcher"] = flaky_context_fetcher
+    fakes["reviewer_runner"] = reviewer_runner
+
+    with pytest.raises(qe.CollectPreflightTransportError) as raised:
+        collect_evidence(
+            repo="o/r",
+            pr=1,
+            families=["claude", "grok"],
+            author="me",
+            apply=True,
+            **fakes,
+        )
+
+    assert attempts == 2
+    assert reviewer_calls == []
+    assert posted == []
+    payload = raised.value.to_dict()
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+    assert payload["preserve_no_mutate"] is True
+    assert payload["phase"] == "preflight_pr_context"
+    assert payload["posted_families"] == []
+    assert payload["items"] == []
+    assert payload["failures"] == []
+
+
+def test_collect_preflight_timeout_message_is_transport_error() -> None:
+    assert qe._is_preflight_context_transport_error(
+        RuntimeError("gh pr view 1 timed out after 30s")
+    )
+
+
+def test_collect_preflight_raw_timeout_exception_is_transport_blocked() -> None:
+    attempts = 0
+
+    def timeout_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise subprocess.TimeoutExpired(["gh", "pr", "view", str(pr)], timeout=30)
+
+    with pytest.raises(qe.CollectPreflightTransportError) as raised:
+        qe._fetch_preflight_context(
+            "o/r",
+            1,
+            timeout_context_fetcher,
+            attempts=2,
+            retry_delay_seconds=0,
+        )
+
+    assert attempts == 2
+    payload = raised.value.to_dict()
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+
+
+def test_collect_preflight_non_github_timeout_message_is_not_transport_error() -> None:
+    attempts = 0
+
+    def logic_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("policy parser timed out after reading an invalid fixture")
+
+    with pytest.raises(RuntimeError, match="policy parser timed out"):
+        qe._fetch_preflight_context(
+            "o/r",
+            1,
+            logic_context_fetcher,
+            attempts=2,
+            retry_delay_seconds=0,
+        )
+
+    assert attempts == 1
+
+
+def test_collect_preflight_transport_retry_can_recover_and_run_reviewers() -> None:
+    attempts = 0
+    reviewer_calls: list[str] = []
+    fakes, posted = _fakes(tier=1)
+
+    def flaky_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("error connecting to api.github.com")
+        return {"head_sha": HEAD, "head_committed_at": COMMITTED}
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        reviewer_calls.append(family)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["context_fetcher"] = flaky_context_fetcher
+    fakes["reviewer_runner"] = reviewer_runner
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert attempts >= 2
+    assert sorted(reviewer_calls) == ["claude", "grok"]
+    assert outcome.action == "post"
+    assert sorted(outcome.posted) == ["claude", "grok"]
+    assert len(posted) == 2
 
 
 def test_evidence_item_dissenting_uses_captured_outcome_policy(
@@ -2274,6 +2685,54 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     assert "collect_evidence" in capsys.readouterr().out
 
 
+def test_run_collect_cli_scopes_timeout_env_overrides(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setenv(qe._CLAUDE_TIMEOUT_ENV, "111")
+    monkeypatch.delenv(qe._CODEX_TIMEOUT_ENV, raising=False)
+    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        captured.update(kwargs)
+        captured["claude_timeout"] = qe.os.environ.get(qe._CLAUDE_TIMEOUT_ENV)
+        captured["codex_timeout"] = qe.os.environ.get(qe._CODEX_TIMEOUT_ENV)
+        captured["reviewer_timeout"] = qe.os.environ.get(qe._REVIEWER_TIMEOUT_ENV)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="dry run",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=False,
+        json_output=False,
+        reviewer_timeout_seconds=90,
+        overall_timeout_seconds=150,
+    )
+
+    assert rc == 0
+    assert captured["overall_timeout_seconds"] == 150.0
+    assert captured["claude_timeout"] == "90"
+    assert captured["codex_timeout"] == "90"
+    assert captured["reviewer_timeout"] == "90"
+    assert qe.os.environ.get(qe._CLAUDE_TIMEOUT_ENV) == "111"
+    assert qe.os.environ.get(qe._CODEX_TIMEOUT_ENV) is None
+    assert qe.os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
+
+
 def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:
     prepared = _prepared_outcome_file(tmp_path)
     seen: dict[str, object] = {}
@@ -2339,6 +2798,30 @@ def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
     assert rc == 1
 
 
+def test_run_collect_cli_timeout_returns_failure_even_with_supportive_quorum(monkeypatch) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=0,
+            action="prepare",
+            action_reason="reviewer orchestration timeout; prepared only",
+            items=[EvidenceItem("claude", "body", True, ["claude"], [], "pass")],
+            orchestration_timeout=True,
+            timed_out_families=["grok"],
+            overall_timeout_seconds=1.0,
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=False
+    )
+    assert rc == 1
+
+
 def test_run_collect_cli_error_path(monkeypatch, capsys) -> None:
     def boom(**kwargs):
         raise ValueError("no head")
@@ -2363,6 +2846,36 @@ def test_run_collect_cli_catches_runtime_error(monkeypatch, capsys) -> None:
     )
     assert rc == 1
     assert "empty diff" in capsys.readouterr().out
+
+
+def test_run_collect_cli_preflight_transport_error_serializes_fail_closed_json(
+    monkeypatch, capsys
+) -> None:
+    def boom(**kwargs):
+        raise qe.CollectPreflightTransportError(
+            repo="o/r",
+            pr=1,
+            phase="preflight_pr_context",
+            error=RuntimeError("error connecting to api.github.com"),
+            attempts=2,
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", boom)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=True
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "collect_evidence"
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+    assert payload["preserve_no_mutate"] is True
+    assert payload["phase"] == "preflight_pr_context"
+    assert payload["posted_families"] == []
+    assert payload["items"] == []
+    assert payload["failures"] == []
 
 
 # --- build_review_prompt: complete file list + fair per-file body bounding ---
@@ -2570,10 +3083,12 @@ def _force_grok_bin(monkeypatch, present: bool) -> None:
 
 def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None:
     _force_grok_bin(monkeypatch, True)
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "17")
     seen: dict = {}
 
     def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["timeout"] = timeout
         return qe.ReviewerResult(family, "verdict", True, harness=harness)
 
     monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
@@ -2583,6 +3098,7 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     # read-only sandbox + headless single-prompt, explicit Grok Build path.
     assert seen["argv"][1:] == ["--sandbox", "read-only", "--no-plan", "-p", "review prompt"]
     assert seen["argv"][0].endswith(".grok/bin/grok")
+    assert seen["timeout"] == 17.0
 
 
 def test_grok_build_bin_override(monkeypatch) -> None:
@@ -2613,11 +3129,13 @@ def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeyp
 def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     import shutil as _sh
 
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "19")
     monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
     seen: dict = {}
 
     def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["timeout"] = timeout
         return qe.ReviewerResult(family, "v", True, harness=harness)
 
     monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
@@ -2626,6 +3144,7 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     assert res.family == "gemini"
     # resolved path (not bare "agy") + sandbox.
     assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+    assert seen["timeout"] == 19.0
 
 
 def test_gemini_reviewer_falls_back_to_api_without_agy(monkeypatch) -> None:

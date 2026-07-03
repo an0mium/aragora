@@ -109,6 +109,19 @@ GOLDEN_SUBSCRIBER_NAMES = frozenset(
 # -> aragora/debate/event_subscribers.py. events->debate is a shared edge (also
 # contributed by E7a security_dispatcher and E7b arena_bridge); only the last of
 # the three batches to land hand-shrinks the frozen baseline string.
+# E5: the workflow-coupled alert-escalation reaction embedded in the strategic
+# mixin -> aragora/workflow/event_subscribers.py (application-tier home, see
+# APPLICATION_TIER_SUBSCRIBER_NAMES below - it is wired only via the
+# interface-superset bootstrap, unlike E2-E4's domain-tier relocations).
+# E6: the server-coupled webhook-delivery reaction embedded in the basic mixin
+# and the staleness-to-debate reaction embedded in the culture mixin ->
+# aragora/server/event_subscribers.py (interface-tier home, see
+# INTERFACE_TIER_SUBSCRIBER_NAMES below - also wired only via the
+# interface-superset bootstrap). This clears the subscriber-side
+# events->server contributors only; the frozen baseline string
+# "aragora.events -> aragora.server" is NOT hand-shrunk by E6 (core-side
+# events/dispatcher.py + events/async_dispatcher.py contributors remain,
+# owned by later batches).
 RELOCATED_SUBSCRIBER_NAMES = frozenset(
     {
         "memory_to_mound",
@@ -143,6 +156,50 @@ RELOCATED_SUBSCRIBER_NAMES = frozenset(
         "agent_message_to_rhetorical",
         "budget_alert_to_team_selection",
         "meta_learning_to_team_selection",
+        "alert_escalated_to_workflow_brake",
+        "staleness_to_debate",
+        "webhook_agent_elo_updated",
+        "webhook_calibration_update",
+        "webhook_evidence_found",
+        "webhook_knowledge_indexed",
+        "webhook_knowledge_queried",
+        "webhook_memory_retrieved",
+        "webhook_memory_stored",
+        "webhook_mound_updated",
+    }
+)
+
+# Slice of RELOCATED_SUBSCRIBER_NAMES relocated to an APPLICATION (not domain)
+# home. These self-register via aragora/workflow/event_subscribers.py and are
+# wired ONLY by the interface-superset bootstrap
+# (aragora.server.startup.event_subscribers.bootstrap_event_subscribers), never
+# by the domain-subset bootstrap: a pure-library debate with no workflow
+# engine simply has no such reaction (matching the pre-inversion try/except
+# ImportError fallback). See docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.4.
+APPLICATION_TIER_SUBSCRIBER_NAMES = frozenset(
+    {
+        "alert_escalated_to_workflow_brake",
+    }
+)
+
+# Slice of RELOCATED_SUBSCRIBER_NAMES relocated to an INTERFACE (not domain or
+# application) home. These self-register via aragora/server/event_subscribers.py
+# and are wired ONLY by the interface-superset bootstrap, never by the
+# domain-subset bootstrap: a pure-library debate with no HTTP server has no
+# webhook store or WebSocket state manager to react through (matching the
+# pre-inversion try/except ImportError fallback). See
+# docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.4 (P4a Batch E6).
+INTERFACE_TIER_SUBSCRIBER_NAMES = frozenset(
+    {
+        "staleness_to_debate",
+        "webhook_agent_elo_updated",
+        "webhook_calibration_update",
+        "webhook_evidence_found",
+        "webhook_knowledge_indexed",
+        "webhook_knowledge_queried",
+        "webhook_memory_retrieved",
+        "webhook_memory_stored",
+        "webhook_mound_updated",
     }
 )
 
@@ -235,6 +292,40 @@ def test_bootstrap_is_idempotent():
     # bootstrap calls (registration is keyed and application is tracked).
     assert sub.register_calls == 1
     assert "only_once" in manager.get_stats()
+
+
+def test_bootstrap_include_names_restricts_which_subscribers_apply():
+    """``include_names`` lets a subset bootstrap ignore an already-registered
+    wider-tier home instead of silently inheriting it (the mechanism behind
+    the domain-subset bootstrap's tier isolation - see the end-to-end version
+    of this guard using the real workflow home below)."""
+    domain_sub = _FakeSubscriber("fake_domain_home")
+    app_sub = _FakeSubscriber("fake_app_home")
+    register_subscriber("fake_domain_home", domain_sub)
+    register_subscriber("fake_app_home", app_sub)
+
+    manager = bootstrap(include_names={"fake_domain_home"})
+
+    assert domain_sub.register_calls == 1
+    assert app_sub.register_calls == 0
+    assert "fake_domain_home" in manager.get_stats()
+    assert "fake_app_home" not in manager.get_stats()
+
+    # A later, wider (unfiltered) bootstrap call still picks up what the
+    # narrower call intentionally skipped - it isn't lost, only deferred.
+    bootstrap()
+    assert app_sub.register_calls == 1
+    assert "fake_app_home" in manager.get_stats()
+
+
+def test_bootstrap_include_names_none_preserves_apply_all_default():
+    sub = _FakeSubscriber("fake_default_home")
+    register_subscriber("fake_default_home", sub)
+
+    manager = bootstrap(include_names=None)
+
+    assert sub.register_calls == 1
+    assert "fake_default_home" in manager.get_stats()
 
 
 def test_get_cross_subscriber_manager_path_unchanged():
@@ -373,16 +464,157 @@ def test_relocated_reactions_registered_via_home_bootstrap():
     """E2+: relocated reactions self-register through their domain home module.
 
     The domain-subset bootstrap imports the domain home modules; every relocated
-    name must then be wired into the manager (parity for the relocated slice, so a
-    silently dropped home import is caught here and not only in the superset test).
+    DOMAIN-tier name must then be wired into the manager (parity for the relocated
+    slice, so a silently dropped home import is caught here and not only in the
+    superset test). APPLICATION_TIER_SUBSCRIBER_NAMES and
+    INTERFACE_TIER_SUBSCRIBER_NAMES are excluded: those reactions (e.g.
+    alert_escalated_to_workflow_brake, P4a Batch E5; staleness_to_debate /
+    webhook_*, P4a Batch E6) wire only via the interface-superset bootstrap -
+    see ``test_application_tier_reactions_registered_via_superset_bootstrap``
+    and ``test_interface_tier_reactions_registered_via_superset_bootstrap``.
     """
     from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
 
     manager = bootstrap_debate_event_subscribers()
     registered = set(manager.get_stats())
 
-    missing = RELOCATED_SUBSCRIBER_NAMES - registered
+    non_domain_tier = APPLICATION_TIER_SUBSCRIBER_NAMES | INTERFACE_TIER_SUBSCRIBER_NAMES
+    missing = (RELOCATED_SUBSCRIBER_NAMES - non_domain_tier) - registered
     assert not missing, f"home bootstrap failed to wire relocated reactions: {sorted(missing)}"
+
+    leaked = non_domain_tier & registered
+    assert not leaked, (
+        "application/interface-tier reactions must not be wired by the "
+        f"domain-subset bootstrap: {sorted(leaked)}"
+    )
+
+
+def test_application_tier_reactions_registered_via_superset_bootstrap():
+    """E5+: application-tier relocated reactions self-register through their
+    application home module, wired ONLY via the interface-superset bootstrap
+    (never the domain-subset one - see APPLICATION_TIER_SUBSCRIBER_NAMES)."""
+    from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+
+    manager = bootstrap_event_subscribers()
+    registered = set(manager.get_stats())
+
+    missing = APPLICATION_TIER_SUBSCRIBER_NAMES - registered
+    assert not missing, (
+        f"superset bootstrap failed to wire application-tier reactions: {sorted(missing)}"
+    )
+
+
+def test_interface_tier_reactions_registered_via_superset_bootstrap():
+    """E6+: interface-tier relocated reactions self-register through their
+    interface home module, wired ONLY via the interface-superset bootstrap
+    (never the domain-subset one - see INTERFACE_TIER_SUBSCRIBER_NAMES)."""
+    from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+
+    manager = bootstrap_event_subscribers()
+    registered = set(manager.get_stats())
+
+    missing = INTERFACE_TIER_SUBSCRIBER_NAMES - registered
+    assert not missing, (
+        f"superset bootstrap failed to wire interface-tier reactions: {sorted(missing)}"
+    )
+
+
+def test_domain_subset_bootstrap_does_not_leak_application_tier_via_prior_import():
+    """A pure-domain process must stay workflow-free even when something
+    unrelated already imported the workflow home first.
+
+    Registration happens at import time (module-level ``register()``), into a
+    single process-wide registry with no tier concept. Before
+    ``apply_registered_subscribers``/``bootstrap`` grew ``include_names``, ANY
+    prior import of ``aragora.workflow.event_subscribers`` - by the interface
+    superset, a test, or any other unrelated code path sharing the process -
+    left the application-tier reaction sitting in the registry ready to be
+    picked up by a *later* call to the domain-only bootstrap too, silently
+    reintroducing the debate->workflow coupling this batch removes and making
+    behavior depend on import order. Simulates that prior import explicitly
+    (the domain-subset bootstrap itself never imports the workflow home) and
+    asserts it is still excluded.
+    """
+    from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+    from aragora.workflow import event_subscribers as workflow_home
+
+    workflow_home.register()  # the "unrelated earlier import" elsewhere in-process
+    assert "workflow" in get_registered_subscribers()
+
+    manager = bootstrap_debate_event_subscribers()
+    registered = set(manager.get_stats())
+
+    leaked = APPLICATION_TIER_SUBSCRIBER_NAMES & registered
+    assert not leaked, (
+        "domain-subset bootstrap picked up an application-tier reaction left "
+        f"in the registry by a prior, unrelated import: {sorted(leaked)}"
+    )
+
+
+def test_domain_subset_bootstrap_does_not_leak_interface_tier_via_prior_import():
+    """A pure-domain process must stay server-free even when something
+    unrelated already imported the server home first.
+
+    Mirrors ``test_domain_subset_bootstrap_does_not_leak_application_tier_via_prior_import``
+    for the P4a Batch E6 interface-tier home: a prior, unrelated import of
+    ``aragora.server.event_subscribers`` must not let the domain-subset
+    bootstrap pick up its server-coupled reactions.
+    """
+    from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+    from aragora.server import event_subscribers as server_home
+
+    server_home.register()  # the "unrelated earlier import" elsewhere in-process
+    assert "server" in get_registered_subscribers()
+
+    manager = bootstrap_debate_event_subscribers()
+    registered = set(manager.get_stats())
+
+    leaked = INTERFACE_TIER_SUBSCRIBER_NAMES & registered
+    assert not leaked, (
+        "domain-subset bootstrap picked up an interface-tier reaction left "
+        f"in the registry by a prior, unrelated import: {sorted(leaked)}"
+    )
+
+
+def test_superset_bootstrap_fails_closed_when_workflow_home_registration_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A missing workflow-home registration must fail instead of silently dropping it.
+
+    Mirrors the domain-subset fail-closed tests above, but for the
+    interface-superset bootstrap's own application-tier completeness check
+    (P4a Batch E5 is the first batch to add an application-home import there).
+    """
+    from aragora.events.cross_subscribers import reset_cross_subscriber_manager, reset_registry
+    from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+    from aragora.workflow import event_subscribers as workflow_home
+
+    reset_registry()
+    reset_cross_subscriber_manager()
+    monkeypatch.setattr(workflow_home, "register", lambda: None)
+
+    with pytest.raises(RuntimeError, match="Application event subscriber bootstrap incomplete"):
+        bootstrap_event_subscribers()
+
+
+def test_superset_bootstrap_fails_closed_when_server_home_registration_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A missing server-home registration must fail instead of silently dropping it.
+
+    Mirrors the workflow-home fail-closed test above, but for the P4a Batch E6
+    interface-tier completeness check.
+    """
+    from aragora.events.cross_subscribers import reset_cross_subscriber_manager, reset_registry
+    from aragora.server import event_subscribers as server_home
+    from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+
+    reset_registry()
+    reset_cross_subscriber_manager()
+    monkeypatch.setattr(server_home, "register", lambda: None)
+
+    with pytest.raises(RuntimeError, match="Application event subscriber bootstrap incomplete"):
+        bootstrap_event_subscribers()
 
 
 def test_registry_module_has_zero_domain_imports():
