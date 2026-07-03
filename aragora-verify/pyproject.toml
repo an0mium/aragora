@@ -59,7 +59,28 @@ Changelog = "https://github.com/synaptent/aragora/blob/main/aragora-verify/CHANG
 "Bug Tracker" = "https://github.com/synaptent/aragora/issues"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["CLAUDE.md", "**/CLAUDE.md", ".nomic/", ".benchmarks/"]
+# Explicit include list so stray local directories (venvs like .pub/ or .venv/,
+# dist/, caches) never get swept into the sdist -- a venv's absolute symlinks
+# make `python -m build` fail with tarfile.AbsoluteLinkError.
+include = [
+    "src/",
+    "tests/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
+exclude = [
+    "CLAUDE.md",
+    "**/CLAUDE.md",
+    ".nomic/",
+    ".benchmarks/",
+    "**/__pycache__",
+    "**/.pytest_cache",
+    ".pub/",
+    ".venv/",
+    "dist/",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aragora_verify"]
