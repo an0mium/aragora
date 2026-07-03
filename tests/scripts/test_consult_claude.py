@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import stat
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -604,6 +605,51 @@ def test_main_reports_missing_prompt_file(capsys, tmp_path) -> None:
 
     assert rc == consult_claude.EXIT_NO_PROMPT
     assert "cannot read --prompt-file" in capsys.readouterr().err
+
+
+def test_main_rejects_non_regular_prompt_file_before_read(capsys, tmp_path) -> None:
+    rc = consult_claude.main(["--prompt-file", str(tmp_path)])
+
+    assert rc == consult_claude.EXIT_NO_PROMPT
+    assert "prompt file must be a regular file" in capsys.readouterr().err
+
+
+def test_prompt_file_read_is_capped_after_stat(monkeypatch) -> None:
+    read_amounts: list[int] = []
+
+    class FakeHandle:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, amount: int) -> bytes:
+            read_amounts.append(amount)
+            return b"x" * amount
+
+    class FakePath:
+        def __init__(self, path_text: str):
+            self.path_text = path_text
+
+        def stat(self):
+            return SimpleNamespace(st_size=0, st_mode=stat.S_IFREG | 0o644)
+
+        def open(self, mode: str):
+            assert mode == "rb"
+            return FakeHandle()
+
+    monkeypatch.setattr(consult_claude, "MAX_PROMPT_BYTES", 8)
+    monkeypatch.setattr(consult_claude, "Path", FakePath)
+
+    try:
+        consult_claude._read_prompt_file("growing-prompt.md")
+    except ValueError as exc:
+        assert "prompt exceeds maximum size" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+    assert read_amounts == [9]
 
 
 def test_main_rejects_oversized_prompt_file_before_consult(monkeypatch, capsys, tmp_path) -> None:

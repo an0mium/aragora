@@ -36,6 +36,7 @@ import math
 import os
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -447,9 +448,13 @@ def _compose_prompt(prompt: str, system: str | None) -> str:
 
 def _read_prompt_file(path_text: str) -> str:
     path = Path(path_text)
-    if path.stat().st_size > MAX_PROMPT_BYTES:
+    info = path.stat()
+    if not stat.S_ISREG(info.st_mode):
+        raise ValueError("prompt file must be a regular file")
+    if info.st_size > MAX_PROMPT_BYTES:
         raise ValueError(_prompt_too_large_error())
-    data = path.read_bytes()
+    with path.open("rb") as handle:
+        data = handle.read(MAX_PROMPT_BYTES + 1)
     if len(data) > MAX_PROMPT_BYTES:
         raise ValueError(_prompt_too_large_error())
     return data.decode("utf-8")
