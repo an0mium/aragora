@@ -393,6 +393,100 @@ class TestTriggerDebate:
 
 
 # ---------------------------------------------------------------------------
+# _run_debate default path (no custom callback)
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultRunnerPath:
+    """Regression tests for the default dispatch path (no custom callback).
+
+    Before P4a E7a this path imported aragora.debate.orchestrator.Arena
+    directly. It now routes through the same get_security_debate_runner
+    registry hook used by SecurityEventEmitter, so aragora.events never
+    imports aragora.debate.
+    """
+
+    @pytest.mark.asyncio
+    async def test_default_path_uses_registered_runner(self):
+        runner = AsyncMock(return_value="debate-default-1")
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        runner.assert_awaited_once_with(
+            event,
+            confidence_threshold=dispatcher.config.debate_confidence_threshold,
+            timeout_seconds=dispatcher.config.debate_timeout_seconds,
+        )
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_without_registered_runner_fails_gracefully(self):
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=None,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        assert dispatcher._stats.debates_failed == 1
+        assert dispatcher._stats.debates_completed == 0
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_does_not_require_arena_import(self):
+        """The default path must not import aragora.debate.orchestrator directly."""
+        runner = AsyncMock(return_value="debate-default-2")
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            # Simulate Arena being completely unimportable: if the default
+            # path still imported it directly, this would raise ImportError
+            # and the debate would fail instead of completing.
+            with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}):
+                await dispatcher._handle_event(event)
+                await asyncio.sleep(0.05)
+
+        runner.assert_awaited_once()
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        await dispatcher.stop()
+
+
+# ---------------------------------------------------------------------------
 # get_stats / get_pending_debates
 # ---------------------------------------------------------------------------
 

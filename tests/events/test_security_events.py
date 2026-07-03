@@ -20,13 +20,14 @@ from aragora.events.security_events import (
     SecurityEventType,
     SecurityFinding,
     SecuritySeverity,
-    build_security_debate_question,
     create_scan_completed_event,
     create_secret_event,
     create_vulnerability_event,
     get_security_debate_result,
+    get_security_debate_runner,
     get_security_emitter,
     list_security_debates,
+    register_security_debate_runner,
     set_security_emitter,
     _security_debate_results,
     _store_security_debate_result,
@@ -835,11 +836,11 @@ class TestSecurityEventEmitter:
         emitter = SecurityEventEmitter(enable_auto_debate=True)
         event = self._make_event(severity=SecuritySeverity.CRITICAL)
 
+        mock_trigger = AsyncMock(return_value="debate-auto-123")
         with patch(
-            "aragora.events.security_events.trigger_security_debate",
-            new_callable=AsyncMock,
-            return_value="debate-auto-123",
-        ) as mock_trigger:
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=mock_trigger,
+        ):
             await emitter.emit(event)
             mock_trigger.assert_awaited_once()
             assert event.debate_requested is True
@@ -851,10 +852,11 @@ class TestSecurityEventEmitter:
         emitter = SecurityEventEmitter(enable_auto_debate=True)
         event = self._make_event(severity=SecuritySeverity.LOW)
 
+        mock_trigger = AsyncMock()
         with patch(
-            "aragora.events.security_events.trigger_security_debate",
-            new_callable=AsyncMock,
-        ) as mock_trigger:
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=mock_trigger,
+        ):
             await emitter.emit(event)
             mock_trigger.assert_not_awaited()
 
@@ -1206,132 +1208,14 @@ class TestRateLimitDetection:
             findings=findings,
         )
 
+        mock_trigger = AsyncMock(return_value="debate-rate-001")
         with patch(
-            "aragora.events.security_events.trigger_security_debate",
-            new_callable=AsyncMock,
-            return_value="debate-rate-001",
-        ) as mock_trigger:
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=mock_trigger,
+        ):
             await emitter.emit(event)
             # Should trigger because high_count >= 3
             mock_trigger.assert_awaited_once()
-
-
-# =============================================================================
-# build_security_debate_question
-# =============================================================================
-
-
-class TestBuildSecurityDebateQuestion:
-    """Tests for debate question construction from events."""
-
-    def test_question_with_no_findings(self):
-        """Should produce a fallback question when no findings exist."""
-        event = SecurityEvent(repository="org/repo")
-        q = build_security_debate_question(event)
-        assert "org/repo" in q
-        assert "remediation" in q.lower()
-
-    def test_question_with_no_findings_no_repo(self):
-        """Should use 'the codebase' when no repository is set."""
-        event = SecurityEvent()
-        q = build_security_debate_question(event)
-        assert "the codebase" in q
-
-    def test_question_with_vulnerability_findings(self):
-        """Should include vulnerability details in the question."""
-        finding = SecurityFinding(
-            id="f-1",
-            finding_type="vulnerability",
-            severity=SecuritySeverity.CRITICAL,
-            title="Remote Code Execution",
-            description="RCE via unsafe deserialization in pickle module",
-            cve_id="CVE-2024-12345",
-            package_name="pickle-lib",
-        )
-        event = SecurityEvent(
-            repository="org/app",
-            findings=[finding],
-        )
-        q = build_security_debate_question(event)
-        assert "CVE-2024-12345" in q
-        assert "pickle-lib" in q
-        assert "org/app" in q
-        assert "remediation" in q.lower()
-
-    def test_question_with_secret_findings(self):
-        """Should include secret type information in the question."""
-        finding = SecurityFinding(
-            id="f-2",
-            finding_type="secret",
-            severity=SecuritySeverity.HIGH,
-            title="Exposed API key",
-            description="AWS access key found in source code",
-            metadata={"secret_type": "aws_access_key"},
-        )
-        event = SecurityEvent(findings=[finding])
-        q = build_security_debate_question(event)
-        assert "aws_access_key" in q
-        assert "secrets" in q.lower()
-
-    def test_question_with_mixed_findings(self):
-        """Should include both vulnerability and secret details."""
-        vuln = SecurityFinding(
-            id="f-v",
-            finding_type="vulnerability",
-            severity=SecuritySeverity.HIGH,
-            title="SQL Injection",
-            description="User input concatenated in SQL query",
-            cve_id="CVE-2024-99999",
-            package_name="sqlalchemy",
-        )
-        secret = SecurityFinding(
-            id="f-s",
-            finding_type="secret",
-            severity=SecuritySeverity.HIGH,
-            title="Exposed token",
-            description="GitHub token in config file",
-            metadata={"secret_type": "github_token"},
-        )
-        event = SecurityEvent(findings=[vuln, secret])
-        q = build_security_debate_question(event)
-        assert "vulnerabilities" in q.lower()
-        assert "secrets" in q.lower()
-
-    def test_question_limits_to_five_findings(self):
-        """Should limit to at most 5 findings in the question."""
-        findings = [
-            SecurityFinding(
-                id=f"f-{i}",
-                finding_type="vulnerability",
-                severity=SecuritySeverity.HIGH,
-                title=f"Vuln {i}",
-                description=f"Description {i}",
-                cve_id=f"CVE-2024-{i:05d}",
-                package_name=f"pkg-{i}",
-            )
-            for i in range(10)
-        ]
-        event = SecurityEvent(findings=findings)
-        q = build_security_debate_question(event)
-        # The details section should list at most 5 findings (limited at the top)
-        detail_lines = [line for line in q.split("\n") if line.strip().startswith("- ")]
-        assert len(detail_lines) <= 5
-
-    def test_question_includes_remediation_structure(self):
-        """Question should ask about mitigations, root cause, prevention."""
-        finding = SecurityFinding(
-            id="f-struct",
-            finding_type="vulnerability",
-            severity=SecuritySeverity.CRITICAL,
-            title="Critical vuln",
-            description="Description",
-        )
-        event = SecurityEvent(findings=[finding])
-        q = build_security_debate_question(event)
-        assert "Immediate mitigations" in q
-        assert "Root cause" in q
-        assert "Preventive measures" in q
-        assert "Impact" in q
 
 
 # =============================================================================
@@ -1773,102 +1657,50 @@ class TestSingletonEmitter:
 
 
 # =============================================================================
-# trigger_security_debate integration
+# Security debate runner registry hook
 # =============================================================================
 
 
-class TestTriggerSecurityDebate:
-    """Tests for the trigger_security_debate function."""
+class TestSecurityDebateRunnerRegistry:
+    """Tests for register_security_debate_runner / get_security_debate_runner."""
 
-    @pytest.mark.asyncio
-    async def test_trigger_debate_returns_none_on_import_error(self):
-        """Should return None gracefully when Arena is not importable."""
-        from aragora.events.security_events import trigger_security_debate
+    @pytest.fixture(autouse=True)
+    def reset_runner(self):
+        """Snapshot and restore the module-level runner around each test."""
+        import aragora.events.security_events as mod
 
-        event = SecurityEvent(
-            severity=SecuritySeverity.CRITICAL,
-            findings=[
-                SecurityFinding(
-                    id="f-1",
-                    finding_type="vulnerability",
-                    severity=SecuritySeverity.CRITICAL,
-                    title="Test",
-                    description="Test desc",
-                )
-            ],
-        )
+        original = mod._security_debate_runner
+        yield
+        mod._security_debate_runner = original
 
-        with patch(
-            "aragora.events.security_events.build_security_debate_question",
-            return_value="test question",
-        ):
-            # Simulate ImportError when trying to import Arena dependencies
-            with patch.dict("sys.modules", {"aragora.core": None}):
-                result = await trigger_security_debate(event)
-                # Should gracefully return None (either ImportError or other exception)
-                # The function catches ImportError and general Exception
-                assert result is None
+    def test_register_sets_the_runner(self):
+        """Registering a runner should make it retrievable via the getter."""
 
-    @pytest.mark.asyncio
-    async def test_trigger_debate_sets_debate_question(self):
-        """Should set the debate_question on the event."""
-        from aragora.events.security_events import trigger_security_debate
+        async def fake_runner(event, **kwargs):
+            return "debate-fake"
 
-        event = SecurityEvent(
-            severity=SecuritySeverity.CRITICAL,
-            repository="org/repo",
-            findings=[
-                SecurityFinding(
-                    id="f-q",
-                    finding_type="vulnerability",
-                    severity=SecuritySeverity.CRITICAL,
-                    title="RCE",
-                    description="Remote code execution",
-                    cve_id="CVE-2024-99999",
-                    package_name="vuln-pkg",
-                )
-            ],
-        )
+        register_security_debate_runner(fake_runner)
+        assert get_security_debate_runner() is fake_runner
 
-        # Mock the entire chain: imports, Arena, result
-        mock_arena_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.consensus_reached = True
-        mock_result.confidence = 0.9
-        mock_result.final_answer = "Fix it"
-        mock_arena_instance.run = AsyncMock(return_value=mock_result)
+    def test_register_replaces_previous_runner(self):
+        """Registering a new runner should replace any previously registered one."""
 
-        with (
-            patch(
-                "aragora.events.security_events.build_security_debate_question",
-                return_value="Generated question",
-            ),
-            patch(
-                "aragora.events.security_events._get_security_debate_agents",
-                new_callable=AsyncMock,
-                return_value=[MagicMock(), MagicMock()],
-            ),
-            patch(
-                "aragora.events.security_events._store_security_debate_result",
-                new_callable=AsyncMock,
-            ),
-        ):
-            # We need to mock the imports inside the function
-            mock_env = MagicMock()
-            mock_protocol = MagicMock()
+        async def first_runner(event, **kwargs):
+            return "first"
 
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.core": MagicMock(Environment=mock_env, DebateResult=MagicMock()),
-                    "aragora.debate.protocol": MagicMock(DebateProtocol=mock_protocol),
-                    "aragora.debate.orchestrator": MagicMock(
-                        Arena=MagicMock(return_value=mock_arena_instance)
-                    ),
-                },
-            ):
-                result = await trigger_security_debate(event)
+        async def second_runner(event, **kwargs):
+            return "second"
 
-                assert event.debate_question == "Generated question"
-                assert result is not None
-                assert result.startswith("security_debate_")
+        register_security_debate_runner(first_runner)
+        register_security_debate_runner(second_runner)
+        assert get_security_debate_runner() is second_runner
+
+    def test_register_none_clears_the_runner(self):
+        """Registering None should clear any previously registered runner."""
+
+        async def fake_runner(event, **kwargs):
+            return "debate-fake"
+
+        register_security_debate_runner(fake_runner)
+        register_security_debate_runner(None)
+        assert get_security_debate_runner() is None

@@ -7,7 +7,8 @@ the Arena debate orchestrator.
 
 Flow:
     Scanner detects critical issue → SecurityEvent emitted →
-    SecurityDispatcher receives → Arena.run_security_debate() →
+    SecurityDispatcher receives → registered security debate runner
+    (aragora.debate.security_response.trigger_security_debate) →
     Multi-agent deliberation → ConsensusProof with remediation
 
 Usage:
@@ -42,6 +43,7 @@ from aragora.events.security_events import (
     SecurityEventEmitter,
     SecurityEventType,
     SecuritySeverity,
+    get_security_debate_runner,
     get_security_emitter,
 )
 
@@ -197,7 +199,8 @@ class SecurityDispatcher:
         """
         Set a custom callback for triggering debates.
 
-        This allows overriding the default Arena.run_security_debate call.
+        This allows overriding the default registered security debate runner
+        (see aragora.events.security_events.get_security_debate_runner).
 
         Args:
             callback: Async function that takes a SecurityEvent and returns
@@ -355,19 +358,22 @@ class SecurityDispatcher:
             The debate ID if successful, None otherwise
         """
         try:
-            # Use custom callback if provided
+            # Use custom callback if provided, else the registered domain runner
+            # (aragora.debate.security_response.trigger_security_debate). Routing
+            # the default path through this same hook -- instead of importing
+            # Arena directly -- keeps aragora.events free of aragora.debate imports.
             if self._custom_trigger_callback:
                 debate_id = await self._custom_trigger_callback(event)
             else:
-                # Use Arena.run_security_debate
-                from aragora.debate.orchestrator import Arena
+                runner = get_security_debate_runner()
+                if runner is None:
+                    raise ImportError("No security debate runner registered")
 
-                result = await Arena.run_security_debate(
-                    event=event,
+                debate_id = await runner(
+                    event,
                     confidence_threshold=self.config.debate_confidence_threshold,
                     timeout_seconds=self.config.debate_timeout_seconds,
                 )
-                debate_id = result.debate_id
 
             self._stats.debates_completed += 1
             return debate_id

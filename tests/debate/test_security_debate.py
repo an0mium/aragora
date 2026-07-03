@@ -120,7 +120,7 @@ class TestRunSecurityDebate:
 
         with (
             patch(
-                "aragora.events.security_events.build_security_debate_question",
+                "aragora.debate.security_response.build_security_debate_question",
                 return_value="What remediation steps should we take?",
             ),
             patch(
@@ -144,7 +144,7 @@ class TestRunSecurityDebate:
 
         with (
             patch(
-                "aragora.events.security_events.build_security_debate_question",
+                "aragora.debate.security_response.build_security_debate_question",
                 return_value="What remediation steps should we take?",
             ),
             patch(
@@ -176,7 +176,7 @@ class TestRunSecurityDebate:
         # Just test the empty agents case is handled
         with (
             patch(
-                "aragora.events.security_events.build_security_debate_question",
+                "aragora.debate.security_response.build_security_debate_question",
                 return_value="What remediation?",
             ),
             patch(
@@ -277,7 +277,7 @@ class TestSecurityDebateIntegration:
         # Mock get_security_debate_agents to return empty list
         with (
             patch(
-                "aragora.events.security_events.build_security_debate_question",
+                "aragora.debate.security_response.build_security_debate_question",
                 return_value="What remediation steps?",
             ),
             patch(
@@ -303,7 +303,7 @@ class TestSecurityDebateIntegration:
 
         with (
             patch(
-                "aragora.events.security_events.build_security_debate_question",
+                "aragora.debate.security_response.build_security_debate_question",
                 return_value="Remediation question",
             ),
             patch(
@@ -326,7 +326,7 @@ class TestSecurityDebateIntegration:
 
         with (
             patch(
-                "aragora.events.security_events.build_security_debate_question",
+                "aragora.debate.security_response.build_security_debate_question",
                 return_value="Q",
             ),
             patch(
@@ -354,7 +354,7 @@ class TestSecurityDebateIntegration:
 
         with (
             patch(
-                "aragora.events.security_events.build_security_debate_question",
+                "aragora.debate.security_response.build_security_debate_question",
                 return_value="Q",
             ),
             patch(
@@ -379,7 +379,7 @@ class TestSecurityDebateIntegration:
 
         with (
             patch(
-                "aragora.events.security_events.build_security_debate_question",
+                "aragora.debate.security_response.build_security_debate_question",
                 return_value="Q",
             ),
             patch(

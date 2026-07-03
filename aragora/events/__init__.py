@@ -83,9 +83,11 @@ from .security_events import (  # noqa: F401
     SecurityEventHandler,
     get_security_emitter,
     set_security_emitter,
-    # Debate integration
-    trigger_security_debate,
-    build_security_debate_question,
+    # Debate integration (domain-free hook; runner lives in
+    # aragora.debate.security_response, which is not re-exported here)
+    SecurityDebateRunner,
+    register_security_debate_runner,
+    get_security_debate_runner,
     get_security_debate_result,
     list_security_debates,
     # Convenience functions
@@ -156,8 +158,9 @@ __all__ = [
     "SecurityEventHandler",
     "get_security_emitter",
     "set_security_emitter",
-    "trigger_security_debate",
-    "build_security_debate_question",
+    "SecurityDebateRunner",
+    "register_security_debate_runner",
+    "get_security_debate_runner",
     "get_security_debate_result",
     "list_security_debates",
     "create_vulnerability_event",
