@@ -54,6 +54,7 @@ FALLBACK_MODEL = "claude-opus-4-8"
 DEFAULT_TIMEOUT_SECONDS = 600
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 API_MAX_TOKENS = 8192
+MAX_API_RESPONSE_BYTES = 4 * 1024 * 1024
 API_UNSUPPORTED_MODELS = {"claude-fable-5"}
 MAX_PROMPT_BYTES = 512 * 1024
 
@@ -161,6 +162,8 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
             "error": f"claude CLI exceeded {timeout:.0f}s timeout",
         }
     except (OSError, UnicodeError, ValueError) as exc:
+        if proc is not None:
+            _kill_process_group(proc)
         return {
             "ok": False,
             "backend": locals().get("backend", "cli"),
@@ -239,12 +242,21 @@ def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dic
     started = time.monotonic()
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            body = json.loads(response.read().decode())
+            raw = response.read(MAX_API_RESPONSE_BYTES + 1)
+            if len(raw) > MAX_API_RESPONSE_BYTES:
+                return {
+                    "ok": False,
+                    "backend": "api",
+                    "error": _safe_api_error(
+                        "response exceeds maximum size: response body redacted"
+                    ),
+                }
+            body = json.loads(raw.decode())
             if not isinstance(body, dict):
                 raise ValueError("API response JSON is not an object")
     except urllib.error.HTTPError as exc:
         try:
-            exc.read()
+            exc.read(MAX_API_RESPONSE_BYTES)
         except OSError:
             pass
         return {
@@ -391,7 +403,7 @@ def consult(
     budget_exhausted = any(a.get("budget_exhausted") for a in attempts)
     return {
         "ok": False,
-        "model": model,
+        "model": str(attempts[-1].get("model", model)) if attempts else model,
         "timed_out": timed_out,
         "budget_exhausted": budget_exhausted,
         "attempts": attempts,

@@ -199,7 +199,7 @@ def test_run_api_redacts_invalid_response_body(monkeypatch) -> None:
         def __exit__(self, *_args):
             return False
 
-        def read(self) -> bytes:
+        def read(self, _amt=None) -> bytes:
             return b"\xff\xfe not utf-8"
 
     monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
@@ -213,6 +213,39 @@ def test_run_api_redacts_invalid_response_body(monkeypatch) -> None:
 
     assert result["ok"] is False
     assert result["error"] == "API response parse failed: response body redacted"
+    assert "secret" not in json.dumps(result)
+
+
+def test_run_api_caps_oversized_response_body(monkeypatch) -> None:
+    payload = b'{"content":[{"type":"text","text":"secret response"}]}' + (b" " * 128)
+    read_amounts: list[int | None] = []
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, amt=None) -> bytes:
+            read_amounts.append(amt)
+            if amt is None or amt < 0:
+                return payload
+            return payload[:amt]
+
+    monkeypatch.setattr(consult_claude, "MAX_API_RESPONSE_BYTES", 8, raising=False)
+    monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
+    monkeypatch.setattr(
+        consult_claude.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(),
+    )
+
+    result = consult_claude._run_api("secret prompt", "claude-opus-4-8", 1.0, None)
+
+    assert read_amounts == [9]
+    assert result["ok"] is False
+    assert result["error"] == "API response exceeds maximum size: response body redacted"
     assert "secret" not in json.dumps(result)
 
 
@@ -377,6 +410,41 @@ def test_run_cli_timeout_kills_process_group(monkeypatch) -> None:
     assert ("wait", 5) in calls
 
 
+def test_run_cli_kills_process_group_after_communicate_errors(monkeypatch) -> None:
+    for exc in [OSError("boom"), UnicodeError("boom"), ValueError("boom")]:
+        calls: list[tuple[str, object]] = []
+
+        class FakePopen:
+            returncode = None
+            pid = 2468
+
+            def __init__(self, *args, **kwargs):
+                calls.append(("popen", kwargs["start_new_session"]))
+
+            def communicate(self, input, timeout):
+                calls.append(("communicate", timeout))
+                raise exc
+
+            def wait(self, timeout):
+                calls.append(("wait", timeout))
+
+        monkeypatch.setattr(consult_claude.shutil, "which", lambda name: "/usr/bin/claude")
+        monkeypatch.setattr(consult_claude.subprocess, "Popen", FakePopen)
+        monkeypatch.setattr(
+            consult_claude.os,
+            "killpg",
+            lambda pid, sig: calls.append(("killpg", pid)),
+        )
+
+        result = consult_claude._run_cli("question", "claude-fable-5", 1.5)
+
+        assert result["ok"] is False
+        assert result["error"] == f"claude CLI launch failed: {type(exc).__name__}"
+        assert ("popen", True) in calls
+        assert ("killpg", 2468) in calls
+        assert ("wait", 5) in calls
+
+
 def test_consult_tries_fallback_cli_after_primary_timeout(monkeypatch) -> None:
     cli_models: list[str] = []
 
@@ -393,6 +461,34 @@ def test_consult_tries_fallback_cli_after_primary_timeout(monkeypatch) -> None:
     assert result["ok"] is True
     assert result["model"] == consult_claude.FALLBACK_MODEL
     assert cli_models == [consult_claude.DEFAULT_MODEL, consult_claude.FALLBACK_MODEL]
+
+
+def test_consult_failure_reports_last_attempted_model(monkeypatch) -> None:
+    cli_models: list[str] = []
+
+    def fake_cli(_prompt: str, model: str, _timeout: float) -> dict:
+        cli_models.append(model)
+        return {"ok": False, "backend": "cli", "error": f"{model} unavailable"}
+
+    monkeypatch.setattr(consult_claude, "_run_cli", fake_cli)
+
+    result = consult_claude.consult("question", api_fallback=False)
+
+    assert result["ok"] is False
+    assert result["model"] == consult_claude.FALLBACK_MODEL
+    assert cli_models == [consult_claude.DEFAULT_MODEL, consult_claude.FALLBACK_MODEL]
+
+    cli_models.clear()
+
+    result = consult_claude.consult(
+        "question",
+        fallback_model=None,
+        api_fallback=False,
+    )
+
+    assert result["ok"] is False
+    assert result["model"] == consult_claude.DEFAULT_MODEL
+    assert cli_models == [consult_claude.DEFAULT_MODEL]
 
 
 def test_main_rejects_non_positive_timeout(capsys) -> None:
