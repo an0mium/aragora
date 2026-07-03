@@ -440,10 +440,15 @@ class TestHandlerRouting:
 
         Handler instances are created lazily on first request
         (HandlerRegistryMixin._init_handlers), so assert against the
-        registry's tier classification, which is the registration contract.
+        actual handler registry before checking tier metadata.
         """
+        from aragora.server.handler_registry import HANDLER_REGISTRY
         from aragora.server.handler_registry.core import HANDLER_TIERS
 
+        registry_names = {name for name, _handler in HANDLER_REGISTRY}
+
+        assert "_consensus_handler" in registry_names
+        assert "_belief_handler" in registry_names
         assert "_consensus_handler" in HANDLER_TIERS
         assert "_belief_handler" in HANDLER_TIERS
 
