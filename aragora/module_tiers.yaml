@@ -47,12 +47,12 @@ modules:
     tier: core
     py_files: 121
     importer_count: 8
-    test_file_count: 148
+    test_file_count: 149
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
     py_files: 17
-    importer_count: 366
+    importer_count: 367
     test_file_count: 91
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
@@ -76,18 +76,18 @@ modules:
     tier: core
     py_files: 264
     importer_count: 161
-    test_file_count: 609
+    test_file_count: 608
     override_reason: "Arena + DebateProtocol + consensus — mainline flow"
   - name: events
     tier: core
-    py_files: 27
-    importer_count: 126
-    test_file_count: 55
+    py_files: 26
+    importer_count: 128
+    test_file_count: 57
   - name: gauntlet
     tier: core
     py_files: 39
     importer_count: 66
-    test_file_count: 110
+    test_file_count: 111
   - name: knowledge
     tier: core
     py_files: 178
@@ -137,9 +137,9 @@ modules:
     test_file_count: 97
   - name: server
     tier: core
-    py_files: 1116
-    importer_count: 164
-    test_file_count: 1884
+    py_files: 1117
+    importer_count: 162
+    test_file_count: 1887
     override_reason: "FastAPI server + 3K+ API operations"
   - name: storage
     tier: core
@@ -592,9 +592,9 @@ modules:
     test_file_count: 12
   - name: workflow
     tier: integrated
-    py_files: 99
-    importer_count: 38
-    test_file_count: 72
+    py_files: 100
+    importer_count: 36
+    test_file_count: 76
   - name: workspace
     tier: integrated
     py_files: 6
