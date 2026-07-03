@@ -531,14 +531,15 @@ for (const [src, dest] of Object.entries(DOC_MAP)) {
 // so a root-level "../README.md" resolves to the root README's own page
 // instead of colliding with ADR/README.md or case-studies/README.md, both of
 // which also end in the basename "README.md".
-function resolveLinkDestination(match, normalized) {
-  const hasParentPrefix = /^\]\(\.\.\//.test(match);
-  if (hasParentPrefix) {
+function resolveLinkDestination(normalized, isParentLink = false) {
+  if (isParentLink) {
     const rootQualified = REVERSE_LOOKUP['../' + normalized];
     if (rootQualified) {
       return rootQualified;
     }
   }
+  // BASENAME_LOOKUP only contains basenames proven unique across DOC_MAP.
+  // Ambiguous names are intentionally absent so this fallback fails closed.
   return REVERSE_LOOKUP[normalized] || BASENAME_LOOKUP[path.basename(normalized)];
 }
 
@@ -562,11 +563,11 @@ function fixContent(content, destPath) {
   // Transform internal doc links to Docusaurus paths
   // Match links like [text](./FILE.md), [text](../FILE.md), [text](FILE.md)
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+\.md)(#[^)]+)?\)/g,
-    (match, filePath, anchor) => {
+    /\]\(((?:\.\.\/|\.\/)?)([A-Za-z0-9_./-]+\.md)(#[^)]+)?\)/g,
+    (match, prefix, filePath, anchor) => {
       // Try to find the destination path in our mapping
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
-      const newPath = resolveLinkDestination(match, normalized);
+      const newPath = resolveLinkDestination(normalized, prefix === '../');
 
       if (newPath) {
         // Calculate relative path from current doc to target doc
@@ -595,12 +596,13 @@ function fixContent(content, destPath) {
 
   // Also fix links without .md extension when they match known docs
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+)(#[^)]+)?\)(?!\.md)/g,
-    (match, filePath, anchor) => {
+    /\]\(((?:\.\.\/|\.\/)?)([A-Za-z0-9_./-]+)(#[^)]+)?\)(?!\.md)/g,
+    (match, prefix, filePath, anchor) => {
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
+      const isParentLink = prefix === '../';
       const newPath =
-        resolveLinkDestination(match, normalized) ||
-        resolveLinkDestination(match, normalized + '.md');
+        resolveLinkDestination(normalized, isParentLink) ||
+        resolveLinkDestination(normalized + '.md', isParentLink);
 
       if (newPath) {
         const targetDir = path.dirname(newPath);
