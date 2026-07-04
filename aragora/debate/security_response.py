@@ -29,8 +29,8 @@ from typing import Any
 
 from aragora.events.security_events import (
     SecurityEvent,
+    _register_default_security_debate_runner,
     _store_security_debate_result,
-    register_security_debate_runner,
 )
 
 logger = logging.getLogger(__name__)
@@ -141,9 +141,6 @@ async def trigger_security_debate(
             logger.warning("No agents available for security debate")
             return None
 
-        # Generate debate ID
-        debate_id = f"security_debate_{uuid.uuid4().hex[:12]}"
-
         # Run debate
         arena = Arena(
             environment=env,
@@ -152,9 +149,12 @@ async def trigger_security_debate(
             org_id=event.workspace_id or "default",
         )
 
-        logger.info("[Security] Starting debate %s for %s findings", debate_id, len(event.findings))
+        logger.info("[Security] Starting debate for %s findings", len(event.findings))
 
         result: DebateResult = await arena.run()
+        debate_id = getattr(result, "debate_id", "") or f"security_debate_{uuid.uuid4().hex[:12]}"
+        event.debate_requested = True
+        event.debate_id = debate_id
 
         logger.info(
             f"[Security] Debate {debate_id} completed: "
@@ -233,7 +233,7 @@ async def _get_agent_factory_security_agents() -> list[Any]:
     return list(agents or [])
 
 
-register_security_debate_runner(trigger_security_debate)
+_register_default_security_debate_runner(trigger_security_debate)
 
 
 __all__ = [

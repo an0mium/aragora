@@ -196,21 +196,31 @@ def _ensure_default_security_debate_runner_registered() -> SecurityDebateRunner 
         logger.debug("Default security debate runner is not importable: %s", exc)
     else:
         runner = getattr(security_response, "trigger_security_debate", None)
-        if runner is not None and _security_debate_runner is None:
-            register_security_debate_runner(runner)
+        if runner is not None:
+            _register_default_security_debate_runner(runner)
 
     return _security_debate_runner
 
 
-def register_security_debate_runner(runner: SecurityDebateRunner) -> None:
+def register_security_debate_runner(runner: SecurityDebateRunner | None) -> None:
     """Register the callback used to run security debates.
 
-    Called by aragora.debate.security_response on import so
-    SecurityEventEmitter can auto-debate critical findings without this
-    module importing aragora.debate/aragora.agents.
+    Composition roots can use this to install or clear an explicit runner.
+    Default runner imports use _register_default_security_debate_runner so
+    they do not clobber an explicit hook.
     """
     global _security_debate_runner
     _security_debate_runner = runner
+
+
+def _register_default_security_debate_runner(
+    runner: SecurityDebateRunner,
+) -> SecurityDebateRunner:
+    """Register the default runner only when no explicit runner exists."""
+    global _security_debate_runner
+    if _security_debate_runner is None:
+        _security_debate_runner = runner
+    return _security_debate_runner
 
 
 def get_security_debate_runner() -> SecurityDebateRunner | None:

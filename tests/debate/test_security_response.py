@@ -12,6 +12,7 @@ import json
 import subprocess
 import sys
 import types
+import textwrap
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -267,6 +268,7 @@ class TestTriggerSecurityDebate:
         # Mock the entire chain: imports, Arena, result
         mock_arena_instance = MagicMock()
         mock_result = MagicMock()
+        mock_result.debate_id = "arena-security-debate-1"
         mock_result.consensus_reached = True
         mock_result.confidence = 0.9
         mock_result.final_answer = "Fix it"
@@ -285,7 +287,7 @@ class TestTriggerSecurityDebate:
             patch(
                 "aragora.debate.security_response._store_security_debate_result",
                 new_callable=AsyncMock,
-            ),
+            ) as mock_store,
         ):
             # We need to mock the imports inside the function
             mock_env = MagicMock()
@@ -304,8 +306,11 @@ class TestTriggerSecurityDebate:
                 result = await trigger_security_debate(event)
 
                 assert event.debate_question == "Generated question"
-                assert result is not None
-                assert result.startswith("security_debate_")
+                assert result == "arena-security-debate-1"
+                assert event.debate_requested is True
+                assert event.debate_id == "arena-security-debate-1"
+                mock_store.assert_awaited_once()
+                assert mock_store.await_args.args[0] == "arena-security-debate-1"
 
                 # context must be a JSON string (Environment.context: str), not a
                 # raw dict -- regression test for a pre-existing bug where this
@@ -354,22 +359,42 @@ class TestSecurityDebateAgentSelection:
 class TestConsumerRegistrationSideEffect:
     """
     Regression test proving that importing a real production consumer
-    module -- without ever explicitly referencing aragora.debate -- leaves
-    the security debate runner registered.
+    module and initializing it for event emission wires the debate runner
+    without relying on unrelated transitive imports.
 
     Runs in a fresh subprocess so module-caching from other tests (or from
     importing aragora.debate.security_response directly earlier in this
     file) cannot mask a missing registration.
     """
 
-    def _assert_runner_registered_after_import(self, import_line: str) -> None:
-        script = (
-            f"{import_line}\n"
-            "from aragora.events.security_events import get_security_debate_runner\n"
-            "runner = get_security_debate_runner()\n"
-            "assert runner is not None, 'no security debate runner registered'\n"
-            "assert runner.__name__ == 'trigger_security_debate'\n"
-            "print('OK')\n"
+    def test_sast_scanner_initialize_registers_runner(self):
+        """Initializing the SAST scanner for event emission registers the runner."""
+        script = textwrap.dedent(
+            """
+            import asyncio
+
+            from aragora.analysis.codebase.sast.models import SASTConfig
+            from aragora.analysis.codebase.sast.scanner import SASTScanner
+            from aragora.events.security_events import (
+                get_security_debate_runner,
+                register_security_debate_runner,
+            )
+
+            register_security_debate_runner(None)
+            assert get_security_debate_runner() is None
+
+            async def main():
+                scanner = SASTScanner(
+                    config=SASTConfig(use_semgrep=False, emit_security_events=True)
+                )
+                await scanner.initialize()
+
+            asyncio.run(main())
+            runner = get_security_debate_runner()
+            assert runner is not None, 'no security debate runner registered'
+            assert runner.__name__ == 'trigger_security_debate'
+            print('OK')
+            """
         )
         result = subprocess.run(
             [sys.executable, "-c", script],
@@ -383,6 +408,62 @@ class TestConsumerRegistrationSideEffect:
         )
         assert "OK" in result.stdout
 
-    def test_sast_scanner_import_registers_runner(self):
-        """Importing the SAST scanner module alone must register the runner."""
-        self._assert_runner_registered_after_import("import aragora.analysis.codebase.sast.scanner")
+    def test_default_runner_import_does_not_replace_registered_runner(self):
+        """Default module import must not clobber an explicit runner hook."""
+        script = textwrap.dedent(
+            """
+            from aragora.events.security_events import (
+                get_security_debate_runner,
+                register_security_debate_runner,
+            )
+
+            async def custom_runner(event, **kwargs):
+                return 'custom-debate'
+
+            register_security_debate_runner(custom_runner)
+            import aragora.debate.security_response  # noqa: F401
+
+            assert get_security_debate_runner() is custom_runner
+            print('OK')
+            """
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, (
+            f"subprocess failed (rc={result.returncode})\n"
+            f"stdout={result.stdout}\nstderr={result.stderr}"
+        )
+        assert "OK" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_sast_initialize_keeps_emitter_when_debate_runner_import_fails(
+        self,
+        monkeypatch,
+    ):
+        """SAST event emission should not depend on optional debate imports."""
+        import builtins
+
+        import aragora.events.security_events as security_events
+        from aragora.analysis.codebase.sast.models import SASTConfig
+        from aragora.analysis.codebase.sast.scanner import SASTScanner
+
+        sentinel_emitter = object()
+        monkeypatch.setattr(security_events, "get_security_emitter", lambda: sentinel_emitter)
+
+        original_import = builtins.__import__
+
+        def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "aragora.debate" and "security_response" in (fromlist or ()):
+                raise ImportError("debate stack unavailable")
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+        scanner = SASTScanner(config=SASTConfig(use_semgrep=False, emit_security_events=True))
+        await scanner.initialize()
+
+        assert scanner._security_emitter is sentinel_emitter

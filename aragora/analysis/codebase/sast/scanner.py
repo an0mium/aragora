@@ -161,18 +161,22 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
         # Initialize security emitter if configured
         if self.config.emit_security_events and self._security_emitter is None:
             try:
-                from aragora.events.security_events import get_security_emitter
-
-                # Explicitly wire up the security debate runner rather than
-                # relying on some other transitive import having registered
-                # it first: the emitter's default enable_auto_debate=True
-                # depends on aragora.debate.security_response having been
-                # imported at least once in this process.
-                from aragora.debate import security_response as _security_response  # noqa: F401
+                from aragora.events.security_events import (
+                    _ensure_default_security_debate_runner_registered,
+                    get_security_emitter,
+                )
 
                 self._security_emitter = get_security_emitter()
             except ImportError:
                 logger.debug("SecurityEventEmitter not available")
+            else:
+                try:
+                    # Best-effort auto-debate wiring for SAST-only processes.
+                    # Event emission should still work if the debate stack is
+                    # unavailable or an optional debate dependency is missing.
+                    _ensure_default_security_debate_runner_registered()
+                except ImportError as exc:
+                    logger.debug("Security debate runner not available: %s", exc)
 
     async def _check_semgrep(self) -> tuple[bool, str | None]:
         """Check if Semgrep is installed and accessible."""
