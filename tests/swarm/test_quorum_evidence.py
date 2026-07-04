@@ -2303,28 +2303,53 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
 
 
-def test_apply_prepared_evidence_preserves_exact_head_adjudication(tmp_path) -> None:
-    adjudication = {"kind": "review_adjudication.v1", "verdict": "adjudicated_block"}
-    prepared = _prepared_outcome_file(tmp_path, adjudication=adjudication)
+def test_apply_prepared_evidence_recomputes_exact_head_adjudication(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_REVIEW_ADJUDICATOR", "1")
+    stale_adjudication = {"kind": "review_adjudication.v1", "verdict": "adjudicated_settle"}
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem(
+                "openai",
+                "Verdict: CHANGES-REQUESTED\n"
+                "- [P1] aragora/swarm/quorum_evidence.py:2679 preserves stale "
+                "prepared adjudication after fresh lint rejects the reviewer.",
+                False,
+                [],
+                [],
+                "changes_requested",
+            ),
+        ],
+        adjudication=stale_adjudication,
+    )
     outcome = qe.apply_prepared_evidence(
         repo="o/r",
         pr=1,
         prepared_json=prepared,
         author="me",
-        apply=False,
-        families=["claude", "grok"],
+        apply=True,
+        families=["claude", "openai"],
         context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
         tier_fetcher=lambda repo, pr: 1,
-        linter=lambda *args, **kwargs: {
-            "would_count": True,
-            "counted_reviewer_ids": ["claude"],
-            "problems": [],
-        },
+        linter=lambda *args, **kwargs: (
+            {"would_count": True, "counted_reviewer_ids": ["claude"], "problems": []}
+            if "claude body" in args[4]
+            else {"would_count": False, "counted_reviewer_ids": [], "problems": []}
+        ),
         poster=lambda repo, pr, body: None,
     )
 
     assert outcome.action == "prepare"
-    assert outcome.adjudication == adjudication
+    assert outcome.supportive_families == ["claude"]
+    assert outcome.dissenting_families == ["openai"]
+    assert outcome.adjudication is not None
+    assert outcome.adjudication["verdict"] == "adjudicated_block"
+    assert outcome.adjudication["verdict"] != stale_adjudication["verdict"]
+    assert outcome.adjudication["blocking_findings"]
 
 
 def test_collect_outcome_tiered_gate_roundtrips() -> None:

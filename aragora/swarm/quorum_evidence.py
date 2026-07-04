@@ -2676,10 +2676,9 @@ def apply_prepared_evidence(
             )
         )
     outcome.items = relinted_items
-    if prepared.adjudication is not None:
-        outcome.adjudication = dict(prepared.adjudication)
 
     if action != "post":
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
     if outcome.dissenting_families:
         outcome.action = "prepare"
@@ -2687,10 +2686,12 @@ def apply_prepared_evidence(
             "reviewer dissent present "
             f"({', '.join(outcome.dissenting_families)}); prepared evidence only"
         )
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
     if not outcome.has_supportive_quorum:
         outcome.action = "prepare"
         outcome.action_reason = outcome.incomplete_quorum_reason
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
 
     try:
@@ -2701,6 +2702,7 @@ def apply_prepared_evidence(
         outcome.action_reason = (
             f"could not re-verify head/tier before posting ({str(exc)[:120]}); prepared only"
         )
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
     recheck_action, recheck_reason = decide_action(recheck_tier, apply)
     if recheck_head != head_sha or recheck_action != "post":
@@ -2710,6 +2712,7 @@ def apply_prepared_evidence(
             f"(head {head_sha[:7]}->{recheck_head[:7] or 'none'}, "
             f"tier {tier}->{recheck_tier}); prepared only: {recheck_reason}"
         )
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
 
     outcome.action_reason = (
