@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -179,6 +180,46 @@ def test_rlm_summary_cleans_temporary_files(tmp_path: Path, monkeypatch) -> None
     assert summary == "summary"
     assert created
     assert all(not path.exists() for path in created)
+
+
+def test_rlm_summary_children_inherit_repo_pythonpath(tmp_path: Path, monkeypatch) -> None:
+    pythonpaths: list[str] = []
+
+    class FakeTemporaryDirectory:
+        def __init__(self, prefix: str) -> None:
+            self.path = tmp_path / prefix.rstrip("-")
+
+        def __enter__(self) -> str:
+            self.path.mkdir()
+            return str(self.path)
+
+        def __exit__(self, exc_type, exc, tb) -> None:  # noqa: ANN001
+            for child in self.path.iterdir():
+                child.unlink()
+            self.path.rmdir()
+
+    def fake_run(cmd, **kwargs):  # noqa: ANN001, ANN003
+        env = kwargs.get("env") or {}
+        pythonpaths.append(env.get("PYTHONPATH", ""))
+        if "compress" in cmd:
+            Path(cmd[cmd.index("-o") + 1]).write_text("{}", encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="")
+        if "query" in cmd:
+            return SimpleNamespace(returncode=0, stdout="summary")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(tempfile, "TemporaryDirectory", FakeTemporaryDirectory)
+    monkeypatch.setattr(digest.subprocess, "run", fake_run)
+    monkeypatch.setenv("PYTHONPATH", "/existing/path")
+
+    summary = digest.rlm_summary({"decisions": ["done"], "commands": ["pytest"]}, "what")
+
+    assert summary == "summary"
+    assert len(pythonpaths) == 2
+    for value in pythonpaths:
+        paths = value.split(os.pathsep)
+        assert paths[0] == str(digest.REPO_ROOT)
+        assert "/existing/path" in paths
 
 
 def test_extract_rlm_answer_strips_cli_chrome() -> None:
