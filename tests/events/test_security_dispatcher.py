@@ -435,6 +435,65 @@ class TestDefaultRunnerPath:
         await dispatcher.stop()
 
     @pytest.mark.asyncio
+    async def test_default_path_sets_event_debate_correlation(self):
+        """The dispatcher must stamp debate_requested/debate_id on success.
+
+        Mirrors SecurityEventEmitter._trigger_security_debate's existing
+        caller-side mutation, and restores what the pre-E7a Arena delegate
+        used to do internally inside security_debate.run_security_debate.
+        """
+        runner = AsyncMock(return_value="debate-correlated-1")
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+        assert event.debate_requested is False
+        assert event.debate_id is None
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-correlated-1"
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_none_result_does_not_inflate_completed(self):
+        """A runner that declines (returns None) without raising must not
+        be counted as completed, and must not stamp debate correlation."""
+        runner = AsyncMock(return_value=None)
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        runner.assert_awaited_once()
+        assert dispatcher._stats.debates_completed == 0
+        assert dispatcher._stats.debates_failed == 0
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
     async def test_default_path_without_registered_runner_fails_gracefully(self):
         emitter = SecurityEventEmitter(enable_auto_debate=False)
         dispatcher = SecurityDispatcher(emitter=emitter)

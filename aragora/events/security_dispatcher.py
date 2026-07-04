@@ -375,7 +375,10 @@ class SecurityDispatcher:
                     timeout_seconds=self.config.debate_timeout_seconds,
                 )
 
-            self._stats.debates_completed += 1
+            if debate_id:
+                event.debate_requested = True
+                event.debate_id = debate_id
+                self._stats.debates_completed += 1
             return debate_id
 
         except asyncio.CancelledError:
