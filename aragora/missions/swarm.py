@@ -24,7 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .ledger import DEFAULT_LEASE_TTL, Ledger, select_for
+from .ledger import DEFAULT_LEASE_TTL, Ledger, LedgerCorruptError, select_for
 from .orchestrator import Dispatch, Handoff
 from .state import (
     PARK_KIND_MISSING_BRANCH,
@@ -218,7 +218,7 @@ class _LeaseHeartbeat:
                     logger.warning(self._lost_reason)
                     self._stop.set()
                     return
-            except Exception:  # noqa: BLE001 - a heartbeat must never crash the worker
+            except (LedgerCorruptError, OSError, RuntimeError, ValueError):
                 logger.warning("lease heartbeat for %s failed; will retry next beat", self._unit)
 
     def __exit__(self, *exc: object) -> None:
