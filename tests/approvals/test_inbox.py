@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from aragora.approvals.inbox import DEFAULT_APPROVAL_SOURCES, collect_pending_approvals
+from aragora.approvals.settlement_inbox import collect_pending_settlement_approvals
 from aragora.gauntlet.signing import HMACSigner, ReceiptSigner
 from aragora.inbox.trust_wedge import (
     ActionIntent,
@@ -15,6 +16,10 @@ from aragora.services.email_actions import EmailActionsService
 
 def test_default_approval_sources_include_inbox_wedge():
     assert "inbox_wedge" in DEFAULT_APPROVAL_SOURCES
+
+
+def test_default_approval_sources_do_not_include_settlement_without_flag():
+    assert "settlement" not in DEFAULT_APPROVAL_SOURCES
 
 
 def test_collect_pending_approvals_includes_inbox_wedge_receipts(tmp_path):
@@ -58,3 +63,209 @@ def test_collect_pending_approvals_includes_inbox_wedge_receipts(tmp_path):
         f"/api/v1/inbox/wedge/receipts/{envelope.receipt.receipt_id}/review"
     )
     assert item["actions"]["approve"]["body"] == {"choice": "approve", "execute": True}
+
+
+def _settlement_packet() -> dict:
+    return {
+        "generated_at": "2026-07-04T18:00:00+00:00",
+        "entries": [
+            {
+                "pr_number": 7736,
+                "title": "touch merge gate",
+                "url": "https://github.com/synaptent/aragora/pull/7736",
+                "head_sha": "abc123def4567890",
+                "tier": 4,
+                "tier_name": "tier_4_preapproval_required",
+                "status": "human_preapproval_required",
+                "verdict": "tier_4_human_preapproval_required",
+                "checks_summary": "all required checks green",
+                "requires_human_risk_settlement": True,
+                "requires_human_preapproval": True,
+                "unresolved_dissent": False,
+                "counted_model_families": ["claude", "openai"],
+                "reviewer_signals": [],
+                "dogfood_evidence": [{"source": "local"}],
+                "reasons": [
+                    "workflow/deploy/destructive surface touched",
+                    "Tier 4 human preapproval required",
+                ],
+                "settlement_creator_pin": {
+                    "trusted_creator": "scarmani",
+                    "checked": False,
+                },
+            },
+            {
+                "pr_number": 8827,
+                "title": "needs quorum",
+                "url": "https://github.com/synaptent/aragora/pull/8827",
+                "head_sha": "def456",
+                "tier": 2,
+                "tier_name": "tier_2_live_automation",
+                "status": "needs_model_review_quorum",
+                "verdict": "collect_model_quorum_before_merge",
+                "checks_summary": "merge-quorum failing",
+                "requires_human_risk_settlement": False,
+                "requires_human_preapproval": False,
+                "unresolved_dissent": False,
+                "reasons": ["model quorum incomplete: 0/2 signal(s)"],
+            },
+            {
+                "pr_number": 8845,
+                "title": "missing exact head",
+                "url": "https://github.com/synaptent/aragora/pull/8845",
+                "head_sha": "",
+                "tier": 3,
+                "tier_name": "tier_3_human_risk",
+                "status": "human_risk_settlement_required",
+                "verdict": "human_risk_settlement_required",
+                "checks_summary": "all required checks green",
+                "requires_human_risk_settlement": True,
+                "requires_human_preapproval": False,
+                "unresolved_dissent": False,
+                "reasons": ["missing exact head"],
+            },
+        ],
+    }
+
+
+def test_collect_pending_settlement_approvals_filters_to_human_boundary():
+    calls = []
+
+    def merge_packet_builder(**kwargs):
+        calls.append(kwargs)
+        return _settlement_packet()
+
+    approvals = collect_pending_settlement_approvals(
+        limit=10,
+        repo="synaptent/aragora",
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    assert len(approvals) == 1
+    item = approvals[0]
+    assert item["id"] == "settlement-pr-7736-abc123def456"
+    assert item["kind"] == "settlement"
+    assert item["status"] == "pending"
+    assert item["metadata"]["pr_number"] == 7736
+    assert item["metadata"]["head_sha"] == "abc123def4567890"
+    assert item["metadata"]["settlement_kind"] == "tier4_human_preapproval"
+    assert item["metadata"]["counted_model_families"] == ["claude", "openai"]
+    assert item["actions"]["approve"]["implemented"] is False
+    assert item["actions"]["approve"]["cli_preview"][:5] == [
+        "python3",
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "record-settlement",
+    ]
+    assert "--post-github-status" in item["actions"]["approve"]["cli_preview"]
+    assert calls[0]["repo_override"] == "synaptent/aragora"
+    assert calls[0]["execute_reviewers"] is False
+
+
+def test_collect_pending_approvals_explicit_settlement_source(monkeypatch):
+    def fake_collect(limit):
+        assert limit == 5
+        return [
+            {
+                "id": "settlement-pr-1-head",
+                "kind": "settlement",
+                "status": "pending",
+                "title": "Settlement approval",
+                "description": "Needs human risk settlement",
+                "requested_at": "2026-07-04T18:00:00+00:00",
+                "requested_by": "review-queue merge-packet",
+                "metadata": {"pr_number": 1},
+                "actions": {"approve": {"method": "POST"}},
+            }
+        ]
+
+    monkeypatch.setattr(
+        "aragora.approvals.settlement_inbox.collect_pending_settlement_approvals",
+        fake_collect,
+    )
+
+    approvals = collect_pending_approvals(limit=5, sources=["settlement"])
+
+    assert [item["id"] for item in approvals] == ["settlement-pr-1-head"]
+    assert approvals[0]["metadata"]["pr_number"] == 1
+
+
+def test_collect_pending_approvals_sorts_settlement_iso_timestamps(monkeypatch):
+    def fake_collect(limit):
+        assert limit == 2
+        return [
+            {
+                "id": "settlement-pr-1-old",
+                "kind": "settlement",
+                "status": "pending",
+                "title": "Old settlement approval",
+                "description": "Older",
+                "requested_at": "2026-07-04T17:00:00+00:00",
+                "requested_by": "review-queue merge-packet",
+                "metadata": {"pr_number": 1},
+                "actions": {},
+            },
+            {
+                "id": "settlement-pr-2-new",
+                "kind": "settlement",
+                "status": "pending",
+                "title": "New settlement approval",
+                "description": "Newer",
+                "requested_at": "2026-07-04T18:00:00+00:00",
+                "requested_by": "review-queue merge-packet",
+                "metadata": {"pr_number": 2},
+                "actions": {},
+            },
+        ]
+
+    monkeypatch.setattr(
+        "aragora.approvals.settlement_inbox.collect_pending_settlement_approvals",
+        fake_collect,
+    )
+
+    approvals = collect_pending_approvals(limit=2, sources=["settlement"])
+
+    assert [item["id"] for item in approvals] == [
+        "settlement-pr-2-new",
+        "settlement-pr-1-old",
+    ]
+
+
+def test_collect_pending_approvals_default_settlement_source_is_flag_gated(monkeypatch):
+    monkeypatch.delenv("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", raising=False)
+    called = False
+
+    def fake_collect(limit):
+        nonlocal called
+        called = True
+        return []
+
+    monkeypatch.setattr(
+        "aragora.approvals.settlement_inbox.collect_pending_settlement_approvals",
+        fake_collect,
+    )
+
+    collect_pending_approvals(limit=1, sources=None)
+
+    assert called is False
+
+
+def test_collect_pending_approvals_default_settlement_source_can_be_enabled(monkeypatch):
+    monkeypatch.setenv("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", "1")
+    called = False
+
+    def fake_collect(limit):
+        nonlocal called
+        called = True
+        assert limit == 1
+        return []
+
+    monkeypatch.setattr(
+        "aragora.approvals.settlement_inbox.collect_pending_settlement_approvals",
+        fake_collect,
+    )
+
+    collect_pending_approvals(limit=1, sources=None)
+
+    assert called is True
