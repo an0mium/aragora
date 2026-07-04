@@ -141,6 +141,8 @@ async def trigger_security_debate(
             and str(getattr(result, "final_answer", "")).startswith("No agents available")
         ):
             logger.warning("No agents available for security debate")
+            event.debate_requested = False
+            event.debate_id = None
             return None
 
         debate_id = (

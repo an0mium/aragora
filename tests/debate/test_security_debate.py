@@ -433,8 +433,59 @@ class TestSecurityDebateIntegration:
         finding = context["findings"][0]
         assert finding["title"] == "Secret finding"
         assert finding["description"] == "[redacted secret finding description]"
+        assert finding["file_path"] is None
+        assert finding["line_number"] is None
+        assert finding["recommendation"] == (
+            "Rotate or revoke the exposed credential and remove it from history."
+        )
         assert finding["metadata"] == {"secret_type": "api_token"}
         assert "super-secret-value" not in env.context
+
+    @pytest.mark.asyncio
+    async def test_secret_alias_findings_are_redacted_from_environment_context(self):
+        """Non-canonical secret finding type aliases should also be scrubbed."""
+        from aragora.debate.security_debate import run_security_debate
+
+        mock_event = MockSecurityEvent(
+            findings=[
+                MockFinding(
+                    cve_id="TOKEN-1",
+                    severity="critical",
+                    description="token=alias-secret-value",
+                    finding_type="Credential",
+                )
+            ]
+        )
+        mock_event.findings[0].metadata = {"raw_secret": "alias-secret-value"}
+        mock_agent = MagicMock()
+        mock_agent.name = "security-auditor"
+
+        mock_result = MagicMock()
+        mock_result.debate_id = "debate-redacted-alias-context"
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.95
+        mock_result.metadata = {}
+
+        mock_arena = MagicMock()
+        mock_arena.run = AsyncMock(return_value=mock_result)
+
+        with (
+            patch(
+                "aragora.debate.security_response.build_security_debate_question",
+                return_value="Q",
+            ),
+            patch(
+                "aragora.debate.orchestrator.Arena",
+                return_value=mock_arena,
+            ) as mock_arena_cls,
+        ):
+            await run_security_debate(event=mock_event, agents=[mock_agent])
+
+        env = mock_arena_cls.call_args.kwargs["environment"]
+        finding = json.loads(env.context)["findings"][0]
+        assert finding["finding_type"] == "secret"
+        assert finding["description"] == "[redacted secret finding description]"
+        assert "alias-secret-value" not in env.context
 
     @pytest.mark.asyncio
     async def test_org_id_parameter(self):

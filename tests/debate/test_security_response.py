@@ -330,6 +330,7 @@ class TestTriggerSecurityDebate:
             result = await trigger_security_debate(event)
 
         assert result is None
+        assert event.debate_requested is False
         assert event.debate_id is None
         mock_store.assert_not_awaited()
 

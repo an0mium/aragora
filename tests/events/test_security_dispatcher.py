@@ -542,6 +542,7 @@ class TestDefaultRunnerPath:
             event_type=SecurityEventType.CRITICAL_CVE,
         )
         event.debate_requested = True
+        event.debate_id = "cancelled-before-completion"
 
         with patch(
             "aragora.events.security_dispatcher.get_security_debate_runner",
