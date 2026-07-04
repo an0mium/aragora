@@ -399,6 +399,7 @@ class SecurityDispatcher:
         except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception("Debate for event %s failed: %s", event.id, e)
             event.debate_requested = False
+            event.debate_id = None
             self._stats.debates_failed += 1
             return None
 

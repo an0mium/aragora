@@ -825,6 +825,25 @@ class TestSecurityEventEmitter:
         )
         assert emitter._should_trigger_debate(event) is False
 
+    def test_event_to_dict_redacts_secret_findings(self):
+        """Event serialization should not expose raw secret finding material."""
+        finding = SecurityFinding(
+            id="secret-1",
+            finding_type="Credential",
+            severity=SecuritySeverity.CRITICAL,
+            title="Token literal-secret",
+            description="literal-secret",
+            metadata={"secret_type": "api_token", "raw_secret": "literal-secret"},
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert data["findings"][0]["metadata"] == {"secret_type": "api_token"}
+        assert "literal-secret" not in serialized
+
     def test_should_not_trigger_debate_for_low_severity(self):
         """LOW severity events should not trigger debates."""
         emitter = SecurityEventEmitter(enable_auto_debate=True)
@@ -854,6 +873,43 @@ class TestSecurityEventEmitter:
             )
             assert event.debate_requested is True
             assert event.debate_id == "debate-auto-123"
+
+    @pytest.mark.asyncio
+    async def test_debate_started_event_redacts_secret_findings(self):
+        """Follow-on debate events should not carry raw secret findings."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        started_events: list[SecurityEvent] = []
+
+        async def on_started(event: SecurityEvent) -> None:
+            started_events.append(event)
+
+        emitter.subscribe(SecurityEventType.SECURITY_DEBATE_STARTED, on_started)
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[
+                SecurityFinding(
+                    id="secret-1",
+                    finding_type="Credential",
+                    severity=SecuritySeverity.CRITICAL,
+                    title="Token literal-secret",
+                    description="literal-secret",
+                    metadata={"secret_type": "api_token", "raw_secret": "literal-secret"},
+                )
+            ],
+        )
+
+        mock_trigger = AsyncMock(return_value="debate-auto-123")
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=mock_trigger,
+        ):
+            await emitter.emit(event)
+
+        assert len(started_events) == 1
+        started = started_events[0]
+        assert started.findings[0].title == "Secret finding"
+        assert started.findings[0].metadata == {"secret_type": "api_token"}
+        assert "literal-secret" not in json.dumps(started.to_dict())
 
     @pytest.mark.asyncio
     async def test_emit_does_not_trigger_debate_for_low(self):

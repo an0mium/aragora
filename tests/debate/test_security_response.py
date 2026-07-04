@@ -103,7 +103,25 @@ class TestBuildSecurityDebateQuestion:
         assert "aws_access_key" in q
         assert "secrets" in q.lower()
         assert "AKIA1234567890SECRET" not in q
+        assert "Exposed API key" not in q
         assert "[redacted secret finding description]" in q
+
+    def test_question_redacts_secret_alias_findings(self):
+        """Prompt redaction should match context redaction for aliases."""
+        finding = SecurityFinding(
+            id="f-token",
+            finding_type="Credential",
+            severity=SecuritySeverity.HIGH,
+            title="Token abc123-secret",
+            description="credential value abc123-secret",
+            metadata={"secret_type": "api_token"},
+        )
+        event = SecurityEvent(findings=[finding])
+
+        q = build_security_debate_question(event)
+
+        assert "abc123-secret" not in q
+        assert "Secret finding" in q
 
     def test_question_with_mixed_findings(self):
         """Should include both vulnerability and secret details."""

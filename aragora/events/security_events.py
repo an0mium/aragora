@@ -72,6 +72,93 @@ class SecuritySeverity(str, Enum):
     INFO = "info"
 
 
+SECRET_FINDING_TYPES = frozenset(
+    {
+        "secret",
+        "secrets",
+        "credential",
+        "credentials",
+        "token",
+        "api_key",
+        "apikey",
+    }
+)
+
+
+def _finding_dict(finding: Any) -> dict[str, Any]:
+    if isinstance(finding, dict):
+        return dict(finding)
+    to_dict = getattr(finding, "to_dict", None)
+    if callable(to_dict):
+        return dict(to_dict())
+    return {}
+
+
+def _finding_metadata(finding: Any, data: dict[str, Any] | None = None) -> dict[str, Any]:
+    data = data or _finding_dict(finding)
+    metadata = data.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = getattr(finding, "metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    return metadata
+
+
+def is_secret_finding(finding: Any) -> bool:
+    """Return whether a finding contains secret-like material."""
+    data = _finding_dict(finding)
+    finding_type = str(data.get("finding_type") or getattr(finding, "finding_type", "")).lower()
+    return finding_type in SECRET_FINDING_TYPES or "secret_type" in _finding_metadata(finding, data)
+
+
+def redacted_security_finding_dict(finding: Any) -> dict[str, Any]:
+    """Serialize a finding while redacting secret-like material."""
+    data = _finding_dict(finding)
+    if not is_secret_finding(finding):
+        return data
+
+    metadata = _finding_metadata(finding, data)
+    return {
+        "id": data.get("id"),
+        "finding_type": "secret",
+        "severity": data.get("severity"),
+        "title": "Secret finding",
+        "description": "[redacted secret finding description]",
+        "file_path": None,
+        "line_number": None,
+        "cve_id": None,
+        "package_name": None,
+        "package_version": None,
+        "recommendation": "Rotate or revoke the exposed credential and remove it from history.",
+        "metadata": {"secret_type": metadata.get("secret_type", "unknown")},
+    }
+
+
+def redacted_security_finding(finding: SecurityFinding) -> SecurityFinding:
+    """Return a redacted copy when a finding is secret-like."""
+    if not is_secret_finding(finding):
+        return finding
+
+    data = redacted_security_finding_dict(finding)
+    severity_value = data.get("severity") or SecuritySeverity.HIGH.value
+    try:
+        severity = SecuritySeverity(str(severity_value))
+    except ValueError:
+        severity = SecuritySeverity.HIGH
+
+    return SecurityFinding(
+        id=str(data.get("id") or uuid.uuid4()),
+        finding_type="secret",
+        severity=severity,
+        title=str(data["title"]),
+        description=str(data["description"]),
+        file_path=None,
+        line_number=None,
+        recommendation=str(data["recommendation"]),
+        metadata=dict(data["metadata"]),
+    )
+
+
 @dataclass
 class SecurityFinding:
     """Represents a security finding that may trigger a debate."""
@@ -147,7 +234,7 @@ class SecurityEvent:
             "repository": self.repository,
             "scan_id": self.scan_id,
             "workspace_id": self.workspace_id,
-            "findings": [f.to_dict() for f in self.findings],
+            "findings": [redacted_security_finding_dict(f) for f in self.findings],
             "debate_requested": self.debate_requested,
             "debate_id": self.debate_id,
             "debate_question": self.debate_question,
@@ -447,7 +534,7 @@ class SecurityEventEmitter:
                     repository=event.repository,
                     scan_id=event.scan_id,
                     workspace_id=event.workspace_id,
-                    findings=event.findings,
+                    findings=[redacted_security_finding(f) for f in event.findings],
                     debate_id=debate_id,
                     correlation_id=event.correlation_id,
                 )

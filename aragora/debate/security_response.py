@@ -30,6 +30,7 @@ from aragora.events.security_events import (
     SecurityEvent,
     _register_default_security_debate_runner,
     _store_security_debate_result,
+    is_secret_finding,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,12 +68,12 @@ def build_security_debate_question(event: SecurityEvent) -> str:
     findings_str = " and ".join(question_parts)
 
     def _prompt_safe_title(finding: Any) -> str:
-        if getattr(finding, "finding_type", "") == "secret":
+        if is_secret_finding(finding):
             return "Secret finding"
         return str(getattr(finding, "title", ""))
 
     def _prompt_safe_description(finding: Any) -> str:
-        if getattr(finding, "finding_type", "") == "secret":
+        if is_secret_finding(finding):
             return "[redacted secret finding description]"
         return str(getattr(finding, "description", ""))[:200]
 

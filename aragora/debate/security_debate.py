@@ -36,44 +36,9 @@ def _apply_security_confidence_threshold(
 
 def _security_safe_finding_dict(finding: Any) -> dict[str, Any]:
     """Serialize finding context without exposing secret material to model agents."""
-    data = finding.to_dict()
-    metadata = data.get("metadata")
-    if not isinstance(metadata, dict):
-        metadata = getattr(finding, "metadata", {})
-    if not isinstance(metadata, dict):
-        metadata = {}
+    from aragora.events.security_events import redacted_security_finding_dict
 
-    finding_type = str(data.get("finding_type") or getattr(finding, "finding_type", "")).lower()
-    is_secret = (
-        finding_type
-        in {
-            "secret",
-            "secrets",
-            "credential",
-            "credentials",
-            "token",
-            "api_key",
-            "apikey",
-        }
-        or "secret_type" in metadata
-    )
-    if not is_secret:
-        return data
-
-    return {
-        "id": data.get("id"),
-        "finding_type": "secret",
-        "severity": data.get("severity"),
-        "title": "Secret finding",
-        "description": "[redacted secret finding description]",
-        "file_path": None,
-        "line_number": None,
-        "cve_id": None,
-        "package_name": None,
-        "package_version": None,
-        "recommendation": "Rotate or revoke the exposed credential and remove it from history.",
-        "metadata": {"secret_type": metadata.get("secret_type", "unknown")},
-    }
+    return redacted_security_finding_dict(finding)
 
 
 async def run_security_debate(
