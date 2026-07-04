@@ -4,7 +4,7 @@ All notable changes to `aragora-verify` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses semantic
 versioning.
 
-## [0.1.1] — unreleased (on main; PyPI publish pending)
+## [0.1.1] — 2026-07-04
 
 ### Fixed
 - Signature `key_id` binding: a cryptographically valid signature only counts when
