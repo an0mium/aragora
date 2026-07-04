@@ -218,6 +218,34 @@ def get_security_debate_runner() -> SecurityDebateRunner | None:
     return _security_debate_runner
 
 
+def build_security_debate_question(event: SecurityEvent) -> str:
+    """Compatibility wrapper for the relocated security debate question builder."""
+    from aragora.debate.security_response import (
+        build_security_debate_question as _build_security_debate_question,
+    )
+
+    return _build_security_debate_question(event)
+
+
+async def trigger_security_debate(
+    event: SecurityEvent,
+    confidence_threshold: float = 0.7,
+    agents: list[Any] | None = None,
+    timeout_seconds: int = 300,
+) -> str | None:
+    """Compatibility wrapper for the relocated security debate runner."""
+    from aragora.debate.security_response import (
+        trigger_security_debate as _trigger_security_debate,
+    )
+
+    return await _trigger_security_debate(
+        event,
+        confidence_threshold=confidence_threshold,
+        agents=agents,
+        timeout_seconds=timeout_seconds,
+    )
+
+
 class SecurityEventEmitter:
     """
     Emits security events and optionally triggers debates for critical findings.
@@ -718,6 +746,8 @@ __all__ = [
     "SecurityDebateRunner",
     "register_security_debate_runner",
     "get_security_debate_runner",
+    "build_security_debate_question",
+    "trigger_security_debate",
     "get_security_debate_result",
     "list_security_debates",
     # Convenience functions
