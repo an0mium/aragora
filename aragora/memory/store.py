@@ -265,28 +265,42 @@ class CritiqueStore(SQLiteStore):
         """Backfill columns for legacy critique store databases."""
         with self.connection() as conn:
             # safe_add_column is idempotent (no-op if column already exists)
-            for col_name, col_type, default in [
+            for pattern_col_name, pattern_col_type, pattern_default in [
                 ("surprise_score", "REAL", "0.0"),
                 ("base_rate", "REAL", "0.5"),
                 ("avg_prediction_error", "REAL", "0.0"),
                 ("prediction_count", "INTEGER", "0"),
             ]:
-                safe_add_column(conn, "patterns", col_name, col_type, default)
+                safe_add_column(
+                    conn, "patterns", pattern_col_name, pattern_col_type, pattern_default
+                )
 
             critique_columns: list[tuple[str, str, str | None]] = [
                 ("expected_usefulness", "REAL", "0.5"),
                 ("actual_usefulness", "REAL", None),
                 ("prediction_error", "REAL", None),
             ]
-            for col_name, col_type, default in critique_columns:
-                safe_add_column(conn, "critiques", col_name, col_type, default)
+            for critique_col_name, critique_col_type, critique_default in critique_columns:
+                safe_add_column(
+                    conn,
+                    "critiques",
+                    critique_col_name,
+                    critique_col_type,
+                    critique_default,
+                )
 
-            for col_name, col_type, default in [
+            for reputation_col_name, reputation_col_type, reputation_default in [
                 ("total_predictions", "INTEGER", "0"),
                 ("total_prediction_error", "REAL", "0.0"),
                 ("calibration_score", "REAL", "0.5"),
             ]:
-                safe_add_column(conn, "agent_reputation", col_name, col_type, default)
+                safe_add_column(
+                    conn,
+                    "agent_reputation",
+                    reputation_col_name,
+                    reputation_col_type,
+                    reputation_default,
+                )
 
             conn.commit()
 
