@@ -11,7 +11,7 @@ This index intentionally links to actively maintained docs with validated paths.
 
 ## Getting Started
 
-- [Cold Reviewer Guide](COLD_REVIEWER_GUIDE.md)
+- [Cold Reviewer Guide](./cold-reviewer-guide)
 - [Getting Started](../getting-started/overview)
 - [SDK Guide (Python)](../guides/sdk)
 - [CLI Reference (generated)](../api/cli)
@@ -19,7 +19,7 @@ This index intentionally links to actively maintained docs with validated paths.
 ## API
 
 - [API Reference](../api/reference)
-- [Supported API Surface](api/SUPPORTED_SURFACE.md)
+- [Supported API Surface](../api/supported-surface)
 - [API Endpoint Catalog](../api/endpoints)
 - [API Examples](../api/examples)
 - [API Versioning](../api/versioning)

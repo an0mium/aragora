@@ -17,8 +17,8 @@ standalone verifier. PyPI publishing for the verifier is pending.
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-> **New here?** The [Quickstart](docs/quickstart.md) gets you a working debate in
-> under a minute. Auditors should start with the [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md).
+> **New here?** The [Quickstart](../getting-started/quickstart) gets you a working debate in
+> under a minute. Auditors should start with the [Cold Reviewer Guide](./cold-reviewer-guide).
 
 | I want to… | Command |
 |------------|---------|
@@ -38,7 +38,7 @@ instead of asking you to trust one model's say-so.
 - **Disagreement becomes evidence.** Heterogeneous models challenge each other before work advances; dissent is preserved, not averaged away.
 - **Every decision has a receipt.** Verdict, the reviewing models and their independence, dissent, confidence, and provenance stay inspectable.
 - **It stops truthfully.** When the quorum can't be formed or evidence is thin, the receipt says so — it never fabricates a consensus.
-- **Receipts are portable and verifiable.** A receipt is a schema-conformant artifact (the [Open Decision Receipt](docs/specs/OPEN_DECISION_RECEIPT.md)) that `aragora-verify` checks offline, with no dependency on Aragora.
+- **Receipts are portable and verifiable.** A receipt is a schema-conformant artifact (the [Open Decision Receipt](./open-decision-receipt)) that `aragora-verify` checks offline, with no dependency on Aragora.
 
 ## The wedge: a governance gate for AI-written code
 
@@ -107,7 +107,7 @@ Aragora is large, but five modules carry the product. Start here:
 |--------|----------------|
 | `aragora/debate/` | The Arena orchestrator — runs rounds, detects consensus/convergence. |
 | `aragora/agents/` | Agent implementations (API + CLI), heterogeneous model transport, fallback. |
-| `aragora/gauntlet/` | Decision Receipts: the native record, the portable [ODR](docs/specs/OPEN_DECISION_RECEIPT.md), export and signing. |
+| `aragora/gauntlet/` | Decision Receipts: the native record, the portable [ODR](./open-decision-receipt), export and signing. |
 | `aragora/swarm/` | The merge-quorum gate — collects model-review evidence and tiers settlement. |
 | `aragora/server/` | The HTTP/WebSocket API and handlers. |
 
@@ -127,7 +127,7 @@ existing runtimes when raw speed is all you need.
 - We do not advance work without evidence, review, and clear terminal states.
 - Consequential effectors are denied by default unless an admin-scoped approval artifact exists; sandboxed backends are mandatory for browser/host effectors.
 
-See [Boundaries and Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) for the full non-goals ledger.
+See [Boundaries and Scope](./boundaries-and-scope) for the full non-goals ledger.
 
 ## From the wedge to the full vision
 
@@ -162,24 +162,24 @@ decision ──▶ model jury (heterogeneous, independent)
 ```
 
 Today's receipts verify on schema, digest, and quorum consistency offline; per the
-[ODR spec](docs/specs/OPEN_DECISION_RECEIPT.md), cruxes and calibration carry explicit
+[ODR spec](./open-decision-receipt), cruxes and calibration carry explicit
 *absent markers* unless their source is supplied (ODR-4/5), and public-key signing and
 anchoring are in-flight. See the [proof ladder](#proof-ladder).
 
 ## Find your path
 
-- **Developer** — [Quickstart](docs/quickstart.md) → `aragora review-pr` → [CLI Reference](../api/cli) · [SDK Guide](../guides/sdk)
-- **Auditor / reviewer** — [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md) → [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) → `aragora-verify`
+- **Developer** — [Quickstart](../getting-started/quickstart) → `aragora review-pr` → [CLI Reference](../api/cli) · [SDK Guide](../guides/sdk)
+- **Auditor / reviewer** — [Cold Reviewer Guide](./cold-reviewer-guide) → [Open Decision Receipt spec](./open-decision-receipt) → `aragora-verify`
 - **Founder / operator** — the wedge above → [proof ladder](#proof-ladder) → [Full Vision](#full-vision)
 - **Compliance buyer** — [Enterprise features](../enterprise/features) → EU AI Act / SOC 2 status in [honest current state](#honest-current-state)
-- **Agent / tool builder** — the [ODR](docs/specs/OPEN_DECISION_RECEIPT.md) as the external contract → MCP tools → [API Reference](../api/reference)
+- **Agent / tool builder** — the [ODR](./open-decision-receipt) as the external contract → MCP tools → [API Reference](../api/reference)
 
 ## Documentation
 
-- [Quickstart](docs/quickstart.md) · [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md) · [CLI Reference](../api/cli)
-- [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) · [SDK Guide](../guides/sdk) · [API Reference](../api/reference)
+- [Quickstart](../getting-started/quickstart) · [Cold Reviewer Guide](./cold-reviewer-guide) · [CLI Reference](../api/cli)
+- [Open Decision Receipt spec](./open-decision-receipt) · [SDK Guide](../guides/sdk) · [API Reference](../api/reference)
 - [Feature status](./status) · [Enterprise features](../enterprise/features) · [Architecture deep-dive](./extended-readme)
-- [Inspiration and credits](docs/reference/CREDITS.md)
+- [Inspiration and credits](./credits)
 
 ## Security
 
@@ -192,7 +192,7 @@ local development uses a gitignored `.env`. See the
 ## Contributing & License
 
 Contributions welcome — see [CONTRIBUTING.md](./guide). MIT licensed
-(see [LICENSE](LICENSE)).
+(see [LICENSE](https://github.com/synaptent/aragora/blob/main/LICENSE)).
 
 ---
 
@@ -210,8 +210,8 @@ Contributions welcome — see [CONTRIBUTING.md](./guide). MIT licensed
 > 🔄 in-flight · 🔮 designed or aspirational. Per our
 > [commercial discipline](../enterprise/commercial-overview), *external claims stay narrower
 > than this roadmap and tied to measured proof.* Canonical metrics live in
-> [`docs/METRICS.md`](docs/METRICS.md); the candid current-state ledger is
-> [`docs/HONEST_ASSESSMENT.md`](docs/HONEST_ASSESSMENT.md). Where a number is contested
+> [`docs/METRICS.md`](./metrics); the candid current-state ledger is
+> [`docs/HONEST_ASSESSMENT.md`](./honest-assessment). Where a number is contested
 > across docs it is rounded here on purpose. Every major claim below carries a proof
 > link, a status marker, or an explicit aspirational label — start with the proof ladder.
 
@@ -221,12 +221,12 @@ Contributions welcome — see [CONTRIBUTING.md](./guide). MIT licensed
 
 | Claim class | Canonical source / gate |
 |---|---|
-| Scale & metrics | [`docs/METRICS.md`](docs/METRICS.md) — `python scripts/regenerate_metrics.py --check` fails CI on >0.5% drift |
-| What's real vs aspirational | [`docs/HONEST_ASSESSMENT.md`](docs/HONEST_ASSESSMENT.md) |
-| Receipt format (the external contract) | [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) |
+| Scale & metrics | [`docs/METRICS.md`](./metrics) — `python scripts/regenerate_metrics.py --check` fails CI on >0.5% drift |
+| What's real vs aspirational | [`docs/HONEST_ASSESSMENT.md`](./honest-assessment) |
+| Receipt format (the external contract) | [Open Decision Receipt spec](./open-decision-receipt) |
 | Decision-semantics roadmap | ODR spine epic [#8223](https://github.com/synaptent/aragora/issues/8223); ODR-1..7 → [#8224](https://github.com/synaptent/aragora/issues/8224)/[#8225](https://github.com/synaptent/aragora/issues/8225)/[#8226](https://github.com/synaptent/aragora/issues/8226)/[#8227](https://github.com/synaptent/aragora/issues/8227)/[#8229](https://github.com/synaptent/aragora/issues/8229)/[#8230](https://github.com/synaptent/aragora/issues/8230)/[#8231](https://github.com/synaptent/aragora/issues/8231) |
 | Autonomy truth | B0 benchmark [`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](./b0-benchmark-truth-status) |
-| Enterprise / compliance | [GA checklist](docs/GA_CHECKLIST.md) (SOC 2 / pentest gate) · [Enterprise features](../enterprise/features) |
+| Enterprise / compliance | [GA checklist](./ga-checklist) (SOC 2 / pentest gate) · [Enterprise features](../enterprise/features) |
 | Frontier work is bounded | the proof-first Foreman gate + capability checkpoints CP-1..5 (below) |
 
 ### The thesis — Decision Integrity
@@ -309,7 +309,7 @@ truth. *(docs/CANONICAL_GOALS.md)*
 
 ### The complete capability surface
 
-> Scale (canonical counts in [`docs/METRICS.md`](docs/METRICS.md), rounded):
+> Scale (canonical counts in [`docs/METRICS.md`](./metrics), rounded):
 > **~4,200 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test
 > functions across ~5,400 files · 3,297 API operations across 2,870 paths ·
 > 35+ allowlisted agent types across 12+ providers · 41 Knowledge Mound adapter specs

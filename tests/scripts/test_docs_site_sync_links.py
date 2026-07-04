@@ -182,3 +182,84 @@ def test_root_readme_synced_with_proof_ladder_anchor() -> None:
 
     assert "title: Aragora" in content
     assert '<a id="proof-ladder"></a>' in content
+
+
+def test_root_readme_links_resolve_to_docs_site_pages_or_external_targets() -> None:
+    content = _read_docs_site("contributing/readme.md")
+
+    expected_links = [
+        "[Quickstart](../getting-started/quickstart)",
+        "[Cold Reviewer Guide](./cold-reviewer-guide)",
+        "[Open Decision Receipt spec](./open-decision-receipt)",
+        "[Boundaries and Scope](./boundaries-and-scope)",
+        "[`docs/METRICS.md`](./metrics)",
+        "[`docs/HONEST_ASSESSMENT.md`](./honest-assessment)",
+        "[GA checklist](./ga-checklist)",
+        "[CLI Reference](../api/cli)",
+        "[SDK Guide](../guides/sdk)",
+        "[API Reference](../api/reference)",
+        "[Inspiration and credits](./credits)",
+        "[LICENSE](https://github.com/synaptent/aragora/blob/main/LICENSE)",
+    ]
+    for link in expected_links:
+        assert link in content
+
+    unresolved_source_links = [
+        "](docs/quickstart.md)",
+        "](docs/COLD_REVIEWER_GUIDE.md)",
+        "](docs/specs/OPEN_DECISION_RECEIPT.md)",
+        "](docs/reference/CREDITS.md)",
+        "](docs/strategy/BOUNDARIES_AND_SCOPE.md)",
+        "](docs/METRICS.md)",
+        "](docs/HONEST_ASSESSMENT.md)",
+        "](docs/GA_CHECKLIST.md)",
+        "](LICENSE)",
+    ]
+    for link in unresolved_source_links:
+        assert link not in content
+
+
+def test_public_entrypoint_source_relative_spec_links_resolve() -> None:
+    cold_reviewer = _read_docs_site("contributing/cold-reviewer-guide.md")
+    odr = _read_docs_site("contributing/open-decision-receipt.md")
+    docs_index = _read_docs_site("contributing/documentation-index.md")
+
+    assert "[Supported API Surface](../api/supported-surface)" in cold_reviewer
+    assert "[`docs/specs/TAMPER_EVIDENT_TRAIL.md`](./tamper-evident-trail)" in odr
+    assert "[`TAMPER_EVIDENT_TRAIL.md`](./tamper-evident-trail)" in odr
+    assert "[`odr-native-mapping.md`](./odr-native-mapping)" in odr
+    assert "[Supported API Surface](../api/supported-surface)" in docs_index
+
+    for content in [cold_reviewer, odr, docs_index]:
+        assert "api/SUPPORTED_SURFACE.md" not in content
+        assert "TAMPER_EVIDENT_TRAIL.md)" not in content
+        assert "odr-native-mapping.md)" not in content
+
+
+def test_source_relative_disaster_recovery_links_resolve_by_source_directory() -> None:
+    deployment = _read_docs_site("deployment/async-gateway.md")
+    operations = _read_docs_site("operations/runbook-backup-automation.md")
+    enterprise = _read_docs_site("enterprise/compliance.md")
+    runbook = _read_docs_site("operations/disaster-recovery-runbook.md")
+
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery)" in deployment
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in operations
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery)" in enterprise
+    assert "[../enterprise/DISASTER_RECOVERY.md](../enterprise/disaster-recovery)" in runbook
+
+    for content in [deployment, operations, enterprise, runbook]:
+        assert "DISASTER_RECOVERY.md)" not in content
+
+
+def test_source_code_and_deploy_links_resolve_to_served_docs_pages() -> None:
+    api_reference = _read_docs_site("api/reference.md")
+    eu_ai_act = _read_docs_site("security/eu-ai-act-guide.md")
+    sdk_quickstart = _read_docs_site("guides/sdk-quickstart.md")
+
+    assert "[MCP README](../guides/mcp-integration)" in api_reference
+    assert "[Gauntlet Testing](../guides/gauntlet)" in eu_ai_act
+    assert "[`deploy/README.md`](../deployment/docker)" in sdk_quickstart
+
+    assert "../../aragora/mcp/README.md" not in api_reference
+    assert "../../aragora/gauntlet/README.md" not in eu_ai_act
+    assert "../deploy/README.md" not in sdk_quickstart

@@ -341,7 +341,7 @@ aragora/
 └── cli/              # Command-line interface
 ```
 
-**Scale:** 4,256 tracked Python files | 144 top-level modules | 222,878 test functions across 5,421 test files | canonical counts in [METRICS.md](METRICS.md)
+**Scale:** 4,256 tracked Python files | 144 top-level modules | 222,878 test functions across 5,421 test files | canonical counts in [METRICS.md](./metrics)
 
 ---
 
@@ -898,7 +898,7 @@ See implementations in:
 - `aragora/debate/session.py` -- Session lifecycle (claude-squad patterns)
 - `aragora/debate/cancellation.py` -- Cancellation tokens (claude-code-by-agents)
 
-See the full attribution table in [CREDITS.md](./reference/CREDITS.md).
+See the full attribution table in [CREDITS.md](./credits).
 
 ---
 

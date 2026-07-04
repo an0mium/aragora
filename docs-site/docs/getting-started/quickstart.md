@@ -1,18 +1,117 @@
 ---
-title: Developer Quickstart
-description: Developer Quickstart
+title: Quickstart
+description: Quickstart
 ---
 
-# Developer Quickstart
+# Quickstart
 
-> **Consolidated into the canonical quickstart.**
-> See **[Quickstart](quickstart.md)** for the single, maintained guide.
+Get from zero to a working adversarial debate in under a minute.
 
-This page is a redirect stub kept so existing links keep working. The canonical
-[Quickstart](quickstart.md) covers:
+---
 
-- The zero-key offline demo (`python3 -m aragora.cli.main demo`)
-- Running a real multi-model debate with your API keys
-- Starting the server
-- Python and TypeScript SDK usage
-- Self-hosting the full platform
+## 1. Install
+
+```bash
+pip install aragora-debate
+```
+
+## 2. Zero-Key Demo
+
+No API keys required. The offline demo runs a complete adversarial debate with
+mock agents:
+
+```bash
+python3 -m aragora.cli.main demo
+```
+
+You'll see three agents propose, critique each other, vote, reach consensus, and
+produce an audit-ready decision receipt with a SHA-256 verdict hash.
+
+## 3. Three-Line Debate (Python)
+
+```python
+from aragora_debate.arena import Arena
+from aragora_debate.styled_mock import StyledMockAgent
+
+agents = [
+    StyledMockAgent("analyst", style="supportive"),
+    StyledMockAgent("critic", style="critical"),
+    StyledMockAgent("pm", style="balanced"),
+]
+arena = Arena(question="Should we adopt GraphQL?", agents=agents)
+result = asyncio.run(arena.run())
+print(result.receipt.to_markdown())
+```
+
+## 4. Add Real AI Models
+
+Set at least one API key:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
+# or
+export OPENAI_API_KEY="sk-..."          # GPT
+```
+
+Then run a real debate:
+
+```python
+import asyncio
+from aragora import Arena, Environment, DebateProtocol
+
+env = Environment(task="Design a rate limiter for our API")
+protocol = DebateProtocol(rounds=3, consensus="majority")
+
+# Arena auto-discovers available agents from your API keys
+arena = Arena(env, protocol=protocol)
+result = asyncio.run(arena.run())
+print(result.summary)
+```
+
+## 5. TypeScript SDK
+
+```bash
+npm install @aragora/sdk
+```
+
+```typescript
+import { AragoraClient } from "@aragora/sdk";
+
+const client = new AragoraClient({ baseUrl: "http://localhost:8080" });
+const result = await client.debates.create({
+  task: "Should we use microservices or a monolith?",
+  agents: ["claude", "openai"],
+  rounds: 3,
+});
+console.log(result.summary);
+```
+
+## 6. Self-Host the Full Platform
+
+```bash
+docker compose -f deploy/demo/docker-compose.yml up
+```
+
+Then visit:
+- **Landing page:** http://localhost:3000
+- **API docs (Swagger):** http://localhost:8080/api/v2/docs
+- **API docs (Redoc):** http://localhost:8080/api/v2/redoc
+- **Interactive playground:** http://localhost:3000/playground
+
+## 7. CLI
+
+```bash
+pip install aragora
+aragora debate "Should we build or buy our auth system?"
+aragora serve --api-port 8080 --ws-port 8765
+```
+
+## Next Steps
+
+| Guide | What you'll learn |
+|-------|-------------------|
+| [CLI Reference](../api/cli) | All CLI commands and flags |
+| [SDK Guide](../guides/sdk) | Python & TypeScript SDK reference |
+| [API Reference](../api/reference) | REST API endpoints |
+| [Self-Hosting](guides/SELF_HOSTED_COMPLETE_GUIDE.md) | Production deployment |
+| [Start Here](START_HERE.md) | Deeper architectural overview |

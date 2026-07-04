@@ -470,7 +470,7 @@ done
 
 - [RUNBOOK_POSTGRESQL_REPLICATION.md](./runbook-postgresql-replication)
 - [redis-failover.md](./redis-failover)
-- [DISASTER_RECOVERY.md](./DISASTER_RECOVERY.md)
+- [DISASTER_RECOVERY.md](./disaster-recovery-runbook)
 
 ---
 

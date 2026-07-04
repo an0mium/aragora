@@ -546,7 +546,7 @@ psql -U postgres -c "SELECT * FROM pg_replication_slots;"
 ### Related Documentation
 
 - [RUNBOOK_POSTGRESQL_MIGRATION.md](./runbook-postgresql-migration) - Initial setup
-- [DISASTER_RECOVERY.md](./DISASTER_RECOVERY.md) - Recovery procedures
+- [DISASTER_RECOVERY.md](./disaster-recovery-runbook) - Recovery procedures
 - [monitoring-setup.md](./monitoring-setup) - Monitoring configuration
 
 ---

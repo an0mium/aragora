@@ -110,6 +110,7 @@ const DOC_MAP = {
   // =========================================================================
   'GETTING_STARTED.md': 'getting-started/overview.md',
   'QUICKSTART_DEVELOPER.md': 'getting-started/quickstart.md',
+  'quickstart.md': 'getting-started/quickstart.md',
   'CONFIGURATION.md': 'getting-started/configuration.md',
   'ENVIRONMENT.md': 'getting-started/environment.md',
 
@@ -183,6 +184,7 @@ const DOC_MAP = {
   // API Reference
   // =========================================================================
   'API_REFERENCE.md': 'api/reference.md',
+  'api/SUPPORTED_SURFACE.md': 'api/supported-surface.md',
   'API_ENDPOINTS.md': 'api/endpoints.md',
   'API_EXAMPLES.md': 'api/examples.md',
   'API_VERSIONING.md': 'api/versioning.md',
@@ -255,6 +257,7 @@ const DOC_MAP = {
   'CONTROL_PLANE_GUIDE.md': 'enterprise/control-plane.md',
   'ENTERPRISE_FEATURES.md': 'enterprise/features.md',
   'ENTERPRISE_SUPPORT.md': 'enterprise/support.md',
+  'enterprise/DISASTER_RECOVERY.md': 'enterprise/disaster-recovery.md',
   'COMMERCIAL_OVERVIEW.md': 'enterprise/commercial-overview.md',
   'WHY_ARAGORA.md': 'enterprise/why-aragora.md',
   'PRICING.md': 'enterprise/pricing.md',
@@ -346,6 +349,7 @@ const DOC_MAP = {
   'CONTRIBUTING.md': 'contributing/guide.md',
   'NEXT_STEPS.md': 'contributing/next-steps.md',
   'FIRST_CONTRIBUTION.md': 'contributing/first-contribution.md',
+  'COLD_REVIEWER_GUIDE.md': 'contributing/cold-reviewer-guide.md',
   'INDEX.md': 'contributing/documentation-index.md',
   'INBOX_GUIDE.md': 'contributing/INBOX_GUIDE.md',
   'DEPRECATION_POLICY.md': 'contributing/deprecation.md',
@@ -374,6 +378,14 @@ const DOC_MAP = {
   'EXTENDED_README.md': 'contributing/extended-readme.md',
   '../README.md': 'contributing/readme.md',
   '../ROADMAP.md': 'contributing/roadmap.md',
+  'METRICS.md': 'contributing/metrics.md',
+  'HONEST_ASSESSMENT.md': 'contributing/honest-assessment.md',
+  'GA_CHECKLIST.md': 'contributing/ga-checklist.md',
+  'reference/CREDITS.md': 'contributing/credits.md',
+  'specs/OPEN_DECISION_RECEIPT.md': 'contributing/open-decision-receipt.md',
+  'specs/TAMPER_EVIDENT_TRAIL.md': 'contributing/tamper-evident-trail.md',
+  'specs/odr-native-mapping.md': 'contributing/odr-native-mapping.md',
+  'strategy/BOUNDARIES_AND_SCOPE.md': 'contributing/boundaries-and-scope.md',
   'plans/ARAGORA_EVOLUTION_ROADMAP.md': 'contributing/aragora-evolution-roadmap.md',
   'plans/PMF_DOGFOOD_EXECUTION_PLAN.md': 'contributing/pmf-dogfood-execution-plan.md',
   'plans/2026-03-26-pmf-14-day-execution-plan.md':
@@ -428,6 +440,31 @@ const DOC_MAP = {
   'FEATURES.md': 'guides/features.md',
   'VERTICALS.md': 'guides/verticals.md',
   'OPERATIONS.md': 'operations/overview.md',
+};
+
+// Link-only aliases for repo-root or source-code paths that should resolve to
+// existing docs-site pages, but should not themselves be copied as source docs.
+const LINK_DESTINATION_ALIASES = {
+  '../LICENSE': 'https://github.com/synaptent/aragora/blob/main/LICENSE',
+  '../deploy/README.md': 'deployment/docker.md',
+  '../aragora/mcp/README.md': 'guides/mcp-integration.md',
+  '../../aragora/mcp/README.md': 'guides/mcp-integration.md',
+  '../aragora/gauntlet/README.md': 'guides/gauntlet.md',
+  '../../aragora/gauntlet/README.md': 'guides/gauntlet.md',
+  'api/API_REFERENCE.md': 'api/reference.md',
+  'CLI_REFERENCE.md': 'api/cli.md',
+  'docs/CLI_REFERENCE.md': 'api/cli.md',
+  'docs/api/API_REFERENCE.md': 'api/reference.md',
+  'docs/COLD_REVIEWER_GUIDE.md': 'contributing/cold-reviewer-guide.md',
+  'docs/quickstart.md': 'getting-started/quickstart.md',
+  'docs/METRICS.md': 'contributing/metrics.md',
+  'docs/HONEST_ASSESSMENT.md': 'contributing/honest-assessment.md',
+  'docs/GA_CHECKLIST.md': 'contributing/ga-checklist.md',
+  'docs/reference/CREDITS.md': 'contributing/credits.md',
+  'docs/specs/OPEN_DECISION_RECEIPT.md': 'contributing/open-decision-receipt.md',
+  'docs/specs/TAMPER_EVIDENT_TRAIL.md': 'contributing/tamper-evident-trail.md',
+  'docs/specs/odr-native-mapping.md': 'contributing/odr-native-mapping.md',
+  'docs/strategy/BOUNDARIES_AND_SCOPE.md': 'contributing/boundaries-and-scope.md',
 };
 
 // Add frontmatter to markdown files
@@ -531,20 +568,66 @@ for (const [src, dest] of Object.entries(DOC_MAP)) {
 // so a root-level "../README.md" resolves to the root README's own page
 // instead of colliding with ADR/README.md or case-studies/README.md, both of
 // which also end in the basename "README.md".
-function resolveLinkDestination(normalized, isParentLink = false) {
+function sourceRelativeLinkTarget(rawTarget, relSrcPath) {
+  const sourcePath = relSrcPath.replace(/\\/g, '/');
+  const sourceDir = path.posix.dirname(sourcePath);
+  const target = path.posix.normalize(path.posix.join(sourceDir, rawTarget));
+
+  // Source files outside docs/ (for example repo-root README.md, represented as
+  // ../README.md) often link back into docs/ using "docs/...". Convert that to
+  // the DOC_MAP source namespace before lookup.
+  if (target.startsWith('../docs/')) {
+    return target.slice('../docs/'.length);
+  }
+  return target;
+}
+
+function resolveMappedDestination(candidate) {
+  return LINK_DESTINATION_ALIASES[candidate] || REVERSE_LOOKUP[candidate];
+}
+
+function resolveLinkDestination(normalized, isParentLink = false, relSrcPath = null, rawTarget = null) {
+  if (relSrcPath && rawTarget) {
+    const sourceRelative = sourceRelativeLinkTarget(rawTarget, relSrcPath);
+    const sourceResolved = resolveMappedDestination(sourceRelative);
+    if (sourceResolved) {
+      return sourceResolved;
+    }
+  }
+
   if (isParentLink) {
-    const rootQualified = REVERSE_LOOKUP['../' + normalized];
+    const rootQualified = resolveMappedDestination('../' + normalized);
     if (rootQualified) {
       return rootQualified;
     }
   }
   // BASENAME_LOOKUP only contains basenames proven unique across DOC_MAP.
   // Ambiguous names are intentionally absent so this fallback fails closed.
-  return REVERSE_LOOKUP[normalized] || BASENAME_LOOKUP[path.basename(normalized)];
+  return resolveMappedDestination(normalized) || BASENAME_LOOKUP[path.basename(normalized)];
+}
+
+function rewriteLinkTarget(newPath, currentDir, anchor = '') {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(newPath)) {
+    return `](${newPath}${anchor || ''})`;
+  }
+
+  const targetDir = path.dirname(newPath);
+  const targetFile = path.basename(newPath, '.md');
+  const isIndex = targetFile === 'index';
+
+  if (targetDir === currentDir) {
+    return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
+  }
+
+  const relativePath = path.relative(currentDir, targetDir);
+  const relativeLink = isIndex
+    ? relativePath
+    : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
+  return `](${relativeLink}${anchor || ''})`;
 }
 
 // Fix content for Docusaurus compatibility
-function fixContent(content, destPath) {
+function fixContent(content, destPath, relSrcPath) {
   // Fix escaped backticks (common in generated docs)
   content = content.replace(/\\`\\`\\`/g, '```');
   content = content.replace(/\\`([^`\\]+)\\`/g, '`$1`');
@@ -567,26 +650,11 @@ function fixContent(content, destPath) {
     (match, prefix, filePath, anchor) => {
       // Try to find the destination path in our mapping
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
-      const newPath = resolveLinkDestination(normalized, prefix === '../');
+      const rawTarget = `${prefix}${filePath}`;
+      const newPath = resolveLinkDestination(normalized, prefix === '../', relSrcPath, rawTarget);
 
       if (newPath) {
-        // Calculate relative path from current doc to target doc
-        const targetDir = path.dirname(newPath);
-        const targetFile = path.basename(newPath, '.md');
-
-        const isIndex = targetFile === 'index';
-
-        // If same directory, use ./ or filename
-        if (targetDir === currentDir) {
-          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
-        }
-
-        // Calculate relative path
-        const relativePath = path.relative(currentDir, targetDir);
-        const relativeLink = isIndex
-          ? relativePath
-          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
-        return `](${relativeLink}${anchor || ''})`;
+        return rewriteLinkTarget(newPath, currentDir, anchor);
       }
 
       // If not found, keep original but log it
@@ -600,25 +668,13 @@ function fixContent(content, destPath) {
     (match, prefix, filePath, anchor) => {
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
       const isParentLink = prefix === '../';
+      const rawTarget = `${prefix}${filePath}`;
       const newPath =
-        resolveLinkDestination(normalized, isParentLink) ||
-        resolveLinkDestination(normalized + '.md', isParentLink);
+        resolveLinkDestination(normalized, isParentLink, relSrcPath, rawTarget) ||
+        resolveLinkDestination(normalized + '.md', isParentLink, relSrcPath, `${rawTarget}.md`);
 
       if (newPath) {
-        const targetDir = path.dirname(newPath);
-        const targetFile = path.basename(newPath, '.md');
-
-        const isIndex = targetFile === 'index';
-
-        if (targetDir === currentDir) {
-          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
-        }
-
-        const relativePath = path.relative(currentDir, targetDir);
-        const relativeLink = isIndex
-          ? relativePath
-          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
-        return `](${relativeLink}${anchor || ''})`;
+        return rewriteLinkTarget(newPath, currentDir, anchor);
       }
       return match;
     }
@@ -677,7 +733,7 @@ function processFile(srcRelPath, destPath) {
 
   // Fix content for compatibility (pass relative dest path)
   const relDestPath = destPath.replace(DEST_DIR + '/', '');
-  content = fixContent(content, relDestPath);
+  content = fixContent(content, relDestPath, relSrcPath.replace(/\\/g, '/'));
   content = injectConnectorCatalogBanner(content, relSrcPath);
 
   // Ensure destination directory exists
