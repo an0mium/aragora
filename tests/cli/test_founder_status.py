@@ -149,3 +149,12 @@ def test_cmd_status_delegates_founder(monkeypatch, capsys) -> None:
     assert result == 0
     assert seen["called"] is True
     assert "Aragora Founder Status" in capsys.readouterr().out
+
+
+def test_status_json_requires_founder(capsys) -> None:
+    result = cmd_status(argparse.Namespace(founder=False, json=True))
+
+    assert result == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "status --json requires --founder" in captured.err

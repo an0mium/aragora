@@ -32,7 +32,7 @@ def add_founder_status_arguments(
             "proof-loop health, latest brief, and one next action."
         ),
     )
-    status_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    status_parser.add_argument("--json", action="store_true", help="Output founder status as JSON")
     status_parser.add_argument(
         "--repo",
         default=None,

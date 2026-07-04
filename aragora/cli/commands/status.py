@@ -126,6 +126,9 @@ def cmd_status(args: argparse.Namespace) -> int:
         from aragora.cli.commands.founder_status import cmd_founder_status
 
         return cmd_founder_status(args)
+    if bool(getattr(args, "json", False)):
+        print("error: status --json requires --founder", file=sys.stderr)
+        return 2
 
     import shutil
 
