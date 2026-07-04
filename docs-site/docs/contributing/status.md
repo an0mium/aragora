@@ -156,13 +156,17 @@ For the full current-status narrative, use the canonical doc:
 - **CLI**: `aragora swarm run "goal"`, `aragora swarm status [--json]`, `aragora swarm reconcile --all-runs`
 - **98 tests** (89 swarm + 9 reconciler)
 
-### Codebase Metrics (March 6, 2026)
-- **Python modules**: 4,256
-- **Tests**: 222,878 across 5,421 test files
-- **HTTP handlers**: 700+
+### Codebase Metrics (generated from `docs/METRICS.md`)
+<!-- metrics:begin status-codebase-metrics -->
+- **Python files (`aragora/`)**: 4,259
+- **Tests**: 223,050 across 5,429 test files
 - **KM adapters**: 41 registered adapter specs
-- **Agent types**: 43
 - **API operations**: 3,297 across 2,870 paths
+<!-- metrics:end -->
+
+Manually maintained:
+- **HTTP handlers**: 700+
+- **Agent types**: 43
 - **RBAC permissions**: 420+
 - **Version**: v2.8.0
 
@@ -2930,7 +2934,7 @@ The nomic loop (`scripts/nomic_loop.py`) implements a 6-phase self-improvement c
 - `on_meta_analyzed`, `on_elo_recorded`, `on_claims_extracted`, `on_belief_network_built`
 
 The codebase is **feature-rich with improving exposure**:
-- 3,297 API operations across 2,870 paths, 580+ HTTP handler modules
+- Full REST API surface (operation/path counts canonical in `docs/METRICS.md`), 580+ HTTP handler modules
 - Many sophisticated features now surfaced via new APIs
 - WebSocket-first architecture for real-time, REST for data access
 

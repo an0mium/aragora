@@ -1108,8 +1108,9 @@ def _add_ask_parser(subparsers) -> None:
     )
     ask_parser.add_argument(
         "--api-url",
-        default=DEFAULT_API_URL,
-        help=f"API server URL (default: {DEFAULT_API_URL})",
+        default=None,
+        help=f"API server URL (default: {DEFAULT_API_URL}); passing the flag "
+        "explicitly opts in to that server even if it does not identify as Aragora",
     )
     ask_parser.add_argument(
         "--api-key",
@@ -2352,6 +2353,20 @@ def _add_review_queue_parser(subparsers) -> None:
         "--apply",
         action="store_true",
         help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
+    )
+    collect_evidence_parser.add_argument(
+        "--reviewer-timeout",
+        dest="reviewer_timeout",
+        type=float,
+        default=None,
+        help="Per-reviewer timeout in seconds for this invocation.",
+    )
+    collect_evidence_parser.add_argument(
+        "--overall-timeout",
+        dest="overall_timeout",
+        type=float,
+        default=None,
+        help="Overall reviewer orchestration timeout in seconds for this invocation.",
     )
     collect_evidence_parser.add_argument(
         "--json", dest="json_output", action="store_true", help="Output as JSON"

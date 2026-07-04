@@ -36,7 +36,7 @@ modules:
     tier: core
     py_files: 83
     importer_count: 184
-    test_file_count: 167
+    test_file_count: 168
     override_reason: "Agent factory, 43 registered types"
   - name: billing
     tier: core
@@ -46,13 +46,13 @@ modules:
   - name: cli
     tier: core
     py_files: 121
-    importer_count: 7
-    test_file_count: 148
+    importer_count: 8
+    test_file_count: 149
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
     py_files: 17
-    importer_count: 365
+    importer_count: 367
     test_file_count: 91
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
@@ -74,40 +74,40 @@ modules:
     override_reason: "database abstraction"
   - name: debate
     tier: core
-    py_files: 263
-    importer_count: 163
-    test_file_count: 599
+    py_files: 264
+    importer_count: 161
+    test_file_count: 609
     override_reason: "Arena + DebateProtocol + consensus — mainline flow"
   - name: events
     tier: core
-    py_files: 32
-    importer_count: 123
-    test_file_count: 51
+    py_files: 26
+    importer_count: 128
+    test_file_count: 57
   - name: gauntlet
     tier: core
-    py_files: 38
+    py_files: 39
     importer_count: 66
-    test_file_count: 107
+    test_file_count: 112
   - name: knowledge
     tier: core
-    py_files: 177
-    importer_count: 179
-    test_file_count: 229
+    py_files: 178
+    importer_count: 171
+    test_file_count: 236
   - name: memory
     tier: core
-    py_files: 56
-    importer_count: 114
-    test_file_count: 117
+    py_files: 57
+    importer_count: 112
+    test_file_count: 119
     override_reason: "ContinuumMemory + CritiqueStore — persistent state"
   - name: nomic
     tier: core
     py_files: 162
-    importer_count: 90
+    importer_count: 89
     test_file_count: 222
   - name: observability
     tier: core
-    py_files: 86
-    importer_count: 177
+    py_files: 92
+    importer_count: 183
     test_file_count: 57
   - name: pipeline
     tier: core
@@ -117,7 +117,7 @@ modules:
   - name: ranking
     tier: core
     py_files: 26
-    importer_count: 74
+    importer_count: 73
     test_file_count: 58
     override_reason: "ELO skill tracking — feeds team selection"
   - name: rbac
@@ -127,9 +127,9 @@ modules:
     test_file_count: 201
   - name: reasoning
     tier: core
-    py_files: 19
+    py_files: 20
     importer_count: 121
-    test_file_count: 110
+    test_file_count: 112
   - name: resilience
     tier: core
     py_files: 13
@@ -137,9 +137,9 @@ modules:
     test_file_count: 97
   - name: server
     tier: core
-    py_files: 1115
-    importer_count: 174
-    test_file_count: 1883
+    py_files: 1117
+    importer_count: 162
+    test_file_count: 1887
     override_reason: "FastAPI server + 3K+ API operations"
   - name: storage
     tier: core
@@ -547,9 +547,9 @@ modules:
     test_file_count: 5
   - name: swarm
     tier: integrated
-    py_files: 125
+    py_files: 126
     importer_count: 32
-    test_file_count: 195
+    test_file_count: 199
   - name: templates
     tier: integrated
     py_files: 1
@@ -592,9 +592,9 @@ modules:
     test_file_count: 12
   - name: workflow
     tier: integrated
-    py_files: 99
-    importer_count: 37
-    test_file_count: 72
+    py_files: 100
+    importer_count: 36
+    test_file_count: 77
   - name: workspace
     tier: integrated
     py_files: 6
