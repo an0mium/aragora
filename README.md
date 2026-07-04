@@ -80,7 +80,7 @@ aragora-verify decision-receipt.odr.json --pubkey signing-key.pem
 pip install ./aragora-verify
 ```
 
-> Use **0.1.1+** (`pip install 'aragora-verify>=0.1.1'`): it binds each
+> Use **0.1.1+** (`pip install -U 'aragora-verify>=0.1.1'`): it binds each
 > signature's recorded `key_id` to the key you supply, so a relabeled signer
 > fails as tampering. 0.1.0 lacks that binding — upgrade if you have it.
 
