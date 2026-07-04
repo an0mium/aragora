@@ -273,11 +273,12 @@ class CritiqueStore(SQLiteStore):
             ]:
                 safe_add_column(conn, "patterns", col_name, col_type, default)
 
-            for col_name, col_type, default in [
+            critique_columns: list[tuple[str, str, str | None]] = [
                 ("expected_usefulness", "REAL", "0.5"),
                 ("actual_usefulness", "REAL", None),
                 ("prediction_error", "REAL", None),
-            ]:
+            ]
+            for col_name, col_type, default in critique_columns:
                 safe_add_column(conn, "critiques", col_name, col_type, default)
 
             for col_name, col_type, default in [
