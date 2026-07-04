@@ -58,10 +58,12 @@ dependency is the `cryptography` package.
 > venv (real PyPI, no local wheel) installed and verified this fixture with
 > all checks PASS on 2026-07-02. CI additionally smoke-tests the CLI against
 > a wheel built from the in-repo [`aragora-verify/`](../../aragora-verify/)
-> source. **Version note:** the signer-label (`key_id`) binding described in
-> §"What each check proves" ships in 0.1.1 (in-repo source; PyPI publication
-> pending). 0.1.0 verifies content integrity and signature validity but does
-> not bind the recorded `key_id` to the supplied key — prefer 0.1.1+ or the
+> source. **Version note (corrected 2026-07-04):** the signer-label (`key_id`)
+> binding described in §"What each check proves" ships in 0.1.1, published to
+> PyPI on 2026-07-04 (self-verify: `curl -s
+> https://pypi.org/pypi/aragora-verify/json`). 0.1.0 verifies content
+> integrity and signature validity but does not bind the recorded `key_id` to
+> the supplied key — prefer `pip install "aragora-verify>=0.1.1"` or the
 > source build for full signer-label protection.
 
 ```bash

@@ -64,15 +64,19 @@ must be kept in lockstep:
    document. `odr_verify.py` is exercised today by its own test suite
    (`tests/gauntlet/test_odr_verify.py`, `tests/gauntlet/test_odr_verify_schema.py`)
    and is available for internal callers to import directly.
-2. **`aragora-verify`** (this repo's standalone `aragora-verify/` package) — the
-   "no-trust" path: pure stdlib + `cryptography`, zero Aragora dependency, with its
-   own real CLI entry point
+2. **`aragora-verify`** (this repo's standalone `aragora-verify/` package, **published
+   on PyPI**) — the "no-trust" path: pure stdlib + `cryptography`, zero Aragora
+   dependency, with its own real CLI entry point
    (`aragora-verify RECEIPT.odr.json [--pubkey KEY.pem] [--chain CHAIN.jsonl]`) for an
-   external auditor who has never installed Aragora. **Not yet on PyPI:** the publish
-   workflow merged via #8693, but no release has been run, so today the verifier is
-   invoked locally — `PYTHONPATH=src python -m aragora_verify <r>.odr.json` from
-   `aragora-verify/`, or `pip install ./aragora-verify` for the `aragora-verify`
-   console script. PyPI publish is pending until a release actually runs.
+   external auditor who has never installed Aragora. `aragora-verify` 0.1.0 has been
+   live on PyPI since **2026-06-29T23:32Z** (GitHub release
+   [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0),
+   uploaded via Trusted Publishing ~24s after #8693 merged); `pip install
+   aragora-verify` installs it from the public index today. Self-verify rather than
+   trust this sentence: `curl -s https://pypi.org/pypi/aragora-verify/json`. To
+   exercise this exact checkout instead of the published package, run
+   `PYTHONPATH=src python -m aragora_verify <r>.odr.json` from `aragora-verify/`, or
+   `pip install ./aragora-verify` for a local `aragora-verify` console script.
 
 Both engines are hand-rolled, dependency-light mirrors of the same normative artifact
 — `aragora/gauntlet/odr_schema.json`, also bundled inside the `aragora-verify` package
