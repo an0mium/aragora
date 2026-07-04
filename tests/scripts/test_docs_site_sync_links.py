@@ -54,7 +54,15 @@ def test_documentation_index_front_door_links_use_valid_canonical_targets() -> N
     source = _read_docs("INDEX.md")
     mirror = _read_docs_site("contributing/documentation-index.md")
 
-    expected_links = [
+    source_links = [
+        "[root README](../README.md)",
+        "[proof ladder](../README.md#proof-ladder)",
+        "[Open Decision Receipt spec](specs/OPEN_DECISION_RECEIPT.md)",
+    ]
+    for link in source_links:
+        assert link in source
+
+    mirror_links = [
         "[root README](https://github.com/synaptent/aragora/blob/main/README.md)",
         "[proof ladder](https://github.com/synaptent/aragora/blob/main/README.md#proof-ladder)",
         (
@@ -62,18 +70,31 @@ def test_documentation_index_front_door_links_use_valid_canonical_targets() -> N
             "(https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md)"
         ),
     ]
-    for content in (source, mirror):
-        for link in expected_links:
-            assert link in content
+    for link in mirror_links:
+        assert link in mirror
 
     broken_links = [
         "../analysis/adr",
         "../analysis/adr#proof-ladder",
-        "(specs/OPEN_DECISION_RECEIPT.md)",
     ]
     for content in (source, mirror):
         for link in broken_links:
             assert link not in content
+
+    source_hardcoded_links = [
+        "https://github.com/synaptent/aragora/blob/main/README.md",
+        "https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md",
+    ]
+    for link in source_hardcoded_links:
+        assert link not in source
+
+    mirror_unresolved_links = [
+        "(../README.md)",
+        "(../README.md#proof-ladder)",
+        "(specs/OPEN_DECISION_RECEIPT.md)",
+    ]
+    for link in mirror_unresolved_links:
+        assert link not in mirror
 
 
 def test_features_guide_points_to_current_state_docs_site_pages() -> None:

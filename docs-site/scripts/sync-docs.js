@@ -496,8 +496,44 @@ for (const [src, dest] of Object.entries(DOC_MAP)) {
   REVERSE_LOOKUP[srcName.replace('.md', '')] = dest.replace('.md', '');
 }
 
+const EXTERNAL_LINK_LOOKUP = {
+  'INDEX.md': {
+    '../README.md': 'https://github.com/synaptent/aragora/blob/main/README.md',
+    '../README': 'https://github.com/synaptent/aragora/blob/main/README.md',
+    'specs/OPEN_DECISION_RECEIPT.md':
+      'https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md',
+    'specs/OPEN_DECISION_RECEIPT':
+      'https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md',
+  },
+};
+
+function lookupExternalDocLink(filePath, relSrcPath) {
+  const sourceLinks = EXTERNAL_LINK_LOOKUP[relSrcPath.replace(/\\/g, '/')];
+  if (!sourceLinks) {
+    return null;
+  }
+  const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+  return sourceLinks[normalized] || sourceLinks[`${normalized}.md`] || null;
+}
+
+function renderInternalDocLink(newPath, currentDir, anchor) {
+  const targetDir = path.dirname(newPath);
+  const targetFile = path.basename(newPath, '.md');
+  const isIndex = targetFile === 'index';
+
+  if (targetDir === currentDir) {
+    return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
+  }
+
+  const relativePath = path.relative(currentDir, targetDir);
+  const relativeLink = isIndex
+    ? relativePath
+    : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
+  return `](${relativeLink}${anchor || ''})`;
+}
+
 // Fix content for Docusaurus compatibility
-function fixContent(content, destPath) {
+function fixContent(content, destPath, relSrcPath) {
   // Fix escaped backticks (common in generated docs)
   content = content.replace(/\\`\\`\\`/g, '```');
   content = content.replace(/\\`([^`\\]+)\\`/g, '`$1`');
@@ -516,30 +552,19 @@ function fixContent(content, destPath) {
   // Transform internal doc links to Docusaurus paths
   // Match links like [text](./FILE.md), [text](../FILE.md), [text](FILE.md)
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+\.md)(#[^)]+)?\)/g,
+    /\]\(((?:\.\.\/|\.\/)?[A-Za-z0-9_./-]+\.md)(#[^)]+)?\)/g,
     (match, filePath, anchor) => {
+      const externalLink = lookupExternalDocLink(filePath, relSrcPath);
+      if (externalLink) {
+        return `](${externalLink}${anchor || ''})`;
+      }
+
       // Try to find the destination path in our mapping
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
       const newPath = REVERSE_LOOKUP[normalized] || REVERSE_LOOKUP[path.basename(normalized)];
 
       if (newPath) {
-        // Calculate relative path from current doc to target doc
-        const targetDir = path.dirname(newPath);
-        const targetFile = path.basename(newPath, '.md');
-
-        const isIndex = targetFile === 'index';
-
-        // If same directory, use ./ or filename
-        if (targetDir === currentDir) {
-          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
-        }
-
-        // Calculate relative path
-        const relativePath = path.relative(currentDir, targetDir);
-        const relativeLink = isIndex
-          ? relativePath
-          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
-        return `](${relativeLink}${anchor || ''})`;
+        return renderInternalDocLink(newPath, currentDir, anchor);
       }
 
       // If not found, keep original but log it
@@ -549,8 +574,13 @@ function fixContent(content, destPath) {
 
   // Also fix links without .md extension when they match known docs
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+)(#[^)]+)?\)(?!\.md)/g,
+    /\]\(((?:\.\.\/|\.\/)?[A-Za-z0-9_./-]+)(#[^)]+)?\)(?!\.md)/g,
     (match, filePath, anchor) => {
+      const externalLink = lookupExternalDocLink(filePath, relSrcPath);
+      if (externalLink) {
+        return `](${externalLink}${anchor || ''})`;
+      }
+
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
       const newPath =
         REVERSE_LOOKUP[normalized] ||
@@ -559,20 +589,7 @@ function fixContent(content, destPath) {
         REVERSE_LOOKUP[path.basename(normalized) + '.md'];
 
       if (newPath) {
-        const targetDir = path.dirname(newPath);
-        const targetFile = path.basename(newPath, '.md');
-
-        const isIndex = targetFile === 'index';
-
-        if (targetDir === currentDir) {
-          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
-        }
-
-        const relativePath = path.relative(currentDir, targetDir);
-        const relativeLink = isIndex
-          ? relativePath
-          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
-        return `](${relativeLink}${anchor || ''})`;
+        return renderInternalDocLink(newPath, currentDir, anchor);
       }
       return match;
     }
@@ -631,7 +648,7 @@ function processFile(srcRelPath, destPath) {
 
   // Fix content for compatibility (pass relative dest path)
   const relDestPath = destPath.replace(DEST_DIR + '/', '');
-  content = fixContent(content, relDestPath);
+  content = fixContent(content, relDestPath, relSrcPath);
   content = injectConnectorCatalogBanner(content, relSrcPath);
 
   // Ensure destination directory exists
