@@ -123,6 +123,25 @@ class TestBuildSecurityDebateQuestion:
         assert "abc123-secret" not in q
         assert "Secret finding" in q
 
+    def test_question_redacts_mislabeled_secret_from_summary(self):
+        """Secret-like metadata should win over a misleading vulnerability type."""
+        finding = SecurityFinding(
+            id="f-mislabeled-token",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.HIGH,
+            title="Token abc123-secret",
+            description="credential value abc123-secret",
+            metadata={"secret_type": "api_token"},
+        )
+        event = SecurityEvent(findings=[finding])
+
+        q = build_security_debate_question(event)
+
+        assert "abc123-secret" not in q
+        assert "api_token" in q
+        assert "exposed secrets" in q
+        assert "vulnerabilities" not in q
+
     def test_question_with_mixed_findings(self):
         """Should include both vulnerability and secret details."""
         vuln = SecurityFinding(

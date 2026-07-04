@@ -51,9 +51,14 @@ def build_security_debate_question(event: SecurityEvent) -> str:
     if not findings:
         return f"Analyze and recommend remediation for security findings in {event.repository or 'the codebase'}."
 
-    # Group by type
-    vulns = [f for f in findings if f.finding_type == "vulnerability"]
-    secrets = [f for f in findings if f.finding_type == "secret"]
+    # Group secret-like findings first so aliases or mislabeled scanner output
+    # never reach the unredacted vulnerability summary.
+    secrets = [f for f in findings if is_secret_finding(f)]
+    vulns = [
+        f
+        for f in findings
+        if not is_secret_finding(f) and f.finding_type == "vulnerability"
+    ]
 
     question_parts = []
 
