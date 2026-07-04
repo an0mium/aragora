@@ -335,6 +335,7 @@ class SecurityDispatcher:
 
         # Set cooldown for repository
         self._set_cooldown(event.repository)
+        event.debate_requested = True
 
         # Create debate task
         task = asyncio.create_task(self._run_debate(event))
@@ -385,6 +386,8 @@ class SecurityDispatcher:
                 event.debate_requested = True
                 event.debate_id = debate_id
                 self._stats.debates_completed += 1
+            else:
+                event.debate_requested = False
             return debate_id
 
         except asyncio.CancelledError:
@@ -393,6 +396,7 @@ class SecurityDispatcher:
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception("Debate for event %s failed: %s", event.id, e)
+            event.debate_requested = False
             self._stats.debates_failed += 1
             return None
 

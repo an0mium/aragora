@@ -95,13 +95,15 @@ class TestBuildSecurityDebateQuestion:
             finding_type="secret",
             severity=SecuritySeverity.HIGH,
             title="Exposed API key",
-            description="AWS access key found in source code",
+            description="AWS access key AKIA1234567890SECRET found in source code",
             metadata={"secret_type": "aws_access_key"},
         )
         event = SecurityEvent(findings=[finding])
         q = build_security_debate_question(event)
         assert "aws_access_key" in q
         assert "secrets" in q.lower()
+        assert "AKIA1234567890SECRET" not in q
+        assert "[redacted secret finding description]" in q
 
     def test_question_with_mixed_findings(self):
         """Should include both vulnerability and secret details."""
@@ -326,6 +328,40 @@ class TestTriggerSecurityDebate:
             result = await trigger_security_debate(event)
 
         assert result is None
+        assert event.debate_id is None
+        mock_store.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_trigger_debate_returns_none_when_threshold_not_met(self):
+        """Low-confidence canonical results should not count as completed auto-debates."""
+        event = SecurityEvent(repository="org/repo")
+        mock_result = MagicMock()
+        mock_result.debate_id = "low-confidence-debate"
+        mock_result.consensus_reached = False
+        mock_result.confidence = 0.42
+        mock_result.final_answer = "Weak consensus"
+        mock_result.messages = [MagicMock()]
+        mock_result.participants = ["security-auditor"]
+        mock_result.rounds_used = 3
+        mock_result.metadata = {"security_confidence_threshold_met": False}
+        event.debate_requested = True
+        event.debate_id = "low-confidence-debate"
+
+        with (
+            patch(
+                "aragora.debate.security_debate.run_security_debate",
+                new_callable=AsyncMock,
+                return_value=mock_result,
+            ),
+            patch(
+                "aragora.debate.security_response._store_security_debate_result",
+                new_callable=AsyncMock,
+            ) as mock_store,
+        ):
+            result = await trigger_security_debate(event, confidence_threshold=0.7)
+
+        assert result is None
+        assert event.debate_requested is False
         assert event.debate_id is None
         mock_store.assert_not_awaited()
 

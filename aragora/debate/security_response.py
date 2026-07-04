@@ -66,13 +66,19 @@ def build_security_debate_question(event: SecurityEvent) -> str:
 
     findings_str = " and ".join(question_parts)
 
+    def _prompt_safe_description(finding: Any) -> str:
+        if getattr(finding, "finding_type", "") == "secret":
+            return "[redacted secret finding description]"
+        return str(getattr(finding, "description", ""))[:200]
+
     return (
         f"Analyze the following critical security findings and provide remediation recommendations:\n\n"
         f"Repository: {event.repository or 'Unknown'}\n"
         f"Findings: {findings_str}\n\n"
         f"Details:\n"
         + "\n".join(
-            f"- {f.severity.value.upper()}: {f.title} - {f.description[:200]}" for f in findings
+            f"- {f.severity.value.upper()}: {f.title} - {_prompt_safe_description(f)}"
+            for f in findings
         )
         + "\n\n"
         "What is the recommended prioritized remediation plan, considering:\n"
@@ -112,6 +118,19 @@ async def trigger_security_debate(
             org_id=event.workspace_id or "default",
         )
 
+        threshold_met = bool(
+            getattr(result, "metadata", {}).get("security_confidence_threshold_met", True)
+        )
+        if not threshold_met:
+            logger.warning(
+                "Security debate %s did not meet confidence threshold %.2f",
+                getattr(result, "debate_id", None),
+                confidence_threshold,
+            )
+            event.debate_requested = False
+            event.debate_id = None
+            return None
+
         if (
             not getattr(result, "messages", [])
             and not getattr(result, "participants", [])
@@ -148,62 +167,10 @@ async def trigger_security_debate(
 
 
 async def _get_security_debate_agents() -> list[Any]:
-    """Get agents suitable for security debates."""
-    agents = await _get_agent_factory_security_agents()
-    if agents:
-        return agents
+    """Compatibility shim for the canonical security debate agent selector."""
+    from aragora.debate.security_debate import get_security_debate_agents
 
-    try:
-        from aragora.agents.api_agents.anthropic import AnthropicAPIAgent as AnthropicAgent
-        from aragora.agents.api_agents.openai import OpenAIAPIAgent as OpenAIAgent
-
-        agents = []
-
-        try:
-            agents.append(
-                AnthropicAgent(
-                    name="claude-security",
-                    model="claude-opus-4-8",
-                )
-            )
-        except (ValueError, RuntimeError) as e:
-            logger.debug("Could not create Anthropic security agent: %s", e)
-
-        try:
-            agents.append(
-                OpenAIAgent(
-                    name="gpt-security",
-                    model="gpt-4o",
-                )
-            )
-        except (ValueError, RuntimeError) as e:
-            logger.debug("Could not create OpenAI security agent: %s", e)
-
-        return agents
-    except ImportError:
-        logger.debug("Could not import agent modules for security debate")
-        return []
-
-
-async def _get_agent_factory_security_agents() -> list[Any]:
-    """Use a deployment-provided agent factory when available."""
-    try:
-        from aragora.agents.factory import get_available_agents
-    except ImportError:
-        logger.debug("Security agent factory pool not available")
-        return []
-
-    try:
-        agents = await get_available_agents(
-            capabilities=["security", "code_analysis"],
-            min_count=2,
-            max_count=4,
-        )
-    except (RuntimeError, ValueError, TypeError, OSError) as exc:
-        logger.debug("Security agent factory pool failed: %s", exc)
-        return []
-
-    return list(agents or [])
+    return await get_security_debate_agents()
 
 
 _register_default_security_debate_runner(trigger_security_debate)

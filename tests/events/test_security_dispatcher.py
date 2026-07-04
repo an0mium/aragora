@@ -23,6 +23,7 @@ from aragora.events.security_events import (
     SecurityEventType,
     SecurityFinding,
     SecuritySeverity,
+    register_security_debate_runner,
 )
 
 
@@ -592,6 +593,33 @@ class TestDefaultRunnerPath:
         assert dispatcher._stats.debates_completed == 1
         assert dispatcher._stats.debates_failed == 0
         await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_emitter_and_dispatcher_do_not_double_trigger(self):
+        """The default emitter auto-debate path should not race the dispatcher."""
+        import aragora.events.security_events as security_events
+
+        original_runner = security_events.get_security_debate_runner()
+        runner = AsyncMock(return_value="debate-single-1")
+        register_security_debate_runner(runner)
+
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        try:
+            event = _make_event(
+                severity=SecuritySeverity.CRITICAL,
+                event_type=SecurityEventType.CRITICAL_CVE,
+            )
+            await emitter.emit(event)
+            await asyncio.sleep(0.05)
+
+            runner.assert_awaited_once()
+            assert event.debate_id == "debate-single-1"
+        finally:
+            await dispatcher.stop()
+            register_security_debate_runner(original_runner)
 
 
 # ---------------------------------------------------------------------------

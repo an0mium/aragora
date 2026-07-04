@@ -395,7 +395,7 @@ class SecurityEventEmitter:
             return False
 
         # Already has a debate
-        if event.debate_id:
+        if event.debate_id or event.debate_requested:
             return False
 
         # Check severity threshold
