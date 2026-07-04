@@ -10,7 +10,9 @@ the recurring audit log.
 - Prefer an open log issue labeled `stage-gate-log-canonical` when that label is
   present on exactly one matching issue.
 - If multiple `[automation] Stage-Gate Conductor Log` issues exist and no
-  canonical label is present, fall back only to #8671.
+  canonical label is present, fall back only to #8671 when it is open and has
+  the exact Stage-Gate Conductor Log title. The pinned issue still wins if
+  duplicate label metadata such as `automation-log` has drifted.
 - If neither a unique canonical label nor #8671 is present, fail closed and
   report the ambiguity. Do not create a new log issue.
 
@@ -28,8 +30,10 @@ from aragora.ops.stage_gate_conductor_log import (
 
 Fetch open candidates with `build_gh_issue_list_args()`, pass the returned issue
 objects to `resolve_stage_gate_conductor_log_issue()`, then comment on the
-resolved number. Never choose the log by age, comment count, oldest issue,
-newest issue, or raw GitHub search ordering.
+resolved number. The helper uses a deliberately high result limit to avoid
+partial-result singleton drift, but the resolver is still the authority when
+duplicates are returned. Never choose the log by age, comment count, oldest
+issue, newest issue, or raw GitHub search ordering.
 
 If the resolver raises `StageGateLogResolutionError`, include the candidate
 numbers in the operator brief and stop without opening another log issue.
