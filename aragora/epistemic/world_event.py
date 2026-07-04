@@ -155,11 +155,13 @@ def claims_affected_by_event(
 
     Flag-free; pure computation, no side effects.
     """
+    safe_patterns = [
+        p for raw in event.affected_scope if (p := _safe_scope_pattern(raw)) is not None
+    ]
     affected: set[str] = set()
     for claim_id in unit.claims:
-        for raw_pattern in event.affected_scope:
-            pattern = _safe_scope_pattern(raw_pattern)
-            if pattern is not None and _claim_matches_scope_pattern(claim_id, pattern):
+        for pattern in safe_patterns:
+            if _claim_matches_scope_pattern(claim_id, pattern):
                 affected.add(claim_id)
                 break
     return frozenset(affected)
