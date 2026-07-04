@@ -122,6 +122,51 @@ class TestClaimsAffectedByEvent:
 
         assert affected == frozenset({"env.libfoo.version_pinned", "libfoo.pinned"})
 
+    def test_scope_matching_does_not_match_inside_segments(self):
+        unit = _unit(
+            [
+                "runtime.py.version",
+                "env.py.version",
+                "studio.python.version",
+            ]
+        )
+        event = WorldStateEvent(
+            event_id="py-runtime",
+            kind=WorldEventKind.DEPENDENCY_BUMP,
+            description="Python runtime patch",
+            affected_scope=["py"],
+        )
+
+        affected = claims_affected_by_event(unit, event)
+
+        assert affected == frozenset({"runtime.py.version", "env.py.version"})
+
+    def test_scope_matching_is_case_insensitive(self):
+        unit = _unit(
+            [
+                "libfoo.version_pinned",
+                "env.libfoo.pinned",
+                "openai.completions.v1.reachable",
+                "anthropic.api.reachable",
+            ]
+        )
+        event = WorldStateEvent(
+            event_id="mixed-case-scope",
+            kind=WorldEventKind.API_CHANGE,
+            description="Externally supplied scopes can vary in case",
+            affected_scope=["LibFoo", "OpenAI.Completions"],
+        )
+
+        affected = claims_affected_by_event(unit, event)
+
+        assert affected == frozenset(
+            {
+                "libfoo.version_pinned",
+                "env.libfoo.pinned",
+                "openai.completions.v1.reachable",
+            }
+        )
+
     def test_cve_matches_by_segment_boundary(self):
         unit = _unit(["env.libfoo.version_pinned", "env.curl.ok"])
         affected = claims_affected_by_event(unit, _cve(["libfoo"]))

@@ -115,11 +115,20 @@ def _safe_scope_pattern(raw: str) -> str | None:
 def _claim_matches_scope_pattern(claim_id: str, pattern: str) -> bool:
     """Match *pattern* against *claim_id* without unconstrained substring hits."""
 
-    if claim_id == pattern:
+    claim_segments = tuple(segment for segment in claim_id.strip(".").lower().split(".") if segment)
+    pattern_segments = tuple(
+        segment for segment in pattern.strip(".").lower().split(".") if segment
+    )
+    if not claim_segments or not pattern_segments or len(pattern_segments) > len(claim_segments):
+        return False
+    if claim_segments == pattern_segments:
         return True
-    if claim_id.startswith(f"{pattern}."):
+    if claim_segments[: len(pattern_segments)] == pattern_segments:
         return True
-    return f".{pattern}." in f".{claim_id}."
+    return any(
+        claim_segments[index : index + len(pattern_segments)] == pattern_segments
+        for index in range(1, len(claim_segments) - len(pattern_segments) + 1)
+    )
 
 
 def claims_affected_by_event(
