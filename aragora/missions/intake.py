@@ -162,7 +162,8 @@ class IntakeBridgeDispatch:
 
         paths = _path_hints(feature)
         try:
-            subtasks = list(self._decompose(goal, paths))[: self.max_children]
+            all_subtasks = list(self._decompose(goal, paths))
+            subtasks = all_subtasks[: self.max_children]
         except Exception as exc:  # noqa: BLE001 - decomposer is an external boundary; park, never crash the tick loop
             logger.exception("intake decomposition failed for feature %s", feature.id)
             # NON-terminal park (#8758 design decision): a raising decomposer is
@@ -179,16 +180,23 @@ class IntakeBridgeDispatch:
             )
 
         children = self._child_features(feature, subtasks)
+        discovered = []
+        if len(all_subtasks) > len(subtasks):
+            discovered.append(
+                f"intake decomposition truncated from {len(all_subtasks)} to "
+                f"{len(subtasks)} child feature(s) by max_children={self.max_children}"
+            )
         note = (
             f"intake decomposed via {self.decomposer_name} into "
             f"{len(children)} feature(s): {', '.join(c.id for c in children)}"
         )
+        discovered.append(note)
         logger.info("feature %s: %s", feature.id, note)
         return Handoff(
             success=True,
             follow_ups=children,
             accept_follow_ups=True,
-            discovered=[note],
+            discovered=discovered,
         )
 
     # ---- child construction ---------------------------------------------------

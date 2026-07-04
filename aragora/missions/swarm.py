@@ -134,8 +134,17 @@ class BranchMaterializer:
         ).strip()
 
     def _create_branch(self, branch: str) -> None:
-        self.runner(["git", "branch", branch, self.base], self.repo_root)
+        self._validate_branch_name(branch)
+        self.runner(["git", "branch", "--", branch, self.base], self.repo_root)
         logger.info("materialized branch %s from %s", branch, self.base)
+
+    def _validate_branch_name(self, branch: str) -> None:
+        if not branch or branch != branch.strip() or branch.startswith("-"):
+            raise BranchMaterializationError(f"invalid branch name {branch!r}")
+        try:
+            self.runner(["git", "check-ref-format", "--branch", branch], self.repo_root)
+        except RuntimeError as exc:
+            raise BranchMaterializationError(f"invalid branch name {branch!r}: {exc}") from exc
 
 
 def _run_git(cmd: list[str], cwd: Path) -> str:
@@ -400,12 +409,19 @@ def _run_worker_fenced(
             continue
 
         # Failure: record discoveries, optional park, and lease release as one owned
-        # transaction. Terminal blocks (operator-gated / re-derive) park immediately.
+        # transaction. Terminal blocks (operator-gated / re-derive) park immediately;
+        # retryable parked handoffs (e.g. missing live branch) also park immediately
+        # without aging through repeated attempts.
         constraint_key = None
         constraint_reason = None
         parked = False
-        if handoff.terminal or attempts >= park_threshold:
-            kind = "terminal" if handoff.terminal else f"{attempts} blocks"
+        if handoff.parked or handoff.terminal or attempts >= park_threshold:
+            if handoff.parked:
+                kind = handoff.parked_kind or "retryable"
+            elif handoff.terminal:
+                kind = "terminal"
+            else:
+                kind = f"{attempts} blocks"
             constraint_key = f"feature:{unit}"
             constraint_reason = f"parked ({kind}): {handoff.blocked_reason}"
             parked = True
@@ -475,11 +491,23 @@ def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
         elif feat.status != Status.COMPLETED and ledger.is_excluded(f"feature:{feat.id}"):
             # Never downgrade COMPLETED on a stale park, but do fold active parks over
             # PENDING or IN_PROGRESS so the orchestrator cannot reclaim a parked unit.
+            # Retryable parks keep their first-class PARKED state; generic
+            # park-after-N blockers still become BLOCKED.
             reason = ledger.constraint_reason(f"feature:{feat.id}")
-            if feat.status != Status.BLOCKED:
+            park_kind = _retryable_park_kind_from_constraint(reason)
+            if park_kind:
+                if (
+                    feat.status != Status.PARKED
+                    or feat.metadata.get("parked_kind") != park_kind
+                    or feat.metadata.get("parked_reason") != reason
+                ):
+                    state.mark_parked(feat.id, reason or "", kind=park_kind)
+                    n += 1
+            elif feat.status != Status.BLOCKED:
                 feat.status = Status.BLOCKED
                 n += 1
-            if reason and reason not in feat.notes:  # keep operator context for handoff/debugging
+            if reason and not park_kind and reason not in feat.notes:
+                # Keep operator context for generic park-after-N blockers.
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + f"BLOCKED (park): {reason}"
                 n += 1
 
@@ -522,10 +550,19 @@ def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
             and feat.metadata.get("parked_kind") == PARK_KIND_MISSING_BRANCH
         ):
             state.unpark(unit, f"worker materialized branch {branch}")
+            ledger.invalidate_constraint(f"feature:{unit}")
             n += 1
     if n:
         state.save(state_path)
     return n
+
+
+def _retryable_park_kind_from_constraint(reason: str | None) -> str | None:
+    if not reason:
+        return None
+    if reason.startswith(f"parked ({PARK_KIND_MISSING_BRANCH}):"):
+        return PARK_KIND_MISSING_BRANCH
+    return None
 
 
 def _has_stale_validation_done(feat) -> bool:

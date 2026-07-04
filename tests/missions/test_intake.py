@@ -183,6 +183,21 @@ def test_intake_decomposes_into_claimable_follow_ups():
     assert any("decomposed" in note for note in handoff.discovered)
 
 
+def test_intake_surfaces_max_children_truncation():
+    many = [
+        SubTask(id=f"subtask_{i}", title=f"Step {i}", description=f"Do step {i}") for i in range(5)
+    ]
+    bridge = IntakeBridgeDispatch(
+        _refusing_inner, decompose=lambda goal, paths: many, max_children=2
+    )
+
+    handoff = bridge(_intake_feature())
+
+    assert handoff.success
+    assert len(handoff.follow_ups) == 2
+    assert any("truncated from 5 to 2" in note for note in handoff.discovered)
+
+
 def test_tick_converts_intake_into_children_instead_of_parking(tmp_path):
     state_path = _seeded_state(tmp_path)
     bridge = IntakeBridgeDispatch(_refusing_inner, decompose=_two_subtasks)

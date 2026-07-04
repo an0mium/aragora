@@ -93,6 +93,22 @@ def test_missing_branch_metadata_parks_before_live_git_lookup():
     assert gate.merge_calls == []
 
 
+def test_nonempty_missing_branch_ref_reparks_before_evidence():
+    class MissingRefGate(FakeGate):
+        def head_of(self, branch: str) -> str:
+            raise RuntimeError(f"fatal: unknown revision or path {branch}")
+
+    gate = MissingRefGate()
+    handoff = BossLoopDispatch(gate)(_feat())
+
+    assert not handoff.success
+    assert handoff.parked
+    assert handoff.parked_kind == PARK_KIND_MISSING_BRANCH
+    assert "live git ref" in (handoff.blocked_reason or "")
+    assert gate.evidence_calls == 0
+    assert gate.merge_calls == []
+
+
 def test_clean_quorum_merges_head_bound():
     gate = FakeGate(head="deadbeef", verdict=GateVerdict(satisfied=True, tier=0))
     handoff = BossLoopDispatch(gate)(_feat())

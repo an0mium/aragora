@@ -114,7 +114,16 @@ class BossLoopDispatch:
             logger.info("feature %s already merged (idempotent success)", feature.id)
             return Handoff(success=True, discovered=["branch already merged on a prior attempt"])
 
-        head = self.gate.head_of(branch)
+        try:
+            head = self.gate.head_of(branch)
+        except RuntimeError as exc:
+            return _park_missing_live_branch(
+                feature,
+                (
+                    f"auto-drain requires live git ref for metadata.branch {branch!r}; "
+                    f"parked (retryable) until intake/worker materializes a branch: {exc}"
+                ),
+            )
 
         # Foreign-commit guard (#8616): never collect evidence on a contaminated
         # head — park for re-derive instead of merging someone else's work.
@@ -262,3 +271,13 @@ def _only_missing_path_allowlist(foreign: list[str]) -> bool:
 def _missing_live_branch(feature: Feature) -> bool:
     branch = feature.metadata.get("branch")
     return not (isinstance(branch, str) and branch.strip())
+
+
+def _park_missing_live_branch(feature: Feature, reason: str) -> Handoff:
+    return Handoff(
+        success=False,
+        parked=True,
+        parked_kind=PARK_KIND_MISSING_BRANCH,
+        blocked_reason=reason,
+        discovered=[f"feature {feature.id} has no live metadata.branch ref; parked non-terminally"],
+    )

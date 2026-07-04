@@ -88,8 +88,13 @@ class FakeGit:
             if name in self.branches:
                 return f"{self.branches[name]}\n"
             raise RuntimeError(f"fatal: unknown revision or path {name}")
-        if cmd[:2] == ["git", "branch"]:
-            name, start = cmd[2], cmd[3]
+        if cmd[:3] == ["git", "check-ref-format", "--branch"]:
+            name = cmd[3]
+            if name.startswith("-") or ".." in name or name.endswith(".lock"):
+                raise RuntimeError(f"fatal: {name!r} is not a valid branch name")
+            return f"{name}\n"
+        if cmd[:3] == ["git", "branch", "--"]:
+            name, start = cmd[3], cmd[4]
             if self.fail_creates:
                 raise RuntimeError("fatal: cannot lock ref (simulated git failure)")
             if start != "origin/main":
@@ -101,7 +106,7 @@ class FakeGit:
         raise RuntimeError(f"unexpected git call: {cmd}")
 
     def created_branches(self) -> list[str]:
-        return [c[2] for c in self.calls if c[:2] == ["git", "branch"]]
+        return [c[3] for c in self.calls if c[:3] == ["git", "branch", "--"]]
 
 
 def _materializer(git: FakeGit) -> BranchMaterializer:
@@ -216,6 +221,17 @@ def test_materialize_git_failure_raises_and_records_nothing(tmp_path):
     assert ledger.materialized_branch("mission-intake-tests") is None
 
 
+def test_materialize_rejects_invalid_branch_hint_before_create(tmp_path):
+    git = FakeGit()
+    ledger = Ledger(tmp_path / "ledger.json")
+
+    with pytest.raises(BranchMaterializationError):
+        _materializer(git)(_child(branch_hint="-bad"), ledger)
+
+    assert git.created_branches() == []
+    assert ledger.materialized_branch("mission-intake-tests") is None
+
+
 def test_materialize_both_names_taken_with_foreign_commits_fails_closed(tmp_path):
     hint = "mission/mission-intake-tests"
     git = FakeGit(branches={hint: "ffff9999"})
@@ -322,6 +338,32 @@ def test_repeated_git_failure_is_bounded_by_existing_park_accounting(tmp_path):
 
     assert res.parked == ["mission-intake-tests"]  # bounded, not an infinite treadmill
     assert res.blocked.count("mission-intake-tests") == 2
+
+
+def test_retryable_parked_handoff_parks_without_repeated_attempts(tmp_path):
+    state_path, ledger_path = _child_state(
+        tmp_path, Feature(id="plain", description="x", milestone="m")
+    )
+
+    def dispatch(feature: Feature) -> Handoff:
+        return Handoff(
+            success=False,
+            parked=True,
+            parked_kind="missing-branch",
+            blocked_reason="missing live branch",
+            discovered=["waiting for branch"],
+        )
+
+    res = run_worker(state_path, ledger_path, "w1", dispatch, park_threshold=5)
+
+    assert res.parked == ["plain"]
+    assert res.blocked == ["plain"]
+    assert Ledger(ledger_path).attempts("feature:plain") == 1
+    reconcile_from_ledger(state_path, ledger_path)
+    reloaded = MissionState.load(state_path).get("plain")
+    assert reloaded.status == Status.PARKED
+    assert reloaded.metadata["parked_kind"] == "missing-branch"
+    assert "missing-branch" in reloaded.notes
 
 
 def test_worker_without_materializer_yields_unit_back_with_zero_retry_burn(tmp_path):
