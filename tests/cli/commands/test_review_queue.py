@@ -2252,7 +2252,7 @@ class TestModelReviewQuorum:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7736))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7736))],
         )
 
         def _gh_json_dispatch(args: list[str]) -> Any:
@@ -3611,6 +3611,39 @@ class TestBuildQueueAndPacket:
             "repairable",
             "parked",
         ]
+
+    def test_build_queue_passes_repo_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        seen_args: list[list[str]] = []
+
+        def fake_gh_json(args: list[str]) -> list[dict[str, Any]]:
+            seen_args.append(args)
+            return []
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        assert _build_queue(limit=7, repo_override="synaptent/aragora") == []
+        assert seen_args
+        assert seen_args[0][-2:] == ["--repo", "synaptent/aragora"]
+
+    def test_merge_packet_open_queue_uses_repo_override(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen_repo_overrides: list[str | None] = []
+
+        def fake_build_queue(*, limit: int, repo_override: str | None = None) -> list[QueueItem]:
+            seen_repo_overrides.append(repo_override)
+            return []
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_queue", fake_build_queue)
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=[],
+            limit=7,
+            repo_override="synaptent/aragora",
+        )
+
+        assert seen_repo_overrides == ["synaptent/aragora"]
+        assert packet["queue_pressure"]["current_open_prs"] == 0
 
     def test_build_packet_sets_recommendation(self, monkeypatch: pytest.MonkeyPatch) -> None:
         pr_payload = _make_pr(
@@ -5354,7 +5387,7 @@ class TestBuildQueueAndPacket:
         ]
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7470))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7470))],
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -5468,7 +5501,7 @@ class TestBuildQueueAndPacket:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7447))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7447))],
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -5518,7 +5551,7 @@ class TestBuildQueueAndPacket:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7466))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7466))],
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -5585,7 +5618,7 @@ class TestBuildQueueAndPacket:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
-            lambda limit: [_classify_pr(_make_pr(number=7466))],
+            lambda limit, repo_override=None: [_classify_pr(_make_pr(number=7466))],
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -7234,7 +7267,10 @@ class TestSettlementHelpers:
                 },
             )
 
-        monkeypatch.setattr("aragora.cli.commands.review_queue._build_queue", lambda limit: queue)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit, repo_override=None: queue,
+        )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_packet",
             _fake_build_packet,
