@@ -30,6 +30,7 @@ def make_run(**over: Any) -> dict[str, Any]:
         "workflow_id": 100,
         "name": "Portability Lint",
         "created_at": RECENT,
+        "pull_requests": [{"number": 123}],
     }
     run.update(over)
     return run
@@ -201,11 +202,25 @@ def test_main_scopes_to_pr_and_writes_receipt(tmp_path, monkeypatch, capsys) -> 
                 "head": {"ref": "feat/a", "sha": "sha-a"},
             }
 
-        def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
+        def list_recent_workflow_runs(
+            self,
+            max_runs: int,
+            *,
+            branch: str | None = None,
+            event: str | None = None,
+        ) -> list[dict[str, Any]]:
             assert max_runs == 300
+            assert branch == "feat/a"
+            if event != "pull_request":
+                return []
             return [
                 make_run(id=31, head_branch="feat/a", head_sha="sha-a"),
-                make_run(id=32, head_branch="feat/b", head_sha="sha-b"),
+                make_run(
+                    id=32,
+                    head_branch="feat/a",
+                    head_sha="sha-a",
+                    pull_requests=[{"number": 456}],
+                ),
             ]
 
     monkeypatch.setenv("GITHUB_TOKEN", "token")
@@ -291,3 +306,36 @@ def test_main_apply_records_rerun_results_in_receipt(tmp_path, monkeypatch, caps
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     assert receipt["dry_run"] is False
     assert receipt["rerun_run_ids"] == [41]
+
+
+def test_receipt_write_failure_is_reported_without_failing(monkeypatch, capsys) -> None:
+    class FakeClient:
+        def __init__(self, repo: str, token: str) -> None:
+            self.repo = repo
+
+        def list_open_pulls(self) -> list[dict[str, Any]]:
+            return [
+                {
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": "feat/a", "sha": "sha-a"},
+                }
+            ]
+
+        def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
+            return [make_run(id=51, head_branch="feat/a", head_sha="sha-a")]
+
+    def fail_receipt(**_: Any) -> str:
+        raise OSError("receipt path unavailable")
+
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(retrigger, "GitHubClient", FakeClient)
+    monkeypatch.setattr(retrigger, "_write_receipt", fail_receipt)
+
+    rc = main(["--repo", "synaptent/aragora", "--ttl-minutes", "100000"])
+
+    assert rc == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["eligible"] == 1
+    assert summary["receipt"] == ""
+    assert summary["receipt_error"] == "receipt path unavailable"

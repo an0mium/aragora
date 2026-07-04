@@ -146,10 +146,21 @@ class GitHubClient:
             raise GitHubApiError(f"Expected PR object for #{pr_number}, got {type(pull)}")
         return pull
 
-    def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
+    def list_recent_workflow_runs(
+        self,
+        max_runs: int,
+        *,
+        branch: str | None = None,
+        event: str | None = None,
+    ) -> list[dict[str, Any]]:
+        query: dict[str, Any] = {"per_page": 100}
+        if branch:
+            query["branch"] = branch
+        if event:
+            query["event"] = event
         runs = self.paginate(
             f"/repos/{self.repo}/actions/runs",
-            query={"per_page": 100},
+            query=query,
             max_pages=max(1, (max_runs + 99) // 100),
         )
         normalized = [r for r in runs if isinstance(r, dict)]
@@ -204,6 +215,22 @@ def _run_branch(run: dict[str, Any]) -> str:
 
 def _run_workflow_key(run: dict[str, Any]) -> Any:
     return _field(run, "workflow_id", "workflowId") or _field(run, "name", default="")
+
+
+def _run_matches_pr(run: dict[str, Any], pr_number: int) -> bool:
+    pulls = run.get("pull_requests") or run.get("pullRequests") or []
+    if not isinstance(pulls, list):
+        return False
+    for pull in pulls:
+        if not isinstance(pull, dict):
+            continue
+        try:
+            number = int(pull.get("number", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if number == pr_number:
+            return True
+    return False
 
 
 def _has_newer_sibling(
@@ -365,6 +392,18 @@ def _safe_filename_fragment(value: str) -> str:
     return fragment.strip("-") or "all"
 
 
+def _prune_receipts(path: Path, *, now: datetime, retention_hours: int) -> None:
+    if retention_hours <= 0 or not path.exists():
+        return
+    cutoff = now.timestamp() - (retention_hours * 3600)
+    for child in path.glob("RETRIGGER_CANCELLED_RECEIPT_*.json"):
+        try:
+            if child.stat().st_mtime < cutoff:
+                child.unlink()
+        except OSError:
+            continue
+
+
 def _write_receipt(
     *,
     receipt_dir: str,
@@ -372,11 +411,16 @@ def _write_receipt(
     repo: str,
     scope: str,
     summary: dict[str, Any],
+    retention_hours: int,
 ) -> str:
     path = Path(receipt_dir)
     path.mkdir(parents=True, exist_ok=True)
-    timestamp = now.strftime("%Y%m%dT%H%M%SZ")
-    filename = f"RETRIGGER_CANCELLED_RECEIPT_{timestamp}_{_safe_filename_fragment(scope)}.json"
+    _prune_receipts(path, now=now, retention_hours=retention_hours)
+    timestamp = now.strftime("%Y%m%dT%H%M%S%fZ")
+    filename = (
+        f"RETRIGGER_CANCELLED_RECEIPT_{timestamp}_pid{os.getpid()}_"
+        f"{_safe_filename_fragment(scope)}.json"
+    )
     receipt_path = path / filename
     receipt = {
         "schema": "retrigger-cancelled-pr-runs-receipt/v1",
@@ -484,6 +528,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Directory for per-invocation JSON receipts",
     )
     parser.add_argument(
+        "--receipt-retention-hours",
+        type=int,
+        default=168,
+        help="Prune retrigger receipts older than this many hours (<=0 disables pruning)",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Actually re-run eligible runs (default: dry run)",
@@ -528,14 +578,26 @@ def main(argv: list[str] | None = None) -> int:
         active_heads = compute_active_head_map(
             open_pulls, keep_draft_runs=bool(args.keep_draft_runs)
         )
-        runs = client.list_recent_workflow_runs(max_runs=args.max_runs)
+        runs: list[dict[str, Any]]
         scoped_branch = ""
         scoped_sha = ""
         if scoped_pr is not None:
             head = scoped_pr.get("head", {})
             scoped_branch = str(head.get("ref", "")).strip()
             scoped_sha = str(head.get("sha", "")).strip()
-            runs = [r for r in runs if _run_branch(r) == scoped_branch]
+            runs_by_id: dict[int, dict[str, Any]] = {}
+            for event_name in sorted(cancel_events):
+                for run in client.list_recent_workflow_runs(
+                    max_runs=args.max_runs,
+                    branch=scoped_branch,
+                    event=event_name,
+                ):
+                    run_id = int(_field(run, "id", "databaseId", default=0) or 0)
+                    if run_id > 0 and _run_matches_pr(run, int(args.pr)):
+                        runs_by_id[run_id] = run
+            runs = sorted(runs_by_id.values(), key=_run_sort_key, reverse=True)
+        else:
+            runs = client.list_recent_workflow_runs(max_runs=args.max_runs)
         eligible, reasons, candidates = compute_retriggerable_runs(
             runs,
             active_heads=active_heads,
@@ -581,14 +643,20 @@ def main(argv: list[str] | None = None) -> int:
             "scoped_branch": scoped_branch,
             "scoped_sha": scoped_sha,
         }
-        receipt_path = _write_receipt(
-            receipt_dir=args.receipt_dir,
-            now=now,
-            repo=args.repo,
-            scope=str(summary["scope"]),
-            summary=summary,
-        )
-        summary["receipt"] = receipt_path
+        try:
+            receipt_path = _write_receipt(
+                receipt_dir=args.receipt_dir,
+                now=now,
+                repo=args.repo,
+                scope=str(summary["scope"]),
+                summary=summary,
+                retention_hours=int(args.receipt_retention_hours),
+            )
+            summary["receipt"] = receipt_path
+            summary["receipt_error"] = ""
+        except OSError as exc:
+            summary["receipt"] = ""
+            summary["receipt_error"] = str(exc)
         print(json.dumps(summary))
         return 0
     except (GitHubApiError, ValueError) as exc:

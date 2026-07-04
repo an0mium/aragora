@@ -126,7 +126,9 @@ runs (Module Tier Drift / Metrics Drift already run Monday) plus `push`-to-main 
 
 Use the Python guardian manually from a conductor or executor lane before treating
 cancelled advisory checks as a human transport task. Start with a dry run scoped to
-the target PR and a 24-hour TTL:
+the target PR and a 24-hour TTL. In `--pr` mode the tool queries workflow runs for
+that PR branch/event and verifies the run's PR association before considering it
+eligible:
 
 ```bash
 GITHUB_REPOSITORY=synaptent/aragora GITHUB_TOKEN="$GITHUB_TOKEN" \
@@ -141,8 +143,11 @@ If every eligible run is a current-head cancelled PR run and the conductor lane 
 allowed to spend one rerun per run id, repeat with `--apply`. The tool writes a
 per-invocation JSON receipt under
 `.aragora/retrigger_cancelled/receipts/` recording the scope, dry-run/apply mode,
-eligible run ids, rerun ids, and head SHAs. The marker file remains the loop guard:
-a run id recorded there is not retriggered again.
+eligible run ids, rerun ids, and head SHAs. Receipts older than seven days are
+pruned by default (`--receipt-retention-hours 168`). The marker file remains the
+loop guard: a run id recorded there is not retriggered again. If receipt writing
+fails after an otherwise successful rerun attempt, the tool reports `receipt_error`
+in its JSON output instead of treating the rerun as failed.
 
 Do not use this tool to bypass real failures. A rerun that comes back failed, such
 as a docs-sync/build failure, is a repair packet for the PR branch.
