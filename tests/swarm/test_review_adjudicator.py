@@ -6,7 +6,8 @@ groundedness and decides:
 
 - any [P0]/[P1] present            -> BLOCK      (hard bar; never suppressed)
 - all dissent thin (below bar)     -> SETTLE     (the treadmill escape)
-- grounded dissent, no grounded support -> BLOCK  (evidence-backed nit stands)
+- grounded advisory dissent defaults to SETTLE as follow-up, unless callers
+  explicitly opt into promoting grounded advisory findings to BLOCK
 - grounded dissent AND grounded support -> ESCALATE (material two-sided crux)
 - no supportive signal / no dissent -> NOT_APPLICABLE (not a stall)
 
