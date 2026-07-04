@@ -8,15 +8,22 @@ criterion for synthetic world-event invalidation tests.
 
 from __future__ import annotations
 
+import inspect
+import os
+
 import pytest
 
+import aragora.epistemic.world_event as _world_event_module
 from aragora.epistemic.claim_verifier import ClaimStatus
 from aragora.epistemic.decay_monitor import evaluate_unit
 from aragora.epistemic.proof_unit import DecayPolicy, FallbackPolicy, ProofCarryingCodeUnit
 from aragora.epistemic.world_event import (
     WorldEventKind,
     WorldStateEvent,
+    _world_event_to_claim_results_unchecked,
     claims_affected_by_event,
+    enable_world_events,
+    reset_world_events,
     world_event_to_claim_results,
     world_events_enabled,
 )
@@ -25,6 +32,13 @@ from aragora.epistemic.world_event import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_world_event_override() -> pytest.IterableFixture:  # type: ignore[type-arg]
+    reset_world_events()
+    yield
+    reset_world_events()
 
 
 def _unit(claims: list[str]) -> ProofCarryingCodeUnit:
@@ -78,6 +92,36 @@ def _dep_event() -> WorldStateEvent:
 
 
 class TestClaimsAffectedByEvent:
+    def test_scope_matching_ignores_overbroad_patterns(self):
+        unit = _unit(
+            [
+                "openai.completions.v1.reachable",
+                "anthropic.api.reachable",
+                "project.build.passing",
+            ]
+        )
+        event = WorldStateEvent(
+            event_id="too-broad",
+            kind=WorldEventKind.API_CHANGE,
+            description="broad event",
+            affected_scope=[".", "v1", "api"],
+        )
+
+        assert claims_affected_by_event(unit, event) == frozenset()
+
+    def test_scope_matching_uses_claim_id_boundaries(self):
+        unit = _unit(
+            [
+                "env.libfoo.version_pinned",
+                "libfoo.pinned",
+                "libfoobar.pinned",
+            ]
+        )
+
+        affected = claims_affected_by_event(unit, _cve(["libfoo"]))
+
+        assert affected == frozenset({"env.libfoo.version_pinned", "libfoo.pinned"})
+
     def test_cve_matches_by_substring(self):
         unit = _unit(["env.libfoo.version_pinned", "env.curl.ok"])
         affected = claims_affected_by_event(unit, _cve(["libfoo"]))
@@ -124,17 +168,33 @@ class TestClaimsAffectedByEvent:
 
 
 class TestWorldEventToClaimResults:
+    def test_string_kind_normalizes_to_world_event_kind(self):
+        event = WorldStateEvent(
+            event_id="CVE-2024-9999",
+            kind="cve",
+            description="Critical issue in libfoo",
+            affected_scope=["libfoo"],
+        )
+
+        assert event.kind is WorldEventKind.CVE
+        assert event.to_dict()["kind"] == "cve"
+
+    def test_invalid_string_kind_is_rejected(self):
+        with pytest.raises(ValueError, match="Unsupported world event kind"):
+            WorldStateEvent(event_id="bad", kind="not-a-kind", description="bad")
+
+    def test_public_translation_has_no_flag_bypass_parameter(self):
+        assert "require_enabled" not in inspect.signature(world_event_to_claim_results).parameters
+
     def test_affected_claim_gets_stale_status(self):
         unit = _unit(["libfoo.version_pinned", "other.claim"])
-        results = world_event_to_claim_results(unit, _cve(["libfoo"]), require_enabled=False)
+        results = _world_event_to_claim_results_unchecked(unit, _cve(["libfoo"]))
         assert results["libfoo.version_pinned"].status == ClaimStatus.STALE
         assert "other.claim" not in results
 
     def test_message_contains_event_id_and_kind(self):
         unit = _unit(["libfoo.pinned"])
-        results = world_event_to_claim_results(
-            unit, _cve(["libfoo"], "CVE-2024-9999"), require_enabled=False
-        )
+        results = _world_event_to_claim_results_unchecked(unit, _cve(["libfoo"], "CVE-2024-9999"))
         msg = results["libfoo.pinned"].message
         assert "CVE-2024-9999" in msg and "cve" in msg
 
@@ -142,18 +202,16 @@ class TestWorldEventToClaimResults:
         event = WorldStateEvent(
             event_id="noop", kind=WorldEventKind.CORPUS_REVISION, description="x"
         )
-        assert world_event_to_claim_results(_unit(["c"]), event, require_enabled=False) == {}
+        assert _world_event_to_claim_results_unchecked(_unit(["c"]), event) == {}
 
     def test_flag_off_raises_by_default(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_WORLD_EVENTS_ENABLED", raising=False)
         with pytest.raises(RuntimeError, match="ARAGORA_WORLD_EVENTS_ENABLED"):
             world_event_to_claim_results(_unit(["libfoo.p"]), _cve(["libfoo"]))
 
-    def test_require_enabled_false_bypasses_flag(self, monkeypatch):
+    def test_internal_unchecked_helper_bypasses_flag_for_tests(self, monkeypatch):
         monkeypatch.delenv("ARAGORA_WORLD_EVENTS_ENABLED", raising=False)
-        results = world_event_to_claim_results(
-            _unit(["libfoo.p"]), _cve(["libfoo"]), require_enabled=False
-        )
+        results = _world_event_to_claim_results_unchecked(_unit(["libfoo.p"]), _cve(["libfoo"]))
         assert "libfoo.p" in results
 
     def test_flag_on_allows_normal_call(self, monkeypatch):
@@ -167,6 +225,23 @@ class TestWorldEventToClaimResults:
         monkeypatch.delenv("ARAGORA_WORLD_EVENTS_ENABLED")
         assert world_events_enabled() is False
 
+    def test_enable_helper_sets_override_without_mutating_environ(self, monkeypatch):
+        monkeypatch.delenv("ARAGORA_WORLD_EVENTS_ENABLED", raising=False)
+        before = dict(os.environ)
+
+        enable_world_events()
+
+        assert world_events_enabled() is True
+        assert _world_event_module._world_events_enabled_override is True  # noqa: SLF001
+        assert os.environ == before
+
+    def test_reset_helper_clears_override(self):
+        enable_world_events()
+        reset_world_events()
+
+        assert _world_event_module._world_events_enabled_override is None  # noqa: SLF001
+        assert world_events_enabled() is False
+
 
 # ---------------------------------------------------------------------------
 # Integration: world event → evaluate_unit (DIC-20 end-to-end)
@@ -176,14 +251,14 @@ class TestWorldEventToClaimResults:
 class TestWorldEventDecayIntegration:
     def test_cve_lowers_integrity_score(self):
         unit = _unit(["libfoo.version_pinned", "libfoo.no_known_vulns"])
-        results = world_event_to_claim_results(unit, _cve(["libfoo"]), require_enabled=False)
+        results = _world_event_to_claim_results_unchecked(unit, _cve(["libfoo"]))
         signal = evaluate_unit(unit, claim_results=results)
         assert signal.integrity_score < 1.0
         assert any(r.kind == "stale_evidence" for r in signal.reasons)
 
     def test_api_change_marks_specific_claim_stale(self):
         unit = _unit(["openai.completions.v1.reachable", "openai.embeddings.ok"])
-        results = world_event_to_claim_results(unit, _api_event(), require_enabled=False)
+        results = _world_event_to_claim_results_unchecked(unit, _api_event())
         stale = [
             r
             for r in evaluate_unit(unit, claim_results=results).reasons
@@ -193,12 +268,12 @@ class TestWorldEventDecayIntegration:
 
     def test_dependency_bump_propagates_decay(self):
         unit = _unit(["pydantic.model.dict_supported"])
-        results = world_event_to_claim_results(unit, _dep_event(), require_enabled=False)
+        results = _world_event_to_claim_results_unchecked(unit, _dep_event())
         assert any(
             r.kind == "stale_evidence" for r in evaluate_unit(unit, claim_results=results).reasons
         )
 
     def test_unrelated_event_leaves_score_intact(self):
         unit = _unit(["anthropic.api.stable", "project.build.passing"])
-        results = world_event_to_claim_results(unit, _cve(["libfoo"]), require_enabled=False)
+        results = _world_event_to_claim_results_unchecked(unit, _cve(["libfoo"]))
         assert evaluate_unit(unit, claim_results=results).integrity_score == 1.0

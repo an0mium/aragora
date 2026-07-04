@@ -5,8 +5,8 @@ dependency version bumps, corpus revisions) into ClaimResult objects
 that :func:`~aragora.epistemic.decay_monitor.evaluate_unit` can consume.
 
 Flag: ``ARAGORA_WORLD_EVENTS_ENABLED`` (default off).  All computation
-is side-effect-free.  The flag gates :func:`world_event_to_claim_results`
-default behaviour; pass ``require_enabled=False`` for test-only use.
+is side-effect-free.  The flag gates :func:`world_event_to_claim_results`;
+tests that need raw translation use the private unchecked helper.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .claim_verifier import ClaimResult, ClaimStatus
 
@@ -29,25 +29,37 @@ class WorldEventKind(str, Enum):
     CORPUS_REVISION = "corpus_revision"
 
 
+_WORLD_EVENTS_FLAG = "ARAGORA_WORLD_EVENTS_ENABLED"
+_world_events_enabled_override: bool | None = None
+
+
 @dataclass(frozen=True)
 class WorldStateEvent:
     """An external event that may invalidate proof-unit assumptions.
 
-    ``affected_scope`` is matched against claim IDs: a claim is affected
-    when its ID starts with or contains any non-empty pattern in the list.
-    An empty list matches nothing (safe default).
+    ``affected_scope`` is matched against claim IDs on claim-id boundaries:
+    exact IDs, dotted prefixes, or dotted path segments.  Empty or overly broad
+    patterns match nothing (safe default).
     """
 
     event_id: str
-    kind: WorldEventKind
+    kind: WorldEventKind | str
     description: str
     affected_scope: list[str] = field(default_factory=list)
     timestamp: str = ""
 
+    def __post_init__(self) -> None:
+        try:
+            kind = self.kind if isinstance(self.kind, WorldEventKind) else WorldEventKind(self.kind)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported world event kind: {self.kind!r}") from exc
+        object.__setattr__(self, "kind", kind)
+
     def to_dict(self) -> dict[str, Any]:
+        kind = cast(WorldEventKind, self.kind)
         d: dict[str, Any] = {
             "event_id": self.event_id,
-            "kind": self.kind.value,
+            "kind": kind.value,
             "description": self.description,
             "affected_scope": list(self.affected_scope),
         }
@@ -58,13 +70,48 @@ class WorldStateEvent:
 
 def world_events_enabled() -> bool:
     """Return True if callers may act on world-event claim results."""
-    raw = str(os.environ.get("ARAGORA_WORLD_EVENTS_ENABLED") or "").strip().lower()
+    if _world_events_enabled_override is not None:
+        return _world_events_enabled_override
+    raw = str(os.environ.get(_WORLD_EVENTS_FLAG) or "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
 
 
 def enable_world_events() -> None:
-    """Enable world-event claim translation for the current process."""
-    os.environ["ARAGORA_WORLD_EVENTS_ENABLED"] = "1"
+    """Enable world-event claim translation for the current process.
+
+    Sets a module-level override rather than mutating ``os.environ``.
+    Call :func:`reset_world_events` to restore env-var-driven behavior.
+    """
+    global _world_events_enabled_override
+    _world_events_enabled_override = True
+
+
+def reset_world_events() -> None:
+    """Clear the module-level override, reverting to env-var-driven behavior."""
+    global _world_events_enabled_override
+    _world_events_enabled_override = None
+
+
+def _safe_scope_pattern(raw: str) -> str | None:
+    """Return a scope pattern safe enough to compare against claim IDs."""
+
+    pattern = str(raw).strip()
+    if len(pattern) < 4 or not any(char.isalpha() for char in pattern):
+        return None
+    pattern = pattern.strip(".")
+    if len(pattern) < 4 or not any(char.isalpha() for char in pattern):
+        return None
+    return pattern
+
+
+def _claim_matches_scope_pattern(claim_id: str, pattern: str) -> bool:
+    """Match *pattern* against *claim_id* without unconstrained substring hits."""
+
+    if claim_id == pattern:
+        return True
+    if claim_id.startswith(f"{pattern}."):
+        return True
+    return f".{pattern}." in f".{claim_id}."
 
 
 def claims_affected_by_event(
@@ -77,18 +124,32 @@ def claims_affected_by_event(
     """
     affected: set[str] = set()
     for claim_id in unit.claims:
-        for pattern in event.affected_scope:
-            if pattern and (claim_id.startswith(pattern) or pattern in claim_id):
+        for raw_pattern in event.affected_scope:
+            pattern = _safe_scope_pattern(raw_pattern)
+            if pattern is not None and _claim_matches_scope_pattern(claim_id, pattern):
                 affected.add(claim_id)
                 break
     return frozenset(affected)
 
 
+def _world_event_to_claim_results_unchecked(
+    unit: "ProofCarryingCodeUnit",
+    event: WorldStateEvent,
+) -> dict[str, ClaimResult]:
+    """Translate *event* without checking the live-action feature flag."""
+
+    affected = claims_affected_by_event(unit, event)
+    kind = cast(WorldEventKind, event.kind)
+    msg = f"Invalidated by {kind.value} event {event.event_id!r}: {event.description}"
+    return {
+        claim_id: ClaimResult(claim_id=claim_id, status=ClaimStatus.STALE, message=msg)
+        for claim_id in sorted(affected)
+    }
+
+
 def world_event_to_claim_results(
     unit: "ProofCarryingCodeUnit",
     event: WorldStateEvent,
-    *,
-    require_enabled: bool = True,
 ) -> dict[str, ClaimResult]:
     """Translate *event* into a ``claim_id → ClaimResult(STALE)`` mapping.
 
@@ -96,20 +157,12 @@ def world_event_to_claim_results(
     :func:`~aragora.epistemic.decay_monitor.evaluate_unit` as
     ``claim_results``.
 
-    Raises :exc:`RuntimeError` when ``require_enabled=True`` and
-    ``ARAGORA_WORLD_EVENTS_ENABLED`` is not set.  Pass
-    ``require_enabled=False`` for test code that needs the translation
-    without environment setup.
+    Raises :exc:`RuntimeError` when ``ARAGORA_WORLD_EVENTS_ENABLED`` is not set.
+    This keeps world-event propagation fail-closed for production callers.
     """
-    if require_enabled and not world_events_enabled():
+    if not world_events_enabled():
         raise RuntimeError(
             "ARAGORA_WORLD_EVENTS_ENABLED is not set; "
-            "world-event claim results must not propagate to live state. "
-            "Pass require_enabled=False for test-only use."
+            "world-event claim results must not propagate to live state."
         )
-    affected = claims_affected_by_event(unit, event)
-    msg = f"Invalidated by {event.kind.value} event {event.event_id!r}: {event.description}"
-    return {
-        claim_id: ClaimResult(claim_id=claim_id, status=ClaimStatus.STALE, message=msg)
-        for claim_id in sorted(affected)
-    }
+    return _world_event_to_claim_results_unchecked(unit, event)

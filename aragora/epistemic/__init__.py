@@ -16,7 +16,8 @@ Exposes:
   :class:`DecayReason`, :func:`evaluate_unit`) plus world-state
   event translation (:class:`WorldStateEvent`, :class:`WorldEventKind`,
   :func:`claims_affected_by_event`, :func:`world_event_to_claim_results`,
-  :func:`world_events_enabled`, :func:`enable_world_events`).
+  :func:`world_events_enabled`, :func:`enable_world_events`,
+  :func:`reset_world_events`).
   Flag gate: ``ARAGORA_WORLD_EVENTS_ENABLED`` (default off).
 - DIC-21: fail-closed quarantine policy (:class:`QuarantineDecision`,
   :class:`QuarantinePolicy`, :func:`apply_quarantine_policy`,
@@ -113,6 +114,7 @@ from .world_event import (
     WorldStateEvent,
     claims_affected_by_event,
     enable_world_events,
+    reset_world_events,
     world_event_to_claim_results,
     world_events_enabled,
 )
@@ -286,6 +288,7 @@ __all__ = [
     "WorldStateEvent",
     "claims_affected_by_event",
     "enable_world_events",
+    "reset_world_events",
     "world_event_to_claim_results",
     "world_events_enabled",
     "from_belief_node",
