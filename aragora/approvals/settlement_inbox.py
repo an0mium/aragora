@@ -8,10 +8,17 @@ settlement boundary. It does not post comments, statuses, evidence, or merges.
 from __future__ import annotations
 
 import os
+import time
 from datetime import datetime, timezone
 from typing import Any
 
 UTC = timezone.utc
+
+DEFAULT_PACKET_SCAN_LIMIT = 20
+MAX_PACKET_SCAN_LIMIT = 100
+DEFAULT_PACKET_CACHE_TTL_SECONDS = 30.0
+
+_PACKET_CACHE: dict[tuple[str | None, str | None, int], tuple[float, dict[str, Any]]] = {}
 
 SETTLEMENT_READY_STATUSES = {
     "human_risk_settlement_required",
@@ -50,6 +57,79 @@ def _settlement_kind(entry: dict[str, Any]) -> str:
     if bool(entry.get("requires_human_preapproval")):
         return "tier4_human_preapproval"
     return "human_risk_settlement"
+
+
+def _positive_int(value: Any, *, default: int, maximum: int | None = None) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    parsed = max(1, parsed)
+    if maximum is not None:
+        parsed = min(parsed, maximum)
+    return parsed
+
+
+def _requested_limit(value: Any) -> int:
+    return _positive_int(value, default=DEFAULT_PACKET_SCAN_LIMIT)
+
+
+def _packet_scan_limit(request_limit: int) -> int:
+    configured_limit = _positive_int(
+        os.environ.get("ARAGORA_SETTLEMENT_INBOX_PACKET_LIMIT"),
+        default=DEFAULT_PACKET_SCAN_LIMIT,
+        maximum=MAX_PACKET_SCAN_LIMIT,
+    )
+    return min(request_limit, configured_limit)
+
+
+def _cache_ttl_seconds() -> float:
+    try:
+        ttl = float(os.environ.get("ARAGORA_SETTLEMENT_INBOX_CACHE_TTL_SECONDS", ""))
+    except ValueError:
+        ttl = DEFAULT_PACKET_CACHE_TTL_SECONDS
+    if ttl < 0:
+        return 0.0
+    return min(ttl, 300.0)
+
+
+def _build_merge_packet(
+    *,
+    merge_packet_builder: Any,
+    repo_override: str | None,
+    review_queue_root: str | None,
+    packet_limit: int,
+    use_cache: bool,
+) -> dict[str, Any]:
+    if not use_cache:
+        return merge_packet_builder(
+            pr_refs=[],
+            limit=packet_limit,
+            repo_override=repo_override,
+            review_queue_root=review_queue_root,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+        )
+
+    ttl = _cache_ttl_seconds()
+    cache_key = (repo_override, review_queue_root, packet_limit)
+    now = time.monotonic()
+    if ttl > 0:
+        cached = _PACKET_CACHE.get(cache_key)
+        if cached is not None and now - cached[0] <= ttl:
+            return dict(cached[1])
+
+    packet = merge_packet_builder(
+        pr_refs=[],
+        limit=packet_limit,
+        repo_override=repo_override,
+        review_queue_root=review_queue_root,
+        execute_reviewers=False,
+        ignore_own_quorum_check=False,
+    )
+    if ttl > 0:
+        _PACKET_CACHE[cache_key] = (now, dict(packet))
+    return packet
 
 
 def _approval_item(entry: dict[str, Any], *, generated_at: str) -> dict[str, Any]:
@@ -172,18 +252,22 @@ def collect_pending_settlement_approvals(
     checks, incomplete quorum, unresolved dissent, or any other
     ``repair_or_wait`` state are intentionally excluded.
     """
+    requested_limit = _requested_limit(limit)
+    packet_limit = _packet_scan_limit(requested_limit)
+    use_cache = merge_packet_builder is None
     if merge_packet_builder is None:
         from aragora.cli.commands.review_queue import _build_merge_authorization_packet
 
         merge_packet_builder = _build_merge_authorization_packet
 
-    packet = merge_packet_builder(
-        pr_refs=[],
-        limit=max(1, int(limit or 20)),
-        repo_override=repo or os.environ.get("ARAGORA_SETTLEMENT_INBOX_REPO") or None,
-        review_queue_root=review_queue_root or os.environ.get("ARAGORA_REVIEW_QUEUE_ROOT") or None,
-        execute_reviewers=False,
-        ignore_own_quorum_check=False,
+    repo_override = repo or os.environ.get("ARAGORA_SETTLEMENT_INBOX_REPO") or None
+    queue_root = review_queue_root or os.environ.get("ARAGORA_REVIEW_QUEUE_ROOT") or None
+    packet = _build_merge_packet(
+        merge_packet_builder=merge_packet_builder,
+        repo_override=repo_override,
+        review_queue_root=queue_root,
+        packet_limit=packet_limit,
+        use_cache=use_cache,
     )
     generated_at = str(packet.get("generated_at") or "")
     items = []
@@ -206,10 +290,13 @@ def collect_pending_settlement_approvals(
     items.sort(key=lambda item: float(item.get("_sort_ts") or 0.0), reverse=True)
     for item in items:
         item.pop("_sort_ts", None)
-    return items[: max(1, int(limit or 20))]
+    return items[:requested_limit]
 
 
 __all__ = [
+    "DEFAULT_PACKET_CACHE_TTL_SECONDS",
+    "DEFAULT_PACKET_SCAN_LIMIT",
+    "MAX_PACKET_SCAN_LIMIT",
     "SETTLEMENT_READY_STATUSES",
     "collect_pending_settlement_approvals",
 ]

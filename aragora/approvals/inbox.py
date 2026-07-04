@@ -282,9 +282,7 @@ def collect_pending_approvals(
         except (ImportError, AttributeError, OSError):
             logger.debug("Failed to fetch inbox trust wedge approvals for inbox", exc_info=True)
 
-    settlement_explicit = requested_sources is not None and "settlement" in sources
-    settlement_enabled = settlement_explicit or _settlement_inbox_enabled()
-    if "settlement" in sources and settlement_enabled:
+    if "settlement" in sources and _settlement_inbox_enabled():
         try:
             from aragora.approvals.settlement_inbox import collect_pending_settlement_approvals
 
@@ -304,7 +302,7 @@ def collect_pending_approvals(
                     )
                 )
         except (ImportError, AttributeError, OSError, RuntimeError, ValueError):
-            logger.debug("Failed to fetch settlement approvals for inbox", exc_info=True)
+            logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
 
     items.sort(key=lambda item: item._sort_ts, reverse=True)
     return [item.to_dict() for item in items[:limit]]

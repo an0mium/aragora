@@ -160,10 +160,50 @@ def test_collect_pending_settlement_approvals_filters_to_human_boundary():
     ]
     assert "--post-github-status" in item["actions"]["approve"]["cli_preview"]
     assert calls[0]["repo_override"] == "synaptent/aragora"
+    assert calls[0]["limit"] == 10
     assert calls[0]["execute_reviewers"] is False
 
 
-def test_collect_pending_approvals_explicit_settlement_source(monkeypatch):
+def test_collect_pending_settlement_approvals_bounds_packet_scan_limit():
+    calls = []
+
+    def merge_packet_builder(**kwargs):
+        calls.append(kwargs)
+        return _settlement_packet()
+
+    approvals = collect_pending_settlement_approvals(
+        limit=500,
+        repo="synaptent/aragora",
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    assert len(approvals) == 1
+    assert calls[0]["limit"] == 20
+
+
+def test_collect_pending_approvals_explicit_settlement_source_requires_flag(monkeypatch):
+    monkeypatch.delenv("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", raising=False)
+    called = False
+
+    def fake_collect(limit):
+        nonlocal called
+        called = True
+        return []
+
+    monkeypatch.setattr(
+        "aragora.approvals.settlement_inbox.collect_pending_settlement_approvals",
+        fake_collect,
+    )
+
+    approvals = collect_pending_approvals(limit=5, sources=["settlement"])
+
+    assert approvals == []
+    assert called is False
+
+
+def test_collect_pending_approvals_explicit_settlement_source_with_flag(monkeypatch):
+    monkeypatch.setenv("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", "1")
+
     def fake_collect(limit):
         assert limit == 5
         return [
@@ -192,6 +232,8 @@ def test_collect_pending_approvals_explicit_settlement_source(monkeypatch):
 
 
 def test_collect_pending_approvals_sorts_settlement_iso_timestamps(monkeypatch):
+    monkeypatch.setenv("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", "1")
+
     def fake_collect(limit):
         assert limit == 2
         return [
