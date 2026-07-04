@@ -78,6 +78,67 @@ def test_founder_status_reports_queue_and_next_blocker(tmp_path: Path) -> None:
     assert "Next action: Work one bounded blocker on PR #8827" in rendered
 
 
+def test_founder_status_next_action_uses_not_ready_entry_beyond_top_entries(
+    tmp_path: Path,
+) -> None:
+    def ready_entry(pr_number: int) -> dict[str, object]:
+        return {
+            "pr_number": pr_number,
+            "title": f"ready {pr_number}",
+            "url": f"https://github.com/synaptent/aragora/pull/{pr_number}",
+            "head_sha": "abc123",
+            "tier": 2,
+            "status": "admin_squash_allowed",
+            "verdict": "admin_squash_allowed",
+            "admin_squash_allowed": True,
+            "requires_human_risk_settlement": False,
+            "requires_human_preapproval": False,
+            "unresolved_dissent": False,
+            "checks_summary": "6 / 6 required",
+            "counted_model_families": ["claude", "openai"],
+            "reasons": [],
+        }
+
+    blocked = {
+        "pr_number": 8899,
+        "title": "blocked outside top display rows",
+        "url": "https://github.com/synaptent/aragora/pull/8899",
+        "head_sha": "def456",
+        "tier": 2,
+        "status": "needs_model_review_quorum",
+        "verdict": "collect_model_quorum_before_merge",
+        "admin_squash_allowed": False,
+        "requires_human_risk_settlement": False,
+        "requires_human_preapproval": False,
+        "unresolved_dissent": False,
+        "checks_summary": "1 failing / 6 required",
+        "counted_model_families": [],
+        "reasons": ["model quorum incomplete: 0/2 signal(s)"],
+    }
+
+    def merge_packet_builder(**_: object) -> dict[str, object]:
+        return {
+            "queue_pressure": {"current_open_prs": 11, "cap": 6, "active": True},
+            "admin_squash_order": [],
+            "human_risk_settlement_required": [],
+            "not_ready": [8899],
+            "entries": [*(ready_entry(8800 + index) for index in range(10)), blocked],
+        }
+
+    report = gather_founder_status(
+        repo_root=str(tmp_path),
+        limit=12,
+        health_gatherer=lambda **_: _health(),
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    assert all(entry["pr_number"] != 8899 for entry in report["queue"]["top_entries"])
+    assert report["queue"]["not_ready_entries"][0]["pr_number"] == 8899
+    assert report["next_action"]["kind"] == "queue_blocker"
+    assert "PR #8899" in report["next_action"]["summary"]
+    assert "model quorum incomplete" in report["next_action"]["detail"]
+
+
 def test_founder_status_degrades_on_merge_packet_transport_error(tmp_path: Path) -> None:
     def broken_builder(**_: object) -> dict[str, object]:
         raise RuntimeError("organization access is disabled")

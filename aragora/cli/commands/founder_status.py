@@ -221,12 +221,21 @@ def _queue_next_action(
         }
 
     not_ready = queue.get("not_ready") or []
-    entries = queue.get("top_entries") or []
+    not_ready_entries = queue.get("not_ready_entries") or []
+    top_entries = queue.get("top_entries") or []
     if not_ready:
+        not_ready_set = set(not_ready)
         first_not_ready = next(
-            (entry for entry in entries if entry.get("pr_number") in set(not_ready)),
-            entries[0] if entries else None,
+            (entry for entry in not_ready_entries if entry.get("pr_number") in not_ready_set),
+            None,
         )
+        if first_not_ready is None:
+            first_not_ready = next(
+                (entry for entry in top_entries if entry.get("pr_number") in not_ready_set),
+                None,
+            )
+        if first_not_ready is None:
+            first_not_ready = {"pr_number": not_ready[0], "status": "unknown", "reasons": []}
         if first_not_ready:
             pr = first_not_ready.get("pr_number")
             status = first_not_ready.get("status") or "unknown"
@@ -257,6 +266,11 @@ def _queue_next_action(
         "summary": "No queue action was selected from available local evidence.",
         "detail": "Run with --json and inspect transport/proof-loop fields.",
     }
+
+
+def _not_ready_entries(entries: list[dict[str, Any]], not_ready: list[Any]) -> list[dict[str, Any]]:
+    not_ready_set = set(not_ready)
+    return [entry for entry in entries if entry.get("pr_number") in not_ready_set]
 
 
 def _queue_report(
@@ -291,12 +305,14 @@ def _queue_report(
             "admin_squash_order": [],
             "human_risk_settlement_required": [],
             "not_ready": [],
+            "not_ready_entries": [],
             "top_entries": [],
         }
 
     entries = [
         _entry_summary(entry) for entry in packet.get("entries", []) if isinstance(entry, dict)
     ]
+    not_ready = packet.get("not_ready") or []
     counts = Counter(str(entry.get("status") or "unknown") for entry in entries)
     return {
         "transport_status": "ok",
@@ -305,7 +321,8 @@ def _queue_report(
         "status_counts": dict(sorted(counts.items())),
         "admin_squash_order": packet.get("admin_squash_order") or [],
         "human_risk_settlement_required": packet.get("human_risk_settlement_required") or [],
-        "not_ready": packet.get("not_ready") or [],
+        "not_ready": not_ready,
+        "not_ready_entries": _not_ready_entries(entries, not_ready),
         "top_entries": entries[: min(limit, 10)],
     }
 
