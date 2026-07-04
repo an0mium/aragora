@@ -122,6 +122,31 @@ Document them as "advisory; cancellation ≠ failure" and rely on the weekly `sc
 runs (Module Tier Drift / Metrics Drift already run Monday) plus `push`-to-main runs
 (Portability Lint) for real coverage. Zero engineering cost; leaves PR UI noisy.
 
+## How to run in the transport loop
+
+Use the Python guardian manually from a conductor or executor lane before treating
+cancelled advisory checks as a human transport task. Start with a dry run scoped to
+the target PR and a 24-hour TTL:
+
+```bash
+GITHUB_REPOSITORY=synaptent/aragora GITHUB_TOKEN="$GITHUB_TOKEN" \
+  python scripts/retrigger_cancelled_pr_runs.py \
+    --repo synaptent/aragora \
+    --pr <PR_NUMBER> \
+    --ttl-minutes 1440 \
+    --marker-file .aragora/retrigger_cancelled/marker.json
+```
+
+If every eligible run is a current-head cancelled PR run and the conductor lane is
+allowed to spend one rerun per run id, repeat with `--apply`. The tool writes a
+per-invocation JSON receipt under
+`.aragora/retrigger_cancelled/receipts/` recording the scope, dry-run/apply mode,
+eligible run ids, rerun ids, and head SHAs. The marker file remains the loop guard:
+a run id recorded there is not retriggered again.
+
+Do not use this tool to bypass real failures. A rerun that comes back failed, such
+as a docs-sync/build failure, is a repair packet for the PR branch.
+
 ## Decision points
 
 1. Pursue **M2 first** (identify the canceller) before building **M1**? Re-running

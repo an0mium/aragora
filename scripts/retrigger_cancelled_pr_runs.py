@@ -30,8 +30,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from urllib import error, parse, request
 
@@ -137,6 +139,12 @@ class GitHubClient:
             max_pages=5,
         )
         return [p for p in pulls if isinstance(p, dict)]
+
+    def get_pull(self, pr_number: int) -> dict[str, Any]:
+        pull = self.get(f"/repos/{self.repo}/pulls/{pr_number}")
+        if not isinstance(pull, dict):
+            raise GitHubApiError(f"Expected PR object for #{pr_number}, got {type(pull)}")
+        return pull
 
     def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
         runs = self.paginate(
@@ -352,6 +360,54 @@ def save_marker(path: str, data: dict[str, str]) -> None:
         json.dump(data, handle, indent=2, sort_keys=True)
 
 
+def _safe_filename_fragment(value: str) -> str:
+    fragment = re.sub(r"[^A-Za-z0-9_.-]+", "-", value.strip())
+    return fragment.strip("-") or "all"
+
+
+def _write_receipt(
+    *,
+    receipt_dir: str,
+    now: datetime,
+    repo: str,
+    scope: str,
+    summary: dict[str, Any],
+) -> str:
+    path = Path(receipt_dir)
+    path.mkdir(parents=True, exist_ok=True)
+    timestamp = now.strftime("%Y%m%dT%H%M%SZ")
+    filename = f"RETRIGGER_CANCELLED_RECEIPT_{timestamp}_{_safe_filename_fragment(scope)}.json"
+    receipt_path = path / filename
+    receipt = {
+        "schema": "retrigger-cancelled-pr-runs-receipt/v1",
+        "generated_at": now.isoformat(),
+        "repo": repo,
+        "scope": scope,
+        "dry_run": bool(summary.get("dry_run", True)),
+        "scanned": int(summary.get("scanned", 0) or 0),
+        "candidates": int(summary.get("candidates", 0) or 0),
+        "eligible": int(summary.get("eligible", 0) or 0),
+        "eligible_run_ids": [int(item["run_id"]) for item in summary.get("eligible_runs", [])],
+        "applied": int(summary.get("applied", 0) or 0),
+        "apply_failed": int(summary.get("apply_failed", 0) or 0),
+        "rerun_run_ids": [
+            int(item["run_id"]) for item in summary.get("rerun_results", []) if item.get("ok")
+        ],
+        "head_shas": sorted(
+            {
+                str(item.get("sha", "")).strip()
+                for item in summary.get("eligible_runs", [])
+                if str(item.get("sha", "")).strip()
+            }
+        ),
+        "summary": summary,
+    }
+    with receipt_path.open("w", encoding="utf-8") as handle:
+        json.dump(receipt, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    return str(receipt_path)
+
+
 def compute_active_head_map(
     open_pulls: list[dict[str, Any]],
     *,
@@ -376,6 +432,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--repo",
         default=os.environ.get("GITHUB_REPOSITORY", ""),
         help="GitHub repository in OWNER/REPO format",
+    )
+    parser.add_argument(
+        "--pr",
+        type=int,
+        default=None,
+        help="Scope scanning to one pull request's branch/head",
     )
     parser.add_argument(
         "--max-runs",
@@ -417,6 +479,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Prune marker entries older than this many hours",
     )
     parser.add_argument(
+        "--receipt-dir",
+        default=os.environ.get("RETRIGGER_RECEIPT_DIR", ".aragora/retrigger_cancelled/receipts"),
+        help="Directory for per-invocation JSON receipts",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Actually re-run eligible runs (default: dry run)",
@@ -449,11 +516,26 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         client = GitHubClient(repo=args.repo, token=token)
-        open_pulls = client.list_open_pulls()
+        scoped_pr: dict[str, Any] | None = None
+        if args.pr is not None:
+            if args.pr <= 0:
+                print("--pr must be a positive integer", file=sys.stderr)
+                return 1
+            scoped_pr = client.get_pull(int(args.pr))
+            open_pulls = [scoped_pr] if str(scoped_pr.get("state")) == "open" else []
+        else:
+            open_pulls = client.list_open_pulls()
         active_heads = compute_active_head_map(
             open_pulls, keep_draft_runs=bool(args.keep_draft_runs)
         )
         runs = client.list_recent_workflow_runs(max_runs=args.max_runs)
+        scoped_branch = ""
+        scoped_sha = ""
+        if scoped_pr is not None:
+            head = scoped_pr.get("head", {})
+            scoped_branch = str(head.get("ref", "")).strip()
+            scoped_sha = str(head.get("sha", "")).strip()
+            runs = [r for r in runs if _run_branch(r) == scoped_branch]
         eligible, reasons, candidates = compute_retriggerable_runs(
             runs,
             active_heads=active_heads,
@@ -466,9 +548,12 @@ def main(argv: list[str] | None = None) -> int:
 
         applied = 0
         apply_failed = 0
+        rerun_results: list[dict[str, Any]] = []
         if args.apply:
             for item in eligible:
-                ok, _msg = client.rerun_workflow_run(int(item["run_id"]))
+                run_id = int(item["run_id"])
+                ok, msg = client.rerun_workflow_run(run_id)
+                rerun_results.append({"run_id": run_id, "ok": ok, "message": msg})
                 if ok:
                     applied += 1
                     marker_data[str(item["run_id"])] = now.isoformat()
@@ -488,9 +573,22 @@ def main(argv: list[str] | None = None) -> int:
             "dry_run": not args.apply,
             "applied": applied,
             "apply_failed": apply_failed,
+            "rerun_results": rerun_results,
             "ttl_minutes": args.ttl_minutes,
             "max_attempts": args.max_attempts,
+            "pr": int(args.pr) if args.pr is not None else None,
+            "scope": f"pr-{args.pr}" if args.pr is not None else "all-open-prs",
+            "scoped_branch": scoped_branch,
+            "scoped_sha": scoped_sha,
         }
+        receipt_path = _write_receipt(
+            receipt_dir=args.receipt_dir,
+            now=now,
+            repo=args.repo,
+            scope=str(summary["scope"]),
+            summary=summary,
+        )
+        summary["receipt"] = receipt_path
         print(json.dumps(summary))
         return 0
     except (GitHubApiError, ValueError) as exc:
