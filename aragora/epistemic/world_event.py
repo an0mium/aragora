@@ -13,6 +13,7 @@ the private unchecked helper.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, cast
@@ -34,7 +35,22 @@ _WORLD_EVENTS_FLAG = "ARAGORA_WORLD_EVENTS_ENABLED"
 _world_events_enabled_override: bool | None = None
 _OVERBROAD_SCOPE_TOKENS = {
     "api",
+    "auth",
+    "com",
+    "dev",
+    "go",
+    "http",
+    "https",
+    "io",
+    "jwt",
+    "net",
+    "org",
+    "ssl",
+    "tls",
+    "web",
+    "www",
 }
+_VERSION_LIKE_SCOPE_RE = re.compile(r"v\d+[a-z0-9._-]*$")
 
 
 @dataclass(frozen=True)
@@ -106,7 +122,7 @@ def _safe_scope_pattern(raw: str) -> str | None:
         not pattern
         or not any(char.isalpha() for char in pattern)
         or normalized in _OVERBROAD_SCOPE_TOKENS
-        or (normalized.startswith("v") and normalized[1:].isdigit())
+        or bool(_VERSION_LIKE_SCOPE_RE.fullmatch(normalized))
     ):
         return None
     return pattern
@@ -164,7 +180,16 @@ def _world_event_to_claim_results_unchecked(
     kind = cast(WorldEventKind, event.kind)
     msg = f"Invalidated by {kind.value} event {event.event_id!r}: {event.description}"
     return {
-        claim_id: ClaimResult(claim_id=claim_id, status=ClaimStatus.STALE, message=msg)
+        claim_id: ClaimResult(
+            claim_id=claim_id,
+            status=ClaimStatus.STALE,
+            message=msg,
+            detail={
+                "source": "world_event",
+                "event_id": event.event_id,
+                "kind": kind.value,
+            },
+        )
         for claim_id in sorted(affected)
     }
 

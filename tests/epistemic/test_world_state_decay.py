@@ -141,6 +141,42 @@ class TestClaimsAffectedByEvent:
 
         assert affected == frozenset({"runtime.py.version", "env.py.version"})
 
+    def test_generic_short_scope_tokens_match_nothing(self):
+        unit = _unit(
+            [
+                "env.jwt.version_pinned",
+                "transport.ssl.enabled",
+                "api.openai.available",
+                "language.go.mod_current",
+                "site.com.reachable",
+            ]
+        )
+        event = WorldStateEvent(
+            event_id="generic-short-scopes",
+            kind=WorldEventKind.DEPENDENCY_BUMP,
+            description="Noisy external feed with generic short scopes",
+            affected_scope=["jwt", "ssl", "api", "go", "com"],
+        )
+
+        assert claims_affected_by_event(unit, event) == frozenset()
+
+    def test_version_like_scope_tokens_match_nothing(self):
+        unit = _unit(
+            [
+                "openai.completions.v1.reachable",
+                "runtime.v1beta.compatible",
+                "runtime.v2rc1.compatible",
+            ]
+        )
+        event = WorldStateEvent(
+            event_id="version-like-scopes",
+            kind=WorldEventKind.API_CHANGE,
+            description="Version-like scopes are too broad for claim invalidation",
+            affected_scope=["v1", "v1beta", "v2rc1"],
+        )
+
+        assert claims_affected_by_event(unit, event) == frozenset()
+
     def test_scope_matching_is_case_insensitive(self):
         unit = _unit(
             [
@@ -176,11 +212,9 @@ class TestClaimsAffectedByEvent:
     def test_short_scope_tokens_match_claim_id_boundaries(self):
         unit = _unit(
             [
-                "env.jwt.version_pinned",
-                "transport.ssl.enabled",
                 "aws.iam.policy.current",
-                "build.npm.lockfile_current",
-                "language.go.mod_current",
+                "build.npm.lockfile.current",
+                "language.golang.mod_current",
                 "cargo.good",
                 "project.api.available",
             ]
@@ -189,16 +223,14 @@ class TestClaimsAffectedByEvent:
             event_id="short-scopes",
             kind=WorldEventKind.DEPENDENCY_BUMP,
             description="short but specific dependency/API scopes",
-            affected_scope=["jwt", "ssl", "aws", "npm", "go", "api"],
+            affected_scope=["aws.iam", "npm.lockfile", "golang", "api"],
         )
 
         assert claims_affected_by_event(unit, event) == frozenset(
             {
-                "env.jwt.version_pinned",
-                "transport.ssl.enabled",
                 "aws.iam.policy.current",
-                "build.npm.lockfile_current",
-                "language.go.mod_current",
+                "build.npm.lockfile.current",
+                "language.golang.mod_current",
             }
         )
 
@@ -278,6 +310,7 @@ class TestWorldEventToClaimResults:
         unit = _unit(["libfoo.version_pinned", "other.claim"])
         results = _world_event_to_claim_results_unchecked(unit, _cve(["libfoo"]))
         assert results["libfoo.version_pinned"].status == ClaimStatus.STALE
+        assert results["libfoo.version_pinned"].detail["source"] == "world_event"
         assert "other.claim" not in results
 
     def test_message_contains_event_id_and_kind(self):
@@ -323,7 +356,8 @@ class TestWorldEventToClaimResults:
         assert _world_event_module._world_events_enabled_override is True  # noqa: SLF001
         assert os.environ == before
 
-    def test_reset_helper_clears_override(self):
+    def test_reset_helper_clears_override(self, monkeypatch):
+        monkeypatch.delenv("ARAGORA_WORLD_EVENTS_ENABLED", raising=False)
         enable_world_events()
         reset_world_events()
 
@@ -339,6 +373,7 @@ class TestWorldEventToClaimResults:
 class TestWorldEventDecayIntegration:
     def test_cve_lowers_integrity_score(self):
         unit = _unit(["libfoo.version_pinned", "libfoo.no_known_vulns"])
+        enable_world_events()
         results = _world_event_to_claim_results_unchecked(unit, _cve(["libfoo"]))
         signal = evaluate_unit(unit, claim_results=results)
         assert signal.integrity_score < 1.0
@@ -346,6 +381,7 @@ class TestWorldEventDecayIntegration:
 
     def test_api_change_marks_specific_claim_stale(self):
         unit = _unit(["openai.completions.v1.reachable", "openai.embeddings.ok"])
+        enable_world_events()
         results = _world_event_to_claim_results_unchecked(unit, _api_event())
         stale = [
             r
@@ -356,10 +392,19 @@ class TestWorldEventDecayIntegration:
 
     def test_dependency_bump_propagates_decay(self):
         unit = _unit(["pydantic.model.dict_supported"])
+        enable_world_events()
         results = _world_event_to_claim_results_unchecked(unit, _dep_event())
         assert any(
             r.kind == "stale_evidence" for r in evaluate_unit(unit, claim_results=results).reasons
         )
+
+    def test_unchecked_world_event_results_fail_closed_when_disabled(self, monkeypatch):
+        monkeypatch.delenv("ARAGORA_WORLD_EVENTS_ENABLED", raising=False)
+        unit = _unit(["libfoo.version_pinned"])
+        results = _world_event_to_claim_results_unchecked(unit, _cve(["libfoo"]))
+
+        with pytest.raises(RuntimeError, match="world-event claim result"):
+            evaluate_unit(unit, claim_results=results)
 
     def test_enabled_public_translation_propagates_decay(self):
         unit = _unit(["libfoo.version_pinned", "other.claim"])
@@ -374,5 +419,6 @@ class TestWorldEventDecayIntegration:
 
     def test_unrelated_event_leaves_score_intact(self):
         unit = _unit(["anthropic.api.stable", "project.build.passing"])
+        enable_world_events()
         results = _world_event_to_claim_results_unchecked(unit, _cve(["libfoo"]))
         assert evaluate_unit(unit, claim_results=results).integrity_score == 1.0
