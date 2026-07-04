@@ -208,7 +208,6 @@ def test_collect_pending_settlement_approvals_cache_only_cold_path_does_not_scan
 def test_collect_pending_settlement_approvals_uses_warmed_cache(monkeypatch):
     settlement_inbox_module._PACKET_CACHE.clear()
     calls = []
-    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_PR_REFS", "7736")
 
     def merge_packet_builder(**kwargs):
         calls.append(kwargs)
@@ -228,9 +227,10 @@ def test_collect_pending_settlement_approvals_uses_warmed_cache(monkeypatch):
 
     monkeypatch.setattr(review_queue, "_build_merge_authorization_packet", forbidden_scan)
     monkeypatch.delenv("ARAGORA_SETTLEMENT_INBOX_ALLOW_SYNC_REFRESH", raising=False)
+    monkeypatch.delenv("ARAGORA_SETTLEMENT_INBOX_PR_REFS", raising=False)
 
     approvals = collect_pending_settlement_approvals(
-        limit=10,
+        limit=5,
         repo="synaptent/aragora",
         allow_sync_refresh=False,
     )

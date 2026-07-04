@@ -19,9 +19,7 @@ MAX_PACKET_SCAN_LIMIT = 100
 DEFAULT_PACKET_CACHE_TTL_SECONDS = 30.0
 EMPTY_PACKET_VERSION = "merge_authorization_packet.v1"
 
-_PACKET_CACHE: dict[
-    tuple[str | None, str | None, int, tuple[str, ...]], tuple[float, dict[str, Any]]
-] = {}
+_PACKET_CACHE: dict[tuple[str | None, str | None], tuple[float, dict[str, Any]]] = {}
 
 SETTLEMENT_READY_STATUSES = {
     "human_risk_settlement_required",
@@ -140,7 +138,7 @@ def _build_merge_packet(
         )
 
     ttl = _cache_ttl_seconds()
-    cache_key = (repo_override, review_queue_root, packet_limit, tuple(pr_refs))
+    cache_key = (repo_override, review_queue_root)
     now = time.monotonic()
     cached = _PACKET_CACHE.get(cache_key)
     if ttl > 0:
@@ -193,10 +191,7 @@ def refresh_settlement_approval_cache(
     refs = list(pr_refs) if pr_refs is not None else _configured_pr_refs()
     if not refs and not _bounded_queue_scan_enabled():
         packet = _empty_packet()
-        _PACKET_CACHE[(repo_override, queue_root, packet_limit, tuple(refs))] = (
-            time.monotonic(),
-            dict(packet),
-        )
+        _PACKET_CACHE[(repo_override, queue_root)] = (time.monotonic(), dict(packet))
         return packet
     packet = merge_packet_builder(
         pr_refs=refs,
@@ -206,10 +201,7 @@ def refresh_settlement_approval_cache(
         execute_reviewers=False,
         ignore_own_quorum_check=False,
     )
-    _PACKET_CACHE[(repo_override, queue_root, packet_limit, tuple(refs))] = (
-        time.monotonic(),
-        dict(packet),
-    )
+    _PACKET_CACHE[(repo_override, queue_root)] = (time.monotonic(), dict(packet))
     return packet
 
 
