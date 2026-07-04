@@ -1,0 +1,100 @@
+{
+  "attestation": {
+    "attestor": {
+      "id": "release-manager-1",
+      "name": "Priya Natarajan",
+      "role": "release manager"
+    },
+    "attested_at": "2026-07-01T09:05:00+00:00",
+    "disposition": "human_attested"
+  },
+  "claim": {
+    "statement": "Should the billing-retry backoff change ship to production?",
+    "verdict": "PASS"
+  },
+  "confidence": {
+    "calibration": {
+      "provenance_ref": {
+        "receipt_id": "r-approved-clean-0001",
+        "type": "aragora.settlement_metadata"
+      },
+      "status": "present"
+    },
+    "scale": "unit_interval",
+    "status": "present",
+    "value": 0.94
+  },
+  "cruxes": {
+    "reason": "no crux set recorded for this decision (DecisionReceipt does not carry one; supply crux_set= from a CruxReceipt)",
+    "status": "absent"
+  },
+  "issued_at": "2026-07-01T09:00:00+00:00",
+  "odr_version": "0.1",
+  "profile": "https://aragora.ai/specs/open-decision-receipt/v0.1",
+  "quorum": {
+    "dissent": {
+      "dissenting_agents": [],
+      "present": false,
+      "views": []
+    },
+    "independence": {
+      "disclosed": true,
+      "distinct_model_families": 3,
+      "model_families": [
+        "anthropic",
+        "google",
+        "mistral"
+      ]
+    },
+    "method": "unanimous",
+    "participants": [
+      {
+        "agent": "claude-agent",
+        "model_family": "anthropic",
+        "model_id": "claude-opus-4-8"
+      },
+      {
+        "agent": "gemini-agent",
+        "model_family": "google",
+        "model_id": "gemini-3.1-pro-preview"
+      },
+      {
+        "agent": "mistral-agent",
+        "model_family": "mistral",
+        "model_id": "mistral-large-2512"
+      }
+    ],
+    "reached": true,
+    "status": "present",
+    "supporting_agents": [
+      "claude-agent",
+      "gemini-agent",
+      "mistral-agent"
+    ]
+  },
+  "reasoning": {
+    "status": "present",
+    "summary": "Unanimous approval: all required checks green, no dissent recorded, and confidence is calibrated against historical settlement outcomes."
+  },
+  "receipt_id": "r-approved-clean-0001",
+  "routing": {
+    "status": "reserved"
+  },
+  "signatures": [],
+  "source": {
+    "artifact_hash": "fefe428afbff25739dca7ce81911573298acb8eee2a2ab0ee36c1ffd38944bce",
+    "receipt_id": "r-approved-clean-0001",
+    "schema": "aragora.gauntlet.DecisionReceipt",
+    "schema_version": "1.1",
+    "system": "aragora"
+  },
+  "subject": {
+    "digest": {
+      "alg": "sha-256",
+      "status": "present",
+      "value": "dc389b41854c5e100dd20a0ca2fc409ab223ca49e149dcf1a9578e9b3341f417"
+    },
+    "identifier": "g-approved-clean-1",
+    "summary": "Should the billing-retry backoff change ship to production?"
+  }
+}
