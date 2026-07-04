@@ -1558,9 +1558,13 @@ def test_default_terminal_owner_auditor_uses_no_lock_read_only_path(
             ]
 
         def _merged_pr_audit_blocked_reason(self, **kwargs: Any) -> str:
+            assert "expected_closed_at" in kwargs
+            assert "expected_head_sha" in kwargs
             return ""
 
         def _base_merged_pr_audit_result(self, **kwargs: Any) -> dict[str, Any]:
+            assert "expected_closed_at" in kwargs
+            assert "expected_head_sha" in kwargs
             return {
                 "github_state": kwargs["github_state"],
                 "findings": kwargs["findings"],
