@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import hashlib
 import json
 import re
 import shutil
@@ -49,6 +50,11 @@ MAX_PACKET_SECTION_BYTES = 96 * 1024
 SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
+TEMP_CONTEXT_NAME_RE = re.compile(
+    r"^(?:aragora_goal_cycle_context|cycle[-_]context(?:[-_][A-Za-z0-9._-]+)?|cycle[-_]report(?:[-_][A-Za-z0-9._-]+)?)"
+    r"\.(?:md|txt|json)$",
+    re.IGNORECASE,
+)
 NEXT_PROMPT_HEADING = "## NEXT PROMPT"
 NEXT_PROMPT_HEADING_RE = re.compile(
     rf"^{re.escape(NEXT_PROMPT_HEADING)}\s*$", re.IGNORECASE | re.MULTILINE
@@ -244,14 +250,18 @@ def _is_allowed_temp_context(resolved: Path) -> bool:
         Path("/tmp").resolve(strict=False),
         Path("/private/tmp").resolve(strict=False),
     }
-    if resolved.suffix.lower() not in {".md", ".txt", ".json"}:
+    if not TEMP_CONTEXT_NAME_RE.fullmatch(resolved.name):
         return False
-    return any(_is_relative_to(resolved, temp_root) for temp_root in temp_roots)
+    return any(resolved.parent == temp_root for temp_root in temp_roots)
 
 
 def _safe_context_name(path: Path) -> str:
-    name = re.sub(r"[^A-Za-z0-9._-]+", "_", path.name).strip("._")
-    return name or "context.md"
+    suffix = path.suffix.lower()
+    stem = path.stem if suffix else path.name
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._")
+    safe_stem = safe_stem or "context"
+    digest = hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:12]
+    return f"{safe_stem}-{digest}{suffix or '.txt'}"
 
 
 def _prepare_context_files(

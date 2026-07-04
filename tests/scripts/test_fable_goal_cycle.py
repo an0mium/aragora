@@ -190,7 +190,7 @@ def test_prepare_context_files_stages_explicit_temp_context(monkeypatch, tmp_pat
     repo_root = tmp_path / "repo"
     temp_root.mkdir()
     repo_root.mkdir()
-    context_file = temp_root / "cycle report.md"
+    context_file = temp_root / "cycle-report-20260704.md"
     context_file.write_text("operator facts", encoding="utf-8")
     monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
 
@@ -203,7 +203,8 @@ def test_prepare_context_files_stages_explicit_temp_context(monkeypatch, tmp_pat
     assert len(prepared) == 1
     staged = prepared[0]
     assert staged.is_relative_to(repo_root / fable_goal_cycle.SAFE_CONTEXT_SUBDIR)
-    assert staged.name == "cycle_report.md"
+    assert staged.name.startswith("cycle-report-20260704-")
+    assert staged.suffix == ".md"
     assert staged.read_text(encoding="utf-8") == "operator facts"
     assert notes == [f"staged outside-repo context file {context_file} -> {staged}"]
 
@@ -218,6 +219,71 @@ def test_prepare_context_files_stages_explicit_temp_context(monkeypatch, tmp_pat
     assert "operator facts" in packet
     assert "context file must be under" not in packet
     assert "staged outside-repo context file" in packet
+
+
+def test_prepare_context_files_rejects_secret_like_temp_context(
+    monkeypatch, tmp_path: Path
+) -> None:
+    temp_root = tmp_path / "tmp"
+    repo_root = tmp_path / "repo"
+    temp_root.mkdir()
+    repo_root.mkdir()
+    context_file = temp_root / "gha-creds-123.json"
+    context_file.write_text("TOKEN=secret", encoding="utf-8")
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
+
+    prepared, notes = fable_goal_cycle._prepare_context_files(
+        [context_file],
+        repo_root,
+        "20260704T090000Z",
+    )
+
+    assert prepared == [context_file]
+    assert notes == []
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        None,
+        prepared,
+        since_hours=24,
+        root=repo_root,
+    )
+
+    assert "context file must be under .aragora/goal-cycle-context" in packet
+    assert "TOKEN=secret" not in packet
+
+
+def test_prepare_context_files_rejects_nested_temp_context_outside_repo(
+    monkeypatch, tmp_path: Path
+) -> None:
+    temp_root = tmp_path / "tmp"
+    repo_root = temp_root / "repo"
+    external_dir = temp_root / "other-worktree"
+    repo_root.mkdir(parents=True)
+    external_dir.mkdir()
+    context_file = external_dir / "cycle-context-20260704.md"
+    context_file.write_text("outside temp repo", encoding="utf-8")
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
+
+    prepared, notes = fable_goal_cycle._prepare_context_files(
+        [context_file],
+        repo_root,
+        "20260704T090000Z",
+    )
+
+    assert prepared == [context_file]
+    assert notes == []
+
+
+def test_safe_context_name_disambiguates_same_basename_sources() -> None:
+    first = fable_goal_cycle._safe_context_name(Path("/tmp/one/cycle-context.md"))
+    second = fable_goal_cycle._safe_context_name(Path("/tmp/two/cycle-context.md"))
+
+    assert first != second
+    assert first.startswith("cycle-context-")
+    assert second.startswith("cycle-context-")
+    assert first.endswith(".md")
+    assert second.endswith(".md")
 
 
 def test_prepare_context_files_leaves_non_temp_context_for_fail_closed_read(
