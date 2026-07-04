@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -41,9 +42,26 @@ from pathlib import Path
 DEFAULT_TIMEOUT_SECONDS = 900
 CONTEXT_STEP_TIMEOUT_SECONDS = 30
 DIGEST_TIMEOUT_SECONDS = 120
+MAX_CONTEXT_FILE_BYTES = 64 * 1024
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
 NEXT_PROMPT_HEADING = "## NEXT PROMPT"
+NEXT_PROMPT_HEADING_RE = re.compile(
+    rf"^{re.escape(NEXT_PROMPT_HEADING)}\s*$", re.IGNORECASE | re.MULTILINE
+)
+SECTION_HEADING_RE = re.compile(r"^##\s+", re.MULTILINE)
+SENSITIVE_CONTEXT_MARKERS = (
+    ".env",
+    "credential",
+    "credentials",
+    "id_rsa",
+    "passwd",
+    "password",
+    "private-key",
+    "private_key",
+    "secret",
+    "token",
+)
 
 EXIT_OK = 0
 EXIT_CONSULT_FAILED = 2
@@ -114,6 +132,46 @@ def _find_consult_script(root: Path) -> Path | None:
         if candidate.is_file():
             return candidate
     return None
+
+
+def _cycle_dir(root: Path, stamp: str) -> Path:
+    """Create a collision-safe artifact directory for this cycle."""
+    base = root / stamp
+    candidate = base
+    suffix = 1
+    while True:
+        try:
+            candidate.mkdir(parents=True, exist_ok=False)
+            return candidate
+        except FileExistsError:
+            candidate = base.with_name(f"{base.name}-{suffix}")
+            suffix += 1
+
+
+def _sensitive_context_path(path: Path) -> bool:
+    lower_parts = [part.lower() for part in path.parts]
+    return any(marker in part for part in lower_parts for marker in SENSITIVE_CONTEXT_MARKERS)
+
+
+def _read_context_file(path: Path) -> tuple[str | None, str | None]:
+    """Read a context file with a hard cap and basic secret-path guard."""
+    if _sensitive_context_path(path):
+        return None, f"refused potentially sensitive context path: {path}"
+    try:
+        if not path.is_file():
+            return None, f"context file is not a regular file: {path}"
+        with path.open("rb") as handle:
+            data = handle.read(MAX_CONTEXT_FILE_BYTES + 1)
+    except OSError as exc:
+        return None, f"context file unreadable: {path}: {exc}"
+
+    truncated = len(data) > MAX_CONTEXT_FILE_BYTES
+    body = data[:MAX_CONTEXT_FILE_BYTES].decode("utf-8", errors="replace").strip()
+    if truncated:
+        note = f"context file truncated to {MAX_CONTEXT_FILE_BYTES} bytes: {path}"
+    else:
+        note = None
+    return body, note
 
 
 def gather_context(root: Path, since_hours: float, max_prs: int, skip_digest: bool) -> dict:
@@ -221,10 +279,10 @@ def build_packet(
             *[f"- {gap}" for gap in context["gaps"]],
         ]
     for path in extra_files:
-        try:
-            body = path.read_text(encoding="utf-8").strip()
-        except OSError as exc:
-            parts += ["", f"### Operator context {path} (unreadable: {exc})"]
+        body, note = _read_context_file(path)
+        if note:
+            parts += ["", f"### Operator context {path} ({note})"]
+        if body is None:
             continue
         parts += ["", f"### Operator context: {path.name}", body]
     parts += ["", "## Required response format", RESPONSE_FORMAT_INSTRUCTIONS]
@@ -233,17 +291,18 @@ def build_packet(
 
 def extract_next_prompt(response: str) -> str | None:
     """Pull the fenced block out of the NEXT PROMPT section, if present."""
-    lower = response.lower()
-    index = lower.find(NEXT_PROMPT_HEADING.lower())
-    if index < 0:
+    matches = list(NEXT_PROMPT_HEADING_RE.finditer(response))
+    if not matches:
         return None
-    tail = response[index:]
-    fence_open = tail.find("```")
+    match = matches[-1]
+    tail = response[match.end() :]
+    next_section = SECTION_HEADING_RE.search(tail)
+    section = tail[: next_section.start()] if next_section else tail
+    fence_open = section.find("```")
     if fence_open < 0:
         # Unfenced fallback: everything after the heading line.
-        body = tail.split("\n", 1)[1].strip() if "\n" in tail else ""
-        return body or None
-    after_open = tail[fence_open + 3 :]
+        return section.strip() or None
+    after_open = section[fence_open + 3 :]
     # Drop a language tag on the opening fence line.
     after_open = after_open.split("\n", 1)[1] if "\n" in after_open else after_open
     fence_close = after_open.find("```")
@@ -261,11 +320,13 @@ def run_consult(consult_script: Path, packet_path: Path, model: str, timeout: fl
         model,
         "--timeout",
         str(timeout),
+        "--overall-timeout",
+        str(timeout),
         "--json",
     ]
-    # Outer bound: consult_claude.py may try up to three backends, each with
-    # its own full budget.
-    ok, out = _run(command, timeout * 3 + 60)
+    # Outer bound gives the consult helper a small cleanup/reporting grace
+    # around its own overall timeout.
+    ok, out = _run(command, timeout + 60)
     if not ok:
         return {"ok": False, "error": f"consult tool failed: {out}"}
     try:
@@ -309,9 +370,8 @@ def main(argv: list[str] | None = None) -> int:
 
     root = _repo_root()
     stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    cycle_dir = Path(args.output_dir) if args.output_dir else root / DEFAULT_OUTPUT_DIR
-    cycle_dir = cycle_dir / stamp
-    cycle_dir.mkdir(parents=True, exist_ok=True)
+    cycle_root = Path(args.output_dir) if args.output_dir else root / DEFAULT_OUTPUT_DIR
+    cycle_dir = _cycle_dir(cycle_root, stamp)
 
     context = gather_context(root, args.since_hours, args.max_prs, args.skip_digest)
     packet = build_packet(

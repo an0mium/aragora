@@ -72,5 +72,7 @@ Run one cycle at a time:
    model; live repo state only.
 
 If `scripts/fable_goal_cycle.py` is not in your checkout yet (branch not
-merged), use the copy bundled next to this SKILL.md (`fable_goal_cycle.py`) —
-same interface.
+merged), use an installed copy such as
+`~/.codex/skills/fable-goal-cycle/fable_goal_cycle.py` when present. This repo
+skill does not bundle a second script beside `SKILL.md`; `scripts/` is the
+canonical in-repo entrypoint once merged.
