@@ -19,8 +19,9 @@ This index intentionally links to actively maintained docs with validated paths.
 ## Receipts & Verification
 
 `docs/specs/` is not mirrored into `docs-site/` (see "Notes" below), so these
-link straight to GitHub rather than to a path that would 404 on
-`docs.aragora.ai`:
+are intentionally external GitHub links rather than in-site links that would
+404 on `docs.aragora.ai`. For release-matched audits, replace `main` in the
+URL with the audited tag or commit.
 
 - [Open Decision Receipt Spec](https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md)
 - [Receipt Lineage Reconciliation](https://github.com/synaptent/aragora/blob/main/docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md)

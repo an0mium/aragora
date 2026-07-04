@@ -21,12 +21,21 @@ on the rest of this repository.
 pip install aragora-verify
 ```
 
-`aragora-verify` 0.1.0 is published on PyPI. Verify this claim yourself in one
-command rather than trusting this sentence:
+`aragora-verify` is published on PyPI. For a new audit, install the current
+release line explicitly so you do not accidentally rely on the older 0.1.0
+package, which predates the signer-label / `key_id` binding documented in the
+verification walkthrough:
 
 ```bash
-curl -s https://pypi.org/pypi/aragora-verify/json | python3 -c "import sys,json; print(json.load(sys.stdin)['releases'])"
-# -> {'0.1.0': [...]}
+pip install "aragora-verify>=0.1.1"
+```
+
+Verify the published version yourself in one command rather than trusting this
+sentence:
+
+```bash
+curl -s https://pypi.org/pypi/aragora-verify/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])"
+# -> 0.1.1
 ```
 
 > **Note on other docs in this repo.** Some existing docs (including this
@@ -34,11 +43,13 @@ curl -s https://pypi.org/pypi/aragora-verify/json | python3 -c "import sys,json;
 > publish pending," because the publish workflow
 > (`.github/workflows/publish-aragora-verify.yml`, merged via
 > [#8693](https://github.com/synaptent/aragora/pull/8693)) is the last event
-> those docs actually checked. A release was in fact run the same day:
-> `aragora-verify` 0.1.0 has been live on PyPI since **2026-06-29** (GitHub
-> release [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0),
-> uploaded via Trusted Publishing). If another doc says "pending," re-run the
-> one-line check above rather than trusting either claim blindly.
+> those docs actually checked. The first release, `aragora-verify` 0.1.0, has
+> been live on PyPI since **2026-06-29** (GitHub release
+> [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0),
+> uploaded via Trusted Publishing). The current 0.1.1 line adds the
+> signer-label / `key_id` binding; if another doc says "pending" or assumes
+> 0.1.0 is the current verifier, re-run the one-line check above and prefer
+> `>=0.1.1` or the source checkout below for full protection.
 
 If you don't want to install anything system-wide, or you want to exercise
 this exact checkout (for example to test a local change before it is
@@ -195,10 +206,10 @@ deployment, the intended flow is:
 1. Fetch the deployment's Ed25519 public key.
 2. `aragora-verify receipt.odr.json --pubkey <that key>.pem`.
 
-**Step 1 is a known gap today.** Both `aragora-verify/README.md` and
-[`OPEN_DECISION_RECEIPT.md`](OPEN_DECISION_RECEIPT.md) describe the public
-key as published at `GET /.well-known/aragora-odr-signing-key` (and `GET
-/api/v2/receipts/signing-key`), but neither route exists in
+**Step 1 is a known gap today.** The package README describes the public key
+as published at `GET /.well-known/aragora-odr-signing-key` and `GET
+/api/v2/receipts/signing-key`, and the public-utility baseline tracks the
+same missing trust-anchor surface; those routes do not yet exist in
 `aragora/server/` — a verifier following the documented instructions gets a
 404 at the trust-anchor step. This is tracked in issue
 [#8804](https://github.com/synaptent/aragora/issues/8804) ("ODR:
@@ -209,10 +220,13 @@ same gap. This guide links to that existing issue rather than filing a
 duplicate.
 
 Until the endpoint ships, the no-trust path is **manual**: obtain the
-signer's public key out-of-band (committed alongside the receipt, or
-distributed by the issuer through a side channel) and pass it with
-`--pubkey` yourself. This repository's own signed example demonstrates the
-shape end to end:
+signer's public key out-of-band from an independently authenticated issuer
+channel, or pin its fingerprint in the audit instructions before you receive
+the receipt, and pass that key with `--pubkey` yourself. A public key bundled
+with the same untrusted receipt is only a test fixture; it does **not**
+establish issuer authenticity, because an attacker can replace the receipt and
+the key together. This repository's own signed example demonstrates the shape
+end to end:
 
 ```bash
 cd aragora-verify
