@@ -80,6 +80,12 @@ aragora-verify decision-receipt.odr.json --pubkey signing-key.pem
 pip install ./aragora-verify
 ```
 
+> Version note: the signer-label (`key_id`) binding fix ships in **0.1.1**
+> (in this repo now; PyPI publish pending — see `aragora-verify/CHANGELOG.md`).
+> Until it's published, prefer the source build above for full signer-label
+> protection; PyPI **0.1.0** verifies content integrity and signature validity
+> but does not bind the recorded `key_id` to your key.
+
 We run this gate on our own repository — every substantive merge is reviewed
 by a heterogeneous model quorum, dissent preserved, receipts written. The
 evidence, with reproducible queries and caught-bug case studies:
