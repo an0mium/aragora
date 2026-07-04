@@ -309,6 +309,36 @@ def test_prepare_context_files_stages_nested_temp_context(monkeypatch, tmp_path:
     assert notes == [f"staged outside-repo context file {context_file} -> {staged}"]
 
 
+def test_prepare_context_files_reads_from_resolved_temp_path(monkeypatch, tmp_path: Path) -> None:
+    temp_root = tmp_path / "tmp"
+    repo_root = tmp_path / "repo"
+    temp_root.mkdir()
+    repo_root.mkdir()
+    context_file = temp_root / "cycle-report-20260704.md"
+    context_file.write_text("operator facts", encoding="utf-8")
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
+
+    read_paths: list[Path] = []
+    original_read = fable_goal_cycle._read_regular_file_no_follow
+
+    def capture_read(path: Path, max_bytes: int) -> bytes:
+        read_paths.append(path)
+        return original_read(path, max_bytes)
+
+    monkeypatch.setattr(fable_goal_cycle, "_read_regular_file_no_follow", capture_read)
+
+    prepared, notes = fable_goal_cycle._prepare_context_files(
+        [Path("..") / "tmp" / context_file.name],
+        repo_root,
+        "20260704T090000Z",
+    )
+
+    assert len(prepared) == 1
+    assert prepared[0].read_text(encoding="utf-8") == "operator facts"
+    assert notes == [f"staged outside-repo context file {context_file} -> {prepared[0]}"]
+    assert read_paths == [context_file.resolve()]
+
+
 def test_prepare_context_files_fails_closed_on_staged_destination_symlink(
     monkeypatch, tmp_path: Path
 ) -> None:

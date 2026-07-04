@@ -334,7 +334,9 @@ def _prepare_context_files(
         try:
             staged_root.mkdir(parents=True, exist_ok=True)
             staged = staged_root / _safe_context_name(resolved)
-            data = _read_regular_file_no_follow(candidate, MAX_CONTEXT_FILE_BYTES + 1)
+            if candidate.is_symlink():
+                raise OSError(f"context file is a symlink: {candidate}")
+            data = _read_regular_file_no_follow(resolved, MAX_CONTEXT_FILE_BYTES + 1)
             _write_regular_file_no_follow(staged, data)
         except OSError as exc:
             prepared.append(raw_path)
