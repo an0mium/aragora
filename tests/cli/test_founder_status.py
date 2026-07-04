@@ -1,0 +1,151 @@
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+from pathlib import Path
+
+from aragora.cli.commands.founder_status import (
+    gather_founder_status,
+    render_founder_status,
+)
+from aragora.cli.commands.status import cmd_status
+from aragora.cli.parser import build_parser
+from aragora.review.health import HealthReport, SurfaceCheck
+
+
+def _health(status: str = "fresh") -> HealthReport:
+    return HealthReport(
+        generated_at=datetime(2026, 7, 4, tzinfo=timezone.utc),
+        overall_status=status,
+        surfaces=[
+            SurfaceCheck(
+                name="boss_metrics",
+                status=status,
+                count=3,
+                detail="ok",
+            )
+        ],
+    )
+
+
+def test_founder_status_reports_queue_and_next_blocker(tmp_path: Path) -> None:
+    state = tmp_path / ".aragora"
+    brief_root = state / "overnight-brief"
+    brief_root.mkdir(parents=True)
+    (brief_root / "latest.md").write_text("# Morning brief\n\nTop 3.\n", encoding="utf-8")
+
+    def merge_packet_builder(**_: object) -> dict[str, object]:
+        return {
+            "queue_pressure": {"current_open_prs": 2, "cap": 6, "active": False},
+            "admin_squash_order": [],
+            "human_risk_settlement_required": [],
+            "not_ready": [8827],
+            "entries": [
+                {
+                    "pr_number": 8827,
+                    "title": "refactor(events): split security debate runner",
+                    "url": "https://github.com/synaptent/aragora/pull/8827",
+                    "head_sha": "abc123",
+                    "tier": 2,
+                    "status": "needs_model_review_quorum",
+                    "verdict": "collect_model_quorum_before_merge",
+                    "admin_squash_allowed": False,
+                    "requires_human_risk_settlement": False,
+                    "requires_human_preapproval": False,
+                    "unresolved_dissent": False,
+                    "checks_summary": "1 failing / 6 required",
+                    "counted_model_families": [],
+                    "reasons": ["model quorum incomplete: 0/2 signal(s)"],
+                }
+            ],
+        }
+
+    report = gather_founder_status(
+        repo_root=str(tmp_path),
+        limit=5,
+        health_gatherer=lambda **_: _health(),
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    assert report["queue"]["transport_status"] == "ok"
+    assert report["queue"]["not_ready"] == [8827]
+    assert report["latest_brief"]["preview"].startswith("# Morning brief")
+    assert report["next_action"]["kind"] == "queue_blocker"
+    assert "PR #8827" in report["next_action"]["summary"]
+
+    rendered = render_founder_status(report)
+    assert "Aragora Founder Status" in rendered
+    assert "Next action: Work one bounded blocker on PR #8827" in rendered
+
+
+def test_founder_status_degrades_on_merge_packet_transport_error(tmp_path: Path) -> None:
+    def broken_builder(**_: object) -> dict[str, object]:
+        raise RuntimeError("organization access is disabled")
+
+    report = gather_founder_status(
+        repo_root=str(tmp_path),
+        health_gatherer=lambda **_: _health(),
+        merge_packet_builder=broken_builder,
+    )
+
+    assert report["queue"]["transport_status"] == "blocked"
+    assert "organization access is disabled" in report["queue"]["transport_error"]
+    assert report["next_action"]["kind"] == "repair_transport"
+
+
+def test_status_parser_accepts_founder_flags() -> None:
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "status",
+            "--founder",
+            "--json",
+            "--repo",
+            "synaptent/aragora",
+            "--limit",
+            "3",
+            "--repo-root",
+            "/tmp/repo",
+        ]
+    )
+
+    assert args.command == "status"
+    assert args.founder is True
+    assert args.json is True
+    assert args.repo == "synaptent/aragora"
+    assert args.limit == 3
+    assert args.repo_root == "/tmp/repo"
+
+
+def test_cmd_status_delegates_founder(monkeypatch, capsys) -> None:
+    seen: dict[str, bool] = {}
+
+    def fake_gather(**_: object) -> dict[str, object]:
+        seen["called"] = True
+        return {
+            "generated_at": "2026-07-04T00:00:00+00:00",
+            "repo_root": "/tmp/repo",
+            "queue": {
+                "transport_status": "ok",
+                "queue_pressure": {"current_open_prs": 0, "cap": 6, "active": False},
+                "status_counts": {},
+                "admin_squash_order": [],
+                "human_risk_settlement_required": [],
+                "not_ready": [],
+                "top_entries": [],
+            },
+            "proof_loop": {"overall_status": "fresh", "surfaces": []},
+            "latest_brief": {"path": None, "age_hours": None, "preview": ""},
+            "next_action": {"summary": "No queue action.", "detail": ""},
+        }
+
+    monkeypatch.setattr(
+        "aragora.cli.commands.founder_status.gather_founder_status",
+        fake_gather,
+    )
+
+    result = cmd_status(argparse.Namespace(founder=True, json=False, limit=1))
+
+    assert result == 0
+    assert seen["called"] is True
+    assert "Aragora Founder Status" in capsys.readouterr().out
