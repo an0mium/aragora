@@ -59,7 +59,7 @@ dependency is the `cryptography` package.
 > all checks PASS on 2026-07-02. CI additionally smoke-tests the CLI against
 > a wheel built from the in-repo [`aragora-verify/`](../../aragora-verify/)
 > source. **Version note:** use 0.1.1+ (`pip install 'aragora-verify>=0.1.1'`,
-> published 2026-07-04) — it binds each signature's recorded `key_id` to the
+> published 2026-07-04 03:28 UTC; verify live: https://pypi.org/pypi/aragora-verify/json) — it binds each signature's recorded `key_id` to the
 > supplied key, so a relabeled signer fails as tampering. 0.1.0 verifies
 > content integrity and signature validity but lacks that binding.
 
