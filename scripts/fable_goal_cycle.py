@@ -25,7 +25,7 @@ Examples::
 
     python3 scripts/fable_goal_cycle.py --goal "Close the loop on settlement throughput"
     python3 scripts/fable_goal_cycle.py --dry-run --json      # build packet only
-    python3 scripts/fable_goal_cycle.py --context-file /tmp/cycle-report.md
+    python3 scripts/fable_goal_cycle.py --context-file "$TMPDIR/cycle-report.md"
 """
 
 from __future__ import annotations
@@ -246,15 +246,14 @@ def _read_context_file(path: Path, root: Path) -> tuple[str | None, str | None]:
 
 
 def _is_allowed_temp_context(resolved: Path) -> bool:
-    """Return true for explicit operator context staged from a temp directory."""
-    temp_roots = {
-        Path(tempfile.gettempdir()).resolve(strict=False),
-        Path("/tmp").resolve(strict=False),
-        Path("/private/tmp").resolve(strict=False),
-    }
+    """Return true for explicit operator context staged from the process temp root."""
     if not TEMP_CONTEXT_NAME_RE.fullmatch(resolved.name):
         return False
-    return any(_is_relative_to(resolved, temp_root) for temp_root in temp_roots)
+    try:
+        temp_root = Path(tempfile.gettempdir()).resolve(strict=True)
+    except OSError:
+        return False
+    return _is_relative_to(resolved, temp_root)
 
 
 def _safe_context_name(path: Path) -> str:

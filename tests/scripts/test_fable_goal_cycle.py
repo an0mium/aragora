@@ -221,6 +221,45 @@ def test_prepare_context_files_stages_explicit_temp_context(monkeypatch, tmp_pat
     assert "staged outside-repo context file" in packet
 
 
+def test_prepare_context_files_rejects_shared_tmp_when_process_temp_differs(
+    monkeypatch, tmp_path: Path
+) -> None:
+    process_temp = tmp_path / "process-temp"
+    repo_root = tmp_path / "repo"
+    process_temp.mkdir()
+    repo_root.mkdir()
+    shared_temp = Path("/tmp").resolve(strict=False)
+    context_file = shared_temp / f"cycle-report-{tmp_path.name}.md"
+    try:
+        context_file.write_text("untrusted shared temp", encoding="utf-8")
+    except OSError:
+        return
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(process_temp))
+
+    try:
+        prepared, notes = fable_goal_cycle._prepare_context_files(
+            [context_file],
+            repo_root,
+            "20260704T090000Z",
+        )
+
+        assert prepared == [context_file]
+        assert notes == []
+
+        packet = fable_goal_cycle.build_packet(
+            {"sections": {}, "gaps": []},
+            None,
+            prepared,
+            since_hours=24,
+            root=repo_root,
+        )
+
+        assert "context file must be under .aragora/goal-cycle-context" in packet
+        assert "untrusted shared temp" not in packet
+    finally:
+        context_file.unlink(missing_ok=True)
+
+
 def test_prepare_context_files_rejects_explicit_temp_symlink(monkeypatch, tmp_path: Path) -> None:
     temp_root = tmp_path / "tmp"
     repo_root = tmp_path / "repo"
@@ -474,6 +513,51 @@ def test_prepare_context_files_fails_closed_when_staging_write_fails(
 
     assert prepared == [context_file]
     assert notes == [f"context file staging failed: {context_file}: disk full"]
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {"operator context staging": "\n".join(notes)}, "gaps": []},
+        None,
+        prepared,
+        since_hours=24,
+        root=repo_root,
+    )
+
+    assert "context file staging failed" in packet
+    assert "context file must be under .aragora/goal-cycle-context" in packet
+    assert "operator facts" not in packet
+
+
+def test_prepare_context_files_fails_closed_when_staging_mkdir_fails(
+    monkeypatch, tmp_path: Path
+) -> None:
+    temp_root = tmp_path / "tmp"
+    repo_root = tmp_path / "repo"
+    stamp = "20260704T090000Z"
+    temp_root.mkdir()
+    repo_root.mkdir()
+    context_file = temp_root / "cycle-report-20260704.md"
+    context_file.write_text("operator facts", encoding="utf-8")
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
+    staged_root = repo_root / fable_goal_cycle.SAFE_CONTEXT_SUBDIR / "imported" / stamp
+    original_mkdir = fable_goal_cycle.Path.mkdir
+
+    def fail_staging_mkdir(self: Path, *args, **kwargs) -> None:
+        if self == staged_root:
+            raise OSError("read-only staging root")
+        original_mkdir(self, *args, **kwargs)
+
+    monkeypatch.setattr(fable_goal_cycle.Path, "mkdir", fail_staging_mkdir)
+
+    prepared, notes = fable_goal_cycle._prepare_context_files(
+        [context_file],
+        repo_root,
+        stamp,
+    )
+
+    assert prepared == [context_file]
+    assert notes == [
+        f"context file staging failed: {context_file}: read-only staging root"
+    ]
 
     packet = fable_goal_cycle.build_packet(
         {"sections": {"operator context staging": "\n".join(notes)}, "gaps": []},
