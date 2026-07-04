@@ -8,8 +8,11 @@ settlement boundary. It does not post comments, statuses, evidence, or merges.
 from __future__ import annotations
 
 import os
+import subprocess
 import time
+from collections import OrderedDict
 from datetime import datetime, timezone
+from threading import RLock
 from typing import Any
 
 from aragora.cli.commands.review_queue_transport import _GhError
@@ -19,10 +22,13 @@ UTC = timezone.utc
 DEFAULT_PACKET_SCAN_LIMIT = 20
 MAX_PACKET_SCAN_LIMIT = 100
 DEFAULT_PACKET_CACHE_TTL_SECONDS = 30.0
+DEFAULT_PACKET_CACHE_MAX_ENTRIES = 32
+MAX_PACKET_CACHE_MAX_ENTRIES = 256
 EMPTY_PACKET_VERSION = "merge_authorization_packet.v1"
 
 PacketCacheKey = tuple[str | None, str | None, tuple[str, ...], int]
-_PACKET_CACHE: dict[PacketCacheKey, tuple[float, dict[str, Any]]] = {}
+_PACKET_CACHE: OrderedDict[PacketCacheKey, tuple[float, dict[str, Any]]] = OrderedDict()
+_PACKET_CACHE_LOCK = RLock()
 
 SETTLEMENT_READY_STATUSES = {
     "human_risk_settlement_required",
@@ -101,6 +107,14 @@ def _cache_ttl_seconds() -> float:
     return min(ttl, 300.0)
 
 
+def _cache_max_entries() -> int:
+    return _positive_int(
+        os.environ.get("ARAGORA_SETTLEMENT_INBOX_CACHE_MAX_ENTRIES"),
+        default=DEFAULT_PACKET_CACHE_MAX_ENTRIES,
+        maximum=MAX_PACKET_CACHE_MAX_ENTRIES,
+    )
+
+
 def _sync_refresh_enabled() -> bool:
     raw = os.environ.get("ARAGORA_SETTLEMENT_INBOX_ALLOW_SYNC_REFRESH", "")
     return raw.lower().strip() in {"1", "true", "yes", "on"}
@@ -134,6 +148,37 @@ def _packet_cache_key(
     return (repo_override, review_queue_root, tuple(pr_refs), limit_key)
 
 
+def _cache_get_fresh(
+    cache_key: PacketCacheKey,
+    *,
+    now: float,
+    ttl: float,
+) -> dict[str, Any] | None:
+    with _PACKET_CACHE_LOCK:
+        cached = _PACKET_CACHE.get(cache_key)
+        if cached is None:
+            return None
+        if ttl > 0 and now - cached[0] <= ttl:
+            _PACKET_CACHE.move_to_end(cache_key)
+            return dict(cached[1])
+        _PACKET_CACHE.pop(cache_key, None)
+        return None
+
+
+def _cache_discard(cache_key: PacketCacheKey) -> None:
+    with _PACKET_CACHE_LOCK:
+        _PACKET_CACHE.pop(cache_key, None)
+
+
+def _cache_store(cache_key: PacketCacheKey, *, timestamp: float, packet: dict[str, Any]) -> None:
+    max_entries = _cache_max_entries()
+    with _PACKET_CACHE_LOCK:
+        _PACKET_CACHE[cache_key] = (timestamp, dict(packet))
+        _PACKET_CACHE.move_to_end(cache_key)
+        while len(_PACKET_CACHE) > max_entries:
+            _PACKET_CACHE.popitem(last=False)
+
+
 def _build_merge_packet(
     *,
     merge_packet_builder: Any,
@@ -158,13 +203,12 @@ def _build_merge_packet(
     ttl = _cache_ttl_seconds()
     cache_key = _packet_cache_key(repo_override, review_queue_root, pr_refs, packet_limit)
     now = time.monotonic()
-    cached = _PACKET_CACHE.get(cache_key)
     if ttl > 0:
-        if cached is not None and now - cached[0] <= ttl:
-            return dict(cached[1])
-    if not allow_sync_refresh:
+        cached = _cache_get_fresh(cache_key, now=now, ttl=ttl)
         if cached is not None:
-            _PACKET_CACHE.pop(cache_key, None)
+            return cached
+    if not allow_sync_refresh:
+        _cache_discard(cache_key)
         return _empty_packet()
     if not pr_refs and not _bounded_queue_scan_enabled():
         return _empty_packet()
@@ -179,14 +223,22 @@ def _build_merge_packet(
         ignore_own_quorum_check=False,
     )
     if ttl > 0:
-        _PACKET_CACHE[cache_key] = (now, dict(packet))
+        _cache_store(cache_key, timestamp=now, packet=packet)
     return packet
 
 
 def _call_merge_packet_builder(merge_packet_builder: Any, **kwargs: Any) -> dict[str, Any]:
     try:
         packet = merge_packet_builder(**kwargs)
-    except (_GhError, OSError, RuntimeError, TypeError, ValueError) as exc:
+    except (
+        _GhError,
+        LookupError,
+        OSError,
+        RuntimeError,
+        subprocess.SubprocessError,
+        TypeError,
+        ValueError,
+    ) as exc:
         raise SettlementInboxError(str(exc)) from exc
     if not isinstance(packet, dict):
         raise SettlementInboxError("merge packet builder returned non-dict packet")
@@ -221,7 +273,7 @@ def refresh_settlement_approval_cache(
     cache_key = _packet_cache_key(repo_override, queue_root, refs, packet_limit)
     if not refs and not _bounded_queue_scan_enabled():
         packet = _empty_packet()
-        _PACKET_CACHE[cache_key] = (time.monotonic(), dict(packet))
+        _cache_store(cache_key, timestamp=time.monotonic(), packet=packet)
         return packet
     packet = _call_merge_packet_builder(
         merge_packet_builder,
@@ -232,7 +284,7 @@ def refresh_settlement_approval_cache(
         execute_reviewers=False,
         ignore_own_quorum_check=False,
     )
-    _PACKET_CACHE[cache_key] = (time.monotonic(), dict(packet))
+    _cache_store(cache_key, timestamp=time.monotonic(), packet=packet)
     return packet
 
 
@@ -433,8 +485,10 @@ def collect_pending_settlement_approvals(
 
 __all__ = [
     "DEFAULT_PACKET_CACHE_TTL_SECONDS",
+    "DEFAULT_PACKET_CACHE_MAX_ENTRIES",
     "DEFAULT_PACKET_SCAN_LIMIT",
     "EMPTY_PACKET_VERSION",
+    "MAX_PACKET_CACHE_MAX_ENTRIES",
     "MAX_PACKET_SCAN_LIMIT",
     "SETTLEMENT_READY_STATUSES",
     "SettlementInboxError",

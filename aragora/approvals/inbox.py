@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import logging
 import os
 from dataclasses import dataclass
@@ -282,16 +281,15 @@ def collect_pending_approvals(
 
     if "settlement" in sources and _settlement_inbox_enabled():
         try:
-            settlement_inbox = importlib.import_module("aragora.approvals.settlement_inbox")
+            from aragora.approvals.settlement_inbox import (
+                SettlementInboxError,
+                collect_pending_settlement_approvals,
+            )
         except ImportError:
             logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
         else:
-            candidate_error = getattr(settlement_inbox, "SettlementInboxError", None)
-            settlement_error: type[RuntimeError] | None = None
-            if isinstance(candidate_error, type) and issubclass(candidate_error, RuntimeError):
-                settlement_error = candidate_error
             try:
-                for item in settlement_inbox.collect_pending_settlement_approvals(limit=limit):
+                for item in collect_pending_settlement_approvals(limit=limit):
                     items.append(
                         UnifiedApprovalItem(
                             id=str(item.get("id", "")),
@@ -306,11 +304,13 @@ def collect_pending_approvals(
                             _sort_ts=_to_sort_ts(item.get("requested_at")),
                         )
                     )
-            except RuntimeError as exc:
-                if settlement_error is None or not isinstance(exc, settlement_error):
-                    raise
-                logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
-            except (AttributeError, OSError, TypeError, ValueError):
+            except (
+                SettlementInboxError,
+                AttributeError,
+                OSError,
+                TypeError,
+                ValueError,
+            ):
                 logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
 
     items.sort(key=lambda item: item._sort_ts, reverse=True)

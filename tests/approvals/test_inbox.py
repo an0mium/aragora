@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import builtins
 from unittest.mock import patch
 
-from aragora.approvals import inbox as inbox_module
 from aragora.approvals import settlement_inbox as settlement_inbox_module
 from aragora.approvals.inbox import DEFAULT_APPROVAL_SOURCES, collect_pending_approvals
 from aragora.approvals.settlement_inbox import (
@@ -306,6 +306,26 @@ def test_collect_pending_settlement_approvals_cache_is_scoped_to_pr_refs(monkeyp
     assert approvals == []
 
 
+def test_refresh_settlement_approval_cache_bounds_cache_entries(monkeypatch):
+    settlement_inbox_module._PACKET_CACHE.clear()
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_CACHE_MAX_ENTRIES", "2")
+
+    def merge_packet_builder(**kwargs):
+        return _settlement_packet()
+
+    for ref in ["7736", "7737", "7738"]:
+        refresh_settlement_approval_cache(
+            limit=10,
+            repo="synaptent/aragora",
+            pr_refs=[ref],
+            merge_packet_builder=merge_packet_builder,
+        )
+
+    assert len(settlement_inbox_module._PACKET_CACHE) == 2
+    cached_ref_sets = [cache_key[2] for cache_key in settlement_inbox_module._PACKET_CACHE]
+    assert cached_ref_sets == [("7737",), ("7738",)]
+
+
 def test_collect_pending_settlement_approvals_preserves_settlement_context():
     def merge_packet_builder(**kwargs):
         return _settlement_packet()
@@ -352,14 +372,14 @@ def test_collect_pending_approvals_explicit_settlement_source_requires_flag(monk
 
 def test_collect_pending_approvals_settlement_import_failure_is_best_effort(monkeypatch):
     monkeypatch.setenv("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", "1")
-    real_import_module = inbox_module.importlib.import_module
+    real_import = builtins.__import__
 
-    def fake_import_module(name):
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
         if name == "aragora.approvals.settlement_inbox":
             raise ImportError("settlement source unavailable")
-        return real_import_module(name)
+        return real_import(name, globals, locals, fromlist, level)
 
-    monkeypatch.setattr(inbox_module.importlib, "import_module", fake_import_module)
+    monkeypatch.setattr(builtins, "__import__", fake_import)
 
     approvals = collect_pending_approvals(limit=5, sources=["settlement"])
 
