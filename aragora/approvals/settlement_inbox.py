@@ -12,6 +12,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.cli.commands.review_queue_transport import _GhError
+
 UTC = timezone.utc
 
 DEFAULT_PACKET_SCAN_LIMIT = 20
@@ -25,6 +27,10 @@ SETTLEMENT_READY_STATUSES = {
     "human_risk_settlement_required",
     "human_preapproval_required",
 }
+
+
+class SettlementInboxError(RuntimeError):
+    """Raised when settlement packet hydration fails for the inbox source."""
 
 
 def _parse_ts(value: Any) -> float:
@@ -128,7 +134,8 @@ def _build_merge_packet(
     allow_sync_refresh: bool,
 ) -> dict[str, Any]:
     if not use_cache:
-        return merge_packet_builder(
+        return _call_merge_packet_builder(
+            merge_packet_builder,
             pr_refs=pr_refs,
             limit=packet_limit,
             repo_override=repo_override,
@@ -151,7 +158,8 @@ def _build_merge_packet(
     if not pr_refs and not _bounded_queue_scan_enabled():
         return _empty_packet()
 
-    packet = merge_packet_builder(
+    packet = _call_merge_packet_builder(
+        merge_packet_builder,
         pr_refs=pr_refs,
         limit=packet_limit,
         repo_override=repo_override,
@@ -161,6 +169,16 @@ def _build_merge_packet(
     )
     if ttl > 0:
         _PACKET_CACHE[cache_key] = (now, dict(packet))
+    return packet
+
+
+def _call_merge_packet_builder(merge_packet_builder: Any, **kwargs: Any) -> dict[str, Any]:
+    try:
+        packet = merge_packet_builder(**kwargs)
+    except (_GhError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise SettlementInboxError(str(exc)) from exc
+    if not isinstance(packet, dict):
+        raise SettlementInboxError("merge packet builder returned non-dict packet")
     return packet
 
 
@@ -193,7 +211,8 @@ def refresh_settlement_approval_cache(
         packet = _empty_packet()
         _PACKET_CACHE[(repo_override, queue_root)] = (time.monotonic(), dict(packet))
         return packet
-    packet = merge_packet_builder(
+    packet = _call_merge_packet_builder(
+        merge_packet_builder,
         pr_refs=refs,
         limit=packet_limit,
         repo_override=repo_override,
@@ -406,6 +425,7 @@ __all__ = [
     "EMPTY_PACKET_VERSION",
     "MAX_PACKET_SCAN_LIMIT",
     "SETTLEMENT_READY_STATUSES",
+    "SettlementInboxError",
     "collect_pending_settlement_approvals",
     "refresh_settlement_approval_cache",
 ]

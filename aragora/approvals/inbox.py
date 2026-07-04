@@ -281,7 +281,10 @@ def collect_pending_approvals(
 
     if "settlement" in sources and _settlement_inbox_enabled():
         try:
-            from aragora.approvals.settlement_inbox import collect_pending_settlement_approvals
+            from aragora.approvals.settlement_inbox import (
+                SettlementInboxError,
+                collect_pending_settlement_approvals,
+            )
 
             for item in collect_pending_settlement_approvals(limit=limit):
                 items.append(
@@ -298,7 +301,14 @@ def collect_pending_approvals(
                         _sort_ts=_to_sort_ts(item.get("requested_at")),
                     )
                 )
-        except Exception:  # noqa: BLE001 - best-effort source; preserve other inbox items.
+        except (
+            SettlementInboxError,
+            ImportError,
+            AttributeError,
+            OSError,
+            TypeError,
+            ValueError,
+        ):
             logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
 
     items.sort(key=lambda item: item._sort_ts, reverse=True)
