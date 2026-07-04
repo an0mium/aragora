@@ -184,12 +184,28 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
 
 
 def _packet_with_footer(parts: list[str]) -> str:
-    body = "\n".join(parts) + "\n"
     footer = "\n## Required response format\n" + RESPONSE_FORMAT_INSTRUCTIONS + "\n"
     footer_bytes = len(footer.encode("utf-8"))
     if footer_bytes >= MAX_PACKET_BYTES:
         return _truncate_text_bytes(footer, MAX_PACKET_BYTES)
-    return _truncate_text_bytes(body, MAX_PACKET_BYTES - footer_bytes) + footer
+    body_budget = MAX_PACKET_BYTES - footer_bytes
+    kept: list[str] = []
+    used = 0
+    truncated = False
+    for part in parts:
+        rendered = f"{part}\n"
+        part_bytes = len(rendered.encode("utf-8"))
+        if used + part_bytes > body_budget:
+            truncated = True
+            break
+        kept.append(part)
+        used += part_bytes
+    if truncated:
+        marker = "[truncated packet before remaining sections]"
+        marker_bytes = len(f"{marker}\n".encode("utf-8"))
+        if used + marker_bytes <= body_budget:
+            kept += ["", marker]
+    return "\n".join(kept) + "\n" + footer
 
 
 def _read_context_file(path: Path, root: Path) -> tuple[str | None, str | None]:
@@ -325,13 +341,13 @@ def build_packet(
     for name, body in context["sections"].items():
         parts += ["", f"### {name}", _markdown_code_block(_bounded_code_block(body))]
     if context["gaps"]:
+        gap_body = "\n".join(
+            f"- {_truncate_text_bytes(gap, MAX_PACKET_SECTION_BYTES)}" for gap in context["gaps"]
+        )
         parts += [
             "",
             "## Context gaps (sources that failed or were skipped this cycle)",
-            *[
-                f"- {_truncate_text_bytes(gap, MAX_PACKET_SECTION_BYTES)}"
-                for gap in context["gaps"]
-            ],
+            _markdown_code_block(_bounded_code_block(gap_body)),
         ]
     for path in extra_files:
         body, note = _read_context_file(path, root)
@@ -354,18 +370,20 @@ def extract_next_prompt(response: str) -> str | None:
         return None
     match = matches[-1]
     tail = response[match.end() :]
+    fence_match = re.search(r"^[ \t]*(`{3,})[^\n]*\n", tail, re.MULTILINE)
+    if fence_match:
+        fence = fence_match.group(1)
+        close_re = re.compile(rf"^[ \t]*{re.escape(fence)}[ \t]*$", re.MULTILINE)
+        fence_close = close_re.search(tail, fence_match.end())
+        block = tail[fence_match.end() : fence_close.start() if fence_close else len(tail)]
+        return block.strip() or None
+
     next_section = SECTION_HEADING_RE.search(tail)
     section = tail[: next_section.start()] if next_section else tail
-    fence_open = section.find("```")
-    if fence_open < 0:
-        # Unfenced fallback: everything after the heading line.
-        return section.strip() or None
-    after_open = section[fence_open + 3 :]
-    # Drop a language tag on the opening fence line.
-    after_open = after_open.split("\n", 1)[1] if "\n" in after_open else after_open
-    fence_close = after_open.find("```")
-    block = after_open[:fence_close] if fence_close >= 0 else after_open
-    return block.strip() or None
+    if not section.strip():
+        return None
+    # Unfenced fallback: everything after the heading line.
+    return section.strip() or None
 
 
 def run_consult(consult_script: Path, packet_path: Path, model: str, timeout: float) -> dict:

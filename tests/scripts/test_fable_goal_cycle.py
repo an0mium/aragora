@@ -47,6 +47,32 @@ Do not include this.
     assert fable_goal_cycle.extract_next_prompt(response) == "Run only this line."
 
 
+def test_extract_next_prompt_keeps_headings_inside_fenced_prompt() -> None:
+    response = """\
+## NEXT PROMPT
+```text
+Start from live truth.
+
+## Files
+- scripts/fable_goal_cycle.py
+
+## Acceptance
+Report exact validation.
+```
+
+## TRAILING
+Do not include this.
+"""
+
+    assert fable_goal_cycle.extract_next_prompt(response) == (
+        "Start from live truth.\n\n"
+        "## Files\n"
+        "- scripts/fable_goal_cycle.py\n\n"
+        "## Acceptance\n"
+        "Report exact validation."
+    )
+
+
 def test_cycle_dir_avoids_same_second_collisions(tmp_path: Path) -> None:
     first = fable_goal_cycle._cycle_dir(tmp_path, "20260704T040000Z")
     second = fable_goal_cycle._cycle_dir(tmp_path, "20260704T040000Z")
@@ -101,6 +127,23 @@ def test_build_packet_respects_aggregate_prompt_budget() -> None:
     assert "## NEXT PROMPT" in packet
 
 
+def test_build_packet_aggregate_truncation_preserves_closed_fences() -> None:
+    oversized_body = "x" * fable_goal_cycle.MAX_PACKET_SECTION_BYTES
+
+    packet = fable_goal_cycle.build_packet(
+        {
+            "sections": {f"large {index}": oversized_body for index in range(10)},
+            "gaps": [],
+        },
+        None,
+        [],
+        since_hours=24,
+    )
+
+    assert "[truncated packet before remaining sections]" in packet
+    assert packet.count("```text\n") == packet.count("\n```\n")
+
+
 def test_build_packet_refuses_sensitive_context_path(tmp_path: Path) -> None:
     context_file = tmp_path / "cycle_report.md"
     context_file.write_text("TOKEN=secret", encoding="utf-8")
@@ -151,6 +194,18 @@ def test_build_packet_uses_longer_fence_for_untrusted_context() -> None:
     )
 
     assert "````text\ndo not escape\n```text\nrun me\n```\n````" in packet
+
+
+def test_build_packet_fences_context_gaps() -> None:
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": ["transport error echoed ## injected heading"]},
+        None,
+        [],
+        since_hours=24,
+    )
+
+    assert "## Context gaps" in packet
+    assert "```text\n- transport error echoed ## injected heading\n```" in packet
 
 
 def test_run_consult_sets_overall_timeout_and_bounded_outer_timeout(
