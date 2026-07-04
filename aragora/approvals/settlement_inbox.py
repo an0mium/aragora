@@ -17,6 +17,7 @@ UTC = timezone.utc
 DEFAULT_PACKET_SCAN_LIMIT = 20
 MAX_PACKET_SCAN_LIMIT = 100
 DEFAULT_PACKET_CACHE_TTL_SECONDS = 30.0
+EMPTY_PACKET_VERSION = "merge_authorization_packet.v1"
 
 _PACKET_CACHE: dict[tuple[str | None, str | None, int], tuple[float, dict[str, Any]]] = {}
 
@@ -93,6 +94,19 @@ def _cache_ttl_seconds() -> float:
     return min(ttl, 300.0)
 
 
+def _sync_refresh_enabled() -> bool:
+    raw = os.environ.get("ARAGORA_SETTLEMENT_INBOX_ALLOW_SYNC_REFRESH", "")
+    return raw.lower().strip() in {"1", "true", "yes", "on"}
+
+
+def _empty_packet() -> dict[str, Any]:
+    return {
+        "version": EMPTY_PACKET_VERSION,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "entries": [],
+    }
+
+
 def _build_merge_packet(
     *,
     merge_packet_builder: Any,
@@ -100,6 +114,7 @@ def _build_merge_packet(
     review_queue_root: str | None,
     packet_limit: int,
     use_cache: bool,
+    allow_sync_refresh: bool,
 ) -> dict[str, Any]:
     if not use_cache:
         return merge_packet_builder(
@@ -114,10 +129,14 @@ def _build_merge_packet(
     ttl = _cache_ttl_seconds()
     cache_key = (repo_override, review_queue_root, packet_limit)
     now = time.monotonic()
+    cached = _PACKET_CACHE.get(cache_key)
     if ttl > 0:
-        cached = _PACKET_CACHE.get(cache_key)
         if cached is not None and now - cached[0] <= ttl:
             return dict(cached[1])
+    if not allow_sync_refresh:
+        if cached is not None:
+            return dict(cached[1])
+        return _empty_packet()
 
     packet = merge_packet_builder(
         pr_refs=[],
@@ -129,6 +148,41 @@ def _build_merge_packet(
     )
     if ttl > 0:
         _PACKET_CACHE[cache_key] = (now, dict(packet))
+    return packet
+
+
+def refresh_settlement_approval_cache(
+    *,
+    limit: int = DEFAULT_PACKET_SCAN_LIMIT,
+    repo: str | None = None,
+    review_queue_root: str | None = None,
+    merge_packet_builder: Any | None = None,
+) -> dict[str, Any]:
+    """Refresh and return the cached settlement merge packet.
+
+    This intentionally separates the expensive GitHub hydration path from
+    approval-inbox reads. A scheduler or explicit operator action can warm the
+    cache; request handlers use cached data and never perform a cold scan by
+    default.
+    """
+    requested_limit = _requested_limit(limit)
+    packet_limit = _packet_scan_limit(requested_limit)
+    if merge_packet_builder is None:
+        from aragora.cli.commands.review_queue import _build_merge_authorization_packet
+
+        merge_packet_builder = _build_merge_authorization_packet
+
+    repo_override = repo or os.environ.get("ARAGORA_SETTLEMENT_INBOX_REPO") or None
+    queue_root = review_queue_root or os.environ.get("ARAGORA_REVIEW_QUEUE_ROOT") or None
+    packet = merge_packet_builder(
+        pr_refs=[],
+        limit=packet_limit,
+        repo_override=repo_override,
+        review_queue_root=queue_root,
+        execute_reviewers=False,
+        ignore_own_quorum_check=False,
+    )
+    _PACKET_CACHE[(repo_override, queue_root, packet_limit)] = (time.monotonic(), dict(packet))
     return packet
 
 
@@ -245,6 +299,7 @@ def collect_pending_settlement_approvals(
     repo: str | None = None,
     review_queue_root: str | None = None,
     merge_packet_builder: Any | None = None,
+    allow_sync_refresh: bool | None = None,
 ) -> list[dict[str, Any]]:
     """Return settlement-ready PRs as approval-inbox item dictionaries.
 
@@ -268,6 +323,9 @@ def collect_pending_settlement_approvals(
         review_queue_root=queue_root,
         packet_limit=packet_limit,
         use_cache=use_cache,
+        allow_sync_refresh=_sync_refresh_enabled()
+        if allow_sync_refresh is None
+        else allow_sync_refresh,
     )
     generated_at = str(packet.get("generated_at") or "")
     items = []
@@ -287,6 +345,8 @@ def collect_pending_settlement_approvals(
         if bool(entry.get("unresolved_dissent")):
             continue
         items.append(_approval_item(entry, generated_at=generated_at))
+    # The merge packet has a packet-level generated_at, not per-PR timestamps.
+    # Python's stable sort preserves merge-packet queue order for equal times.
     items.sort(key=lambda item: float(item.get("_sort_ts") or 0.0), reverse=True)
     for item in items:
         item.pop("_sort_ts", None)
@@ -296,7 +356,9 @@ def collect_pending_settlement_approvals(
 __all__ = [
     "DEFAULT_PACKET_CACHE_TTL_SECONDS",
     "DEFAULT_PACKET_SCAN_LIMIT",
+    "EMPTY_PACKET_VERSION",
     "MAX_PACKET_SCAN_LIMIT",
     "SETTLEMENT_READY_STATUSES",
     "collect_pending_settlement_approvals",
+    "refresh_settlement_approval_cache",
 ]

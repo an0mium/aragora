@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+from aragora.approvals import settlement_inbox as settlement_inbox_module
 from aragora.approvals.inbox import DEFAULT_APPROVAL_SOURCES, collect_pending_approvals
-from aragora.approvals.settlement_inbox import collect_pending_settlement_approvals
+from aragora.approvals.settlement_inbox import (
+    collect_pending_settlement_approvals,
+    refresh_settlement_approval_cache,
+)
 from aragora.gauntlet.signing import HMACSigner, ReceiptSigner
 from aragora.inbox.trust_wedge import (
     ActionIntent,
@@ -179,6 +183,59 @@ def test_collect_pending_settlement_approvals_bounds_packet_scan_limit():
 
     assert len(approvals) == 1
     assert calls[0]["limit"] == 20
+
+
+def test_collect_pending_settlement_approvals_cache_only_cold_path_does_not_scan(monkeypatch):
+    settlement_inbox_module._PACKET_CACHE.clear()
+
+    from aragora.cli.commands import review_queue
+
+    def forbidden_scan(**kwargs):
+        raise AssertionError(f"unexpected cold scan: {kwargs}")
+
+    monkeypatch.setattr(review_queue, "_build_merge_authorization_packet", forbidden_scan)
+    monkeypatch.delenv("ARAGORA_SETTLEMENT_INBOX_ALLOW_SYNC_REFRESH", raising=False)
+
+    approvals = collect_pending_settlement_approvals(
+        limit=10,
+        repo="synaptent/aragora",
+        allow_sync_refresh=False,
+    )
+
+    assert approvals == []
+
+
+def test_collect_pending_settlement_approvals_uses_warmed_cache(monkeypatch):
+    settlement_inbox_module._PACKET_CACHE.clear()
+    calls = []
+
+    def merge_packet_builder(**kwargs):
+        calls.append(kwargs)
+        return _settlement_packet()
+
+    refresh_settlement_approval_cache(
+        limit=10,
+        repo="synaptent/aragora",
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    from aragora.cli.commands import review_queue
+
+    def forbidden_scan(**kwargs):
+        raise AssertionError(f"unexpected cold scan: {kwargs}")
+
+    monkeypatch.setattr(review_queue, "_build_merge_authorization_packet", forbidden_scan)
+    monkeypatch.delenv("ARAGORA_SETTLEMENT_INBOX_ALLOW_SYNC_REFRESH", raising=False)
+
+    approvals = collect_pending_settlement_approvals(
+        limit=10,
+        repo="synaptent/aragora",
+        allow_sync_refresh=False,
+    )
+
+    assert len(approvals) == 1
+    assert approvals[0]["metadata"]["pr_number"] == 7736
+    assert calls[0]["limit"] == 10
 
 
 def test_collect_pending_approvals_explicit_settlement_source_requires_flag(monkeypatch):

@@ -301,7 +301,7 @@ def collect_pending_approvals(
                         _sort_ts=_to_sort_ts(item.get("requested_at")),
                     )
                 )
-        except (ImportError, AttributeError, OSError, RuntimeError, ValueError):
+        except Exception:  # noqa: BLE001 - best-effort source; preserve other inbox items.
             logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
 
     items.sort(key=lambda item: item._sort_ts, reverse=True)
