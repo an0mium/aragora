@@ -2237,7 +2237,12 @@ def _prepared_body(family: str, verdict: str = "PASS") -> str:
     return f"Verdict: {verdict}\n\n{family} body\n"
 
 
-def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None) -> Path:
+def _prepared_outcome_file(
+    tmp_path,
+    *,
+    items: list[EvidenceItem] | None = None,
+    adjudication: dict | None = None,
+) -> Path:
     outcome = CollectOutcome(
         repo="o/r",
         pr=1,
@@ -2251,6 +2256,7 @@ def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None)
             EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
             EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
         ],
+        adjudication=adjudication,
     )
     path = tmp_path / "prepared.json"
     path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
@@ -2295,6 +2301,55 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert "without reviewer regeneration" in outcome.action_reason
     assert outcome.posted == ["claude", "grok"]
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
+
+
+def test_apply_prepared_evidence_recomputes_exact_head_adjudication(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_REVIEW_ADJUDICATOR", "1")
+    stale_adjudication = {"kind": "review_adjudication.v1", "verdict": "adjudicated_settle"}
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem(
+                "openai",
+                "Verdict: CHANGES-REQUESTED\n"
+                "- [P1] aragora/swarm/quorum_evidence.py:2679 preserves stale "
+                "prepared adjudication after fresh lint rejects the reviewer.",
+                False,
+                [],
+                [],
+                "changes_requested",
+            ),
+        ],
+        adjudication=stale_adjudication,
+    )
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "openai"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=lambda *args, **kwargs: (
+            {"would_count": True, "counted_reviewer_ids": ["claude"], "problems": []}
+            if "claude body" in args[4]
+            else {"would_count": False, "counted_reviewer_ids": [], "problems": []}
+        ),
+        poster=lambda repo, pr, body: None,
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.supportive_families == ["claude"]
+    assert outcome.dissenting_families == ["openai"]
+    assert outcome.adjudication is not None
+    assert outcome.adjudication["verdict"] == "adjudicated_block"
+    assert outcome.adjudication["verdict"] != stale_adjudication["verdict"]
+    assert outcome.adjudication["blocking_findings"]
 
 
 def test_collect_outcome_tiered_gate_roundtrips() -> None:
@@ -2628,7 +2683,10 @@ def test_apply_prepared_evidence_honors_requested_family_allowlist(tmp_path) -> 
 
 
 def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
-    prepared = _prepared_outcome_file(tmp_path)
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        adjudication={"kind": "review_adjudication.v1", "verdict": "adjudicated_settle"},
+    )
     posted: list[tuple[str, str]] = []
 
     def context_fetcher(repo: str, pr: int) -> dict:
@@ -2652,6 +2710,8 @@ def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
 
     assert outcome.action == "prepare"
     assert "prepared head" in outcome.action_reason
+    assert outcome.adjudication is None
+    assert "adjudication" not in outcome.to_dict()
     assert outcome.posted == []
     assert posted == []
 
