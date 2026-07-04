@@ -221,6 +221,39 @@ def test_prepare_context_files_stages_explicit_temp_context(monkeypatch, tmp_pat
     assert "staged outside-repo context file" in packet
 
 
+def test_prepare_context_files_rejects_explicit_temp_symlink(monkeypatch, tmp_path: Path) -> None:
+    temp_root = tmp_path / "tmp"
+    repo_root = tmp_path / "repo"
+    temp_root.mkdir()
+    repo_root.mkdir()
+    target_file = temp_root / "cycle-report-target.md"
+    target_file.write_text("operator facts", encoding="utf-8")
+    context_file = temp_root / "cycle-report-link.md"
+    context_file.symlink_to(target_file)
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
+
+    prepared, notes = fable_goal_cycle._prepare_context_files(
+        [context_file],
+        repo_root,
+        "20260704T090000Z",
+    )
+
+    assert prepared == [context_file]
+    assert len(notes) == 1
+    assert notes[0].startswith(f"context file staging failed: {context_file}:")
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {"operator context staging": "\n".join(notes)}, "gaps": []},
+        None,
+        prepared,
+        since_hours=24,
+        root=repo_root,
+    )
+
+    assert "operator facts" not in packet
+    assert "context file must be under .aragora/goal-cycle-context" in packet
+
+
 def test_prepare_context_files_rejects_secret_like_temp_context(
     monkeypatch, tmp_path: Path
 ) -> None:

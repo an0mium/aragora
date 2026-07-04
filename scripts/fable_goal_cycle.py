@@ -34,8 +34,10 @@ import argparse
 import datetime as _dt
 import hashlib
 import json
+import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -264,6 +266,22 @@ def _safe_context_name(path: Path) -> str:
     return f"{safe_stem}-{digest}{suffix or '.txt'}"
 
 
+def _read_regular_file_no_follow(path: Path, max_bytes: int) -> bytes:
+    """Read a regular file through a no-follow descriptor."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        file_stat = os.fstat(fd)
+        if not stat.S_ISREG(file_stat.st_mode):
+            raise OSError(f"context file is not a regular file: {path}")
+        with os.fdopen(fd, "rb") as source:
+            fd = -1
+            return source.read(max_bytes)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
 def _prepare_context_files(
     paths: list[Path], root: Path, stamp: str
 ) -> tuple[list[Path], list[str]]:
@@ -300,12 +318,11 @@ def _prepare_context_files(
         try:
             staged_root.mkdir(parents=True, exist_ok=True)
             staged = staged_root / _safe_context_name(resolved)
-            with resolved.open("rb") as source:
-                data = source.read(MAX_CONTEXT_FILE_BYTES + 1)
+            data = _read_regular_file_no_follow(candidate, MAX_CONTEXT_FILE_BYTES + 1)
             staged.write_bytes(data)
         except OSError as exc:
             prepared.append(raw_path)
-            notes.append(f"context file staging failed: {resolved}: {exc}")
+            notes.append(f"context file staging failed: {candidate}: {exc}")
             continue
         prepared.append(staged)
         notes.append(f"staged outside-repo context file {resolved} -> {staged}")
