@@ -2229,6 +2229,20 @@ def test_cmd_exec_droid_uses_transport_auto_high(
             "Review #7292",
         ]
     ]
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["command"] == commands[0]
+    assert payload["message_text"] == (
+        "Synthesized the review findings.\n\n---BRIDGE-FOOTER---\n"
+        "summary: Synthesized the review findings\n"
+        "next_actor: reviewer\n"
+        "needs_human: false\n"
+        "done: false\n"
+        "artifacts: []\n"
+        'tests_run: ["pytest tests/swarm/agent_bridge/test_harnesses_droid.py"]\n'
+        "---BRIDGE-FOOTER-END---"
+    )
+    assert payload["parse_status"] == "ok"
 
 
 def test_cmd_exec_forwards_timeout_seconds_to_transport(
@@ -2293,6 +2307,117 @@ def test_cmd_exec_forwards_timeout_seconds_to_transport(
     }
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is True
+
+
+def test_cmd_exec_json_reports_transport_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+    from aragora.swarm.agent_bridge.exceptions import TransportTimeoutError
+
+    transport_error, _ = mod._load_transport_runtime()
+    assert issubclass(TransportTimeoutError, transport_error)
+
+    def _fake_create_transport(_agent, *, cwd, model, harness_options):
+        del cwd, model, harness_options
+
+        class _TimeoutTransport:
+            def launch(self, _prompt, *, allowed_roles):
+                del allowed_roles
+                raise TransportTimeoutError("droid command timed out after 0.3s")
+
+        return _TimeoutTransport()
+
+    monkeypatch.setattr(mod, "create_transport", _fake_create_transport)
+
+    rc = mod.cmd_exec(
+        argparse.Namespace(
+            agent="droid",
+            cwd=str(tmp_path),
+            model=None,
+            timeout_seconds=0.3,
+            auto="high",
+            allowed_role=["reviewer"],
+            file=None,
+            prompt=["Review", "#7292"],
+            json=True,
+        )
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "ok": False,
+        "agent": "droid",
+        "cwd": str(tmp_path.resolve()),
+        "error": "droid command timed out after 0.3s",
+    }
+
+
+@pytest.mark.parametrize("timeout_seconds", [0, -1, "nan", "inf", "-inf", "not-a-number"])
+def test_transport_rejects_invalid_timeout_seconds(
+    tmp_path: Path,
+    timeout_seconds: object,
+) -> None:
+    from aragora.swarm.agent_bridge.harnesses.claude import ClaudeTransport
+
+    with pytest.raises(ValueError, match="timeout_seconds must be a positive number"):
+        ClaudeTransport(
+            cwd=tmp_path,
+            harness_options={"timeout_seconds": timeout_seconds},
+            binary_resolver=lambda _: "/usr/bin/claude",
+        )
+
+
+def test_transport_timeout_kills_process_group(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.swarm.agent_bridge.exceptions import TransportTimeoutError
+    from aragora.swarm.agent_bridge.harnesses import base as base_mod
+    from aragora.swarm.agent_bridge.harnesses.claude import ClaudeTransport
+
+    popen_kwargs: dict[str, object] = {}
+    killed: list[tuple[int, int]] = []
+
+    class _FakeProcess:
+        pid = 4321
+        returncode = -9
+
+        def __init__(self) -> None:
+            self.communicate_calls = 0
+
+        def communicate(self, timeout=None):
+            self.communicate_calls += 1
+            if self.communicate_calls == 1:
+                raise subprocess.TimeoutExpired(["claude", "-p", "Review"], timeout)
+            return "", ""
+
+        def kill(self) -> None:
+            raise AssertionError("process.kill should only be a killpg fallback")
+
+    fake_process = _FakeProcess()
+
+    def _fake_popen(command, **kwargs):
+        popen_kwargs.update(kwargs)
+        return fake_process
+
+    monkeypatch.setattr(base_mod.subprocess, "Popen", _fake_popen)
+    monkeypatch.setattr(base_mod.os, "killpg", lambda pid, sig: killed.append((pid, sig)))
+
+    transport = ClaudeTransport(
+        cwd=tmp_path,
+        harness_options={"timeout_seconds": 0.3},
+        binary_resolver=lambda _: "/usr/bin/claude",
+    )
+
+    with pytest.raises(TransportTimeoutError, match="timed out after 0.3s"):
+        transport._run_command(["claude", "-p", "Review"])
+
+    assert popen_kwargs["start_new_session"] is True
+    assert killed == [(4321, base_mod.signal.SIGKILL)]
 
 
 def test_write_session_snapshot_falls_back_to_state_root(

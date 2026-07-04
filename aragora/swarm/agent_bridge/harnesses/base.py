@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import math
+import os
 import shutil
+import signal
 import subprocess
 from abc import ABC
 from abc import abstractmethod
@@ -155,6 +158,8 @@ class Transport(ABC):
         if self.timeout_seconds is not None:
             kwargs["timeout"] = self.timeout_seconds
         try:
+            if self._runner is subprocess.run:
+                return self._run_subprocess_with_group(command)
             return self._runner(command, **kwargs)
         except subprocess.TimeoutExpired as exc:
             timeout_text = (
@@ -163,6 +168,33 @@ class Transport(ABC):
             raise TransportTimeoutError(
                 f"{self.harness} command timed out after {timeout_text}"
             ) from exc
+
+    def _run_subprocess_with_group(self, command: list[str]) -> subprocess.CompletedProcess[str]:
+        process = subprocess.Popen(
+            command,
+            cwd=self.cwd,
+            stdin=subprocess.DEVNULL,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        try:
+            stdout, stderr = process.communicate(timeout=self.timeout_seconds)
+        except subprocess.TimeoutExpired:
+            self._kill_process_group(process)
+            process.communicate()
+            raise
+        return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+    @staticmethod
+    def _kill_process_group(process: subprocess.Popen[str]) -> None:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            return
+        except OSError:
+            process.kill()
 
     def _process_error_message(self, process: subprocess.CompletedProcess[str]) -> str:
         parts: list[str] = []
@@ -180,7 +212,7 @@ class Transport(ABC):
             timeout = float(value)
         except (TypeError, ValueError) as exc:
             raise ValueError("timeout_seconds must be a positive number") from exc
-        if timeout <= 0:
+        if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("timeout_seconds must be a positive number")
         return timeout
 
