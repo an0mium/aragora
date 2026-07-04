@@ -555,9 +555,7 @@ def test_prepare_context_files_fails_closed_when_staging_mkdir_fails(
     )
 
     assert prepared == [context_file]
-    assert notes == [
-        f"context file staging failed: {context_file}: read-only staging root"
-    ]
+    assert notes == [f"context file staging failed: {context_file}: read-only staging root"]
 
     packet = fable_goal_cycle.build_packet(
         {"sections": {"operator context staging": "\n".join(notes)}, "gaps": []},
