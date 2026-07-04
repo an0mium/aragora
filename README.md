@@ -6,7 +6,7 @@ multi-model review in, a verifiable Decision Receipt out.**
 It coordinates heterogeneous models to adversarially review a change or a
 decision, preserves the dissent and provenance, stops truthfully when evidence
 is thin, and emits a portable receipt anyone can verify offline with the
-standalone verifier. PyPI publishing for the verifier is pending.
+standalone verifier ([`pip install aragora-verify`](https://pypi.org/project/aragora-verify/)).
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -18,7 +18,8 @@ standalone verifier. PyPI publishing for the verifier is pending.
 | I want to… | Command |
 |------------|---------|
 | Run the standalone debate engine | `pip install aragora-debate` |
-| Verify a Decision Receipt with the standalone verifier | `PYTHONPATH=src python -m aragora_verify <receipt>` from `aragora-verify/`; PyPI publish pending |
+| Verify an Open Decision Receipt with the standalone verifier | `pip install aragora-verify && aragora-verify receipt.odr.json` |
+| See a native debate → receipt → verify loop in ~15 seconds, no API keys | `pip install aragora && aragora demo --offline && aragora verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
@@ -69,13 +70,26 @@ auditor, a customer — can verify it independently with the standalone
 `aragora-verify` verifier (no Aragora dependency):
 
 ```bash
-# PyPI publish pending; today it lives in this repo under aragora-verify/:
-cd aragora-verify
-PYTHONPATH=src python -m aragora_verify ../decision-receipt.odr.json
+pip install aragora-verify
+aragora-verify decision-receipt.odr.json
 
-# After PyPI publish:
-# aragora-verify decision-receipt.odr.json
+# Add a public key when you need issuer authenticity, not just structure/digest:
+aragora-verify decision-receipt.odr.json --pubkey signing-key.pem
+
+# or build from source (this repo, aragora-verify/):
+pip install ./aragora-verify
 ```
+
+> Version note: the signer-label (`key_id`) binding fix ships in **0.1.1**
+> (in this repo now; PyPI publish pending — see `aragora-verify/CHANGELOG.md`).
+> Until it's published, prefer the source build above for full signer-label
+> protection; PyPI **0.1.0** verifies content integrity and signature validity
+> but does not bind the recorded `key_id` to your key.
+
+We run this gate on our own repository — every substantive merge is reviewed
+by a heterogeneous model quorum, dissent preserved, receipts written. The
+evidence, with reproducible queries and caught-bug case studies:
+[**Decision Integrity, Dogfooded**](https://github.com/synaptent/aragora/blob/main/docs/artifacts/2026-07-decision-integrity-dogfooding.md).
 
 ## Try it now
 
