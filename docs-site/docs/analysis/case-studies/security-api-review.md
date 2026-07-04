@@ -59,7 +59,7 @@ Example finding format:
 ```json
 {
   "attack_id": "sec-003",
-  "finding": "BOLA vulnerability in /transactions/\{id\}",
+  "finding": "BOLA vulnerability in /transactions/{id}",
   "agents_agreed": ["anthropic-api", "openai-api", "gemini"],
   "severity": "critical",
   "recommendation": "Add ownership validation middleware"

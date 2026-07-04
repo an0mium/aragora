@@ -120,7 +120,7 @@ services:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: aragora
-      POSTGRES_PASSWORD: $\{POSTGRES_PASSWORD\}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: aragora
     volumes:
       - postgres-data:/var/lib/postgresql/data

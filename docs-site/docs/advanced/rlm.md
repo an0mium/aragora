@@ -72,7 +72,7 @@ collective.add_signal(signal1)
 collective.add_signal(signal2)
 
 if collective.has_quorum(total_agents=4):
-    print(f"Quorum reached! {collective.ready_count} of \{total_agents\} agents ready")
+    print(f"Quorum reached! {collective.ready_count} of {total_agents} agents ready")
     print(f"Average confidence: {collective.average_confidence:.0%}")
 ```
 
@@ -181,7 +181,7 @@ protocol = DebateProtocol(
 from aragora import Arena, ArenaConfig
 
 def on_ready_signal(agent: str, signal: dict, round_num: int):
-    print(f"Agent \{agent\} signaled ready at round \{round_num\}")
+    print(f"Agent {agent} signaled ready at round {round_num}")
 
 config = ArenaConfig(
     hooks={
@@ -197,7 +197,7 @@ config = ArenaConfig(
 collector = create_vote_collector(
     hooks={
         "on_rlm_early_termination": lambda leader, votes, total:
-            print(f"Early termination: \{leader\} wins with \{votes\}/\{total\}")
+            print(f"Early termination: {leader} wins with {votes}/{total}")
     }
 )
 ```

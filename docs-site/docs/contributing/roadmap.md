@@ -116,3 +116,4 @@ Win with founder-led and engineering-led SMBs by making idea-to-spec-to-executio
 - [Commercial overview](../enterprise/commercial-overview)
 - [Next steps](./next-steps-canonical)
 - [Active execution issues](./active-execution-issues)
+- [Roadmap intake register](./roadmap-intake-register) — durable intake gate so planning outputs aren't lost

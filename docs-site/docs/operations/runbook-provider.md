@@ -112,7 +112,7 @@ curl -X POST http://localhost:8080/api/debates \
   -d '{"task":"Test: Is 2+2=4?","agents":["claude","gpt4"]}'
 
 # 3. Verify completion
-curl http://localhost:8080/api/debates/\{debate_id\}
+curl http://localhost:8080/api/debates/{debate_id}
 ```
 
 ## Escalation

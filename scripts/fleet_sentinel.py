@@ -970,6 +970,8 @@ def _default_terminal_owner_auditor(
             apply=False,
             operator_authorized=False,
             expected_merge_commit=None,
+            expected_closed_at=None,
+            expected_head_sha=None,
             github_state=github_state,
             findings=findings,
         )
@@ -980,6 +982,8 @@ def _default_terminal_owner_auditor(
         apply=False,
         operator_authorized=False,
         expected_merge_commit=None,
+        expected_closed_at=None,
+        expected_head_sha=None,
         github_state=github_state,
         findings=findings,
         blocked_reason=blocked_reason,

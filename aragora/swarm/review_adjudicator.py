@@ -15,9 +15,12 @@ The adjudicator fires ONLY on a stall (quorum unsatisfied, dissent present, at
 least one supportive signal) and returns one of:
 
 * ``SETTLE``   — all dissent is thin (below the groundedness bar): the treadmill
-  escape. The thin findings are preserved for follow-up, never discarded.
+  escape. Findings are preserved for follow-up, never discarded. By default,
+  grounded advisory-only dissent is also capped here to honor severity-gated
+  dissent; callers may explicitly promote grounded advisory findings to BLOCK.
 * ``BLOCK``    — any ``[P0]/[P1]`` is present, OR a grounded advisory finding
-  stands with no grounded counter-support. Never suppress a real finding.
+  stands with no grounded counter-support under the explicit promotion policy.
+  Never suppress a real hard-bar finding.
 * ``ESCALATE`` — grounded dissent AND grounded support both exist: a genuine
   two-sided material disagreement that a human should settle (a crux). M0 emits
   a summary escalation; crux-finder bridging (#8747) is a fast-follow.
@@ -28,8 +31,9 @@ The groundedness score is a deterministic heuristic composed from the analyzer's
 sub-scores (see :func:`score_groundedness`). It is intentionally a fast, cheap
 first pass; a fast-follow can plug :class:`aragora.evaluation.llm_judge.LLMJudge`
 as the scorer for "real intelligence" on the ambiguous middle. The bias is
-conservative: SETTLE requires *every* dissenting finding to be clearly thin, so
-the adjudicator errs toward BLOCK/ESCALATE rather than ever wrongly suppressing.
+conservative: SETTLE requires *every* dissenting finding to be clearly thin unless
+the explicit advisory-severity policy caps grounded advisory-only dissent as
+follow-up. Hard-bar ``[P0]/[P1]`` findings still always block.
 
 Gated behind ``ARAGORA_ENABLE_REVIEW_ADJUDICATOR`` (default OFF → byte-identical
 to today).
@@ -37,6 +41,7 @@ to today).
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass, field
 from enum import Enum
@@ -67,6 +72,13 @@ class AdjudicationVerdict(str, Enum):
     BLOCK = "adjudicated_block"
     ESCALATE = "adjudicated_escalate"
     NOT_APPLICABLE = "not_applicable"
+
+
+class AdvisorySeverityPolicy(str, Enum):
+    """How grounded advisory-only findings should affect the final verdict."""
+
+    CAP_AT_ADVISORY = "cap_at_advisory"
+    PROMOTE_GROUNDED_TO_BLOCK = "promote_grounded_to_block"
 
 
 class _ReviewFinding(Protocol):
@@ -109,6 +121,7 @@ class AdjudicationResult:
     escalated_findings: list[str] = field(default_factory=list)
     blocking_findings: list[str] = field(default_factory=list)
     groundedness_bar: float = DEFAULT_GROUNDEDNESS_BAR
+    advisory_severity_policy: AdvisorySeverityPolicy = AdvisorySeverityPolicy.CAP_AT_ADVISORY
 
     def to_receipt_dict(self) -> dict[str, Any]:
         """Serializable adjudication summary for the DecisionReceipt/audit log."""
@@ -117,6 +130,7 @@ class AdjudicationResult:
             "verdict": self.verdict.value,
             "reason": self.reason,
             "groundedness_bar": self.groundedness_bar,
+            "advisory_severity_policy": self.advisory_severity_policy.value,
             "assessments": [a.to_dict() for a in self.assessments],
             "settled_findings": self.settled_findings,
             "escalated_findings": self.escalated_findings,
@@ -126,6 +140,50 @@ class AdjudicationResult:
 
 def _clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
+
+
+def _bounded_score(value: float, *, name: str) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a finite number") from exc
+    if not math.isfinite(numeric):
+        raise ValueError(f"{name} must be a finite number")
+    return round(_clamp(numeric), 4)
+
+
+def _coerce_advisory_severity_policy(
+    policy: AdvisorySeverityPolicy | str,
+) -> AdvisorySeverityPolicy:
+    if isinstance(policy, AdvisorySeverityPolicy):
+        return policy
+    try:
+        return AdvisorySeverityPolicy(str(policy))
+    except ValueError as exc:
+        allowed = ", ".join(p.value for p in AdvisorySeverityPolicy)
+        raise ValueError(f"advisory_severity_policy must be one of: {allowed}") from exc
+
+
+def _normalized_verdict(item: _ReviewFinding) -> str:
+    return str(getattr(item, "verdict", "")).strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _is_supportive_signal(item: _ReviewFinding) -> bool:
+    verdict = _normalized_verdict(item)
+    if verdict == "changes_requested":
+        return False
+    return bool(getattr(item, "supportive", verdict == "pass"))
+
+
+def _is_review_dissent(item: _ReviewFinding) -> bool:
+    verdict = _normalized_verdict(item)
+    if verdict == "pass":
+        return False
+    # EvidenceItem.dissenting means "blocking under severity gate"; the Review
+    # Adjudicator still needs advisory CHANGES-REQUESTED findings so it can cap,
+    # settle, or escalate them explicitly. Verdict wins over contradictory
+    # supportive flags so one item cannot be both support and dissent.
+    return bool(getattr(item, "dissenting", False)) or verdict == "changes_requested"
 
 
 def score_groundedness(body: str, *, analyzer: Any | None = None) -> float:
@@ -153,7 +211,7 @@ def score_groundedness(body: str, *, analyzer: Any | None = None) -> float:
     total_phrases = score.specific_phrase_count + score.vague_phrase_count
     phrase_ratio = score.specific_phrase_count / total_phrases if total_phrases else 0.5
     composite = 0.5 * score.specificity_score + 0.3 * phrase_ratio + 0.2 * score.evidence_diversity
-    return round(_clamp(composite), 4)
+    return _bounded_score(composite, name="groundedness score")
 
 
 def adjudicate(
@@ -161,6 +219,7 @@ def adjudicate(
     *,
     groundedness_bar: float = DEFAULT_GROUNDEDNESS_BAR,
     scorer: Callable[[str], float] | None = None,
+    advisory_severity_policy: AdvisorySeverityPolicy | str = AdvisorySeverityPolicy.CAP_AT_ADVISORY,
 ) -> AdjudicationResult:
     """Adjudicate a stalled review over ``items`` (EvidenceItem-shaped).
 
@@ -175,8 +234,16 @@ def adjudicate(
     ``scorer`` defaults to :func:`score_groundedness` bound to a single hoisted
     :class:`EvidenceQualityAnalyzer` (one build per call, not per item — #8749
     claude [P3]).
+
+    ``advisory_severity_policy`` defaults to capping grounded [P2]/[P3]-only
+    findings at advisory follow-up so the adjudicator does not reintroduce the
+    merge block that severity-gated dissent deliberately removed (#8752). Pass
+    ``PROMOTE_GROUNDED_TO_BLOCK`` only for callers that explicitly want the
+    original M0 behavior.
     """
     items = list(items)
+    groundedness_bar = _bounded_score(groundedness_bar, name="groundedness_bar")
+    advisory_severity_policy = _coerce_advisory_severity_policy(advisory_severity_policy)
 
     # Hard bar FIRST, using ONLY the [P0]/[P1] detector — never the scorer and
     # never the default analyzer. A definite block must not depend on the scorer
@@ -201,6 +268,7 @@ def adjudicate(
             assessments=assessments,
             blocking_findings=[it.body for it, flag in zip(items, blocking_flags) if flag],
             groundedness_bar=groundedness_bar,
+            advisory_severity_policy=advisory_severity_policy,
         )
 
     # Applicability BEFORE scoring (#8749 openai [P2] r3): the NOT_APPLICABLE
@@ -220,14 +288,15 @@ def adjudicate(
             for it in items
         ]
 
-    dissenting_items = [it for it in items if it.verdict == "changes_requested"]
-    supportive_items = [it for it in items if getattr(it, "supportive", it.verdict == "pass")]
+    dissenting_items = [it for it in items if _is_review_dissent(it)]
+    supportive_items = [it for it in items if _is_supportive_signal(it)]
     if not dissenting_items:
         return AdjudicationResult(
             verdict=AdjudicationVerdict.NOT_APPLICABLE,
             reason="no dissent to adjudicate",
             assessments=_unscored_assessments(),
             groundedness_bar=groundedness_bar,
+            advisory_severity_policy=advisory_severity_policy,
         )
     if not supportive_items:
         return AdjudicationResult(
@@ -235,6 +304,7 @@ def adjudicate(
             reason="no supportive signal; genuine rejection, not a stall",
             assessments=_unscored_assessments(),
             groundedness_bar=groundedness_bar,
+            advisory_severity_policy=advisory_severity_policy,
         )
 
     # It IS a stall worth adjudicating — only now build the default scorer + its
@@ -254,7 +324,7 @@ def adjudicate(
     assessments = []
     for it in items:
         try:
-            groundedness = scorer(it.body)
+            groundedness = _bounded_score(scorer(it.body), name="scorer result")
             grounded = groundedness >= groundedness_bar
         except Exception:  # noqa: BLE001 - fail closed, never crash the gate
             scorer_failed = True
@@ -273,8 +343,8 @@ def adjudicate(
 
     # Drive the verdict off the single per-item assessment (never re-score).
     paired = list(zip(items, assessments))
-    dissenting = [(it, a) for it, a in paired if it.verdict == "changes_requested"]
-    supportive = [(it, a) for it, a in paired if getattr(it, "supportive", it.verdict == "pass")]
+    dissenting = [(it, a) for it, a in paired if _is_review_dissent(it)]
+    supportive = [(it, a) for it, a in paired if _is_supportive_signal(it)]
 
     # Fail closed (openai [P2]): if groundedness scoring failed for any item, do
     # NOT risk suppressing a real finding as "thin" — escalate to human settlement.
@@ -289,6 +359,7 @@ def adjudicate(
             assessments=assessments,
             escalated_findings=[it.body for it, _ in dissenting],
             groundedness_bar=groundedness_bar,
+            advisory_severity_policy=advisory_severity_policy,
         )
 
     grounded_dissent = [(it, a) for it, a in dissenting if a.grounded]
@@ -302,6 +373,7 @@ def adjudicate(
             assessments=assessments,
             settled_findings=[it.body for it, _ in dissenting],
             groundedness_bar=groundedness_bar,
+            advisory_severity_policy=advisory_severity_policy,
         )
 
     grounded_support = [(it, a) for it, a in supportive if a.grounded]
@@ -315,6 +387,20 @@ def adjudicate(
             assessments=assessments,
             escalated_findings=[it.body for it, _ in grounded_dissent],
             groundedness_bar=groundedness_bar,
+            advisory_severity_policy=advisory_severity_policy,
+        )
+
+    if advisory_severity_policy is AdvisorySeverityPolicy.CAP_AT_ADVISORY:
+        return AdjudicationResult(
+            verdict=AdjudicationVerdict.SETTLE,
+            reason=(
+                "grounded advisory-only dissent remains capped at advisory by "
+                "severity policy; settling and filing the findings for follow-up"
+            ),
+            assessments=assessments,
+            settled_findings=[it.body for it, _ in grounded_dissent],
+            groundedness_bar=groundedness_bar,
+            advisory_severity_policy=advisory_severity_policy,
         )
 
     return AdjudicationResult(
@@ -326,4 +412,5 @@ def adjudicate(
         assessments=assessments,
         blocking_findings=[it.body for it, _ in grounded_dissent],
         groundedness_bar=groundedness_bar,
+        advisory_severity_policy=advisory_severity_policy,
     )

@@ -356,7 +356,7 @@ class ArenaKnowledgeManager:
             logger.warning("[arena] Failed to initialize KM context: %s", e)
 
     def get_culture_hints(self, debate_id: str) -> dict[str, Any]:
-        """Retrieve culture hints from cross-subscriber manager.
+        """Retrieve culture hints from the knowledge event subscriber.
 
         Args:
             debate_id: Debate identifier
@@ -373,9 +373,10 @@ class ArenaKnowledgeManager:
             from aragora.debate.event_subscribers import (
                 bootstrap_debate_event_subscribers,
             )
+            from aragora.knowledge.event_subscribers import get_knowledge_event_subscriber
 
-            manager = bootstrap_debate_event_subscribers()
-            hints = manager.get_debate_culture_hints(debate_id)
+            bootstrap_debate_event_subscribers()
+            hints = get_knowledge_event_subscriber().get_debate_culture_hints(debate_id)
             if hints:
                 logger.debug(
                     "[arena] Retrieved %s culture hints for debate %s", len(hints), debate_id

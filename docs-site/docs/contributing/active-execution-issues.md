@@ -5,7 +5,7 @@ description: Active Execution Issues
 
 # Active Execution Issues
 
-Last updated: 2026-04-16
+Last updated: 2026-06-29
 
 This document is the canonical epic, milestone, and execution-issue tree for the current roadmap tranche.
 
@@ -28,6 +28,7 @@ The strict status reconciler requires this canonical map to link the live execut
 - Enterprise assurance carryover: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509)
 - Execution epics (closed): [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), [#806](https://github.com/synaptent/aragora/issues/806) — all closed as of April 2026; current obligation is operationalizing the proof-first loop
 - Current execution lanes: [#807](https://github.com/synaptent/aragora/issues/807), [#808](https://github.com/synaptent/aragora/issues/808), [#809](https://github.com/synaptent/aragora/issues/809), [#810](https://github.com/synaptent/aragora/issues/810), [#811](https://github.com/synaptent/aragora/issues/811), [#812](https://github.com/synaptent/aragora/issues/812), [#813](https://github.com/synaptent/aragora/issues/813), [#814](https://github.com/synaptent/aragora/issues/814), [#815](https://github.com/synaptent/aragora/issues/815), [#816](https://github.com/synaptent/aragora/issues/816), [#817](https://github.com/synaptent/aragora/issues/817), [#818](https://github.com/synaptent/aragora/issues/818), [#819](https://github.com/synaptent/aragora/issues/819), [#820](https://github.com/synaptent/aragora/issues/820)
+- Strategy mission cadence: [#8665](https://github.com/synaptent/aragora/issues/8665) — ODR offline-verifier spine, GitHub Action receipt wedge, and external proof corpus. The epic itself is the durable tracking container, not wholesale `boss-ready` work. The queue lives in [the intake register](./roadmap-intake-register#strategy-mission-queue); only the single active sub-mission may enter the live queue, and follow-on worker batches stay out of `boss-ready` until their queue gate is active.
 - Inbox/design-partner trust-wedge planning: [#6159](https://github.com/synaptent/aragora/issues/6159), [#6160](https://github.com/synaptent/aragora/issues/6160), [#6161](https://github.com/synaptent/aragora/issues/6161), [#6162](https://github.com/synaptent/aragora/issues/6162), [#6163](https://github.com/synaptent/aragora/issues/6163), [#6164](https://github.com/synaptent/aragora/issues/6164) — planning truth only; keep out of `boss-ready` until the canonical queue gate changes
 - Future decision-integrity tranche: [#6023](https://github.com/synaptent/aragora/issues/6023), [#6024](https://github.com/synaptent/aragora/issues/6024), [#6025](https://github.com/synaptent/aragora/issues/6025), [#6026](https://github.com/synaptent/aragora/issues/6026), [#6027](https://github.com/synaptent/aragora/issues/6027), [#6028](https://github.com/synaptent/aragora/issues/6028), [#6030](https://github.com/synaptent/aragora/issues/6030), [#6031](https://github.com/synaptent/aragora/issues/6031), [#6032](https://github.com/synaptent/aragora/issues/6032), [#6033](https://github.com/synaptent/aragora/issues/6033) — Epistemic CI, Crux Engine, and Epistemic Runtime planning; not live `boss-ready` work
 
@@ -53,6 +54,7 @@ Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 - Conditional/reopen only on fresh evidence: `BC-07..09`, `RS-11..12`
 - Delay: `TW-07..09`, `UDW-01..06`, `MCF-01..03`
 - Future decision-integrity planning: `DIC-13..22` is tracked but delayed until proof-first Foreman reliability is stable; these issues must not be added to `boss-ready` during the current tranche
+- Strategy mission cadence: [#8665](https://github.com/synaptent/aragora/issues/8665) is a parallel durable mission track, not a blanket current-tranche dispatch item. Treat only the active [Strategy Mission Queue](./roadmap-intake-register#strategy-mission-queue) row as actionable, and keep queued rows out of `boss-ready` until the prior row's external-proof gate verifies.
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
 - Queue rule: only **Do now** roadmap codes, recurring proof-surface regressions, or freshly evidenced BC/RS regressions may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
 - Live boss-ready queue: no dedicated open trust-loop issue right now; `TW-01`, `TW-02`, and `TW-03` now publish through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring surfaces should keep the queue empty unless they expose a fresh bounded regression or repeated rescue class

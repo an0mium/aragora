@@ -86,6 +86,20 @@ def main(argv: list[str] | None = None) -> int:
         help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
     )
     parser.add_argument(
+        "--reviewer-timeout",
+        dest="reviewer_timeout",
+        type=float,
+        default=None,
+        help="Per-reviewer timeout in seconds for this invocation.",
+    )
+    parser.add_argument(
+        "--overall-timeout",
+        dest="overall_timeout",
+        type=float,
+        default=None,
+        help="Overall reviewer orchestration timeout in seconds for this invocation.",
+    )
+    parser.add_argument(
         "--prepared-json",
         type=Path,
         default=None,
@@ -130,6 +144,8 @@ def main(argv: list[str] | None = None) -> int:
         post_advisory_dissent=args.post_advisory_dissent,
         operator_login=args.operator_login,
         followup_issues=tuple(args.followup_issues or ()),
+        reviewer_timeout_seconds=args.reviewer_timeout,
+        overall_timeout_seconds=args.overall_timeout,
     )
 
 

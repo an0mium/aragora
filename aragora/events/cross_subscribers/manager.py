@@ -9,8 +9,7 @@ The heavy lifting is delegated to specialized mixins:
 - AdminMixin: Stats reporting, enable/disable, sampling, filtering, retry config
 - BasicHandlersMixin: Core subsystem event handlers
 - CultureHandlersMixin: Culture pattern handlers
-- ValidationHandlersMixin: Consensus and validation handlers
-- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis, budget, alerts)
+- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis)
 """
 
 from __future__ import annotations
@@ -32,7 +31,6 @@ from .dispatch import DispatchMixin
 from .handlers.basic import BasicHandlersMixin
 from .handlers.culture import CultureHandlersMixin
 from .handlers.strategic import StrategicHandlersMixin
-from .handlers.validation import ValidationHandlersMixin
 from .registry import get_registered_subscribers
 
 if TYPE_CHECKING:
@@ -64,7 +62,6 @@ class CrossSubscriberManager(
     AdminMixin,
     BasicHandlersMixin,
     CultureHandlersMixin,
-    ValidationHandlersMixin,
     StrategicHandlersMixin,
 ):
     """
@@ -130,9 +127,6 @@ class CrossSubscriberManager(
             cooldown_seconds=cooldown_seconds,
         )
 
-        # Culture storage dict for CultureHandlersMixin
-        self._debate_cultures: dict = {}
-
         # Registry subscribers already wired into this manager instance
         self._applied_subscribers: set[str] = set()
 
@@ -143,7 +137,7 @@ class CrossSubscriberManager(
         # Direct construction stays infrastructure-only, so relocated domain
         # reactions cannot appear or disappear based on prior import order.
 
-    def apply_registered_subscribers(self) -> int:
+    def apply_registered_subscribers(self, *, include_names: set[str] | None = None) -> int:
         """Wire registry subscribers not yet applied into this manager.
 
         Home modules (domain/application/interface) self-register their
@@ -152,12 +146,27 @@ class CrossSubscriberManager(
         reusing the existing per-event dispatch/stats/retry machinery. Idempotent:
         each subscriber is applied at most once per manager instance.
 
+        Args:
+            include_names: When given, only registers subscribers whose home
+                name is in this set on THIS call; every other registered home
+                is left un-applied here (a later call - with a wider or no
+                filter - can still apply it). ``None`` (default) applies every
+                currently-registered home, the pre-existing behavior. This is
+                what lets a subset bootstrap (e.g. domain-only) stay narrow
+                even when an unrelated import has already populated the
+                process-wide registry with a wider-tier home's subscriber -
+                the registry itself has no tier concept, so without this the
+                subset would silently inherit whatever happened to be
+                registered first.
+
         Returns:
             The number of subscribers newly applied by this call.
         """
         applied = 0
         for name, subscriber in get_registered_subscribers().items():
             if name in self._applied_subscribers:
+                continue
+            if include_names is not None and name not in include_names:
                 continue
             subscriber.register(self)
             self._applied_subscribers.add(name)
@@ -209,40 +218,21 @@ class CrossSubscriberManager(
             self._handle_memory_to_rlm,
         )
 
-        # Agent ELO → Debate team selection
-        self.register(
-            "elo_to_debate",
-            StreamEventType.AGENT_ELO_UPDATED,
-            self._handle_elo_to_debate,
-        )
+        # Agent ELO → Debate team selection relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
-        # Knowledge → Memory sync
-        self.register(
-            "knowledge_to_memory",
-            StreamEventType.KNOWLEDGE_INDEXED,
-            self._handle_knowledge_to_memory,
-        )
+        # Knowledge → Memory sync relocated to aragora.memory.event_subscribers
+        # (P4a Batch E3 relocate-UP); wired at bootstrap via
+        # apply_registered_subscribers, not registered here.
 
-        # Calibration → Agent weights
-        self.register(
-            "calibration_to_agent",
-            StreamEventType.CALIBRATION_UPDATE,
-            self._handle_calibration_to_agent,
-        )
+        # Calibration → Agent weights relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
-        # Evidence → Insight extraction
-        self.register(
-            "evidence_to_insight",
-            StreamEventType.EVIDENCE_FOUND,
-            self._handle_evidence_to_insight,
-        )
-
-        # Mound structure → Memory/Debate sync
-        self.register(
-            "mound_to_memory",
-            StreamEventType.MOUND_UPDATED,
-            self._handle_mound_to_memory,
-        )
+        # Evidence → Insight extraction and Mound structure → Memory/Debate sync
+        # relocated to aragora.memory.event_subscribers (P4a Batch E3 relocate-UP);
+        # wired at bootstrap via apply_registered_subscribers, not registered here.
 
         # Bidirectional Knowledge Mound reactions relocated to their domain home
         # (aragora.knowledge.event_subscribers, P4a E2 relocate-UP): they self-register
@@ -256,47 +246,15 @@ class CrossSubscriberManager(
             self._handle_culture_to_debate,
         )
 
-        # Phase 6b: Debate Start → Load Culture (active retrieval)
-        self.register(
-            "mound_to_culture",
-            StreamEventType.DEBATE_START,
-            self._handle_mound_to_culture,
-        )
+        # Phase 6b: Debate Start → Load Culture (active retrieval) relocated to
+        # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
+        # via apply_registered_subscribers, not registered here.
 
-        # Phase 7: Staleness → Debate
-        self.register(
-            "staleness_to_debate",
-            StreamEventType.KNOWLEDGE_STALE,
-            self._handle_staleness_to_debate,
-        )
-
-        # Phase 8: Provenance → KM
-        self.register(
-            "provenance_to_mound",
-            StreamEventType.CONSENSUS,
-            self._handle_provenance_to_mound,
-        )
-
-        # Phase 8: KM → Provenance
-        self.register(
-            "mound_to_provenance",
-            StreamEventType.CLAIM_VERIFICATION_RESULT,
-            self._handle_mound_to_provenance,
-        )
-
-        # Phase 9: Consensus → KM (direct content ingestion)
-        self.register(
-            "consensus_to_mound",
-            StreamEventType.CONSENSUS,
-            self._handle_consensus_to_mound,
-        )
-
-        # Phase 10: KM Validation Feedback (reverse flow quality improvement)
-        self.register(
-            "km_validation_feedback",
-            StreamEventType.CONSENSUS,
-            self._handle_km_validation_feedback,
-        )
+        # Phase 7: Staleness → Debate relocated to
+        # aragora.server.event_subscribers (P4a Batch E6 relocate-UP; interface-tier
+        # home); wired at bootstrap via apply_registered_subscribers
+        # (interface-superset only - a pure-domain manager has no WebSocket state
+        # manager to react through), not registered here.
 
         # Explainability: Debate End → Explanation auto-trigger
         self.register(
@@ -305,12 +263,9 @@ class CrossSubscriberManager(
             self._handle_debate_end_to_explainability,
         )
 
-        # Knowledge: Debate End → Outcome persistence
-        self.register(
-            "debate_outcome_to_knowledge",
-            StreamEventType.DEBATE_END,
-            self._handle_debate_outcome_to_knowledge,
-        )
+        # Knowledge: Debate End → Outcome persistence relocated to
+        # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
+        # via apply_registered_subscribers, not registered here.
 
         # =====================================================================
         # Phase 3: Cross-Subsystem Event Bridges
@@ -330,73 +285,28 @@ class CrossSubscriberManager(
             self._handle_debate_end_to_cost_tracking,
         )
 
-        # Consensus → Selection Learning
-        self.register(
-            "consensus_to_learning",
-            StreamEventType.CONSENSUS,
-            self._handle_consensus_to_learning,
-        )
+        # Consensus → Selection Learning relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
-        # Agent Message → Rhetorical Analysis
-        self.register(
-            "agent_message_to_rhetorical",
-            StreamEventType.AGENT_MESSAGE,
-            self._handle_agent_message_to_rhetorical,
-        )
+        # Agent Message → Rhetorical Analysis relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
-        # Vote → Belief Network
-        self.register(
-            "vote_to_belief",
-            StreamEventType.VOTE,
-            self._handle_vote_to_belief,
-        )
+        # Vote → Belief Network relocated to aragora.reasoning.event_subscribers
+        # (P4a Batch E3 relocate-UP); wired at bootstrap via
+        # apply_registered_subscribers, not registered here.
 
-        # Workflow Complete → Supermemory (cross-workflow learning)
-        self.register(
-            "workflow_complete_to_supermemory",
-            StreamEventType.WORKFLOW_COMPLETE,
-            self._handle_workflow_outcome_to_supermemory,
-        )
+        # Workflow Complete/Failed → Supermemory and Memory Tier
+        # Demotion/Promotion → Knowledge Mound all relocated to
+        # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
+        # via apply_registered_subscribers, not registered here.
 
-        # Workflow Failed → Supermemory (learn from failures)
-        self.register(
-            "workflow_failed_to_supermemory",
-            StreamEventType.WORKFLOW_FAILED,
-            self._handle_workflow_outcome_to_supermemory,
-        )
-
-        # Memory Tier Demotion → Re-validation
-        self.register(
-            "tier_demotion_to_revalidation",
-            StreamEventType.MEMORY_TIER_DEMOTION,
-            self._handle_tier_demotion_to_revalidation,
-        )
-
-        # Memory Tier Promotion → KM importance boost
-        self.register(
-            "tier_promotion_to_knowledge",
-            StreamEventType.MEMORY_TIER_PROMOTION,
-            self._handle_tier_promotion_to_knowledge,
-        )
-
-        # Register webhook delivery for all cross-pollination events
-        webhook_event_types = [
-            StreamEventType.MEMORY_STORED,
-            StreamEventType.MEMORY_RETRIEVED,
-            StreamEventType.AGENT_ELO_UPDATED,
-            StreamEventType.KNOWLEDGE_INDEXED,
-            StreamEventType.KNOWLEDGE_QUERIED,
-            StreamEventType.MOUND_UPDATED,
-            StreamEventType.CALIBRATION_UPDATE,
-            StreamEventType.EVIDENCE_FOUND,
-        ]
-
-        for event_type in webhook_event_types:
-            self.register(
-                f"webhook_{event_type.value.lower()}",
-                event_type,
-                self._handle_webhook_delivery,
-            )
+        # Webhook delivery for all cross-pollination events (8 webhook_* names)
+        # relocated to aragora.server.event_subscribers (P4a Batch E6
+        # relocate-UP; interface-tier home); wired at bootstrap via
+        # apply_registered_subscribers (interface-superset only - a pure-domain
+        # manager has no webhook store to react through), not registered here.
 
         # =====================================================================
         # Strategic Feedback Loops (Tier 5)
@@ -430,33 +340,23 @@ class CrossSubscriberManager(
             self._handle_genesis_to_control_plane,
         )
 
-        # Approval Approved → KM Reinforcement
-        self.register(
-            "approval_to_km_reinforcement",
-            StreamEventType.APPROVAL_APPROVED,
-            self._handle_approval_to_km_reinforcement,
-        )
+        # Approval Approved → KM Reinforcement relocated to
+        # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
+        # via apply_registered_subscribers, not registered here.
 
-        # Budget Alert → Team Selection Constraint
-        self.register(
-            "budget_alert_to_team_selection",
-            StreamEventType.BUDGET_ALERT,
-            self._handle_budget_alert_to_team_selection,
-        )
+        # Budget Alert → Team Selection Constraint relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
-        # Alert Escalated → Workflow Emergency Brake
-        self.register(
-            "alert_escalated_to_workflow_brake",
-            StreamEventType.ALERT_ESCALATED,
-            self._handle_alert_escalated_to_workflow_brake,
-        )
+        # Alert Escalated → Workflow Emergency Brake relocated to
+        # aragora.workflow.event_subscribers (P4a Batch E5 relocate-UP;
+        # application-tier home); wired at bootstrap via
+        # apply_registered_subscribers (interface-superset only - a pure-domain
+        # manager has no workflow engine to react through), not registered here.
 
-        # Meta-Learning Adjusted → Team Selection Recalibration
-        self.register(
-            "meta_learning_to_team_selection",
-            StreamEventType.META_LEARNING_ADJUSTED,
-            self._handle_meta_learning_to_team_selection,
-        )
+        # Meta-Learning Adjusted → Team Selection Recalibration relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
+        # bootstrap via apply_registered_subscribers, not registered here.
 
         logger.debug("Registered built-in cross-subsystem subscribers")
 

@@ -940,7 +940,7 @@ The migration is backward-compatible: encrypted fields are marked with `_encrypt
 # Check if encryption is properly configured
 python -c "
 from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
-print(f'Crypto available: \{CRYPTO_AVAILABLE\}')
+print(f'Crypto available: {CRYPTO_AVAILABLE}')
 if CRYPTO_AVAILABLE:
     svc = get_encryption_service()
     print(f'Active key: {svc.get_active_key_id()}')
@@ -1333,7 +1333,7 @@ Invalidate all cached decisions for a specific workspace:
 ```python
 # When workspace configuration changes
 count = await invalidate_cache_for_workspace("workspace-123")
-print(f"Invalidated \{count\} cached entries for workspace")
+print(f"Invalidated {count} cached entries for workspace")
 ```
 
 Use cases:
@@ -1362,7 +1362,7 @@ When agents are upgraded, invalidate responses that used old versions:
 ```python
 # After upgrading Claude from v3.5 to v4
 count = await invalidate_cache_for_agent_upgrade("claude", "3.5")
-print(f"Invalidated \{count\} cached entries using claude v3.5")
+print(f"Invalidated {count} cached entries using claude v3.5")
 ```
 
 #### Tag-Based Invalidation

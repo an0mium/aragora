@@ -99,7 +99,7 @@ Key components:
 Example:
 
 ```http
-POST /api/v1/codebase/\{repo\}/scan
+POST /api/v1/codebase/{repo}/scan
 Content-Type: application/json
 
 {
@@ -125,7 +125,7 @@ Content-Type: application/json
 ### Secrets Scan Example
 
 ```http
-POST /api/v1/codebase/\{repo\}/scan/secrets
+POST /api/v1/codebase/{repo}/scan/secrets
 Content-Type: application/json
 
 {
@@ -149,7 +149,7 @@ Content-Type: application/json
 Example:
 
 ```http
-POST /api/v1/codebase/\{repo\}/metrics/analyze
+POST /api/v1/codebase/{repo}/metrics/analyze
 Content-Type: application/json
 
 {

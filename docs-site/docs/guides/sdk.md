@@ -207,13 +207,13 @@ matrix = client.matrix_debates.get(response.matrix_id)
 conclusions = client.matrix_debates.get_conclusions(response.matrix_id)
 print("Universal conclusions (true in all scenarios):")
 for c in conclusions.universal:
-    print(f"  - \{c\}")
+    print(f"  - {c}")
 
 print("\nConditional conclusions:")
 for scenario, findings in conclusions.conditional.items():
-    print(f"  \{scenario\}:")
+    print(f"  {scenario}:")
     for f in findings:
-        print(f"    - \{f\}")
+        print(f"    - {f}")
 ```
 
 ### Verification (Formal Methods)
@@ -321,7 +321,7 @@ ELO rankings across all agents.
 rankings = client.leaderboard.get(limit=10)
 for entry in rankings:
     trend = {"up": "+", "down": "-", "stable": "="}[entry.recent_trend]
-    print(f"#{entry.rank} {entry.agent_id}: {entry.elo_rating} (\{trend\})")
+    print(f"#{entry.rank} {entry.agent_id}: {entry.elo_rating} ({trend})")
 ```
 
 ### Replays
@@ -533,7 +533,7 @@ client = AragoraClient(base_url="http://localhost:8080")
 try:
     debate = client.debates.get("nonexistent-id")
 except AragoraAPIError as e:
-    print(f"Error: \{e\}")
+    print(f"Error: {e}")
     print(f"Code: {e.code}")           # Machine-readable code
     print(f"Status: {e.status_code}")  # HTTP status
     print(f"Message: {e.message}")     # Human-readable message
@@ -588,7 +588,7 @@ except AragoraAPIError as e:
         print(f"Fix your request: {e.details}")
     elif e.code == "RATE_LIMITED":
         retry_after = e.details.get("retry_after", 60)
-        print(f"Rate limited. Retry in \{retry_after\}s")
+        print(f"Rate limited. Retry in {retry_after}s")
     elif e.code == "QUOTA_EXCEEDED":
         print("Upgrade your plan or wait for quota reset")
     elif e.status_code >= 500:
@@ -749,7 +749,7 @@ Third parties may access data for advertising.
 """
 
 result = client.gauntlet.run_and_wait(
-    task=f"Review this privacy policy for GDPR compliance: \{policy\}",
+    task=f"Review this privacy policy for GDPR compliance: {policy}",
     attack_rounds=5,
     timeout=900,
 )
@@ -795,13 +795,13 @@ async def analyze_decision():
 
         print("Universal conclusions:")
         for c in conclusions.universal:
-            print(f"  - \{c\}")
+            print(f"  - {c}")
 
         print("\nConditional conclusions:")
         for scenario, findings in conclusions.conditional.items():
-            print(f"\n  \{scenario\}:")
+            print(f"\n  {scenario}:")
             for f in findings:
-                print(f"    - \{f\}")
+                print(f"    - {f}")
 
 asyncio.run(analyze_decision())
 ```

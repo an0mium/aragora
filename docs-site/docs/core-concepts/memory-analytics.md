@@ -290,7 +290,7 @@ if stats.hit_rate < 0.7:
 
     # Check topic coverage
     for topic in stats.missed_topics[:10]:
-        print(f"Frequently missed: \{topic\}")
+        print(f"Frequently missed: {topic}")
 ```
 
 ### High Demotion Rate

@@ -175,7 +175,7 @@ Each failure record includes:
 ## Stream Event Types
 
 Canonical event names are defined in `aragora/events/types.py` (the server re-exports them via `aragora/server/stream/events.py`).
-The list below is the full `StreamEventType` catalog, grouped by the category comments in code (197 event types as of 2026-02-03).
+The list below is the full `StreamEventType` catalog, grouped by the category comments in code (272 event types as of 2026-02-03).
 
 ### Debate events
 - `debate_start`
