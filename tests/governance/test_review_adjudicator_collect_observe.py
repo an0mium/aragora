@@ -133,3 +133,28 @@ def test_review_adjudicator_flag_on_without_stall_records_no_adjudication(
     assert sorted(payload["supportive_families"]) == ["claude", "openai"]
     assert payload["dissenting_families"] == []
     assert "adjudication" not in payload
+
+
+def test_review_adjudicator_exception_leaves_collect_outcome_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.swarm import review_adjudicator
+
+    def broken_adjudicate(_items: object) -> object:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(review_adjudicator, "adjudicate", broken_adjudicate)
+
+    payload = _collect_with(
+        monkeypatch,
+        flag=True,
+        reviewer_bodies={
+            "claude": "Verdict: PASS\nVerified bounded reviewer timeout behavior.",
+            "openai": "Verdict: CHANGES-REQUESTED\n- [P1] concrete blocker.",
+        },
+    )
+
+    assert payload["action"] == "prepare"
+    assert payload["supportive_families"] == ["claude"]
+    assert payload["dissenting_families"] == ["openai"]
+    assert "adjudication" not in payload

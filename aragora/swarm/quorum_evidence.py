@@ -1978,7 +1978,10 @@ def _record_review_adjudication_if_applicable(outcome: CollectOutcome) -> None:
 
     if not review_adjudicator_enabled():
         return
-    outcome.adjudication = adjudicate(outcome.items).to_receipt_dict()
+    try:
+        outcome.adjudication = adjudicate(outcome.items).to_receipt_dict()
+    except Exception:
+        logger.exception("observe-only review adjudicator failed; omitting adjudication")
 
 
 # --- Orchestrator ----------------------------------------------------------
