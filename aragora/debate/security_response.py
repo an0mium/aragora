@@ -13,11 +13,11 @@ auto-debate path (see register_security_debate_runner), so the domain-free
 events module never imports aragora.debate or aragora.agents directly.
 Registration is a plain module-level side effect, so any composition root
 that imports this module first makes the runner available process-wide.
-Three composition roots import it explicitly rather than relying on
+Two composition roots import it explicitly rather than relying solely on
 incidental transitive imports: aragora.debate.orchestrator (Arena, for any
-Arena-backed process), aragora.analysis.codebase.sast.scanner (SAST auto-scan
-findings), and aragora.server.handlers.codebase.security.events (server-side
-scan event emission).
+Arena-backed process) and aragora.analysis.codebase.sast.scanner (SAST
+auto-scan findings, which can run in isolation from the Arena-backed server
+stack).
 """
 
 from __future__ import annotations

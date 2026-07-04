@@ -262,13 +262,13 @@ class TestTriggerSecurityDebate:
 
 class TestConsumerRegistrationSideEffect:
     """
-    Regression tests proving that importing a real production consumer
+    Regression test proving that importing a real production consumer
     module -- without ever explicitly referencing aragora.debate -- leaves
     the security debate runner registered.
 
-    Each check runs in a fresh subprocess so module-caching from other tests
-    (or from importing aragora.debate.security_response directly earlier in
-    this file) cannot mask a missing registration.
+    Runs in a fresh subprocess so module-caching from other tests (or from
+    importing aragora.debate.security_response directly earlier in this
+    file) cannot mask a missing registration.
     """
 
     def _assert_runner_registered_after_import(self, import_line: str) -> None:
@@ -295,9 +295,3 @@ class TestConsumerRegistrationSideEffect:
     def test_sast_scanner_import_registers_runner(self):
         """Importing the SAST scanner module alone must register the runner."""
         self._assert_runner_registered_after_import("import aragora.analysis.codebase.sast.scanner")
-
-    def test_server_security_events_handler_import_registers_runner(self):
-        """Importing the server security-events handler alone must register the runner."""
-        self._assert_runner_registered_after_import(
-            "import aragora.server.handlers.codebase.security.events"
-        )
