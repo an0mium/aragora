@@ -19,6 +19,64 @@ from typing import Any
 UTC = timezone.utc
 
 
+def add_founder_status_arguments(
+    status_parser: argparse.ArgumentParser,
+    *,
+    default_api_url: str,
+) -> None:
+    status_parser.add_argument(
+        "--founder",
+        action="store_true",
+        help=(
+            "Show a read-only founder ops report: queue pressure, merge blockers, "
+            "proof-loop health, latest brief, and one next action."
+        ),
+    )
+    status_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    status_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override for founder status (owner/name).",
+    )
+    status_parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Max PRs to inspect for founder status (default: 10).",
+    )
+    status_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Override repo root for founder status local health and brief lookups.",
+    )
+    status_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override .aragora/review-queue root for founder status.",
+    )
+    status_parser.add_argument(
+        "--overnight-root",
+        default=None,
+        help="Override .aragora/overnight root for founder status health checks.",
+    )
+    status_parser.add_argument(
+        "--automation-receipts-root",
+        default=None,
+        help="Override .aragora/automation-receipts root for founder status health checks.",
+    )
+    status_parser.add_argument(
+        "--overnight-brief-root",
+        default=None,
+        help="Override .aragora/overnight-brief root for founder status.",
+    )
+    status_parser.add_argument(
+        "--server",
+        "-s",
+        default=default_api_url,
+        help=f"Server URL to check (default: {default_api_url})",
+    )
+
+
 def _now() -> datetime:
     return datetime.now(tz=UTC)
 
@@ -208,6 +266,8 @@ def _queue_report(
     review_queue_root: str | None,
     merge_packet_builder: Any | None = None,
 ) -> dict[str, Any]:
+    from aragora.cli.commands.review_queue_transport import _GhError
+
     if merge_packet_builder is None:
         from aragora.cli.commands.review_queue import _build_merge_authorization_packet
 
@@ -222,7 +282,7 @@ def _queue_report(
             execute_reviewers=False,
             ignore_own_quorum_check=False,
         )
-    except Exception as exc:  # noqa: BLE001 - status should degrade, not crash
+    except (_GhError, RuntimeError, OSError, ValueError) as exc:
         return {
             "transport_status": "blocked",
             "transport_error": f"{type(exc).__name__}: {exc}",
@@ -408,6 +468,7 @@ def cmd_founder_status(args: argparse.Namespace) -> int:
 
 
 __all__ = [
+    "add_founder_status_arguments",
     "cmd_founder_status",
     "gather_founder_status",
     "render_founder_status",

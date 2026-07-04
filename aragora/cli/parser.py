@@ -1352,57 +1352,9 @@ def _add_status_parser(subparsers) -> None:
     status_parser = subparsers.add_parser(
         "status", help="Show environment health, agent availability, or founder ops status"
     )
-    status_parser.add_argument(
-        "--founder",
-        action="store_true",
-        help=(
-            "Show a read-only founder ops report: queue pressure, merge blockers, "
-            "proof-loop health, latest brief, and one next action."
-        ),
-    )
-    status_parser.add_argument("--json", action="store_true", help="Output as JSON")
-    status_parser.add_argument(
-        "--repo",
-        default=None,
-        help="GitHub repo slug override for founder status (owner/name).",
-    )
-    status_parser.add_argument(
-        "--limit",
-        type=int,
-        default=10,
-        help="Max PRs to inspect for founder status (default: 10).",
-    )
-    status_parser.add_argument(
-        "--repo-root",
-        default=None,
-        help="Override repo root for founder status local health and brief lookups.",
-    )
-    status_parser.add_argument(
-        "--review-queue-root",
-        default=None,
-        help="Override .aragora/review-queue root for founder status.",
-    )
-    status_parser.add_argument(
-        "--overnight-root",
-        default=None,
-        help="Override .aragora/overnight root for founder status health checks.",
-    )
-    status_parser.add_argument(
-        "--automation-receipts-root",
-        default=None,
-        help="Override .aragora/automation-receipts root for founder status health checks.",
-    )
-    status_parser.add_argument(
-        "--overnight-brief-root",
-        default=None,
-        help="Override .aragora/overnight-brief root for founder status.",
-    )
-    status_parser.add_argument(
-        "--server",
-        "-s",
-        default=DEFAULT_API_URL,
-        help=f"Server URL to check (default: {DEFAULT_API_URL})",
-    )
+    from aragora.cli.commands.founder_status import add_founder_status_arguments
+
+    add_founder_status_arguments(status_parser, default_api_url=DEFAULT_API_URL)
     status_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_status"))
 
 
