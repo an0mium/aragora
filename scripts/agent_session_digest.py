@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
@@ -49,6 +50,8 @@ def default_sessions_root() -> Path:
 
 
 MAX_ROLLOUT_SCAN = 200
+COORDINATOR_ROLLOUT_SAMPLE_BYTES = 64 * 1024
+DEFAULT_COORDINATOR_TIME_BUDGET_SECONDS = 90.0
 _PR_RE = re.compile(r"#(\d{3,6})\b")
 _CMD_RE = re.compile(r'"cmd"\s*:\s*"([^"]{0,160})')
 
@@ -117,7 +120,12 @@ def find_rollout(*, path: str | None, session: str | None, latest: bool, root: P
 
 
 def coordinator_view(
-    *, root: Path, since_hours: float, now: float | None = None
+    *,
+    root: Path,
+    since_hours: float,
+    now: float | None = None,
+    sample_bytes: int = COORDINATOR_ROLLOUT_SAMPLE_BYTES,
+    time_budget_seconds: float | None = DEFAULT_COORDINATOR_TIME_BUDGET_SECONDS,
 ) -> list[dict[str, Any]]:
     """Compact per-session digests for every rollout modified within the window.
 
@@ -125,22 +133,75 @@ def coordinator_view(
     sibling agents are touching (which PRs/files) and avoid collisions.
     """
     rows: list[dict[str, Any]] = []
-    for r in _iter_rollouts(root, since_hours=since_hours, now=now):
-        turns = extract_turns(r)
+    rollouts = list(_iter_rollouts(root, since_hours=since_hours, now=now))
+    deadline = (
+        None if time_budget_seconds is None else time.monotonic() + max(0.0, time_budget_seconds)
+    )
+    for index, r in enumerate(rollouts):
+        if deadline is not None and time.monotonic() >= deadline:
+            rows.append(
+                {
+                    "kind": "skipped",
+                    "reason": "time_budget",
+                    "skipped_rollouts": len(rollouts) - index,
+                    "message": f"skipped {len(rollouts) - index} rollouts (time budget)",
+                }
+            )
+            break
+        turns = extract_turns(r, max_bytes=sample_bytes)
         sid = _rollout_session_id(r, turns.get("session_id"))
         rows.append(
             {
+                "kind": "session",
                 "session_id": sid,
                 "rollout": str(r),
                 "counts": turns["counts"],
                 "prs_referenced": turns["prs_referenced"],
                 "last_decision": (turns["decisions"][-1] if turns["decisions"] else ""),
+                "scan": turns.get("scan", {}),
             }
         )
     return rows
 
 
-def extract_turns(rollout: Path) -> dict[str, Any]:
+def _sample_rollout_lines(
+    rollout: Path, *, max_bytes: int
+) -> tuple[list[str], dict[str, int | bool]]:
+    """Return bounded head+tail text lines for large coordinator scans."""
+    sample_bytes = max(1, max_bytes)
+    try:
+        file_size = rollout.stat().st_size
+    except OSError:
+        return [], {"truncated": False, "file_size": 0, "bytes_scanned": 0}
+    try:
+        with rollout.open("rb") as handle:
+            if file_size <= sample_bytes * 2:
+                body = handle.read()
+                return body.decode("utf-8", errors="replace").splitlines(), {
+                    "truncated": False,
+                    "file_size": file_size,
+                    "bytes_scanned": len(body),
+                }
+            head = handle.read(sample_bytes)
+            handle.seek(max(0, file_size - sample_bytes))
+            tail = handle.read(sample_bytes)
+    except OSError:
+        return [], {"truncated": False, "file_size": file_size, "bytes_scanned": 0}
+
+    head_lines = head.decode("utf-8", errors="replace").splitlines()
+    if not head.endswith(b"\n") and head_lines:
+        head_lines = head_lines[:-1]
+    tail_lines = tail.decode("utf-8", errors="replace").splitlines()
+    if not tail.startswith(b"\n") and tail_lines:
+        tail_lines = tail_lines[1:]
+    return head_lines + tail_lines, {
+        "truncated": True,
+        "file_size": file_size,
+        "bytes_scanned": len(head) + len(tail),
+    }
+
+
+def extract_turns(rollout: Path, *, max_bytes: int | None = None) -> dict[str, Any]:
     """Deterministically extract the reviewable signal from a rollout JSONL.
 
     Returns prompts, agent decisions, exec commands, and referenced PRs — without
@@ -163,10 +224,15 @@ def extract_turns(rollout: Path) -> dict[str, Any]:
         seen.add(text)
         bucket.append(text)
 
-    try:
-        handle = rollout.open("r", encoding="utf-8", errors="replace")
-    except OSError:
-        handle = None
+    scan: dict[str, int | bool] = {"truncated": False}
+    if max_bytes is not None:
+        raw_lines, scan = _sample_rollout_lines(rollout, max_bytes=max_bytes)
+        handle = io.StringIO("\n".join(raw_lines))
+    else:
+        try:
+            handle = rollout.open("r", encoding="utf-8", errors="replace")
+        except OSError:
+            handle = None
     if handle is None:
         return {
             "rollout": str(rollout),
@@ -176,6 +242,7 @@ def extract_turns(rollout: Path) -> dict[str, Any]:
             "commands": [],
             "prs_referenced": [],
             "counts": {"prompts": 0, "decisions": 0, "commands": 0, "prs": 0},
+            "scan": scan,
         }
     with handle:
         for raw_line in handle:
@@ -259,6 +326,7 @@ def extract_turns(rollout: Path) -> dict[str, Any]:
             "commands": len(commands),
             "prs": len(prs),
         },
+        "scan": scan,
     }
 
 
@@ -412,6 +480,15 @@ def main(argv: list[str] | None = None) -> int:
         help="With --all: only rollouts modified within this many hours (default 24)",
     )
     ap.add_argument(
+        "--time-budget-seconds",
+        type=float,
+        default=DEFAULT_COORDINATOR_TIME_BUDGET_SECONDS,
+        help=(
+            "With --all: stop coordinator digest after this many seconds and report "
+            "how many rollouts were skipped (default 90; use <=0 to skip immediately)"
+        ),
+    )
+    ap.add_argument(
         "--rlm",
         nargs="?",
         const="Summarize the main actions, files/PRs touched, and any duplicated or wasted work.",
@@ -427,17 +504,26 @@ def main(argv: list[str] | None = None) -> int:
             # --rlm summarizes a single session; it has no effect in coordinator
             # view. Say so rather than silently ignoring it.
             print("note: --rlm is ignored with --all (coordinator view)", file=sys.stderr)
-        lines = coordinator_view(root=Path(args.sessions_root), since_hours=args.since_hours)
+        lines = coordinator_view(
+            root=Path(args.sessions_root),
+            since_hours=args.since_hours,
+            time_budget_seconds=args.time_budget_seconds,
+        )
         if args.json:
             print(json.dumps(lines, indent=2))
         else:
             if not lines:
                 print("no rollouts in window")
             for row in lines:
+                if row.get("kind") == "skipped":
+                    print(row["message"])
+                    continue
                 c = row["counts"]
                 prs = ", ".join("#" + p for p in row["prs_referenced"]) or "none"
+                scan = row.get("scan") or {}
+                sampled = " sampled" if scan.get("truncated") else ""
                 print(
-                    f"{row['session_id']}  {c['commands']}cmds {c['decisions']}dec  "
+                    f"{row['session_id']}  {c['commands']}cmds {c['decisions']}dec{sampled}  "
                     f"PRs:{prs}  | {row['last_decision'][:90]}"
                 )
         return 0

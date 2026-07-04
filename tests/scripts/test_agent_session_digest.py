@@ -147,6 +147,57 @@ def test_coordinator_view_windows_by_mtime(tmp_path: Path) -> None:
     assert digest.coordinator_view(root=tmp_path, since_hours=1.0, now=future) == []
 
 
+def test_coordinator_view_samples_large_rollouts_explicitly(tmp_path: Path) -> None:
+    rollout = tmp_path / "rollout-2026-06-30T12-00-00-large.jsonl"
+    rows = [
+        {"type": "session_meta", "payload": {"id": "large-session"}},
+        {"type": "event_msg", "payload": {"type": "user_message", "message": "start PR #8816"}},
+    ]
+    tail = {
+        "type": "event_msg",
+        "payload": {"type": "agent_message", "message": "finished PR #8817"},
+    }
+    rollout.write_text(
+        "\n".join(json.dumps(row) for row in rows)
+        + "\n"
+        + ("x" * 4096)
+        + "\n"
+        + json.dumps(tail)
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = digest.coordinator_view(root=tmp_path, since_hours=24.0, sample_bytes=256)
+
+    assert len(result) == 1
+    row = result[0]
+    assert row["session_id"] == "large-session"
+    assert row["scan"]["truncated"] is True
+    assert row["scan"]["bytes_scanned"] == 512
+    assert "8816" in row["prs_referenced"]
+    assert "8817" in row["prs_referenced"]
+
+
+def test_coordinator_view_time_budget_reports_skipped_rollouts(tmp_path: Path) -> None:
+    for i in range(3):
+        rollout = tmp_path / f"rollout-2026-06-30T12-00-0{i}-sess{i}.jsonl"
+        rollout.write_text(
+            json.dumps({"type": "session_meta", "payload": {"id": f"sess{i}"}}),
+            encoding="utf-8",
+        )
+
+    result = digest.coordinator_view(root=tmp_path, since_hours=24.0, time_budget_seconds=0.0)
+
+    assert result == [
+        {
+            "kind": "skipped",
+            "reason": "time_budget",
+            "skipped_rollouts": 3,
+            "message": "skipped 3 rollouts (time budget)",
+        }
+    ]
+
+
 def test_rlm_summary_cleans_temporary_files(tmp_path: Path, monkeypatch) -> None:
     created: list[Path] = []
 
@@ -264,6 +315,22 @@ def test_main_all_mode(tmp_path: Path, capsys) -> None:
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert any(r["session_id"] == "019f197d" for r in out)
+
+
+def test_main_all_mode_reports_time_budget_skips(tmp_path: Path, capsys) -> None:
+    sess = tmp_path / "rollout-2026-06-30T12-00-00-019f197d.jsonl"
+    _write_rollout(tmp_path).rename(sess)
+    rc = digest.main(
+        [
+            "--all",
+            "--sessions-root",
+            str(tmp_path),
+            "--time-budget-seconds",
+            "0",
+        ]
+    )
+    assert rc == 0
+    assert "skipped 1 rollouts (time budget)" in capsys.readouterr().out
 
 
 def test_extract_turns_reads_user_message_events(tmp_path: Path) -> None:
