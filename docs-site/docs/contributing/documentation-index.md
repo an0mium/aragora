@@ -16,6 +16,16 @@ This index intentionally links to actively maintained docs with validated paths.
 - [SDK Guide (Python)](../guides/sdk)
 - [CLI Reference (generated)](../api/cli)
 
+## Receipts & Verification
+
+`docs/specs/` is not mirrored into `docs-site/` (see "Notes" below), so these
+link straight to GitHub rather than to a path that would 404 on
+`docs.aragora.ai`:
+
+- [Open Decision Receipt Spec](https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md)
+- [Receipt Lineage Reconciliation](https://github.com/synaptent/aragora/blob/main/docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md)
+- [Independent Verifier Guide](https://github.com/synaptent/aragora/blob/main/docs/specs/INDEPENDENT_VERIFIER_GUIDE.md)
+
 ## API
 
 - [API Reference](../api/reference)
@@ -81,3 +91,6 @@ This index intentionally links to actively maintained docs with validated paths.
 
 - Deprecated and historical docs are in `docs/deprecated/`.
 - For link-health checks, run `python scripts/validate_doc_links.py`.
+- `docs/specs/` is not mirrored into `docs-site/` by `docs-site/scripts/sync-docs.js`;
+  link to it with absolute `github.com/synaptent/aragora/blob/main/...` URLs, not
+  relative paths, so the docs-site mirror doesn't 404.
