@@ -185,6 +185,23 @@ SecurityDebateRunner = Callable[..., Coroutine[Any, Any, str | None]]
 _security_debate_runner: SecurityDebateRunner | None = None
 
 
+def _ensure_default_security_debate_runner_registered() -> SecurityDebateRunner | None:
+    """Import the default debate runner on demand for cold event consumers."""
+    if _security_debate_runner is not None:
+        return _security_debate_runner
+
+    try:
+        from aragora.debate import security_response
+    except ImportError as exc:
+        logger.debug("Default security debate runner is not importable: %s", exc)
+    else:
+        runner = getattr(security_response, "trigger_security_debate", None)
+        if runner is not None and _security_debate_runner is None:
+            register_security_debate_runner(runner)
+
+    return _security_debate_runner
+
+
 def register_security_debate_runner(runner: SecurityDebateRunner) -> None:
     """Register the callback used to run security debates.
 
@@ -364,6 +381,8 @@ class SecurityEventEmitter:
             Debate ID if triggered, None otherwise
         """
         runner = get_security_debate_runner()
+        if runner is None:
+            runner = _ensure_default_security_debate_runner_registered()
         if runner is None:
             logger.warning(
                 "No security debate runner registered; skipping auto-debate for %s", event.id

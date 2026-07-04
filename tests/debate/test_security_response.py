@@ -11,11 +11,13 @@ live under aragora.debate rather than the domain-free events module.
 import json
 import subprocess
 import sys
+import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from aragora.debate.security_response import (
+    _get_security_debate_agents,
     build_security_debate_question,
     trigger_security_debate,
 )
@@ -253,6 +255,31 @@ class TestTriggerSecurityDebate:
                 assert decoded["security_event_id"] == event.id
                 assert decoded["repository"] == "org/repo"
                 assert decoded["findings"][0]["cve_id"] == "CVE-2024-99999"
+
+
+# =============================================================================
+# Agent selection
+# =============================================================================
+
+
+class TestSecurityDebateAgentSelection:
+    """Tests for security debate agent discovery."""
+
+    @pytest.mark.asyncio
+    async def test_uses_deployment_agent_factory_before_direct_api_agents(self, monkeypatch):
+        fake_agents = [MagicMock(name="factory-agent")]
+        factory_module = types.ModuleType("aragora.agents.factory")
+        factory_module.get_available_agents = AsyncMock(return_value=fake_agents)
+        monkeypatch.setitem(sys.modules, "aragora.agents.factory", factory_module)
+
+        agents = await _get_security_debate_agents()
+
+        assert agents == fake_agents
+        factory_module.get_available_agents.assert_awaited_once_with(
+            capabilities=["security", "code_analysis"],
+            min_count=2,
+            max_count=4,
+        )
 
 
 # =============================================================================

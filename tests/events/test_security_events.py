@@ -26,6 +26,7 @@ from aragora.events.security_events import (
     get_security_debate_result,
     get_security_debate_runner,
     get_security_emitter,
+    _ensure_default_security_debate_runner_registered,
     list_security_debates,
     register_security_debate_runner,
     set_security_emitter,
@@ -1704,3 +1705,13 @@ class TestSecurityDebateRunnerRegistry:
         register_security_debate_runner(fake_runner)
         register_security_debate_runner(None)
         assert get_security_debate_runner() is None
+
+    def test_default_runner_can_be_lazily_registered_after_clear(self):
+        """Cold consumers should not depend on prior import-time registration."""
+        register_security_debate_runner(None)
+
+        runner = _ensure_default_security_debate_runner_registered()
+
+        assert runner is not None
+        assert runner.__name__ == "trigger_security_debate"
+        assert get_security_debate_runner() is runner

@@ -476,6 +476,22 @@ class TestGlobalProviderReference:
         assert streams_module.get_embedding_provider() is provider2
         assert _get_cached_embedding("fresh content") == tuple([0.2] * 256)
 
+    def test_provider_registration_clears_cached_embeddings(self, temp_db):
+        """Replacing the provider should not reuse old-provider embeddings."""
+        _get_cached_embedding.cache_clear()
+
+        provider1 = AsyncMock()
+        provider1.embed = AsyncMock(return_value=[0.1] * 256)
+        MemoryStream(db_path=temp_db, embedding_provider=provider1)
+        assert _get_cached_embedding("same content") == tuple([0.1] * 256)
+
+        provider2 = AsyncMock()
+        provider2.embed = AsyncMock(return_value=[0.2] * 256)
+        MemoryStream(db_path=temp_db, embedding_provider=provider2)
+
+        assert streams_module.get_embedding_provider() is provider2
+        assert _get_cached_embedding("same content") == tuple([0.2] * 256)
+
     def test_none_provider_no_overwrite(self, temp_db, mock_embedding_provider):
         """None provider should not overwrite existing reference."""
         _get_cached_embedding.cache_clear()

@@ -504,15 +504,53 @@ class TestDefaultRunnerPath:
             event_type=SecurityEventType.CRITICAL_CVE,
         )
 
-        with patch(
-            "aragora.events.security_dispatcher.get_security_debate_runner",
-            return_value=None,
+        with (
+            patch(
+                "aragora.events.security_dispatcher.get_security_debate_runner",
+                return_value=None,
+            ),
+            patch(
+                "aragora.events.security_dispatcher._ensure_default_security_debate_runner_registered",
+                return_value=None,
+            ),
         ):
             await dispatcher._handle_event(event)
             await asyncio.sleep(0.05)
 
         assert dispatcher._stats.debates_failed == 1
         assert dispatcher._stats.debates_completed == 0
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_lazily_registers_runner_when_cold(self):
+        runner = AsyncMock(return_value="debate-lazy-1")
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with (
+            patch(
+                "aragora.events.security_dispatcher.get_security_debate_runner",
+                return_value=None,
+            ),
+            patch(
+                "aragora.events.security_dispatcher._ensure_default_security_debate_runner_registered",
+                return_value=runner,
+            ),
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        runner.assert_awaited_once()
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-lazy-1"
         await dispatcher.stop()
 
     @pytest.mark.asyncio

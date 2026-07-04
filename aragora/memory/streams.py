@@ -36,6 +36,8 @@ _provider_registered = False
 def _register_embedding_provider(provider: "EmbeddingProvider") -> None:
     """Register embedding provider with ServiceRegistry for observability."""
     global _provider_registered, _embedding_provider_ref
+    if _embedding_provider_ref is not provider:
+        _get_cached_embedding.cache_clear()
     _embedding_provider_ref = provider
 
     try:

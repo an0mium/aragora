@@ -176,11 +176,15 @@ async def trigger_security_debate(
 
 async def _get_security_debate_agents() -> list[Any]:
     """Get agents suitable for security debates."""
+    agents = await _get_agent_factory_security_agents()
+    if agents:
+        return agents
+
     try:
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent as AnthropicAgent
         from aragora.agents.api_agents.openai import OpenAIAPIAgent as OpenAIAgent
 
-        agents: list[Any] = []
+        agents = []
 
         try:
             agents.append(
@@ -206,6 +210,27 @@ async def _get_security_debate_agents() -> list[Any]:
     except ImportError:
         logger.debug("Could not import agent modules for security debate")
         return []
+
+
+async def _get_agent_factory_security_agents() -> list[Any]:
+    """Use a deployment-provided agent factory when available."""
+    try:
+        from aragora.agents.factory import get_available_agents
+    except ImportError:
+        logger.debug("Security agent factory pool not available")
+        return []
+
+    try:
+        agents = await get_available_agents(
+            capabilities=["security", "code_analysis"],
+            min_count=2,
+            max_count=4,
+        )
+    except (RuntimeError, ValueError, TypeError, OSError) as exc:
+        logger.debug("Security agent factory pool failed: %s", exc)
+        return []
+
+    return list(agents or [])
 
 
 register_security_debate_runner(trigger_security_debate)
