@@ -68,12 +68,13 @@ must be kept in lockstep:
    on PyPI**) — the "no-trust" path: pure stdlib + `cryptography`, zero Aragora
    dependency, with its own real CLI entry point
    (`aragora-verify RECEIPT.odr.json [--pubkey KEY.pem] [--chain CHAIN.jsonl]`) for an
-   external auditor who has never installed Aragora. `aragora-verify` 0.1.0 has been
-   live on PyPI since **2026-06-29T23:32Z** (GitHub release
-   [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0),
-   uploaded via Trusted Publishing ~24s after #8693 merged); `pip install
-   aragora-verify` installs it from the public index today. Self-verify rather than
-   trust this sentence: `curl -s https://pypi.org/pypi/aragora-verify/json`. To
+   external auditor who has never installed Aragora. `aragora-verify` is live on
+   PyPI; 0.1.1 is the latest published version, and 0.1.0 was first published
+   2026-06-29T23:32Z (GitHub release
+   [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0)).
+   Use `pip install aragora-verify==0.1.1` for the public-index verifier today.
+   Self-verify rather than trust this sentence: `python3 -m pip index versions
+   aragora-verify` or `curl -s https://pypi.org/pypi/aragora-verify/json`. To
    exercise this exact checkout instead of the published package, run
    `PYTHONPATH=src python -m aragora_verify <r>.odr.json` from `aragora-verify/`, or
    `pip install ./aragora-verify` for a local `aragora-verify` console script.

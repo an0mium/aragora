@@ -54,22 +54,20 @@ the public key that verifies it. The only tool needed is **`aragora-verify`**,
 a free, standalone, MIT-licensed verifier published on PyPI whose only
 dependency is the `cryptography` package.
 
-> PyPI release verified: `pip install aragora-verify==0.1.0` from a clean
-> venv (real PyPI, no local wheel) installed and verified this fixture with
-> all checks PASS on 2026-07-02. CI additionally smoke-tests the CLI against
-> a wheel built from the in-repo [`aragora-verify/`](../../aragora-verify/)
-> source. **Version note (corrected 2026-07-04):** the signer-label (`key_id`)
-> binding described in §"What each check proves" ships in 0.1.1, published to
-> PyPI on 2026-07-04 (self-verify: `curl -s
-> https://pypi.org/pypi/aragora-verify/json`). 0.1.0 verifies content
-> integrity and signature validity but does not bind the recorded `key_id` to
-> the supplied key — prefer `pip install "aragora-verify>=0.1.1"` or the
-> source build for full signer-label protection.
+> PyPI release verified: the public index lists `aragora-verify` 0.1.1 as the
+> latest release (self-verify: `python3 -m pip index versions aragora-verify`
+> or `curl -s https://pypi.org/pypi/aragora-verify/json`). CI additionally
+> smoke-tests the CLI against a wheel built from the in-repo
+> [`aragora-verify/`](../../aragora-verify/) source. **Version note (corrected
+> 2026-07-04):** the signer-label (`key_id`) binding described in §"What each
+> check proves" ships in 0.1.1. Pin `pip install aragora-verify==0.1.1` for
+> full signer-label protection; 0.1.0 verifies content integrity and signature
+> validity but does not bind the recorded `key_id` to the supplied key.
 
 ```bash
 # 1. Install the standalone verifier into a clean environment
 python3 -m venv odr-env && . odr-env/bin/activate
-pip install aragora-verify
+pip install aragora-verify==0.1.1
 
 # 2. Fetch the two fixture files (or copy them from a repo checkout)
 #    docs/compliance/fixtures/sample_decision_receipt.odr.json
