@@ -304,6 +304,7 @@ truth. *(docs/CANONICAL_GOALS.md)*
 
 ### The complete capability surface
 
+<!-- metrics:begin readme-scale -->
 > Scale (canonical counts in [`docs/METRICS.md`](docs/METRICS.md), rounded):
 > **~4,200 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test
 > functions across ~5,400 files · 3,297 API operations across 2,870 paths ·
@@ -311,6 +312,7 @@ truth. *(docs/CANONICAL_GOALS.md)*
 > (46 files) · 360+ RBAC permissions · Python + TypeScript SDKs · v2.9.0.**
 > (Practical real-time debate uses 2–6 agents; the value is *heterogeneity*, not raw
 > count — see docs/HONEST_ASSESSMENT.md.)
+<!-- metrics:end -->
 
 **Core debate (✅).** Arena engine orchestrates Propose/Critique/Revise/Vote phases,
 extended multi-round debates, semantic convergence detection, ELO-based team

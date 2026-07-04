@@ -61,6 +61,21 @@ DEBATE_EVENT_SUBSCRIBER_HANDLER_NAMES = frozenset(
     }
 )
 
+# Registry home names (the keys home modules pass to ``register_subscriber``/
+# ``register_factory``, NOT the handler names above) that this domain-only
+# bootstrap is allowed to wire. Passed as ``bootstrap(include_names=...)`` so
+# that an application/interface-tier home already sitting in the process-wide
+# registry - because something else imported it first - cannot silently get
+# applied here too; see ``CrossSubscriberManager.apply_registered_subscribers``.
+DOMAIN_EVENT_SUBSCRIBER_HOME_NAMES = frozenset(
+    {
+        "knowledge",
+        "memory",
+        "reasoning",
+        "debate",
+    }
+)
+
 
 class AgentPoolProtocol(Protocol):
     """Protocol for agent pool with ELO and calibration updates."""
@@ -379,17 +394,30 @@ def bootstrap_debate_event_subscribers() -> CrossSubscriberManager:
     """Import domain event-subscriber home modules and wire them into the manager.
 
     Idempotent (registration is keyed by name). Wires knowledge, memory,
-    reasoning, and this module's own debate-domain subscriber. E5-E6 add further
-    ``import aragora.<domain>.event_subscribers`` lines here as remaining handlers
-    relocate to their (application/interface) home layers.
+    reasoning, and this module's own debate-domain subscriber. Further DOMAIN-tier
+    ``import aragora.<domain>.event_subscribers`` lines are added here as more
+    domain-coupled handlers relocate. APPLICATION/interface-tier homes (e.g.
+    ``aragora.workflow.event_subscribers``, P4a Batch E5) are deliberately NOT
+    imported here - importing an application-tier module from this domain-tier
+    bootstrap would recreate the very upward edge this inversion removes. They
+    are instead imported only by the interface-superset bootstrap
+    (``aragora.server.startup.event_subscribers.bootstrap_event_subscribers``);
+    a pure-domain debate with no workflow engine simply has no such reaction.
+    This holds even if an application/interface-tier home was already
+    imported elsewhere in-process (e.g. by an earlier, unrelated call to the
+    interface-superset bootstrap): ``bootstrap(include_names=...)`` below
+    restricts THIS call to the domain-tier homes, so a wider-tier home that
+    already self-registered into the process-wide registry cannot be
+    silently picked up here too.
 
     Returns:
         The registry-backed cross-subscriber manager singleton.
     """
     # Domain home modules register their subscribers here. ``register()`` is called
     # explicitly (not just import side-effect) so registration survives a cached
-    # re-import after ``reset_registry`` in tests. More are added by E5-E6 as
-    # remaining (application/interface) handlers relocate.
+    # re-import after ``reset_registry`` in tests. More are added here as further
+    # DOMAIN-tier handlers relocate; application/interface-tier homes are wired
+    # only by the interface-superset bootstrap (see docstring above).
     from aragora.knowledge import event_subscribers as knowledge_home
     from aragora.memory import event_subscribers as memory_home
     from aragora.reasoning import event_subscribers as reasoning_home
@@ -401,7 +429,7 @@ def bootstrap_debate_event_subscribers() -> CrossSubscriberManager:
 
     from aragora.events.cross_subscribers import bootstrap
 
-    manager = bootstrap()
+    manager = bootstrap(include_names=set(DOMAIN_EVENT_SUBSCRIBER_HOME_NAMES))
     expected_handlers = (
         knowledge_home.KNOWLEDGE_EVENT_SUBSCRIBER_HANDLER_NAMES
         | memory_home.MEMORY_EVENT_SUBSCRIBER_HANDLER_NAMES

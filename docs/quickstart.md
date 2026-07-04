@@ -16,15 +16,20 @@ No API keys required. The offline demo runs a complete adversarial debate with
 mock agents:
 
 ```bash
-python3 -m aragora.cli.main demo
+python3 -m aragora_debate
 ```
 
 You'll see three agents propose, critique each other, vote, reach consensus, and
 produce an audit-ready decision receipt with a SHA-256 verdict hash.
 
+(If you installed the full platform instead — `pip install aragora` — the
+equivalent zero-key demo is `aragora demo`.)
+
 ## 3. Three-Line Debate (Python)
 
 ```python
+import asyncio
+
 from aragora_debate.arena import Arena
 from aragora_debate.styled_mock import StyledMockAgent
 
@@ -97,7 +102,9 @@ Then visit:
 
 ```bash
 pip install aragora
-aragora debate "Should we build or buy our auth system?"
+aragora demo                                            # zero-key offline demo + receipt
+aragora ask "Should we build or buy our auth system?"   # real debate (needs an API key)
+aragora verify aragora-demo-receipt.json                # verify a receipt offline
 aragora serve --api-port 8080 --ws-port 8765
 ```
 
