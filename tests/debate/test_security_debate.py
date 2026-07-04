@@ -382,6 +382,59 @@ class TestSecurityDebateIntegration:
             assert result.consensus_reached is False
             assert result.metadata["security_confidence_threshold"] == 0.9
             assert result.metadata["security_confidence_threshold_met"] is False
+            assert mock_event.debate_requested is False
+            assert mock_event.debate_id is None
+
+    @pytest.mark.asyncio
+    async def test_secret_findings_are_redacted_from_environment_context(self):
+        """Secret descriptions and metadata should not be sent to debate agents."""
+        from aragora.debate.security_debate import run_security_debate
+
+        mock_event = MockSecurityEvent(
+            findings=[
+                MockFinding(
+                    cve_id="SECRET-1",
+                    severity="critical",
+                    description="token=super-secret-value",
+                    finding_type="secret",
+                )
+            ]
+        )
+        mock_event.findings[0].metadata = {
+            "secret_type": "api_token",
+            "raw_secret": "super-secret-value",
+        }
+        mock_agent = MagicMock()
+        mock_agent.name = "security-auditor"
+
+        mock_result = MagicMock()
+        mock_result.debate_id = "debate-redacted-context"
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.95
+        mock_result.metadata = {}
+
+        mock_arena = MagicMock()
+        mock_arena.run = AsyncMock(return_value=mock_result)
+
+        with (
+            patch(
+                "aragora.debate.security_response.build_security_debate_question",
+                return_value="Q",
+            ),
+            patch(
+                "aragora.debate.orchestrator.Arena",
+                return_value=mock_arena,
+            ) as mock_arena_cls,
+        ):
+            await run_security_debate(event=mock_event, agents=[mock_agent])
+
+        env = mock_arena_cls.call_args.kwargs["environment"]
+        context = json.loads(env.context)
+        finding = context["findings"][0]
+        assert finding["title"] == "Secret finding"
+        assert finding["description"] == "[redacted secret finding description]"
+        assert finding["metadata"] == {"secret_type": "api_token"}
+        assert "super-secret-value" not in env.context
 
     @pytest.mark.asyncio
     async def test_org_id_parameter(self):

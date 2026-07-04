@@ -534,6 +534,26 @@ class TestDefaultRunnerPath:
         await dispatcher.stop()
 
     @pytest.mark.asyncio
+    async def test_cancelled_default_path_clears_unresolved_debate_request(self):
+        runner = AsyncMock(side_effect=asyncio.CancelledError)
+        dispatcher = SecurityDispatcher()
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+        event.debate_requested = True
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            result = await dispatcher._run_debate(event)
+
+        assert result is None
+        assert event.debate_requested is False
+        assert event.debate_id is None
+
+    @pytest.mark.asyncio
     async def test_default_path_lazily_registers_runner_when_cold(self):
         runner = AsyncMock(return_value="debate-lazy-1")
         emitter = SecurityEventEmitter(enable_auto_debate=False)

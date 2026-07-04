@@ -834,7 +834,11 @@ class TestSecurityEventEmitter:
     @pytest.mark.asyncio
     async def test_emit_triggers_debate_for_critical(self):
         """Emitting a critical event with auto-debate enabled should trigger debate."""
-        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        emitter = SecurityEventEmitter(
+            enable_auto_debate=True,
+            debate_confidence_threshold=0.8,
+            debate_timeout_seconds=123,
+        )
         event = self._make_event(severity=SecuritySeverity.CRITICAL)
 
         mock_trigger = AsyncMock(return_value="debate-auto-123")
@@ -843,7 +847,11 @@ class TestSecurityEventEmitter:
             return_value=mock_trigger,
         ):
             await emitter.emit(event)
-            mock_trigger.assert_awaited_once()
+            mock_trigger.assert_awaited_once_with(
+                event=event,
+                confidence_threshold=0.8,
+                timeout_seconds=123,
+            )
             assert event.debate_requested is True
             assert event.debate_id == "debate-auto-123"
 

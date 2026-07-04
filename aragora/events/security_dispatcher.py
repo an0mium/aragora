@@ -392,6 +392,8 @@ class SecurityDispatcher:
 
         except asyncio.CancelledError:
             logger.info("Debate for event %s was cancelled", event.id)
+            if not event.debate_id:
+                event.debate_requested = False
             return None
 
         except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:

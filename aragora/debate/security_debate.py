@@ -34,6 +34,26 @@ def _apply_security_confidence_threshold(
     return result
 
 
+def _security_safe_finding_dict(finding: Any) -> dict[str, Any]:
+    """Serialize finding context without exposing secret material to model agents."""
+    data = finding.to_dict()
+    if data.get("finding_type") != "secret":
+        return data
+
+    metadata = data.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = getattr(finding, "metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    return {
+        **data,
+        "title": "Secret finding",
+        "description": "[redacted secret finding description]",
+        "recommendation": data.get("recommendation"),
+        "metadata": {"secret_type": metadata.get("secret_type", "unknown")},
+    }
+
+
 async def run_security_debate(
     event: SecurityEvent,
     agents: list[Agent] | None = None,
@@ -89,7 +109,7 @@ async def run_security_debate(
                 "repository": event.repository,
                 "scan_id": event.scan_id,
                 "source": event.source,
-                "findings": [f.to_dict() for f in event.findings],
+                "findings": [_security_safe_finding_dict(f) for f in event.findings],
                 "severity": event.severity.value,
             }
         ),
@@ -140,18 +160,21 @@ async def run_security_debate(
         len(event.findings),
     )
 
-    result = await arena.run()
-
-    # Mark the event as having a debate
-    event.debate_requested = True
-    event.debate_id = result.debate_id
+    result = _apply_security_confidence_threshold(await arena.run(), confidence_threshold)
 
     logger.info(
         f"[security_debate] Debate {result.debate_id} completed: "
         f"consensus={result.consensus_reached}, confidence={result.confidence:.2f}"
     )
 
-    return _apply_security_confidence_threshold(result, confidence_threshold)
+    if result.metadata.get("security_confidence_threshold_met") is True:
+        event.debate_requested = True
+        event.debate_id = result.debate_id
+    else:
+        event.debate_requested = False
+        event.debate_id = None
+
+    return result
 
 
 async def get_security_debate_agents() -> list[Agent]:

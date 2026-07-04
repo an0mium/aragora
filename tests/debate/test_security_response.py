@@ -274,6 +274,7 @@ class TestTriggerSecurityDebate:
         mock_result.messages = [MagicMock()]
         mock_result.participants = ["security-auditor"]
         mock_result.rounds_used = 3
+        mock_result.metadata = {"security_confidence_threshold_met": True}
 
         with (
             patch(
@@ -313,6 +314,7 @@ class TestTriggerSecurityDebate:
         mock_result.messages = []
         mock_result.participants = []
         mock_result.rounds_used = 0
+        mock_result.metadata = {"security_confidence_threshold_met": True}
 
         with (
             patch(
@@ -359,6 +361,38 @@ class TestTriggerSecurityDebate:
             ) as mock_store,
         ):
             result = await trigger_security_debate(event, confidence_threshold=0.7)
+
+        assert result is None
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        mock_store.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_trigger_debate_fails_closed_without_threshold_metadata(self):
+        """Canonical results must prove the threshold gate before counting."""
+        event = SecurityEvent(repository="org/repo")
+        mock_result = MagicMock()
+        mock_result.debate_id = "missing-threshold-metadata"
+        mock_result.consensus_reached = True
+        mock_result.confidence = 1.0
+        mock_result.final_answer = "Looks good"
+        mock_result.messages = [MagicMock()]
+        mock_result.participants = ["security-auditor"]
+        mock_result.rounds_used = 3
+        mock_result.metadata = {}
+
+        with (
+            patch(
+                "aragora.debate.security_debate.run_security_debate",
+                new_callable=AsyncMock,
+                return_value=mock_result,
+            ),
+            patch(
+                "aragora.debate.security_response._store_security_debate_result",
+                new_callable=AsyncMock,
+            ) as mock_store,
+        ):
+            result = await trigger_security_debate(event)
 
         assert result is None
         assert event.debate_requested is False

@@ -66,6 +66,11 @@ def build_security_debate_question(event: SecurityEvent) -> str:
 
     findings_str = " and ".join(question_parts)
 
+    def _prompt_safe_title(finding: Any) -> str:
+        if getattr(finding, "finding_type", "") == "secret":
+            return "Secret finding"
+        return str(getattr(finding, "title", ""))
+
     def _prompt_safe_description(finding: Any) -> str:
         if getattr(finding, "finding_type", "") == "secret":
             return "[redacted secret finding description]"
@@ -77,7 +82,7 @@ def build_security_debate_question(event: SecurityEvent) -> str:
         f"Findings: {findings_str}\n\n"
         f"Details:\n"
         + "\n".join(
-            f"- {f.severity.value.upper()}: {f.title} - {_prompt_safe_description(f)}"
+            f"- {f.severity.value.upper()}: {_prompt_safe_title(f)} - {_prompt_safe_description(f)}"
             for f in findings
         )
         + "\n\n"
@@ -118,10 +123,8 @@ async def trigger_security_debate(
             org_id=event.workspace_id or "default",
         )
 
-        threshold_met = bool(
-            getattr(result, "metadata", {}).get("security_confidence_threshold_met", True)
-        )
-        if not threshold_met:
+        threshold_met = getattr(result, "metadata", {}).get("security_confidence_threshold_met")
+        if threshold_met is not True:
             logger.warning(
                 "Security debate %s did not meet confidence threshold %.2f",
                 getattr(result, "debate_id", None),
@@ -160,9 +163,13 @@ async def trigger_security_debate(
 
     except ImportError as e:
         logger.warning("Canonical security debate runner not available: %s", e)
+        event.debate_requested = False
+        event.debate_id = None
         return None
     except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.exception("Failed to run security debate: %s", e)
+        event.debate_requested = False
+        event.debate_id = None
         return None
 
 

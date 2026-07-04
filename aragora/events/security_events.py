@@ -280,6 +280,7 @@ class SecurityEventEmitter:
         self,
         enable_auto_debate: bool = True,
         debate_confidence_threshold: float = 0.7,
+        debate_timeout_seconds: int = 300,
         workspace_id: str | None = None,
     ):
         """
@@ -294,6 +295,7 @@ class SecurityEventEmitter:
         self._global_handlers: list[SecurityEventHandler] = []
         self._enable_auto_debate = enable_auto_debate
         self._debate_confidence_threshold = debate_confidence_threshold
+        self._debate_timeout_seconds = debate_timeout_seconds
         self._workspace_id = workspace_id
         self._pending_debates: dict[str, asyncio.Task] = {}
         self._event_history: list[SecurityEvent] = []
@@ -431,6 +433,7 @@ class SecurityEventEmitter:
             debate_id = await runner(
                 event=event,
                 confidence_threshold=self._debate_confidence_threshold,
+                timeout_seconds=self._debate_timeout_seconds,
             )
 
             if debate_id:
