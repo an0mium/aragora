@@ -37,6 +37,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 DEFAULT_TIMEOUT_SECONDS = 900
@@ -236,6 +237,66 @@ def _read_context_file(path: Path, root: Path) -> tuple[str | None, str | None]:
     return body, note
 
 
+def _is_allowed_temp_context(resolved: Path) -> bool:
+    """Return true for explicit operator context staged from a temp directory."""
+    temp_roots = {
+        Path(tempfile.gettempdir()).resolve(strict=False),
+        Path("/tmp").resolve(strict=False),
+        Path("/private/tmp").resolve(strict=False),
+    }
+    if resolved.suffix.lower() not in {".md", ".txt", ".json"}:
+        return False
+    return any(_is_relative_to(resolved, temp_root) for temp_root in temp_roots)
+
+
+def _safe_context_name(path: Path) -> str:
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", path.name).strip("._")
+    return name or "context.md"
+
+
+def _prepare_context_files(
+    paths: list[Path], root: Path, stamp: str
+) -> tuple[list[Path], list[str]]:
+    """Stage explicit temp context files under the repo-safe packet boundary.
+
+    ``build_packet`` deliberately refuses arbitrary outside-repo files so a
+    typo cannot leak credentials into a persisted consult packet.  The CLI,
+    however, documents ``--context-file /tmp/...`` for operator cycle reports.
+    Treat only explicit Markdown/text/JSON files from a temp directory as
+    operator-supplied context and copy them into the safe context directory
+    before packet construction.
+    """
+
+    safe_root = root / SAFE_CONTEXT_SUBDIR
+    staged_root = safe_root / "imported" / stamp
+    prepared: list[Path] = []
+    notes: list[str] = []
+    for raw_path in paths:
+        candidate = raw_path if raw_path.is_absolute() else root / raw_path
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError:
+            prepared.append(raw_path)
+            continue
+
+        if _is_relative_to(resolved, safe_root.resolve(strict=False)):
+            prepared.append(raw_path)
+            continue
+
+        if not resolved.is_file() or not _is_allowed_temp_context(resolved):
+            prepared.append(raw_path)
+            continue
+
+        staged_root.mkdir(parents=True, exist_ok=True)
+        staged = staged_root / _safe_context_name(resolved)
+        with resolved.open("rb") as source:
+            data = source.read(MAX_CONTEXT_FILE_BYTES + 1)
+        staged.write_bytes(data)
+        prepared.append(staged)
+        notes.append(f"staged outside-repo context file {resolved} -> {staged}")
+    return prepared, notes
+
+
 def gather_context(root: Path, since_hours: float, max_prs: int, skip_digest: bool) -> dict:
     """Collect bounded, read-only context sections. Failures become gaps."""
     sections: dict[str, str] = {}
@@ -337,6 +398,17 @@ def build_packet(
             "## Standing mission",
             _truncate_text_bytes(goal.strip(), MAX_PACKET_SECTION_BYTES),
         ]
+    for path in extra_files:
+        body, note = _read_context_file(path, root)
+        if note:
+            parts += ["", f"### Operator context {path} ({note})"]
+        if body is None:
+            continue
+        parts += [
+            "",
+            f"### Operator context: {path.name}",
+            _markdown_code_block(_bounded_code_block(body)),
+        ]
     parts += ["", "## Live state"]
     for name, body in context["sections"].items():
         parts += ["", f"### {name}", _markdown_code_block(_bounded_code_block(body))]
@@ -348,17 +420,6 @@ def build_packet(
             "",
             "## Context gaps (sources that failed or were skipped this cycle)",
             _markdown_code_block(_bounded_code_block(gap_body)),
-        ]
-    for path in extra_files:
-        body, note = _read_context_file(path, root)
-        if note:
-            parts += ["", f"### Operator context {path} ({note})"]
-        if body is None:
-            continue
-        parts += [
-            "",
-            f"### Operator context: {path.name}",
-            _markdown_code_block(_bounded_code_block(body)),
         ]
     return _packet_with_footer(parts)
 
@@ -454,10 +515,17 @@ def main(argv: list[str] | None = None) -> int:
     cycle_dir = _cycle_dir(cycle_root, stamp)
 
     context = gather_context(root, args.since_hours, args.max_prs, args.skip_digest)
+    context_files, context_notes = _prepare_context_files(
+        [Path(p) for p in args.context_file],
+        root,
+        stamp,
+    )
+    if context_notes:
+        context["sections"]["operator context staging"] = "\n".join(context_notes)
     packet = build_packet(
         context,
         args.goal,
-        [Path(p) for p in args.context_file],
+        context_files,
         args.since_hours,
         root=root,
     )

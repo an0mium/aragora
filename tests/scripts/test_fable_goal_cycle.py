@@ -127,6 +127,31 @@ def test_build_packet_respects_aggregate_prompt_budget() -> None:
     assert "## NEXT PROMPT" in packet
 
 
+def test_build_packet_prioritizes_operator_context_before_large_live_state(
+    tmp_path: Path,
+) -> None:
+    context_dir = tmp_path / fable_goal_cycle.SAFE_CONTEXT_SUBDIR
+    context_dir.mkdir(parents=True)
+    context_file = context_dir / "cycle_report.md"
+    context_file.write_text("operator intent survives", encoding="utf-8")
+    oversized_body = "x" * fable_goal_cycle.MAX_PACKET_SECTION_BYTES
+
+    packet = fable_goal_cycle.build_packet(
+        {
+            "sections": {f"large {index}": oversized_body for index in range(10)},
+            "gaps": [],
+        },
+        "standing mission",
+        [context_file],
+        since_hours=24,
+        root=tmp_path,
+    )
+
+    assert len(packet.encode("utf-8")) <= fable_goal_cycle.MAX_PACKET_BYTES
+    assert "operator intent survives" in packet
+    assert "[truncated packet before remaining sections]" in packet
+
+
 def test_build_packet_aggregate_truncation_preserves_closed_fences() -> None:
     oversized_body = "x" * fable_goal_cycle.MAX_PACKET_SECTION_BYTES
 
@@ -154,6 +179,75 @@ def test_build_packet_refuses_sensitive_context_path(tmp_path: Path) -> None:
         [context_file],
         since_hours=24,
         root=tmp_path,
+    )
+
+    assert "context file must be under .aragora/goal-cycle-context" in packet
+    assert "TOKEN=secret" not in packet
+
+
+def test_prepare_context_files_stages_explicit_temp_context(monkeypatch, tmp_path: Path) -> None:
+    temp_root = tmp_path / "tmp"
+    repo_root = tmp_path / "repo"
+    temp_root.mkdir()
+    repo_root.mkdir()
+    context_file = temp_root / "cycle report.md"
+    context_file.write_text("operator facts", encoding="utf-8")
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
+
+    prepared, notes = fable_goal_cycle._prepare_context_files(
+        [context_file],
+        repo_root,
+        "20260704T090000Z",
+    )
+
+    assert len(prepared) == 1
+    staged = prepared[0]
+    assert staged.is_relative_to(repo_root / fable_goal_cycle.SAFE_CONTEXT_SUBDIR)
+    assert staged.name == "cycle_report.md"
+    assert staged.read_text(encoding="utf-8") == "operator facts"
+    assert notes == [f"staged outside-repo context file {context_file} -> {staged}"]
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {"operator context staging": "\n".join(notes)}, "gaps": []},
+        None,
+        prepared,
+        since_hours=24,
+        root=repo_root,
+    )
+
+    assert "operator facts" in packet
+    assert "context file must be under" not in packet
+    assert "staged outside-repo context file" in packet
+
+
+def test_prepare_context_files_leaves_non_temp_context_for_fail_closed_read(
+    monkeypatch, tmp_path: Path
+) -> None:
+    temp_root = tmp_path / "tmp"
+    repo_root = tmp_path / "repo"
+    external_root = tmp_path / "elsewhere"
+    temp_root.mkdir()
+    repo_root.mkdir()
+    external_root.mkdir()
+    context_file = external_root / "cycle_report.md"
+    context_file.write_text("TOKEN=secret", encoding="utf-8")
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
+
+    prepared, notes = fable_goal_cycle._prepare_context_files(
+        [context_file],
+        repo_root,
+        "20260704T090000Z",
+    )
+
+    assert prepared == [context_file]
+    assert notes == []
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        None,
+        prepared,
+        since_hours=24,
+        root=repo_root,
     )
 
     assert "context file must be under .aragora/goal-cycle-context" in packet
