@@ -3024,6 +3024,44 @@ def test_build_review_prompt_small_diff_is_not_truncated() -> None:
     assert "truncated" not in prompt
 
 
+def test_build_review_prompt_distinguishes_changed_files_from_head_tree() -> None:
+    diff = (
+        "diff --git a/README.md b/README.md\n"
+        "--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n"
+        "-old\n"
+        "+See [dogfooding proof](docs/artifacts/proof.md).\n"
+    )
+    prompt = qe.build_review_prompt(
+        repo="o/r",
+        pr=8825,
+        head_sha=HEAD,
+        diff_text=diff,
+        name_status="M\tREADME.md\n",
+        head_tree_context="tracked\tdocs/artifacts/proof.md\t(referenced from README.md)",
+    )
+    changed = prompt[prompt.index("=== CHANGED FILES") : prompt.index("=== PR HEAD TREE")]
+    tree = prompt[prompt.index("=== PR HEAD TREE") : prompt.index("=== DIFF")]
+
+    assert "README.md" in changed
+    assert "docs/artifacts/proof.md" in tree
+    assert "tracked\tdocs/artifacts/proof.md" in tree
+    assert "Changed files are not the full repository tree" in tree
+
+
+def test_extract_intra_repo_path_references_resolves_markdown_links() -> None:
+    diff = (
+        "diff --git a/docs/guide.md b/docs/guide.md\n"
+        "--- a/docs/guide.md\n+++ b/docs/guide.md\n@@ -1 +1,3 @@\n"
+        "+See [proof](../artifacts/proof.md#receipt).\n"
+        "+See [external](https://example.com/proof.md).\n"
+        "+See [escape](../../outside.md).\n"
+    )
+
+    assert qe._extract_intra_repo_path_references(diff) == [
+        qe._RepoPathReference(path="artifacts/proof.md", source_path="docs/guide.md")
+    ]
+
+
 # --- _bound_diff_body: fair per-file water-filling --------------------------
 
 
@@ -3114,6 +3152,79 @@ def test_default_prompt_builder_empty_diff_still_raises(monkeypatch) -> None:
     monkeypatch.setattr(qe.merge_quorum_io, "run", _prompt_builder_run_stub("   \n", "D\tx\n"))
     with pytest.raises(RuntimeError, match="empty diff"):
         qe.default_prompt_builder("o/r", 8416, {"head_sha": HEAD})
+
+
+def _docs_only_reference_diff() -> tuple[str, str, str]:
+    linked = "docs/artifacts/2026-07-decision-integrity-dogfooding.md"
+    diff = (
+        "diff --git a/README.md b/README.md\n"
+        "--- a/README.md\n+++ b/README.md\n@@ -10 +10 @@\n"
+        "-Old proof note.\n"
+        f"+See the [dogfooding proof]({linked}) for the decision-integrity receipt.\n"
+    )
+    return diff, "M\tREADME.md\n", linked
+
+
+def _prompt_builder_head_tree_run_stub(diff: str, name_status: str, tracked_paths: set[str]):
+    def fake_run(args, *, env=None, timeout=None):
+        if args[:3] == ["gh", "pr", "diff"]:
+            if "--name-status" in args:
+                return SimpleNamespace(returncode=0, stdout=name_status, stderr="")
+            return SimpleNamespace(returncode=0, stdout=diff, stderr="")
+        if args[:3] == ["gh", "pr", "view"]:
+            return SimpleNamespace(returncode=0, stdout=HEAD + "\n", stderr="")
+        if args[:5] == ["git", "ls-tree", "-r", "--name-only", HEAD]:
+            probe = args[-1]
+            stdout = f"{probe}\n" if probe in tracked_paths else ""
+            return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+        raise AssertionError(f"unexpected args: {args}")
+
+    return fake_run
+
+
+def test_collect_evidence_docs_only_link_to_preexisting_file_gets_head_tree_oracle(
+    monkeypatch,
+) -> None:
+    diff, name_status, linked = _docs_only_reference_diff()
+    monkeypatch.setattr(
+        qe.merge_quorum_io,
+        "run",
+        _prompt_builder_head_tree_run_stub(diff, name_status, {linked}),
+    )
+    prompts: list[str] = []
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        prompts.append(prompt)
+        return ReviewerResult(family, "Verdict: PASS\nNo findings.", True)
+
+    def linter(*_args, **_kwargs):
+        return {"would_count": True, "counted_reviewer_ids": ["claude"], "problems": []}
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=8825,
+        families=["claude"],
+        author="me",
+        apply=False,
+        context_fetcher=lambda _repo, _pr: {
+            "head_sha": HEAD,
+            "head_committed_at": COMMITTED,
+        },
+        tier_fetcher=lambda _repo, _pr: 0,
+        reviewer_runner=reviewer_runner,
+        linter=linter,
+    )
+
+    assert outcome.items
+    assert outcome.items[0].verdict == "pass"
+    assert outcome.dissenting_families == []
+    assert prompts
+    prompt = prompts[0]
+    changed = prompt[prompt.index("=== CHANGED FILES") : prompt.index("=== PR HEAD TREE")]
+    tree = prompt[prompt.index("=== PR HEAD TREE") : prompt.index("=== DIFF")]
+    assert "README.md" in changed
+    assert linked in tree
+    assert f"tracked\t{linked}" in tree
 
 
 # --- Cross-provider CLI quorum (grok-build / antigravity) --------------------

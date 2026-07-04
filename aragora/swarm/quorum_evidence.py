@@ -46,8 +46,9 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import unquote
 
 from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
 from aragora.cli.commands.review_queue_transport import (
@@ -343,10 +344,15 @@ _PREFLIGHT_CONTEXT_RETRY_DELAY_SECONDS = 0.5
 _REVIEWER_RESULT_QUEUE_TIMEOUT = 1.0
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
+# Keep PR-head tree facts compact. The prompt only needs enough path oracle
+# context for references introduced by the diff, not a full repository listing.
+_MAX_HEAD_TREE_REFERENCES = 40
+_MAX_HEAD_TREE_CONTEXT_CHARS = 8_000
 # Marker left in place of a changed file's omitted hunk once the per-file diff
 # budget is exhausted. The complete changed-file list always precedes the body,
 # so a reviewer can still confirm every file is present.
 _PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
+_MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]\n]*\]\(([^)\n]+)\)")
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
 # Claude CLI startup can legitimately take longer on large reviews, especially
@@ -1098,6 +1104,162 @@ def _file_list_from_diff(diff: str) -> str:
     return "\n".join(paths)
 
 
+@dataclass(frozen=True)
+class _RepoPathReference:
+    path: str
+    source_path: str
+
+
+def _changed_file_path_from_diff_header(line: str) -> str:
+    """Return the post-image path from a ``diff --git`` header."""
+    if not line.startswith("diff --git "):
+        return ""
+    rest = line[len("diff --git ") :].strip()
+    marker = rest.rfind(" b/")
+    if marker != -1:
+        return rest[marker + len(" b/") :].strip()
+    return rest.strip()
+
+
+def _collapse_repo_path(path: str) -> str | None:
+    """Normalize a repo-relative path and reject paths escaping the repository."""
+    clean = path.replace("\\", "/")
+    parts: list[str] = []
+    for part in PurePosixPath(clean).parts:
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if not parts:
+                return None
+            parts.pop()
+            continue
+        parts.append(part)
+    if not parts:
+        return None
+    collapsed = "/".join(parts)
+    if collapsed == ".git" or collapsed.startswith(".git/"):
+        return None
+    return collapsed
+
+
+def _repo_path_from_markdown_target(target: str, source_path: str) -> str | None:
+    """Resolve one Markdown link target to a normalized repo-relative path.
+
+    External URLs, anchors, mailto/tel targets, and paths escaping the repo are
+    ignored. Relative links are resolved against the file that introduced them.
+    """
+    raw = target.strip()
+    if not raw:
+        return None
+    if raw.startswith("<") and ">" in raw:
+        raw = raw[1 : raw.index(">")]
+    else:
+        raw = raw.split()[0]
+    raw = raw.strip().strip("<>")
+    if not raw or raw.startswith("#") or raw.startswith("//"):
+        return None
+    if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", raw):
+        return None
+    raw = unquote(raw.split("#", 1)[0].split("?", 1)[0])
+    if not raw:
+        return None
+    if raw.startswith("/"):
+        return _collapse_repo_path(raw.lstrip("/"))
+    base = PurePosixPath(source_path).parent if source_path else PurePosixPath(".")
+    if str(base) == ".":
+        return _collapse_repo_path(raw)
+    return _collapse_repo_path(str(base / raw))
+
+
+def _extract_intra_repo_path_references(
+    diff: str, *, max_paths: int = _MAX_HEAD_TREE_REFERENCES
+) -> list[_RepoPathReference]:
+    """Extract intra-repo Markdown link targets introduced by the diff."""
+    references: list[_RepoPathReference] = []
+    seen: set[str] = set()
+    source_path = ""
+    for line in diff.splitlines():
+        if line.startswith("diff --git "):
+            source_path = _changed_file_path_from_diff_header(line)
+            continue
+        if not source_path or not line.startswith("+") or line.startswith("+++ "):
+            continue
+        for match in _MARKDOWN_LINK_RE.finditer(line[1:]):
+            path = _repo_path_from_markdown_target(match.group(1), source_path)
+            if not path or path in seen:
+                continue
+            seen.add(path)
+            references.append(_RepoPathReference(path=path, source_path=source_path))
+            if len(references) >= max_paths:
+                return references
+    return references
+
+
+def _local_head_tree_contains_path(head_sha: str, path: str) -> bool | None:
+    """Check a path against a locally available commit tree, if present."""
+    if not head_sha or not path:
+        return None
+    try:
+        proc = merge_quorum_io.run(
+            ["git", "ls-tree", "-r", "--name-only", head_sha, "--", path],
+            env=merge_quorum_io.aragora_env(),
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return path in {line.strip() for line in (proc.stdout or "").splitlines()}
+
+
+def _github_head_tree_contains_path(repo: str, head_sha: str, path: str) -> bool | None:
+    """Check a path against the GitHub tree at the exact PR head."""
+    if not repo or not head_sha or not path:
+        return None
+    try:
+        proc = merge_quorum_io.run(
+            ["gh", "api", f"repos/{repo}/contents/{path}?ref={head_sha}", "--jq", ".type"],
+            env=merge_quorum_io.aragora_env(),
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode == 0:
+        return (proc.stdout or "").strip().strip('"') in {"file", "symlink"}
+    detail = f"{proc.stderr or ''}\n{proc.stdout or ''}".lower()
+    if "not found" in detail or "404" in detail:
+        return False
+    return None
+
+
+def _head_tree_contains_path(repo: str, head_sha: str, path: str) -> bool | None:
+    local = _local_head_tree_contains_path(head_sha, path)
+    if local is not None:
+        return local
+    return _github_head_tree_contains_path(repo, head_sha, path)
+
+
+def _format_head_tree_reference_context(
+    repo: str,
+    head_sha: str,
+    references: Sequence[_RepoPathReference],
+) -> str:
+    """Return compact path-existence facts for diff-introduced repo links."""
+    if not references:
+        return ""
+    lines: list[str] = []
+    for ref in references[:_MAX_HEAD_TREE_REFERENCES]:
+        exists = _head_tree_contains_path(repo, head_sha, ref.path)
+        status = "tracked" if exists is True else "missing" if exists is False else "unverified"
+        lines.append(f"{status}\t{ref.path}\t(referenced from {ref.source_path})")
+    if len(references) > _MAX_HEAD_TREE_REFERENCES:
+        lines.append(f"... {len(references) - _MAX_HEAD_TREE_REFERENCES} more references omitted")
+    context = "\n".join(lines)
+    if len(context) <= _MAX_HEAD_TREE_CONTEXT_CHARS:
+        return context
+    return context[:_MAX_HEAD_TREE_CONTEXT_CHARS].rstrip() + "\n... reference context truncated"
+
+
 def build_review_prompt(
     *,
     repo: str,
@@ -1105,21 +1267,32 @@ def build_review_prompt(
     head_sha: str,
     diff_text: str,
     name_status: str = "",
+    head_tree_context: str = "",
 ) -> str:
     """Adversarial review prompt grounded on the exact head.
 
     The complete changed-file list (from ``gh pr diff --name-status`` or, as a
     fallback, the file headers parsed from the diff) is always included in full
-    so a reviewer can never falsely report a file/module as absent. Only the
-    unified-diff body is bounded, and it is bounded per-file (so a large deletion
-    that sorts before later additions can no longer hide them) rather than by a
-    blind first-N-bytes slice.
+    so a reviewer can never falsely report a changed file/module as absent. The
+    PR-head tree reference section is separate because changed files are not the
+    repository tree: unchanged tracked files may still be valid link targets.
+    Only the unified-diff body is bounded, and it is bounded per-file (so a large
+    deletion that sorts before later additions can no longer hide them) rather
+    than by a blind first-N-bytes slice.
     """
     diff = diff_text.strip()
     file_list = name_status.strip() or _file_list_from_diff(diff)
     file_count = sum(1 for line in file_list.splitlines() if line.strip())
     bounded, truncated = _bound_diff_body(diff, _MAX_DIFF_CHARS)
     short = head_sha[:7]
+    tree_context = head_tree_context.strip()
+    tree_lines = [
+        "Changed files are not the full repository tree. Do not report an intra-repo "
+        "path or link as missing merely because it is absent from CHANGED FILES.",
+    ]
+    if tree_context:
+        tree_lines.append(tree_context)
+    tree_section = "\n".join(tree_lines)
     body_header = f"=== DIFF (head {short}) ==="
     if truncated:
         body_header = (
@@ -1136,6 +1309,7 @@ def build_review_prompt(
         "-- never write a '[P1] None', '[P2] N/A', or similar no-finding line (it is misread as "
         "a blocking finding). If there are no findings at all, write 'No findings.' Be concise.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
+        f"=== PR HEAD TREE PATH CHECKS (head {short}) ===\n{tree_section}\n\n"
         f"{body_header}\n{bounded}\n"
     )
 
@@ -1803,8 +1977,18 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
         raise RuntimeError(
             f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
         )
+    head_tree_context = _format_head_tree_reference_context(
+        repo,
+        head_sha,
+        _extract_intra_repo_path_references(diff_text),
+    )
     return build_review_prompt(
-        repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text, name_status=name_status
+        repo=repo,
+        pr=pr,
+        head_sha=head_sha,
+        diff_text=diff_text,
+        name_status=name_status,
+        head_tree_context=head_tree_context,
     )
 
 
