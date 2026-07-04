@@ -286,6 +286,38 @@ def test_prepare_context_files_rejects_secret_like_temp_context(
     assert "TOKEN=secret" not in packet
 
 
+def test_prepare_context_files_rejects_repo_local_temp_worktree_context(
+    monkeypatch, tmp_path: Path
+) -> None:
+    temp_root = tmp_path / "tmp"
+    repo_root = temp_root / "repo"
+    repo_root.mkdir(parents=True)
+    context_file = repo_root / "cycle-report-secrets.md"
+    context_file.write_text("TOKEN=secret", encoding="utf-8")
+    raw_path = Path(context_file.name)
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
+
+    prepared, notes = fable_goal_cycle._prepare_context_files(
+        [raw_path],
+        repo_root,
+        "20260704T090000Z",
+    )
+
+    assert prepared == [raw_path]
+    assert notes == []
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        None,
+        prepared,
+        since_hours=24,
+        root=repo_root,
+    )
+
+    assert "context file must be under .aragora/goal-cycle-context" in packet
+    assert "TOKEN=secret" not in packet
+
+
 def test_prepare_context_files_stages_nested_temp_context(monkeypatch, tmp_path: Path) -> None:
     temp_root = tmp_path / "tmp"
     repo_root = temp_root / "repo"

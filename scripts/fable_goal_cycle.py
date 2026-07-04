@@ -312,6 +312,7 @@ def _prepare_context_files(
     """
 
     safe_root = root / SAFE_CONTEXT_SUBDIR
+    repo_root = root.resolve(strict=False)
     staged_root = safe_root / "imported" / stamp
     prepared: list[Path] = []
     notes: list[str] = []
@@ -324,6 +325,10 @@ def _prepare_context_files(
             continue
 
         if _is_relative_to(resolved, safe_root.resolve(strict=False)):
+            prepared.append(raw_path)
+            continue
+
+        if _is_relative_to(resolved, repo_root):
             prepared.append(raw_path)
             continue
 
