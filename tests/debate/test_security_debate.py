@@ -433,8 +433,8 @@ class TestSecurityDebateIntegration:
         finding = context["findings"][0]
         assert finding["title"] == "Secret finding"
         assert finding["description"] == "[redacted secret finding description]"
-        assert finding["file_path"] is None
-        assert finding["line_number"] is None
+        assert finding["file_path"] == "/src/vulnerable.py"
+        assert finding["line_number"] == 42
         assert finding["recommendation"] == (
             "Rotate or revoke the exposed credential and remove it from history."
         )

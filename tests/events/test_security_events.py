@@ -833,6 +833,8 @@ class TestSecurityEventEmitter:
             severity=SecuritySeverity.CRITICAL,
             title="Token literal-secret",
             description="literal-secret",
+            file_path="src/config.py",
+            line_number=42,
             metadata={"secret_type": "api_token", "raw_secret": "literal-secret"},
         )
         event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
@@ -841,6 +843,8 @@ class TestSecurityEventEmitter:
         serialized = json.dumps(data)
 
         assert data["findings"][0]["title"] == "Secret finding"
+        assert data["findings"][0]["file_path"] == "src/config.py"
+        assert data["findings"][0]["line_number"] == 42
         assert data["findings"][0]["metadata"] == {"secret_type": "api_token"}
         assert "literal-secret" not in serialized
 
@@ -893,6 +897,8 @@ class TestSecurityEventEmitter:
                     severity=SecuritySeverity.CRITICAL,
                     title="Token literal-secret",
                     description="literal-secret",
+                    file_path="src/config.py",
+                    line_number=42,
                     metadata={"secret_type": "api_token", "raw_secret": "literal-secret"},
                 )
             ],
@@ -908,6 +914,8 @@ class TestSecurityEventEmitter:
         assert len(started_events) == 1
         started = started_events[0]
         assert started.findings[0].title == "Secret finding"
+        assert started.findings[0].file_path == "src/config.py"
+        assert started.findings[0].line_number == 42
         assert started.findings[0].metadata == {"secret_type": "api_token"}
         assert "literal-secret" not in json.dumps(started.to_dict())
 
