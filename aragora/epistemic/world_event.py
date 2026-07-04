@@ -5,8 +5,9 @@ dependency version bumps, corpus revisions) into ClaimResult objects
 that :func:`~aragora.epistemic.decay_monitor.evaluate_unit` can consume.
 
 Flag: ``ARAGORA_WORLD_EVENTS_ENABLED`` (default off).  All computation
-is side-effect-free.  The flag gates :func:`world_event_to_claim_results`;
-tests that need raw translation use the private unchecked helper.
+is side-effect-free.  Production ingest must use
+:func:`world_event_to_claim_results`; tests that need raw translation use
+the private unchecked helper.
 """
 
 from __future__ import annotations
@@ -31,6 +32,9 @@ class WorldEventKind(str, Enum):
 
 _WORLD_EVENTS_FLAG = "ARAGORA_WORLD_EVENTS_ENABLED"
 _world_events_enabled_override: bool | None = None
+_OVERBROAD_SCOPE_TOKENS = {
+    "api",
+}
 
 
 @dataclass(frozen=True)
@@ -45,7 +49,7 @@ class WorldStateEvent:
     event_id: str
     kind: WorldEventKind | str
     description: str
-    affected_scope: list[str] = field(default_factory=list)
+    affected_scope: tuple[str, ...] = field(default_factory=tuple)
     timestamp: str = ""
 
     def __post_init__(self) -> None:
@@ -54,6 +58,7 @@ class WorldStateEvent:
         except ValueError as exc:
             raise ValueError(f"Unsupported world event kind: {self.kind!r}") from exc
         object.__setattr__(self, "kind", kind)
+        object.__setattr__(self, "affected_scope", tuple(self.affected_scope))
 
     def to_dict(self) -> dict[str, Any]:
         kind = cast(WorldEventKind, self.kind)
@@ -95,11 +100,14 @@ def reset_world_events() -> None:
 def _safe_scope_pattern(raw: str) -> str | None:
     """Return a scope pattern safe enough to compare against claim IDs."""
 
-    pattern = str(raw).strip()
-    if len(pattern) < 4 or not any(char.isalpha() for char in pattern):
-        return None
-    pattern = pattern.strip(".")
-    if len(pattern) < 4 or not any(char.isalpha() for char in pattern):
+    pattern = str(raw).strip().strip(".")
+    normalized = pattern.lower()
+    if (
+        not pattern
+        or not any(char.isalpha() for char in pattern)
+        or normalized in _OVERBROAD_SCOPE_TOKENS
+        or (normalized.startswith("v") and normalized[1:].isdigit())
+    ):
         return None
     return pattern
 
@@ -136,7 +144,12 @@ def _world_event_to_claim_results_unchecked(
     unit: "ProofCarryingCodeUnit",
     event: WorldStateEvent,
 ) -> dict[str, ClaimResult]:
-    """Translate *event* without checking the live-action feature flag."""
+    """Translate *event* without checking the live-action feature flag.
+
+    This exists for focused translator tests. Production callers must use
+    :func:`world_event_to_claim_results` so stale world-state signals cannot
+    propagate while the feature flag is disabled.
+    """
 
     affected = claims_affected_by_event(unit, event)
     kind = cast(WorldEventKind, event.kind)

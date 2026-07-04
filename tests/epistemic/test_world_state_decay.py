@@ -122,11 +122,40 @@ class TestClaimsAffectedByEvent:
 
         assert affected == frozenset({"env.libfoo.version_pinned", "libfoo.pinned"})
 
-    def test_cve_matches_by_substring(self):
+    def test_cve_matches_by_segment_boundary(self):
         unit = _unit(["env.libfoo.version_pinned", "env.curl.ok"])
         affected = claims_affected_by_event(unit, _cve(["libfoo"]))
         assert "env.libfoo.version_pinned" in affected
         assert "env.curl.ok" not in affected
+
+    def test_short_scope_tokens_match_claim_id_boundaries(self):
+        unit = _unit(
+            [
+                "env.jwt.version_pinned",
+                "transport.ssl.enabled",
+                "aws.iam.policy.current",
+                "build.npm.lockfile_current",
+                "language.go.mod_current",
+                "cargo.good",
+                "project.api.available",
+            ]
+        )
+        event = WorldStateEvent(
+            event_id="short-scopes",
+            kind=WorldEventKind.DEPENDENCY_BUMP,
+            description="short but specific dependency/API scopes",
+            affected_scope=["jwt", "ssl", "aws", "npm", "go", "api"],
+        )
+
+        assert claims_affected_by_event(unit, event) == frozenset(
+            {
+                "env.jwt.version_pinned",
+                "transport.ssl.enabled",
+                "aws.iam.policy.current",
+                "build.npm.lockfile_current",
+                "language.go.mod_current",
+            }
+        )
 
     def test_api_change_matches_by_prefix(self):
         unit = _unit(["openai.completions.v1.reachable", "anthropic.api.reachable"])
@@ -178,6 +207,20 @@ class TestWorldEventToClaimResults:
 
         assert event.kind is WorldEventKind.CVE
         assert event.to_dict()["kind"] == "cve"
+
+    def test_affected_scope_is_copied_to_immutable_tuple(self):
+        scope = ["libfoo"]
+        event = WorldStateEvent(
+            event_id="CVE-2024-9999",
+            kind="cve",
+            description="Critical issue in libfoo",
+            affected_scope=scope,
+        )
+
+        scope.append("curl")
+
+        assert event.affected_scope == ("libfoo",)
+        assert event.to_dict()["affected_scope"] == ["libfoo"]
 
     def test_invalid_string_kind_is_rejected(self):
         with pytest.raises(ValueError, match="Unsupported world event kind"):
@@ -272,6 +315,17 @@ class TestWorldEventDecayIntegration:
         assert any(
             r.kind == "stale_evidence" for r in evaluate_unit(unit, claim_results=results).reasons
         )
+
+    def test_enabled_public_translation_propagates_decay(self):
+        unit = _unit(["libfoo.version_pinned", "other.claim"])
+        enable_world_events()
+
+        results = world_event_to_claim_results(unit, _cve(["libfoo"]))
+        signal = evaluate_unit(unit, claim_results=results)
+
+        assert "libfoo.version_pinned" in results
+        assert signal.integrity_score < 1.0
+        assert any(r.kind == "stale_evidence" for r in signal.reasons)
 
     def test_unrelated_event_leaves_score_intact(self):
         unit = _unit(["anthropic.api.stable", "project.build.passing"])
