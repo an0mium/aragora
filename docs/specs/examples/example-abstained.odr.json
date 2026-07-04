@@ -1,0 +1,49 @@
+{
+  "attestation": {
+    "disposition": "autonomous"
+  },
+  "claim": {
+    "statement": "Should Aragora deprecate the legacy v1 REST API by Q3 2026?",
+    "verdict": "INCONCLUSIVE"
+  },
+  "confidence": {
+    "reason": "the quorum did not converge; no confidence value was computed for an inconclusive outcome",
+    "status": "absent"
+  },
+  "cruxes": {
+    "reason": "no crux set recorded for this decision (DecisionReceipt does not carry one; supply crux_set= from a CruxReceipt)",
+    "status": "absent"
+  },
+  "issued_at": "2026-07-03T11:00:00+00:00",
+  "odr_version": "0.1",
+  "profile": "https://aragora.ai/specs/open-decision-receipt/v0.1",
+  "quorum": {
+    "reason": "the quorum abstained: model responses were too evenly split to reach a decision within the round budget",
+    "status": "absent"
+  },
+  "reasoning": {
+    "reason": "no reasoning summary was recorded for an inconclusive outcome",
+    "status": "absent"
+  },
+  "receipt_id": "r-abstained-0001",
+  "routing": {
+    "status": "reserved"
+  },
+  "signatures": [],
+  "source": {
+    "artifact_hash": "93e62d49619ebce2196e4343d609302a5ffdcce29c340de26379f3a19a381797",
+    "receipt_id": "r-abstained-0001",
+    "schema": "aragora.gauntlet.DecisionReceipt",
+    "schema_version": "1.1",
+    "system": "aragora"
+  },
+  "subject": {
+    "digest": {
+      "alg": "sha-256",
+      "status": "present",
+      "value": "87bcfcd7a4cba508c28d2fa912e12bd716f3f318991cac52f456c8508e02ad3d"
+    },
+    "identifier": "g-abstained-1",
+    "summary": "Should Aragora deprecate the legacy v1 REST API by Q3 2026?"
+  }
+}

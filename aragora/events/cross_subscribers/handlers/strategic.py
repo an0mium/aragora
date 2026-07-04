@@ -5,11 +5,12 @@ Closes feedback loops between subsystems that emit events (Tiers 1-4)
 and subsystems that should consume them:
 - Risk Warning → Health Registry: Degrade component health on security anomalies
 - Agent Birth/Death → Control Plane: Sync genesis events to agent registry
-- Alert Escalated → Workflow Brake: Critical alerts pause active workflows
 
 The Budget Alert → Team Selection and Meta-Learning Adjusted → Team Selection
 reactions relocated to ``aragora.debate.event_subscribers`` (P4a Batch E4
-relocate-UP); see that module for those handlers.
+relocate-UP); see that module for those handlers. The Alert Escalated →
+Workflow Brake reaction relocated to ``aragora.workflow.event_subscribers``
+(P4a Batch E5 relocate-UP); see that module for that handler.
 """
 
 from __future__ import annotations
@@ -155,47 +156,3 @@ class StrategicHandlersMixin:
             pass  # Control plane not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("Genesis → control plane sync failed: %s", e)
-
-    def _handle_alert_escalated_to_workflow_brake(self, event: StreamEvent) -> None:
-        """Alert escalated → Workflow emergency brake.
-
-        When an alert escalates to critical severity, pause all
-        active workflows to prevent cascading failures. This is
-        the safety valve that stops automated processes when
-        something goes seriously wrong.
-        """
-        data = event.data
-        severity = data.get("severity", data.get("new_severity", ""))
-        alert_id = data.get("alert_id", "")
-        reason = data.get("reason", data.get("message", ""))[:200]
-
-        # Only brake on critical/emergency escalations
-        if severity not in ("critical", "emergency", "fatal"):
-            return
-
-        logger.warning(
-            "Alert escalated → workflow brake: alert=%s severity=%s reason=%s",
-            alert_id,
-            severity,
-            reason,
-        )
-
-        try:
-            from aragora.workflow.engine import get_workflow_engine
-
-            engine = get_workflow_engine()
-            if engine is None:
-                return
-
-            if hasattr(engine, "pause_all"):
-                engine.pause_all(
-                    reason=f"Emergency brake: {reason}",
-                )
-                logger.warning("Paused all workflows due to critical alert %s", alert_id)
-            elif hasattr(engine, "emergency_stop"):
-                engine.emergency_stop(reason=f"Alert escalation: {reason}")
-                logger.warning("Emergency stopped workflows due to critical alert %s", alert_id)
-        except ImportError:
-            pass  # Workflow engine not available
-        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("Workflow emergency brake failed: %s", e)

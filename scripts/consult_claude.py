@@ -2,60 +2,123 @@
 """Bounded advisory consult of a specific Claude model (default: Claude Fable 5).
 
 Gives any agent (Codex conductor, Droid, Claude Code, humans) a reliable way to
-ask a named Claude model for read-only advice with a hard timeout. The known
-failure mode this fixes: ad-hoc ``timeout 120 claude -p "..."`` calls hang or
-time out with no output and no diagnostics.
+ask a named Claude model for read-only advice with hard per-attempt and overall
+timeouts. The known failure mode this fixes: ad-hoc ``timeout 120 claude -p
+"..."`` calls hang or time out with no output and no diagnostics.
 
 Backends, in order:
 
 1. ``claude`` CLI (subscription auth) — routed through the authenticated
    ``claude_profile.sh`` pool when available, with ``--model`` forwarded and a
    hard subprocess timeout.
-2. Anthropic Messages API — used only if the CLI is missing, fails, or times
-   out. The key comes from ``ANTHROPIC_API_KEY`` or the aragora secrets
-   manager; if neither is present the fallback is skipped silently.
+2. Anthropic Messages API — used only with explicit ``--api-fallback`` opt-in
+   after CLI attempts fail. The key comes from ``ANTHROPIC_API_KEY`` or the
+   aragora secrets manager; if neither is present the attempt is recorded as a
+   normal failed backend attempt.
 
 Output is the raw model text on stdout, or a JSON envelope with ``--json``.
-Exit codes: 0 ok, 2 all backends timed out, 3 no prompt, 4 all backends failed.
+Exit codes: 0 ok, 2 all backends timed out, 3 no prompt, 4 all backends failed
+or budget exhausted, 64 usage/config error.
 
 Examples::
 
     python scripts/consult_claude.py "Which PR should I settle next?"
     python scripts/consult_claude.py --prompt-file /tmp/question.md --json
-    echo "$QUESTION" | python scripts/consult_claude.py --timeout 900
+    echo "$QUESTION" | python scripts/consult_claude.py --timeout 300 --overall-timeout 1200
+    python scripts/consult_claude.py --api-fallback --prompt-file /tmp/question.md
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
+import signal
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 DEFAULT_MODEL = "claude-fable-5"
 FALLBACK_MODEL = "claude-opus-4-8"
 DEFAULT_TIMEOUT_SECONDS = 600
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 API_MAX_TOKENS = 8192
+MAX_API_RESPONSE_BYTES = 4 * 1024 * 1024
+API_UNSUPPORTED_MODELS = {"claude-fable-5"}
+MAX_PROMPT_BYTES = 512 * 1024
+API_RESPONSE_READ_CHUNK_BYTES = 64 * 1024
 
 EXIT_OK = 0
 EXIT_TIMEOUT = 2
 EXIT_NO_PROMPT = 3
 EXIT_ALL_FAILED = 4
+EXIT_USAGE = 64
 
 
-def _build_cli_command(model: str) -> tuple[list[str], bool]:
+def _safe_cli_error(*, returncode: int | None = None, empty: bool | None = None) -> str:
+    """Public CLI failure string safe for JSON logs and durable artifacts."""
+
+    parts = ["claude CLI failed"]
+    if returncode is not None:
+        parts.append(f"rc={returncode}")
+    if empty is not None:
+        parts.append(f"empty={empty}")
+    return ", ".join(parts)
+
+
+def _safe_api_error(message: str) -> str:
+    """Public API failure string safe for JSON logs and durable artifacts."""
+
+    return f"API {message}"
+
+
+def _validate_timeout(value: float, name: str) -> None:
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a positive finite number")
+
+
+@contextmanager
+def _claude_empty_mcp_config_file():
+    """Write an empty Claude MCP config to avoid wedged local server handshakes."""
+
+    fd, path_text = tempfile.mkstemp(prefix="aragora-consult-claude-mcp-", suffix=".json")
+    path = Path(path_text)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump({"mcpServers": {}}, handle)
+            handle.write("\n")
+        yield path
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _build_cli_command(model: str, mcp_config_path: Path) -> tuple[list[str], bool]:
     """Return the claude CLI command, profile-pool wrapped when possible."""
-    base = ["claude", "--print", "--model", model, "-p", "-"]
+    base = [
+        "claude",
+        "--print",
+        "--strict-mcp-config",
+        "--mcp-config",
+        str(mcp_config_path),
+        "--model",
+        model,
+    ]
     try:
         from aragora.agents.claude_profile_pool import build_claude_command
 
-        return build_claude_command(base)
+        return build_claude_command(base, repo_root=_REPO_ROOT)
     except Exception:
         return base, False
 
@@ -73,38 +136,74 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
     """One bounded claude CLI attempt. Never raises; returns a result dict."""
     if shutil.which("claude") is None:
         return {"ok": False, "backend": "cli", "error": "claude CLI not on PATH"}
-    command, used_profile = _build_cli_command(model)
-    backend = "cli-profile" if used_profile else "cli"
     started = time.monotonic()
+    proc: subprocess.Popen[str] | None = None
     try:
-        proc = subprocess.run(
-            command,
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        with _claude_empty_mcp_config_file() as mcp_config_path:
+            command, used_profile = _build_cli_command(model, mcp_config_path)
+            backend = "cli"
+            proc = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                start_new_session=True,
+            )
+            stdout, _stderr = proc.communicate(prompt, timeout=timeout)
     except subprocess.TimeoutExpired:
+        if proc is not None:
+            _kill_process_group(proc)
         return {
             "ok": False,
-            "backend": backend,
+            "backend": locals().get("backend", "cli"),
             "timed_out": True,
             "elapsed_s": round(time.monotonic() - started, 1),
             "error": f"claude CLI exceeded {timeout:.0f}s timeout",
         }
-    except OSError as exc:
-        return {"ok": False, "backend": backend, "error": f"claude CLI launch failed: {exc}"}
+    except (OSError, UnicodeError, ValueError) as exc:
+        if proc is not None:
+            _kill_process_group(proc)
+        return {
+            "ok": False,
+            "backend": locals().get("backend", "cli"),
+            "error": f"claude CLI launch failed: {type(exc).__name__}",
+        }
     elapsed = round(time.monotonic() - started, 1)
-    text = _strip_preamble(proc.stdout) if used_profile else proc.stdout.strip()
-    if proc.returncode != 0 or not text:
-        stderr_tail = (proc.stderr or "").strip()[-500:]
+    text = _strip_preamble(stdout) if used_profile else stdout.strip()
+    if proc.returncode != 0:
         return {
             "ok": False,
             "backend": backend,
             "elapsed_s": elapsed,
-            "error": f"claude CLI rc={proc.returncode}, empty={not text}: {stderr_tail}",
+            "error": _safe_cli_error(returncode=proc.returncode, empty=not text),
         }
-    return {"ok": True, "backend": backend, "elapsed_s": elapsed, "text": text}
+    if text:
+        return {"ok": True, "backend": backend, "elapsed_s": elapsed, "text": text}
+    return {
+        "ok": False,
+        "backend": backend,
+        "elapsed_s": elapsed,
+        "error": _safe_cli_error(empty=True),
+    }
+
+
+def _kill_process_group(proc: subprocess.Popen[str]) -> None:
+    """Best-effort cleanup for spawned Claude and any nested child process."""
+
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    except OSError:
+        try:
+            proc.kill()
+        except OSError:
+            return
+    try:
+        proc.wait(timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
 
 
 def _resolve_api_key() -> str | None:
@@ -117,6 +216,55 @@ def _resolve_api_key() -> str | None:
         return get_secret("ANTHROPIC_API_KEY")
     except Exception:
         return None
+
+
+def _response_socket(response):
+    fp = getattr(response, "fp", None)
+    raw = getattr(fp, "raw", None)
+    for candidate in (
+        getattr(raw, "_sock", None),
+        getattr(raw, "sock", None),
+        getattr(fp, "_sock", None),
+        getattr(response, "_sock", None),
+    ):
+        if hasattr(candidate, "settimeout"):
+            return candidate
+    return None
+
+
+def _set_response_timeout(response, timeout: float) -> None:
+    sock = _response_socket(response)
+    if sock is not None:
+        sock.settimeout(max(0.001, timeout))
+
+
+def _read_api_response_chunk(response, amount: int) -> bytes:
+    read1 = getattr(response, "read1", None)
+    if callable(read1):
+        return read1(amount)
+    return response.read(min(amount, 1))
+
+
+def _read_api_response_with_deadline(response, *, deadline: float) -> bytes:
+    """Read a bounded API body without letting slow streams exceed the wall clock."""
+
+    chunks: list[bytes] = []
+    total = 0
+    limit = MAX_API_RESPONSE_BYTES + 1
+    while total < limit:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("API response read exceeded timeout")
+        amount = min(API_RESPONSE_READ_CHUNK_BYTES, limit - total)
+        _set_response_timeout(response, remaining)
+        chunk = _read_api_response_chunk(response, amount)
+        if time.monotonic() >= deadline:
+            raise TimeoutError("API response read exceeded timeout")
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+    return b"".join(chunks)
 
 
 def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dict:
@@ -141,23 +289,49 @@ def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dic
         },
     )
     started = time.monotonic()
+    deadline = started + timeout
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            body = json.loads(response.read().decode())
+            raw = _read_api_response_with_deadline(response, deadline=deadline)
+            if len(raw) > MAX_API_RESPONSE_BYTES:
+                return {
+                    "ok": False,
+                    "backend": "api",
+                    "error": _safe_api_error(
+                        "response exceeds maximum size: response body redacted"
+                    ),
+                }
+            body = json.loads(raw.decode())
+            if not isinstance(body, dict):
+                raise ValueError("API response JSON is not an object")
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")[:500]
-        return {"ok": False, "backend": "api", "error": f"API HTTP {exc.code}: {detail}"}
+        return {
+            "ok": False,
+            "backend": "api",
+            "error": _safe_api_error(f"HTTP {exc.code}: response body redacted"),
+        }
+    except (json.JSONDecodeError, UnicodeError, ValueError):
+        return {
+            "ok": False,
+            "backend": "api",
+            "error": _safe_api_error("response parse failed: response body redacted"),
+        }
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         timed_out = "timed out" in str(exc).lower() or isinstance(exc, TimeoutError)
         return {
             "ok": False,
             "backend": "api",
             "timed_out": timed_out,
-            "error": f"API request failed: {exc}",
+            "error": _safe_api_error(f"request failed: {type(exc).__name__}"),
         }
     elapsed = round(time.monotonic() - started, 1)
+    content = body.get("content", [])
+    if not isinstance(content, list):
+        content = []
     text = "".join(
-        block.get("text", "") for block in body.get("content", []) if block.get("type") == "text"
+        block.get("text", "")
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "text"
     ).strip()
     if not text:
         return {
@@ -169,44 +343,161 @@ def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dic
     return {"ok": True, "backend": "api", "elapsed_s": elapsed, "text": text}
 
 
+def _remaining_timeout(started: float, overall_timeout: float, per_attempt_timeout: float) -> float:
+    remaining = overall_timeout - (time.monotonic() - started)
+    return max(0.0, min(per_attempt_timeout, remaining))
+
+
+def _append_budget_exhausted(attempts: list[dict], *, model: str, backend: str) -> None:
+    attempts.append(
+        {
+            "model": model,
+            "ok": False,
+            "backend": backend,
+            "budget_exhausted": True,
+            "error": "overall consult timeout exhausted before attempt",
+        }
+    )
+
+
+def _api_models(model: str, fallback_model: str | None) -> list[str]:
+    models: list[str] = []
+    for candidate in (model, fallback_model):
+        if candidate and candidate not in API_UNSUPPORTED_MODELS and candidate not in models:
+            models.append(candidate)
+    return models
+
+
+def _planned_attempt_count(*, model: str, fallback_model: str | None, api_fallback: bool) -> int:
+    cli_attempts = 1 + int(bool(fallback_model and fallback_model != model))
+    api_attempts = len(_api_models(model, fallback_model)) if api_fallback else 0
+    return cli_attempts + api_attempts
+
+
+def _default_overall_timeout(
+    *, timeout: float, model: str, fallback_model: str | None, api_fallback: bool
+) -> float:
+    return timeout * _planned_attempt_count(
+        model=model,
+        fallback_model=fallback_model,
+        api_fallback=api_fallback,
+    )
+
+
 def consult(
     prompt: str,
     model: str = DEFAULT_MODEL,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    overall_timeout: float | None = None,
     fallback_model: str | None = FALLBACK_MODEL,
     system: str | None = None,
-    api_fallback: bool = True,
+    api_fallback: bool = False,
 ) -> dict:
     """Run the consult across backends and return the first success.
 
-    The full timeout budget is granted to each attempt independently so a CLI
-    hang cannot starve the API fallback of time.
+    ``timeout`` is the per-attempt ceiling. ``overall_timeout`` is the total
+    consult budget shared by every CLI/API attempt. When omitted, the default
+    budget is derived from the enabled attempt plan so each documented fallback
+    path can still run after a full-timeout primary attempt.
     """
-    if system:
-        prompt = f"{system}\n\n---\n\n{prompt}"
+    _validate_timeout(timeout, "timeout")
+    if overall_timeout is not None:
+        _validate_timeout(overall_timeout, "overall_timeout")
+    prompt = _compose_prompt(prompt, system)
     attempts: list[dict] = []
-    result = _run_cli(prompt, model, timeout)
-    attempts.append({"model": model, **result})
-    if result.get("ok"):
-        return {**result, "model": model, "attempts": attempts}
-    if fallback_model and fallback_model != model and not result.get("timed_out"):
-        result = _run_cli(prompt, fallback_model, timeout)
-        attempts.append({"model": fallback_model, **result})
-        if result.get("ok"):
-            return {**result, "model": fallback_model, "attempts": attempts}
-    if api_fallback:
-        result = _run_api(prompt, model, timeout, system=None)
+    started = time.monotonic()
+    if overall_timeout is None:
+        overall_timeout = _default_overall_timeout(
+            timeout=timeout,
+            model=model,
+            fallback_model=fallback_model,
+            api_fallback=api_fallback,
+        )
+    attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
+    if attempt_timeout <= 0:
+        _append_budget_exhausted(attempts, model=model, backend="cli")
+    else:
+        result = _run_cli(prompt, model, attempt_timeout)
         attempts.append({"model": model, **result})
         if result.get("ok"):
             return {**result, "model": model, "attempts": attempts}
+    if fallback_model and fallback_model != model:
+        attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
+        if attempt_timeout <= 0:
+            _append_budget_exhausted(attempts, model=fallback_model, backend="cli")
+        else:
+            result = _run_cli(prompt, fallback_model, attempt_timeout)
+            attempts.append({"model": fallback_model, **result})
+            if result.get("ok"):
+                return {**result, "model": fallback_model, "attempts": attempts}
+    if api_fallback:
+        for api_model in _api_models(model, fallback_model):
+            if any(
+                attempt.get("backend") == "api" and attempt.get("model") == api_model
+                for attempt in attempts
+            ):
+                continue
+            attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
+            if attempt_timeout <= 0:
+                _append_budget_exhausted(attempts, model=api_model, backend="api")
+                continue
+            result = _run_api(prompt, api_model, attempt_timeout, system=None)
+            attempts.append({"model": api_model, **result})
+            if result.get("ok"):
+                return {**result, "model": api_model, "attempts": attempts}
     timed_out = all(a.get("timed_out") for a in attempts) and bool(attempts)
+    budget_exhausted = any(a.get("budget_exhausted") for a in attempts)
     return {
         "ok": False,
-        "model": model,
+        "model": str(attempts[-1].get("model", model)) if attempts else model,
         "timed_out": timed_out,
+        "budget_exhausted": budget_exhausted,
         "attempts": attempts,
         "error": "; ".join(str(a.get("error")) for a in attempts),
     }
+
+
+def _prompt_too_large_error() -> str:
+    return f"prompt exceeds maximum size ({MAX_PROMPT_BYTES} bytes)"
+
+
+def _validate_prompt_bytes(prompt: str) -> None:
+    if len(prompt.encode("utf-8")) > MAX_PROMPT_BYTES:
+        raise ValueError(_prompt_too_large_error())
+
+
+def _compose_prompt(prompt: str, system: str | None) -> str:
+    if system:
+        prompt = f"{system}\n\n---\n\n{prompt}"
+    _validate_prompt_bytes(prompt)
+    return prompt
+
+
+def _read_prompt_file(path_text: str) -> str:
+    path = Path(path_text)
+    info = path.stat()
+    if not stat.S_ISREG(info.st_mode):
+        raise ValueError("prompt file must be a regular file")
+    if info.st_size > MAX_PROMPT_BYTES:
+        raise ValueError(_prompt_too_large_error())
+    with path.open("rb") as handle:
+        data = handle.read(MAX_PROMPT_BYTES + 1)
+    if len(data) > MAX_PROMPT_BYTES:
+        raise ValueError(_prompt_too_large_error())
+    return data.decode("utf-8")
+
+
+def _read_stdin_prompt() -> str:
+    stream = sys.stdin
+    buffer = getattr(stream, "buffer", None)
+    if buffer is not None:
+        data = buffer.read(MAX_PROMPT_BYTES + 1)
+        if len(data) > MAX_PROMPT_BYTES:
+            raise ValueError(_prompt_too_large_error())
+        return data.decode("utf-8")
+    prompt = stream.read(MAX_PROMPT_BYTES + 1)
+    _validate_prompt_bytes(prompt)
+    return prompt
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -227,22 +518,55 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_TIMEOUT_SECONDS,
         help=f"Hard per-attempt timeout in seconds (default {DEFAULT_TIMEOUT_SECONDS})",
     )
-    parser.add_argument("--system", help="Optional system-style preamble prepended to the prompt")
     parser.add_argument(
-        "--no-api-fallback",
+        "--overall-timeout",
+        type=float,
+        default=None,
+        help=(
+            "Hard total consult timeout in seconds "
+            "(default: --timeout multiplied by enabled backend attempts)"
+        ),
+    )
+    parser.add_argument("--system", help="Optional system-style preamble prepended to the prompt")
+    parser.set_defaults(api_fallback=False)
+    api_fallback_group = parser.add_mutually_exclusive_group()
+    api_fallback_group.add_argument(
+        "--api-fallback",
+        dest="api_fallback",
         action="store_true",
-        help="Do not fall back to the Anthropic API when the CLI fails",
+        help=("Opt in to Anthropic API fallback when CLI attempts fail (may use paid API credits)"),
+    )
+    api_fallback_group.add_argument(
+        "--no-api-fallback",
+        dest="api_fallback",
+        action="store_false",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument("--json", action="store_true", help="Emit a JSON result envelope")
     args = parser.parse_args(argv)
 
+    try:
+        _validate_timeout(args.timeout, "--timeout")
+        if args.overall_timeout is not None:
+            _validate_timeout(args.overall_timeout, "--overall-timeout")
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+
     if args.prompt_file:
-        with open(args.prompt_file, encoding="utf-8") as handle:
-            prompt = handle.read()
+        try:
+            prompt = _read_prompt_file(args.prompt_file)
+        except (OSError, UnicodeError, ValueError) as exc:
+            print(f"error: cannot read --prompt-file: {exc}", file=sys.stderr)
+            return EXIT_NO_PROMPT
     elif args.prompt:
         prompt = args.prompt
     elif not sys.stdin.isatty():
-        prompt = sys.stdin.read()
+        try:
+            prompt = _read_stdin_prompt()
+        except (OSError, UnicodeError, ValueError) as exc:
+            print(f"error: cannot read stdin prompt: {exc}", file=sys.stderr)
+            return EXIT_NO_PROMPT
     else:
         parser.print_usage(sys.stderr)
         print("error: no prompt given (arg, --prompt-file, or stdin)", file=sys.stderr)
@@ -251,15 +575,25 @@ def main(argv: list[str] | None = None) -> int:
     if not prompt:
         print("error: prompt is empty", file=sys.stderr)
         return EXIT_NO_PROMPT
+    try:
+        _validate_prompt_bytes(prompt)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_NO_PROMPT
 
-    result = consult(
-        prompt,
-        model=args.model,
-        timeout=args.timeout,
-        fallback_model=args.fallback_model or None,
-        system=args.system,
-        api_fallback=not args.no_api_fallback,
-    )
+    try:
+        result = consult(
+            prompt,
+            model=args.model,
+            timeout=args.timeout,
+            overall_timeout=args.overall_timeout,
+            fallback_model=args.fallback_model or None,
+            system=args.system,
+            api_fallback=args.api_fallback,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_NO_PROMPT
     if args.json:
         print(json.dumps(result, indent=2))
     elif result.get("ok"):

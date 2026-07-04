@@ -3,7 +3,6 @@ Basic cross-subsystem event handlers.
 
 Handles core subsystem integrations:
 - Memory → RLM: Retrieval patterns inform compression strategies
-- Webhook delivery: External system notifications
 
 The knowledge/evidence/mound → memory reactions and the vote → belief reaction
 relocated to their domain homes (``aragora.memory.event_subscribers`` and
@@ -11,7 +10,17 @@ relocated to their domain homes (``aragora.memory.event_subscribers`` and
 modules for the memory-sync and belief-network handlers. The ELO → debate,
 calibration → agent, consensus → learning, and agent message → rhetorical
 reactions relocated to ``aragora.debate.event_subscribers`` (P4a Batch E4
-relocate-UP); see that module for those handlers.
+relocate-UP); see that module for those handlers. The webhook-delivery reaction
+relocated to ``aragora.server.event_subscribers`` (P4a Batch E6 relocate-UP); it
+is server-coupled (``server.handlers.webhooks``) while this module is not.
+
+The unregistered ``_handle_debate_end_to_workflow`` delegate (dead at runtime -
+it instantiated a throwaway ``PostDebateWorkflowSubscriber`` on every call but
+was never wired into ``CrossSubscriberManager``) was removed by the P4a Batch
+E5 coupling inversion rather than relocated: ``PostDebateWorkflowSubscriber``
+now lives in its application home (``aragora.workflow.event_subscribers``),
+relocated but - like this deleted delegate - still not wired into any live
+dispatch, so this module keeps no direct import of (or edge to) workflow code.
 """
 
 from __future__ import annotations
@@ -77,52 +86,6 @@ class BasicHandlersMixin:
             pass  # RLM module not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("RLM pattern recording failed: %s", e)
-
-    def _handle_webhook_delivery(self, event: StreamEvent) -> None:
-        """
-        Event → Webhook delivery.
-
-        When any subscribable event occurs, deliver to registered webhooks.
-        This enables external systems to receive real-time notifications.
-        """
-        try:
-            from aragora.server.handlers.webhooks import get_webhook_store
-            from aragora.events.dispatcher import dispatch_webhook_with_retry
-
-            # Get registered webhooks for this event type
-            store = get_webhook_store()
-            event_type_str = event.type.value.lower()  # Convert enum to string
-            webhooks = store.get_for_event(event_type_str)
-
-            if not webhooks:
-                return  # No webhooks registered for this event
-
-            # Build payload
-            import time
-            import uuid
-
-            payload = {
-                "event": event_type_str,
-                "delivery_id": str(uuid.uuid4()),
-                "timestamp": time.time(),
-                "data": event.data or {},
-            }
-
-            # Deliver to each matching webhook
-            for webhook in webhooks:
-                try:
-                    result = dispatch_webhook_with_retry(webhook, payload)
-                    if not result.success:
-                        logger.warning(
-                            "Webhook delivery failed for %s: %s", webhook.id, result.error
-                        )
-                except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
-                    logger.error("Webhook dispatch error for %s: %s", webhook.id, e)
-
-        except ImportError:
-            logger.debug("Webhook modules not available for event delivery")
-        except (KeyError, AttributeError, TypeError, ValueError) as e:
-            logger.debug("Webhook delivery handler error: %s", e)
 
     def _handle_gauntlet_complete_to_notification(self, event: StreamEvent) -> None:
         """Gauntlet complete → Notification dispatch.
@@ -208,28 +171,3 @@ class BasicHandlersMixin:
             f"Debate ended for explainability: {debate_id} "
             f"consensus={consensus} confidence={confidence:.2f}"
         )
-
-    def _handle_debate_end_to_workflow(self, event: StreamEvent) -> None:
-        """Debate end -> post-debate workflow automation.
-
-        Delegates to PostDebateWorkflowSubscriber to classify the debate
-        outcome and trigger the appropriate workflow template.
-        """
-        try:
-            from aragora.events.subscribers.workflow_automation import (
-                PostDebateWorkflowSubscriber,
-            )
-
-            subscriber = PostDebateWorkflowSubscriber()
-            subscriber.handle_debate_end(event)
-
-            logger.debug(
-                "Post-debate workflow processed: events=%d workflows=%d errors=%d",
-                subscriber.stats["events_processed"],
-                subscriber.stats["workflows_triggered"],
-                subscriber.stats["errors"],
-            )
-        except ImportError:
-            logger.debug("PostDebateWorkflowSubscriber not available")
-        except (KeyError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("Debate end -> workflow handler error: %s", e)
