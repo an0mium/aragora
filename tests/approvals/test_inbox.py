@@ -306,7 +306,42 @@ def test_collect_pending_settlement_approvals_cache_is_scoped_to_pr_refs(monkeyp
     assert approvals == []
 
 
-def test_collect_pending_settlement_approvals_queue_scan_reuses_warmed_cache_across_limits(
+def test_collect_pending_settlement_approvals_queue_scan_reuses_larger_warmed_cache(
+    monkeypatch,
+):
+    settlement_inbox_module._PACKET_CACHE.clear()
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_ALLOW_BOUNDED_QUEUE_SCAN", "1")
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_PACKET_LIMIT", "20")
+
+    def merge_packet_builder(**kwargs):
+        assert kwargs["pr_refs"] == []
+        assert kwargs["limit"] == 20
+        return _settlement_packet()
+
+    refresh_settlement_approval_cache(
+        limit=20,
+        repo="synaptent/aragora",
+        pr_refs=[],
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    from aragora.cli.commands import review_queue
+
+    def forbidden_scan(**kwargs):
+        raise AssertionError(f"unexpected cold scan: {kwargs}")
+
+    monkeypatch.setattr(review_queue, "_build_merge_authorization_packet", forbidden_scan)
+
+    approvals = collect_pending_settlement_approvals(
+        limit=10,
+        repo="synaptent/aragora",
+        allow_sync_refresh=False,
+    )
+
+    assert [item["metadata"]["pr_number"] for item in approvals] == [7736]
+
+
+def test_collect_pending_settlement_approvals_queue_scan_does_not_use_smaller_cache(
     monkeypatch,
 ):
     settlement_inbox_module._PACKET_CACHE.clear()
@@ -338,7 +373,7 @@ def test_collect_pending_settlement_approvals_queue_scan_reuses_warmed_cache_acr
         allow_sync_refresh=False,
     )
 
-    assert [item["metadata"]["pr_number"] for item in approvals] == [7736]
+    assert approvals == []
 
 
 def test_refresh_settlement_approval_cache_bounds_cache_entries(monkeypatch):

@@ -7,6 +7,7 @@ settlement boundary. It does not post comments, statuses, evidence, or merges.
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import time
@@ -18,6 +19,7 @@ from typing import Any
 from aragora.cli.commands.review_queue_transport import _GhError
 
 UTC = timezone.utc
+logger = logging.getLogger(__name__)
 
 DEFAULT_PACKET_SCAN_LIMIT = 20
 MAX_PACKET_SCAN_LIMIT = 100
@@ -142,9 +144,9 @@ def _packet_cache_key(
     repo_override: str | None,
     review_queue_root: str | None,
     pr_refs: list[str],
-    _packet_limit: int,
+    packet_limit: int,
 ) -> PacketCacheKey:
-    limit_key = 0
+    limit_key = packet_limit if not pr_refs and _bounded_queue_scan_enabled() else 0
     return (repo_override, review_queue_root, tuple(pr_refs), limit_key)
 
 
@@ -154,14 +156,38 @@ def _cache_get_fresh(
     now: float,
     ttl: float,
 ) -> dict[str, Any] | None:
-    with _PACKET_CACHE_LOCK:
-        cached = _PACKET_CACHE.get(cache_key)
+    def fresh_packet_for_key(key: PacketCacheKey) -> dict[str, Any] | None:
+        cached = _PACKET_CACHE.get(key)
         if cached is None:
             return None
         if ttl > 0 and now - cached[0] <= ttl:
-            _PACKET_CACHE.move_to_end(cache_key)
+            _PACKET_CACHE.move_to_end(key)
             return dict(cached[1])
-        _PACKET_CACHE.pop(cache_key, None)
+        _PACKET_CACHE.pop(key, None)
+        return None
+
+    with _PACKET_CACHE_LOCK:
+        cached = fresh_packet_for_key(cache_key)
+        if cached is not None:
+            return cached
+        repo_override, review_queue_root, pr_refs, limit_key = cache_key
+        if pr_refs or limit_key <= 0:
+            return None
+        compatible_keys = sorted(
+            (
+                key
+                for key in _PACKET_CACHE
+                if key[0] == repo_override
+                and key[1] == review_queue_root
+                and key[2] == pr_refs
+                and key[3] >= limit_key
+            ),
+            key=lambda key: key[3],
+        )
+        for key in compatible_keys:
+            cached = fresh_packet_for_key(key)
+            if cached is not None:
+                return cached
         return None
 
 
@@ -209,6 +235,7 @@ def _build_merge_packet(
             return cached
     if not allow_sync_refresh:
         _cache_discard(cache_key)
+        logger.debug("Settlement approval packet cache miss for %s", cache_key)
         return _empty_packet()
     if not pr_refs and not _bounded_queue_scan_enabled():
         return _empty_packet()
