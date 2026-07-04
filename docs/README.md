@@ -9,7 +9,7 @@ multi-model review in, a verifiable Decision Receipt out.** It coordinates
 heterogeneous models to adversarially review a change or a decision, preserves
 the dissent and provenance, and stops truthfully when evidence is thin. See the
 [root README](../README.md) for the full picture and the
-[proof ladder](../README.md#proof-ladder) for how to verify every claim here.
+[proof ladder](../README.md#proof-ladder) for project-level claim verification.
 
 ## What Are You Trying To Do?
 

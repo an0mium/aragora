@@ -5,10 +5,15 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS_SITE_ROOT = REPO_ROOT / "docs-site" / "docs"
+DOCS_ROOT = REPO_ROOT / "docs"
 
 
 def _read_docs_site(path: str) -> str:
     return (DOCS_SITE_ROOT / path).read_text(encoding="utf-8")
+
+
+def _read_docs(path: str) -> str:
+    return (DOCS_ROOT / path).read_text(encoding="utf-8")
 
 
 def test_documentation_index_rewrites_status_and_planning_links() -> None:
@@ -43,6 +48,32 @@ def test_documentation_index_rewrites_status_and_planning_links() -> None:
     ]
     for link in unresolved_source_links:
         assert link not in content
+
+
+def test_documentation_index_front_door_links_use_valid_canonical_targets() -> None:
+    source = _read_docs("INDEX.md")
+    mirror = _read_docs_site("contributing/documentation-index.md")
+
+    expected_links = [
+        "[root README](https://github.com/synaptent/aragora/blob/main/README.md)",
+        "[proof ladder](https://github.com/synaptent/aragora/blob/main/README.md#proof-ladder)",
+        (
+            "[Open Decision Receipt spec]"
+            "(https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md)"
+        ),
+    ]
+    for content in (source, mirror):
+        for link in expected_links:
+            assert link in content
+
+    broken_links = [
+        "../analysis/adr",
+        "../analysis/adr#proof-ladder",
+        "(specs/OPEN_DECISION_RECEIPT.md)",
+    ]
+    for content in (source, mirror):
+        for link in broken_links:
+            assert link not in content
 
 
 def test_features_guide_points_to_current_state_docs_site_pages() -> None:
