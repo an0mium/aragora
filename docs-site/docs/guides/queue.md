@@ -72,11 +72,11 @@ job = create_debate_job(
 
 # Enqueue the job
 job_id = await queue.enqueue(job)
-print(f"Job enqueued: \{job_id\}")
+print(f"Job enqueued: {job_id}")
 
 # Check status
 status = await queue.get_status(job_id)
-print(f"Status: \{status\}")
+print(f"Status: {status}")
 ```
 
 ### Running a Worker

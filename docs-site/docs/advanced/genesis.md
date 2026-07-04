@@ -496,7 +496,7 @@ for generation in range(10):
     # Natural selection
     population.cull_population(keep_top=20)
 
-    print(f"Generation \{generation\}: Top fitness = {population.top_fitness}")
+    print(f"Generation {generation}: Top fitness = {population.top_fitness}")
 
 # Query evolution history
 top_genome = population.get_top_genomes(1)[0]

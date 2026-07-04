@@ -440,13 +440,13 @@ curl -X POST http://localhost:8080/api/gauntlet/run \
   }'
 
 # Get status
-curl http://localhost:8080/api/gauntlet/\{id\}
+curl http://localhost:8080/api/gauntlet/{id}
 
 # Get Decision Receipt
-curl http://localhost:8080/api/gauntlet/\{id\}/receipt?format=html
+curl http://localhost:8080/api/gauntlet/{id}/receipt?format=html
 
 # Get Risk Heatmap
-curl http://localhost:8080/api/gauntlet/\{id\}/heatmap?format=svg
+curl http://localhost:8080/api/gauntlet/{id}/heatmap?format=svg
 ```
 
 ### Understanding Results

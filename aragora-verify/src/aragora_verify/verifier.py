@@ -82,10 +82,13 @@ class VerifyResult:
 
     @property
     def authenticity_unverified(self) -> bool:
-        """True iff the receipt carries signatures that were NOT checked (no public
-        key supplied) -- i.e. the ``signature`` check is SKIP. Such a receipt is
-        structurally OK but NOT authenticated, so callers must not treat it as
-        "verified" even though no check hard-failed (PR #8388 review [P2a])."""
+        """True iff authenticity could not be established -- i.e. the ``signature``
+        check is SKIP: either the receipt carries signatures that were NOT checked
+        (no public key supplied; PR #8388 review [P2a]), or a public key was
+        supplied but the receipt carries no signatures to check (PR #8802 round-5
+        review [P2]). Such a receipt is structurally OK but NOT authenticated, so
+        callers must not treat it as "verified" even though no check hard-failed.
+        An unsigned receipt verified WITHOUT a key stays WARN (the v0.1 norm)."""
         return any(c.name == "signature" and c.status == SKIP for c in self.checks)
 
 
@@ -188,7 +191,10 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
         return Check("signature", WARN, "receipt is unsigned (v0.1); authenticity not established")
     if not signatures and public_key is not None:
         return Check(
-            "signature", WARN, "receipt carries no signatures; nothing to verify with the key"
+            "signature",
+            SKIP,
+            "receipt carries no signatures; authenticity NOT established even though "
+            "a public key was supplied",
         )
     if signatures and public_key is None:
         return Check(
@@ -202,6 +208,7 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
     provided_key_id = compute_key_id(public_key)
     verified_any = False
     failed_matching = False
+    key_id_mismatch = False
     notes: list[str] = []
     for i, sig in enumerate(signatures):
         if not isinstance(sig, dict):
@@ -215,8 +222,16 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
             continue
         try:
             public_key.verify(raw_sig, message)
-            verified_any = True
-            notes.append(f"sig[{i}] (key_id={key_id or '?'}): verified")
+            if key_id == provided_key_id:
+                verified_any = True
+                notes.append(f"sig[{i}] (key_id={key_id}): verified")
+            else:
+                key_id_mismatch = True
+                notes.append(
+                    f"sig[{i}]: signature verifies with the supplied key but its recorded "
+                    f"key_id ({key_id or '?'}) does not match the supplied key's id "
+                    f"({provided_key_id}) — possible signer-label tampering"
+                )
         except InvalidSignature:
             notes.append(f"sig[{i}] (key_id={key_id or '?'}): INVALID")
             if key_id == provided_key_id:
@@ -224,11 +239,15 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
 
     detail = "; ".join(notes) or "no signatures evaluated"
     if failed_matching:
-        return Check(
-            "signature", FAIL, f"signature from the supplied key did not verify — {detail}"
-        )
+        return Check("signature", FAIL, f"signature check failed — {detail}")
+    # A valid, correctly-bound signature wins even when an extra entry carries a
+    # relabeled copy: authenticity is already established and the mislabeled entry
+    # is surfaced in the detail. Mirrors aragora.gauntlet.odr_verify's separate
+    # key_id_mismatch flag with verified_any-wins ordering (#8810 parity).
     if verified_any:
         return Check("signature", PASS, f"Ed25519 signature verified — {detail}")
+    if key_id_mismatch:
+        return Check("signature", FAIL, f"signer-label tampering suspected — {detail}")
     return Check("signature", FAIL, f"no signature verified with the supplied key — {detail}")
 
 

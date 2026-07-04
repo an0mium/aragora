@@ -268,6 +268,20 @@ class TestDebateModel:
         )
         assert debate.debate_id == "deb-alias"
 
+    def test_debate_coerces_agent_spec_dicts(self):
+        """Test Debate coerces agent spec dicts (echoed by the server) to names."""
+        debate = Debate(
+            debate_id="deb-agents",
+            task="Test",
+            status=DebateStatus.COMPLETED,
+            agents=[
+                {"provider": "grok", "name": "grok"},  # type: ignore[list-item]
+                "openai-api",
+                {"provider": "deepseek"},  # type: ignore[list-item]
+            ],
+        )
+        assert debate.agents == ["grok", "openai-api", "deepseek"]
+
     def test_debate_coerces_rounds(self):
         """Test Debate coerces int rounds to empty list."""
         debate = Debate(

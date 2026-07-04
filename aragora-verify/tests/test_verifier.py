@@ -77,6 +77,47 @@ def test_mutated_byte_fails_signature() -> None:
     assert _check(result, "signature").status == FAIL
 
 
+def test_tampered_key_id_fails_signature() -> None:
+    # A cryptographically valid signature must not count when its recorded
+    # key_id has been relabeled: signatures[] is outside the signed digest,
+    # so key_id is attacker-mutable unless bound to the supplied key.
+    private_key, public_key = make_keypair()
+    signed = sign_odr(valid_odr(), private_key)
+    signed["signatures"][0]["key_id"] = "spoofed-signer-label"
+    result = verify(signed, public_key=load_public_key(_pubkey_bytes(public_key)))
+    assert result.ok is False
+    check = _check(result, "signature")
+    assert check.status == FAIL
+    assert "signer-label tampering" in check.detail
+
+
+def test_valid_bound_signature_wins_over_relabeled_extra() -> None:
+    # Precedence parity with aragora.gauntlet.odr_verify (#8802 round-5 [P2],
+    # #8810): one valid, correctly-bound signature establishes authenticity
+    # even when an extra entry carries the same signature bytes under a
+    # relabeled key_id. The mislabeled entry is surfaced in the detail.
+    private_key, public_key = make_keypair()
+    signed = sign_odr(valid_odr(), private_key)
+    relabeled = dict(signed["signatures"][0], key_id="spoofed-extra-label")
+    signed["signatures"].append(relabeled)
+    result = verify(signed, public_key=load_public_key(_pubkey_bytes(public_key)))
+    assert result.ok is True
+    check = _check(result, "signature")
+    assert check.status == PASS
+    assert "signer-label tampering" in check.detail
+
+
+def test_unsigned_receipt_with_pubkey_is_unverified() -> None:
+    # #8802 round-5 [P2]: supplying a key for an unsigned receipt must not
+    # yield VERIFIED/exit 0 -- authenticity was requested and cannot be
+    # established, so the signature check is SKIP -> UNVERIFIED (exit 3).
+    private_key, public_key = make_keypair()
+    result = verify(valid_odr(), public_key=load_public_key(_pubkey_bytes(public_key)))
+    assert result.ok is True
+    assert _check(result, "signature").status == SKIP
+    assert result.authenticity_unverified is True
+
+
 def test_wrong_key_does_not_verify() -> None:
     private_key, _ = make_keypair()
     _, other_public = make_keypair()

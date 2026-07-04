@@ -105,7 +105,7 @@ echo ""
 # 1. Record baseline metrics
 echo "[1/6] Recording baseline metrics..."
 BASELINE_LATENCY=$(curl -s http://localhost:8080/api/health | jq '.checks.database.latency_ms')
-echo "Current DB latency: $\{BASELINE_LATENCY\}ms"
+echo "Current DB latency: ${BASELINE_LATENCY}ms"
 
 # 2. Verify replica is in sync
 echo "[2/6] Verifying replica sync status..."
@@ -137,7 +137,7 @@ echo ""
 echo "=== Verification ==="
 sleep 30
 NEW_LATENCY=$(curl -s http://localhost:8080/api/health | jq '.checks.database.latency_ms')
-echo "New DB latency: $\{NEW_LATENCY\}ms"
+echo "New DB latency: ${NEW_LATENCY}ms"
 curl -s http://localhost:8080/api/health | jq '.checks.database'
 
 echo ""
@@ -259,53 +259,53 @@ Regular testing of backup restoration capabilities.
 # dr_drill_backup_restore.sh
 
 DATE=$(date +%Y%m%d)
-RESTORE_DB="aragora_restore_test_$\{DATE\}"
+RESTORE_DB="aragora_restore_test_${DATE}"
 BACKUP_FILE="/backups/postgres/aragora_latest.dump"
 
 echo "=== Backup Restoration Drill ==="
 echo "Date: $(date)"
-echo "Backup file: $\{BACKUP_FILE\}"
+echo "Backup file: ${BACKUP_FILE}"
 echo ""
 
 # 1. Verify backup exists
 echo "[1/6] Verifying backup file..."
-ls -la $\{BACKUP_FILE\}
-if [ ! -f "$\{BACKUP_FILE\}" ]; then
+ls -la ${BACKUP_FILE}
+if [ ! -f "${BACKUP_FILE}" ]; then
     echo "ERROR: Backup file not found!"
     exit 1
 fi
 
 # 2. Create test database
 echo "[2/6] Creating test database..."
-psql -c "DROP DATABASE IF EXISTS $\{RESTORE_DB\};"
-psql -c "CREATE DATABASE $\{RESTORE_DB\};"
+psql -c "DROP DATABASE IF EXISTS ${RESTORE_DB};"
+psql -c "CREATE DATABASE ${RESTORE_DB};"
 
 # 3. Restore backup
 echo "[3/6] Restoring backup..."
 START_TIME=$(date +%s)
-pg_restore -d $\{RESTORE_DB\} $\{BACKUP_FILE\}
+pg_restore -d ${RESTORE_DB} ${BACKUP_FILE}
 END_TIME=$(date +%s)
 RESTORE_TIME=$((END_TIME - START_TIME))
-echo "Restore completed in $\{RESTORE_TIME\} seconds"
+echo "Restore completed in ${RESTORE_TIME} seconds"
 
 # 4. Verify data integrity
 echo "[4/6] Verifying data integrity..."
-psql -d $\{RESTORE_DB\} -c "SELECT COUNT(*) as users FROM users;"
-psql -d $\{RESTORE_DB\} -c "SELECT COUNT(*) as debates FROM debates;"
-psql -d $\{RESTORE_DB\} -c "SELECT COUNT(*) as audit_events FROM audit_events;"
+psql -d ${RESTORE_DB} -c "SELECT COUNT(*) as users FROM users;"
+psql -d ${RESTORE_DB} -c "SELECT COUNT(*) as debates FROM debates;"
+psql -d ${RESTORE_DB} -c "SELECT COUNT(*) as audit_events FROM audit_events;"
 
 # 5. Verify recent data
 echo "[5/6] Checking data freshness..."
-psql -d $\{RESTORE_DB\} -c "SELECT MAX(created_at) as latest_user FROM users;"
-psql -d $\{RESTORE_DB\} -c "SELECT MAX(created_at) as latest_debate FROM debates;"
+psql -d ${RESTORE_DB} -c "SELECT MAX(created_at) as latest_user FROM users;"
+psql -d ${RESTORE_DB} -c "SELECT MAX(created_at) as latest_debate FROM debates;"
 
 # 6. Cleanup
 echo "[6/6] Cleaning up test database..."
-psql -c "DROP DATABASE $\{RESTORE_DB\};"
+psql -c "DROP DATABASE ${RESTORE_DB};"
 
 echo ""
 echo "=== Drill Results ==="
-echo "Restore time: $\{RESTORE_TIME\} seconds"
+echo "Restore time: ${RESTORE_TIME} seconds"
 echo "Status: SUCCESS"
 echo ""
 ```
@@ -326,12 +326,12 @@ aws s3 ls s3://aragora-backups/postgres/ --recursive | tail -5
 echo ""
 echo "Verifying latest backup integrity..."
 LATEST=$(aws s3 ls s3://aragora-backups/postgres/ --recursive | tail -1 | awk '{print $4}')
-aws s3api head-object --bucket aragora-backups --key $\{LATEST\}
+aws s3api head-object --bucket aragora-backups --key ${LATEST}
 
 # Download and verify checksum
 echo ""
 echo "Downloading for checksum verification..."
-aws s3 cp s3://aragora-backups/$\{LATEST\} /tmp/backup_verify.dump
+aws s3 cp s3://aragora-backups/${LATEST} /tmp/backup_verify.dump
 md5sum /tmp/backup_verify.dump
 rm /tmp/backup_verify.dump
 ```
@@ -534,7 +534,7 @@ curl -X GET /api/v2/compliance/gdpr/backup-exclusions
 Users under legal hold cannot have data deleted until hold is released:
 ```
 POST /api/v2/compliance/gdpr/legal-holds      # Create hold
-DELETE /api/v2/compliance/gdpr/legal-holds/\{id\} # Release hold
+DELETE /api/v2/compliance/gdpr/legal-holds/{id} # Release hold
 ```
 
 **Recovery Steps:**

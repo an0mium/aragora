@@ -350,7 +350,7 @@ registry = HookHandlerRegistry(
     },
 )
 count = registry.register_all()
-print(f"Registered \{count\} handlers")
+print(f"Registered {count} handlers")
 ```
 
 **Hooks registered:**
