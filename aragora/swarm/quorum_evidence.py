@@ -1974,13 +1974,13 @@ def _record_review_adjudication_if_applicable(outcome: CollectOutcome) -> None:
     if not outcome.supportive_families or not outcome.dissenting_families:
         return
 
-    from aragora.swarm.review_adjudicator import adjudicate, review_adjudicator_enabled
-
-    if not review_adjudicator_enabled():
-        return
     try:
+        from aragora.swarm.review_adjudicator import adjudicate, review_adjudicator_enabled
+
+        if not review_adjudicator_enabled():
+            return
         outcome.adjudication = adjudicate(outcome.items).to_receipt_dict()
-    except Exception:
+    except (AttributeError, ImportError, RuntimeError, TypeError, ValueError):
         logger.exception("observe-only review adjudicator failed; omitting adjudication")
 
 
