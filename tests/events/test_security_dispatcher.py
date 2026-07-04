@@ -174,6 +174,17 @@ class TestShouldTriggerDebate:
         )
         assert dispatcher._should_trigger_debate(event) is True
 
+    def test_existing_debate_correlation_does_not_trigger_again(self):
+        dispatcher = SecurityDispatcher()
+        event = _make_event(
+            event_type=SecurityEventType.CRITICAL_CVE,
+            severity=SecuritySeverity.CRITICAL,
+        )
+        event.debate_requested = True
+        event.debate_id = "debate-existing"
+
+        assert dispatcher._should_trigger_debate(event) is False
+
     def test_severity_below_threshold(self):
         dispatcher = SecurityDispatcher(config=DispatcherConfig(min_severity=SecuritySeverity.HIGH))
         event = _make_event(severity=SecuritySeverity.MEDIUM)

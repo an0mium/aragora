@@ -8,7 +8,6 @@ event module (they import Arena, DebateProtocol, and API agents), so they
 live under aragora.debate rather than the domain-free events module.
 """
 
-import json
 import subprocess
 import sys
 import types
@@ -186,7 +185,7 @@ class TestTriggerSecurityDebate:
                 return_value="Question?",
             ),
             patch(
-                "aragora.debate.security_response._get_security_debate_agents",
+                "aragora.debate.security_debate.get_security_debate_agents",
                 new_callable=AsyncMock,
                 return_value=[],
             ),
@@ -209,7 +208,7 @@ class TestTriggerSecurityDebate:
                 return_value="Question?",
             ),
             patch(
-                "aragora.debate.security_response._get_security_debate_agents",
+                "aragora.debate.security_debate.get_security_debate_agents",
                 new_callable=AsyncMock,
                 return_value=[],
             ),
@@ -239,16 +238,16 @@ class TestTriggerSecurityDebate:
             "aragora.debate.security_response.build_security_debate_question",
             return_value="test question",
         ):
-            # Simulate ImportError when trying to import Arena dependencies
-            with patch.dict("sys.modules", {"aragora.core": None}):
+            # Simulate ImportError when trying to import the canonical runner
+            with patch.dict("sys.modules", {"aragora.debate.security_debate": None}):
                 result = await trigger_security_debate(event)
                 # Should gracefully return None (either ImportError or other exception)
                 # The function catches ImportError and general Exception
                 assert result is None
 
     @pytest.mark.asyncio
-    async def test_trigger_debate_sets_debate_question(self):
-        """Should set the debate_question on the event."""
+    async def test_trigger_debate_uses_canonical_runner_and_stores_result(self):
+        """Should use the canonical runner and store its arena debate ID."""
         event = SecurityEvent(
             severity=SecuritySeverity.CRITICAL,
             repository="org/repo",
@@ -265,65 +264,70 @@ class TestTriggerSecurityDebate:
             ],
         )
 
-        # Mock the entire chain: imports, Arena, result
-        mock_arena_instance = MagicMock()
         mock_result = MagicMock()
         mock_result.debate_id = "arena-security-debate-1"
         mock_result.consensus_reached = True
         mock_result.confidence = 0.9
         mock_result.final_answer = "Fix it"
-        mock_arena_instance.run = AsyncMock(return_value=mock_result)
+        mock_result.messages = [MagicMock()]
+        mock_result.participants = ["security-auditor"]
+        mock_result.rounds_used = 3
 
         with (
             patch(
-                "aragora.debate.security_response.build_security_debate_question",
-                return_value="Generated question",
-            ),
-            patch(
-                "aragora.debate.security_response._get_security_debate_agents",
+                "aragora.debate.security_debate.run_security_debate",
                 new_callable=AsyncMock,
-                return_value=[MagicMock(), MagicMock()],
+                return_value=mock_result,
+            ) as mock_run,
+            patch(
+                "aragora.debate.security_response._store_security_debate_result",
+                new_callable=AsyncMock,
+            ) as mock_store,
+        ):
+            result = await trigger_security_debate(event)
+
+            mock_run.assert_awaited_once_with(
+                event=event,
+                agents=None,
+                confidence_threshold=0.7,
+                timeout_seconds=300,
+                org_id="default",
+            )
+            assert result == "arena-security-debate-1"
+            assert event.debate_requested is True
+            assert event.debate_id == "arena-security-debate-1"
+            mock_store.assert_awaited_once()
+            assert mock_store.await_args.args[0] == "arena-security-debate-1"
+
+    @pytest.mark.asyncio
+    async def test_trigger_debate_returns_none_when_canonical_runner_has_no_agents(self):
+        """A canonical no-agent result should preserve trigger's None contract."""
+        event = SecurityEvent(repository="org/repo")
+        mock_result = MagicMock()
+        mock_result.debate_id = "empty-debate"
+        mock_result.consensus_reached = False
+        mock_result.confidence = 0.0
+        mock_result.final_answer = "No agents available for security debate"
+        mock_result.messages = []
+        mock_result.participants = []
+        mock_result.rounds_used = 0
+
+        with (
+            patch(
+                "aragora.debate.security_debate.run_security_debate",
+                new_callable=AsyncMock,
+                return_value=mock_result,
             ),
             patch(
                 "aragora.debate.security_response._store_security_debate_result",
                 new_callable=AsyncMock,
             ) as mock_store,
         ):
-            # We need to mock the imports inside the function
-            mock_env = MagicMock()
-            mock_protocol = MagicMock()
+            result = await trigger_security_debate(event)
 
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.core": MagicMock(Environment=mock_env, DebateResult=MagicMock()),
-                    "aragora.debate.protocol": MagicMock(DebateProtocol=mock_protocol),
-                    "aragora.debate.orchestrator": MagicMock(
-                        Arena=MagicMock(return_value=mock_arena_instance)
-                    ),
-                },
-            ):
-                result = await trigger_security_debate(event)
-
-                assert event.debate_question == "Generated question"
-                assert result == "arena-security-debate-1"
-                assert event.debate_requested is True
-                assert event.debate_id == "arena-security-debate-1"
-                mock_store.assert_awaited_once()
-                assert mock_store.await_args.args[0] == "arena-security-debate-1"
-
-                # context must be a JSON string (Environment.context: str), not a
-                # raw dict -- regression test for a pre-existing bug where this
-                # was passed as cast(str, {...}) and only reached via the emitter;
-                # the dispatcher default path now also depends on this being real
-                # JSON (see aragora.events.security_dispatcher's default runner).
-                _, call_kwargs = mock_env.call_args
-                context = call_kwargs["context"]
-                assert isinstance(context, str)
-                decoded = json.loads(context)
-                assert decoded["security_event_id"] == event.id
-                assert decoded["repository"] == "org/repo"
-                assert decoded["findings"][0]["cve_id"] == "CVE-2024-99999"
+        assert result is None
+        assert event.debate_id is None
+        mock_store.assert_not_awaited()
 
 
 # =============================================================================

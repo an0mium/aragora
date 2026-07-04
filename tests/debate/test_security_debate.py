@@ -347,10 +347,21 @@ class TestSecurityDebateIntegration:
 
     @pytest.mark.asyncio
     async def test_confidence_threshold_parameter(self):
-        """Test confidence_threshold parameter is accepted."""
+        """Test confidence_threshold gates low-confidence consensus."""
         from aragora.debate.security_debate import run_security_debate
 
         mock_event = MockSecurityEvent()
+        mock_agent = MagicMock()
+        mock_agent.name = "security-auditor"
+
+        mock_result = MagicMock()
+        mock_result.debate_id = "debate-low-confidence"
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.65
+        mock_result.metadata = {}
+
+        mock_arena = MagicMock()
+        mock_arena.run = AsyncMock(return_value=mock_result)
 
         with (
             patch(
@@ -358,17 +369,19 @@ class TestSecurityDebateIntegration:
                 return_value="Q",
             ),
             patch(
-                "aragora.debate.security_debate.get_security_debate_agents",
-                new_callable=AsyncMock,
-                return_value=[],
+                "aragora.debate.orchestrator.Arena",
+                return_value=mock_arena,
             ),
         ):
             result = await run_security_debate(
                 event=mock_event,
+                agents=[mock_agent],
                 confidence_threshold=0.9,
             )
 
-            assert result is not None
+            assert result.consensus_reached is False
+            assert result.metadata["security_confidence_threshold"] == 0.9
+            assert result.metadata["security_confidence_threshold_met"] is False
 
     @pytest.mark.asyncio
     async def test_org_id_parameter(self):

@@ -19,6 +19,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _apply_security_confidence_threshold(
+    result: DebateResult,
+    confidence_threshold: float,
+) -> DebateResult:
+    """Reflect the security confidence threshold in the returned debate result."""
+    threshold_met = result.confidence >= confidence_threshold
+    metadata = dict(getattr(result, "metadata", {}) or {})
+    metadata["security_confidence_threshold"] = confidence_threshold
+    metadata["security_confidence_threshold_met"] = threshold_met
+    result.metadata = metadata
+    if not threshold_met:
+        result.consensus_reached = False
+    return result
+
+
 async def run_security_debate(
     event: SecurityEvent,
     agents: list[Agent] | None = None,
@@ -97,15 +112,18 @@ async def run_security_debate(
 
     if not agents:
         logger.warning("[security_debate] No agents available, returning empty result")
-        return DebateResult(
-            task=question,
-            consensus_reached=False,
-            confidence=0.0,
-            messages=[],
-            critiques=[],
-            votes=[],
-            rounds_used=0,
-            final_answer="No agents available for security debate",
+        return _apply_security_confidence_threshold(
+            DebateResult(
+                task=question,
+                consensus_reached=False,
+                confidence=0.0,
+                messages=[],
+                critiques=[],
+                votes=[],
+                rounds_used=0,
+                final_answer="No agents available for security debate",
+            ),
+            confidence_threshold,
         )
 
     # Create and run the arena
@@ -133,7 +151,7 @@ async def run_security_debate(
         f"consensus={result.consensus_reached}, confidence={result.confidence:.2f}"
     )
 
-    return result
+    return _apply_security_confidence_threshold(result, confidence_threshold)
 
 
 async def get_security_debate_agents() -> list[Agent]:

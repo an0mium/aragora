@@ -264,6 +264,9 @@ class SecurityDispatcher:
         Returns:
             True if the event should trigger a debate
         """
+        if event.debate_id or event.debate_requested:
+            return False
+
         # Always trigger for specific event types
         if event.event_type in self.config.always_trigger_types:
             return True

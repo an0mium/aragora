@@ -22,7 +22,6 @@ stack).
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from typing import Any
@@ -103,56 +102,30 @@ async def trigger_security_debate(
         Debate ID if triggered, None if failed
     """
     try:
-        from aragora.core import Environment, DebateResult
-        from aragora.debate.protocol import DebateProtocol
-        from aragora.debate.orchestrator import Arena
+        from aragora.debate.security_debate import run_security_debate
 
-        # Build debate question
-        question = build_security_debate_question(event)
-        event.debate_question = question
-
-        # Create environment
-        env = Environment(
-            task=question,
-            context=json.dumps(
-                {
-                    "security_event_id": event.id,
-                    "repository": event.repository,
-                    "scan_id": event.scan_id,
-                    "findings": [f.to_dict() for f in event.findings],
-                }
-            ),
-        )
-
-        # Create protocol for security debates
-        protocol = DebateProtocol(
-            rounds=3,
-            consensus="majority",
-            convergence_detection=True,
-            convergence_threshold=0.85,
-            timeout_seconds=timeout_seconds,
-        )
-
-        # Get default agents if none provided
-        if agents is None:
-            agents = await _get_security_debate_agents()
-
-        if not agents:
-            logger.warning("No agents available for security debate")
-            return None
-
-        # Run debate
-        arena = Arena(
-            environment=env,
+        result = await run_security_debate(
+            event=event,
             agents=agents,
-            protocol=protocol,
+            confidence_threshold=confidence_threshold,
+            timeout_seconds=timeout_seconds,
             org_id=event.workspace_id or "default",
         )
 
-        logger.info("[Security] Starting debate for %s findings", len(event.findings))
+        if (
+            not getattr(result, "messages", [])
+            and not getattr(result, "participants", [])
+            and getattr(result, "rounds_used", 0) == 0
+            and str(getattr(result, "final_answer", "")).startswith("No agents available")
+        ):
+            logger.warning("No agents available for security debate")
+            return None
 
-        result: DebateResult = await arena.run()
-        debate_id = getattr(result, "debate_id", "") or f"security_debate_{uuid.uuid4().hex[:12]}"
+        debate_id = (
+            getattr(result, "debate_id", "")
+            or getattr(result, "id", "")
+            or f"security_debate_{uuid.uuid4().hex[:12]}"
+        )
         event.debate_requested = True
         event.debate_id = debate_id
 
@@ -167,7 +140,7 @@ async def trigger_security_debate(
         return debate_id
 
     except ImportError as e:
-        logger.warning("Arena not available for security debate: %s", e)
+        logger.warning("Canonical security debate runner not available: %s", e)
         return None
     except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.exception("Failed to run security debate: %s", e)
