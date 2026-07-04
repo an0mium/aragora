@@ -19,7 +19,9 @@ MAX_PACKET_SCAN_LIMIT = 100
 DEFAULT_PACKET_CACHE_TTL_SECONDS = 30.0
 EMPTY_PACKET_VERSION = "merge_authorization_packet.v1"
 
-_PACKET_CACHE: dict[tuple[str | None, str | None, int], tuple[float, dict[str, Any]]] = {}
+_PACKET_CACHE: dict[
+    tuple[str | None, str | None, int, tuple[str, ...]], tuple[float, dict[str, Any]]
+] = {}
 
 SETTLEMENT_READY_STATUSES = {
     "human_risk_settlement_required",
@@ -99,6 +101,16 @@ def _sync_refresh_enabled() -> bool:
     return raw.lower().strip() in {"1", "true", "yes", "on"}
 
 
+def _bounded_queue_scan_enabled() -> bool:
+    raw = os.environ.get("ARAGORA_SETTLEMENT_INBOX_ALLOW_BOUNDED_QUEUE_SCAN", "")
+    return raw.lower().strip() in {"1", "true", "yes", "on"}
+
+
+def _configured_pr_refs() -> list[str]:
+    raw = os.environ.get("ARAGORA_SETTLEMENT_INBOX_PR_REFS", "")
+    return [ref for ref in raw.replace(",", " ").split() if ref.strip()]
+
+
 def _empty_packet() -> dict[str, Any]:
     return {
         "version": EMPTY_PACKET_VERSION,
@@ -112,13 +124,14 @@ def _build_merge_packet(
     merge_packet_builder: Any,
     repo_override: str | None,
     review_queue_root: str | None,
+    pr_refs: list[str],
     packet_limit: int,
     use_cache: bool,
     allow_sync_refresh: bool,
 ) -> dict[str, Any]:
     if not use_cache:
         return merge_packet_builder(
-            pr_refs=[],
+            pr_refs=pr_refs,
             limit=packet_limit,
             repo_override=repo_override,
             review_queue_root=review_queue_root,
@@ -127,7 +140,7 @@ def _build_merge_packet(
         )
 
     ttl = _cache_ttl_seconds()
-    cache_key = (repo_override, review_queue_root, packet_limit)
+    cache_key = (repo_override, review_queue_root, packet_limit, tuple(pr_refs))
     now = time.monotonic()
     cached = _PACKET_CACHE.get(cache_key)
     if ttl > 0:
@@ -137,9 +150,11 @@ def _build_merge_packet(
         if cached is not None:
             return dict(cached[1])
         return _empty_packet()
+    if not pr_refs and not _bounded_queue_scan_enabled():
+        return _empty_packet()
 
     packet = merge_packet_builder(
-        pr_refs=[],
+        pr_refs=pr_refs,
         limit=packet_limit,
         repo_override=repo_override,
         review_queue_root=review_queue_root,
@@ -155,6 +170,7 @@ def refresh_settlement_approval_cache(
     *,
     limit: int = DEFAULT_PACKET_SCAN_LIMIT,
     repo: str | None = None,
+    pr_refs: list[str] | None = None,
     review_queue_root: str | None = None,
     merge_packet_builder: Any | None = None,
 ) -> dict[str, Any]:
@@ -174,19 +190,36 @@ def refresh_settlement_approval_cache(
 
     repo_override = repo or os.environ.get("ARAGORA_SETTLEMENT_INBOX_REPO") or None
     queue_root = review_queue_root or os.environ.get("ARAGORA_REVIEW_QUEUE_ROOT") or None
+    refs = list(pr_refs) if pr_refs is not None else _configured_pr_refs()
+    if not refs and not _bounded_queue_scan_enabled():
+        packet = _empty_packet()
+        _PACKET_CACHE[(repo_override, queue_root, packet_limit, tuple(refs))] = (
+            time.monotonic(),
+            dict(packet),
+        )
+        return packet
     packet = merge_packet_builder(
-        pr_refs=[],
+        pr_refs=refs,
         limit=packet_limit,
         repo_override=repo_override,
         review_queue_root=queue_root,
         execute_reviewers=False,
         ignore_own_quorum_check=False,
     )
-    _PACKET_CACHE[(repo_override, queue_root, packet_limit)] = (time.monotonic(), dict(packet))
+    _PACKET_CACHE[(repo_override, queue_root, packet_limit, tuple(refs))] = (
+        time.monotonic(),
+        dict(packet),
+    )
     return packet
 
 
-def _approval_item(entry: dict[str, Any], *, generated_at: str) -> dict[str, Any]:
+def _approval_item(
+    entry: dict[str, Any],
+    *,
+    generated_at: str,
+    repo_override: str | None,
+    review_queue_root: str | None,
+) -> dict[str, Any]:
     pr_number = int(entry.get("pr_number") or 0)
     head_sha = str(entry.get("head_sha") or "").strip()
     target_id = f"settlement-pr-{pr_number}-{head_sha[:12] or 'unknown'}"
@@ -218,6 +251,11 @@ def _approval_item(entry: dict[str, Any], *, generated_at: str) -> dict[str, Any
         cli_reason,
         "--post-github-status",
     ]
+    if repo_override:
+        approve_cli.extend(["--repo", repo_override])
+    if review_queue_root:
+        approve_cli.extend(["--review-queue-root", review_queue_root])
+    reject_reason = f"Settlement Inbox rejection for PR #{pr_number} at exact head {head_sha[:12]}"
     reject_cli = [
         "python3",
         "-m",
@@ -230,8 +268,12 @@ def _approval_item(entry: dict[str, Any], *, generated_at: str) -> dict[str, Any
         "--action",
         "request_changes",
         "--reason",
-        f"Settlement Inbox rejection for PR #{pr_number} at exact head {head_sha[:12]}",
+        reject_reason,
     ]
+    if repo_override:
+        reject_cli.extend(["--repo", repo_override])
+    if review_queue_root:
+        reject_cli.extend(["--review-queue-root", review_queue_root])
 
     return {
         "id": target_id,
@@ -271,6 +313,8 @@ def _approval_item(entry: dict[str, Any], *, generated_at: str) -> dict[str, Any
                     "decision": "approve",
                     "settlement_kind": settlement_kind,
                     "reason": cli_reason,
+                    "repo": repo_override,
+                    "review_queue_root": review_queue_root,
                 },
                 "cli_preview": approve_cli,
                 "implemented": False,
@@ -281,9 +325,11 @@ def _approval_item(entry: dict[str, Any], *, generated_at: str) -> dict[str, Any
                 "body": {
                     "pr": pr_number,
                     "head_sha": head_sha,
-                    "decision": "reject",
+                    "decision": "request_changes",
                     "settlement_kind": settlement_kind,
-                    "reason": reject_cli[-1],
+                    "reason": reject_reason,
+                    "repo": repo_override,
+                    "review_queue_root": review_queue_root,
                 },
                 "cli_preview": reject_cli,
                 "implemented": False,
@@ -317,10 +363,12 @@ def collect_pending_settlement_approvals(
 
     repo_override = repo or os.environ.get("ARAGORA_SETTLEMENT_INBOX_REPO") or None
     queue_root = review_queue_root or os.environ.get("ARAGORA_REVIEW_QUEUE_ROOT") or None
+    refs = _configured_pr_refs()
     packet = _build_merge_packet(
         merge_packet_builder=merge_packet_builder,
         repo_override=repo_override,
         review_queue_root=queue_root,
+        pr_refs=refs,
         packet_limit=packet_limit,
         use_cache=use_cache,
         allow_sync_refresh=_sync_refresh_enabled()
@@ -344,7 +392,14 @@ def collect_pending_settlement_approvals(
             continue
         if bool(entry.get("unresolved_dissent")):
             continue
-        items.append(_approval_item(entry, generated_at=generated_at))
+        items.append(
+            _approval_item(
+                entry,
+                generated_at=generated_at,
+                repo_override=repo_override,
+                review_queue_root=queue_root,
+            )
+        )
     # The merge packet has a packet-level generated_at, not per-PR timestamps.
     # Python's stable sort preserves merge-packet queue order for equal times.
     items.sort(key=lambda item: float(item.get("_sort_ts") or 0.0), reverse=True)

@@ -66,10 +66,7 @@ def collect_pending_approvals(
 ) -> list[dict[str, Any]]:
     """Collect pending approvals across subsystems."""
     items: list[UnifiedApprovalItem] = []
-    requested_sources = sources
-    sources = [s.lower() for s in (sources or DEFAULT_APPROVAL_SOURCES)]
-    if requested_sources is None and _settlement_inbox_enabled():
-        sources.append("settlement")
+    sources = effective_approval_sources(sources)
 
     if "workflow" in sources:
         try:
@@ -311,6 +308,13 @@ def collect_pending_approvals(
 def _settlement_inbox_enabled() -> bool:
     raw = os.environ.get("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", "")
     return raw.lower().strip() in {"1", "true", "yes", "on"}
+
+
+def effective_approval_sources(sources: list[str] | None = None) -> list[str]:
+    effective = [s.lower() for s in (sources or DEFAULT_APPROVAL_SOURCES)]
+    if sources is None and _settlement_inbox_enabled():
+        effective.append("settlement")
+    return effective
 
 
 def _dict_or_empty(value: Any) -> dict[str, Any]:

@@ -208,6 +208,7 @@ def test_collect_pending_settlement_approvals_cache_only_cold_path_does_not_scan
 def test_collect_pending_settlement_approvals_uses_warmed_cache(monkeypatch):
     settlement_inbox_module._PACKET_CACHE.clear()
     calls = []
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_PR_REFS", "7736")
 
     def merge_packet_builder(**kwargs):
         calls.append(kwargs)
@@ -216,6 +217,7 @@ def test_collect_pending_settlement_approvals_uses_warmed_cache(monkeypatch):
     refresh_settlement_approval_cache(
         limit=10,
         repo="synaptent/aragora",
+        pr_refs=["7736"],
         merge_packet_builder=merge_packet_builder,
     )
 
@@ -236,6 +238,31 @@ def test_collect_pending_settlement_approvals_uses_warmed_cache(monkeypatch):
     assert len(approvals) == 1
     assert approvals[0]["metadata"]["pr_number"] == 7736
     assert calls[0]["limit"] == 10
+    assert calls[0]["pr_refs"] == ["7736"]
+
+
+def test_collect_pending_settlement_approvals_preserves_settlement_context():
+    def merge_packet_builder(**kwargs):
+        return _settlement_packet()
+
+    approvals = collect_pending_settlement_approvals(
+        limit=10,
+        repo="synaptent/aragora",
+        review_queue_root="/tmp/review-queue",
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    item = approvals[0]
+    approve = item["actions"]["approve"]
+    reject = item["actions"]["reject"]
+    assert ["--repo", "synaptent/aragora"] == approve["cli_preview"][-4:-2]
+    assert ["--review-queue-root", "/tmp/review-queue"] == approve["cli_preview"][-2:]
+    assert ["--repo", "synaptent/aragora"] == reject["cli_preview"][-4:-2]
+    assert ["--review-queue-root", "/tmp/review-queue"] == reject["cli_preview"][-2:]
+    assert approve["body"]["repo"] == "synaptent/aragora"
+    assert approve["body"]["review_queue_root"] == "/tmp/review-queue"
+    assert reject["body"]["decision"] == "request_changes"
+    assert reject["body"]["reason"].startswith("Settlement Inbox rejection")
 
 
 def test_collect_pending_approvals_explicit_settlement_source_requires_flag(monkeypatch):
