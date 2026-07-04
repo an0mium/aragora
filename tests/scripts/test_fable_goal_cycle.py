@@ -73,9 +73,54 @@ def test_build_packet_truncates_large_context_file(tmp_path: Path) -> None:
     assert "a" * (fable_goal_cycle.MAX_CONTEXT_FILE_BYTES + 1) not in packet
 
 
+def test_build_packet_respects_aggregate_prompt_budget() -> None:
+    oversized_body = "x" * (fable_goal_cycle.MAX_PACKET_SECTION_BYTES * 8)
+
+    packet = fable_goal_cycle.build_packet(
+        {
+            "sections": {
+                "large one": oversized_body,
+                "large two": oversized_body,
+                "large three": oversized_body,
+                "large four": oversized_body,
+                "large five": oversized_body,
+            },
+            "gaps": [oversized_body],
+        },
+        "standing mission",
+        [],
+        since_hours=24,
+    )
+
+    assert len(packet.encode("utf-8")) <= fable_goal_cycle.MAX_PACKET_BYTES
+    assert "[truncated " in packet
+    assert "## Required response format" in packet
+    assert "## NEXT PROMPT" in packet
+
+
 def test_build_packet_refuses_sensitive_context_path(tmp_path: Path) -> None:
     context_file = tmp_path / ".env"
     context_file.write_text("TOKEN=secret", encoding="utf-8")
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        None,
+        [context_file],
+        since_hours=24,
+    )
+
+    assert "refused potentially sensitive context path" in packet
+    assert "TOKEN=secret" not in packet
+
+
+def test_build_packet_refuses_symlink_to_sensitive_context_path(tmp_path: Path) -> None:
+    sensitive = tmp_path / ".env"
+    sensitive.write_text("TOKEN=secret", encoding="utf-8")
+    context_file = tmp_path / "cycle_report.md"
+    try:
+        context_file.symlink_to(sensitive)
+    except OSError:
+        return
 
     packet = fable_goal_cycle.build_packet(
         {"sections": {}, "gaps": []},
@@ -113,3 +158,20 @@ def test_run_consult_sets_overall_timeout_and_bounded_outer_timeout(
     assert command[command.index("--timeout") + 1] == "12.5"
     assert command[command.index("--overall-timeout") + 1] == "12.5"
     assert captured["timeout"] == 72.5
+
+
+def test_run_consult_rejects_success_without_text(monkeypatch, tmp_path: Path) -> None:
+    def fake_run(command, timeout, cwd=None):
+        return True, json.dumps({"ok": True, "model": "claude-fable-5"})
+
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        "claude-fable-5",
+        timeout=12.5,
+    )
+
+    assert result["ok"] is False
+    assert "without text" in result["error"]

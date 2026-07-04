@@ -43,6 +43,8 @@ DEFAULT_TIMEOUT_SECONDS = 900
 CONTEXT_STEP_TIMEOUT_SECONDS = 30
 DIGEST_TIMEOUT_SECONDS = 120
 MAX_CONTEXT_FILE_BYTES = 64 * 1024
+MAX_PACKET_BYTES = 400 * 1024
+MAX_PACKET_SECTION_BYTES = 96 * 1024
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
 NEXT_PROMPT_HEADING = "## NEXT PROMPT"
@@ -153,9 +155,43 @@ def _sensitive_context_path(path: Path) -> bool:
     return any(marker in part for part in lower_parts for marker in SENSITIVE_CONTEXT_MARKERS)
 
 
+def _truncate_text_bytes(text: str, max_bytes: int) -> str:
+    """Return text capped to max_bytes with an explicit byte-truncation marker."""
+    data = text.encode("utf-8")
+    if len(data) <= max_bytes:
+        return text
+
+    omitted = len(data) - max_bytes
+    while True:
+        marker = f"\n[truncated {omitted} bytes]\n"
+        marker_len = len(marker.encode("utf-8"))
+        if marker_len >= max_bytes:
+            return marker.encode("utf-8")[:max_bytes].decode("utf-8", errors="ignore")
+        keep = max_bytes - marker_len
+        next_omitted = len(data) - keep
+        if next_omitted == omitted:
+            break
+        omitted = next_omitted
+    return data[:keep].decode("utf-8", errors="ignore") + marker
+
+
+def _bounded_code_block(body: str) -> str:
+    return _truncate_text_bytes(body, MAX_PACKET_SECTION_BYTES)
+
+
+def _packet_with_footer(parts: list[str]) -> str:
+    body = "\n".join(parts) + "\n"
+    footer = "\n## Required response format\n" + RESPONSE_FORMAT_INSTRUCTIONS + "\n"
+    footer_bytes = len(footer.encode("utf-8"))
+    if footer_bytes >= MAX_PACKET_BYTES:
+        return _truncate_text_bytes(footer, MAX_PACKET_BYTES)
+    return _truncate_text_bytes(body, MAX_PACKET_BYTES - footer_bytes) + footer
+
+
 def _read_context_file(path: Path) -> tuple[str | None, str | None]:
     """Read a context file with a hard cap and basic secret-path guard."""
-    if _sensitive_context_path(path):
+    resolved = path.resolve(strict=False)
+    if _sensitive_context_path(path) or _sensitive_context_path(resolved):
         return None, f"refused potentially sensitive context path: {path}"
     try:
         if not path.is_file():
@@ -268,15 +304,22 @@ def build_packet(
         "one-cycle plan, and exactly one next prompt.",
     ]
     if goal:
-        parts += ["", "## Standing mission", goal.strip()]
+        parts += [
+            "",
+            "## Standing mission",
+            _truncate_text_bytes(goal.strip(), MAX_PACKET_SECTION_BYTES),
+        ]
     parts += ["", "## Live state"]
     for name, body in context["sections"].items():
-        parts += ["", f"### {name}", "```", body, "```"]
+        parts += ["", f"### {name}", "```", _bounded_code_block(body), "```"]
     if context["gaps"]:
         parts += [
             "",
             "## Context gaps (sources that failed or were skipped this cycle)",
-            *[f"- {gap}" for gap in context["gaps"]],
+            *[
+                f"- {_truncate_text_bytes(gap, MAX_PACKET_SECTION_BYTES)}"
+                for gap in context["gaps"]
+            ],
         ]
     for path in extra_files:
         body, note = _read_context_file(path)
@@ -284,9 +327,8 @@ def build_packet(
             parts += ["", f"### Operator context {path} ({note})"]
         if body is None:
             continue
-        parts += ["", f"### Operator context: {path.name}", body]
-    parts += ["", "## Required response format", RESPONSE_FORMAT_INSTRUCTIONS]
-    return "\n".join(parts) + "\n"
+        parts += ["", f"### Operator context: {path.name}", _bounded_code_block(body)]
+    return _packet_with_footer(parts)
 
 
 def extract_next_prompt(response: str) -> str | None:
@@ -330,9 +372,12 @@ def run_consult(consult_script: Path, packet_path: Path, model: str, timeout: fl
     if not ok:
         return {"ok": False, "error": f"consult tool failed: {out}"}
     try:
-        return json.loads(out)
+        result = json.loads(out)
     except json.JSONDecodeError:
         return {"ok": False, "error": f"consult tool returned non-JSON: {out[:300]}"}
+    if result.get("ok") and not isinstance(result.get("text"), str):
+        return {"ok": False, "error": "consult tool returned ok=true without text"}
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
