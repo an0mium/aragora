@@ -178,6 +178,42 @@ def test_coordinator_view_samples_large_rollouts_explicitly(tmp_path: Path) -> N
     assert "8817" in row["prs_referenced"]
 
 
+def test_coordinator_view_keeps_tail_record_when_sample_starts_on_boundary(tmp_path: Path) -> None:
+    rollout = tmp_path / "rollout-2026-06-30T12-00-00-large.jsonl"
+    head = {"type": "event_msg", "payload": {"type": "user_message", "message": "start PR #8816"}}
+    tail = {
+        "type": "event_msg",
+        "payload": {"type": "agent_message", "message": "boundary PR #8817"},
+    }
+    head_line = json.dumps(head)
+    filler_line = json.dumps({"type": "event_msg", "payload": {"message": "x" * 300}})
+    tail_line = json.dumps(tail)
+    body = f"{head_line}\n{filler_line}\n{tail_line}\n"
+    rollout.write_text(body, encoding="utf-8")
+
+    result = digest.coordinator_view(
+        root=tmp_path, since_hours=24.0, sample_bytes=len(tail_line) + 1
+    )
+
+    assert len(result) == 1
+    assert "8816" in result[0]["prs_referenced"]
+    assert "8817" in result[0]["prs_referenced"]
+
+
+def test_sample_rollout_lines_splits_only_jsonl_newlines(tmp_path: Path) -> None:
+    rollout = tmp_path / "rollout-2026-06-30T12-00-00-unicode.jsonl"
+    row = {
+        "type": "event_msg",
+        "payload": {"type": "agent_message", "message": "keeps unicode separator \u2028 PR #8818"},
+    }
+    rollout.write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    turns = digest.extract_turns(rollout, max_bytes=4096)
+
+    assert turns["counts"]["decisions"] == 1
+    assert "8818" in turns["prs_referenced"]
+
+
 def test_coordinator_view_time_budget_reports_skipped_rollouts(tmp_path: Path) -> None:
     for i in range(3):
         rollout = tmp_path / f"rollout-2026-06-30T12-00-0{i}-sess{i}.jsonl"
@@ -192,8 +228,8 @@ def test_coordinator_view_time_budget_reports_skipped_rollouts(tmp_path: Path) -
         {
             "kind": "skipped",
             "reason": "time_budget",
-            "skipped_rollouts": 3,
-            "message": "skipped 3 rollouts (time budget)",
+            "skipped_rollouts": None,
+            "message": "skipped rollouts (time budget during discovery)",
         }
     ]
 
@@ -330,7 +366,7 @@ def test_main_all_mode_reports_time_budget_skips(tmp_path: Path, capsys) -> None
         ]
     )
     assert rc == 0
-    assert "skipped 1 rollouts (time budget)" in capsys.readouterr().out
+    assert "skipped rollouts (time budget during discovery)" in capsys.readouterr().out
 
 
 def test_extract_turns_reads_user_message_events(tmp_path: Path) -> None:

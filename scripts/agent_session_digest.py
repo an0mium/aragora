@@ -73,6 +73,8 @@ def _iter_rollouts(
     since_hours: float | None = None,
     now: float | None = None,
     limit: int | None = MAX_ROLLOUT_SCAN,
+    deadline: float | None = None,
+    timeout_state: dict[str, bool] | None = None,
 ):
     """Yield rollout files newest-first.
 
@@ -89,7 +91,15 @@ def _iter_rollouts(
     candidates: list[tuple[float, Path]] = []
     patterns = ("rollout-*.jsonl", "*/*/*/rollout-*.jsonl")
     for pattern in patterns:
+        if deadline is not None and time.monotonic() >= deadline:
+            if timeout_state is not None:
+                timeout_state["timed_out"] = True
+            break
         for rollout in root.glob(pattern):
+            if deadline is not None and time.monotonic() >= deadline:
+                if timeout_state is not None:
+                    timeout_state["timed_out"] = True
+                break
             try:
                 mtime = rollout.stat().st_mtime
             except OSError:
@@ -97,6 +107,8 @@ def _iter_rollouts(
             if cutoff is not None and mtime < cutoff:
                 continue
             candidates.append((mtime, rollout))
+        if timeout_state is not None and timeout_state.get("timed_out"):
+            break
     candidates.sort(key=lambda item: item[0], reverse=True)
     selected = candidates if limit is None else candidates[:limit]
     for _, rollout in selected:
@@ -132,21 +144,26 @@ def coordinator_view(
     The single cross-agent view: run before editing shared files to see what
     sibling agents are touching (which PRs/files) and avoid collisions.
     """
-    rows: list[dict[str, Any]] = []
-    rollouts = list(_iter_rollouts(root, since_hours=since_hours, now=now))
     deadline = (
         None if time_budget_seconds is None else time.monotonic() + max(0.0, time_budget_seconds)
     )
+    timeout_state: dict[str, bool] = {"timed_out": False}
+    rows: list[dict[str, Any]] = []
+    rollouts = list(
+        _iter_rollouts(
+            root,
+            since_hours=since_hours,
+            now=now,
+            deadline=deadline,
+            timeout_state=timeout_state,
+        )
+    )
+    if timeout_state.get("timed_out") and not rollouts:
+        rows.append(_time_budget_row(None))
+        return rows
     for index, r in enumerate(rollouts):
         if deadline is not None and time.monotonic() >= deadline:
-            rows.append(
-                {
-                    "kind": "skipped",
-                    "reason": "time_budget",
-                    "skipped_rollouts": len(rollouts) - index,
-                    "message": f"skipped {len(rollouts) - index} rollouts (time budget)",
-                }
-            )
+            rows.append(_time_budget_row(len(rollouts) - index))
             break
         turns = extract_turns(r, max_bytes=sample_bytes)
         sid = _rollout_session_id(r, turns.get("session_id"))
@@ -164,6 +181,27 @@ def coordinator_view(
     return rows
 
 
+def _time_budget_row(skipped_rollouts: int | None) -> dict[str, Any]:
+    message = (
+        f"skipped {skipped_rollouts} rollouts (time budget)"
+        if skipped_rollouts is not None
+        else "skipped rollouts (time budget during discovery)"
+    )
+    return {
+        "kind": "skipped",
+        "reason": "time_budget",
+        "skipped_rollouts": skipped_rollouts,
+        "message": message,
+    }
+
+
+def _jsonl_text_lines(chunk: bytes) -> list[str]:
+    lines = chunk.decode("utf-8", errors="replace").split("\n")
+    if lines and lines[-1] == "":
+        lines = lines[:-1]
+    return lines
+
+
 def _sample_rollout_lines(
     rollout: Path, *, max_bytes: int
 ) -> tuple[list[str], dict[str, int | bool]]:
@@ -177,22 +215,28 @@ def _sample_rollout_lines(
         with rollout.open("rb") as handle:
             if file_size <= sample_bytes * 2:
                 body = handle.read()
-                return body.decode("utf-8", errors="replace").splitlines(), {
+                return _jsonl_text_lines(body), {
                     "truncated": False,
                     "file_size": file_size,
                     "bytes_scanned": len(body),
                 }
             head = handle.read(sample_bytes)
-            handle.seek(max(0, file_size - sample_bytes))
+            tail_start = max(0, file_size - sample_bytes)
+            if tail_start > 0:
+                handle.seek(tail_start - 1)
+                byte_before_tail = handle.read(1)
+            else:
+                byte_before_tail = b"\n"
+            handle.seek(tail_start)
             tail = handle.read(sample_bytes)
     except OSError:
         return [], {"truncated": False, "file_size": file_size, "bytes_scanned": 0}
 
-    head_lines = head.decode("utf-8", errors="replace").splitlines()
+    head_lines = _jsonl_text_lines(head)
     if not head.endswith(b"\n") and head_lines:
         head_lines = head_lines[:-1]
-    tail_lines = tail.decode("utf-8", errors="replace").splitlines()
-    if not tail.startswith(b"\n") and tail_lines:
+    tail_lines = _jsonl_text_lines(tail)
+    if byte_before_tail != b"\n" and tail_lines:
         tail_lines = tail_lines[1:]
     return head_lines + tail_lines, {
         "truncated": True,
