@@ -17,7 +17,7 @@ _ROADMAP_POLICY = RoadmapPriorityPolicy(
 
 def _write_strategy_mission_register(tmp_path, *, status: str = "queued") -> None:
     register_path = tmp_path / "docs" / "status" / "ROADMAP_INTAKE_REGISTER.md"
-    register_path.parent.mkdir(parents=True)
+    register_path.parent.mkdir(parents=True, exist_ok=True)
     register_path.write_text(
         "\n".join(
             [
@@ -165,6 +165,42 @@ def test_strategy_mission_queue_row_stays_blocked_until_register_marks_active(tm
     assert decision.lane == "strategy_mission_gated"
 
 
+def test_strategy_mission_numeric_reference_requires_token_boundary() -> None:
+    decision = classify_proof_first_queue_issue(
+        "Investigate unrelated issue #18665 before promotion",
+        "A substring-only numeric reference must not trip the strategy mission gate.",
+        labels=("boss-ready",),
+    )
+
+    assert decision.allowed is False
+    assert decision.lane == "non_canonical"
+    assert "8665" not in decision.matched_terms
+
+
+def test_strategy_mission_active_row_refreshes_after_register_edit(tmp_path) -> None:
+    _write_strategy_mission_register(tmp_path, status="queued")
+
+    first_decision = classify_proof_first_queue_issue(
+        "M1 ODR v1.0 GA proof drift worker for Epic #8665",
+        "The strategy mission queue row starts queued.",
+        labels=("boss-ready",),
+        repo_root=tmp_path,
+    )
+    assert first_decision.allowed is False
+    assert first_decision.lane == "strategy_mission_gated"
+
+    _write_strategy_mission_register(tmp_path, status="active")
+
+    second_decision = classify_proof_first_queue_issue(
+        "M1 ODR v1.0 GA proof drift worker for Epic #8665",
+        "The same process must see the register row become active.",
+        labels=("boss-ready",),
+        repo_root=tmp_path,
+    )
+    assert second_decision.allowed is True
+    assert second_decision.lane == "strategy_mission_active_row"
+
+
 def test_strategy_mission_active_queue_row_can_enter_boss_ready(tmp_path) -> None:
     _write_strategy_mission_register(tmp_path, status="active")
 
@@ -178,6 +214,23 @@ def test_strategy_mission_active_queue_row_can_enter_boss_ready(tmp_path) -> Non
     assert decision.allowed is True
     assert decision.lane == "strategy_mission_active_row"
     assert "active:m1" in decision.matched_terms
+
+
+def test_staged_rev4_corpus_precedence_beats_strategy_mission_gate(tmp_path) -> None:
+    corpus_path = tmp_path / "tests" / "benchmarks" / "corpus_rev4.json"
+    corpus_path.parent.mkdir(parents=True)
+    corpus_path.write_text(json.dumps({"issues": [{"issue_id": 5788}]}))
+
+    decision = classify_proof_first_queue_issue(
+        "Epic #8665 should not hide an explicit staged rev4 issue",
+        "Single-file exception hygiene task.",
+        labels=("autonomous", "boss-ready"),
+        issue_number=5788,
+        repo_root=tmp_path,
+    )
+
+    assert decision.allowed is True
+    assert decision.lane == "staged_rev4_corpus"
 
 
 @pytest.mark.parametrize(

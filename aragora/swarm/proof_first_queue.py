@@ -92,6 +92,19 @@ def _matched_terms(text: str, terms: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(term for term in terms if term in text)
 
 
+def _matched_strategy_mission_terms(text: str) -> tuple[str, ...]:
+    text_tokens = _tokens(text)
+    matches: list[str] = []
+    for term in _STRATEGY_MISSION_GATED_TERMS:
+        if term == "8665":
+            if "8665" in text_tokens:
+                matches.append(term)
+            continue
+        if term in text:
+            matches.append(term)
+    return tuple(matches)
+
+
 def _tokens(text: str) -> frozenset[str]:
     return frozenset(re.findall(r"[a-z0-9]+", text))
 
@@ -157,7 +170,6 @@ def _split_markdown_row(line: str) -> list[str]:
     return [cell.strip() for cell in stripped.strip("|").split("|")]
 
 
-@lru_cache(maxsize=8)
 def _active_strategy_mission_rows(repo_root: str) -> tuple[dict[str, str], ...]:
     path = Path(repo_root) / _STRATEGY_MISSION_QUEUE_REGISTER_PATH
     try:
@@ -253,7 +265,21 @@ def classify_proof_first_queue_issue(
                 blocked_codes=priority.blocked_codes,
             )
 
-    strategy_mission_matches = _matched_terms(normalized_text, _STRATEGY_MISSION_GATED_TERMS)
+    if _is_explicit_staged_rev4_issue(
+        issue_number=issue_number,
+        labels=labels,
+        repo_root=repo_root,
+    ):
+        return ProofFirstQueueDecision(
+            allowed=True,
+            lane="staged_rev4_corpus",
+            reason="explicit boss-ready issue is present in the staged rev-4 corpus",
+            matched_terms=("boss-ready", "corpus_rev4"),
+            roadmap_codes=roadmap_codes,
+            blocked_codes=(),
+        )
+
+    strategy_mission_matches = _matched_strategy_mission_terms(normalized_text)
     if strategy_mission_matches:
         active_strategy_terms = _active_strategy_mission_match_terms(
             normalized_text,
@@ -276,20 +302,6 @@ def classify_proof_first_queue_issue(
                 "explicitly active queue row may enter boss-ready"
             ),
             matched_terms=strategy_mission_matches,
-            roadmap_codes=roadmap_codes,
-            blocked_codes=(),
-        )
-
-    if _is_explicit_staged_rev4_issue(
-        issue_number=issue_number,
-        labels=labels,
-        repo_root=repo_root,
-    ):
-        return ProofFirstQueueDecision(
-            allowed=True,
-            lane="staged_rev4_corpus",
-            reason="explicit boss-ready issue is present in the staged rev-4 corpus",
-            matched_terms=("boss-ready", "corpus_rev4"),
             roadmap_codes=roadmap_codes,
             blocked_codes=(),
         )
