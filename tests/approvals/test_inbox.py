@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+from aragora.approvals import inbox as inbox_module
 from aragora.approvals import settlement_inbox as settlement_inbox_module
 from aragora.approvals.inbox import DEFAULT_APPROVAL_SOURCES, collect_pending_approvals
 from aragora.approvals.settlement_inbox import (
@@ -227,7 +228,7 @@ def test_collect_pending_settlement_approvals_uses_warmed_cache(monkeypatch):
 
     monkeypatch.setattr(review_queue, "_build_merge_authorization_packet", forbidden_scan)
     monkeypatch.delenv("ARAGORA_SETTLEMENT_INBOX_ALLOW_SYNC_REFRESH", raising=False)
-    monkeypatch.delenv("ARAGORA_SETTLEMENT_INBOX_PR_REFS", raising=False)
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_PR_REFS", "7736")
 
     approvals = collect_pending_settlement_approvals(
         limit=5,
@@ -239,6 +240,70 @@ def test_collect_pending_settlement_approvals_uses_warmed_cache(monkeypatch):
     assert approvals[0]["metadata"]["pr_number"] == 7736
     assert calls[0]["limit"] == 10
     assert calls[0]["pr_refs"] == ["7736"]
+
+
+def test_collect_pending_settlement_approvals_does_not_use_expired_cache(monkeypatch):
+    settlement_inbox_module._PACKET_CACHE.clear()
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_PR_REFS", "7736")
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_CACHE_TTL_SECONDS", "1")
+
+    def merge_packet_builder(**kwargs):
+        return _settlement_packet()
+
+    refresh_settlement_approval_cache(
+        limit=10,
+        repo="synaptent/aragora",
+        pr_refs=["7736"],
+        merge_packet_builder=merge_packet_builder,
+    )
+    for cache_key, (_timestamp, packet) in list(settlement_inbox_module._PACKET_CACHE.items()):
+        settlement_inbox_module._PACKET_CACHE[cache_key] = (0.0, packet)
+
+    from aragora.cli.commands import review_queue
+
+    def forbidden_scan(**kwargs):
+        raise AssertionError(f"unexpected cold scan: {kwargs}")
+
+    monkeypatch.setattr(review_queue, "_build_merge_authorization_packet", forbidden_scan)
+
+    approvals = collect_pending_settlement_approvals(
+        limit=5,
+        repo="synaptent/aragora",
+        allow_sync_refresh=False,
+    )
+
+    assert approvals == []
+    assert settlement_inbox_module._PACKET_CACHE == {}
+
+
+def test_collect_pending_settlement_approvals_cache_is_scoped_to_pr_refs(monkeypatch):
+    settlement_inbox_module._PACKET_CACHE.clear()
+
+    def merge_packet_builder(**kwargs):
+        return _settlement_packet()
+
+    refresh_settlement_approval_cache(
+        limit=10,
+        repo="synaptent/aragora",
+        pr_refs=["7736"],
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    from aragora.cli.commands import review_queue
+
+    def forbidden_scan(**kwargs):
+        raise AssertionError(f"unexpected cold scan: {kwargs}")
+
+    monkeypatch.setattr(review_queue, "_build_merge_authorization_packet", forbidden_scan)
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_PR_REFS", "8845")
+
+    approvals = collect_pending_settlement_approvals(
+        limit=5,
+        repo="synaptent/aragora",
+        allow_sync_refresh=False,
+    )
+
+    assert approvals == []
 
 
 def test_collect_pending_settlement_approvals_preserves_settlement_context():
@@ -283,6 +348,22 @@ def test_collect_pending_approvals_explicit_settlement_source_requires_flag(monk
 
     assert approvals == []
     assert called is False
+
+
+def test_collect_pending_approvals_settlement_import_failure_is_best_effort(monkeypatch):
+    monkeypatch.setenv("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", "1")
+    real_import_module = inbox_module.importlib.import_module
+
+    def fake_import_module(name):
+        if name == "aragora.approvals.settlement_inbox":
+            raise ImportError("settlement source unavailable")
+        return real_import_module(name)
+
+    monkeypatch.setattr(inbox_module.importlib, "import_module", fake_import_module)
+
+    approvals = collect_pending_approvals(limit=5, sources=["settlement"])
+
+    assert approvals == []
 
 
 def test_collect_pending_approvals_explicit_settlement_source_with_flag(monkeypatch):

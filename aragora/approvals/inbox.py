@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 import os
 from dataclasses import dataclass
@@ -281,35 +282,36 @@ def collect_pending_approvals(
 
     if "settlement" in sources and _settlement_inbox_enabled():
         try:
-            from aragora.approvals.settlement_inbox import (
-                SettlementInboxError,
-                collect_pending_settlement_approvals,
-            )
-
-            for item in collect_pending_settlement_approvals(limit=limit):
-                items.append(
-                    UnifiedApprovalItem(
-                        id=str(item.get("id", "")),
-                        kind=str(item.get("kind", "settlement")),
-                        status=str(item.get("status", "pending")),
-                        title=str(item.get("title", "Settlement Approval")),
-                        description=str(item.get("description", "")),
-                        requested_at=item.get("requested_at"),
-                        requested_by=item.get("requested_by"),
-                        metadata=_dict_or_empty(item.get("metadata")),
-                        actions=_dict_or_empty(item.get("actions")),
-                        _sort_ts=_to_sort_ts(item.get("requested_at")),
-                    )
-                )
-        except (
-            SettlementInboxError,
-            ImportError,
-            AttributeError,
-            OSError,
-            TypeError,
-            ValueError,
-        ):
+            settlement_inbox = importlib.import_module("aragora.approvals.settlement_inbox")
+        except ImportError:
             logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
+        else:
+            candidate_error = getattr(settlement_inbox, "SettlementInboxError", None)
+            settlement_error: type[RuntimeError] | None = None
+            if isinstance(candidate_error, type) and issubclass(candidate_error, RuntimeError):
+                settlement_error = candidate_error
+            try:
+                for item in settlement_inbox.collect_pending_settlement_approvals(limit=limit):
+                    items.append(
+                        UnifiedApprovalItem(
+                            id=str(item.get("id", "")),
+                            kind=str(item.get("kind", "settlement")),
+                            status=str(item.get("status", "pending")),
+                            title=str(item.get("title", "Settlement Approval")),
+                            description=str(item.get("description", "")),
+                            requested_at=item.get("requested_at"),
+                            requested_by=item.get("requested_by"),
+                            metadata=_dict_or_empty(item.get("metadata")),
+                            actions=_dict_or_empty(item.get("actions")),
+                            _sort_ts=_to_sort_ts(item.get("requested_at")),
+                        )
+                    )
+            except RuntimeError as exc:
+                if settlement_error is None or not isinstance(exc, settlement_error):
+                    raise
+                logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
+            except (AttributeError, OSError, TypeError, ValueError):
+                logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
 
     items.sort(key=lambda item: item._sort_ts, reverse=True)
     return [item.to_dict() for item in items[:limit]]

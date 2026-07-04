@@ -21,7 +21,8 @@ MAX_PACKET_SCAN_LIMIT = 100
 DEFAULT_PACKET_CACHE_TTL_SECONDS = 30.0
 EMPTY_PACKET_VERSION = "merge_authorization_packet.v1"
 
-_PACKET_CACHE: dict[tuple[str | None, str | None], tuple[float, dict[str, Any]]] = {}
+PacketCacheKey = tuple[str | None, str | None, tuple[str, ...], int]
+_PACKET_CACHE: dict[PacketCacheKey, tuple[float, dict[str, Any]]] = {}
 
 SETTLEMENT_READY_STATUSES = {
     "human_risk_settlement_required",
@@ -123,6 +124,16 @@ def _empty_packet() -> dict[str, Any]:
     }
 
 
+def _packet_cache_key(
+    repo_override: str | None,
+    review_queue_root: str | None,
+    pr_refs: list[str],
+    packet_limit: int,
+) -> PacketCacheKey:
+    limit_key = packet_limit if not pr_refs and _bounded_queue_scan_enabled() else 0
+    return (repo_override, review_queue_root, tuple(pr_refs), limit_key)
+
+
 def _build_merge_packet(
     *,
     merge_packet_builder: Any,
@@ -145,7 +156,7 @@ def _build_merge_packet(
         )
 
     ttl = _cache_ttl_seconds()
-    cache_key = (repo_override, review_queue_root)
+    cache_key = _packet_cache_key(repo_override, review_queue_root, pr_refs, packet_limit)
     now = time.monotonic()
     cached = _PACKET_CACHE.get(cache_key)
     if ttl > 0:
@@ -153,7 +164,7 @@ def _build_merge_packet(
             return dict(cached[1])
     if not allow_sync_refresh:
         if cached is not None:
-            return dict(cached[1])
+            _PACKET_CACHE.pop(cache_key, None)
         return _empty_packet()
     if not pr_refs and not _bounded_queue_scan_enabled():
         return _empty_packet()
@@ -207,9 +218,10 @@ def refresh_settlement_approval_cache(
     repo_override = repo or os.environ.get("ARAGORA_SETTLEMENT_INBOX_REPO") or None
     queue_root = review_queue_root or os.environ.get("ARAGORA_REVIEW_QUEUE_ROOT") or None
     refs = list(pr_refs) if pr_refs is not None else _configured_pr_refs()
+    cache_key = _packet_cache_key(repo_override, queue_root, refs, packet_limit)
     if not refs and not _bounded_queue_scan_enabled():
         packet = _empty_packet()
-        _PACKET_CACHE[(repo_override, queue_root)] = (time.monotonic(), dict(packet))
+        _PACKET_CACHE[cache_key] = (time.monotonic(), dict(packet))
         return packet
     packet = _call_merge_packet_builder(
         merge_packet_builder,
@@ -220,7 +232,7 @@ def refresh_settlement_approval_cache(
         execute_reviewers=False,
         ignore_own_quorum_check=False,
     )
-    _PACKET_CACHE[(repo_override, queue_root)] = (time.monotonic(), dict(packet))
+    _PACKET_CACHE[cache_key] = (time.monotonic(), dict(packet))
     return packet
 
 
