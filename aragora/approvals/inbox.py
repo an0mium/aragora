@@ -307,6 +307,7 @@ def collect_pending_approvals(
             except (
                 SettlementInboxError,
                 AttributeError,
+                ImportError,
                 OSError,
                 TypeError,
                 ValueError,

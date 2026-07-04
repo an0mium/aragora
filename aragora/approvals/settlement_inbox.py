@@ -142,9 +142,9 @@ def _packet_cache_key(
     repo_override: str | None,
     review_queue_root: str | None,
     pr_refs: list[str],
-    packet_limit: int,
+    _packet_limit: int,
 ) -> PacketCacheKey:
-    limit_key = packet_limit if not pr_refs and _bounded_queue_scan_enabled() else 0
+    limit_key = 0
     return (repo_override, review_queue_root, tuple(pr_refs), limit_key)
 
 

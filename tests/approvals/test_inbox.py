@@ -306,6 +306,41 @@ def test_collect_pending_settlement_approvals_cache_is_scoped_to_pr_refs(monkeyp
     assert approvals == []
 
 
+def test_collect_pending_settlement_approvals_queue_scan_reuses_warmed_cache_across_limits(
+    monkeypatch,
+):
+    settlement_inbox_module._PACKET_CACHE.clear()
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_ALLOW_BOUNDED_QUEUE_SCAN", "1")
+    monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_PACKET_LIMIT", "20")
+
+    def merge_packet_builder(**kwargs):
+        assert kwargs["pr_refs"] == []
+        assert kwargs["limit"] == 10
+        return _settlement_packet()
+
+    refresh_settlement_approval_cache(
+        limit=10,
+        repo="synaptent/aragora",
+        pr_refs=[],
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    from aragora.cli.commands import review_queue
+
+    def forbidden_scan(**kwargs):
+        raise AssertionError(f"unexpected cold scan: {kwargs}")
+
+    monkeypatch.setattr(review_queue, "_build_merge_authorization_packet", forbidden_scan)
+
+    approvals = collect_pending_settlement_approvals(
+        limit=20,
+        repo="synaptent/aragora",
+        allow_sync_refresh=False,
+    )
+
+    assert [item["metadata"]["pr_number"] for item in approvals] == [7736]
+
+
 def test_refresh_settlement_approval_cache_bounds_cache_entries(monkeypatch):
     settlement_inbox_module._PACKET_CACHE.clear()
     monkeypatch.setenv("ARAGORA_SETTLEMENT_INBOX_CACHE_MAX_ENTRIES", "2")
@@ -380,6 +415,25 @@ def test_collect_pending_approvals_settlement_import_failure_is_best_effort(monk
         return real_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    approvals = collect_pending_approvals(limit=5, sources=["settlement"])
+
+    assert approvals == []
+
+
+def test_collect_pending_approvals_settlement_runtime_import_failure_is_best_effort(
+    monkeypatch,
+):
+    monkeypatch.setenv("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", "1")
+
+    def fake_collect(limit):
+        assert limit == 5
+        raise ImportError("review queue unavailable")
+
+    monkeypatch.setattr(
+        "aragora.approvals.settlement_inbox.collect_pending_settlement_approvals",
+        fake_collect,
+    )
 
     approvals = collect_pending_approvals(limit=5, sources=["settlement"])
 
