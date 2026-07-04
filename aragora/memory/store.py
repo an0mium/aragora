@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 from aragora.config import (
     CACHE_TTL_AGENT_REPUTATION,
     CACHE_TTL_ALL_REPUTATIONS,
-    CACHE_TTL_ARCHIVE_STATS,
     CACHE_TTL_CRITIQUE_PATTERNS,
     CACHE_TTL_CRITIQUE_STATS,
     resolve_db_path,
@@ -1527,7 +1526,6 @@ class CritiqueStore(SQLiteStore):
         invalidate_cache("archive_stats")
         return pruned
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ARCHIVE_STATS, key_prefix="archive_stats", skip_first=False)
     def get_archive_stats(self) -> dict:
         """Get statistics about archived patterns."""
         with self.connection() as conn:
