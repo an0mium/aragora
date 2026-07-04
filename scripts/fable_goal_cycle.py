@@ -254,7 +254,7 @@ def _is_allowed_temp_context(resolved: Path) -> bool:
     }
     if not TEMP_CONTEXT_NAME_RE.fullmatch(resolved.name):
         return False
-    return any(resolved.parent == temp_root for temp_root in temp_roots)
+    return any(_is_relative_to(resolved, temp_root) for temp_root in temp_roots)
 
 
 def _safe_context_name(path: Path) -> str:
@@ -277,6 +277,22 @@ def _read_regular_file_no_follow(path: Path, max_bytes: int) -> bytes:
         with os.fdopen(fd, "rb") as source:
             fd = -1
             return source.read(max_bytes)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
+def _write_regular_file_no_follow(path: Path, data: bytes) -> None:
+    """Create *path* as a regular file without following destination symlinks."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, 0o600)
+    try:
+        file_stat = os.fstat(fd)
+        if not stat.S_ISREG(file_stat.st_mode):
+            raise OSError(f"staged context path is not a regular file: {path}")
+        with os.fdopen(fd, "wb") as destination:
+            fd = -1
+            destination.write(data)
     finally:
         if fd >= 0:
             os.close(fd)
@@ -319,7 +335,7 @@ def _prepare_context_files(
             staged_root.mkdir(parents=True, exist_ok=True)
             staged = staged_root / _safe_context_name(resolved)
             data = _read_regular_file_no_follow(candidate, MAX_CONTEXT_FILE_BYTES + 1)
-            staged.write_bytes(data)
+            _write_regular_file_no_follow(staged, data)
         except OSError as exc:
             prepared.append(raw_path)
             notes.append(f"context file staging failed: {candidate}: {exc}")

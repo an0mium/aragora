@@ -286,9 +286,7 @@ def test_prepare_context_files_rejects_secret_like_temp_context(
     assert "TOKEN=secret" not in packet
 
 
-def test_prepare_context_files_rejects_nested_temp_context_outside_repo(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_prepare_context_files_stages_nested_temp_context(monkeypatch, tmp_path: Path) -> None:
     temp_root = tmp_path / "tmp"
     repo_root = temp_root / "repo"
     external_dir = temp_root / "other-worktree"
@@ -304,8 +302,44 @@ def test_prepare_context_files_rejects_nested_temp_context_outside_repo(
         "20260704T090000Z",
     )
 
+    assert len(prepared) == 1
+    staged = prepared[0]
+    assert staged.is_relative_to(repo_root / fable_goal_cycle.SAFE_CONTEXT_SUBDIR)
+    assert staged.read_text(encoding="utf-8") == "outside temp repo"
+    assert notes == [f"staged outside-repo context file {context_file} -> {staged}"]
+
+
+def test_prepare_context_files_fails_closed_on_staged_destination_symlink(
+    monkeypatch, tmp_path: Path
+) -> None:
+    temp_root = tmp_path / "tmp"
+    repo_root = tmp_path / "repo"
+    stamp = "20260704T090000Z"
+    temp_root.mkdir()
+    repo_root.mkdir()
+    context_file = temp_root / "cycle-report-20260704.md"
+    context_file.write_text("operator facts", encoding="utf-8")
+    monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
+    staged_root = repo_root / fable_goal_cycle.SAFE_CONTEXT_SUBDIR / "imported" / stamp
+    staged_root.mkdir(parents=True)
+    staged = staged_root / fable_goal_cycle._safe_context_name(context_file.resolve())
+    target = tmp_path / "target.txt"
+    target.write_text("target stays intact", encoding="utf-8")
+    try:
+        staged.symlink_to(target)
+    except OSError:
+        return
+
+    prepared, notes = fable_goal_cycle._prepare_context_files(
+        [context_file],
+        repo_root,
+        stamp,
+    )
+
     assert prepared == [context_file]
-    assert notes == []
+    assert len(notes) == 1
+    assert notes[0].startswith(f"context file staging failed: {context_file}:")
+    assert target.read_text(encoding="utf-8") == "target stays intact"
 
 
 def test_safe_context_name_disambiguates_same_basename_sources() -> None:
@@ -364,14 +398,11 @@ def test_prepare_context_files_fails_closed_when_staging_write_fails(
     context_file.write_text("operator facts", encoding="utf-8")
     monkeypatch.setattr(fable_goal_cycle.tempfile, "gettempdir", lambda: str(temp_root))
 
-    original_write_bytes = Path.write_bytes
-
-    def fail_staged_write(path: Path, data: bytes) -> int:
+    def fail_staged_write(path: Path, data: bytes) -> None:
         if path.is_relative_to(repo_root / fable_goal_cycle.SAFE_CONTEXT_SUBDIR):
             raise OSError("disk full")
-        return original_write_bytes(path, data)
 
-    monkeypatch.setattr(Path, "write_bytes", fail_staged_write)
+    monkeypatch.setattr(fable_goal_cycle, "_write_regular_file_no_follow", fail_staged_write)
 
     prepared, notes = fable_goal_cycle._prepare_context_files(
         [context_file],
