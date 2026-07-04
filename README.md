@@ -6,7 +6,7 @@ multi-model review in, a verifiable Decision Receipt out.**
 It coordinates heterogeneous models to adversarially review a change or a
 decision, preserves the dissent and provenance, stops truthfully when evidence
 is thin, and emits a portable receipt anyone can verify offline with the
-standalone verifier ([`pip install aragora-verify`](https://pypi.org/project/aragora-verify/)).
+standalone verifier ([`pip install -U 'aragora-verify>=0.1.1'`](https://pypi.org/project/aragora-verify/)).
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -18,7 +18,7 @@ standalone verifier ([`pip install aragora-verify`](https://pypi.org/project/ara
 | I want to… | Command |
 |------------|---------|
 | Run the standalone debate engine | `pip install aragora-debate` |
-| Verify an Open Decision Receipt with the standalone verifier | `pip install aragora-verify && aragora-verify receipt.odr.json` |
+| Verify an Open Decision Receipt with the standalone verifier | `pip install -U 'aragora-verify>=0.1.1' && aragora-verify receipt.odr.json` |
 | See a native debate → receipt → verify loop in ~15 seconds, no API keys | `pip install aragora && aragora demo --offline && aragora verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
@@ -70,7 +70,7 @@ auditor, a customer — can verify it independently with the standalone
 `aragora-verify` verifier (no Aragora dependency):
 
 ```bash
-pip install aragora-verify
+pip install -U 'aragora-verify>=0.1.1'
 aragora-verify decision-receipt.odr.json
 
 # Add a public key when you need issuer authenticity, not just structure/digest:

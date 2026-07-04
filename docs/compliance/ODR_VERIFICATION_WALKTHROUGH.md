@@ -54,19 +54,19 @@ the public key that verifies it. The only tool needed is **`aragora-verify`**,
 a free, standalone, MIT-licensed verifier published on PyPI whose only
 dependency is the `cryptography` package.
 
-> PyPI release verified: `pip install aragora-verify==0.1.0` from a clean
-> venv (real PyPI, no local wheel) installed and verified this fixture with
-> all checks PASS on 2026-07-02. CI additionally smoke-tests the CLI against
-> a wheel built from the in-repo [`aragora-verify/`](../../aragora-verify/)
-> source. **Version note:** use 0.1.1+ (`pip install 'aragora-verify>=0.1.1'`,
-> published 2026-07-04 03:28 UTC; verify live: https://pypi.org/pypi/aragora-verify/json) — it binds each signature's recorded `key_id` to the
-> supplied key, so a relabeled signer fails as tampering. 0.1.0 verifies
-> content integrity and signature validity but lacks that binding.
+> PyPI install target: `pip install -U 'aragora-verify>=0.1.1'` from a clean
+> venv (real PyPI, no local wheel). Version 0.1.1+ (published 2026-07-04
+> 03:28 UTC; verify live: https://pypi.org/pypi/aragora-verify/json) binds each
+> signature's recorded `key_id` to the supplied key, so a relabeled signer fails
+> as tampering. Earlier 0.1.0 verification on 2026-07-02 covered content
+> integrity and signature validity but lacked that binding. CI additionally
+> smoke-tests the CLI against a wheel built from the in-repo
+> [`aragora-verify/`](../../aragora-verify/) source.
 
 ```bash
 # 1. Install the standalone verifier into a clean environment
 python3 -m venv odr-env && . odr-env/bin/activate
-pip install aragora-verify
+pip install -U 'aragora-verify>=0.1.1'
 
 # 2. Fetch the two fixture files (or copy them from a repo checkout)
 #    docs/compliance/fixtures/sample_decision_receipt.odr.json
