@@ -3513,6 +3513,20 @@ class TestGhTimeouts:
 
 
 class TestBuildQueueAndPacket:
+    def test_command_parser_accepts_build_repo_override(self) -> None:
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="command")
+        add_review_queue_parser(subparsers)
+
+        args = parser.parse_args(
+            ["review-queue", "build", "--repo", "synaptent/aragora", "--limit", "7"]
+        )
+
+        assert args.command == "review-queue"
+        assert args.review_queue_command == "build"
+        assert args.repo == "synaptent/aragora"
+        assert args.limit == 7
+
     def test_merge_packet_explicit_pr_refs_do_not_hydrate_open_queue(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

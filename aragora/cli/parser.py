@@ -2145,6 +2145,11 @@ def _add_review_queue_parser(subparsers) -> None:
     )
     build_parser.add_argument("--limit", type=int, default=100, help="Max PRs to fetch")
     build_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    build_parser.add_argument(
         "--ready-only",
         action="store_true",
         help="Show only ready_now lane",
