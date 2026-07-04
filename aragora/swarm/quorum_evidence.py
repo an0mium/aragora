@@ -2635,7 +2635,6 @@ def apply_prepared_evidence(
         items=_clone_prepared_items(prepared.items, live_severity_gated=live_severity_gated),
         failures=_clone_reviewer_failures(prepared.failures),
         tiered_gate=effective_tiered_gate,
-        adjudication=dict(prepared.adjudication) if prepared.adjudication is not None else None,
     )
 
     if prepared.head_sha != head_sha:
@@ -2677,6 +2676,8 @@ def apply_prepared_evidence(
             )
         )
     outcome.items = relinted_items
+    if prepared.adjudication is not None:
+        outcome.adjudication = dict(prepared.adjudication)
 
     if action != "post":
         return outcome
