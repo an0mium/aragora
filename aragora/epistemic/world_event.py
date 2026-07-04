@@ -108,10 +108,7 @@ def world_event_to_claim_results(
             "Pass require_enabled=False for test-only use."
         )
     affected = claims_affected_by_event(unit, event)
-    msg = (
-        f"Invalidated by {event.kind.value} event {event.event_id!r}: "
-        f"{event.description}"
-    )
+    msg = f"Invalidated by {event.kind.value} event {event.event_id!r}: {event.description}"
     return {
         claim_id: ClaimResult(claim_id=claim_id, status=ClaimStatus.STALE, message=msg)
         for claim_id in sorted(affected)
