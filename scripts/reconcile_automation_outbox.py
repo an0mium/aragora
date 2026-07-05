@@ -26,6 +26,7 @@ import argparse
 import ast
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -59,6 +60,7 @@ DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
 DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
 TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
+SHA_RE = re.compile(r"[0-9a-fA-F]{40}")
 LOCAL_WORK_MARKER_KEYS = (
     "uncommitted_changes",
     "has_uncommitted_changes",
@@ -534,7 +536,7 @@ def _remote_branch_exact_preservation_proof(
         if not record.get("worktree"):
             remote = _live_remote_branch_head(root, record_branch)
             remote_head = str(remote.get("head_sha") or "").strip()
-            if remote.get("status") != "exists" or not _heads_match(desired_head, remote_head):
+            if remote.get("status") != "exists" or not _heads_equal(desired_head, remote_head):
                 return None
             proofs.append(
                 {
@@ -572,11 +574,13 @@ def _remote_branch_exact_preservation_proof(
             return None
         if upstream.get("proven") is not True:
             return None
+        if not _preservation_proof_has_absent_worktree(proof):
+            return None
         proof_desired_head = str(proof.get("desired_head_sha") or "").strip()
-        if proof_desired_head and not _heads_match(desired_head, proof_desired_head):
+        if not proof_desired_head or not _heads_equal(desired_head, proof_desired_head):
             return None
         remote_head = str(upstream.get("remote_head_sha") or "").strip()
-        if remote_head and not _heads_match(desired_head, remote_head):
+        if not remote_head or not _heads_equal(desired_head, remote_head):
             return None
         proofs.append(proof)
 
@@ -605,6 +609,64 @@ def _preservation_proof_has_absent_worktree(proof: Mapping[str, Any]) -> bool:
     return bool(inspections) and all(
         isinstance(item, Mapping) and item.get("absent_noop") is True for item in inspections
     )
+
+
+def _remote_branch_preservation_lookup_failed_reason(
+    *,
+    root: Path,
+    state_root: Path,
+    payload: dict[str, Any],
+    branch: str,
+) -> str | None:
+    """Return a fail-closed reason when remote preservation truth is unavailable."""
+
+    if not _is_pr_publication_request(payload):
+        return None
+    records = _lane_records_from_payload(payload, branch)
+    if not records:
+        return None
+
+    for record in records:
+        desired_head = str(record.get("desired_head_sha") or "").strip()
+        record_branch = str(record.get("branch") or branch).strip()
+        if not desired_head or not record_branch or _has_local_work_marker(record):
+            return None
+
+        if not record.get("worktree"):
+            remote = _live_remote_branch_head(root, record_branch)
+            if remote.get("status") == "lookup_failed":
+                reason = str(remote.get("reason") or "remote branch lookup failed").strip()
+                return (
+                    f"branch no longer exists locally, but live remote branch state for "
+                    f"{record_branch} is unavailable: {reason}"
+                )
+            continue
+
+        try:
+            proof = build_worktree_reference_preservation_proof(
+                record,
+                repo_root=root,
+                state_root=state_root,
+            )
+        except Exception as exc:
+            return (
+                f"branch no longer exists locally, but remote preservation proof for "
+                f"{record_branch} failed: {exc}"
+            )
+        if not isinstance(proof, Mapping):
+            continue
+        if proof.get("reason") == "remote_branch_lookup_failed":
+            remote = proof.get("remote")
+            reason = ""
+            if isinstance(remote, Mapping):
+                reason = str(remote.get("reason") or "").strip()
+            detail = f": {reason}" if reason else ""
+            return (
+                f"branch no longer exists locally, but live remote branch state for "
+                f"{record_branch} is unavailable{detail}"
+            )
+
+    return None
 
 
 def _gh_api_paginated_items(root: Path, endpoint: str) -> list[Mapping[str, Any]] | None:
@@ -1104,6 +1166,10 @@ def _heads_match(expected: str, actual: str) -> bool:
     return actual_value.startswith(expected_value) or expected_value.startswith(actual_value)
 
 
+def _heads_equal(expected: str, actual: str) -> bool:
+    return expected.strip().lower() == actual.strip().lower()
+
+
 def _git_ref_head(root: Path, ref: str) -> str:
     proc = run_git(["rev-parse", "--verify", ref], root, timeout=10)
     if proc.returncode != 0:
@@ -1137,7 +1203,14 @@ def _live_remote_branch_head(root: Path, branch: str) -> Mapping[str, Any]:
             "remote_ref": remote_ref,
             "reason": "unexpected ls-remote output",
         }
-    return {"status": "exists", "remote_ref": remote_ref, "head_sha": parts[0].strip()}
+    head = parts[0].strip()
+    if not SHA_RE.fullmatch(head):
+        return {
+            "status": "lookup_failed",
+            "remote_ref": remote_ref,
+            "reason": "unexpected ls-remote output",
+        }
+    return {"status": "exists", "remote_ref": remote_ref, "head_sha": head}
 
 
 def _receipt_handoff_keep_reason(
@@ -1541,6 +1614,7 @@ def main(argv: list[str] | None = None) -> int:
         "still_protecting_active_work": 0,
         "missing_branch": 0,
         "blocked_missing_branch_open_pr_unknown": 0,
+        "blocked_missing_branch_remote_unknown": 0,
         "skipped_unparseable": 0,
     }
 
@@ -1886,6 +1960,26 @@ def main(argv: list[str] | None = None) -> int:
                             "local ref unavailable — actively protecting"
                         ),
                         "preservation_proof": remote_branch_proof,
+                        "synthetic_receipt": False,
+                    }
+                )
+                continue
+
+            remote_lookup_failure_reason = _remote_branch_preservation_lookup_failed_reason(
+                root=root,
+                state_root=state_root,
+                payload=payload,
+                branch=branch,
+            )
+            if remote_lookup_failure_reason is not None:
+                counts["blocked_missing_branch_remote_unknown"] += 1
+                counts["still_protecting_active_work"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "keep",
+                        "reason": remote_lookup_failure_reason,
                         "synthetic_receipt": False,
                     }
                 )

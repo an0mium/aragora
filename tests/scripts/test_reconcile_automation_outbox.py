@@ -1269,6 +1269,14 @@ def test_missing_local_branch_keeps_when_exact_remote_branch_preserves_desired_h
             "branch": branch,
             "desired_head_sha": desired_head,
             "worktree_paths": [str(tmp_path / "missing-worktree")],
+            "worktree_inspections": [
+                {
+                    "path": str(tmp_path / "missing-worktree"),
+                    "absent_noop": True,
+                    "source": "safe_worktree_cleanup.inspect",
+                    "classification": "absent_noop",
+                }
+            ],
             "upstream_preservation": {
                 "proven": True,
                 "method": "remote_branch_exact_head",
@@ -1284,6 +1292,59 @@ def test_missing_local_branch_keeps_when_exact_remote_branch_preserves_desired_h
     assert payload["counts"]["still_protecting_active_work"] == 1
     assert payload["actions"][0]["decision"] == "keep"
     assert "desired head preserved by exact remote branch" in payload["actions"][0]["reason"]
+
+
+def test_missing_local_branch_keeps_when_live_remote_lookup_fails(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-remote-lookup-failed-abc123"
+    branch = "codex/remote-lookup-failed"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=128, stdout="", stderr="")
+        if args == ["rev-parse", "--verify", desired_head]:
+            return subprocess.CompletedProcess(args=args, returncode=128, stdout="", stderr="")
+        if args == ["ls-remote", "origin", f"refs/heads/{branch}"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=128,
+                stdout="",
+                stderr="could not read from remote repository",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["blocked_missing_branch_remote_unknown"] == 1
+    assert payload["counts"]["missing_branch"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "live remote branch state" in payload["actions"][0]["reason"]
+    assert "unavailable" in payload["actions"][0]["reason"]
 
 
 def test_unique_branch_keep_reason_notes_unavailable_open_pr_state(
@@ -1498,6 +1559,14 @@ def test_unique_branch_keeps_when_preservation_proof_is_remote_branch_only(
             "branch": branch,
             "desired_head_sha": desired_head,
             "worktree_paths": [str(tmp_path / "missing-worktree")],
+            "worktree_inspections": [
+                {
+                    "path": str(tmp_path / "missing-worktree"),
+                    "absent_noop": True,
+                    "source": "safe_worktree_cleanup.inspect",
+                    "classification": "absent_noop",
+                }
+            ],
             "upstream_preservation": {
                 "proven": True,
                 "method": "remote_branch_exact_head",
@@ -1616,6 +1685,86 @@ def test_remote_branch_preservation_proof_rejects_stale_head_only_tracking_ref(
     assert proof is None
 
 
+def test_remote_branch_preservation_proof_rejects_head_only_prefix_match(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/head-only-prefix-proof"
+    full_remote_head = "abcdef1234567890abcdef1234567890abcdef12"
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "local_evidence": {
+            "branch": branch,
+            "desired_head_sha": full_remote_head[:12],
+        },
+    }
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["ls-remote", "origin", f"refs/heads/{branch}"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"{full_remote_head}\trefs/heads/{branch}\n",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    proof = mod._remote_branch_exact_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+    )
+
+    assert proof is None
+
+
+def test_remote_branch_preservation_proof_rejects_malformed_live_remote_head(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/head-only-malformed-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "local_evidence": {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    }
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["ls-remote", "origin", f"refs/heads/{branch}"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"not-a-sha\trefs/heads/{branch}\n",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    proof = mod._remote_branch_exact_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+    )
+
+    assert proof is None
+
+
 def test_remote_branch_preservation_proof_rejects_head_only_local_work_marker(
     tmp_path: Path,
     monkeypatch: Any,
@@ -1685,6 +1834,14 @@ def test_remote_branch_preservation_proof_checks_all_local_evidence_records(
             "branch": branch,
             "desired_head_sha": desired_head,
             "worktree_paths": [str(record["worktree"])],
+            "worktree_inspections": [
+                {
+                    "path": str(record["worktree"]),
+                    "absent_noop": True,
+                    "source": "safe_worktree_cleanup.inspect",
+                    "classification": "absent_noop",
+                }
+            ],
             "upstream_preservation": {
                 "proven": True,
                 "method": "remote_branch_exact_head",
@@ -1736,6 +1893,47 @@ def test_remote_branch_preservation_proof_requires_upstream_proven(
             "worktree_paths": [str(tmp_path / "missing-worktree")],
             "upstream_preservation": {
                 "proven": False,
+                "method": "remote_branch_exact_head",
+                "remote_head_sha": desired_head,
+            },
+        },
+    )
+
+    proof = mod._remote_branch_exact_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+    )
+
+    assert proof is None
+
+
+def test_remote_branch_preservation_proof_requires_absent_worktree_inspection(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/missing-absent-inspection-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "local_evidence": {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree": str(tmp_path / "missing-worktree"),
+        },
+    }
+
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree_paths": [str(tmp_path / "missing-worktree")],
+            "upstream_preservation": {
+                "proven": True,
                 "method": "remote_branch_exact_head",
                 "remote_head_sha": desired_head,
             },
