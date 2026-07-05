@@ -116,6 +116,12 @@ class LeaseRow:
         value = self.metadata.get("work_id")
         if isinstance(value, str) and value.strip():
             return value.strip()
+        pr_number = self.metadata.get("pr_number")
+        if pr_number is not None:
+            try:
+                return f"pr:{int(pr_number)}"
+            except (TypeError, ValueError):
+                pass
         if _looks_like_work_id(self.task_id):
             return self.task_id
         return None

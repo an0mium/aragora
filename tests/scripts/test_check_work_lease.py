@@ -67,6 +67,24 @@ def _db_path(repo: Path) -> Path:
     return cwl.resolve_db_path(repo)
 
 
+def test_lease_row_work_id_accepts_legacy_pr_number_metadata() -> None:
+    lease = cwl.LeaseRow(
+        lease_id="lease-1",
+        task_id="branch:feat-x",
+        title="legacy PR lease",
+        owner_agent="codex",
+        owner_session_id="sess-a",
+        branch="feat-x",
+        worktree_path="/tmp/repo",
+        status="active",
+        created_at=datetime.now(timezone.utc).isoformat(),
+        expires_at=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+        metadata={"pr_number": "8852"},
+    )
+
+    assert lease.work_id == "pr:8852"
+
+
 def test_no_lease_without_claim_fails(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     code = _main(repo, "feat-x", "--session-id", "sess-a")
     assert code == 1
