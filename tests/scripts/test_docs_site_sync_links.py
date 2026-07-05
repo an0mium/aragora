@@ -238,18 +238,14 @@ def test_enterprise_disaster_recovery_is_mapped_and_synced() -> None:
     assert "Recovery Objectives" in content
 
 
-def test_ambiguous_readme_basename_links_fall_through_unrewritten() -> None:
+def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
     # README.md is also a multi-way-ambiguous basename (case-studies/README.md and
     # ADR/README.md both map to it), and several other source docs link to
     # non-docs-site README.md files (e.g. aragora/mcp/README.md, deploy/README.md)
-    # that were never in DOC_MAP at all. Making basename resolution fail closed for
-    # ambiguous names (the fix this module also relies on for DISASTER_RECOVERY.md)
-    # applies uniformly, so these links stop silently mis-resolving to the ADR
-    # index (../analysis/adr, the last-defined README.md DOC_MAP entry) and are
-    # left as their original, unrewritten relative target instead. Resolving them
-    # to a real destination would require new DOC_MAP entries for non-docs-site
-    # paths, which is out of scope here; pin down the fail-closed fallback so it
-    # doesn't regress back to guessing.
+    # that are intentionally outside DOC_MAP. The resolver must still fail closed
+    # instead of guessing the ADR README, but known repo docs and docs-site pages
+    # should rewrite to stable valid destinations instead of leaving broken
+    # source-relative links in relocated generated docs.
     reference = _read_docs_site("api/reference.md")
     status = _read_docs_site("contributing/status.md")
     extended_readme = _read_docs_site("contributing/extended-readme.md")
@@ -257,13 +253,27 @@ def test_ambiguous_readme_basename_links_fall_through_unrewritten() -> None:
     sdk_quickstart = _read_docs_site("guides/sdk-quickstart.md")
     eu_ai_act_guide = _read_docs_site("security/eu-ai-act-guide.md")
 
-    assert "[MCP README](../../aragora/mcp/README.md)" in reference
-    assert "[README](../README.md)" in status
-    assert "[README](../README.md)" in extended_readme
-    assert "[algorithms/README.md](algorithms/README.md)" in extended_readme
-    assert "[sdk/typescript/README.md](../README.md)" in sdk_consolidation
-    assert "[`deploy/README.md`](../deploy/README.md)" in sdk_quickstart
-    assert "[Gauntlet Testing](../../aragora/gauntlet/README.md)" in eu_ai_act_guide
+    assert (
+        "[MCP README]"
+        "(https://github.com/synaptent/aragora/blob/main/aragora/mcp/README.md)" in reference
+    )
+    assert "[README](https://github.com/synaptent/aragora/blob/main/README.md)" in status
+    assert "[README](https://github.com/synaptent/aragora/blob/main/README.md)" in extended_readme
+    assert (
+        "[algorithms/README.md]"
+        "(https://github.com/synaptent/aragora/blob/main/docs/algorithms/README.md)"
+        in extended_readme
+    )
+    assert (
+        "[sdk/typescript/README.md]"
+        "(https://github.com/synaptent/aragora/blob/main/sdk/typescript/README.md)"
+        in sdk_consolidation
+    )
+    assert (
+        "[`deploy/README.md`]"
+        "(https://github.com/synaptent/aragora/blob/main/deploy/README.md)" in sdk_quickstart
+    )
+    assert "[Gauntlet Testing](../guides/gauntlet)" in eu_ai_act_guide
 
     for content in [
         reference,
@@ -274,3 +284,11 @@ def test_ambiguous_readme_basename_links_fall_through_unrewritten() -> None:
         eu_ai_act_guide,
     ]:
         assert "analysis/adr" not in content
+        for target in [
+            "../../aragora/mcp/README.md",
+            "../README.md",
+            "algorithms/README.md",
+            "../deploy/README.md",
+            "../../aragora/gauntlet/README.md",
+        ]:
+            assert f"]({target})" not in content

@@ -501,6 +501,18 @@ function escapeUrlParamBracesOutsideCodeFences(content) {
 // instead of guessing.
 const REVERSE_LOOKUP = {};
 const BASENAME_LOOKUP = {};
+const REPO_BLOB_BASE = 'https://github.com/synaptent/aragora/blob/main';
+const REPO_MARKDOWN_LINKS = {
+  '../README.md': `${REPO_BLOB_BASE}/README.md`,
+  'README.md': `${REPO_BLOB_BASE}/docs/README.md`,
+  '../aragora/mcp/README.md': `${REPO_BLOB_BASE}/aragora/mcp/README.md`,
+  'algorithms/README.md': `${REPO_BLOB_BASE}/docs/algorithms/README.md`,
+  '../deploy/README.md': `${REPO_BLOB_BASE}/deploy/README.md`,
+  '../aragora/gauntlet/README.md': 'guides/gauntlet.md',
+};
+const SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS = {
+  'guides/SDK_CONSOLIDATION.md|README.md': `${REPO_BLOB_BASE}/sdk/typescript/README.md`,
+};
 const basenameCounts = new Map();
 for (const src of Object.keys(DOC_MAP)) {
   const srcName = path.basename(src.replace(/^\.\//, '').replace(/^\//, ''));
@@ -535,18 +547,34 @@ function sourceRelativeLinkTarget(rawTarget, relSrcPath) {
 
 function resolveLinkDestination(normalized, relSrcPath, rawTarget) {
   if (relSrcPath && rawTarget) {
-    const sourceResolved = REVERSE_LOOKUP[sourceRelativeLinkTarget(rawTarget, relSrcPath)];
+    const sourceTarget = sourceRelativeLinkTarget(rawTarget, relSrcPath);
+    const sourceResolved = REVERSE_LOOKUP[sourceTarget];
     if (sourceResolved) {
       return sourceResolved;
+    }
+    const sourceSpecificKey = `${relSrcPath.replace(/\\/g, '/')}|${sourceTarget}`;
+    if (SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS[sourceSpecificKey]) {
+      return SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS[sourceSpecificKey];
+    }
+    if (REPO_MARKDOWN_LINKS[sourceTarget]) {
+      return REPO_MARKDOWN_LINKS[sourceTarget];
     }
   }
   // BASENAME_LOOKUP only contains basenames proven unique across DOC_MAP.
   // Ambiguous names are intentionally absent so this fallback fails closed
   // instead of guessing which same-named DOC_MAP entry the link meant.
-  return REVERSE_LOOKUP[normalized] || BASENAME_LOOKUP[path.basename(normalized)];
+  return (
+    REVERSE_LOOKUP[normalized] ||
+    REPO_MARKDOWN_LINKS[normalized] ||
+    BASENAME_LOOKUP[path.basename(normalized)]
+  );
 }
 
 function rewriteLinkTarget(newPath, currentDir, anchor) {
+  if (/^https?:\/\//.test(newPath)) {
+    return `](${newPath}${anchor || ''})`;
+  }
+
   const targetDir = path.dirname(newPath);
   const targetFile = path.basename(newPath, '.md');
   const isIndex = targetFile === 'index';
