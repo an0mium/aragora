@@ -381,9 +381,15 @@ def _pending_mailbox_messages(
         return [], "invalid_owner_session"
     if not inbox.is_dir():
         return [], None
-    # Read receipts are proof-of-read/outcome only; they are not an ack/move protocol.
-    # A top-level message file remains pending until a future explicit ack path moves it.
     return sorted(path.name for path in inbox.glob("*.json") if path.is_file()), None
+
+
+def _load_json_object(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
