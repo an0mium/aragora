@@ -9,8 +9,12 @@ network access to Aragora — verification is fully offline.
 
 This document is executable: every command below was run against the
 checked-in sample receipt in [`fixtures/`](fixtures/) and the outputs shown
-are real (verified 2026-07-02 with `aragora-verify` 0.1.0, Python 3.11,
-`cryptography` 49.0, `jsonschema` 4.26).
+are real (originally verified 2026-07-02 with `aragora-verify` 0.1.0, Python
+3.11, `cryptography` 49.0, `jsonschema` 4.26; re-verified 2026-07-04 with the
+published `aragora-verify` 0.1.1 installed from PyPI into a clean venv —
+byte-for-byte identical output for this non-tampered fixture, since 0.1.1's
+added `key_id`-binding check only changes behavior on a relabeled/tampered
+signature; see the PyPI release note in §2 below).
 
 ---
 
