@@ -27,6 +27,7 @@ from aragora.events.security_events import (
     get_security_debate_result,
     get_security_debate_runner,
     get_security_emitter,
+    is_secret_finding,
     _ensure_default_security_debate_runner_registered,
     list_security_debates,
     register_security_debate_runner,
@@ -849,6 +850,36 @@ class TestSecurityEventEmitter:
         assert data["findings"][0]["metadata"] == {"secret_type": "api_token"}
         assert "literal-secret" not in serialized
 
+    def test_event_to_dict_redacts_sast_secret_findings(self):
+        """SAST secret rules should be redacted even when finding_type is generic."""
+        finding = SecurityFinding(
+            id="sast-secret-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Hardcoded credential",
+            description="Matched code: AWS_SECRET_ACCESS_KEY = 'literal-secret'",
+            file_path="src/config.py",
+            line_number=42,
+            metadata={
+                "scanner": "semgrep",
+                "rule_id": "python.lang.security.audit.hardcoded-credential",
+                "snippet": "api_key = 'literal-secret'",
+            },
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert data["findings"][0]["file_path"] == "src/config.py"
+        assert data["findings"][0]["line_number"] == 42
+        assert data["findings"][0]["metadata"] == {"secret_type": "unknown"}
+        assert "literal-secret" not in serialized
+        assert "AWS_SECRET_ACCESS_KEY" not in serialized
+        assert "api_key" not in serialized
+
     def test_should_not_trigger_debate_for_low_severity(self):
         """LOW severity events should not trigger debates."""
         emitter = SecurityEventEmitter(enable_auto_debate=True)
@@ -872,12 +903,42 @@ class TestSecurityEventEmitter:
         ):
             await emitter.emit(event)
             mock_trigger.assert_awaited_once_with(
-                event=event,
+                event,
                 confidence_threshold=0.8,
                 timeout_seconds=123,
             )
             assert event.debate_requested is True
             assert event.debate_id == "debate-auto-123"
+
+    @pytest.mark.asyncio
+    async def test_emit_passes_event_positionally_to_modern_runner(self):
+        """Runner kwargs should not force a literal ``event=`` parameter name."""
+        emitter = SecurityEventEmitter(
+            enable_auto_debate=True,
+            debate_confidence_threshold=0.8,
+            debate_timeout_seconds=123,
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL)
+        calls: list[tuple[SecurityEvent, float, int]] = []
+
+        async def modern_runner(
+            security_event: SecurityEvent,
+            *,
+            confidence_threshold: float,
+            timeout_seconds: int,
+        ) -> str:
+            calls.append((security_event, confidence_threshold, timeout_seconds))
+            return "debate-modern-123"
+
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=modern_runner,
+        ):
+            await emitter.emit(event)
+
+        assert calls == [(event, 0.8, 123)]
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-modern-123"
 
     @pytest.mark.asyncio
     async def test_emit_triggers_legacy_one_arg_debate_runner(self):
@@ -991,6 +1052,48 @@ class TestSecurityEventEmitter:
         assert started.findings[0].line_number == 42
         assert started.findings[0].metadata == {"secret_type": "api_token"}
         assert "literal-secret" not in json.dumps(started.to_dict())
+
+    @pytest.mark.asyncio
+    async def test_auto_debate_context_redacts_sast_secret_findings(self):
+        """Serialized debate context should not expose generic SAST secret findings."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        captured_payloads: list[str] = []
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[
+                SecurityFinding(
+                    id="sast-secret-1",
+                    finding_type="vulnerability",
+                    severity=SecuritySeverity.CRITICAL,
+                    title="Hardcoded credential",
+                    description="Matched code: AWS_SECRET_ACCESS_KEY = 'literal-secret'",
+                    file_path="src/config.py",
+                    line_number=42,
+                    metadata={
+                        "scanner": "semgrep",
+                        "rule_id": "python.lang.security.audit.hardcoded-credential",
+                        "snippet": "api_key = 'literal-secret'",
+                    },
+                )
+            ],
+        )
+
+        async def runner(security_event: SecurityEvent, **_: object) -> str:
+            captured_payloads.append(json.dumps(security_event.to_dict()))
+            return "debate-sast-secret-123"
+
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await emitter.emit(event)
+
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-sast-secret-123"
+        assert len(captured_payloads) == 1
+        assert "literal-secret" not in captured_payloads[0]
+        assert "AWS_SECRET_ACCESS_KEY" not in captured_payloads[0]
+        assert "api_key" not in captured_payloads[0]
 
     @pytest.mark.asyncio
     async def test_emit_does_not_trigger_debate_for_low(self):

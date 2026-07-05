@@ -520,6 +520,47 @@ class TestDefaultRunnerPath:
         await dispatcher.stop()
 
     @pytest.mark.asyncio
+    async def test_default_path_passes_event_positionally_to_modern_runner(self):
+        calls: list[tuple[SecurityEvent, float, int]] = []
+
+        async def modern_runner(
+            security_event: SecurityEvent,
+            *,
+            confidence_threshold: float,
+            timeout_seconds: int,
+        ) -> str:
+            calls.append((security_event, confidence_threshold, timeout_seconds))
+            return "debate-modern-positional-1"
+
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=modern_runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        assert calls == [
+            (
+                event,
+                dispatcher.config.debate_confidence_threshold,
+                dispatcher.config.debate_timeout_seconds,
+            )
+        ]
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        assert event.debate_id == "debate-modern-positional-1"
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
     async def test_default_path_sets_event_debate_correlation(self):
         """The dispatcher must stamp debate_requested/debate_id on success.
 

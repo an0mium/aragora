@@ -84,6 +84,33 @@ SECRET_FINDING_TYPES = frozenset(
         "apikey",
     }
 )
+SECRET_INDICATOR_TERMS = (
+    "secret",
+    "credential",
+    "credentials",
+    "token",
+    "api key",
+    "api_key",
+    "apikey",
+    "password",
+    "private key",
+    "access key",
+)
+SECRET_METADATA_KEYS = frozenset(
+    {
+        "category",
+        "categories",
+        "check_id",
+        "message",
+        "rule",
+        "rule_id",
+        "rule_name",
+        "snippet",
+        "tags",
+    }
+)
+SAST_SOURCE_HINT_KEYS = frozenset({"scan_type", "scanner", "source", "tool"})
+SAST_SOURCE_HINTS = frozenset({"sast", "semgrep"})
 
 
 def _finding_dict(finding: Any) -> dict[str, Any]:
@@ -105,11 +132,75 @@ def _finding_metadata(finding: Any, data: dict[str, Any] | None = None) -> dict[
     return metadata
 
 
+def _iter_text_values(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        values: list[str] = []
+        for nested in value.values():
+            values.extend(_iter_text_values(nested))
+        return values
+    if isinstance(value, (list, tuple, set)):
+        values = []
+        for nested in value:
+            values.extend(_iter_text_values(nested))
+        return values
+    if value is None:
+        return []
+    return [str(value)]
+
+
+def _has_secret_indicator(value: Any) -> bool:
+    for text in _iter_text_values(value):
+        normalized = text.lower().replace("-", " ").replace(".", " ").replace("_", " ")
+        compact = normalized.replace(" ", "")
+        for term in SECRET_INDICATOR_TERMS:
+            normalized_term = term.lower().replace("-", " ").replace(".", " ").replace("_", " ")
+            if normalized_term in normalized or normalized_term.replace(" ", "") in compact:
+                return True
+    return False
+
+
+def _has_sast_source_hint(metadata: dict[str, Any]) -> bool:
+    for key, value in metadata.items():
+        if str(key).lower() not in SAST_SOURCE_HINT_KEYS:
+            continue
+        for text in _iter_text_values(value):
+            if text.lower() in SAST_SOURCE_HINTS:
+                return True
+    return False
+
+
+def _has_secret_metadata_signature(metadata: dict[str, Any]) -> bool:
+    if "secret_type" in metadata:
+        return True
+
+    for key, value in metadata.items():
+        if str(key).lower() in SECRET_METADATA_KEYS and _has_secret_indicator(value):
+            return True
+    return False
+
+
 def is_secret_finding(finding: Any) -> bool:
     """Return whether a finding contains secret-like material."""
     data = _finding_dict(finding)
     finding_type = str(data.get("finding_type") or getattr(finding, "finding_type", "")).lower()
-    return finding_type in SECRET_FINDING_TYPES or "secret_type" in _finding_metadata(finding, data)
+    if finding_type in SECRET_FINDING_TYPES:
+        return True
+
+    metadata = _finding_metadata(finding, data)
+    if _has_secret_metadata_signature(metadata):
+        return True
+
+    if _has_sast_source_hint(metadata):
+        return _has_secret_indicator(
+            (
+                data.get("title", getattr(finding, "title", "")),
+                data.get("description", getattr(finding, "description", "")),
+                data.get("recommendation", getattr(finding, "recommendation", "")),
+                metadata,
+            )
+        )
+
+    return False
 
 
 def redacted_security_finding_dict(finding: Any) -> dict[str, Any]:
@@ -582,7 +673,7 @@ class SecurityEventEmitter:
                 timeout_seconds=self._debate_timeout_seconds,
             )
             if runner_kwargs:
-                debate_id = await runner(event=event, **runner_kwargs)
+                debate_id = await runner(event, **runner_kwargs)
             else:
                 debate_id = await runner(event)
 
