@@ -513,9 +513,46 @@ def _remote_branch_exact_preservation_proof(
 
     if not _is_pr_publication_request(payload):
         return None
-    for record in _lane_records_from_payload(payload, branch):
+    records = _lane_records_from_payload(payload, branch)
+    if not records:
+        return None
+
+    proofs: list[Mapping[str, Any]] = []
+    desired_heads: set[str] = set()
+    worktree_paths: list[str] = []
+    for record in records:
+        desired_head = str(record.get("desired_head_sha") or "").strip()
+        if not desired_head:
+            return None
+        record_branch = str(record.get("branch") or branch).strip()
+        if not record_branch:
+            return None
+        desired_heads.add(desired_head)
+        if _has_local_work_marker(record):
+            return None
+
         if not record.get("worktree"):
+            remote_branch = _normalize_base_ref(record_branch)
+            remote_ref = f"refs/remotes/origin/{remote_branch}"
+            remote_head = _git_ref_head(root, remote_ref)
+            if not remote_head or not _heads_match(desired_head, remote_head):
+                return None
+            proofs.append(
+                {
+                    "available": True,
+                    "branch": record_branch,
+                    "desired_head_sha": desired_head,
+                    "upstream_preservation": {
+                        "proven": True,
+                        "method": "remote_branch_exact_head",
+                        "remote_ref": remote_ref,
+                        "remote_head_sha": remote_head,
+                    },
+                }
+            )
             continue
+
+        worktree_paths.append(str(record.get("worktree") or ""))
         try:
             proof = build_worktree_reference_preservation_proof(
                 record,
@@ -525,13 +562,40 @@ def _remote_branch_exact_preservation_proof(
         except Exception:
             return None
         if not isinstance(proof, Mapping):
-            continue
+            return None
         upstream = proof.get("upstream_preservation")
         if not isinstance(upstream, Mapping):
-            continue
-        if proof.get("available") is True and upstream.get("method") == "remote_branch_exact_head":
-            return proof
-    return None
+            return None
+        if proof.get("available") is not True:
+            return None
+        if upstream.get("method") != "remote_branch_exact_head":
+            return None
+        if upstream.get("proven") is not True:
+            return None
+        proof_desired_head = str(proof.get("desired_head_sha") or "").strip()
+        if proof_desired_head and not _heads_match(desired_head, proof_desired_head):
+            return None
+        remote_head = str(upstream.get("remote_head_sha") or "").strip()
+        if remote_head and not _heads_match(desired_head, remote_head):
+            return None
+        proofs.append(proof)
+
+    if not proofs:
+        return None
+    if len(proofs) == 1:
+        return proofs[0]
+    return {
+        "available": True,
+        "branch": branch,
+        "desired_head_sha": sorted(desired_heads)[0] if len(desired_heads) == 1 else None,
+        "desired_head_shas": sorted(desired_heads),
+        "worktree_paths": worktree_paths,
+        "worktree_proofs": proofs,
+        "upstream_preservation": {
+            "proven": True,
+            "method": "remote_branch_exact_head",
+        },
+    }
 
 
 def _preservation_proof_has_absent_worktree(proof: Mapping[str, Any]) -> bool:

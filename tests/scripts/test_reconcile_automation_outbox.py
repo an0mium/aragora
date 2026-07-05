@@ -1515,6 +1515,188 @@ def test_unique_branch_keeps_when_preservation_proof_is_remote_branch_only(
     assert "actively protecting" in payload["actions"][0]["reason"]
 
 
+def test_remote_branch_preservation_proof_accepts_head_only_exact_remote_head(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/head-only-remote-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "local_evidence": {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    }
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", f"refs/remotes/origin/{branch}"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("head-only proof should not call worktree preservation")
+        ),
+    )
+
+    proof = mod._remote_branch_exact_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+    )
+
+    assert proof is not None
+    assert proof["available"] is True
+    assert proof["upstream_preservation"]["proven"] is True
+    assert proof["upstream_preservation"]["method"] == "remote_branch_exact_head"
+
+
+def test_remote_branch_preservation_proof_rejects_head_only_local_work_marker(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/head-only-dirty-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "local_evidence": {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "unpushed_commits": True,
+        },
+    }
+
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("dirty head-only evidence must fail before git lookup")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("dirty head-only evidence must fail before worktree proof")
+        ),
+    )
+
+    proof = mod._remote_branch_exact_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+    )
+
+    assert proof is None
+
+
+def test_remote_branch_preservation_proof_checks_all_local_evidence_records(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/multi-remote-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "local_evidence": [
+            {
+                "branch": branch,
+                "desired_head_sha": desired_head,
+                "worktree": str(tmp_path / "missing-worktree"),
+            },
+            {
+                "branch": branch,
+                "desired_head_sha": desired_head,
+                "unpushed_commits": True,
+            },
+        ],
+    }
+
+    def fake_preservation_proof(record: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+        assert record.get("worktree")
+        return {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree_paths": [str(record["worktree"])],
+            "upstream_preservation": {
+                "proven": True,
+                "method": "remote_branch_exact_head",
+                "remote_head_sha": desired_head,
+            },
+        }
+
+    monkeypatch.setattr(mod, "build_worktree_reference_preservation_proof", fake_preservation_proof)
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("dirty second record must fail before git lookup")
+        ),
+    )
+
+    proof = mod._remote_branch_exact_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+    )
+
+    assert proof is None
+
+
+def test_remote_branch_preservation_proof_requires_upstream_proven(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/unproven-remote-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "local_evidence": {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree": str(tmp_path / "missing-worktree"),
+        },
+    }
+
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree_paths": [str(tmp_path / "missing-worktree")],
+            "upstream_preservation": {
+                "proven": False,
+                "method": "remote_branch_exact_head",
+                "remote_head_sha": desired_head,
+            },
+        },
+    )
+
+    proof = mod._remote_branch_exact_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+    )
+
+    assert proof is None
+
+
 def test_merged_pr_preservation_proof_rejects_non_base_pr(
     tmp_path: Path,
     monkeypatch: Any,
