@@ -30,6 +30,53 @@ logger = logging.getLogger(__name__)
 # Type alias for the debate executor function
 DebateExecutor = Callable[[Job], Coroutine[Any, Any, dict[str, Any]]]
 
+# Domain-free job-handler registry (zero domain imports, eager or lazy). Lets
+# domain/application/interface home modules self-register their worker and job
+# handler instances instead of being imported directly by aragora.queue.
+_REGISTERED_WORKERS: dict[str, Any] = {}
+_REGISTERED_JOB_HANDLERS: dict[str, DebateExecutor] = {}
+
+
+def register_worker(name: str, worker: Any) -> None:
+    """Register a queue worker instance under ``name`` (keyed, idempotent)."""
+    _REGISTERED_WORKERS[name] = worker
+
+
+def register_job_handler(job_type: str, handler: DebateExecutor) -> None:
+    """Register a job handler (executor) for ``job_type`` (keyed, idempotent)."""
+    _REGISTERED_JOB_HANDLERS[job_type] = handler
+
+
+def get_registered_workers() -> dict[str, Any]:
+    """Return a shallow copy of all registered workers, keyed by name."""
+    return dict(_REGISTERED_WORKERS)
+
+
+def get_registered_job_handlers() -> dict[str, DebateExecutor]:
+    """Return a shallow copy of all registered job handlers, keyed by job type."""
+    return dict(_REGISTERED_JOB_HANDLERS)
+
+
+def get_job_handler(job_type: str) -> DebateExecutor | None:
+    """Return the registered handler for ``job_type``, or ``None`` if unregistered."""
+    return _REGISTERED_JOB_HANDLERS.get(job_type)
+
+
+def registered_worker_names() -> list[str]:
+    """Return the sorted names of all registered workers."""
+    return sorted(_REGISTERED_WORKERS)
+
+
+def registered_job_handler_names() -> list[str]:
+    """Return the sorted job types of all registered job handlers."""
+    return sorted(_REGISTERED_JOB_HANDLERS)
+
+
+def reset_registry() -> None:
+    """Clear both the worker and job-handler registries (for tests)."""
+    _REGISTERED_WORKERS.clear()
+    _REGISTERED_JOB_HANDLERS.clear()
+
 
 class DebateWorker:
     """
