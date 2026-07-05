@@ -684,6 +684,7 @@ def _lane_has_countable_dev_lease(record: LaneRecord) -> bool:
         {
             "branch": record.branch,
             "lease_id": record.lease_id,
+            "owner_session_id": record.owner_session,
             "work_id": record.work_id,
         },
     )

@@ -670,7 +670,6 @@ def main(argv: list[str] | None = None) -> int:
         lease for lease in all_leases if lease.is_expired and _lease_matches_work_id(lease, work_id)
     ]
     mine = [lease for lease in matching_leases if lease.owner_session_id == session_id]
-    theirs = [lease for lease in matching_leases if lease.owner_session_id != session_id]
     branch_mine = [lease for lease in leases if lease.owner_session_id == session_id]
     branch_theirs = [lease for lease in leases if lease.owner_session_id != session_id]
     if work_id and not mine:

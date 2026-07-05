@@ -1369,6 +1369,59 @@ def test_operator_snapshot_does_not_count_unvalidated_native_dev_lease(
     assert payload["summary"]["active_lanes_with_dev_lease"] == 0
 
 
+def test_operator_snapshot_validates_native_dev_lease_owner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-native",
+                    "owner_session": "codex-native",
+                    "status": "active",
+                    "branch": "codex/native",
+                    "work_id": "pr:8853",
+                    "lease_id": "native-lease",
+                    "lease_status": "active",
+                    "lease_health": "ok",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    seen: list[dict[str, str]] = []
+
+    def fake_validate(record, sidecar):
+        seen.append(dict(sidecar))
+        return sidecar.get("owner_session_id") == "codex-native"
+
+    monkeypatch.setattr(mod, "_sidecar_points_to_active_dev_lease", fake_validate)
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert seen[0]["owner_session_id"] == "codex-native"
+    assert payload["summary"]["active_lanes_missing_dev_lease"] == 0
+    assert payload["summary"]["active_lanes_with_dev_lease"] == 1
+
+
 def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
