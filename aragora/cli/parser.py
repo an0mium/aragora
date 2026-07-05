@@ -1108,8 +1108,9 @@ def _add_ask_parser(subparsers) -> None:
     )
     ask_parser.add_argument(
         "--api-url",
-        default=DEFAULT_API_URL,
-        help=f"API server URL (default: {DEFAULT_API_URL})",
+        default=None,
+        help=f"API server URL (default: {DEFAULT_API_URL}); passing the flag "
+        "explicitly opts in to that server even if it does not identify as Aragora",
     )
     ask_parser.add_argument(
         "--api-key",
@@ -1349,14 +1350,11 @@ def _add_stats_parser(subparsers) -> None:
 def _add_status_parser(subparsers) -> None:
     """Add the 'status' subcommand parser."""
     status_parser = subparsers.add_parser(
-        "status", help="Show environment health and agent availability"
+        "status", help="Show environment health, agent availability, or founder ops status"
     )
-    status_parser.add_argument(
-        "--server",
-        "-s",
-        default=DEFAULT_API_URL,
-        help=f"Server URL to check (default: {DEFAULT_API_URL})",
-    )
+    from aragora.cli.commands.founder_status import add_founder_status_arguments
+
+    add_founder_status_arguments(status_parser, default_api_url=DEFAULT_API_URL)
     status_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_status"))
 
 
@@ -2147,6 +2145,11 @@ def _add_review_queue_parser(subparsers) -> None:
     )
     build_parser.add_argument("--limit", type=int, default=100, help="Max PRs to fetch")
     build_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    build_parser.add_argument(
         "--ready-only",
         action="store_true",
         help="Show only ready_now lane",
@@ -2352,6 +2355,20 @@ def _add_review_queue_parser(subparsers) -> None:
         "--apply",
         action="store_true",
         help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
+    )
+    collect_evidence_parser.add_argument(
+        "--reviewer-timeout",
+        dest="reviewer_timeout",
+        type=float,
+        default=None,
+        help="Per-reviewer timeout in seconds for this invocation.",
+    )
+    collect_evidence_parser.add_argument(
+        "--overall-timeout",
+        dest="overall_timeout",
+        type=float,
+        default=None,
+        help="Overall reviewer orchestration timeout in seconds for this invocation.",
     )
     collect_evidence_parser.add_argument(
         "--json", dest="json_output", action="store_true", help="Output as JSON"

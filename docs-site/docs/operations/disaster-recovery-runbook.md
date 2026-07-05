@@ -124,44 +124,56 @@ SLACK_WEBHOOK="${SLACK_WEBHOOK_URL:-}"
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
 alert() {
     log "ALERT: $1"
-    if [ -n "$\{SLACK_WEBHOOK\}" ]; then
+    if [ -n "${SLACK_WEBHOOK}" ]; then
         curl -s -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"Backup Verification FAILED: $1\"}" \
-            "$\{SLACK_WEBHOOK\}"
+            "${SLACK_WEBHOOK}"
     fi
 }
 
 log "=== Starting daily backup verification ==="
 
 # 1. Find latest backup
-LATEST_BACKUP=$(ls -t $\{BACKUP_DIR\}/*.dump 2>/dev/null | head -1)
-if [ -z "$\{LATEST_BACKUP\}" ]; then
-    alert "No backup files found in $\{BACKUP_DIR\}"
+LATEST_BACKUP=$(ls -t ${BACKUP_DIR}/*.dump 2>/dev/null | head -1)
+if [ -z "${LATEST_BACKUP}" ]; then
+    alert "No backup files found in ${BACKUP_DIR}"
     exit 1
 fi
 
 # 2. Check backup age (must be < 25 hours old)
-BACKUP_AGE_HOURS=$(( ($(date +%s) - $(stat -c %Y "$\{LATEST_BACKUP\}")) / 3600 ))
-if [ $\{BACKUP_AGE_HOURS\} -gt 25 ]; then
-    alert "Latest backup is $\{BACKUP_AGE_HOURS\} hours old - exceeds 24h RPO"
+backup_mtime() {
+    mtime=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || true)
+    case "$mtime" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    printf '%s\n' "$mtime"
+}
+
+BACKUP_MTIME=$(backup_mtime "${LATEST_BACKUP}") || {
+    alert "Could not read backup mtime: ${LATEST_BACKUP}"
+    exit 1
+}
+BACKUP_AGE_HOURS=$(( ($(date +%s) - BACKUP_MTIME) / 3600 ))
+if [ ${BACKUP_AGE_HOURS} -gt 25 ]; then
+    alert "Latest backup is ${BACKUP_AGE_HOURS} hours old - exceeds 24h RPO"
     exit 1
 fi
-log "Backup age: $\{BACKUP_AGE_HOURS\} hours - OK"
+log "Backup age: ${BACKUP_AGE_HOURS} hours - OK"
 
 # 3. Verify backup file integrity
-if ! pg_restore -l "$\{LATEST_BACKUP\}" > /dev/null 2>&1; then
-    alert "Backup file corrupted: $\{LATEST_BACKUP\}"
+if ! pg_restore -l "${LATEST_BACKUP}" > /dev/null 2>&1; then
+    alert "Backup file corrupted: ${LATEST_BACKUP}"
     exit 1
 fi
 log "Backup integrity check: PASSED"
 
 # 4. Test restore to validation database
-psql -U postgres -c "DROP DATABASE IF EXISTS $\{VALIDATION_DB\};" 2>/dev/null
-psql -U postgres -c "CREATE DATABASE $\{VALIDATION_DB\};"
+psql -U postgres -c "DROP DATABASE IF EXISTS ${VALIDATION_DB};" 2>/dev/null
+psql -U postgres -c "CREATE DATABASE ${VALIDATION_DB};"
 
-if ! pg_restore -d "$\{VALIDATION_DB\}" "$\{LATEST_BACKUP\}" 2>/dev/null; then
-    alert "Backup restore failed: $\{LATEST_BACKUP\}"
-    psql -U postgres -c "DROP DATABASE IF EXISTS $\{VALIDATION_DB\};"
+if ! pg_restore -d "${VALIDATION_DB}" "${LATEST_BACKUP}" 2>/dev/null; then
+    alert "Backup restore failed: ${LATEST_BACKUP}"
+    psql -U postgres -c "DROP DATABASE IF EXISTS ${VALIDATION_DB};"
     exit 1
 fi
 log "Backup restore test: PASSED"
@@ -169,31 +181,31 @@ log "Backup restore test: PASSED"
 # 5. Validate critical tables exist and have data
 TABLES=("users" "debates" "tenants" "audit_logs" "decision_receipts")
 for table in "${TABLES[@]}"; do
-    COUNT=$(psql -U postgres -d "$\{VALIDATION_DB\}" -t -c "SELECT COUNT(*) FROM $\{table\};" 2>/dev/null | tr -d ' ')
-    if [ -z "$\{COUNT\}" ] || [ "$\{COUNT\}" -lt 0 ]; then
-        alert "Table $\{table\} missing or empty in backup"
-        psql -U postgres -c "DROP DATABASE IF EXISTS $\{VALIDATION_DB\};"
+    COUNT=$(psql -U postgres -d "${VALIDATION_DB}" -t -c "SELECT COUNT(*) FROM ${table};" 2>/dev/null | tr -d ' ')
+    if [ -z "${COUNT}" ] || [ "${COUNT}" -lt 0 ]; then
+        alert "Table ${table} missing or empty in backup"
+        psql -U postgres -c "DROP DATABASE IF EXISTS ${VALIDATION_DB};"
         exit 1
     fi
-    log "Table $\{table\}: $\{COUNT\} rows"
+    log "Table ${table}: ${COUNT} rows"
 done
 
 # 6. Compare with production counts (warn if > 5% difference)
 PROD_DEBATES=$(psql -U postgres -d aragora -t -c "SELECT COUNT(*) FROM debates;" | tr -d ' ')
-BACKUP_DEBATES=$(psql -U postgres -d "$\{VALIDATION_DB\}" -t -c "SELECT COUNT(*) FROM debates;" | tr -d ' ')
+BACKUP_DEBATES=$(psql -U postgres -d "${VALIDATION_DB}" -t -c "SELECT COUNT(*) FROM debates;" | tr -d ' ')
 DIFF_PCT=$(( (PROD_DEBATES - BACKUP_DEBATES) * 100 / PROD_DEBATES ))
-if [ $\{DIFF_PCT\} -gt 5 ]; then
-    log "WARNING: Backup is $\{DIFF_PCT\}% behind production ($\{BACKUP_DEBATES\} vs $\{PROD_DEBATES\} debates)"
+if [ ${DIFF_PCT} -gt 5 ]; then
+    log "WARNING: Backup is ${DIFF_PCT}% behind production (${BACKUP_DEBATES} vs ${PROD_DEBATES} debates)"
 fi
 
 # 7. Cleanup
-psql -U postgres -c "DROP DATABASE $\{VALIDATION_DB\};"
+psql -U postgres -c "DROP DATABASE ${VALIDATION_DB};"
 
 # 8. Report metrics
 cat << EOF | curl --data-binary @- http://pushgateway:9091/metrics/job/backup_verification
 backup_verification_success 1
-backup_verification_age_hours $\{BACKUP_AGE_HOURS\}
-backup_verification_debates $\{BACKUP_DEBATES\}
+backup_verification_age_hours ${BACKUP_AGE_HOURS}
+backup_verification_debates ${BACKUP_DEBATES}
 backup_verification_timestamp $(date +%s)
 EOF
 
@@ -220,13 +232,13 @@ log "Checking PostgreSQL backups..."
 # 2. Verify Redis backups
 log "Checking Redis backups..."
 LATEST_RDB=$(ls -t /backup/redis/rdb/*.rdb 2>/dev/null | head -1)
-if [ -z "$\{LATEST_RDB\}" ]; then
+if [ -z "${LATEST_RDB}" ]; then
     echo "ERROR: No Redis RDB backups found"
     exit 1
 fi
 
-if ! redis-check-rdb "$\{LATEST_RDB\}" > /dev/null 2>&1; then
-    echo "ERROR: Redis RDB backup corrupted: $\{LATEST_RDB\}"
+if ! redis-check-rdb "${LATEST_RDB}" > /dev/null 2>&1; then
+    echo "ERROR: Redis RDB backup corrupted: ${LATEST_RDB}"
     exit 1
 fi
 log "Redis RDB verification: PASSED"
@@ -238,14 +250,14 @@ aws s3 ls s3://aragora-backups/postgresql/daily/ --summarize | tail -2
 # 4. Verify WAL archive continuity
 log "Checking WAL archive continuity..."
 WAL_COUNT=$(ls /backup/postgresql/wal/ 2>/dev/null | wc -l)
-if [ $\{WAL_COUNT\} -lt 10 ]; then
-    log "WARNING: Only $\{WAL_COUNT\} WAL files - check archiving"
+if [ ${WAL_COUNT} -lt 10 ]; then
+    log "WARNING: Only ${WAL_COUNT} WAL files - check archiving"
 fi
 
 # 5. Test Point-in-Time Recovery capability
 log "Testing PITR capability..."
 RECOVERY_TARGET=$(date -d "6 hours ago" '+%Y-%m-%d %H:%M:%S')
-log "Would recover to: $\{RECOVERY_TARGET\}"
+log "Would recover to: ${RECOVERY_TARGET}"
 
 log "=== Weekly verification completed ==="
 ```
@@ -301,35 +313,35 @@ echo "Timestamp: $(date)"
 
 # 1. Check current cluster status
 echo "[1/7] Checking cluster status..."
-kubectl cnpg status $\{CLUSTER_NAME\} -n $\{NAMESPACE\}
+kubectl cnpg status ${CLUSTER_NAME} -n ${NAMESPACE}
 
 # 2. Verify replica is in sync
 echo "[2/7] Checking replication lag..."
-LAG=$(kubectl exec -n $\{NAMESPACE\} $\{CLUSTER_NAME\}-2 -- \
+LAG=$(kubectl exec -n ${NAMESPACE} ${CLUSTER_NAME}-2 -- \
     psql -t -c "SELECT EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))::int;")
-if [ "$\{LAG\}" -gt 30 ]; then
-    echo "ERROR: Replication lag is $\{LAG\}s - too high for safe failover"
+if [ "${LAG}" -gt 30 ]; then
+    echo "ERROR: Replication lag is ${LAG}s - too high for safe failover"
     echo "Consider waiting or accepting data loss"
     exit 1
 fi
-echo "Replication lag: $\{LAG\}s - acceptable"
+echo "Replication lag: ${LAG}s - acceptable"
 
 # 3. Enable maintenance mode (stop new connections)
 echo "[3/7] Enabling maintenance mode..."
-kubectl -n $\{NAMESPACE\} patch deployment aragora-api \
+kubectl -n ${NAMESPACE} patch deployment aragora-api \
     -p '{"spec":{"template":{"spec":{"containers":[{"name":"aragora","env":[{"name":"MAINTENANCE_MODE","value":"true"}]}]}}}}'
 sleep 10
 
 # 4. Trigger switchover (graceful) or failover (forced)
 echo "[4/7] Initiating switchover..."
-kubectl cnpg promote $\{CLUSTER_NAME\} -n $\{NAMESPACE\}
+kubectl cnpg promote ${CLUSTER_NAME} -n ${NAMESPACE}
 
 # 5. Wait for new primary
 echo "[5/7] Waiting for new primary..."
 for i in {1..60}; do
-    STATUS=$(kubectl cnpg status $\{CLUSTER_NAME\} -n $\{NAMESPACE\} -o json | jq -r '.status.phase')
-    if [ "$\{STATUS\}" == "Cluster in healthy state" ]; then
-        echo "Cluster healthy after $\{i\} seconds"
+    STATUS=$(kubectl cnpg status ${CLUSTER_NAME} -n ${NAMESPACE} -o json | jq -r '.status.phase')
+    if [ "${STATUS}" == "Cluster in healthy state" ]; then
+        echo "Cluster healthy after ${i} seconds"
         break
     fi
     sleep 1
@@ -337,17 +349,17 @@ done
 
 # 6. Verify new primary is writable
 echo "[6/7] Testing write capability..."
-kubectl exec -n $\{NAMESPACE\} $\{CLUSTER_NAME\}-1 -- \
+kubectl exec -n ${NAMESPACE} ${CLUSTER_NAME}-1 -- \
     psql -c "INSERT INTO health_check (timestamp) VALUES (now());"
 
 # 7. Disable maintenance mode
 echo "[7/7] Disabling maintenance mode..."
-kubectl -n $\{NAMESPACE\} patch deployment aragora-api \
+kubectl -n ${NAMESPACE} patch deployment aragora-api \
     -p '{"spec":{"template":{"spec":{"containers":[{"name":"aragora","env":[{"name":"MAINTENANCE_MODE","value":"false"}]}]}}}}'
 
 echo ""
 echo "=== Failover Complete ==="
-kubectl cnpg status $\{CLUSTER_NAME\} -n $\{NAMESPACE\}
+kubectl cnpg status ${CLUSTER_NAME} -n ${NAMESPACE}
 ```
 
 ### 4.2 Database Failover (AWS RDS)
@@ -366,29 +378,29 @@ echo "=== RDS Database Failover ==="
 # 1. Check current status
 echo "[1/5] Checking RDS status..."
 aws rds describe-db-instances \
-    --db-instance-identifier $\{DB_INSTANCE\} \
+    --db-instance-identifier ${DB_INSTANCE} \
     --query 'DBInstances[0].{Status:DBInstanceStatus,AZ:AvailabilityZone,MultiAZ:MultiAZ}'
 
 # 2. Trigger failover (Multi-AZ)
 echo "[2/5] Initiating RDS failover..."
 aws rds reboot-db-instance \
-    --db-instance-identifier $\{DB_INSTANCE\} \
+    --db-instance-identifier ${DB_INSTANCE} \
     --force-failover
 
 # 3. Wait for failover
 echo "[3/5] Waiting for failover (typically 60-120 seconds)..."
 aws rds wait db-instance-available \
-    --db-instance-identifier $\{DB_INSTANCE\}
+    --db-instance-identifier ${DB_INSTANCE}
 
 # 4. Verify new primary
 echo "[4/5] Verifying new primary..."
 aws rds describe-db-instances \
-    --db-instance-identifier $\{DB_INSTANCE\} \
+    --db-instance-identifier ${DB_INSTANCE} \
     --query 'DBInstances[0].AvailabilityZone'
 
 # 5. Test connectivity
 echo "[5/5] Testing database connectivity..."
-psql "$\{DATABASE_URL\}" -c "SELECT 1;"
+psql "${DATABASE_URL}" -c "SELECT 1;"
 
 echo "=== RDS Failover Complete ==="
 ```
@@ -408,15 +420,15 @@ echo "=== Redis Sentinel Failover ==="
 
 # 1. Check current master
 echo "[1/5] Current master:"
-redis-cli -h $\{SENTINEL_HOST\} -p 26379 SENTINEL get-master-addr-by-name $\{MASTER_NAME\}
+redis-cli -h ${SENTINEL_HOST} -p 26379 SENTINEL get-master-addr-by-name ${MASTER_NAME}
 
 # 2. Check replica status
 echo "[2/5] Replica status:"
-redis-cli -h $\{SENTINEL_HOST\} -p 26379 SENTINEL replicas $\{MASTER_NAME\}
+redis-cli -h ${SENTINEL_HOST} -p 26379 SENTINEL replicas ${MASTER_NAME}
 
 # 3. Trigger failover
 echo "[3/5] Initiating failover..."
-redis-cli -h $\{SENTINEL_HOST\} -p 26379 SENTINEL FAILOVER $\{MASTER_NAME\}
+redis-cli -h ${SENTINEL_HOST} -p 26379 SENTINEL FAILOVER ${MASTER_NAME}
 
 # 4. Wait for failover
 echo "[4/5] Waiting for failover..."
@@ -424,11 +436,11 @@ sleep 15
 
 # 5. Verify new master
 echo "[5/5] New master:"
-NEW_MASTER=$(redis-cli -h $\{SENTINEL_HOST\} -p 26379 SENTINEL get-master-addr-by-name $\{MASTER_NAME\})
-echo "New master: $\{NEW_MASTER\}"
+NEW_MASTER=$(redis-cli -h ${SENTINEL_HOST} -p 26379 SENTINEL get-master-addr-by-name ${MASTER_NAME})
+echo "New master: ${NEW_MASTER}"
 
 # 6. Test connectivity
-redis-cli -h $(echo $\{NEW_MASTER\} | cut -d' ' -f1) -p 6379 PING
+redis-cli -h $(echo ${NEW_MASTER} | cut -d' ' -f1) -p 6379 PING
 
 echo "=== Redis Failover Complete ==="
 ```
@@ -445,24 +457,24 @@ echo "=== Kubernetes Redis Failover ==="
 
 # 1. Check current state
 echo "[1/4] Current Redis pods:"
-kubectl get pods -n $\{NAMESPACE\} -l app.kubernetes.io/name=redis
+kubectl get pods -n ${NAMESPACE} -l app.kubernetes.io/name=redis
 
 # 2. Get current master
-CURRENT_MASTER=$(kubectl exec -n $\{NAMESPACE\} redis-node-0 -c sentinel -- \
+CURRENT_MASTER=$(kubectl exec -n ${NAMESPACE} redis-node-0 -c sentinel -- \
     redis-cli -p 26379 SENTINEL get-master-addr-by-name mymaster)
-echo "Current master: $\{CURRENT_MASTER\}"
+echo "Current master: ${CURRENT_MASTER}"
 
 # 3. Trigger failover
 echo "[3/4] Triggering failover..."
-kubectl exec -n $\{NAMESPACE\} redis-node-0 -c sentinel -- \
+kubectl exec -n ${NAMESPACE} redis-node-0 -c sentinel -- \
     redis-cli -p 26379 SENTINEL FAILOVER mymaster
 
 sleep 15
 
 # 4. Verify new master
-NEW_MASTER=$(kubectl exec -n $\{NAMESPACE\} redis-node-0 -c sentinel -- \
+NEW_MASTER=$(kubectl exec -n ${NAMESPACE} redis-node-0 -c sentinel -- \
     redis-cli -p 26379 SENTINEL get-master-addr-by-name mymaster)
-echo "New master: $\{NEW_MASTER\}"
+echo "New master: ${NEW_MASTER}"
 
 echo "=== Redis Failover Complete ==="
 ```
@@ -478,31 +490,31 @@ set -euo pipefail
 PRIMARY_REGION="us-east-1"
 DR_REGION="us-west-2"
 
-echo "=== Regional Failover: $\{PRIMARY_REGION\} -> $\{DR_REGION\} ==="
-echo "WARNING: This will redirect all traffic to $\{DR_REGION\}"
+echo "=== Regional Failover: ${PRIMARY_REGION} -> ${DR_REGION} ==="
+echo "WARNING: This will redirect all traffic to ${DR_REGION}"
 read -p "Type 'FAILOVER' to confirm: " CONFIRM
-if [ "$\{CONFIRM\}" != "FAILOVER" ]; then
+if [ "${CONFIRM}" != "FAILOVER" ]; then
     echo "Aborted."
     exit 1
 fi
 
 # 1. Verify DR region readiness
 echo "[1/6] Verifying DR region readiness..."
-DR_HEALTH=$(curl -s https://aragora.$\{DR_REGION\}.internal/api/health | jq -r '.status')
-if [ "$\{DR_HEALTH\}" != "healthy" ]; then
-    echo "ERROR: DR region not healthy: $\{DR_HEALTH\}"
+DR_HEALTH=$(curl -s https://aragora.${DR_REGION}.internal/api/health | jq -r '.status')
+if [ "${DR_HEALTH}" != "healthy" ]; then
+    echo "ERROR: DR region not healthy: ${DR_HEALTH}"
     exit 1
 fi
 
 # 2. Promote DR database replica
-echo "[2/6] Promoting database replica in $\{DR_REGION\}..."
-kubectl --context $\{DR_REGION\} cnpg promote aragora-postgres -n aragora
+echo "[2/6] Promoting database replica in ${DR_REGION}..."
+kubectl --context ${DR_REGION} cnpg promote aragora-postgres -n aragora
 
 # 3. Update DNS to point to DR region
 echo "[3/6] Updating DNS..."
 # Using Route53 - update weighted routing
 aws route53 change-resource-record-sets \
-    --hosted-zone-id $\{ZONE_ID\} \
+    --hosted-zone-id ${ZONE_ID} \
     --change-batch '{
         "Changes": [
             {
@@ -510,10 +522,10 @@ aws route53 change-resource-record-sets \
                 "ResourceRecordSet": {
                     "Name": "api.aragora.ai",
                     "Type": "A",
-                    "SetIdentifier": "'$\{PRIMARY_REGION\}'",
+                    "SetIdentifier": "'${PRIMARY_REGION}'",
                     "Weight": 0,
                     "AliasTarget": {
-                        "DNSName": "aragora-'$\{PRIMARY_REGION\}'.elb.amazonaws.com",
+                        "DNSName": "aragora-'${PRIMARY_REGION}'.elb.amazonaws.com",
                         "HostedZoneId": "Z3AADJGX6KTTL2",
                         "EvaluateTargetHealth": true
                     }
@@ -524,10 +536,10 @@ aws route53 change-resource-record-sets \
                 "ResourceRecordSet": {
                     "Name": "api.aragora.ai",
                     "Type": "A",
-                    "SetIdentifier": "'$\{DR_REGION\}'",
+                    "SetIdentifier": "'${DR_REGION}'",
                     "Weight": 100,
                     "AliasTarget": {
-                        "DNSName": "aragora-'$\{DR_REGION\}'.elb.amazonaws.com",
+                        "DNSName": "aragora-'${DR_REGION}'.elb.amazonaws.com",
                         "HostedZoneId": "Z3DZXE0EXAMPLE",
                         "EvaluateTargetHealth": true
                     }
@@ -538,14 +550,14 @@ aws route53 change-resource-record-sets \
 
 # 4. Scale up DR region
 echo "[4/6] Scaling DR region..."
-kubectl --context $\{DR_REGION\} scale deployment aragora-api --replicas=10 -n aragora
+kubectl --context ${DR_REGION} scale deployment aragora-api --replicas=10 -n aragora
 
 # 5. Verify service health
 echo "[5/6] Verifying service health..."
 for i in {1..10}; do
     HEALTH=$(curl -s https://api.aragora.ai/api/health | jq -r '.status')
-    echo "Health check $\{i\}: $\{HEALTH\}"
-    if [ "$\{HEALTH\}" == "healthy" ]; then
+    echo "Health check ${i}: ${HEALTH}"
+    if [ "${HEALTH}" == "healthy" ]; then
         break
     fi
     sleep 5
@@ -554,12 +566,12 @@ done
 # 6. Update status page
 echo "[6/6] Updating status page..."
 curl -X POST https://admin.status.aragora.ai/api/incidents \
-    -H "Authorization: Bearer $\{STATUS_PAGE_TOKEN\}" \
-    -d '{"status": "identified", "message": "Regional failover completed to '$\{DR_REGION\}'"}'
+    -H "Authorization: Bearer ${STATUS_PAGE_TOKEN}" \
+    -d '{"status": "identified", "message": "Regional failover completed to '${DR_REGION}'"}'
 
 echo ""
 echo "=== Regional Failover Complete ==="
-echo "Traffic is now routing to $\{DR_REGION\}"
+echo "Traffic is now routing to ${DR_REGION}"
 echo "Monitor: https://grafana.aragora.internal/d/dr-overview"
 ```
 
@@ -603,13 +615,13 @@ RECOVERY_TARGET="${1:-$(date -d '1 hour ago' '+%Y-%m-%d %H:%M:%S')}"
 RECOVERY_DB="aragora_recovery"
 
 echo "=== Point-in-Time Recovery ==="
-echo "Target time: $\{RECOVERY_TARGET\} UTC"
+echo "Target time: ${RECOVERY_TARGET} UTC"
 
 # 1. Create recovery configuration
 echo "[1/6] Creating recovery configuration..."
 cat > /tmp/recovery.conf << EOF
 restore_command = 'cp /backup/postgresql/wal/%f %p'
-recovery_target_time = '$\{RECOVERY_TARGET\}'
+recovery_target_time = '${RECOVERY_TARGET}'
 recovery_target_action = 'pause'
 EOF
 
@@ -628,7 +640,7 @@ spec:
     recovery:
       source: aragora-postgres
       recoveryTarget:
-        targetTime: "$\{RECOVERY_TARGET\}+00:00"
+        targetTime: "${RECOVERY_TARGET}+00:00"
   externalClusters:
     - name: aragora-postgres
       barmanObjectStore:
@@ -682,17 +694,17 @@ set -euo pipefail
 BACKUP_FILE="${1:-/backup/postgresql/daily/latest.dump}"
 
 echo "=== Full Database Restore ==="
-echo "Backup file: $\{BACKUP_FILE\}"
+echo "Backup file: ${BACKUP_FILE}"
 
 # 1. Verify backup file exists and is valid
 echo "[1/7] Verifying backup file..."
-if [ ! -f "$\{BACKUP_FILE\}" ]; then
+if [ ! -f "${BACKUP_FILE}" ]; then
     # Try S3
     echo "Local backup not found, downloading from S3..."
-    aws s3 cp s3://aragora-backups/postgresql/daily/$(basename $\{BACKUP_FILE\}) $\{BACKUP_FILE\}
+    aws s3 cp s3://aragora-backups/postgresql/daily/$(basename ${BACKUP_FILE}) ${BACKUP_FILE}
 fi
 
-pg_restore -l "$\{BACKUP_FILE\}" > /dev/null || {
+pg_restore -l "${BACKUP_FILE}" > /dev/null || {
     echo "ERROR: Backup file invalid or corrupted"
     exit 1
 }
@@ -711,7 +723,7 @@ psql -U postgres -c "CREATE DATABASE aragora OWNER aragora;"
 # 4. Restore backup
 echo "[4/7] Restoring backup (this may take several minutes)..."
 START_TIME=$(date +%s)
-pg_restore -d aragora -v "$\{BACKUP_FILE\}" 2>&1 | tee /tmp/restore.log
+pg_restore -d aragora -v "${BACKUP_FILE}" 2>&1 | tee /tmp/restore.log
 END_TIME=$(date +%s)
 echo "Restore completed in $((END_TIME - START_TIME)) seconds"
 
@@ -723,7 +735,7 @@ python -m aragora.db.migrate
 echo "[6/7] Verifying restored data..."
 DEBATE_COUNT=$(psql -U aragora -d aragora -t -c "SELECT COUNT(*) FROM debates;")
 USER_COUNT=$(psql -U aragora -d aragora -t -c "SELECT COUNT(*) FROM users;")
-echo "Restored: $\{DEBATE_COUNT\} debates, $\{USER_COUNT\} users"
+echo "Restored: ${DEBATE_COUNT} debates, ${USER_COUNT} users"
 
 # 7. Restart application
 echo "[7/7] Restarting application..."
@@ -751,7 +763,7 @@ echo "=== Redis Data Recovery ==="
 
 # 1. Verify RDB file
 echo "[1/5] Verifying RDB file..."
-redis-check-rdb "$\{RDB_FILE\}" || {
+redis-check-rdb "${RDB_FILE}" || {
     echo "ERROR: RDB file corrupted"
     exit 1
 }
@@ -763,7 +775,7 @@ sleep 10
 
 # 3. Copy RDB file
 echo "[3/5] Copying RDB file..."
-kubectl cp "$\{RDB_FILE\}" aragora/redis-master-0:/data/dump.rdb
+kubectl cp "${RDB_FILE}" aragora/redis-master-0:/data/dump.rdb
 
 # 4. Start Redis
 echo "[4/5] Starting Redis..."
@@ -839,11 +851,11 @@ echo "=== GDPR-Compliant Database Restore ==="
 # 1. Get backup exclusion list
 echo "[1/4] Retrieving GDPR backup exclusion list..."
 EXCLUSIONS=$(curl -s http://localhost:8080/api/v2/compliance/gdpr/backup-exclusions)
-EXCLUDED_USERS=$(echo $\{EXCLUSIONS\} | jq -r '.excluded_users[]')
+EXCLUDED_USERS=$(echo ${EXCLUSIONS} | jq -r '.excluded_users[]')
 
-if [ -n "$\{EXCLUDED_USERS\}" ]; then
+if [ -n "${EXCLUDED_USERS}" ]; then
     echo "WARNING: The following users must be excluded from restoration:"
-    echo "$\{EXCLUDED_USERS\}"
+    echo "${EXCLUDED_USERS}"
 fi
 
 # 2. Perform standard restore
@@ -852,10 +864,10 @@ echo "[2/4] Performing database restore..."
 
 # 3. Remove excluded user data
 echo "[3/4] Removing GDPR-excluded user data..."
-for user_id in $\{EXCLUDED_USERS\}; do
-    echo "Removing data for user: $\{user_id\}"
-    psql -d aragora -c "DELETE FROM user_data WHERE user_id = '$\{user_id\}';"
-    psql -d aragora -c "DELETE FROM debates WHERE creator_id = '$\{user_id\}';"
+for user_id in ${EXCLUDED_USERS}; do
+    echo "Removing data for user: ${user_id}"
+    psql -d aragora -c "DELETE FROM user_data WHERE user_id = '${user_id}';"
+    psql -d aragora -c "DELETE FROM debates WHERE creator_id = '${user_id}';"
     # ... additional tables ...
 done
 
@@ -863,7 +875,7 @@ done
 echo "[4/4] Logging GDPR compliance..."
 curl -X POST http://localhost:8080/api/v2/compliance/gdpr/restoration-audit \
     -H "Content-Type: application/json" \
-    -d "{\"excluded_users\": $(echo $\{EXCLUSIONS\} | jq '.excluded_users'), \"restore_timestamp\": \"$(date -Iseconds)\"}"
+    -d "{\"excluded_users\": $(echo ${EXCLUSIONS} | jq '.excluded_users'), \"restore_timestamp\": \"$(date -Iseconds)\"}"
 
 echo "=== GDPR-Compliant Restore Complete ==="
 ```
@@ -888,18 +900,18 @@ echo "=== Application Rollback ==="
 echo "[1/5] Current deployment status:"
 kubectl rollout history deployment/aragora-api -n aragora
 
-if [ -z "$\{ROLLBACK_REVISION\}" ]; then
+if [ -z "${ROLLBACK_REVISION}" ]; then
     echo "Specify revision to rollback to, or 0 for previous"
     echo "Usage: $0 <revision_number>"
     exit 1
 fi
 
 # 2. Perform rollback
-echo "[2/5] Rolling back to revision $\{ROLLBACK_REVISION\}..."
-if [ "$\{ROLLBACK_REVISION\}" == "0" ]; then
+echo "[2/5] Rolling back to revision ${ROLLBACK_REVISION}..."
+if [ "${ROLLBACK_REVISION}" == "0" ]; then
     kubectl rollout undo deployment/aragora-api -n aragora
 else
-    kubectl rollout undo deployment/aragora-api -n aragora --to-revision=$\{ROLLBACK_REVISION\}
+    kubectl rollout undo deployment/aragora-api -n aragora --to-revision=${ROLLBACK_REVISION}
 fi
 
 # 3. Wait for rollout
@@ -910,7 +922,7 @@ kubectl rollout status deployment/aragora-api -n aragora --timeout=300s
 echo "[4/5] Verifying application health..."
 sleep 10
 HEALTH=$(curl -s http://aragora.aragora.svc.cluster.local:8080/api/health | jq -r '.status')
-if [ "$\{HEALTH\}" != "healthy" ]; then
+if [ "${HEALTH}" != "healthy" ]; then
     echo "WARNING: Application not healthy after rollback"
 fi
 
@@ -934,7 +946,7 @@ TARGET_VERSION="${1:-}"
 
 echo "=== Database Migration Rollback ==="
 
-if [ -z "$\{TARGET_VERSION\}" ]; then
+if [ -z "${TARGET_VERSION}" ]; then
     echo "Current migration version:"
     python -m aragora.db.migrate --version
     echo ""
@@ -951,8 +963,8 @@ kubectl -n aragora set env deployment/aragora-api MAINTENANCE_MODE=true
 sleep 10
 
 # 2. Run downgrade
-echo "[2/4] Rolling back to version $\{TARGET_VERSION\}..."
-python -m aragora.db.migrate --downgrade $\{TARGET_VERSION\}
+echo "[2/4] Rolling back to version ${TARGET_VERSION}..."
+python -m aragora.db.migrate --downgrade ${TARGET_VERSION}
 
 # 3. Verify schema
 echo "[3/4] Verifying schema..."
@@ -978,13 +990,13 @@ set -euo pipefail
 PRIMARY_REGION="us-east-1"
 DR_REGION="us-west-2"
 
-echo "=== Regional Failback: $\{DR_REGION\} -> $\{PRIMARY_REGION\} ==="
+echo "=== Regional Failback: ${DR_REGION} -> ${PRIMARY_REGION} ==="
 
 # 1. Verify primary region is ready
 echo "[1/7] Verifying primary region readiness..."
-kubectl --context $\{PRIMARY_REGION\} get nodes
-PRIMARY_HEALTH=$(curl -s https://aragora.$\{PRIMARY_REGION\}.internal/api/health | jq -r '.status')
-if [ "$\{PRIMARY_HEALTH\}" != "healthy" ]; then
+kubectl --context ${PRIMARY_REGION} get nodes
+PRIMARY_HEALTH=$(curl -s https://aragora.${PRIMARY_REGION}.internal/api/health | jq -r '.status')
+if [ "${PRIMARY_HEALTH}" != "healthy" ]; then
     echo "ERROR: Primary region infrastructure not ready"
     exit 1
 fi
@@ -997,11 +1009,11 @@ echo "[2/7] Synchronizing data..."
 # 3. Switch DNS gradually (canary)
 echo "[3/7] Starting canary traffic shift..."
 aws route53 change-resource-record-sets \
-    --hosted-zone-id $\{ZONE_ID\} \
+    --hosted-zone-id ${ZONE_ID} \
     --change-batch '{
         "Changes": [
-            {"Action": "UPSERT", "ResourceRecordSet": {"Name": "api.aragora.ai", "Type": "A", "SetIdentifier": "'$\{PRIMARY_REGION\}'", "Weight": 10, ...}},
-            {"Action": "UPSERT", "ResourceRecordSet": {"Name": "api.aragora.ai", "Type": "A", "SetIdentifier": "'$\{DR_REGION\}'", "Weight": 90, ...}}
+            {"Action": "UPSERT", "ResourceRecordSet": {"Name": "api.aragora.ai", "Type": "A", "SetIdentifier": "'${PRIMARY_REGION}'", "Weight": 10, ...}},
+            {"Action": "UPSERT", "ResourceRecordSet": {"Name": "api.aragora.ai", "Type": "A", "SetIdentifier": "'${DR_REGION}'", "Weight": 90, ...}}
         ]
     }'
 
@@ -1015,11 +1027,11 @@ echo "[4/7] Checking canary error rates..."
 # 5. Complete traffic shift
 echo "[5/7] Completing traffic shift to primary..."
 aws route53 change-resource-record-sets \
-    --hosted-zone-id $\{ZONE_ID\} \
+    --hosted-zone-id ${ZONE_ID} \
     --change-batch '{
         "Changes": [
-            {"Action": "UPSERT", "ResourceRecordSet": {"Name": "api.aragora.ai", "Type": "A", "SetIdentifier": "'$\{PRIMARY_REGION\}'", "Weight": 100, ...}},
-            {"Action": "UPSERT", "ResourceRecordSet": {"Name": "api.aragora.ai", "Type": "A", "SetIdentifier": "'$\{DR_REGION\}'", "Weight": 0, ...}}
+            {"Action": "UPSERT", "ResourceRecordSet": {"Name": "api.aragora.ai", "Type": "A", "SetIdentifier": "'${PRIMARY_REGION}'", "Weight": 100, ...}},
+            {"Action": "UPSERT", "ResourceRecordSet": {"Name": "api.aragora.ai", "Type": "A", "SetIdentifier": "'${DR_REGION}'", "Weight": 0, ...}}
         ]
     }'
 
@@ -1030,7 +1042,7 @@ echo "[6/7] Reconfiguring DR region as standby..."
 # 7. Update status
 echo "[7/7] Updating status page..."
 curl -X POST https://admin.status.aragora.ai/api/incidents \
-    -H "Authorization: Bearer $\{STATUS_PAGE_TOKEN\}" \
+    -H "Authorization: Bearer ${STATUS_PAGE_TOKEN}" \
     -d '{"status": "resolved", "message": "Failback to primary region complete"}'
 
 echo "=== Regional Failback Complete ==="
@@ -1319,10 +1331,10 @@ curl -s https://api.aragora.ai/api/health | jq .
 curl -s https://api.aragora.ai/api/health/detailed | jq .
 
 # Database connectivity
-psql "$\{DATABASE_URL\}" -c "SELECT 1;"
+psql "${DATABASE_URL}" -c "SELECT 1;"
 
 # Redis connectivity
-redis-cli -u "$\{REDIS_URL\}" PING
+redis-cli -u "${REDIS_URL}" PING
 
 # Kubernetes cluster health
 kubectl get nodes
@@ -1410,7 +1422,7 @@ aws route53 get-health-check-status --health-check-id <id>
 
 # List CloudFlare pool health
 curl -s "https://api.cloudflare.com/client/v4/user/load_balancers/pools" \
-    -H "Authorization: Bearer $\{CF_TOKEN\}" | jq '.result[].healthy'
+    -H "Authorization: Bearer ${CF_TOKEN}" | jq '.result[].healthy'
 ```
 
 ---

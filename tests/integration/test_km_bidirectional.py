@@ -14,10 +14,10 @@ class TestMemoryBidirectional:
 
     def test_memory_to_mound_stores_high_importance(self):
         """Test that high-importance memories are synced to KM."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         # Create high-importance memory event
         event = StreamEvent(
@@ -31,14 +31,14 @@ class TestMemoryBidirectional:
         )
 
         # Should not raise
-        manager._handle_memory_to_mound(event)
+        subscriber._handle_memory_to_mound(event)
 
     def test_memory_to_mound_ignores_low_importance(self):
         """Test that low-importance memories are not synced."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         # Create low-importance memory event
         event = StreamEvent(
@@ -51,14 +51,14 @@ class TestMemoryBidirectional:
         )
 
         # Should not raise and should skip silently
-        manager._handle_memory_to_mound(event)
+        subscriber._handle_memory_to_mound(event)
 
     def test_mound_to_memory_prewarm(self):
         """Test that KM queries trigger memory pre-warming."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.KNOWLEDGE_QUERIED,
@@ -70,7 +70,7 @@ class TestMemoryBidirectional:
         )
 
         # Should not raise
-        manager._handle_mound_to_memory_retrieval(event)
+        subscriber._handle_mound_to_memory_retrieval(event)
 
 
 class TestBeliefBidirectional:
@@ -78,10 +78,10 @@ class TestBeliefBidirectional:
 
     def test_belief_to_mound_stores_converged(self):
         """Test that converged beliefs are stored in KM."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.BELIEF_CONVERGED,
@@ -98,14 +98,14 @@ class TestBeliefBidirectional:
         )
 
         # Should not raise
-        manager._handle_belief_to_mound(event)
+        subscriber._handle_belief_to_mound(event)
 
     def test_mound_to_belief_initializes_priors(self):
         """Test that debate start queries KM for historical cruxes."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.DEBATE_START,
@@ -116,7 +116,7 @@ class TestBeliefBidirectional:
         )
 
         # Should not raise
-        manager._handle_mound_to_belief(event)
+        subscriber._handle_mound_to_belief(event)
 
 
 class TestRlmBidirectional:
@@ -124,10 +124,10 @@ class TestRlmBidirectional:
 
     def test_rlm_to_mound_stores_pattern(self):
         """Test that compression patterns are stored in KM."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.RLM_COMPRESSION_COMPLETE,
@@ -139,14 +139,14 @@ class TestRlmBidirectional:
         )
 
         # Should not raise
-        manager._handle_rlm_to_mound(event)
+        subscriber._handle_rlm_to_mound(event)
 
     def test_rlm_to_mound_ignores_low_value(self):
         """Test that low-value patterns are not stored."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.RLM_COMPRESSION_COMPLETE,
@@ -158,14 +158,14 @@ class TestRlmBidirectional:
         )
 
         # Should not raise
-        manager._handle_rlm_to_mound(event)
+        subscriber._handle_rlm_to_mound(event)
 
     def test_mound_to_rlm_updates_priorities(self):
         """Test that KM queries update RLM priorities."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.KNOWLEDGE_QUERIED,
@@ -177,7 +177,7 @@ class TestRlmBidirectional:
         )
 
         # Should not raise
-        manager._handle_mound_to_rlm(event)
+        subscriber._handle_mound_to_rlm(event)
 
 
 class TestEloBidirectional:
@@ -185,10 +185,10 @@ class TestEloBidirectional:
 
     def test_elo_to_mound_stores_expertise(self):
         """Test that significant ELO changes are stored in KM."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.AGENT_ELO_UPDATED,
@@ -202,14 +202,14 @@ class TestEloBidirectional:
         )
 
         # Should not raise
-        manager._handle_elo_to_mound(event)
+        subscriber._handle_elo_to_mound(event)
 
     def test_elo_to_mound_ignores_small_changes(self):
         """Test that small ELO changes are not stored."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.AGENT_ELO_UPDATED,
@@ -222,14 +222,14 @@ class TestEloBidirectional:
         )
 
         # Should not raise
-        manager._handle_elo_to_mound(event)
+        subscriber._handle_elo_to_mound(event)
 
     def test_mound_to_team_selection(self):
         """Test that debate start queries KM for domain experts."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.DEBATE_START,
@@ -240,7 +240,7 @@ class TestEloBidirectional:
         )
 
         # Should not raise
-        manager._handle_mound_to_team_selection(event)
+        subscriber._handle_mound_to_team_selection(event)
 
 
 class TestInsightsBidirectional:
@@ -248,10 +248,10 @@ class TestInsightsBidirectional:
 
     def test_insight_to_mound_stores_high_confidence(self):
         """Test that high-confidence insights are stored in KM."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.INSIGHT_EXTRACTED,
@@ -264,14 +264,14 @@ class TestInsightsBidirectional:
         )
 
         # Should not raise
-        manager._handle_insight_to_mound(event)
+        subscriber._handle_insight_to_mound(event)
 
     def test_insight_to_mound_ignores_low_confidence(self):
         """Test that low-confidence insights are not stored."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.INSIGHT_EXTRACTED,
@@ -283,14 +283,14 @@ class TestInsightsBidirectional:
         )
 
         # Should not raise
-        manager._handle_insight_to_mound(event)
+        subscriber._handle_insight_to_mound(event)
 
     def test_flip_to_mound_stores_all(self):
         """Test that ALL flip events are stored (meta-learning)."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.FLIP_DETECTED,
@@ -303,14 +303,14 @@ class TestInsightsBidirectional:
         )
 
         # Should not raise
-        manager._handle_flip_to_mound(event)
+        subscriber._handle_flip_to_mound(event)
 
     def test_mound_to_trickster(self):
         """Test that debate start queries KM for flip history."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.DEBATE_START,
@@ -321,7 +321,7 @@ class TestInsightsBidirectional:
         )
 
         # Should not raise
-        manager._handle_mound_to_trickster(event)
+        subscriber._handle_mound_to_trickster(event)
 
 
 class TestCultureBidirectional:
@@ -369,11 +369,15 @@ class TestStalenessBidirectional:
     """Test Staleness ↔ Debate integration."""
 
     def test_staleness_to_debate_warns_active(self):
-        """Test that staleness warnings are checked against active debates."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        """Test that staleness warnings are checked against active debates.
+
+        Relocated from ``CrossSubscriberManager`` (P4a Batch E6): it is
+        server-coupled, now living on ``ServerEventSubscriber``.
+        """
+        from aragora.server.event_subscribers import ServerEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = ServerEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.KNOWLEDGE_STALE,
@@ -385,7 +389,7 @@ class TestStalenessBidirectional:
         )
 
         # Should not raise
-        manager._handle_staleness_to_debate(event)
+        subscriber._handle_staleness_to_debate(event)
 
 
 class TestProvenanceBidirectional:
@@ -393,10 +397,10 @@ class TestProvenanceBidirectional:
 
     def test_provenance_to_mound_stores_verified(self):
         """Test that verified provenance chains are stored."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.CONSENSUS,
@@ -416,14 +420,14 @@ class TestProvenanceBidirectional:
         )
 
         # Should not raise
-        manager._handle_provenance_to_mound(event)
+        subscriber._handle_provenance_to_mound(event)
 
     def test_provenance_to_mound_ignores_no_consensus(self):
         """Test that provenance is not stored without consensus."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.CONSENSUS,
@@ -434,14 +438,14 @@ class TestProvenanceBidirectional:
         )
 
         # Should not raise
-        manager._handle_provenance_to_mound(event)
+        subscriber._handle_provenance_to_mound(event)
 
     def test_mound_to_provenance_queries_history(self):
         """Test that claim verification queries KM for history."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        subscriber = KnowledgeEventSubscriber()
 
         event = StreamEvent(
             type=StreamEventType.CLAIM_VERIFICATION_RESULT,
@@ -453,7 +457,7 @@ class TestProvenanceBidirectional:
         )
 
         # Should not raise
-        manager._handle_mound_to_provenance(event)
+        subscriber._handle_mound_to_provenance(event)
 
 
 class TestRankingAdapter:
@@ -624,10 +628,14 @@ class TestEventTypeRegistration:
 
     def test_handlers_registered(self):
         """Test that all bidirectional handlers are registered."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
-        from aragora.events.types import StreamEventType
+        from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
 
-        manager = CrossSubscriberManager()
+        # Post-E2a the Knowledge Mound reactions self-register from their domain
+        # home; a bare manager no longer builds them in, so bootstrap to wire the
+        # full set before asserting registration. Use the interface-superset
+        # bootstrap (not the domain-subset one) since staleness_to_debate is now
+        # an interface-tier reaction (P4a Batch E6) wired only there.
+        manager = bootstrap_event_subscribers()
 
         # Check handler registrations
         stats = manager.get_stats()

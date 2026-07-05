@@ -56,7 +56,11 @@ try:
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
-    logger.warning("cryptography library not available - encryption disabled")
+    # info, not warning: cryptography is an optional dependency, so a plain
+    # ``pip install aragora`` would otherwise print a scary warning on every
+    # CLI invocation. Actual encryption use without the library still raises
+    # (see EncryptionService.__init__ / EncryptionError at point of use).
+    logger.info("cryptography library not available - encryption disabled")
 
 # Encryption enforcement configuration
 # When True, encryption failures raise exceptions instead of returning plaintext

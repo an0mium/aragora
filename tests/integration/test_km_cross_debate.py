@@ -311,10 +311,10 @@ class TestEventFlowIntegration:
 
     def test_elo_event_triggers_adapter_storage(self):
         """AGENT_ELO_UPDATED event triggers storage in RankingAdapter."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        manager = bootstrap_debate_event_subscribers()
 
         # Create ELO update event
         event = StreamEvent(
@@ -339,10 +339,10 @@ class TestEventFlowIntegration:
 
     def test_belief_convergence_triggers_storage(self):
         """BELIEF_CONVERGED event triggers storage in BeliefAdapter."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        manager = bootstrap_debate_event_subscribers()
 
         # Create belief convergence event
         event = StreamEvent(
@@ -364,10 +364,10 @@ class TestEventFlowIntegration:
 
     def test_insight_extraction_triggers_storage(self):
         """INSIGHT_EXTRACTED event triggers storage in InsightsAdapter."""
-        from aragora.events.cross_subscribers import CrossSubscriberManager
+        from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
         from aragora.events.types import StreamEvent, StreamEventType
 
-        manager = CrossSubscriberManager()
+        manager = bootstrap_debate_event_subscribers()
 
         # Create insight extraction event
         event = StreamEvent(

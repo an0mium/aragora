@@ -1070,3 +1070,46 @@ class TestAgentSelectorGenerateRationale:
         rationale = selector._generate_rationale(agents, coding_task, scored)
         for agent in agents:
             assert agent.name in rationale
+
+
+class TestCheapTierCostFactors:
+    """Cheap-tier (deepseek/qwen/kimi) routing for the predictable-cost posture."""
+
+    def test_cost_factor_map_biases_cheap_below_frontier(self):
+        from aragora.routing.selection import AGENT_COST_FACTORS
+
+        # Cheap tier must be strictly cheaper than frontier subs so the Pareto
+        # optimizer prefers them for routine work.
+        for cheap in ("deepseek", "qwen", "kimi"):
+            assert AGENT_COST_FACTORS[cheap] < AGENT_COST_FACTORS["claude"]
+            assert AGENT_COST_FACTORS[cheap] < AGENT_COST_FACTORS["codex"]
+        assert (
+            AGENT_COST_FACTORS["deepseek"]
+            <= AGENT_COST_FACTORS["qwen"]
+            <= AGENT_COST_FACTORS["kimi"]
+        )
+
+    def test_default_selector_applies_cost_factors_and_registers_cheap_tier(self):
+        from aragora.routing.selection import AGENT_COST_FACTORS, AgentSelector
+
+        selector = AgentSelector.create_with_defaults()
+        pool = selector.agent_pool
+        # qwen is registered alongside the original defaults. Kimi CLI remains
+        # opt-in until its headless contract is verified.
+        for name in ("deepseek", "qwen", "claude", "codex"):
+            assert name in pool, f"{name} not registered"
+            assert pool[name].cost_factor == AGENT_COST_FACTORS.get(name, 1.0)
+        assert "kimi" not in pool
+        # The whole point: a cheap-tier agent is cheaper than a frontier one.
+        assert pool["deepseek"].cost_factor < pool["claude"].cost_factor
+
+    def test_kimi_default_profile_requires_cli_opt_in(self, monkeypatch):
+        from aragora.routing.selection import AGENT_COST_FACTORS, AgentSelector
+
+        monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
+        assert "kimi" not in AgentSelector.create_with_defaults().agent_pool
+
+        monkeypatch.setenv("ARAGORA_ENABLE_KIMI_CLI", "1")
+        pool = AgentSelector.create_with_defaults().agent_pool
+        assert "kimi" in pool
+        assert pool["kimi"].cost_factor == AGENT_COST_FACTORS["kimi"]

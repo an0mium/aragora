@@ -145,7 +145,20 @@ fi
 echo "Latest backup: $LATEST_BACKUP"
 
 # 2. Verify backup age (should be < 24 hours old)
-BACKUP_AGE=$(( ($(date +%s) - $(stat -f %m "$BACKUP_DIR/$LATEST_BACKUP")) / 3600 ))
+backup_mtime() {
+    mtime=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || true)
+    case "$mtime" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    printf '%s\n' "$mtime"
+}
+
+BACKUP_PATH="$BACKUP_DIR/$LATEST_BACKUP"
+BACKUP_MTIME=$(backup_mtime "$BACKUP_PATH") || {
+    echo "ERROR: Could not read backup mtime: $BACKUP_PATH"
+    exit 1
+}
+BACKUP_AGE=$(( ($(date +%s) - BACKUP_MTIME) / 3600 ))
 if [ $BACKUP_AGE -gt 24 ]; then
     echo "WARNING: Backup is $BACKUP_AGE hours old!"
 fi
@@ -720,7 +733,7 @@ async def recover():
     t = await recover_interrupted_transcriptions()
     g = await recover_interrupted_gauntlets()
     r = await recover_interrupted_routing()
-    print(f'Recovered: \{t\} transcriptions, \{g\} gauntlets, \{r\} routing jobs')
+    print(f'Recovered: {t} transcriptions, {g} gauntlets, {r} routing jobs')
 
 asyncio.run(recover())
 "
@@ -809,7 +822,7 @@ Origin data (`aragora/server/debate_origin.py`) maps debates to their source (Sl
        store = get_origin_store()
        # SQLite-backed store
        count = await store.count()
-       print(f'Stored origins: \{count\}')
+       print(f'Stored origins: {count}')
 
    asyncio.run(check())
    "
@@ -838,7 +851,7 @@ Origin data (`aragora/server/debate_origin.py`) maps debates to their source (Sl
                )
                await origin_store.save(origin)
                recovered += 1
-       print(f'Recovered \{recovered\} origins from debate metadata')
+       print(f'Recovered {recovered} origins from debate metadata')
 
    asyncio.run(rebuild())
    "
@@ -933,7 +946,7 @@ import asyncio
 async def recover():
     node = HumanCheckpointNode()
     recovered = await node.recover_pending_approvals()
-    print(f'Recovered \{recovered\} pending approvals')
+    print(f'Recovered {recovered} pending approvals')
 
 asyncio.run(recover())
 "

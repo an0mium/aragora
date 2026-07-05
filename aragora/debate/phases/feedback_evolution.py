@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from aragora.core import Agent
     from aragora.debate.context import DebateContext
-    from aragora.type_protocols import (
+    from aragora.protocols import (
         EloSystemProtocol,
         EventEmitterProtocol,
         PopulationManagerProtocol,

@@ -5,120 +5,105 @@ description: Execution Plan (Next 6 Weeks)
 
 # Execution Plan (Next 6 Weeks)
 
-Last updated: 2026-02-25
-Owner: Platform program (Backend, Frontend, QA, SRE)
-Scope: Operational plan for epistemic hygiene + settlement loop reliability.
+Last updated: 2026-03-22
+Owner: Platform program (Product, Backend, Integrations, QA, SRE)
 
-This plan does not supersede `/docs/status/NEXT_STEPS_CANONICAL.md`. It translates current priorities into a short execution window with measurable gates.
+This is the active short-horizon plan in the agreed priority order.
+It complements (does not replace) `docs/status/NEXT_STEPS_CANONICAL.md`.
 
-## Program Outcomes
+## Priority Order
 
-1. Epistemic hygiene debates produce structured falsifiers, confidence, alternatives, and unknowns by default.
-2. Settlement metadata is captured at decision time, reviewed on schedule, and fed into calibration.
-3. Debate outputs are measured against eventual outcomes with visible quality signals.
-4. Streaming and intervention UX are reliable enough for design-partner usage.
+1. Close the default product loop on current `main`
+2. Make the current proof surfaces truthful by default
+3. Finish the bounded execution operator contract
+4. Run design-partner PMF loops on the real wedges
+5. Expand one truthful workbench/stage-transition slice
+6. Decide scale/iterate/narrow from proof metrics, not page count or backlog volume
 
-## Target KPIs (6-week window)
+## Current Merged Proof Basis
 
-1. Epistemic hygiene gate pass rate in CI: `100%` on main.
-2. Settlement scaffolding coverage in hygiene mode receipts: `>=95%`.
-3. Due-settlement review run success rate: `>=99%`.
-4. Calibration updates from settled outcomes: non-zero on every weekly review run.
-5. Oracle stream stall rate (first-token + inactivity): `<=2%` on monitored environments.
+The next six weeks should be built on what is already merged:
 
-## Execution Order
+1. `#1108` proved the queue can recover and publish a real output.
+2. `#1110` and `#1111` merged the first user-journey and KM retrieval slices onto `main`.
+3. `#1118` and `#1119` made receipts and integrations flows materially more truthful.
+4. `#1124`, `#1126`, `#1127`, `#1133`, and `#1138` materially improved the operator contract for bounded repo execution.
+5. `#1135`, `#1136`, and `#1137` turned OpenClaw dispatch, the public proof surface, and pipeline live state into real wedge components.
 
-### Week 1: Gate and Baseline
+## Week-by-Week Execution
 
-Owner: QA + Platform
+### Week 1: Default Product Loop Closure
 
-1. Add dedicated CI gate for epistemic hygiene + settlement tests.
-2. Establish baseline test timing and failure signatures for that lane.
-3. Record baseline in status docs and CI summary.
-
-Acceptance:
-
-1. Blocking job exists in `.github/workflows/test.yml`.
-2. Gate script exists under `scripts/` and runs locally/CI.
-3. Gate suite passes on branch and on merge to main.
-
-### Week 2: Settlement Capture Hardening
-
-Owner: Backend
-
-1. Enforce normalized settlement metadata in all hygiene-mode receipts.
-2. Ensure production validation rejects incomplete settlement definitions.
-3. Verify settlement metadata propagation in API completed payloads.
+Issue-sized tasks:
+1. Freeze the canonical guided path: credentials/provider setup -> debate -> receipt -> visible result.
+2. Make sure the path uses merged KM retrieval by default and surfaces truthful state at every step.
+3. Publish the exact happy path and the first manual step when the path blocks.
 
 Acceptance:
+1. One canonical default path is documented and dogfooded internally.
+2. The path produces a receipt and a visible result without hidden operator repair.
 
-1. Receipt store snapshots include claim/falsifier/metric/horizon.
-2. Production-mode validation behavior is covered by tests.
-3. Completed payloads include mode + settlement snapshot.
+### Week 2: Truthful Public And Operator Surfaces
 
-### Week 3: Scheduler + Calibration Reliability
-
-Owner: Backend + SRE
-
-1. Harden scheduled review behavior for due and unresolved settlements.
-2. Validate calibration writebacks are idempotent and observable.
-3. Add dashboard-facing status fields for scheduler health.
+Issue-sized tasks:
+1. Remove or truthfully mark any remaining optimistic state on `/demo`, integrations status/edit, receipts, and pipeline live state.
+2. Tighten the bounded-lane operator view so state, evidence, and next action are all authoritative.
+3. Verify remote-head review is the default review target for publishable PRs.
 
 Acceptance:
+1. Core proof surfaces have no known demo-only or misleading states.
+2. Publishable lanes are reviewable from authoritative operator state.
 
-1. Scheduler tests cover due, unresolved, settled, and exception paths.
-2. Calibration updates are emitted exactly once per resolved settlement.
-3. Dashboard endpoint exposes scheduler status and last-run result.
+### Week 3: Bounded Execution Contract
 
-### Week 4: Adversarial Evaluation Layer
-
-Owner: QA + Reasoning
-
-1. Add stress tests for protocol-gaming attempts in hygiene mode.
-2. Add regression fixtures for sycophancy/overconfidence failure modes.
-3. Track score deltas across model/provider mixes.
+Issue-sized tasks:
+1. Ensure completed-lane publish, blocked-lane terminalization, and evidence persistence hold across real runs.
+2. Fill the biggest gaps in per-lane provenance/receipt coverage.
+3. Capture one concise operator handoff format for blocked runs.
 
 Acceptance:
+1. Bounded runs end in deliverable or explicit blocked reason with evidence.
+2. No lane requires manual reconstruction to explain what happened.
 
-1. Red-team test fixtures are in CI.
-2. Gate fails when compliance regressions cross thresholds.
-3. Artifact includes per-model epistemic compliance summary.
+### Week 4: Design Partner Pilot Start
 
-### Week 5: Product Surface Tightening
-
-Owner: Frontend + Backend
-
-1. Surface unresolved cruxes and settlement state in debate/outcome UI.
-2. Add operator controls for stale streams and settlement review visibility.
-3. Ensure intervention + settlement UX is coherent in live debate flow.
+Issue-sized tasks:
+1. Pick 3-5 partners matched to one of the real wedges: trust wedge, public proof/review, or swarm/OpenClaw.
+2. Run one guided activation session per partner on a real artifact.
+3. Start a weekly PMF scorecard and proof log per partner.
 
 Acceptance:
+1. Every partner has one bounded recurring workflow chosen.
+2. First-week receipts, overrides, or bounded-lane outcomes are captured in scorecards.
 
-1. Outcome dashboard shows settlement lifecycle status.
-2. Live debate view shows mode + settlement metadata when present.
-3. E2E checks cover intervention and stream recovery paths.
+### Week 5: Five Functional Paths + Workbench Slice
 
-### Week 6: Release Readiness and Rollout
-
-Owner: Platform + SRE
-
-1. Run full gate bundle with release-grade configuration.
-2. Publish operational runbook for hygiene + settlement incidents.
-3. Freeze acceptance criteria and promote to default program lane.
+Issue-sized tasks:
+1. Keep reducing shell-heavy product surfaces by focusing on five functional paths.
+2. Extend one stage-transition/workbench slice so it is live, reviewable, and tied to real execution state.
+3. Tie workbench state back to canonical receipts/provenance rather than separate demo data.
 
 Acceptance:
+1. Five core paths are usable enough for weekly dogfood.
+2. At least one stage transition is truthfully represented in the UI.
 
-1. All related gates green for release candidate.
-2. Runbook is linked from status docs and on-call docs.
-3. Program KPIs captured in weekly status update.
+### Week 6: PMF Decision Gate
 
-## Risks and Mitigations
+Issue-sized tasks:
+1. Review six weeks of wedge metrics and partner scorecards.
+2. Decide whether to scale, iterate, or narrow each wedge.
+3. Promote the successful proof metrics into the default product/program dashboard.
 
-1. Risk: Gate flakiness from slow tests.
-Mitigation: Keep lane focused and marker-filtered; isolate from e2e/load classes.
+Acceptance:
+1. The next six-week plan is generated from measured repeatability and truthfulness.
+2. Any wedge that is not repeating gets explicitly narrowed instead of hand-waved forward.
 
-2. Risk: Settlement outcomes remain unresolved.
-Mitigation: Keep explicit unresolved state, scheduled retries, and operator reporting.
+## CI/Gate Commands (Required Weekly)
 
-3. Risk: Persuasion-optimized outputs pass structure checks but fail substance.
-Mitigation: Add adversarial fixtures and outcome-based calibration feedback.
+1. `python scripts/reconcile_status_docs.py --strict --output /tmp/reconciliation_report.md`
+2. `python scripts/check_version_alignment.py`
+3. `python scripts/check_agent_registry_sync.py`
+4. `python scripts/check_connector_exception_handling.py`
+5. `python scripts/check_self_host_compose.py`
+6. `python scripts/check_pentest_findings.py`
+7. `bash scripts/run_offline_golden_path.sh`

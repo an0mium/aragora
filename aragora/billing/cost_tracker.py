@@ -33,7 +33,7 @@ from aragora.billing.usage import (
 
 # Import Prometheus metrics for cost tracking
 try:
-    from aragora.server.prometheus import record_cost_usd
+    from aragora.observability.prometheus import record_cost_usd
 
     PROMETHEUS_AVAILABLE = True
 except ImportError:
@@ -603,7 +603,7 @@ class CostTracker:
         # Emit stream event for real-time budget monitoring
         if self._event_emitter:
             try:
-                from aragora.server.stream.events import StreamEvent, StreamEventType
+                from aragora.events.types import StreamEvent, StreamEventType
 
                 self._event_emitter.emit(
                     StreamEvent(

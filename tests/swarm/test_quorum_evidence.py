@@ -13,7 +13,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import multiprocessing
 import os
+import queue
+import signal
 import subprocess
 import threading
 import time
@@ -35,6 +38,14 @@ from aragora.swarm.quorum_evidence import (
 
 HEAD = "49a979d587f910aaad4fb0f0bed708dd48c97c35"
 COMMITTED = "2026-06-04T09:57:49-05:00"
+
+
+@pytest.fixture(autouse=True)
+def _enable_tiered_gate(monkeypatch):
+    # This module exercises the opt-in tiered merge gate, so enable it by default.
+    # The production default is OFF (strict 2-distinct-family); tests that assert
+    # that strict default set ARAGORA_ENABLE_TIERED_MERGE_GATE="0" explicitly.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
 
 
 # --- decide_action (tier gating) -------------------------------------------
@@ -306,13 +317,18 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
         raise subprocess.TimeoutExpired(cmd=args[0], timeout=timeout)
 
     monkeypatch.setenv(qe._CLAUDE_TIMEOUT_ENV, "7")
+    monkeypatch.setenv(qe._CLI_PROBE_TIMEOUT_ENV, "0")  # isolate the real-review timeout
     monkeypatch.setattr(qe.subprocess, "run", fake_run)
 
     result = qe._run_claude_cli("review prompt")
 
-    assert seen["args"] == (
-        ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}'],
-    )
+    argv = seen["args"][0]
+    assert argv[:2] == ["claude", "-p"]
+    assert "--strict-mcp-config" in argv
+    assert "--mcp-config" in argv
+    mcp_config = Path(argv[argv.index("--mcp-config") + 1])
+    assert mcp_config.name.endswith(".json")
+    assert str(mcp_config) != '{"mcpServers":{}}'
     assert seen["timeout"] == 7.0
     assert result == ReviewerResult(
         "claude",
@@ -322,12 +338,34 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
+def test_run_claude_cli_uses_file_backed_mcp_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(args, **_kwargs):
+        config_arg = args[args.index("--mcp-config") + 1]
+        config_path = Path(config_arg)
+        seen["config_arg"] = config_arg
+        seen["exists_during_run"] = config_path.exists()
+        seen["config_payload"] = json.loads(config_path.read_text(encoding="utf-8"))
+        return subprocess.CompletedProcess(args, 0, stdout="Verdict: PASS\n", stderr="")
+
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_claude_cli("review prompt")
+
+    config_path = Path(str(seen["config_arg"]))
+    assert seen["exists_during_run"] is True
+    assert seen["config_payload"] == {"mcpServers": {}}
+    assert not config_path.exists()
+    assert result == ReviewerResult("claude", "Verdict: PASS", True)
+
+
 def test_claude_reviewer_command_disables_mcp() -> None:
-    cmd = qe._claude_reviewer_command()
+    cmd = qe._claude_reviewer_command(Path("/tmp/empty-mcp.json"))
 
     assert cmd[:2] == ["claude", "-p"]
     assert "--mcp-config" in cmd
-    assert cmd[cmd.index("--mcp-config") + 1] == '{"mcpServers":{}}'
+    assert cmd[cmd.index("--mcp-config") + 1] == "/tmp/empty-mcp.json"
     assert "--strict-mcp-config" in cmd
 
 
@@ -1002,6 +1040,290 @@ def test_collect_runs_reviewers_concurrently() -> None:
     assert outcome.failures == []
 
 
+def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None:
+    fakes, posted = _fakes(tier=0)
+
+    def runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "claude":
+            return ReviewerResult(family, "Verdict: PASS from claude", True)
+        time.sleep(1.5)
+        return ReviewerResult(family, "Verdict: PASS from grok", True)
+
+    fakes["reviewer_runner"] = runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=0.2,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timeout is True
+    assert outcome.timed_out_families == ["grok"]
+    assert outcome.action == "prepare"
+    assert "reviewer orchestration timeout" in outcome.action_reason
+    assert [item.family for item in outcome.items] == ["claude"]
+    assert [failure.family for failure in outcome.failures] == ["grok"]
+    assert posted == []
+
+
+def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("process-supervised timeout regression requires fork context")
+    fakes, posted = _fakes(tier=0)
+
+    def runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "claude":
+            return ReviewerResult(family, "Verdict: PASS from claude", True)
+        time.sleep(10)
+        return ReviewerResult(family, "Verdict: PASS from grok", True)
+
+    fakes["reviewer_runner"] = runner
+    started_at = time.monotonic()
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=0.05,
+        **fakes,
+    )
+    elapsed = time.monotonic() - started_at
+
+    assert elapsed < 1.0
+    assert outcome.orchestration_timeout is True
+    assert outcome.timed_out_families == ["grok"]
+    assert outcome.action == "prepare"
+    assert posted == []
+
+
+def test_overall_timeout_reaps_finished_reviewer_before_deadline_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    closed: list[str] = []
+
+    class FinishedProcess:
+        pid = 12345
+
+        def is_alive(self) -> bool:
+            return False
+
+        def join(self, timeout: float | None = None) -> None:
+            return None
+
+    def start_worker(ctx, reviewer_runner, family: str, prompt: str) -> qe._ReviewerWorker:
+        result_queue: queue.Queue[ReviewerResult] = queue.Queue(maxsize=1)
+        result_queue.put(ReviewerResult(family, f"Verdict: PASS from {family}", True))
+        return qe._ReviewerWorker(
+            family=family,
+            process=FinishedProcess(),
+            result_queue=result_queue,
+        )
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: object())
+    monkeypatch.setattr(qe, "_start_reviewer_worker", start_worker)
+    monkeypatch.setattr(qe, "_close_reviewer_worker", lambda worker: closed.append(worker.family))
+
+    results, timed_out = qe._run_reviewers_with_overall_timeout(
+        reviewer_runner=lambda family, prompt: ReviewerResult(family, "", True),
+        prompt="review prompt",
+        families=["claude"],
+        overall_timeout_seconds=0.0,
+    )
+
+    assert timed_out == []
+    assert results["claude"].ok is True
+    assert closed == ["claude"]
+
+
+def test_reviewer_process_context_avoids_fork_from_threaded_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested: list[str | None] = []
+
+    monkeypatch.setattr(qe.threading, "active_count", lambda: 2)
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["fork", "spawn"])
+
+    def fake_get_context(method: str | None = None) -> object:
+        requested.append(method)
+        return object()
+
+    monkeypatch.setattr(qe.multiprocessing, "get_context", fake_get_context)
+
+    qe._reviewer_process_context()
+
+    assert requested == ["spawn"]
+
+
+def test_reviewer_process_context_fails_closed_when_only_fork_is_available_in_threaded_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(qe.threading, "active_count", lambda: 2)
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["fork"])
+
+    with pytest.raises(RuntimeError, match="cannot safely fork reviewer workers"):
+        qe._reviewer_process_context()
+
+
+def test_start_reviewer_worker_is_not_daemon_so_api_fallback_can_spawn_children() -> None:
+    created: dict[str, object] = {}
+
+    class FakeQueue:
+        pass
+
+    class FakeProcess:
+        def __init__(self, *, target, args, daemon) -> None:
+            created["target"] = target
+            created["args"] = args
+            created["daemon"] = daemon
+
+        def start(self) -> None:
+            created["started"] = True
+
+    class FakeContext:
+        def Queue(self, maxsize: int) -> FakeQueue:
+            assert maxsize == 1
+            return FakeQueue()
+
+        def Process(self, *, target, args, daemon) -> FakeProcess:
+            return FakeProcess(target=target, args=args, daemon=daemon)
+
+    worker = qe._start_reviewer_worker(
+        FakeContext(),
+        lambda family, prompt: ReviewerResult(family, prompt, True),
+        "grok",
+        "review prompt",
+    )
+
+    assert worker.family == "grok"
+    assert created["started"] is True
+    assert created["daemon"] is False
+
+
+def test_reviewer_process_worker_creates_posix_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "setsid"):
+        pytest.skip("process-group isolation is POSIX-only")
+    events: list[str] = []
+
+    class FakeQueue:
+        def put(self, result: ReviewerResult) -> None:
+            events.append(f"put:{result.family}:{result.ok}")
+
+    monkeypatch.setattr(qe.os, "setsid", lambda: events.append("setsid"), raising=False)
+    monkeypatch.setattr(
+        qe.multiprocessing,
+        "current_process",
+        lambda: SimpleNamespace(name="ForkProcess-1"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_reviewer_with_infra_retry",
+        lambda runner, family, prompt: ReviewerResult(family, "Verdict: PASS", True),
+    )
+
+    qe._reviewer_process_worker(
+        lambda family, prompt: ReviewerResult(family, prompt, True),
+        "grok",
+        "review prompt",
+        FakeQueue(),
+    )
+
+    assert events == ["setsid", "put:grok:True"]
+
+
+def test_terminate_reviewer_worker_signals_posix_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "killpg"):
+        pytest.skip("process-group termination is POSIX-only")
+    events: list[tuple[str, int, int] | tuple[str, float]] = []
+
+    class FakeQueue:
+        def close(self) -> None:
+            pass
+
+        def join_thread(self) -> None:
+            pass
+
+    class FakeProcess:
+        pid = 4242
+
+        def __init__(self) -> None:
+            self.alive = True
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+        def join(self, timeout: float) -> None:
+            events.append(("join", timeout))
+
+        def terminate(self) -> None:
+            raise AssertionError("process-group cleanup should not fall back first")
+
+        def kill(self) -> None:
+            raise AssertionError("hard kill should not be needed after SIGTERM")
+
+    fake_process = FakeProcess()
+
+    def fake_killpg(pid: int, sig: int) -> None:
+        events.append(("killpg", pid, sig))
+        fake_process.alive = False
+
+    monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
+    qe._terminate_reviewer_worker(
+        qe._ReviewerWorker("grok", fake_process, FakeQueue())  # type: ignore[arg-type]
+    )
+
+    assert events == [("killpg", 4242, signal.SIGTERM), ("join", qe._REVIEWER_CLEANUP_TIMEOUT)]
+
+
+def test_signal_reviewer_process_group_falls_back_when_group_missing_but_process_alive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "killpg"):
+        pytest.skip("process-group termination is POSIX-only")
+
+    class FakeProcess:
+        pid = 4242
+
+        def is_alive(self) -> bool:
+            return True
+
+    def fake_killpg(pid: int, sig: int) -> None:
+        raise ProcessLookupError(pid)
+
+    monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
+
+    assert qe._signal_reviewer_process_group(FakeProcess(), signal.SIGTERM) is False  # type: ignore[arg-type]
+
+
+def test_read_reviewer_worker_result_waits_briefly_for_queue_feeder() -> None:
+    events: list[str] = []
+
+    class FakeQueue:
+        def get_nowait(self) -> ReviewerResult:
+            events.append("get_nowait")
+            raise queue.Empty
+
+        def get(self, timeout: float) -> ReviewerResult:
+            events.append(f"get:{timeout}")
+            return ReviewerResult("grok", "Verdict: PASS", True)
+
+    result = qe._read_reviewer_worker_result(
+        qe._ReviewerWorker("grok", SimpleNamespace(), FakeQueue())  # type: ignore[arg-type]
+    )
+
+    assert result.ok is True
+    assert result.family == "grok"
+    assert events == ["get_nowait", f"get:{qe._REVIEWER_RESULT_QUEUE_TIMEOUT}"]
+
+
 def test_collect_preserves_family_order_despite_completion_order() -> None:
     # The first-requested reviewer (claude) finishes last; items must still be
     # ordered by the caller's requested family order, not by completion.
@@ -1195,14 +1517,232 @@ def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
     assert outcome.quorum_rerun is None
 
 
+def test_collect_severity_gated_p2_only_dissent_is_advisory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    fakes, posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\n- [P2] Add a follow-up smoke test.",
+                True,
+            )
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "openai", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert outcome.action == "post"
+    assert outcome.dissenting_families == []
+    assert sorted(outcome.supportive_families) == ["claude", "openai"]
+    assert sorted(outcome.posted) == ["claude", "openai"]
+    assert all("changes-requested" not in body.lower() for _repo, body in posted)
+
+
+def test_collect_severity_gated_finding_free_changes_requested_is_advisory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    fakes, posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\nNeeds another look before merge.",
+                True,
+            )
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "openai", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert outcome.action == "post"
+    assert outcome.dissenting_families == []
+    assert sorted(outcome.supportive_families) == ["claude", "openai"]
+    assert sorted(outcome.posted) == ["claude", "openai"]
+    assert all("changes-requested" not in body.lower() for _repo, body in posted)
+
+
+def test_collect_preflight_transport_retries_then_fails_closed_without_reviewers() -> None:
+    attempts = 0
+    reviewer_calls: list[str] = []
+    fakes, posted = _fakes(tier=1)
+
+    def flaky_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("error connecting to api.github.com")
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        reviewer_calls.append(family)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["context_fetcher"] = flaky_context_fetcher
+    fakes["reviewer_runner"] = reviewer_runner
+
+    with pytest.raises(qe.CollectPreflightTransportError) as raised:
+        collect_evidence(
+            repo="o/r",
+            pr=1,
+            families=["claude", "grok"],
+            author="me",
+            apply=True,
+            **fakes,
+        )
+
+    assert attempts == 2
+    assert reviewer_calls == []
+    assert posted == []
+    payload = raised.value.to_dict()
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+    assert payload["preserve_no_mutate"] is True
+    assert payload["phase"] == "preflight_pr_context"
+    assert payload["posted_families"] == []
+    assert payload["items"] == []
+    assert payload["failures"] == []
+
+
+def test_collect_preflight_timeout_message_is_transport_error() -> None:
+    assert qe._is_preflight_context_transport_error(
+        RuntimeError("gh pr view 1 timed out after 30s")
+    )
+
+
+def test_collect_preflight_raw_timeout_exception_is_transport_blocked() -> None:
+    attempts = 0
+
+    def timeout_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise subprocess.TimeoutExpired(["gh", "pr", "view", str(pr)], timeout=30)
+
+    with pytest.raises(qe.CollectPreflightTransportError) as raised:
+        qe._fetch_preflight_context(
+            "o/r",
+            1,
+            timeout_context_fetcher,
+            attempts=2,
+            retry_delay_seconds=0,
+        )
+
+    assert attempts == 2
+    payload = raised.value.to_dict()
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+
+
+def test_collect_preflight_non_github_timeout_message_is_not_transport_error() -> None:
+    attempts = 0
+
+    def logic_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("policy parser timed out after reading an invalid fixture")
+
+    with pytest.raises(RuntimeError, match="policy parser timed out"):
+        qe._fetch_preflight_context(
+            "o/r",
+            1,
+            logic_context_fetcher,
+            attempts=2,
+            retry_delay_seconds=0,
+        )
+
+    assert attempts == 1
+
+
+def test_collect_preflight_transport_retry_can_recover_and_run_reviewers() -> None:
+    attempts = 0
+    reviewer_calls: list[str] = []
+    fakes, posted = _fakes(tier=1)
+
+    def flaky_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("error connecting to api.github.com")
+        return {"head_sha": HEAD, "head_committed_at": COMMITTED}
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        reviewer_calls.append(family)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["context_fetcher"] = flaky_context_fetcher
+    fakes["reviewer_runner"] = reviewer_runner
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert attempts >= 2
+    assert sorted(reviewer_calls) == ["claude", "grok"]
+    assert outcome.action == "post"
+    assert sorted(outcome.posted) == ["claude", "grok"]
+    assert len(posted) == 2
+
+
+def test_evidence_item_dissenting_uses_captured_outcome_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    item = EvidenceItem(
+        "grok",
+        "Verdict: CHANGES-REQUESTED\n- [P2] advisory follow-up",
+        False,
+        [],
+        [],
+        "changes_requested",
+    )
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="prepared",
+        items=[item],
+    )
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "0")
+
+    assert outcome.items[0].dissenting is False
+    assert outcome.dissenting_families == []
+
+
 def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> None:
+    # Tiered gate: a lone NON-western-frontier supportive (qwen) does NOT satisfy
+    # Tier 1, so apply still prepares-only (no cheap-model-alone settlement).
     fakes, posted = _fakes(tier=1)
     calls: list[tuple[str, int]] = []
 
     def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            return ReviewerResult("grok", "Verdict: inconclusive\n- unsure", True)
-        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+        if family == "claude":
+            return ReviewerResult("claude", "Verdict: inconclusive\n- unsure", True)
+        return ReviewerResult("qwen", "Verdict: PASS\n- no blockers", True)
 
     def quorum_reconciler(repo: str, pr: int) -> dict:
         calls.append((repo, pr))
@@ -1212,7 +1752,7 @@ def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> 
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
-        families=["claude", "grok"],
+        families=["claude", "qwen"],
         author="me",
         apply=True,
         quorum_reconciler=quorum_reconciler,
@@ -1221,33 +1761,36 @@ def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> 
 
     assert outcome.action == "prepare"
     assert "supportive quorum incomplete" in outcome.action_reason
-    assert outcome.supportive_families == ["claude"]
+    assert outcome.supportive_families == ["qwen"]
     assert posted == []
     assert calls == []
     assert outcome.quorum_rerun is None
 
 
-def test_collect_success_requires_two_supportive_reviewers() -> None:
+def test_collect_tier1_lone_cheap_signal_is_not_supportive_quorum() -> None:
+    # Tiered gate: Tier 1 settles on ONE western-frontier signal. A lone cheap
+    # (non-WF) supportive — even though it counts — is NOT a supportive quorum,
+    # so a cheap model can never solely authorize a low-tier merge.
     fakes, _posted = _fakes(tier=1)
 
     def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            return ReviewerResult("grok", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
-        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+        if family == "claude":
+            return ReviewerResult("claude", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
+        return ReviewerResult("qwen", "Verdict: PASS\n- no blockers", True)
 
     fakes["reviewer_runner"] = reviewer_runner
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
-        families=["claude", "grok"],
+        families=["claude", "qwen"],
         author="me",
         apply=False,
         **fakes,
     )
 
-    assert outcome.counting_families == ["claude", "grok"]
-    assert outcome.supportive_families == ["claude"]
-    assert outcome.dissenting_families == ["grok"]
+    assert outcome.counting_families == ["claude", "qwen"]
+    assert outcome.supportive_families == ["qwen"]
+    assert outcome.dissenting_families == ["claude"]
     assert outcome.has_supportive_quorum is False
 
 
@@ -1475,18 +2018,21 @@ def test_collect_carries_reviewer_harness_into_comment() -> None:
 
 
 def test_collect_never_fabricates_on_reviewer_failure() -> None:
+    # A failed reviewer's vote is never fabricated. With the western-frontier
+    # reviewer (claude) down and only a cheap survivor (qwen), Tier 1 stays
+    # unsatisfied -> prepare, no post.
     fakes, posted = _fakes(tier=1)
 
     def failing_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            return ReviewerResult("grok", "", False, "timeout")
-        return ReviewerResult(family, "Verdict: PASS from claude", True)
+        if family == "claude":
+            return ReviewerResult("claude", "", False, "timeout")
+        return ReviewerResult(family, "Verdict: PASS from qwen", True)
 
     fakes["reviewer_runner"] = failing_runner
     outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+        repo="o/r", pr=1, families=["claude", "qwen"], author="me", apply=True, **fakes
     )
-    assert [f.family for f in outcome.failures] == ["grok"]
+    assert [f.family for f in outcome.failures] == ["claude"]
     assert outcome.action == "prepare"
     assert "supportive quorum incomplete" in outcome.action_reason
     assert outcome.posted == []
@@ -1506,9 +2052,11 @@ def test_collect_does_not_post_uncountable_evidence() -> None:
 
 
 def test_collect_rejects_unsupported_family() -> None:
+    # Survivor is a cheap (non-WF) family, so even after rejecting the bogus
+    # family the Tier-1 western-frontier bar is unmet -> prepare.
     fakes, posted = _fakes(tier=1)
     outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "bogus"], author="me", apply=True, **fakes
+        repo="o/r", pr=1, families=["qwen", "bogus"], author="me", apply=True, **fakes
     )
     assert "bogus" in [f.family for f in outcome.failures]
     assert outcome.action == "prepare"
@@ -1792,7 +2340,12 @@ def _prepared_body(family: str, verdict: str = "PASS") -> str:
     return f"Verdict: {verdict}\n\n{family} body\n"
 
 
-def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None) -> Path:
+def _prepared_outcome_file(
+    tmp_path,
+    *,
+    items: list[EvidenceItem] | None = None,
+    adjudication: dict | None = None,
+) -> Path:
     outcome = CollectOutcome(
         repo="o/r",
         pr=1,
@@ -1806,6 +2359,7 @@ def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None)
             EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
             EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
         ],
+        adjudication=adjudication,
     )
     path = tmp_path / "prepared.json"
     path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
@@ -1850,6 +2404,175 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert "without reviewer regeneration" in outcome.action_reason
     assert outcome.posted == ["claude", "grok"]
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
+
+
+def test_apply_prepared_evidence_recomputes_exact_head_adjudication(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_REVIEW_ADJUDICATOR", "1")
+    stale_adjudication = {"kind": "review_adjudication.v1", "verdict": "adjudicated_settle"}
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem(
+                "openai",
+                "Verdict: CHANGES-REQUESTED\n"
+                "- [P1] aragora/swarm/quorum_evidence.py:2679 preserves stale "
+                "prepared adjudication after fresh lint rejects the reviewer.",
+                False,
+                [],
+                [],
+                "changes_requested",
+            ),
+        ],
+        adjudication=stale_adjudication,
+    )
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "openai"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=lambda *args, **kwargs: (
+            {"would_count": True, "counted_reviewer_ids": ["claude"], "problems": []}
+            if "claude body" in args[4]
+            else {"would_count": False, "counted_reviewer_ids": [], "problems": []}
+        ),
+        poster=lambda repo, pr, body: None,
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.supportive_families == ["claude"]
+    assert outcome.dissenting_families == ["openai"]
+    assert outcome.adjudication is not None
+    assert outcome.adjudication["verdict"] == "adjudicated_block"
+    assert outcome.adjudication["verdict"] != stale_adjudication["verdict"]
+    assert outcome.adjudication["blocking_findings"]
+
+
+def test_collect_outcome_tiered_gate_roundtrips() -> None:
+    # The gate regime an artifact was prepared under must survive serialization so
+    # the settlement bar cannot silently change between prepare and apply (#8507 P1).
+    for gate in (True, False):
+        outcome = CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="x",
+            tiered_gate=gate,
+        )
+        assert outcome.to_dict()["tiered_gate"] is gate
+        assert qe.collect_outcome_from_dict(outcome.to_dict()).tiered_gate is gate
+
+
+def test_collect_outcome_missing_tiered_gate_fails_closed(monkeypatch) -> None:
+    # Legacy prepared artifacts predate the serialized gate regime. Treat them as
+    # strict-gate artifacts rather than inheriting a relaxed live environment.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="legacy",
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tiered_gate=True,
+    )
+    data = outcome.to_dict()
+    data.pop("tiered_gate")
+
+    rehydrated = qe.collect_outcome_from_dict(data)
+
+    assert rehydrated.tiered_gate is False
+    assert rehydrated.has_supportive_quorum is False
+
+
+def _apply_single_wf(path, monkeypatch, *, flag: str, posted: list) -> "qe.CollectOutcome":
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", flag)
+    return qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=path,
+        author="me",
+        apply=True,
+        families=["claude"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 1,
+        linter=lambda *a, **k: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        poster=lambda r, p, b: posted.append(b),
+    )
+
+
+def _single_wf_artifact(tmp_path, *, tiered_gate: bool):
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="prepared",
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tiered_gate=tiered_gate,
+    )
+    path = tmp_path / f"prepared_{tiered_gate}.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    return path
+
+
+def test_apply_strict_artifact_not_relaxed_by_live_flag(tmp_path, monkeypatch) -> None:
+    # Artifact prepared under the STRICT gate (tiered_gate=False) with a lone
+    # western-frontier signal. Flipping the relaxing flag ON between prepare and apply
+    # must NOT make it postable: apply-time evaluates under min(prepared, live) =
+    # strict, so Tier 1 still needs two families. It degrades to "prepare" — never a
+    # hard error, so there is no inconsistent-authority / DoS window (#8507 grok+claude P1).
+    path = _single_wf_artifact(tmp_path, tiered_gate=False)
+    posted: list = []
+    outcome = _apply_single_wf(path, monkeypatch, flag="1", posted=posted)
+    assert outcome.action == "prepare"
+    assert outcome.tiered_gate is False  # effective regime = strict (min of False, True)
+    assert "quorum incomplete" in outcome.action_reason
+    assert posted == []
+
+
+def test_apply_relaxed_artifact_restricted_when_operator_reverts_flag(
+    tmp_path, monkeypatch
+) -> None:
+    # A relaxed-prepared artifact (tiered_gate=True, lone WF signal) is re-evaluated
+    # under STRICT rules if the operator later turns the relaxation OFF — the flag is
+    # the operator's revocable approval point. min(True, False) = strict → Tier 1
+    # needs two families → degrades to prepare, lone signal not posted (#8507 claude P1).
+    path = _single_wf_artifact(tmp_path, tiered_gate=True)
+    posted: list = []
+    outcome = _apply_single_wf(path, monkeypatch, flag="0", posted=posted)
+    assert outcome.action == "prepare"
+    assert outcome.tiered_gate is False  # effective regime = strict (min of True, False)
+    assert posted == []
+
+
+def test_apply_relaxed_artifact_posts_when_both_regimes_relaxed(tmp_path, monkeypatch) -> None:
+    # When BOTH the prepare-time and live regimes permit relaxation, a single
+    # western-frontier signal settles Tier 1 and is posted (min(True, True) = relaxed).
+    path = _single_wf_artifact(tmp_path, tiered_gate=True)
+    posted: list = []
+    outcome = _apply_single_wf(path, monkeypatch, flag="1", posted=posted)
+    assert outcome.action == "post"
+    assert outcome.tiered_gate is True
+    assert posted == [_prepared_body("claude")]
 
 
 def test_apply_prepared_evidence_rederives_verdict_from_body(tmp_path) -> None:
@@ -1919,19 +2642,32 @@ def test_apply_prepared_evidence_uses_fresh_lint_counting(tmp_path) -> None:
     )
 
     assert outcome.action == "prepare"
-    assert "supportive quorum incomplete (0/2)" in outcome.action_reason
+    # Tier 1: the bar is one western-frontier signal, not "2 distinct families",
+    # so the reason names the WF requirement rather than a misleading "(0/2)".
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert "western-frontier" in outcome.action_reason
+    assert "/2" not in outcome.action_reason
     assert outcome.supportive_families == []
     assert outcome.posted == []
     assert posted == []
 
 
 def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
-    prepared = _prepared_outcome_file(tmp_path)
+    # A prepared grok item whose fresh lint resolves to a different family
+    # (openai) is de-counted on identity mismatch. The matching survivor here is
+    # a cheap (non-WF) family so Tier 1 stays unsatisfied -> prepare.
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("qwen", _prepared_body("qwen"), True, ["qwen"], [], "pass"),
+            EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
+        ],
+    )
     posted: list[tuple[str, str]] = []
 
     def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
-        family = "claude" if "claude body" in body else "grok"
-        counted = ["claude"] if family == "claude" else ["openai"]
+        family = "qwen" if "qwen body" in body else "grok"
+        counted = ["qwen"] if family == "qwen" else ["openai"]
         return {
             "would_count": True,
             "counted_reviewer_ids": counted,
@@ -1944,7 +2680,7 @@ def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
         prepared_json=prepared,
         author="me",
         apply=True,
-        families=["claude", "grok"],
+        families=["qwen", "grok"],
         context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
         tier_fetcher=lambda repo, pr: 1,
         linter=linter,
@@ -1953,8 +2689,10 @@ def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
 
     grok_item = next(item for item in outcome.items if item.family == "grok")
     assert outcome.action == "prepare"
-    assert "supportive quorum incomplete (1/2)" in outcome.action_reason
-    assert outcome.supportive_families == ["claude"]
+    # Lone surviving supportive is cheap (qwen, non-WF) at Tier 1 -> the reason
+    # names the western-frontier requirement, not a misleading "(1/2)".
+    assert "western-frontier" in outcome.action_reason
+    assert outcome.supportive_families == ["qwen"]
     assert not grok_item.would_count
     assert (
         "fresh lint counted reviewer ids do not include prepared family: grok" in grok_item.problems
@@ -2048,7 +2786,10 @@ def test_apply_prepared_evidence_honors_requested_family_allowlist(tmp_path) -> 
 
 
 def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
-    prepared = _prepared_outcome_file(tmp_path)
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        adjudication={"kind": "review_adjudication.v1", "verdict": "adjudicated_settle"},
+    )
     posted: list[tuple[str, str]] = []
 
     def context_fetcher(repo: str, pr: int) -> dict:
@@ -2072,6 +2813,8 @@ def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
 
     assert outcome.action == "prepare"
     assert "prepared head" in outcome.action_reason
+    assert outcome.adjudication is None
+    assert "adjudication" not in outcome.to_dict()
     assert outcome.posted == []
     assert posted == []
 
@@ -2103,6 +2846,54 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     )
     assert rc == 0
     assert "collect_evidence" in capsys.readouterr().out
+
+
+def test_run_collect_cli_scopes_timeout_env_overrides(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setenv(qe._CLAUDE_TIMEOUT_ENV, "111")
+    monkeypatch.delenv(qe._CODEX_TIMEOUT_ENV, raising=False)
+    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        captured.update(kwargs)
+        captured["claude_timeout"] = qe.os.environ.get(qe._CLAUDE_TIMEOUT_ENV)
+        captured["codex_timeout"] = qe.os.environ.get(qe._CODEX_TIMEOUT_ENV)
+        captured["reviewer_timeout"] = qe.os.environ.get(qe._REVIEWER_TIMEOUT_ENV)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="dry run",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=False,
+        json_output=False,
+        reviewer_timeout_seconds=90,
+        overall_timeout_seconds=150,
+    )
+
+    assert rc == 0
+    assert captured["overall_timeout_seconds"] == 150.0
+    assert captured["claude_timeout"] == "90"
+    assert captured["codex_timeout"] == "90"
+    assert captured["reviewer_timeout"] == "90"
+    assert qe.os.environ.get(qe._CLAUDE_TIMEOUT_ENV) == "111"
+    assert qe.os.environ.get(qe._CODEX_TIMEOUT_ENV) is None
+    assert qe.os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
 
 
 def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:
@@ -2170,6 +2961,30 @@ def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
     assert rc == 1
 
 
+def test_run_collect_cli_timeout_returns_failure_even_with_supportive_quorum(monkeypatch) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=0,
+            action="prepare",
+            action_reason="reviewer orchestration timeout; prepared only",
+            items=[EvidenceItem("claude", "body", True, ["claude"], [], "pass")],
+            orchestration_timeout=True,
+            timed_out_families=["grok"],
+            overall_timeout_seconds=1.0,
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=False
+    )
+    assert rc == 1
+
+
 def test_run_collect_cli_error_path(monkeypatch, capsys) -> None:
     def boom(**kwargs):
         raise ValueError("no head")
@@ -2194,6 +3009,36 @@ def test_run_collect_cli_catches_runtime_error(monkeypatch, capsys) -> None:
     )
     assert rc == 1
     assert "empty diff" in capsys.readouterr().out
+
+
+def test_run_collect_cli_preflight_transport_error_serializes_fail_closed_json(
+    monkeypatch, capsys
+) -> None:
+    def boom(**kwargs):
+        raise qe.CollectPreflightTransportError(
+            repo="o/r",
+            pr=1,
+            phase="preflight_pr_context",
+            error=RuntimeError("error connecting to api.github.com"),
+            attempts=2,
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", boom)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=True
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "collect_evidence"
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+    assert payload["preserve_no_mutate"] is True
+    assert payload["phase"] == "preflight_pr_context"
+    assert payload["posted_families"] == []
+    assert payload["items"] == []
+    assert payload["failures"] == []
 
 
 # --- build_review_prompt: complete file list + fair per-file body bounding ---
@@ -2401,10 +3246,12 @@ def _force_grok_bin(monkeypatch, present: bool) -> None:
 
 def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None:
     _force_grok_bin(monkeypatch, True)
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "17")
     seen: dict = {}
 
     def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["timeout"] = timeout
         return qe.ReviewerResult(family, "verdict", True, harness=harness)
 
     monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
@@ -2414,6 +3261,7 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     # read-only sandbox + headless single-prompt, explicit Grok Build path.
     assert seen["argv"][1:] == ["--sandbox", "read-only", "--no-plan", "-p", "review prompt"]
     assert seen["argv"][0].endswith(".grok/bin/grok")
+    assert seen["timeout"] == 17.0
 
 
 def test_grok_build_bin_override(monkeypatch) -> None:
@@ -2444,11 +3292,13 @@ def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeyp
 def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     import shutil as _sh
 
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "19")
     monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
     seen: dict = {}
 
     def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["timeout"] = timeout
         return qe.ReviewerResult(family, "v", True, harness=harness)
 
     monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
@@ -2457,6 +3307,7 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     assert res.family == "gemini"
     # resolved path (not bare "agy") + sandbox.
     assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+    assert seen["timeout"] == 19.0
 
 
 def test_gemini_reviewer_falls_back_to_api_without_agy(monkeypatch) -> None:
@@ -2534,3 +3385,314 @@ def test_infra_retry_env_count_respected(monkeypatch):
     runner = _seq_runner([_RR("grok", "", False, "x")])  # always fails
     _retry(runner, "grok", "p")
     assert runner.state["n"] == 3  # 1 initial + 2 retries
+
+
+def _supportive_outcome(tier, *families):
+    items = [EvidenceItem(f, f"## {f.title()} review", True, [f], [], "pass") for f in families]
+    return CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=tier,
+        action="prepare",
+        action_reason="",
+        items=items,
+    )
+
+
+def test_has_supportive_quorum_is_tiered():
+    # Tier 1-2: settle on ONE western-frontier (claude/openai) supportive signal.
+    assert _supportive_outcome(1, "claude").has_supportive_quorum is True
+    assert _supportive_outcome(2, "openai").has_supportive_quorum is True
+    # ...but a lone cheap signal (or even two cheap signals) is NOT enough.
+    assert _supportive_outcome(2, "qwen").has_supportive_quorum is False
+    assert _supportive_outcome(2, "qwen", "kimi").has_supportive_quorum is False
+    # A cheap signal alongside a western-frontier one is fine.
+    assert _supportive_outcome(2, "qwen", "claude").has_supportive_quorum is True
+    # Tier 0: any single supportive family.
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
+    # Tier 3-4 and unknown/None tier: two distinct WESTERN families (Western-only
+    # counted, fail-safe). Chinese-routed families are advisory-only and do NOT
+    # count, so claude+qwen is insufficient but claude+grok (both Western) settles.
+    assert _supportive_outcome(3, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(3, "claude", "qwen").has_supportive_quorum is False
+    assert _supportive_outcome(3, "claude", "grok").has_supportive_quorum is True
+    assert _supportive_outcome(None, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(None, "claude", "openai").has_supportive_quorum is True
+    assert _supportive_outcome(None, "deepseek", "qwen").has_supportive_quorum is False
+
+
+def test_incomplete_quorum_reason_is_tiered():
+    # Tier 1-2 settle on one western-frontier signal, so an incomplete reason
+    # names that requirement instead of a misleading "(n/2)" family denominator.
+    r12 = _supportive_outcome(2, "qwen").incomplete_quorum_reason
+    assert "western-frontier" in r12
+    assert "/2" not in r12
+    # Tier 0: any single supportive family -> report the (n/1) shortfall.
+    assert _supportive_outcome(0).incomplete_quorum_reason == (
+        "supportive quorum incomplete (0/1); prepared evidence only"
+    )
+    # Tier 3-4 / unknown tier report the Western-only shortfall (Chinese-routed
+    # families are advisory-only and excluded from the counted set).
+    r3 = _supportive_outcome(3, "claude").incomplete_quorum_reason
+    assert "Western families" in r3 and "advisory-only" in r3
+    r_none = _supportive_outcome(None).incomplete_quorum_reason
+    assert "Western families" in r_none
+
+
+def test_supportive_quorum_strict_when_flag_off(monkeypatch):
+    # Production default: the Tier 1-2 relaxation is OFF, so those tiers need two
+    # distinct supportive families and the reason uses the family denominator.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    assert _supportive_outcome(2, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(2, "openai").has_supportive_quorum is False
+    # Tier 0 already uses one signal on current main; default-OFF must preserve it.
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
+    assert _supportive_outcome(0, "claude", "grok").has_supportive_quorum is True
+    assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
+    reason = _supportive_outcome(2, "claude").incomplete_quorum_reason
+    assert "(1/2 distinct families)" in reason
+    assert "western-frontier" not in reason
+
+
+def test_supportive_quorum_strict_when_flag_unset(monkeypatch):
+    # The PRODUCTION default is the env var UNSET (not merely "0"); that must also
+    # be the strict gate, so an accidental default-ON regression is caught.
+    monkeypatch.delenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", raising=False)
+    assert qe.tiered_merge_gate_enabled() is False
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
+    assert _supportive_outcome(2, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
+
+
+def test_tiered_gate_is_captured_at_construction(monkeypatch):
+    # The flag is captured ONCE at outcome construction; mutating the env afterward
+    # must not flip a security-relevant decision mid-settlement-flow.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+    outcome = _supportive_outcome(2, "claude")  # tiered ON -> lone WF satisfies
+    assert outcome.tiered_gate is True
+    assert outcome.has_supportive_quorum is True
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")  # mutate mid-flow
+    assert outcome.has_supportive_quorum is True  # unchanged: captured at build
+
+
+def test_tier_quorum_rule_matrix():
+    from aragora.swarm.quorum_evidence import TierQuorumRule, tier_quorum_rule
+
+    # Tier 0 (and below): one family of any kind, matching current-main behavior.
+    assert tier_quorum_rule(0, tiered_gate=True) == TierQuorumRule(1, False)
+    assert tier_quorum_rule(-1, tiered_gate=True) == TierQuorumRule(1, False)
+    assert tier_quorum_rule(0, tiered_gate=False) == TierQuorumRule(1, False)
+    assert tier_quorum_rule(-1, tiered_gate=False) == TierQuorumRule(1, False)
+    # Tier 1: ON -> one western-frontier signal; OFF -> two distinct (any family).
+    assert tier_quorum_rule(1, tiered_gate=True) == TierQuorumRule(1, True)
+    assert tier_quorum_rule(1, tiered_gate=False) == TierQuorumRule(2, False)
+    # Tier 2: ON -> one western-frontier; OFF -> two distinct incl. >=1 Western (G2).
+    assert tier_quorum_rule(2, tiered_gate=True) == TierQuorumRule(1, True)
+    assert tier_quorum_rule(2, tiered_gate=False) == TierQuorumRule(
+        2, False, requires_at_least_one_western=True
+    )
+    # Tier 3-4 and unknown/None (fail-safe): two distinct WESTERN families,
+    # Western-only counted (G1) — Chinese-routed families are advisory-only.
+    for tier in (3, 4, None):
+        for gate in (False, True):
+            assert tier_quorum_rule(tier, tiered_gate=gate) == TierQuorumRule(
+                2, False, western_only_counted=True
+            )
+
+
+# --- severity_gated prepare/apply round-trip (claude/grok #8574 P2) ---
+def test_evidence_item_severity_gated_roundtrips() -> None:
+    # The severity-gate regime an artifact was prepared under must survive
+    # serialization, exactly like tiered_gate, so apply can't silently re-decide.
+    for regime in (True, False):
+        outcome = CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=4,
+            action="prepare",
+            action_reason="x",
+            items=[
+                EvidenceItem(
+                    "claude",
+                    _prepared_body("claude"),
+                    True,
+                    ["claude"],
+                    [],
+                    "pass",
+                    severity_gated=regime,
+                )
+            ],
+        )
+        assert outcome.to_dict()["items"][0]["severity_gated"] is regime
+        rehydrated = qe.collect_outcome_from_dict(outcome.to_dict())
+        assert rehydrated.items[0].severity_gated is regime
+
+
+def test_evidence_item_missing_severity_gated_fails_closed() -> None:
+    # Legacy/forged artifacts that omit severity_gated default to the STRICT regime
+    # (False) so a missing field can never relax dissent.
+    item = qe._evidence_item_from_dict(
+        {
+            "family": "claude",
+            "body": _prepared_body("claude"),
+            "would_count": True,
+            "verdict": "pass",
+        }
+    )
+    assert item.severity_gated is False
+
+
+def test_clone_prepared_items_reconciles_severity_gated_min() -> None:
+    # min(prepared, live): the relaxed regime survives only when BOTH agree.
+    relaxed = EvidenceItem(
+        "claude", "- [P2] nit", True, ["claude"], [], "changes_requested", severity_gated=True
+    )
+    strict = EvidenceItem(
+        "claude", "- [P2] nit", True, ["claude"], [], "changes_requested", severity_gated=False
+    )
+    assert qe._clone_prepared_items([relaxed], live_severity_gated=True)[0].severity_gated is True
+    assert qe._clone_prepared_items([relaxed], live_severity_gated=False)[0].severity_gated is False
+    assert qe._clone_prepared_items([strict], live_severity_gated=True)[0].severity_gated is False
+    assert qe._clone_prepared_items([relaxed])[0].severity_gated is True  # None preserves prepared
+
+
+def test_severity_gated_regime_controls_p2_dissent_after_roundtrip() -> None:
+    # A [P2]-only changes_requested is advisory under the relaxed regime and blocking
+    # under strict — and the regime that decides it survives serialization.
+    body = "Verdict: CHANGES-REQUESTED\n\n- [P2] minor style nit"
+    assert (
+        EvidenceItem(
+            "grok", body, False, ["grok"], [], "changes_requested", severity_gated=True
+        ).dissenting
+        is False
+    )
+    assert (
+        EvidenceItem(
+            "grok", body, False, ["grok"], [], "changes_requested", severity_gated=False
+        ).dissenting
+        is True
+    )
+    rt = qe._evidence_item_from_dict(
+        {
+            "family": "grok",
+            "body": body,
+            "would_count": False,
+            "verdict": "changes_requested",
+            "severity_gated": True,
+        }
+    )
+    assert rt.severity_gated is True and rt.dissenting is False
+
+
+def test_apply_relint_preserves_reconciled_severity_gated(tmp_path, monkeypatch) -> None:
+    # End-to-end apply: a STRICT-prepared (severity_gated=False) [P2]-only
+    # changes_requested item must stay strict (dissenting) even when the live flag is
+    # ON. The relint loop must not let EvidenceItem.default_factory re-read the live
+    # env and undo min(prepared, live) (claude/grok #8574 P1).
+    body = "Verdict: CHANGES-REQUESTED\n\n- [P2] minor style nit"
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=4,
+        action="prepare",
+        action_reason="prepared",
+        items=[
+            EvidenceItem(
+                "grok", body, True, ["grok"], [], "changes_requested", severity_gated=False
+            )
+        ],
+    )
+    path = tmp_path / "strict_p2.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")  # live ON would relax it
+    applied = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=path,
+        author="me",
+        apply=True,
+        families=["grok"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 4,
+        linter=lambda *a, **k: {
+            "would_count": True,
+            "counted_reviewer_ids": ["grok"],
+            "problems": [],
+        },
+        poster=lambda r, p, b: None,
+    )
+    assert applied.items[0].severity_gated is False  # reconciled strict survives relint
+    assert applied.items[0].dissenting is True
+    assert "grok" in applied.dissenting_families
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        (True, True),
+        (False, False),
+        ("true", True),
+        ("1", True),
+        ("on", True),
+        ("false", False),
+        ("0", False),
+        ("", False),
+        (None, False),
+        (1, True),
+        (0, False),
+    ],
+)
+def test_coerce_relaxed_flag(raw, expected) -> None:
+    # bool("false") would be True; the coercion fails closed for stringly flags.
+    assert qe._coerce_relaxed_flag(raw) is expected
+
+
+def test_severity_gated_string_false_stays_strict_through_restore() -> None:
+    item = qe._evidence_item_from_dict(
+        {
+            "family": "claude",
+            "body": _prepared_body("claude"),
+            "would_count": True,
+            "verdict": "pass",
+            "severity_gated": "false",
+        }
+    )
+    assert item.severity_gated is False
+
+
+# --- advisory_dissent_settle_enabled (opt-in flag, default OFF) -------------
+def test_advisory_dissent_settle_enabled_default_off(monkeypatch) -> None:
+    # Production default is the env var UNSET; that MUST read as OFF so the new
+    # advisory_settle path is dormant until an operator opts in.
+    monkeypatch.delenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", raising=False)
+    assert qe.advisory_dissent_settle_enabled() is False
+
+
+@pytest.mark.parametrize("raw", ["1", "true", "TRUE", "yes", "on", "On"])
+def test_advisory_dissent_settle_enabled_true_tokens(monkeypatch, raw: str) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", raw)
+    assert qe.advisory_dissent_settle_enabled() is True
+
+
+@pytest.mark.parametrize("raw", ["0", "false", "off", "no", "", "  ", "maybe"])
+def test_advisory_dissent_settle_enabled_false_tokens(monkeypatch, raw: str) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", raw)
+    assert qe.advisory_dissent_settle_enabled() is False
+
+
+def test_advisory_dissent_settle_enabled_accepts_injected_env() -> None:
+    # Mirrors severity_gated_dissent_enabled / tiered_merge_gate_enabled: an
+    # explicit env mapping overrides os.environ for deterministic testing.
+    assert (
+        qe.advisory_dissent_settle_enabled({"ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE": "1"}) is True
+    )
+    assert (
+        qe.advisory_dissent_settle_enabled({"ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE": "0"}) is False
+    )
+    assert qe.advisory_dissent_settle_enabled({}) is False

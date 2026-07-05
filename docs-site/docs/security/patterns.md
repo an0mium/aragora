@@ -95,7 +95,7 @@ All subprocess calls in Aragora use the **list-based argument form** which preve
 subprocess.run(["git", "commit", "-m", message], shell=False)
 
 # INCORRECT - shell form (vulnerable)
-subprocess.run(f"git commit -m \{message\}", shell=True)  # NEVER USED
+subprocess.run(f"git commit -m {message}", shell=True)  # NEVER USED
 ```
 
 ### Key Files Using Subprocess
@@ -176,7 +176,7 @@ session.execute(
 )
 
 # Never used - string interpolation
-# f"SELECT * FROM debates WHERE id = \{debate_id\}"
+# f"SELECT * FROM debates WHERE id = {debate_id}"
 ```
 
 ---

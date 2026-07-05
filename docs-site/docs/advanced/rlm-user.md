@@ -14,10 +14,10 @@ Aragora integrates Recursive Language Models (RLM) based on the paper ["Recursiv
 ## Installation
 
 ```bash
-# Install Aragora with RLM support
-pip install aragora[rlm]
+# Install Aragora (includes the RLM compression fallback)
+pip install aragora
 
-# Or install the official RLM library directly
+# Add the official `rlm` package for TRUE RLM
 pip install rlm
 ```
 
@@ -132,7 +132,7 @@ config = RLMConfig(
 
     # Output format
     include_citations=True,       # Include source references
-    citation_format="[L\{level\}:\{chunk\}]",
+    citation_format="[L{level}:{chunk}]",
 )
 ```
 

@@ -42,8 +42,7 @@ from aragora.services import (
     EmailPrioritizationConfig,
     SenderHistoryService,
 )
-from aragora.cache import HybridTTLCache, register_cache
-from aragora.utils.redis_cache import RedisTTLCache
+from aragora.caching import HybridTTLCache, RedisTTLCache, register_cache
 from aragora.server.validation.query_params import safe_query_int
 
 from .inbox_actions import InboxActionsMixin

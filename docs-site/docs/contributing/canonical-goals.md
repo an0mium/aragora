@@ -14,17 +14,24 @@ description: "Aragora: Canonical Goals & Foundational Thesis"
 
 Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
 
+<!-- metrics:begin canonical-goals-metrics -->
 | Metric | Value | Source |
 |--------|-------|--------|
 | Version | 2.9.0 | `pyproject.toml` |
-| Python files under `aragora/` | 4,069 | `docs/METRICS.md` |
-| Python modules | 135 top-level package directories | `docs/METRICS.md` |
-| Lines of code under `aragora/` | 1,915,420 | `docs/METRICS.md` |
-| Automated tests | 216,016 test functions | `docs/METRICS.md` |
-| Test files | 5,078 | `docs/METRICS.md` |
-| API operations | 3,386 across 2,928 paths | `docs/METRICS.md` |
-| API paths | 2,928 | `docs/METRICS.md` |
+| Python files under `aragora/` | 4,260 | `docs/METRICS.md` |
+| Python modules | 144 top-level package directories | `docs/METRICS.md` |
+| Lines of code under `aragora/` | 1,975,628 | `docs/METRICS.md` |
+| Automated tests | 223,079 test functions | `docs/METRICS.md` |
+| Test files | 5,433 | `docs/METRICS.md` |
+| API operations | 3,297 across 2,870 paths | `docs/METRICS.md` |
+| API paths | 2,870 | `docs/METRICS.md` |
 | Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |
+<!-- metrics:end -->
+
+Other canonical claims (manually maintained):
+
+| Metric | Value | Source |
+|--------|-------|--------|
 | Agent types | 43 across 6+ LLM providers | agent registry |
 | Workflow templates | 50+ across 6 categories | template registry |
 | Handler modules | 580+ | handlers directory |

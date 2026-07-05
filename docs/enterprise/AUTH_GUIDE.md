@@ -8,7 +8,7 @@ Comprehensive guide to authentication in Aragora, covering built-in JWT authenti
 - [Authentication Methods](#authentication-methods)
 - [Quick Start](#quick-start)
 - [JWT Authentication](#jwt-authentication)
-- [OAuth 2.0](#oauth-20)
+  - [OAuth 2.0](#oauth-20)
 - [Enterprise SSO](#enterprise-sso)
 - [Session Management](#session-management)
 - [Security Best Practices](#security-best-practices)

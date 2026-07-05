@@ -30,10 +30,6 @@ from aragora.debate.context import DebateContext
 from aragora.logging_config import LogContext, get_logger as get_structured_logger
 from aragora.observability.tracing import add_span_attributes
 from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
-from aragora.server.metrics import (
-    ACTIVE_DEBATES,
-    track_debate_outcome,
-)
 from aragora.observability.metrics.debate_slo import (
     record_debate_completion_slo,
     update_debate_success_rate,
@@ -1257,6 +1253,8 @@ def record_debate_metrics(
         state: The debate execution state
         span: OpenTelemetry span for tracing
     """
+    from aragora.server.metrics import ACTIVE_DEBATES, track_debate_outcome
+
     ACTIVE_DEBATES.dec()
     duration = time.perf_counter() - state.debate_start_time
     ctx = state.ctx

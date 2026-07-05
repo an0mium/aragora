@@ -11,6 +11,16 @@ This index intentionally links to actively maintained docs with validated paths.
 - [SDK Guide (Python)](SDK_GUIDE.md)
 - [CLI Reference (generated)](reference/CLI_REFERENCE.md)
 
+## Receipts & Verification
+
+The canonical source versions live in this repository under `docs/specs/`.
+The docs-site mirror points readers to GitHub for those files because
+`docs/specs/` is not mirrored into `docs-site/` (see "Notes" below).
+
+- [Open Decision Receipt Spec](https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md)
+- [Receipt Lineage Reconciliation](https://github.com/synaptent/aragora/blob/main/docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md)
+- [Independent Verifier Guide](https://github.com/synaptent/aragora/blob/main/docs/specs/INDEPENDENT_VERIFIER_GUIDE.md)
+
 ## API
 
 - [API Reference](api/API_REFERENCE.md)
@@ -57,7 +67,7 @@ This index intentionally links to actively maintained docs with validated paths.
 - [Feature Discovery](status/FEATURE_DISCOVERY.md)
 - [Feature Gap List](FEATURE_GAP_LIST.md)
 - [Next Steps (Canonical)](status/NEXT_STEPS_CANONICAL.md)
-- [Active 6-Week Execution Plan](archive/status/2026-02-25-EXECUTION_NEXT_6_WEEKS.md)
+- [Active 6-Week Execution Plan](status/EXECUTION_NEXT_6_WEEKS_2026-03-05.md)
 - [Documentation Hygiene Register](status/DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md)
 - [Roadmap](../ROADMAP.md)
 
@@ -76,3 +86,6 @@ This index intentionally links to actively maintained docs with validated paths.
 
 - Deprecated and historical docs are in `docs/deprecated/`.
 - For link-health checks, run `python scripts/validate_doc_links.py`.
+- `docs/specs/` is not mirrored into `docs-site/` by `docs-site/scripts/sync-docs.js`;
+  link to it with absolute `github.com/synaptent/aragora/blob/main/...` URLs, not
+  relative paths, so the docs-site mirror doesn't 404.

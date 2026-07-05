@@ -18,6 +18,7 @@ _GITHUB_TRANSPORT_ERROR_MARKERS = (
     "api rate limit already exceeded",
     "check your internet connection",
     "client.timeout exceeded",
+    "command timed out",
     "connection refused",
     "connection reset",
     "connection timed out",
@@ -35,6 +36,7 @@ _GITHUB_TRANSPORT_ERROR_MARKERS = (
     "rate limit exceeded",
     "temporary failure in name resolution",
     "timeout awaiting response headers",
+    "timed out after",
     "tls handshake timeout",
 )
 

@@ -490,7 +490,9 @@ await adapter.sync()  # Sync critique patterns to mound
 
 The Knowledge Mound supports bidirectional integration with all major subsystems through specialized adapters. These adapters enable:
 
-- **42 registered adapter specs** wired via `aragora/knowledge/mound/adapters/factory.py`
+<!-- metrics:begin km-adapter-specs -->
+- **41 registered adapter specs** wired via `aragora/knowledge/mound/adapters/factory.py`
+<!-- metrics:end -->
 - **Additional adapter files** present but not factory-registered (`extraction`, `nomic_cycle`, `openclaw`, `ranking`)
 
 - **Data Flow IN**: Subsystems automatically sync relevant data to KM
@@ -1172,7 +1174,7 @@ Adapters sync in priority order (highest first). This ensures critical data is p
    status = coordinator.get_status()
    for name, adapter_status in status["adapters"].items():
        if adapter_status["forward_errors"] > 5:
-           logger.warning(f"Adapter \{name\} has {adapter_status['forward_errors']} errors")
+           logger.warning(f"Adapter {name} has {adapter_status['forward_errors']} errors")
    ```
 
 3. **Use sequential writes for critical data:**

@@ -27,6 +27,7 @@ all network/process I/O is injected so the orchestrator
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import inspect
 import json
 import logging
@@ -36,17 +37,23 @@ import os
 import queue
 import re
 import secrets
+import signal
 import subprocess
 import tempfile
 import threading
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
+from aragora.cli.commands.review_queue_transport import (
+    GITHUB_TRANSPORT_BLOCKED_STATUS,
+    _is_github_transport_error,
+)
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -69,6 +76,210 @@ FAMILY_PROVIDERS: dict[str, str] = {
     "minimax": "minimax",
     "hermes": "nous",
 }
+
+# Jurisdiction families (docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-eligibility).
+# WESTERN_FAMILIES are the lineages that count toward a Tier 3-4 quorum (the spec's
+# Anthropic, OpenAI, Google, xAI, Mistral, Nous Hermes). Chinese-routed families are
+# every other recognized family; they always post and remain readable but are
+# advisory-only (not counted) at Tier 3-4 and do not satisfy the at-least-one-Western
+# condition at Tier 2.
+WESTERN_FAMILIES: frozenset[str] = frozenset(
+    ("claude", "openai", "gemini", "grok", "mistral", "hermes")
+)
+
+# Western-FRONTIER families: a strict SUBSET of WESTERN_FAMILIES (the frontier labs).
+# Under the tiered gate, a Tier 1-2 PR may settle on a single supportive signal, which
+# MUST be one of these (claude/openai) so a cheap model can never solely authorize a
+# merge. "Frontier" (who may solo-settle Tier 1-2) and "Western" (who counts at Tier
+# 3-4) are distinct; the subset relation is pinned by a governance test. Mirrors the
+# re-export in the review-queue gate so the two halves cannot drift.
+WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
+
+
+def is_western_family(family: str) -> bool:
+    """Whether ``family`` counts toward a Western-only quorum (Tier 3-4)."""
+    return str(family).strip().lower() in WESTERN_FAMILIES
+
+
+# Opt-in flag for the Tier 1-2 *relaxation* only. The flag's SOLE effect is to let a
+# Tier 1-2 PR settle on one supportive western-frontier signal (claude/openai) instead
+# of two distinct families; default OFF, those tiers keep the two-distinct bar. Gating
+# that relaxation behind the flag keeps it revertible WITHOUT a code change and is the
+# in-tree audit point for the operator's approval.
+#
+# IMPORTANT — the flag does NOT control the jurisdiction tightenings: the Tier 2
+# "at least one Western family" and Tier 3-4 "Western-only counted quorum" rules
+# (docs/REVIEW_AUTHORITY_PRINCIPLES.md, G1/G2) are applied UNCONDITIONALLY by
+# tier_quorum_rule, flag ON or OFF. They land the moment this change merges; the flag
+# never relaxes them. (claude #8507: prior comment wrongly implied flag-OFF preserved
+# current-main Tier 2-4 behavior.)
+_TIERED_GATE_ENV = "ARAGORA_ENABLE_TIERED_MERGE_GATE"
+_TIERED_GATE_TRUE = frozenset(("1", "true", "yes", "on"))
+
+
+def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in tiered merge gate (Tier 1-2 → one western-frontier
+    signal) is active. Default OFF; see :data:`_TIERED_GATE_ENV`."""
+    source = os.environ if env is None else env
+    return str(source.get(_TIERED_GATE_ENV, "")).strip().lower() in _TIERED_GATE_TRUE
+
+
+# Opt-in flag for severity-gated dissent. When OFF (default), a reviewer
+# ``Verdict: CHANGES-REQUESTED`` line promotes a *blocking* dissent regardless of
+# finding severity — even a `[P2]`/`[P3]`-only or finding-free comment blocks the
+# merge as hard as a `[P0]` defect (today's behavior). When ON, a CHANGES-REQUESTED
+# comment promotes a blocking dissent ONLY when it carries a real `[P0]`/`[P1]`
+# finding or a populated Blocker label; a `[P2]`/`[P3]`-only or finding-free
+# CHANGES-REQUESTED becomes *advisory* — non-blocking AND non-counting (it still
+# posts and stays visible on the PR; it just no longer blocks). `[P0]`/`[P1]`
+# findings and populated Blocker labels ALWAYS block, flag ON or OFF.
+#
+# Gating this behind the flag keeps it revertible WITHOUT a code change and is the
+# in-tree audit point for the operator's approval. See
+# docs/specs/FINDING_SEVERITY_GATE.md and
+# docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance.
+_SEVERITY_GATED_DISSENT_ENV = "ARAGORA_ENABLE_SEVERITY_GATED_DISSENT"
+_SEVERITY_GATED_DISSENT_TRUE = frozenset(("1", "true", "yes", "on"))
+
+
+def severity_gated_dissent_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in severity-gated dissent gate is active. Default OFF; a
+    `[P2]`/`[P3]`-only CHANGES-REQUESTED only becomes advisory (non-blocking,
+    non-counting) when this is ON. See :data:`_SEVERITY_GATED_DISSENT_ENV`."""
+    source = os.environ if env is None else env
+    return (
+        str(source.get(_SEVERITY_GATED_DISSENT_ENV, "")).strip().lower()
+        in _SEVERITY_GATED_DISSENT_TRUE
+    )
+
+
+# Opt-in flag for the advisory-dissent settlement path. When OFF (default), a PR
+# that fails the strict model-quorum bar stays blocked — byte-identical to today.
+# When ON, a Tier 0-2 PR whose ONLY failing required check is the model-quorum
+# check, that has at least one western-frontier review at the exact head, and that
+# carries ZERO `[P0]`/`[P1]` blocking findings across ALL collected reviews, may
+# settle via a distinct ``verdict="advisory_settle"`` even though the strict quorum
+# (e.g. two distinct supportive families) was never reached. This unblocks PRs that
+# two thorough reviewers only ever raise *advisory* findings on, without lowering
+# the bar for blocking findings.
+#
+# IMPORTANT — the flag is opt-in and default OFF: with it unset, this path is fully
+# dormant and the gate behaves exactly as it does on current main. Enabling it is a
+# separate, deliberate workflow edit (the in-tree audit point for the operator's
+# approval). The advisory_settle path is UNAVAILABLE at Tier 3-4, which keep human
+# settlement regardless of this flag. See
+# docs/plans/2026-06-30-advisory-dissent-settlement-gate-packet.md.
+_ADVISORY_DISSENT_SETTLE_ENV = "ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE"
+_ADVISORY_DISSENT_SETTLE_TRUE = frozenset(("1", "true", "yes", "on"))
+
+
+def advisory_dissent_settle_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in advisory-dissent settlement path is active. Default OFF;
+    a Tier 0-2 PR with only advisory (non-`[P0]`/`[P1]`) findings settles via
+    ``advisory_settle`` only when this is ON. See
+    :data:`_ADVISORY_DISSENT_SETTLE_ENV`."""
+    source = os.environ if env is None else env
+    return (
+        str(source.get(_ADVISORY_DISSENT_SETTLE_ENV, "")).strip().lower()
+        in _ADVISORY_DISSENT_SETTLE_TRUE
+    )
+
+
+def _coerce_relaxed_flag(value: Any) -> bool:
+    """Coerce a serialized gate-regime flag (``severity_gated`` / ``tiered_gate``) to
+    bool, fail-closed. A real bool passes through; a string counts as relaxed ONLY for
+    the explicit relaxed tokens, so a stringly serialized ``"false"`` — which ``bool()``
+    would truthify — cannot accidentally enable the relaxed regime (claude/grok #8574 P2)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in _SEVERITY_GATED_DISSENT_TRUE
+    return bool(value)
+
+
+@dataclass(frozen=True)
+class TierQuorumRule:
+    """The per-tier model-quorum bar (a.k.a. :data:`QuorumPolicy`): how many distinct
+    supportive families are required and the jurisdiction constraints on them.
+
+    Fields default to the permissive Tier 0-1 values so existing positional
+    construction (``TierQuorumRule(1, False)``) keeps working; the jurisdiction
+    fields are additive.
+    """
+
+    required_signals: int
+    requires_western_frontier: bool
+    #: Tier 3-4: only Western families count toward the quorum (Chinese-routed
+    #: families remain advisory-only — they still post but do not count).
+    western_only_counted: bool = False
+    #: Tier 2: at least one of the counted families must be Western.
+    requires_at_least_one_western: bool = False
+
+    def counted_families(self, supportive: Iterable[str]) -> set[str]:
+        """The supportive families that count under this rule (drops Chinese-routed
+        families when ``western_only_counted``)."""
+        families = {str(f).strip().lower() for f in supportive}
+        if self.western_only_counted:
+            families = {f for f in families if f in WESTERN_FAMILIES}
+        return families
+
+    def is_satisfied_by(self, supportive: Iterable[str]) -> bool:
+        """Whether the supportive families meet this tier's quorum bar."""
+        counted = self.counted_families(supportive)
+        if self.requires_western_frontier and not (counted & WESTERN_FRONTIER_FAMILIES):
+            return False
+        if self.requires_at_least_one_western and not (counted & WESTERN_FAMILIES):
+            return False
+        return len(counted) >= self.required_signals
+
+
+#: The canonical per-tier quorum policy object (alias for the design-doc name).
+QuorumPolicy = TierQuorumRule
+
+#: Version of the quorum-policy encoding, stamped into prepared evidence artifacts as
+#: a FORWARD-COMPAT AUDIT marker: it records which policy encoding produced the
+#: artifact so a future policy migration can detect a stale one. It is NOT an
+#: apply-time gate today — the regime reconciliation is the boolean ``tiered_gate``
+#: (``effective = prepared.tiered_gate AND live_gate``); this version is not currently
+#: compared at apply (claude #8507 flagged the prior comment for overstating its role).
+QUORUM_POLICY_VERSION = 1
+
+
+def tier_quorum_rule(tier: int | None, *, tiered_gate: bool) -> TierQuorumRule:
+    """Single source of truth for the per-tier model-quorum bar.
+
+    All three quorum surfaces derive from this so they cannot drift: the auto-settle
+    path (:meth:`CollectOutcome.has_supportive_quorum`), the merge-queue gate
+    (``review_queue._tier_requirement`` / ``_build_model_review_quorum``), and the
+    ``merge_quorum_reconcile`` diagnostic. Encodes
+    ``docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-eligibility for quorum counting``:
+
+    - Tier 0 (and below): one signal of any family.
+    - Tier 1: gate ON → one western-frontier signal; OFF → two distinct (any family).
+    - Tier 2: gate ON → one western-frontier signal; OFF → two distinct, at least one
+      of which is Western.
+    - Tier 3-4 and unknown/None (fail-safe): two distinct WESTERN families
+      (Western-only counted quorum; Chinese-routed families are advisory-only).
+    """
+    if tier is not None and tier <= 0:
+        return TierQuorumRule(required_signals=1, requires_western_frontier=False)
+    if tiered_gate and tier is not None and 1 <= tier <= 2:
+        return TierQuorumRule(required_signals=1, requires_western_frontier=True)
+    if tier == 1:
+        return TierQuorumRule(required_signals=2, requires_western_frontier=False)
+    if tier == 2:
+        return TierQuorumRule(
+            required_signals=2,
+            requires_western_frontier=False,
+            requires_at_least_one_western=True,
+        )
+    # Tier 3-4 and unknown/None: Western-only counted quorum (fail-safe).
+    return TierQuorumRule(
+        required_signals=2,
+        requires_western_frontier=False,
+        western_only_counted=True,
+    )
+
 
 FAMILY_DISPLAY: dict[str, str] = {
     "claude": "Claude",
@@ -111,7 +322,13 @@ def canonical_family(name: str) -> str:
     return _FAMILY_ALIASES.get(fam, fam)
 
 
-DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
+# Default reviewer pair: the two western-frontier families (claude→opus-4.8,
+# openai→gpt-5.5). Chosen as the strongest, most-aligned adversarial reviewers so
+# a substantial diff can actually clear a 2-signal quorum, and because Tier 3-4
+# requires two western-frontier families. grok (xai) remains available via
+# --reviewers but is not western-frontier and empirically tends to reopen an
+# advisory nitpick loop on large diffs. Override per-run with --reviewers.
+DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "openai")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
 SETTLEMENT_TIER_FLOOR = 3
@@ -121,6 +338,8 @@ QUORUM_RERUN_MAX_PER_HEAD = 3
 QUORUM_STATE_LOCK_TIMEOUT_SECONDS = 60.0
 QUORUM_STATE_LOCK_POLL_SECONDS = 0.2
 QUORUM_STATE_LOCK_STALE_SECONDS = 15 * 60
+_PREFLIGHT_CONTEXT_ATTEMPTS = 2
+_PREFLIGHT_CONTEXT_RETRY_DELAY_SECONDS = 0.5
 _REVIEWER_RESULT_QUEUE_TIMEOUT = 1.0
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
@@ -130,9 +349,20 @@ _MAX_DIFF_CHARS = 60_000
 _PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
-_CLAUDE_TIMEOUT = 300
+# Claude CLI startup can legitimately take longer on large reviews, especially
+# when subscription auth and local MCP state are cold. Keep only that path at a
+# generous ceiling; reviewer transports without the Claude-specific probe stay
+# at the historic 5 minute default unless an operator opts in via env override.
+_CLAUDE_TIMEOUT = 600
 _CODEX_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
+# Best-effort Claude liveness probe. It catches fast non-zero CLI exits before
+# committing to the long review ceiling, but a probe timeout is not a hard
+# precondition: slow-but-live subscription CLIs still get the real review call.
+# Set ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS=0 to disable probing.
+_CLI_PROBE_TIMEOUT = 90
+_CLI_PROBE_TIMEOUT_ENV = "ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS"
+_CLI_PROBE_PROMPT = "Reply with exactly: OK"
 _CLAUDE_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS"
 _CODEX_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS"
 _CODEX_MODEL_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODEL"
@@ -209,6 +439,18 @@ def _timeout_seconds(env_name: str, default: int) -> float:
     if not math.isfinite(value) or value <= 0:
         return float(default)
     return value
+
+
+def _positive_timeout_seconds(value: float | int | str | None, name: str) -> float | None:
+    if value is None:
+        return None
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a positive finite number of seconds") from exc
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise ValueError(f"{name} must be a positive finite number of seconds")
+    return seconds
 
 
 def _format_seconds(seconds: float) -> str:
@@ -312,14 +554,36 @@ class EvidenceItem:
     counted_reviewer_ids: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     verdict: str = "unknown"
+    # Captured ONCE at construction (not re-read per property access) so a
+    # security-relevant gate decision stays deterministic within a single
+    # settlement flow even if the process env mutates mid-run. Uses the same
+    # capture-once pattern as ``CollectOutcome.tiered_gate`` (a different flag —
+    # ``severity_gated_dissent_enabled`` here vs ``tiered_merge_gate_enabled`` there).
+    severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
     @property
     def supportive(self) -> bool:
+        # Unchanged by the severity gate: advisory ≠ supportive. A downgraded
+        # `[P2]`/`[P3]`-only changes_requested stays non-counting; it just stops
+        # blocking. ``supportive`` requires would_count AND a pass verdict.
         return self.would_count and self.verdict == "pass"
 
     @property
     def dissenting(self) -> bool:
-        return self.verdict == "changes_requested"
+        if self.verdict != "changes_requested":
+            return False
+        if not self.severity_gated:
+            # Default (flag OFF): any changes_requested is a blocking dissent —
+            # byte-identical to historical behavior.
+            return True
+        # Flag ON: a changes_requested is dissenting (blocks / trips prepare-only)
+        # ONLY when backed by a real [P0]/[P1] finding OR a populated Blocker label
+        # (``has_blocking_finding_or_label`` — the SAME helper the review-queue gate
+        # half consults, so the two halves stay in lockstep and Blocker labels always
+        # block per the invariant). A [P2]/[P3]-only or finding-free changes_requested
+        # is advisory — non-blocking, and (because ``supportive`` is unchanged) still
+        # non-counting.
+        return has_blocking_finding_or_label(self.body)
 
 
 @dataclass
@@ -336,6 +600,14 @@ class CollectOutcome:
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
     quorum_rerun: dict[str, Any] | None = None
+    orchestration_timeout: bool = False
+    timed_out_families: list[str] = field(default_factory=list)
+    overall_timeout_seconds: float | None = None
+    adjudication: dict[str, Any] | None = None
+    # Captured ONCE at construction (not re-read from os.environ per property
+    # access) so a security-relevant gate decision stays deterministic within a
+    # single settlement flow even if the process env mutates mid-run.
+    tiered_gate: bool = field(default_factory=tiered_merge_gate_enabled)
 
     @property
     def counting_families(self) -> list[str]:
@@ -351,16 +623,60 @@ class CollectOutcome:
 
     @property
     def has_supportive_quorum(self) -> bool:
-        return len(self.supportive_families) >= 2
+        """Whether the supportive evidence meets the tier's settlement bar.
+
+        Derives entirely from :func:`tier_quorum_rule` (the single source of truth
+        shared with the review-queue gate), so the jurisdiction rules apply: Tier 1-2
+        may settle on one western-frontier signal when the tiered gate is ON; Tier 2
+        otherwise needs two distinct families incl. ≥1 Western; Tier 3-4 (and any
+        unknown/None tier, fail-safe) need two distinct WESTERN families.
+        """
+        rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
+        return rule.is_satisfied_by(self.supportive_families)
+
+    @property
+    def incomplete_quorum_reason(self) -> str:
+        """Reason text when supportive evidence does not meet the tier bar.
+
+        Mirrors :meth:`has_supportive_quorum` and reports the *binding* shortfall
+        (western-frontier / Western-only / at-least-one-Western / signal count)
+        rather than a misleading ``(n/2)`` distinct-family denominator.
+        """
+        rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
+        supportive = {str(f).strip().lower() for f in self.supportive_families}
+        counted = rule.counted_families(supportive)
+        if rule.requires_western_frontier and not (counted & WESTERN_FRONTIER_FAMILIES):
+            return (
+                "supportive quorum incomplete "
+                "(needs a western-frontier signal: claude/openai); prepared evidence only"
+            )
+        if rule.western_only_counted and len(counted) < rule.required_signals:
+            return (
+                "supportive quorum incomplete "
+                f"(needs {rule.required_signals} distinct Western families; Chinese-routed "
+                "families are advisory-only at Tier 3-4); prepared evidence only"
+            )
+        if rule.requires_at_least_one_western and not (counted & WESTERN_FAMILIES):
+            return (
+                "supportive quorum incomplete "
+                "(needs at least one Western family signal); prepared evidence only"
+            )
+        suffix = " distinct families" if rule.required_signals >= 2 else ""
+        return (
+            f"supportive quorum incomplete ({len(counted)}/{rule.required_signals}{suffix}); "
+            "prepared evidence only"
+        )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "mode": "collect_evidence",
             "repo": self.repo,
             "pr_number": self.pr,
             "head_sha": self.head_sha,
             "head_committed_at": self.head_committed_at,
             "tier": self.tier,
+            "tiered_gate": self.tiered_gate,
+            "policy_version": QUORUM_POLICY_VERSION,
             "action": self.action,
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
@@ -370,6 +686,9 @@ class CollectOutcome:
             "posted_families": list(self.posted),
             "post_errors": list(self.post_errors),
             "quorum_rerun": self.quorum_rerun,
+            "orchestration_timeout": self.orchestration_timeout,
+            "timed_out_families": list(self.timed_out_families),
+            "overall_timeout_seconds": self.overall_timeout_seconds,
             "items": [
                 {
                     "family": item.family,
@@ -378,10 +697,76 @@ class CollectOutcome:
                     "counted_reviewer_ids": item.counted_reviewer_ids,
                     "problems": item.problems,
                     "body": item.body,
+                    # The prepare-time severity-gate regime, persisted so apply can
+                    # reconcile it under min(prepared, live) — the SAME treatment as
+                    # ``tiered_gate``. This is also the audit trail of which regime
+                    # prepared the artifact (claude/grok #8574 P2).
+                    "severity_gated": item.severity_gated,
                 }
                 for item in self.items
             ],
             "failures": [{"family": f.family, "error": f.error} for f in self.failures],
+        }
+        if self.adjudication is not None:
+            payload["adjudication"] = dict(self.adjudication)
+        return payload
+
+
+class CollectPreflightTransportError(RuntimeError):
+    """Fail-closed diagnostic for PR-context transport failure before reviewers."""
+
+    def __init__(
+        self,
+        *,
+        repo: str,
+        pr: int,
+        phase: str,
+        error: BaseException,
+        attempts: int,
+    ) -> None:
+        self.repo = repo
+        self.pr = pr
+        self.phase = phase
+        self.error = error
+        self.attempts = attempts
+        super().__init__(
+            f"GitHub transport blocked during {phase} for {repo}#{pr} "
+            f"after {attempts} attempts: {error}"
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mode": "collect_evidence",
+            "status": GITHUB_TRANSPORT_BLOCKED_STATUS,
+            "transport_blocked": True,
+            "preserve_no_mutate": True,
+            "retryable": True,
+            "phase": self.phase,
+            "repo": self.repo,
+            "pr_number": self.pr,
+            "error": str(self.error),
+            "attempts": self.attempts,
+            "head_sha": "",
+            "head_committed_at": "",
+            "tier": None,
+            "tiered_gate": tiered_merge_gate_enabled(),
+            "policy_version": QUORUM_POLICY_VERSION,
+            "action": "prepare",
+            "action_reason": (
+                "GitHub transport blocked before reviewer execution; prepared evidence only"
+            ),
+            "counting_families": [],
+            "supportive_families": [],
+            "dissenting_families": [],
+            "has_supportive_quorum": False,
+            "posted_families": [],
+            "post_errors": [],
+            "quorum_rerun": None,
+            "orchestration_timeout": False,
+            "timed_out_families": [],
+            "overall_timeout_seconds": None,
+            "items": [],
+            "failures": [],
         }
 
 
@@ -407,6 +792,13 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         counted_reviewer_ids=_string_list(raw.get("counted_reviewer_ids")),
         problems=_string_list(raw.get("problems")),
         verdict=str(raw.get("verdict") or "unknown"),
+        # Restore the prepare-time regime; default fail-CLOSED (strict — every
+        # changes_requested blocks) when an older/forged artifact omits it, so a
+        # missing field can never RELAX the gate. apply_prepared_evidence then
+        # AND-reconciles this with the live flag (min(prepared, live)), mirroring
+        # ``tiered_gate`` (claude/grok #8574 P2). Coerced fail-closed so a stringly
+        # serialized ``"false"`` cannot truthify into the relaxed regime.
+        severity_gated=_coerce_relaxed_flag(raw.get("severity_gated", False)),
     )
 
 
@@ -439,6 +831,25 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         pr = int(raw_pr)
     except (TypeError, ValueError) as exc:
         raise ValueError("prepared evidence artifact missing PR number") from exc
+    # Preserve the gate regime the artifact was PREPARED under so the settlement
+    # bar cannot silently change between prepare and apply. An artifact that omits
+    # this field — whether a genuinely older artifact or a newer one whose producer
+    # dropped it under version skew — fails closed to the STRICT regime (tiered_gate
+    # False) rather than inheriting a possibly-relaxed live environment. The
+    # fail-closed path is logged (not silent) so a field-drop regression is
+    # observable instead of quietly downgrading a relaxed artifact. apply_prepared_
+    # evidence then evaluates under min(prepared, live), so this strict default can
+    # only ever tighten, never loosen, the bar.
+    if "tiered_gate" in data:
+        gate_kwargs: dict[str, Any] = {"tiered_gate": _coerce_relaxed_flag(data.get("tiered_gate"))}
+    else:
+        logger.debug(
+            "prepared evidence artifact omits 'tiered_gate'; failing closed to "
+            "strict regime (repo=%s pr=%s)",
+            repo,
+            pr,
+        )
+        gate_kwargs = {"tiered_gate": False}
     return CollectOutcome(
         repo=repo,
         pr=pr,
@@ -454,6 +865,10 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         quorum_rerun=data.get("quorum_rerun")
         if isinstance(data.get("quorum_rerun"), dict)
         else None,
+        adjudication=dict(data["adjudication"])
+        if isinstance(data.get("adjudication"), dict)
+        else None,
+        **gate_kwargs,
     )
 
 
@@ -792,8 +1207,10 @@ def build_review_prompt(
         f"Review ONLY the changes below for PR #{pr} in {repo} at head {short}. "
         "Look hard for correctness, security, and regression risks. "
         "Begin your reply with 'Verdict: PASS' or 'Verdict: CHANGES-REQUESTED', then a terse "
-        "bullet list of concrete findings each tagged [P1]/[P2]/[P3] with a location, or state "
-        "explicitly that there are no blocking issues. Be concise.\n\n"
+        "bullet list of concrete findings, each tagged [P1]/[P2]/[P3] with a location. Include "
+        "ONLY priority levels that have a real finding: if a level has none, OMIT it entirely "
+        "-- never write a '[P1] None', '[P2] N/A', or similar no-finding line (it is misread as "
+        "a blocking finding). If there are no findings at all, write 'No findings.' Be concise.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
         f"{body_header}\n{bounded}\n"
     )
@@ -805,7 +1222,8 @@ def build_review_prompt(
 def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     """Run a genuine reviewer, preferring subscription CLIs over metered APIs.
 
-    ``claude`` -> claude CLI; ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
+    ``claude`` -> claude CLI (or Anthropic API if ANTHROPIC_API_KEY);
+    ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
     ``grok`` -> Grok Build CLI when installed (else API); ``gemini`` -> Antigravity
     CLI when installed (else API); everything else -> API agent. The CLI-first
     routing for grok/gemini lets the merge gate form a 2-family quorum from any
@@ -813,7 +1231,7 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     """
     fam = canonical_family(family)
     if fam == "claude":
-        result = _run_claude_cli(prompt)
+        result = _run_claude_reviewer(prompt)
     elif fam == "openai":
         result = _run_openai_reviewer(prompt)
     elif fam == "grok":
@@ -844,27 +1262,86 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     return result
 
 
-def _claude_reviewer_command() -> list[str]:
+@contextmanager
+def _claude_empty_mcp_config_file() -> Iterator[Path]:
+    """Write Claude's empty MCP config to a real file for CLI compatibility."""
+
+    fd, path_text = tempfile.mkstemp(prefix="aragora-claude-mcp-", suffix=".json")
+    path = Path(path_text)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump({"mcpServers": {}}, handle)
+            handle.write("\n")
+        yield path
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
     """Argv for the merge-gate claude reviewer with MCP servers disabled.
 
     The reviewer only reads a diff to emit a verdict, so it needs no MCP
     servers. Disabling them avoids claude's startup MCP handshake, which blocks
     until the full timeout when a local MCP server is wedged.
     """
-    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
+    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", str(mcp_config_path)]
+
+
+def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
+    """Best-effort check before a long Claude review.
+
+    Returns an error string for fast non-zero probe exits, which usually means
+    the CLI has already detected an auth/config problem. Returns ``None`` for
+    healthy CLIs, missing binaries, subprocess exceptions, and probe timeouts.
+    The real review call remains the source of truth so a slow cold start cannot
+    suppress a valid review. Disabled when
+    ``ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS`` parses to a non-positive number.
+    Best-effort: a probe bug never blocks a genuine review.
+    """
+    raw_timeout = os.environ.get(_CLI_PROBE_TIMEOUT_ENV, "").strip()
+    if raw_timeout:
+        try:
+            if math.isfinite(float(raw_timeout)) and float(raw_timeout) <= 0:
+                return None
+        except ValueError:
+            pass
+    probe_timeout = _timeout_seconds(_CLI_PROBE_TIMEOUT_ENV, _CLI_PROBE_TIMEOUT)
+    try:
+        proc = subprocess.run(
+            argv,
+            input=_CLI_PROBE_PROMPT,
+            capture_output=True,
+            text=True,
+            timeout=probe_timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    except (FileNotFoundError, OSError, subprocess.SubprocessError):
+        return None  # let the real review surface the precise (and fast) error
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        suffix = f": {detail}" if detail else ""
+        return f"{family} CLI liveness probe exit {proc.returncode}{suffix}"
+    return None
 
 
 def _run_claude_cli(prompt: str) -> ReviewerResult:
     timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
-        proc = subprocess.run(
-            _claude_reviewer_command(),
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
+        with _claude_empty_mcp_config_file() as mcp_config_path:
+            argv = _claude_reviewer_command(mcp_config_path)
+            probe_error = _cli_liveness_probe("claude", argv)
+            if probe_error:
+                return ReviewerResult("claude", "", False, probe_error)
+            proc = subprocess.run(
+                argv,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
     except FileNotFoundError:
         return ReviewerResult("claude", "", False, "claude CLI not found on PATH")
     except subprocess.TimeoutExpired:
@@ -884,6 +1361,29 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
             f"claude CLI exit {proc.returncode}: {(proc.stderr or '').strip()[:200]}",
         )
     return ReviewerResult("claude", _cap_text(text), True)
+
+
+def _run_claude_reviewer(prompt: str) -> ReviewerResult:
+    """Run Claude evidence via the subscription CLI, then the direct Anthropic API.
+
+    The claude subscription CLI is preferred (no metered cost). When it is
+    unavailable or fails — e.g. CI runners and other keyless-CLI environments —
+    fall back to the direct Anthropic API if ``ANTHROPIC_API_KEY`` is set, so the
+    merge gate can still form a western-family quorum from API keys alone rather
+    than depending solely on OpenRouter. If neither path works the original CLI
+    failure is returned, so the generic OpenRouter fallback in
+    :func:`default_reviewer_runner` still applies.
+    """
+    result = _run_claude_cli(prompt)
+    if result.ok:
+        return result
+    if os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        # Use the Anthropic *API* agent type ("claude" maps to the CLI agent);
+        # relabel the result to the "claude" family so it counts in the quorum.
+        api = _run_api_agent("anthropic-api", prompt)
+        if api.ok:
+            return replace(api, family="claude")
+    return result
 
 
 def _run_openai_reviewer(prompt: str) -> ReviewerResult:
@@ -956,10 +1456,12 @@ def _run_grok_reviewer(prompt: str) -> ReviewerResult:
     """
     grok_bin = _resolve_grok_build_bin()
     if os.path.isfile(grok_bin) and os.access(grok_bin, os.X_OK):
+        timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
         result = _run_argv_cli_reviewer(
             "grok",
             [grok_bin, "--sandbox", "read-only", "--no-plan", "-p", prompt],
             _GROK_BUILD_HARNESS,
+            timeout=timeout,
         )
         if result.ok or not _env_key_present("XAI_API_KEY", "GROK_API_KEY"):
             return result
@@ -977,8 +1479,12 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
 
     agy_path = shutil.which("agy")
     if agy_path:
+        timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
         result = _run_argv_cli_reviewer(
-            "gemini", [agy_path, "--sandbox", "-p", prompt], _ANTIGRAVITY_HARNESS
+            "gemini",
+            [agy_path, "--sandbox", "-p", prompt],
+            _ANTIGRAVITY_HARNESS,
+            timeout=timeout,
         )
         if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):
             return result
@@ -1535,6 +2041,25 @@ def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
         return record
 
 
+def _record_review_adjudication_if_applicable(outcome: CollectOutcome) -> None:
+    """Attach observe-only adjudication for mixed-support prepare stalls."""
+    if outcome.adjudication is not None:
+        return
+    if outcome.action != "prepare":
+        return
+    if not outcome.supportive_families or not outcome.dissenting_families:
+        return
+
+    try:
+        from aragora.swarm.review_adjudicator import adjudicate, review_adjudicator_enabled
+
+        if not review_adjudicator_enabled():
+            return
+        outcome.adjudication = adjudicate(outcome.items).to_receipt_dict()
+    except (AttributeError, ImportError, RuntimeError, TypeError, ValueError):
+        logger.exception("observe-only review adjudicator failed; omitting adjudication")
+
+
 # --- Orchestrator ----------------------------------------------------------
 
 
@@ -1553,9 +2078,13 @@ def collect_evidence(
     poster: Callable[[str, int, str], None] = default_poster,
     quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
+    overall_timeout_seconds: float | None = None,
 ) -> CollectOutcome:
     """Run reviewers, validate evidence, and post only when tier-gating allows."""
-    ctx = context_fetcher(repo, pr)
+    overall_timeout_seconds = _positive_timeout_seconds(
+        overall_timeout_seconds, "overall_timeout_seconds"
+    )
+    ctx = _fetch_preflight_context(repo, pr, context_fetcher)
     head_sha = str(ctx.get("head_sha") or "").strip()
     head_committed_at = str(ctx.get("head_committed_at") or "")
     if not head_sha:
@@ -1572,6 +2101,7 @@ def collect_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
+        overall_timeout_seconds=overall_timeout_seconds,
     )
 
     prompt = prompt_builder(repo, pr, ctx)
@@ -1588,16 +2118,50 @@ def collect_evidence(
         seen.add(family)
         ordered_families.append(family)
 
-    # Run the supported reviewers concurrently with an outer collector deadline.
-    # Each default runner already bounds itself in a child process, but this
-    # fail-closed guard keeps a stuck runner/cleanup path from blocking JSON
-    # output for the whole command.
+    # Run the supported reviewers concurrently. Without an orchestration timeout,
+    # a ThreadPoolExecutor is sufficient and keeps test fakes simple. With an
+    # orchestration timeout, use process-supervised reviewer workers so the
+    # collector can fail closed at the deadline without waiting for a stuck
+    # reviewer thread during executor shutdown.
     supported = [family for family in ordered_families if family in FAMILY_PROVIDERS]
-    reviews = _run_reviewers_with_timeout(
-        supported=supported,
-        reviewer_runner=reviewer_runner,
-        prompt=prompt,
-    )
+    reviews: dict[str, ReviewerResult] = {}
+    if supported:
+        if overall_timeout_seconds is None:
+            max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+                future_to_family = {
+                    pool.submit(
+                        _run_reviewer_with_infra_retry, reviewer_runner, family, prompt
+                    ): family
+                    for family in supported
+                }
+                done = set(concurrent.futures.as_completed(future_to_family))
+                for future in done:
+                    family = future_to_family[future]
+                    try:
+                        reviews[family] = future.result()
+                    except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort.
+                        reviews[family] = ReviewerResult(
+                            family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                        )
+        else:
+            reviews, timed_out_families = _run_reviewers_with_overall_timeout(
+                reviewer_runner=reviewer_runner,
+                prompt=prompt,
+                families=supported,
+                overall_timeout_seconds=overall_timeout_seconds,
+            )
+            if timed_out_families:
+                outcome.orchestration_timeout = True
+                outcome.timed_out_families = timed_out_families
+                for family in timed_out_families:
+                    reviews[family] = ReviewerResult(
+                        family,
+                        "",
+                        False,
+                        "reviewer orchestration timed out after "
+                        f"{_format_seconds(overall_timeout_seconds or 0)}s",
+                    )
 
     for family in ordered_families:
         if family not in FAMILY_PROVIDERS:
@@ -1632,6 +2196,16 @@ def collect_evidence(
             )
         )
 
+    if outcome.orchestration_timeout:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            "reviewer orchestration timeout "
+            f"({', '.join(outcome.timed_out_families) or 'deadline expired'}); "
+            "prepared evidence only"
+        )
+        _record_review_adjudication_if_applicable(outcome)
+        return outcome
+
     if action == "post":
         if outcome.dissenting_families:
             outcome.action = "prepare"
@@ -1639,13 +2213,12 @@ def collect_evidence(
                 "reviewer dissent present "
                 f"({', '.join(outcome.dissenting_families)}); prepared evidence only"
             )
+            _record_review_adjudication_if_applicable(outcome)
             return outcome
         if not outcome.has_supportive_quorum:
             outcome.action = "prepare"
-            outcome.action_reason = (
-                "supportive quorum incomplete "
-                f"({len(outcome.supportive_families)}/2); prepared evidence only"
-            )
+            outcome.action_reason = outcome.incomplete_quorum_reason
+            _record_review_adjudication_if_applicable(outcome)
             return outcome
         # Reviewers can take minutes; re-verify the head and tier immediately
         # before posting so a head that moved or a PR promoted to a settlement
@@ -1658,6 +2231,7 @@ def collect_evidence(
             outcome.action_reason = (
                 f"could not re-verify head/tier before posting ({str(exc)[:120]}); prepared only"
             )
+            _record_review_adjudication_if_applicable(outcome)
             return outcome
         recheck_action, recheck_reason = decide_action(recheck_tier, apply)
         if recheck_head != head_sha or recheck_action != "post":
@@ -1684,10 +2258,317 @@ def collect_evidence(
             except Exception as exc:  # noqa: BLE001 - evidence posts should remain reported.
                 outcome.quorum_rerun = {"applied": False, "error": str(exc)[:200]}
 
+    _record_review_adjudication_if_applicable(outcome)
     return outcome
 
 
-def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
+def _fetch_preflight_context(
+    repo: str,
+    pr: int,
+    context_fetcher: Callable[[str, int], dict[str, Any]],
+    *,
+    attempts: int = _PREFLIGHT_CONTEXT_ATTEMPTS,
+    retry_delay_seconds: float = _PREFLIGHT_CONTEXT_RETRY_DELAY_SECONDS,
+) -> dict[str, Any]:
+    """Fetch initial PR context with bounded transport-only retries."""
+    bounded_attempts = max(1, attempts)
+    last_transport_error: BaseException | None = None
+    for attempt in range(1, bounded_attempts + 1):
+        try:
+            return context_fetcher(repo, pr)
+        except Exception as exc:  # noqa: BLE001 - classify injected/live transport errors.
+            if not _is_preflight_context_transport_error(exc):
+                raise
+            last_transport_error = exc
+            if attempt >= bounded_attempts:
+                break
+            if retry_delay_seconds > 0:
+                time.sleep(retry_delay_seconds)
+    if last_transport_error is None:  # pragma: no cover - defensive future-proofing.
+        last_transport_error = RuntimeError("preflight context unavailable")
+    raise CollectPreflightTransportError(
+        repo=repo,
+        pr=pr,
+        phase="preflight_pr_context",
+        error=last_transport_error,
+        attempts=bounded_attempts,
+    )
+
+
+_PREFLIGHT_TIMEOUT_MARKERS = (
+    "client.timeout exceeded",
+    "command timed out",
+    "context deadline exceeded",
+    "operation timed out",
+    "timeout awaiting response headers",
+    "timed out after",
+    "tls handshake timeout",
+)
+_PREFLIGHT_GITHUB_ANCHORS = (
+    " api.github.com",
+    "github.com",
+    "gh ",
+    "gh:",
+    "gh.exe",
+    "gh pr ",
+    "gh api ",
+    "repos/",
+)
+
+
+def _is_preflight_context_transport_error(error: BaseException) -> bool:
+    """Classify only GitHub transport failures as preflight transport blockers.
+
+    ``context_fetcher`` is injected in tests and in future orchestration callers.
+    Timeout-shaped words in arbitrary business/auth/parser exceptions should not
+    be retried or reported as GitHub transport just because they contain
+    "timed out after". Raw ``subprocess.TimeoutExpired`` is still transport for
+    this preflight phase because the supported live fetcher shells out to ``gh``.
+    """
+    if isinstance(error, subprocess.TimeoutExpired):
+        return True
+    if not _is_github_transport_error(error):
+        return False
+    text = str(error or "").lower()
+    if any(marker in text for marker in _PREFLIGHT_TIMEOUT_MARKERS):
+        return any(anchor in text for anchor in _PREFLIGHT_GITHUB_ANCHORS)
+    return True
+
+
+def _reviewer_process_context() -> Any:
+    """Return a process context usable for locally injected reviewer callables."""
+    try:
+        methods = multiprocessing.get_all_start_methods()
+    except (AttributeError, ValueError):  # pragma: no cover - platform defensive.
+        methods = []
+    if threading.active_count() > 1:
+        for method in ("forkserver", "spawn"):
+            if method in methods:
+                return multiprocessing.get_context(method)
+        raise RuntimeError("cannot safely fork reviewer workers from a multi-threaded parent")
+    if "fork" in methods:
+        return multiprocessing.get_context("fork")
+    return multiprocessing.get_context()
+
+
+def _reviewer_process_worker(
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+    result_queue: multiprocessing.Queue,
+) -> None:
+    _isolate_reviewer_worker_process_group()
+    result = _run_reviewer_with_infra_retry(reviewer_runner, family, prompt)
+    try:
+        result_queue.put(result)
+    except (OSError, ValueError):
+        # Parent will report "exited without returning a result"; do not let a
+        # broken queue keep the worker alive.
+        pass
+
+
+def _isolate_reviewer_worker_process_group() -> None:
+    """Put POSIX reviewer workers in their own process group.
+
+    CLI reviewer subprocesses inherit this group, letting the parent terminate
+    the whole timed-out reviewer tree instead of only the Python supervisor.
+    Guard the main process because unit tests may call the worker directly.
+    """
+    if os.name != "posix" or not hasattr(os, "setsid"):
+        return
+    try:
+        if multiprocessing.current_process().name == "MainProcess":
+            return
+    except Exception:  # pragma: no cover - defensive for nonstandard contexts.
+        return
+    try:
+        os.setsid()
+    except OSError:
+        pass
+
+
+@dataclass
+class _ReviewerWorker:
+    family: str
+    process: multiprocessing.Process
+    result_queue: multiprocessing.Queue
+
+
+def _signal_reviewer_process_group(
+    process: multiprocessing.Process,
+    sig: signal.Signals,
+) -> bool:
+    """Signal a reviewer process group when available.
+
+    Returns ``True`` when the group signal was sent or the group is already
+    gone. Returns ``False`` when the caller should fall back to signaling the
+    supervisor process only.
+    """
+    if os.name != "posix" or not hasattr(os, "killpg"):
+        return False
+    pid = getattr(process, "pid", None)
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.killpg(pid, sig)
+    except ProcessLookupError:
+        try:
+            return not process.is_alive()
+        except (OSError, ValueError):
+            return False
+    except OSError:
+        return False
+    return True
+
+
+def _start_reviewer_worker(
+    ctx: Any,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+) -> _ReviewerWorker:
+    result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
+    process = ctx.Process(
+        target=_reviewer_process_worker,
+        args=(reviewer_runner, family, prompt, result_queue),
+        daemon=False,
+    )
+    process.start()
+    return _ReviewerWorker(family=family, process=process, result_queue=result_queue)
+
+
+def _close_reviewer_worker(worker: _ReviewerWorker) -> None:
+    try:
+        worker.result_queue.close()
+    except (OSError, ValueError):
+        pass
+    try:
+        worker.result_queue.join_thread()
+    except (AssertionError, OSError, ValueError):
+        pass
+
+
+def _terminate_reviewer_worker(worker: _ReviewerWorker) -> None:
+    process = worker.process
+    if process.is_alive():
+        if not _signal_reviewer_process_group(process, signal.SIGTERM):
+            try:
+                process.terminate()
+            except (OSError, ValueError):
+                pass
+        process.join(_REVIEWER_CLEANUP_TIMEOUT)
+    if process.is_alive():
+        if not _signal_reviewer_process_group(process, signal.SIGKILL):
+            try:
+                process.kill()
+            except (OSError, ValueError):
+                pass
+        process.join(_REVIEWER_CLEANUP_TIMEOUT)
+    _close_reviewer_worker(worker)
+
+
+def _read_reviewer_worker_result(worker: _ReviewerWorker) -> ReviewerResult:
+    try:
+        payload = worker.result_queue.get_nowait()
+    except queue.Empty:
+        try:
+            payload = worker.result_queue.get(timeout=_REVIEWER_RESULT_QUEUE_TIMEOUT)
+        except queue.Empty:
+            return ReviewerResult(
+                worker.family,
+                "",
+                False,
+                f"{worker.family} reviewer exited without returning a result",
+            )
+    if isinstance(payload, ReviewerResult):
+        return payload
+    if isinstance(payload, dict):
+        return ReviewerResult(
+            str(payload.get("family") or worker.family),
+            str(payload.get("text") or ""),
+            bool(payload.get("ok")),
+            str(payload.get("error") or ""),
+            str(payload.get("harness") or ""),
+        )
+    return ReviewerResult(worker.family, "", False, "reviewer returned invalid result")
+
+
+def _run_reviewers_with_overall_timeout(
+    *,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    prompt: str,
+    families: Sequence[str],
+    overall_timeout_seconds: float,
+) -> tuple[dict[str, ReviewerResult], list[str]]:
+    """Run reviewers with a hard orchestration deadline and terminate stragglers."""
+    try:
+        ctx = _reviewer_process_context()
+    except (OSError, RuntimeError, ValueError) as exc:
+        return (
+            {
+                family: ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+                for family in families
+            },
+            [],
+        )
+    deadline = time.monotonic() + overall_timeout_seconds
+    pending = list(families)
+    active: list[_ReviewerWorker] = []
+    results: dict[str, ReviewerResult] = {}
+    timed_out: list[str] = []
+
+    def start_more() -> None:
+        while pending and len(active) < _MAX_REVIEWER_WORKERS:
+            family = pending.pop(0)
+            try:
+                active.append(_start_reviewer_worker(ctx, reviewer_runner, family, prompt))
+            except (OSError, RuntimeError, ValueError) as exc:
+                results[family] = ReviewerResult(
+                    family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                )
+
+    def reap_finished() -> None:
+        finished = [worker for worker in active if not worker.process.is_alive()]
+        for worker in finished:
+            worker.process.join(0)
+            results[worker.family] = _read_reviewer_worker_result(worker)
+            _close_reviewer_worker(worker)
+            active.remove(worker)
+        if finished:
+            start_more()
+
+    start_more()
+    while active or pending:
+        reap_finished()
+        if not active and not pending:
+            break
+
+        if time.monotonic() >= deadline:
+            reap_finished()
+            if not active and not pending:
+                break
+            timed_out.extend(worker.family for worker in active)
+            timed_out.extend(pending)
+            pending.clear()
+            for worker in active:
+                _terminate_reviewer_worker(worker)
+            active.clear()
+            break
+
+        remaining = max(0.0, deadline - time.monotonic())
+        time.sleep(min(0.01, remaining))
+
+    return results, timed_out
+
+
+def _clone_prepared_items(
+    items: Sequence[EvidenceItem], *, live_severity_gated: bool | None = None
+) -> list[EvidenceItem]:
+    # ``live_severity_gated`` None preserves the prepared regime verbatim; at apply
+    # the caller passes the live flag so the clone carries the reconciled
+    # ``effective = prepared.severity_gated AND live`` (min(prepared, live)) — the
+    # same fail-closed reconciliation ``tiered_gate`` gets, so a forged or stale
+    # ``severity_gated=true`` cannot relax dissent while the live flag is OFF.
     return [
         EvidenceItem(
             family=item.family,
@@ -1696,6 +2577,11 @@ def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
             counted_reviewer_ids=list(item.counted_reviewer_ids),
             problems=list(item.problems),
             verdict=item.verdict,
+            severity_gated=(
+                item.severity_gated
+                if live_severity_gated is None
+                else (item.severity_gated and live_severity_gated)
+            ),
         )
         for item in items
     ]
@@ -1779,6 +2665,39 @@ def apply_prepared_evidence(
     if not head_sha:
         raise ValueError(f"could not resolve head SHA for PR #{pr} in {repo}")
 
+    # Security: a prepared artifact carries the tiered-gate regime it was collected
+    # under. Apply-time sufficiency is evaluated under the MORE RESTRICTIVE of the
+    # prepare-time and live regimes (relaxation requires BOTH to permit it):
+    #
+    #     effective_tiered_gate = prepared.tiered_gate AND live_gate
+    #
+    # This preserves both security directions without coupling merge-authority to a
+    # mutable live-env *equality* check (grok #8507 P1 + claude #8507 P1):
+    #   * a strict-prepared artifact (tiered_gate=False, insufficient under strict
+    #     rules) can never become postable just because the relaxing flag was flipped
+    #     ON between prepare and apply  (False AND True == False -> strict);
+    #   * a relaxed-prepared artifact (tiered_gate=True) is re-evaluated under strict
+    #     rules if the operator later turns the relaxation OFF, because the flag is the
+    #     operator's revocable approval point  (True AND False == False -> strict).
+    # It is fail-safe rather than fail-closed: evidence that is insufficient under the
+    # effective regime degrades to "prepare" below — never a hard error — so there is
+    # no inconsistent-authority / operational-DoS window.
+    #
+    # Artifact trust boundary (claude #8507 P2): a prepared artifact is trusted only
+    # after it is matched to this repo/PR and to the LIVE exact-head SHA and then
+    # re-linted against the same parser used before posting. The `min(prepared, live)`
+    # rule means a forged `tiered_gate=true` cannot relax a merge while the live flag
+    # is OFF; it can only assert relaxation when the operator has ALREADY enabled it
+    # live (itself the Tier-4-gated decision). Anyone who can forge the artifact JSON
+    # can also forge reviewer bodies, so artifact integrity is the caller's trust
+    # boundary — this field grants no authority beyond what the live flag already does.
+    live_gate = tiered_merge_gate_enabled()
+    effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
+    # Reconcile the severity-gate regime the same way: a relaxed-prepared artifact
+    # only stays relaxed when the live flag also relaxes; otherwise dissent is
+    # re-evaluated under the strict regime. Mirrors effective_tiered_gate.
+    live_severity_gated = severity_gated_dissent_enabled()
+
     tier = tier_fetcher(repo, pr)
     action, action_reason = decide_action(tier, apply)
     outcome = CollectOutcome(
@@ -1789,8 +2708,9 @@ def apply_prepared_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
-        items=_clone_prepared_items(prepared.items),
+        items=_clone_prepared_items(prepared.items, live_severity_gated=live_severity_gated),
         failures=_clone_reviewer_failures(prepared.failures),
+        tiered_gate=effective_tiered_gate,
     )
 
     if prepared.head_sha != head_sha:
@@ -1823,11 +2743,18 @@ def apply_prepared_evidence(
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
                 verdict=_reviewer_verdict(item.body),
+                # Preserve the regime already reconciled by _clone_prepared_items
+                # (effective = prepared AND live). Re-running the linter must NOT
+                # let EvidenceItem.default_factory re-read the live env and undo
+                # min(prepared, live) — a strict-prepared artifact stays strict even
+                # when the live flag is ON (claude/grok #8574 P1).
+                severity_gated=item.severity_gated,
             )
         )
     outcome.items = relinted_items
 
     if action != "post":
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
     if outcome.dissenting_families:
         outcome.action = "prepare"
@@ -1835,13 +2762,12 @@ def apply_prepared_evidence(
             "reviewer dissent present "
             f"({', '.join(outcome.dissenting_families)}); prepared evidence only"
         )
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
     if not outcome.has_supportive_quorum:
         outcome.action = "prepare"
-        outcome.action_reason = (
-            "supportive quorum incomplete "
-            f"({len(outcome.supportive_families)}/2); prepared evidence only"
-        )
+        outcome.action_reason = outcome.incomplete_quorum_reason
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
 
     try:
@@ -1852,6 +2778,7 @@ def apply_prepared_evidence(
         outcome.action_reason = (
             f"could not re-verify head/tier before posting ({str(exc)[:120]}); prepared only"
         )
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
     recheck_action, recheck_reason = decide_action(recheck_tier, apply)
     if recheck_head != head_sha or recheck_action != "post":
@@ -1861,6 +2788,7 @@ def apply_prepared_evidence(
             f"(head {head_sha[:7]}->{recheck_head[:7] or 'none'}, "
             f"tier {tier}->{recheck_tier}); prepared only: {recheck_reason}"
         )
+        _record_review_adjudication_if_applicable(outcome)
         return outcome
 
     outcome.action_reason = (
@@ -1917,6 +2845,48 @@ def _render_outcome(outcome: CollectOutcome) -> str:
     return "\n".join(lines)
 
 
+@contextmanager
+def _scoped_env(overrides: dict[str, str]) -> Iterator[None]:
+    previous = {key: os.environ.get(key) for key in overrides}
+    try:
+        os.environ.update(overrides)
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def _reviewer_timeout_env_overrides(
+    reviewer_timeout_seconds: float | None,
+    overall_timeout_seconds: float | None,
+) -> dict[str, str]:
+    reviewer_timeout_seconds = _positive_timeout_seconds(
+        reviewer_timeout_seconds, "reviewer_timeout_seconds"
+    )
+    overall_timeout_seconds = _positive_timeout_seconds(
+        overall_timeout_seconds, "overall_timeout_seconds"
+    )
+    if reviewer_timeout_seconds is None and overall_timeout_seconds is None:
+        return {}
+    if reviewer_timeout_seconds is None:
+        effective = overall_timeout_seconds
+    elif overall_timeout_seconds is None:
+        effective = reviewer_timeout_seconds
+    else:
+        effective = min(reviewer_timeout_seconds, overall_timeout_seconds)
+    if effective is None:  # pragma: no cover - defensive guard for future edits.
+        return {}
+    value = _format_seconds(effective)
+    return {
+        _CLAUDE_TIMEOUT_ENV: value,
+        _CODEX_TIMEOUT_ENV: value,
+        _REVIEWER_TIMEOUT_ENV: value,
+    }
+
+
 def run_collect_cli(
     *,
     repo: str,
@@ -1926,6 +2896,8 @@ def run_collect_cli(
     apply: bool,
     json_output: bool,
     prepared_json: Path | None = None,
+    reviewer_timeout_seconds: float | None = None,
+    overall_timeout_seconds: float | None = None,
     printer: Callable[[str], None] = print,
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
@@ -1939,27 +2911,41 @@ def run_collect_cli(
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()
     try:
-        if prepared_json is None:
-            outcome = collect_evidence(
-                repo=repo,
-                pr=pr,
-                families=fams,
-                author=resolved_author,
-                apply=apply,
-                env=merge_quorum_io.aragora_env(),
-                quorum_reconciler=default_quorum_reconciler if apply else None,
-            )
+        overall_timeout_seconds = _positive_timeout_seconds(
+            overall_timeout_seconds, "overall_timeout_seconds"
+        )
+        env_overrides = _reviewer_timeout_env_overrides(
+            reviewer_timeout_seconds, overall_timeout_seconds
+        )
+        with _scoped_env(env_overrides):
+            if prepared_json is None:
+                outcome = collect_evidence(
+                    repo=repo,
+                    pr=pr,
+                    families=fams,
+                    author=resolved_author,
+                    apply=apply,
+                    env=merge_quorum_io.aragora_env(),
+                    quorum_reconciler=default_quorum_reconciler if apply else None,
+                    overall_timeout_seconds=overall_timeout_seconds,
+                )
+            else:
+                outcome = apply_prepared_evidence(
+                    repo=repo,
+                    pr=pr,
+                    prepared_json=prepared_json,
+                    author=resolved_author,
+                    apply=apply,
+                    families=fams,
+                    env=merge_quorum_io.aragora_env(),
+                    quorum_reconciler=default_quorum_reconciler if apply else None,
+                )
+    except CollectPreflightTransportError as exc:
+        if json_output:
+            printer(json.dumps(exc.to_dict(), indent=2))
         else:
-            outcome = apply_prepared_evidence(
-                repo=repo,
-                pr=pr,
-                prepared_json=prepared_json,
-                author=resolved_author,
-                apply=apply,
-                families=fams,
-                env=merge_quorum_io.aragora_env(),
-                quorum_reconciler=default_quorum_reconciler if apply else None,
-            )
+            printer(f"error: {exc}")
+        return 1
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
             printer(json.dumps({"mode": "collect_evidence", "error": str(exc)}, indent=2))
@@ -1971,4 +2957,4 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
-    return 0 if outcome.has_supportive_quorum else 1
+    return 0 if outcome.has_supportive_quorum and not outcome.orchestration_timeout else 1

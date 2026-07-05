@@ -75,7 +75,7 @@ GET /api/evolution/ab-tests?limit=10&status=running
 ### Get Active Test for Agent
 
 ```http
-GET /api/evolution/ab-tests/\{agent_name\}/active
+GET /api/evolution/ab-tests/{agent_name}/active
 ```
 
 **Response:**
@@ -122,7 +122,7 @@ Content-Type: application/json
 ### Record Debate Result
 
 ```http
-POST /api/evolution/ab-tests/\{test_id\}/record
+POST /api/evolution/ab-tests/{test_id}/record
 Content-Type: application/json
 
 {
@@ -139,7 +139,7 @@ Content-Type: application/json
 ### Conclude Test
 
 ```http
-POST /api/evolution/ab-tests/\{test_id\}/conclude
+POST /api/evolution/ab-tests/{test_id}/conclude
 Content-Type: application/json
 
 {
@@ -165,7 +165,7 @@ Content-Type: application/json
 ### Cancel Test
 
 ```http
-DELETE /api/evolution/ab-tests/\{test_id\}
+DELETE /api/evolution/ab-tests/{test_id}
 ```
 
 ## Workflow Example
@@ -333,7 +333,7 @@ import { ABTestResultsPanel } from '@/components/ABTestResultsPanel';
 
 <ABTestResultsPanel
   apiBase="/api"           // API base URL
-  showListView=\{true\}      // Show test list sidebar
+  showListView={true}      // Show test list sidebar
   onTestSelect={(test) => console.log(test)}
 />
 ```

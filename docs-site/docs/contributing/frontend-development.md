@@ -224,9 +224,9 @@ function UserMenu() {
   const { user, signIn, signOut, isLoading } = useAuth();
 
   if (isLoading) return <LoadingSpinner />;
-  if (!user) return <button onClick=\{signIn\}>Sign In</button>;
+  if (!user) return <button onClick={signIn}>Sign In</button>;
 
-  return <button onClick=\{signOut\}>Sign Out</button>;
+  return <button onClick={signOut}>Sign Out</button>;
 }
 ```
 
