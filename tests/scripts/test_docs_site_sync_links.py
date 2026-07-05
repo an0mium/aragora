@@ -201,10 +201,15 @@ def test_disaster_recovery_links_resolve_by_source_directory_not_last_doc_map_en
     assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in runbook_pg_migration
     assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in runbook_pg_replication
 
-    # runbooks/DISASTER_RECOVERY.md's own qualified link to its enterprise sibling
-    # must resolve to the enterprise DR page, not back to its own runbooks page.
+    # The runbook route itself is public-safe generated output, so it should keep
+    # navigable links to the related public-safe DR pages without exposing the
+    # source runbook body.
     assert (
-        "[../enterprise/DISASTER_RECOVERY.md](../enterprise/disaster-recovery)"
+        "[Deployment disaster recovery overview](../deployment/disaster-recovery)"
+        in disaster_recovery_runbook
+    )
+    assert (
+        "[Enterprise disaster recovery overview](../enterprise/disaster-recovery)"
         in disaster_recovery_runbook
     )
 
@@ -222,22 +227,32 @@ def test_disaster_recovery_links_resolve_by_source_directory_not_last_doc_map_en
         assert "DISASTER_RECOVERY.md)" not in content
 
 
-def test_enterprise_disaster_recovery_is_mapped_and_public_safe() -> None:
-    # docs/enterprise/DISASTER_RECOVERY.md is a substantial standalone enterprise DR
-    # overview that docs/runbooks/DISASTER_RECOVERY.md links to. The docs-site
-    # route must stay valid without publishing the internal runbook body.
-    page = DOCS_SITE_ROOT / "enterprise" / "disaster-recovery.md"
-    assert page.exists(), f"Expected synced docs-site page missing: {page}"
+def test_disaster_recovery_docs_site_pages_are_mapped_and_public_safe() -> None:
+    # Source DR docs include operational runbook details. The docs-site routes
+    # must stay valid without publishing internal topology, commands, or response
+    # rosters.
+    expected_pages = {
+        "deployment/disaster-recovery.md": "Deployment Disaster Recovery Overview",
+        "enterprise/disaster-recovery.md": "Enterprise Disaster Recovery Overview",
+        "operations/disaster-recovery-runbook.md": (
+            "Operations Disaster Recovery Runbook Overview"
+        ),
+    }
 
-    content = page.read_text(encoding="utf-8")
-    assert "title: Enterprise Disaster Recovery Overview" in content
-    assert "Recovery Objectives" in content
-    assert "Operational response details are restricted" in content
-    assert "Classification: Internal" not in content
-    assert "Primary Region (us-east-1)" not in content
-    assert "s3://aragora-backups" not in content
-    assert "kubectl --context backup" not in content
-    assert "Incident commander" not in content
+    for rel_path, title in expected_pages.items():
+        page = DOCS_SITE_ROOT / rel_path
+        assert page.exists(), f"Expected synced docs-site page missing: {page}"
+
+        content = page.read_text(encoding="utf-8")
+        assert f"title: {title}" in content
+        assert "restricted to authorized" in content
+        assert "Classification: Internal" not in content
+        assert "Primary Region (us-east-1)" not in content
+        assert "s3://aragora-backups" not in content
+        assert "kubectl --context backup" not in content
+        assert "Incident commander" not in content
+        assert "grafana.aragora.internal" not in content
+        assert "verify-backup-region" not in content
 
 
 def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
