@@ -255,6 +255,7 @@ const DOC_MAP = {
   'CONTROL_PLANE_GUIDE.md': 'enterprise/control-plane.md',
   'ENTERPRISE_FEATURES.md': 'enterprise/features.md',
   'ENTERPRISE_SUPPORT.md': 'enterprise/support.md',
+  'enterprise/DISASTER_RECOVERY.md': 'enterprise/disaster-recovery.md',
   'COMMERCIAL_OVERVIEW.md': 'enterprise/commercial-overview.md',
   'WHY_ARAGORA.md': 'enterprise/why-aragora.md',
   'PRICING.md': 'enterprise/pricing.md',
@@ -482,8 +483,29 @@ function escapeUrlParamBracesOutsideCodeFences(content) {
     .join('\n');
 }
 
-// Build reverse lookup from source file to destination path
+// Build reverse lookup from source file to destination path.
+//
+// REVERSE_LOOKUP is keyed by the full (qualified) source path -- e.g.
+// "deployment/DISASTER_RECOVERY.md", "runbooks/DISASTER_RECOVERY.md" -- which is
+// always unambiguous because DOC_MAP keys are themselves unique.
+//
+// BASENAME_LOOKUP is a secondary, basename-only index (e.g. "DISASTER_RECOVERY.md")
+// used as a last-resort fallback when a link can't be resolved relative to its own
+// source directory either (see sourceRelativeLinkTarget below). Several DOC_MAP
+// entries legitimately share a basename (deployment/, runbooks/, and enterprise/
+// each have their own DISASTER_RECOVERY.md; similarly README.md), so a basename-
+// only key is only safe to use when it maps to exactly one DOC_MAP entry --
+// populating it unconditionally would let whichever entry is defined last silently
+// win over the others for every ambiguous basename. Ambiguous basenames are
+// intentionally left out of BASENAME_LOOKUP so callers fall through to "no match"
+// instead of guessing.
 const REVERSE_LOOKUP = {};
+const BASENAME_LOOKUP = {};
+const basenameCounts = new Map();
+for (const src of Object.keys(DOC_MAP)) {
+  const srcName = path.basename(src.replace(/^\.\//, '').replace(/^\//, ''));
+  basenameCounts.set(srcName, (basenameCounts.get(srcName) || 0) + 1);
+}
 for (const [src, dest] of Object.entries(DOC_MAP)) {
   // Normalize source path variations
   const srcBase = src.replace(/^\.\//, '').replace(/^\//, '');
@@ -491,13 +513,59 @@ for (const [src, dest] of Object.entries(DOC_MAP)) {
 
   // Store both with and without .md extension
   REVERSE_LOOKUP[srcBase] = dest;
-  REVERSE_LOOKUP[srcName] = dest;
   REVERSE_LOOKUP[srcBase.replace('.md', '')] = dest.replace('.md', '');
-  REVERSE_LOOKUP[srcName.replace('.md', '')] = dest.replace('.md', '');
+
+  if (basenameCounts.get(srcName) === 1) {
+    BASENAME_LOOKUP[srcName] = dest;
+    BASENAME_LOOKUP[srcName.replace('.md', '')] = dest.replace('.md', '');
+  }
+}
+
+// Resolve a link target relative to the directory of the file that contains it,
+// e.g. "./DISASTER_RECOVERY.md" written inside deployment/CONTAINER_VOLUMES.md
+// means deployment/DISASTER_RECOVERY.md -- not whichever DOC_MAP entry sharing
+// that basename happens to be defined last. Checking this first lets a bare
+// filename resolve unambiguously whenever the target is a real sibling (or
+// reachable via "../") of the linking source, before falling back to the basename
+// guess below.
+function sourceRelativeLinkTarget(rawTarget, relSrcPath) {
+  const sourceDir = path.posix.dirname(relSrcPath.replace(/\\/g, '/'));
+  return path.posix.normalize(path.posix.join(sourceDir, rawTarget));
+}
+
+function resolveLinkDestination(normalized, relSrcPath, rawTarget) {
+  if (relSrcPath && rawTarget) {
+    const sourceResolved = REVERSE_LOOKUP[sourceRelativeLinkTarget(rawTarget, relSrcPath)];
+    if (sourceResolved) {
+      return sourceResolved;
+    }
+  }
+  // BASENAME_LOOKUP only contains basenames proven unique across DOC_MAP.
+  // Ambiguous names are intentionally absent so this fallback fails closed
+  // instead of guessing which same-named DOC_MAP entry the link meant.
+  return REVERSE_LOOKUP[normalized] || BASENAME_LOOKUP[path.basename(normalized)];
+}
+
+function rewriteLinkTarget(newPath, currentDir, anchor) {
+  const targetDir = path.dirname(newPath);
+  const targetFile = path.basename(newPath, '.md');
+  const isIndex = targetFile === 'index';
+
+  // If same directory, use ./ or filename
+  if (targetDir === currentDir) {
+    return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
+  }
+
+  // Calculate relative path
+  const relativePath = path.relative(currentDir, targetDir);
+  const relativeLink = isIndex
+    ? relativePath
+    : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
+  return `](${relativeLink}${anchor || ''})`;
 }
 
 // Fix content for Docusaurus compatibility
-function fixContent(content, destPath) {
+function fixContent(content, destPath, relSrcPath) {
   // Fix escaped backticks (common in generated docs)
   content = content.replace(/\\`\\`\\`/g, '```');
   content = content.replace(/\\`([^`\\]+)\\`/g, '`$1`');
@@ -516,30 +584,14 @@ function fixContent(content, destPath) {
   // Transform internal doc links to Docusaurus paths
   // Match links like [text](./FILE.md), [text](../FILE.md), [text](FILE.md)
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+\.md)(#[^)]+)?\)/g,
-    (match, filePath, anchor) => {
+    /\]\(((?:\.\.\/|\.\/)?)([A-Za-z0-9_./-]+\.md)(#[^)]+)?\)/g,
+    (match, prefix, filePath, anchor) => {
       // Try to find the destination path in our mapping
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
-      const newPath = REVERSE_LOOKUP[normalized] || REVERSE_LOOKUP[path.basename(normalized)];
+      const newPath = resolveLinkDestination(normalized, relSrcPath, `${prefix}${filePath}`);
 
       if (newPath) {
-        // Calculate relative path from current doc to target doc
-        const targetDir = path.dirname(newPath);
-        const targetFile = path.basename(newPath, '.md');
-
-        const isIndex = targetFile === 'index';
-
-        // If same directory, use ./ or filename
-        if (targetDir === currentDir) {
-          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
-        }
-
-        // Calculate relative path
-        const relativePath = path.relative(currentDir, targetDir);
-        const relativeLink = isIndex
-          ? relativePath
-          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
-        return `](${relativeLink}${anchor || ''})`;
+        return rewriteLinkTarget(newPath, currentDir, anchor);
       }
 
       // If not found, keep original but log it
@@ -549,30 +601,16 @@ function fixContent(content, destPath) {
 
   // Also fix links without .md extension when they match known docs
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+)(#[^)]+)?\)(?!\.md)/g,
-    (match, filePath, anchor) => {
+    /\]\(((?:\.\.\/|\.\/)?)([A-Za-z0-9_./-]+)(#[^)]+)?\)(?!\.md)/g,
+    (match, prefix, filePath, anchor) => {
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
+      const rawTarget = `${prefix}${filePath}`;
       const newPath =
-        REVERSE_LOOKUP[normalized] ||
-        REVERSE_LOOKUP[path.basename(normalized)] ||
-        REVERSE_LOOKUP[normalized + '.md'] ||
-        REVERSE_LOOKUP[path.basename(normalized) + '.md'];
+        resolveLinkDestination(normalized, relSrcPath, rawTarget) ||
+        resolveLinkDestination(normalized + '.md', relSrcPath, `${rawTarget}.md`);
 
       if (newPath) {
-        const targetDir = path.dirname(newPath);
-        const targetFile = path.basename(newPath, '.md');
-
-        const isIndex = targetFile === 'index';
-
-        if (targetDir === currentDir) {
-          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
-        }
-
-        const relativePath = path.relative(currentDir, targetDir);
-        const relativeLink = isIndex
-          ? relativePath
-          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
-        return `](${relativeLink}${anchor || ''})`;
+        return rewriteLinkTarget(newPath, currentDir, anchor);
       }
       return match;
     }
@@ -631,7 +669,7 @@ function processFile(srcRelPath, destPath) {
 
   // Fix content for compatibility (pass relative dest path)
   const relDestPath = destPath.replace(DEST_DIR + '/', '');
-  content = fixContent(content, relDestPath);
+  content = fixContent(content, relDestPath, relSrcPath.replace(/\\/g, '/'));
   content = injectConnectorCatalogBanner(content, relSrcPath);
 
   // Ensure destination directory exists

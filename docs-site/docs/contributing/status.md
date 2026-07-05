@@ -10,7 +10,7 @@ description: Aragora Project Status
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](./status).
 > The thesis settlement ledger has been archived at [archive/status/2026-04-21-thesis-settlement-session.md](archive/status/2026-04-21-thesis-settlement-session.md).
 > Historical sections below are retained for continuity, but the active source of truth for current project status is `docs/status/STATUS.md`.
-> See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
+> See [README](../README.md) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
 
 ## May 14, 2026 — Proof Loop Operating, Observability Gap Addressed
 
