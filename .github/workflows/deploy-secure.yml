@@ -141,7 +141,7 @@ jobs:
         run: |
           # Run from repo root; Vercel project rootDirectory is configured server-side.
           npx vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
-          DEPLOY_URL=$(npx vercel deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}")
+          DEPLOY_URL=$(npx vercel deploy --archive=tgz --prod --yes --token="${{ secrets.VERCEL_TOKEN }}")
           echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "Deployed URL: $DEPLOY_URL"
         env:
