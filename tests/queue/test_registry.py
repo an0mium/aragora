@@ -90,6 +90,63 @@ def test_register_job_handler_is_keyed_idempotent():
     assert registered_job_handler_names().count("dup") == 1
 
 
+def test_register_job_handler_is_idempotent_for_same_bound_method():
+    class Handler:
+        async def handle(self, job: object) -> dict[str, object]:
+            return {}
+
+    instance = Handler()
+
+    register_job_handler("bound", instance.handle)
+    register_job_handler("bound", instance.handle)
+
+    registered = get_job_handler("bound")
+    assert registered is not None
+    assert registered.__self__ is instance
+    assert registered.__func__ is Handler.handle
+    assert registered_job_handler_names().count("bound") == 1
+
+
+def test_register_job_handler_rejects_same_method_on_different_instance():
+    class Handler:
+        async def handle(self, job: object) -> dict[str, object]:
+            return {}
+
+    first = Handler()
+    second = Handler()
+
+    register_job_handler("bound", first.handle)
+
+    with pytest.raises(ValueError, match="job handler already registered"):
+        register_job_handler("bound", second.handle)
+
+    registered = get_job_handler("bound")
+    assert registered is not None
+    assert registered.__self__ is first
+    assert registered.__func__ is Handler.handle
+
+
+def test_register_job_handler_rejects_different_method_on_same_instance():
+    class Handler:
+        async def handle(self, job: object) -> dict[str, object]:
+            return {}
+
+        async def other(self, job: object) -> dict[str, object]:
+            return {}
+
+    instance = Handler()
+
+    register_job_handler("bound", instance.handle)
+
+    with pytest.raises(ValueError, match="job handler already registered"):
+        register_job_handler("bound", instance.other)
+
+    registered = get_job_handler("bound")
+    assert registered is not None
+    assert registered.__self__ is instance
+    assert registered.__func__ is Handler.handle
+
+
 def test_register_job_handler_rejects_different_duplicate():
     async def first(job: object) -> dict[str, object]:
         return {}
