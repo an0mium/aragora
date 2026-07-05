@@ -249,6 +249,16 @@ class TestArgumentParser:
         args = parser.parse_args(["demo", "rate-limiter"])
         assert args.name == "rate-limiter"
 
+    def test_real_parser_accepts_demo_offline_receipt_path(self):
+        """The public demo round-trip flags must stay wired on the real parser."""
+        parser = cli_parser.build_parser()
+
+        args = parser.parse_args(["demo", "--offline", "--receipt", "aragora-demo-receipt.json"])
+
+        assert args.command == "demo"
+        assert args.offline is True
+        assert args.receipt == "aragora-demo-receipt.json"
+
     def test_parse_serve_command(self, parser):
         """Should parse serve command with defaults."""
         args = parser.parse_args(["serve"])
