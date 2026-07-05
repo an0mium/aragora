@@ -126,7 +126,8 @@ def test_prompt_starts_with_mailbox_and_owner_verification(tmp_path: Path) -> No
     assert "ARAGORA_REQUIRE_BRANCH_WRITE_LEASE=1" in prompt
     assert (
         "python3 scripts/check_work_lease.py claude/recover-merge-gate-reconciliation "
-        "--verify-only --work-id pr:7423 --strict --json"
+        "--verify-only --work-id pr:7423 --strict "
+        "--session-id droid-P106-merge-gate-settlement-20260521T2118Z --json"
     ) in prompt
     assert (
         "If the prompt above accomplishes no incremental progress make the next prompt one that does"

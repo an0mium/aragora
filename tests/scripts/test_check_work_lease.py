@@ -439,6 +439,44 @@ def test_verify_only_branch_work_id_reports_foreign_store_direct_lease(
     assert payload["owner_session_id"] == "sess-swarm"
 
 
+def test_verify_only_pr_work_id_reports_nonmatching_foreign_branch_lease(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _main(repo, "feat-x", "--claim", "--session-id", "sess-a", "--work-id", "pr:8852") == 0
+    from aragora.nomic.dev_coordination import DevCoordinationStore
+
+    store = DevCoordinationStore(repo_root=repo)
+    lease = store.claim_lease(
+        task_id="WO-nonmatching",
+        title="swarm work order",
+        owner_agent="swarm",
+        owner_session_id="sess-swarm",
+        branch="feat-x",
+        worktree_path=str(repo),
+        allowed_globs=["aragora/swarm/*.py"],
+    )
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--session-id",
+            "sess-a",
+            "--work-id",
+            "pr:8852",
+            "--json",
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] == "wrong_owner"
+    assert payload["lease_id"] == lease.lease_id
+    assert payload["owner_session_id"] == "sess-swarm"
+
+
 def test_verify_only_rejects_mismatched_work_id_with_stable_reason(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

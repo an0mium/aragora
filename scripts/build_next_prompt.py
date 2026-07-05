@@ -1594,13 +1594,15 @@ def _branch_write_lease_preflight_lines(
     if not lane or str(lane.get("status") or "") not in ACTIVE_STATUSES:
         return []
     lease_branch = str(lane.get("branch") or branch or "").strip()
+    owner_session = str(lane.get("owner_session") or "").strip()
     work_id = _prompt_work_id(lane, pr=pr, branch=lease_branch or branch)
     if not lease_branch or not work_id:
         return []
+    session_arg = f" --session-id {shlex.quote(owner_session)}" if owner_session else ""
     command = (
         "python3 scripts/check_work_lease.py "
         f"{shlex.quote(lease_branch)} --verify-only --work-id {shlex.quote(work_id)} "
-        "--strict --json"
+        f"--strict{session_arg} --json"
     )
     return [
         "",

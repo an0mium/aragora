@@ -660,6 +660,8 @@ def main(argv: list[str] | None = None) -> int:
     ]
     mine = [lease for lease in matching_leases if lease.owner_session_id == session_id]
     theirs = [lease for lease in matching_leases if lease.owner_session_id != session_id]
+    branch_mine = [lease for lease in leases if lease.owner_session_id == session_id]
+    branch_theirs = [lease for lease in leases if lease.owner_session_id != session_id]
 
     if args.verify_only:
         sidecar = read_lane_lease(repo_root, args.record_lane) if args.record_lane else None
@@ -679,7 +681,7 @@ def main(argv: list[str] | None = None) -> int:
                 owners=sorted(distinct_owners),
             )
             return _advisory_exit_code(args, False)
-        if theirs:
+        if branch_theirs:
             _emit(
                 args,
                 ok=False,
@@ -687,10 +689,10 @@ def main(argv: list[str] | None = None) -> int:
                 reason=REASON_WRONG_OWNER,
                 work_id=work_id,
                 branch=branch,
-                lease_id=theirs[0].lease_id,
-                owner_session_id=theirs[0].owner_session_id,
-                detail=f"LEASE CONFLICT: {theirs[0].owner_report()}",
-                owner=dataclasses.asdict(theirs[0]),
+                lease_id=branch_theirs[0].lease_id,
+                owner_session_id=branch_theirs[0].owner_session_id,
+                detail=f"LEASE CONFLICT: {branch_theirs[0].owner_report()}",
+                owner=dataclasses.asdict(branch_theirs[0]),
             )
             return _advisory_exit_code(args, False)
         if mine:
@@ -755,7 +757,7 @@ def main(argv: list[str] | None = None) -> int:
     # path (when we hold nothing) must NOT short-circuit here: it goes to
     # store.claim_lease first so the store can reap expired and dead-worker
     # leases instead of letting them squat the branch until TTL.
-    if theirs and not (args.claim and not mine):
+    if branch_theirs and not (args.claim and not branch_mine):
         _emit(
             args,
             ok=False,
@@ -763,10 +765,10 @@ def main(argv: list[str] | None = None) -> int:
             reason=REASON_WRONG_OWNER,
             work_id=work_id,
             branch=branch,
-            lease_id=theirs[0].lease_id,
-            owner_session_id=theirs[0].owner_session_id,
-            detail=f"LEASE CONFLICT: {theirs[0].owner_report()}",
-            owner=dataclasses.asdict(theirs[0]),
+            lease_id=branch_theirs[0].lease_id,
+            owner_session_id=branch_theirs[0].owner_session_id,
+            detail=f"LEASE CONFLICT: {branch_theirs[0].owner_report()}",
+            owner=dataclasses.asdict(branch_theirs[0]),
         )
         return _advisory_exit_code(args, False)
 
