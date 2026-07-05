@@ -9,8 +9,12 @@ network access to Aragora — verification is fully offline.
 
 This document is executable: every command below was run against the
 checked-in sample receipt in [`fixtures/`](fixtures/) and the outputs shown
-are real (verified 2026-07-02 with `aragora-verify` 0.1.0, Python 3.11,
-`cryptography` 49.0, `jsonschema` 4.26).
+are real (originally verified 2026-07-02 with `aragora-verify` 0.1.0, Python
+3.11, `cryptography` 49.0, `jsonschema` 4.26; re-verified 2026-07-04 with the
+published `aragora-verify` 0.1.1 installed from PyPI into a clean venv —
+byte-for-byte identical output for this non-tampered fixture, since 0.1.1's
+added `key_id`-binding check only changes behavior on a relabeled/tampered
+signature; see the version note below).
 
 ---
 
@@ -61,8 +65,11 @@ dependency is the `cryptography` package.
 > [`aragora-verify/`](../../aragora-verify/) source. **Version note (corrected
 > 2026-07-04):** the signer-label (`key_id`) binding described in §"What each
 > check proves" ships in 0.1.1. Pin `pip install aragora-verify==0.1.1` for
-> full signer-label protection; 0.1.0 verifies content integrity and signature
-> validity but does not bind the recorded `key_id` to the supplied key.
+> full signer-label protection; 0.1.0 displays the recorded `key_id` but does
+> not check it against the supplied key, so a relabeled `key_id` on an
+> otherwise-valid signature would silently PASS on 0.1.0 and FAIL as
+> signer-label tampering on 0.1.1. This fixture's `key_id` is correctly bound,
+> so its output is identical on both versions (see the intro above).
 
 ```bash
 # 1. Install the standalone verifier into a clean environment
