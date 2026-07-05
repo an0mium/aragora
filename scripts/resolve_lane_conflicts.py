@@ -22,6 +22,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.send_operator_steering import verify_message_sha256
+except ModuleNotFoundError:  # pragma: no cover - direct script execution fallback
+    from send_operator_steering import verify_message_sha256
+
 _fcntl: Any
 try:
     import fcntl as _fcntl
@@ -52,7 +57,7 @@ TERMINAL_PR_STATES = {"MERGED", "CLOSED"}
 HEARTBEAT_TIMESTAMP_KEYS = ("last_heartbeat_at", "last_seen_at", "heartbeat_at")
 PID_KEYS = ("pid", "owner_pid")
 LOCAL_WORK_KEYS = ("worktree", "local_worktree", "local_work_path")
-TERMINAL_READ_RECEIPT_OUTCOMES = {"completed", "stale", "superseded"}
+TERMINAL_READ_RECEIPT_OUTCOMES = {"completed", "obeyed", "stale", "superseded"}
 
 
 def _canonical_repo_root(path: Path = DEFAULT_REPO_ROOT) -> Path:
@@ -411,20 +416,22 @@ def _terminal_receipted_mailbox_messages(inbox: Path) -> set[str]:
         payload = _load_json_object(path)
         if payload is None:
             continue
-        messages[path.name] = str(payload.get("message_sha256") or "")
+        claimed_sha, _, verified = verify_message_sha256(payload)
+        if not claimed_sha or not verified:
+            continue
+        messages[path.name] = claimed_sha
 
     terminal_receipted: set[str] = set()
     receipt_dir = inbox / "_read_receipts"
     if not receipt_dir.is_dir():
         return terminal_receipted
 
+    latest_receipts: dict[str, tuple[str, str]] = {}
     for path in receipt_dir.glob("*.json"):
         if not path.is_file():
             continue
         payload = _load_json_object(path)
         if payload is None:
-            continue
-        if str(payload.get("outcome") or "") not in TERMINAL_READ_RECEIPT_OUTCOMES:
             continue
         message_filename = str(payload.get("message_filename") or "")
         if not message_filename or message_filename not in messages:
@@ -433,7 +440,15 @@ def _terminal_receipted_mailbox_messages(inbox: Path) -> set[str]:
         message_sha = messages[message_filename]
         if not receipt_sha or not message_sha or receipt_sha != message_sha:
             continue
-        terminal_receipted.add(message_filename)
+        read_at = str(payload.get("read_at_utc") or "")
+        outcome = str(payload.get("outcome") or "").strip().lower()
+        current = latest_receipts.get(message_filename)
+        candidate = (read_at, outcome)
+        if current is None or candidate > current:
+            latest_receipts[message_filename] = candidate
+    for message_filename, (_, outcome) in latest_receipts.items():
+        if outcome in TERMINAL_READ_RECEIPT_OUTCOMES:
+            terminal_receipted.add(message_filename)
     return terminal_receipted
 
 
