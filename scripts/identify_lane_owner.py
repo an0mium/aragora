@@ -1772,9 +1772,11 @@ def build_worktree_reference_preservation_proof(
     """Prove a bare worktree reference is not evidence of local-only work.
 
     Fail closed unless the recorded worktree is absent/noop by
-    ``safe_worktree_cleanup.py inspect`` and the desired head is
+    ``safe_worktree_cleanup.py inspect`` and either the desired head is
     preserved upstream by an exact remote branch or merged PR commit
-    list. Dirty/local-work markers are never discounted.
+    list, or a terminal no-record lane has no local-work claim and a
+    remote branch anchor still exists. Dirty/local-work markers are
+    never discounted.
     """
 
     paths = _worktree_reference_paths(lane, ledger_entry)
@@ -1815,24 +1817,34 @@ def build_worktree_reference_preservation_proof(
         }
     if not desired_head:
         remote = _remote_branch_head(branch, repo_root=repo_root, runner=runner)
-        if remote.get("status") == "exists":
+        lane_status = str((ledger_entry or {}).get("status") or lane.get("status") or "")
+        if (
+            remote.get("status") == "exists"
+            and lane_status.strip().lower() in TERMINAL_LANE_STATUSES
+        ):
             remote_head = remote.get("head_sha")
             return {
                 "available": True,
                 "branch": branch,
-                "desired_head_sha": remote_head,
-                "desired_head_source": "remote_branch_head",
+                "desired_head_sha": None,
+                "desired_head_source": "not_recorded",
+                "lane_status": lane_status.strip().lower(),
                 "worktree_paths": [path for _, path in paths],
                 "worktree_inspections": inspections,
                 "upstream_preservation": {
-                    "proven": True,
-                    "method": "remote_branch_head_no_local_record",
+                    "proven": False,
+                    "method": "remote_branch_anchor_no_local_record",
                     "remote_head_sha": remote_head,
+                    "scope": "remote branch anchors the terminal lane but does not prove an unknown local tip",
                 },
             }
         return {
             "available": False,
-            "reason": "desired_head_unavailable",
+            "reason": (
+                "desired_head_unavailable_non_terminal_lane"
+                if remote.get("status") == "exists"
+                else "desired_head_unavailable"
+            ),
             "branch": branch,
             "remote": remote,
             "worktree_paths": [path for _, path in paths],
@@ -2069,10 +2081,16 @@ def assess_owner_liveness(
                 method = (
                     (local_work_preservation or {}).get("upstream_preservation", {}).get("method")
                 )
-                conditions.append(
-                    "recorded worktree reference is absent/noop and preserved upstream"
-                    + (f" via {method}" if method else "")
-                )
+                if method == "remote_branch_anchor_no_local_record":
+                    conditions.append(
+                        "recorded worktree reference is absent/noop; no local-work claim "
+                        "or desired head was recorded; terminal lane branch still exists remotely"
+                    )
+                else:
+                    conditions.append(
+                        "recorded worktree reference is absent/noop and preserved upstream"
+                        + (f" via {method}" if method else "")
+                    )
             else:
                 conditions.append("no worktree or local-work claim on the owner record")
             advisory = {

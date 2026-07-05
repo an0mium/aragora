@@ -1892,7 +1892,7 @@ class TestWorktreeReferencePreservationProof:
         assert result["stale_claim_advisory"]["available"] is True
         assert result["advisory_withheld"] is None
 
-    def test_absent_worktree_remote_branch_without_recorded_sha_releases(
+    def test_absent_terminal_worktree_remote_branch_without_recorded_sha_releases(
         self, tmp_path: Path
     ) -> None:
         remote_sha = "dddddddddddddddddddddddddddddddddddddddd"
@@ -1934,12 +1934,66 @@ class TestWorktreeReferencePreservationProof:
         )
 
         assert proof["available"] is True
-        assert proof["desired_head_sha"] == remote_sha
-        assert proof["desired_head_source"] == "remote_branch_head"
-        assert proof["upstream_preservation"]["method"] == "remote_branch_head_no_local_record"
+        assert proof["desired_head_sha"] is None
+        assert proof["desired_head_source"] == "not_recorded"
+        assert proof["lane_status"] == "completed"
+        assert proof["upstream_preservation"]["proven"] is False
+        assert proof["upstream_preservation"]["method"] == "remote_branch_anchor_no_local_record"
         assert proof["upstream_preservation"]["remote_head_sha"] == remote_sha
         assert result["stale_claim_advisory"]["available"] is True
+        assert any(
+            "terminal lane branch still exists remotely" in condition
+            for condition in result["stale_claim_advisory"]["conditions_met"]
+        )
         assert result["advisory_withheld"] is None
+
+    def test_absent_in_progress_worktree_remote_branch_without_recorded_sha_still_withholds(
+        self, tmp_path: Path
+    ) -> None:
+        remote_sha = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        branch = "codex/no-local-record-in-progress"
+        lane = {
+            "lane_id": "Q-no-local-record-in-progress",
+            "owner_session": "codex-no-local-record-in-progress",
+            "branch": branch,
+            "worktree": str(tmp_path / "absent-no-local-record-in-progress"),
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout=f"{remote_sha}\trefs/heads/{branch}\n")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+
+        assert proof["available"] is False
+        assert proof["reason"] == "desired_head_unavailable_non_terminal_lane"
+        assert proof["remote"]["status"] == "exists"
+        assert proof["remote"]["head_sha"] == remote_sha
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
 
     def test_absent_worktree_without_recorded_sha_and_missing_remote_still_withholds(
         self, tmp_path: Path
