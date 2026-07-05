@@ -104,7 +104,7 @@ Current PyPI package:
 
 ```bash
 pip install aragora
-aragora demo                                            # zero-key offline demo
+aragora demo                                            # no provider key needed; uses offline mocks when no key is set
 aragora ask "Should we build or buy our auth system?"   # real debate (needs an API key)
 aragora serve --api-port 8080 --ws-port 8765
 ```
@@ -117,10 +117,9 @@ aragora demo --offline --receipt aragora-demo-receipt.json
 aragora receipt verify aragora-demo-receipt.json
 ```
 
-As of 2026-07-05, the latest PyPI `aragora` package is 2.7.4: it runs
-`aragora demo`, but the explicit `--offline` flag and verifiable native
-demo-receipt round trip are available from source until the next package
-release carries them.
+The PyPI `aragora` package at 2.7.4 runs `aragora demo`, but the explicit
+`--offline` flag and verifiable native demo-receipt round trip are available
+from source until the next package release carries them.
 
 ## Next Steps
 
