@@ -8,6 +8,7 @@ management.
 
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -877,6 +878,35 @@ class TestSecurityEventEmitter:
             )
             assert event.debate_requested is True
             assert event.debate_id == "debate-auto-123"
+
+    @pytest.mark.asyncio
+    async def test_emit_with_no_runner_is_graceful(self, caplog):
+        """emit() must never await a missing runner (`await None(...)`).
+
+        With no registered runner and the default-ensure path unavailable
+        (e.g. a process that never imports aragora.debate), the auto-debate
+        path logs a warning and skips -- no exception escapes emit(), matching
+        the dispatcher's log-and-skip semantics.
+        """
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        event = self._make_event(severity=SecuritySeverity.CRITICAL)
+
+        with (
+            patch(
+                "aragora.events.security_events.get_security_debate_runner",
+                return_value=None,
+            ),
+            patch(
+                "aragora.events.security_events._ensure_default_security_debate_runner_registered",
+                return_value=None,
+            ),
+            caplog.at_level(logging.WARNING, logger="aragora.events.security_events"),
+        ):
+            await emitter.emit(event)
+
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        assert "No security debate runner registered" in caplog.text
 
     @pytest.mark.asyncio
     async def test_debate_started_event_redacts_secret_findings(self):
@@ -1778,12 +1808,80 @@ class TestSecurityDebateRunnerRegistry:
         register_security_debate_runner(None)
         assert get_security_debate_runner() is None
 
-    def test_default_runner_can_be_lazily_registered_after_clear(self):
-        """Cold consumers should not depend on prior import-time registration."""
-        register_security_debate_runner(None)
+    def test_default_runner_lazily_registered_when_unset(self):
+        """Cold consumers (never-set registry) get the default runner on demand."""
+        import aragora.events.security_events as mod
+
+        mod._security_debate_runner = mod._UNSET_RUNNER
 
         runner = _ensure_default_security_debate_runner_registered()
 
         assert runner is not None
         assert runner.__name__ == "trigger_security_debate"
         assert get_security_debate_runner() is runner
+
+    def test_explicit_clear_sticks_against_ensure_default(self):
+        """An explicit None-clear must not be silently overwritten by the
+        lazy default import: ensure-default only fires from the UNSET state."""
+        import aragora.events.security_events as mod
+
+        register_security_debate_runner(None)
+
+        runner = _ensure_default_security_debate_runner_registered()
+
+        assert runner is None
+        assert get_security_debate_runner() is None
+        # Registry state stays "explicitly cleared", not re-registered.
+        assert mod._security_debate_runner is None
+
+    def test_explicit_clear_sticks_against_default_register(self):
+        """Import-time default registration must not clobber an explicit clear."""
+        import aragora.events.security_events as mod
+
+        async def default_runner(event, **kwargs):
+            return "debate-default"
+
+        register_security_debate_runner(None)
+        mod._register_default_security_debate_runner(default_runner)
+
+        assert get_security_debate_runner() is None
+        assert mod._security_debate_runner is None
+
+    def test_reregister_after_clear_restores_runner(self):
+        """Registering a runner after an explicit clear re-enables auto-debate."""
+
+        async def fake_runner(event, **kwargs):
+            return "debate-after-clear"
+
+        register_security_debate_runner(None)
+        register_security_debate_runner(fake_runner)
+
+        assert get_security_debate_runner() is fake_runner
+        assert _ensure_default_security_debate_runner_registered() is fake_runner
+
+    @pytest.mark.asyncio
+    async def test_emit_after_explicit_clear_does_not_fire_auto_debate(self):
+        """End to end: after register_security_debate_runner(None), a critical
+        emit neither runs a debate nor re-registers the default runner."""
+        register_security_debate_runner(None)
+
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        event = SecurityEvent(
+            event_type=SecurityEventType.CRITICAL_VULNERABILITY,
+            severity=SecuritySeverity.CRITICAL,
+            findings=[
+                SecurityFinding(
+                    id="f-clear-1",
+                    finding_type="vulnerability",
+                    severity=SecuritySeverity.CRITICAL,
+                    title="Critical CVE",
+                    description="test finding",
+                )
+            ],
+        )
+
+        await emitter.emit(event)
+
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        assert get_security_debate_runner() is None

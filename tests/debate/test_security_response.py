@@ -487,12 +487,16 @@ class TestConsumerRegistrationSideEffect:
 
             from aragora.analysis.codebase.sast.models import SASTConfig
             from aragora.analysis.codebase.sast.scanner import SASTScanner
-            from aragora.events.security_events import (
-                get_security_debate_runner,
-                register_security_debate_runner,
-            )
+            import aragora.events.security_events as security_events_mod
+            from aragora.events.security_events import get_security_debate_runner
 
-            register_security_debate_runner(None)
+            # Reset to the never-set sentinel (NOT an explicit None-clear,
+            # which now sticks and disables the lazy default import) so this
+            # simulates a cold consumer even if transitive imports already
+            # registered the default runner.
+            security_events_mod._security_debate_runner = (
+                security_events_mod._UNSET_RUNNER
+            )
             assert get_security_debate_runner() is None
 
             async def main():

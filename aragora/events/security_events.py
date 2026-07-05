@@ -269,12 +269,34 @@ SecurityEventHandler = Callable[[SecurityEvent], Coroutine[Any, Any, None]]
 # aragora.agents directly.
 SecurityDebateRunner = Callable[..., Coroutine[Any, Any, str | None]]
 
-_security_debate_runner: SecurityDebateRunner | None = None
+
+class _UnsetRunner:
+    """Sentinel type marking a runner registry that was never explicitly set."""
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "<UNSET security debate runner>"
+
+
+_UNSET_RUNNER = _UnsetRunner()
+
+# Tri-state registry: _UNSET_RUNNER (never set -> the default runner may be
+# lazily imported and registered), None (explicitly cleared via
+# register_security_debate_runner(None) -> auto-debate stays disabled until a
+# runner is registered again), or a SecurityDebateRunner callable.
+_security_debate_runner: SecurityDebateRunner | None | _UnsetRunner = _UNSET_RUNNER
 
 
 def _ensure_default_security_debate_runner_registered() -> SecurityDebateRunner | None:
-    """Import the default debate runner on demand for cold event consumers."""
-    if _security_debate_runner is not None:
+    """Import the default debate runner on demand for cold event consumers.
+
+    Only fires when the registry was never explicitly set. An explicit
+    ``register_security_debate_runner(None)`` clear sticks: this function will
+    NOT re-register the default, so auto-debate stays disabled until a runner
+    is registered again.
+    """
+    if not isinstance(_security_debate_runner, _UnsetRunner):
         return _security_debate_runner
 
     try:
@@ -286,15 +308,19 @@ def _ensure_default_security_debate_runner_registered() -> SecurityDebateRunner 
         if runner is not None:
             _register_default_security_debate_runner(runner)
 
-    return _security_debate_runner
+    return get_security_debate_runner()
 
 
 def register_security_debate_runner(runner: SecurityDebateRunner | None) -> None:
     """Register the callback used to run security debates.
 
     Composition roots can use this to install or clear an explicit runner.
-    Default runner imports use _register_default_security_debate_runner so
-    they do not clobber an explicit hook.
+    Passing None explicitly clears the registry and disables auto-debate until
+    a runner is registered again -- the lazy default import
+    (_ensure_default_security_debate_runner_registered) only fires when the
+    registry was never set. Default runner imports use
+    _register_default_security_debate_runner so they do not clobber an
+    explicit hook or an explicit clear.
     """
     global _security_debate_runner
     _security_debate_runner = runner
@@ -302,16 +328,21 @@ def register_security_debate_runner(runner: SecurityDebateRunner | None) -> None
 
 def _register_default_security_debate_runner(
     runner: SecurityDebateRunner,
-) -> SecurityDebateRunner:
-    """Register the default runner only when no explicit runner exists."""
+) -> SecurityDebateRunner | None:
+    """Register the default runner only when the registry was never set.
+
+    Neither an explicit runner nor an explicit None-clear is clobbered.
+    """
     global _security_debate_runner
-    if _security_debate_runner is None:
+    if isinstance(_security_debate_runner, _UnsetRunner):
         _security_debate_runner = runner
-    return _security_debate_runner
+    return get_security_debate_runner()
 
 
 def get_security_debate_runner() -> SecurityDebateRunner | None:
     """Get the currently registered security debate runner, if any."""
+    if isinstance(_security_debate_runner, _UnsetRunner):
+        return None
     return _security_debate_runner
 
 
