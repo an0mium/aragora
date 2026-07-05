@@ -8,9 +8,9 @@ inversion (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.1, §5.2, §10 Q1
   ``aragora.queue.worker`` (re-exported from ``aragora.queue``).
 - ``DebateWorker`` + ``DebateExecutor`` re-exports from ``aragora.queue`` are
   KEPT.
-- The ``create_default_executor`` re-export is DROPPED from ``aragora.queue``
-  (no shim) while the underlying symbol stays defined in ``aragora.queue.worker``
-  (it only relocates in Q2).
+- The ``create_default_executor`` compatibility re-export is KEPT from
+  ``aragora.queue`` while the underlying symbol stays defined in
+  ``aragora.queue.worker`` (it only relocates in Q2).
 - The registry functions carry ZERO domain imports.
 """
 
@@ -83,6 +83,14 @@ def test_register_job_handler_and_get():
 
 
 def test_register_job_handler_is_keyed_idempotent():
+    register_job_handler("dup", _noop_handler)
+    register_job_handler("dup", _noop_handler)
+
+    assert get_job_handler("dup") is _noop_handler
+    assert registered_job_handler_names().count("dup") == 1
+
+
+def test_register_job_handler_rejects_different_duplicate():
     async def first(job: object) -> dict[str, object]:
         return {}
 
@@ -90,10 +98,11 @@ def test_register_job_handler_is_keyed_idempotent():
         return {}
 
     register_job_handler("dup", first)
-    register_job_handler("dup", second)
 
-    assert get_job_handler("dup") is second
-    assert registered_job_handler_names().count("dup") == 1
+    with pytest.raises(ValueError, match="job handler already registered"):
+        register_job_handler("dup", second)
+
+    assert get_job_handler("dup") is first
 
 
 def test_get_job_handler_returns_none_when_unregistered():
@@ -139,15 +148,14 @@ def test_debate_worker_and_executor_alias_reexported_from_queue_package():
     assert "DebateExecutor" in queue_pkg.__all__
 
 
-def test_create_default_executor_reexport_dropped_from_queue_package():
-    """The domain-coupled factory re-export is dropped (no shim, §5.2)."""
+def test_create_default_executor_reexport_kept_from_queue_package():
+    """The Q1 registry enabler keeps the documented factory import path."""
     import aragora.queue as queue_pkg
-
-    assert not hasattr(queue_pkg, "create_default_executor")
-    assert "create_default_executor" not in queue_pkg.__all__
 
     # The underlying symbol is untouched - it only relocates out of worker.py
     # in Q2, so it must still be directly importable from its defining module.
+    assert queue_pkg.create_default_executor is worker.create_default_executor
+    assert "create_default_executor" in queue_pkg.__all__
     assert hasattr(worker, "create_default_executor")
 
 

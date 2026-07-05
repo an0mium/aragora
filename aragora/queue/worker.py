@@ -43,7 +43,15 @@ def register_worker(name: str, worker: Any) -> None:
 
 
 def register_job_handler(job_type: str, handler: DebateExecutor) -> None:
-    """Register a job handler (executor) for ``job_type`` (keyed, idempotent)."""
+    """Register a job handler (executor) for ``job_type``.
+
+    Re-registering the same handler is a no-op. Registering a different handler
+    for an existing job type fails closed so import order cannot silently
+    redirect queue execution.
+    """
+    existing = _REGISTERED_JOB_HANDLERS.get(job_type)
+    if existing is not None and existing is not handler:
+        raise ValueError(f"job handler already registered for job type {job_type!r}")
     _REGISTERED_JOB_HANDLERS[job_type] = handler
 
 
