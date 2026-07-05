@@ -1254,6 +1254,68 @@ def test_operator_snapshot_summary_reports_active_lanes_missing_dev_lease(
     assert payload["summary"]["active_lanes_with_dev_lease"] == 1
 
 
+def test_operator_snapshot_counts_validated_sidecar_dev_lease(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-sidecar",
+                    "owner_session": "codex-sidecar",
+                    "status": "active",
+                    "branch": "codex/sidecar",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-sidecar": {
+                    "branch": "codex/sidecar",
+                    "work_id": "pr:8853",
+                    "lease_id": "live-sidecar-lease",
+                    "owner_session_id": "codex-sidecar",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "_sidecar_points_to_active_dev_lease",
+        lambda record, sidecar: sidecar.get("lease_id") == "live-sidecar-lease",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["active_lanes"] == 1
+    assert payload["summary"]["active_lanes_missing_dev_lease"] == 0
+    assert payload["summary"]["active_lanes_with_dev_lease"] == 1
+
+
 def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -597,21 +597,54 @@ def _sidecar_compatible_with_lane(record: LaneRecord, sidecar: dict[str, Any]) -
     return not (record.branch and sidecar_branch and record.branch != sidecar_branch)
 
 
+def _sidecar_work_id_matches_lease(lease: Any, work_id: str) -> bool:
+    if not work_id:
+        return True
+    if work_id.startswith("branch:"):
+        _prefix, _sep, branch_name = work_id.partition(":")
+        return getattr(lease, "branch", "") == branch_name
+    return getattr(lease, "work_id", None) == work_id or getattr(lease, "task_id", "") == work_id
+
+
+def _sidecar_points_to_active_dev_lease(record: LaneRecord, sidecar: dict[str, Any]) -> bool:
+    lease_id = str(sidecar.get("lease_id") or "").strip()
+    branch = str(sidecar.get("branch") or record.branch or "").strip()
+    owner_session_id = str(sidecar.get("owner_session_id") or "").strip()
+    work_id = str(sidecar.get("work_id") or record.work_id or "").strip()
+    if not lease_id or not branch:
+        return False
+    try:
+        import check_work_lease
+
+        db_path = check_work_lease.resolve_db_path(CANONICAL_REPO_ROOT)
+        leases = check_work_lease.active_leases_for_branch(db_path, branch)
+    except Exception:
+        return False
+    for lease in leases:
+        if lease.lease_id != lease_id:
+            continue
+        if owner_session_id and lease.owner_session_id != owner_session_id:
+            return False
+        return _sidecar_work_id_matches_lease(lease, work_id)
+    return False
+
+
 def _fill_from_sidecar(record: LaneRecord, sidecar: dict[str, Any]) -> None:
     filled_lease_from_sidecar = False
+    sidecar_is_active = _sidecar_points_to_active_dev_lease(record, sidecar)
     if not record.work_id:
         record.work_id = str(sidecar.get("work_id") or "")
     if not record.lease_id:
         record.lease_id = str(sidecar.get("lease_id") or "")
         filled_lease_from_sidecar = bool(record.lease_id)
-    if filled_lease_from_sidecar:
-        record.lease_health = "sidecar"
     if not record.lease_status:
-        record.lease_status = str(sidecar.get("lease_status") or "")
+        record.lease_status = (
+            "active" if sidecar_is_active else str(sidecar.get("lease_status") or "")
+        )
     if not record.lease_health:
         record.lease_health = str(sidecar.get("lease_health") or "")
     if filled_lease_from_sidecar:
-        record.lease_health = "sidecar"
+        record.lease_health = "ok" if sidecar_is_active else "sidecar"
     elif record.lease_id and not record.lease_health:
         record.lease_health = "sidecar"
 
