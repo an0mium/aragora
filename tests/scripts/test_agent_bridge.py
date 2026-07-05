@@ -215,6 +215,54 @@ def test_lane_registry_native_lease_fields_override_sidecar(
     assert record.lease_health == "ok"
 
 
+def test_lane_registry_sidecar_health_self_heals_after_live_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-1",
+                    "owner_session": "codex-A",
+                    "status": "active",
+                    "branch": "codex/lease",
+                    "work_id": "pr:8852",
+                    "lease_id": "lease-1",
+                    "lease_status": "active",
+                    "lease_health": "sidecar",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-1": {
+                    "branch": "codex/lease",
+                    "work_id": "pr:8852",
+                    "lease_id": "lease-1",
+                    "owner_session_id": "codex-A",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_sidecar_points_to_active_dev_lease", lambda *_args: True)
+
+    [record] = mod._load_lane_registry()
+
+    assert record.lease_id == "lease-1"
+    assert record.lease_status == "active"
+    assert record.lease_health == "ok"
+
+
 def test_cmd_approve_droid_uses_enter_menu_selection(monkeypatch: pytest.MonkeyPatch) -> None:
     import agent_bridge as mod
 

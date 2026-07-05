@@ -648,6 +648,9 @@ def _fill_from_sidecar(record: LaneRecord, sidecar: dict[str, Any]) -> None:
         record.lease_health = str(sidecar.get("lease_health") or "")
     if filled_lease_from_sidecar:
         record.lease_health = "ok" if sidecar_is_active else "sidecar"
+    elif sidecar_is_active and record.lease_id == str(sidecar.get("lease_id") or "").strip():
+        record.lease_status = "active"
+        record.lease_health = "ok"
     elif record.lease_id and not record.lease_health:
         record.lease_health = "sidecar"
 
