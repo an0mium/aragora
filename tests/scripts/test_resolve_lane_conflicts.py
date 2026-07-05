@@ -100,7 +100,13 @@ def _closed_pr_gh(
     )
 
 
-def _write_read_receipt(inbox: Path, *, message_filename: str, message_sha256: str = "") -> None:
+def _write_read_receipt(
+    inbox: Path,
+    *,
+    message_filename: str,
+    message_sha256: str = "",
+    outcome: str = "read",
+) -> None:
     receipt_dir = inbox / "_read_receipts"
     receipt_dir.mkdir(parents=True, exist_ok=True)
     _write_json(
@@ -109,7 +115,7 @@ def _write_read_receipt(inbox: Path, *, message_filename: str, message_sha256: s
             "schema_version": "aragora-operator-steering-read-receipt/1.0",
             "message_filename": message_filename,
             "message_sha256": message_sha256,
-            "outcome": "read",
+            "outcome": outcome,
             "read_at_utc": "2026-05-23T19:20:00Z",
         },
     )
@@ -1208,6 +1214,98 @@ def test_merged_pr_audit_apply_rejects_read_but_unacked_mailbox_message(
     inbox.mkdir(parents=True)
     (inbox / "message.json").write_text("{}", encoding="utf-8")
     _write_read_receipt(inbox, message_filename="message.json")
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
+    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
+        "message.json"
+    ]
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_merged_pr_audit_apply_allows_terminal_outcome_receipt(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    _write_json(inbox / "message.json", {"message_sha256": "message-sha"})
+    _write_read_receipt(
+        inbox,
+        message_filename="message.json",
+        message_sha256="message-sha",
+        outcome="superseded",
+    )
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    assert result["resolved_count"] == 1
+    assert result["blocked_reason"] is None
+    assert result["findings"][0]["terminal_safety_blockers"] == []
+    assert result["findings"][0]["terminal_safety_details"] == {}
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "superseded"
+
+
+def test_merged_pr_audit_apply_rejects_terminal_outcome_receipt_hash_mismatch(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    _write_json(inbox / "message.json", {"message_sha256": "message-sha"})
+    _write_read_receipt(
+        inbox,
+        message_filename="message.json",
+        message_sha256="other-sha",
+        outcome="superseded",
+    )
     _write_json(
         registry,
         [

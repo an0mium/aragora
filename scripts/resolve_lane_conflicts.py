@@ -52,6 +52,7 @@ TERMINAL_PR_STATES = {"MERGED", "CLOSED"}
 HEARTBEAT_TIMESTAMP_KEYS = ("last_heartbeat_at", "last_seen_at", "heartbeat_at")
 PID_KEYS = ("pid", "owner_pid")
 LOCAL_WORK_KEYS = ("worktree", "local_worktree", "local_work_path")
+TERMINAL_STEERING_OUTCOMES = {"completed", "stale", "superseded"}
 
 
 def _canonical_repo_root(path: Path = DEFAULT_REPO_ROOT) -> Path:
@@ -381,9 +382,56 @@ def _pending_mailbox_messages(
         return [], "invalid_owner_session"
     if not inbox.is_dir():
         return [], None
-    # Read receipts are proof-of-read/outcome only; they are not an ack/move protocol.
-    # A top-level message file remains pending until a future explicit ack path moves it.
-    return sorted(path.name for path in inbox.glob("*.json") if path.is_file()), None
+    terminal_receipts = _terminal_read_receipts_by_message(inbox)
+    pending = [
+        path.name
+        for path in inbox.glob("*.json")
+        if path.is_file() and not _message_has_terminal_receipt(path, terminal_receipts)
+    ]
+    return sorted(pending), None
+
+
+def _terminal_read_receipts_by_message(inbox: Path) -> dict[str, set[str]]:
+    receipt_dir = inbox / "_read_receipts"
+    if not receipt_dir.is_dir():
+        return {}
+
+    receipts: dict[str, set[str]] = {}
+    for path in receipt_dir.glob("*.json"):
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        if str(data.get("schema_version") or "") != "aragora-operator-steering-read-receipt/1.0":
+            continue
+        outcome = str(data.get("outcome") or "")
+        if outcome not in TERMINAL_STEERING_OUTCOMES:
+            continue
+        filename = str(data.get("message_filename") or "")
+        if not filename or filename != Path(filename).name or "/" in filename or "\\" in filename:
+            continue
+        receipts.setdefault(filename, set()).add(str(data.get("message_sha256") or "").strip())
+    return receipts
+
+
+def _message_has_terminal_receipt(
+    message_path: Path, terminal_receipts: dict[str, set[str]]
+) -> bool:
+    receipt_hashes = terminal_receipts.get(message_path.name)
+    if not receipt_hashes:
+        return False
+    try:
+        data = json.loads(message_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "" in receipt_hashes
+    if not isinstance(data, dict):
+        return "" in receipt_hashes
+    message_hash = str(data.get("message_sha256") or "").strip()
+    return message_hash in receipt_hashes
 
 
 def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
