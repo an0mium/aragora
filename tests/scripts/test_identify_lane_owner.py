@@ -138,6 +138,55 @@ def test_default_state_root_honors_automation_state_root(
     assert ilo._default_state_root(tmp_path / "worktree") == state_root / ".aragora"
 
 
+def test_json_output_includes_dev_coordination_lease_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    registry = write_lane_registry(tmp_path)
+    monkeypatch.setattr(ilo, "_default_snapshot_provider", lambda: None)
+    monkeypatch.setattr(
+        ilo,
+        "_check_dev_coordination_lease",
+        lambda lane, **_kwargs: {
+            "status": "valid",
+            "reason": None,
+            "work_id": "pr:7292",
+            "lease_id": "lease-7292",
+            "owner_session_id": lane["owner_session"],
+        },
+        raising=False,
+    )
+
+    rc = ilo.main(
+        [
+            "--pr",
+            "7292",
+            "--json",
+            "--registry-path",
+            str(registry),
+            "--codex-sessions-root",
+            str(tmp_path / "no_codex"),
+            "--claude-projects-root",
+            str(tmp_path / "no_claude"),
+            "--factory-bg-path",
+            str(tmp_path / "no_factory.json"),
+            "--steering-inbox-root",
+            str(tmp_path / "no_steering"),
+            "--heartbeat-path",
+            str(tmp_path / "no_heartbeats.json"),
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dev_coordination_lease"] == {
+        "status": "valid",
+        "reason": None,
+        "work_id": "pr:7292",
+        "lease_id": "lease-7292",
+        "owner_session_id": "codex-p19-repair-7292",
+    }
+
+
 # ---------------------------------------------------------------------------
 # load_lane_records / find_lane
 # ---------------------------------------------------------------------------

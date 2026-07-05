@@ -320,6 +320,257 @@ def test_json_output(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert payload["lease_id"]
 
 
+def test_verify_only_matching_work_id_succeeds_without_sidecar_write(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--claim",
+            "--session-id",
+            "sess-a",
+            "--agent",
+            "claude",
+            "--work-id",
+            "pr:8852",
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--record-lane",
+            "lane-1",
+            "--session-id",
+            "sess-a",
+            "--work-id",
+            "pr:8852",
+            "--json",
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["action"] == "check"
+    assert payload["reason"] is None
+    assert payload["work_id"] == "pr:8852"
+    assert payload["branch"] == "feat-x"
+    assert payload["owner_session_id"] == "sess-a"
+    assert payload["lease_id"]
+    assert not (repo / ".aragora" / "agent-bridge" / "lane-leases.json").exists()
+
+
+def test_verify_only_rejects_mismatched_work_id_with_stable_reason(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _main(repo, "feat-x", "--claim", "--session-id", "sess-a", "--work-id", "pr:8852") == 0
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--session-id",
+            "sess-a",
+            "--work-id",
+            "pr:9999",
+            "--json",
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] == "missing_lease"
+    assert payload["work_id"] == "pr:9999"
+    assert payload["branch"] == "feat-x"
+    assert payload["lease_id"] is None
+
+
+def test_advisory_preserves_missing_lease_reason_but_exits_zero(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--advisory",
+            "--session-id",
+            "sess-a",
+            "--work-id",
+            "branch:feat-x",
+            "--json",
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] == "missing_lease"
+    assert payload["work_id"] == "branch:feat-x"
+    assert payload["branch"] == "feat-x"
+
+
+def test_verify_only_wrong_owner_reason(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert _main(repo, "feat-x", "--claim", "--session-id", "sess-a", "--work-id", "pr:8852") == 0
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--session-id",
+            "sess-b",
+            "--work-id",
+            "pr:8852",
+            "--json",
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] == "wrong_owner"
+    assert payload["owner_session_id"] == "sess-a"
+    assert payload["lease_id"]
+
+
+def test_verify_only_expired_lease_reason(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert _main(repo, "feat-x", "--claim", "--session-id", "sess-a", "--work-id", "pr:8852") == 0
+    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    with sqlite3.connect(_db_path(repo)) as conn:
+        conn.execute("UPDATE leases SET expires_at = ?", (past,))
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--session-id",
+            "sess-a",
+            "--work-id",
+            "pr:8852",
+            "--json",
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] == "expired_lease"
+    assert payload["owner_session_id"] == "sess-a"
+
+
+def test_verify_only_bridge_sidecar_without_dev_lease_reason(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sidecar = repo / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-1": {
+                    "branch": "feat-x",
+                    "lease_id": "missing-lease",
+                    "owner_session_id": "sess-a",
+                    "work_id": "pr:8852",
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--record-lane",
+            "lane-1",
+            "--session-id",
+            "sess-a",
+            "--work-id",
+            "pr:8852",
+            "--json",
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] == "bridge_only_no_dev_lease"
+    assert payload["lease_id"] == "missing-lease"
+
+
+def test_verify_only_ambiguous_owner_reason(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert _main(repo, "feat-x", "--claim", "--session-id", "sess-a", "--work-id", "pr:8852") == 0
+    with sqlite3.connect(_db_path(repo)) as conn:
+        conn.execute(
+            """
+            INSERT INTO leases (
+                lease_id, task_id, title, owner_agent, owner_session_id, branch, worktree_path,
+                allowed_globs_json, claimed_paths_json, expected_tests_json, status, created_at,
+                updated_at, expires_at, metadata_json
+            )
+            SELECT
+                'lease-ambiguous', task_id, title, 'codex', 'sess-b', branch, worktree_path,
+                allowed_globs_json, claimed_paths_json, expected_tests_json, status, created_at,
+                updated_at, expires_at, metadata_json
+            FROM leases
+            WHERE branch = ?
+            """,
+            ("feat-x",),
+        )
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--session-id",
+            "sess-a",
+            "--work-id",
+            "pr:8852",
+            "--json",
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] == "ambiguous_owner"
+    assert payload["owners"] == ["sess-a", "sess-b"]
+
+
+def test_verify_only_store_unreachable_json_reason(
+    repo: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    corrupt = tmp_path / "corrupt.db"
+    corrupt.write_bytes(b"this is not a sqlite database at all........")
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--strict",
+            "--advisory",
+            "--db",
+            str(corrupt),
+            "--json",
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] == "store_unreachable"
+
+
 def test_session_id_from_environment(
     repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
