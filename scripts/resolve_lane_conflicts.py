@@ -52,6 +52,7 @@ TERMINAL_PR_STATES = {"MERGED", "CLOSED"}
 HEARTBEAT_TIMESTAMP_KEYS = ("last_heartbeat_at", "last_seen_at", "heartbeat_at")
 PID_KEYS = ("pid", "owner_pid")
 LOCAL_WORK_KEYS = ("worktree", "local_worktree", "local_work_path")
+TERMINAL_READ_RECEIPT_OUTCOMES = {"completed", "stale", "superseded"}
 
 
 def _canonical_repo_root(path: Path = DEFAULT_REPO_ROOT) -> Path:
@@ -381,9 +382,59 @@ def _pending_mailbox_messages(
         return [], "invalid_owner_session"
     if not inbox.is_dir():
         return [], None
-    # Read receipts are proof-of-read/outcome only; they are not an ack/move protocol.
-    # A top-level message file remains pending until a future explicit ack path moves it.
-    return sorted(path.name for path in inbox.glob("*.json") if path.is_file()), None
+    terminal_receipted = _terminal_receipted_mailbox_messages(inbox)
+    return (
+        sorted(
+            path.name
+            for path in inbox.glob("*.json")
+            if path.is_file() and path.name not in terminal_receipted
+        ),
+        None,
+    )
+
+
+def _load_json_object(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _terminal_receipted_mailbox_messages(inbox: Path) -> set[str]:
+    # Ordinary read receipts remain proof-only; terminal outcomes are the
+    # supported stale-terminal-owner ack for already-resolved mailbox work.
+    messages: dict[str, str] = {}
+    for path in inbox.glob("*.json"):
+        if not path.is_file():
+            continue
+        payload = _load_json_object(path)
+        if payload is None:
+            continue
+        messages[path.name] = str(payload.get("message_sha256") or "")
+
+    terminal_receipted: set[str] = set()
+    receipt_dir = inbox / "_read_receipts"
+    if not receipt_dir.is_dir():
+        return terminal_receipted
+
+    for path in receipt_dir.glob("*.json"):
+        if not path.is_file():
+            continue
+        payload = _load_json_object(path)
+        if payload is None:
+            continue
+        if str(payload.get("outcome") or "") not in TERMINAL_READ_RECEIPT_OUTCOMES:
+            continue
+        message_filename = str(payload.get("message_filename") or "")
+        if not message_filename or message_filename not in messages:
+            continue
+        receipt_sha = str(payload.get("message_sha256") or "")
+        message_sha = messages[message_filename]
+        if receipt_sha and message_sha and receipt_sha != message_sha:
+            continue
+        terminal_receipted.add(message_filename)
+    return terminal_receipted
 
 
 def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
