@@ -163,7 +163,7 @@ def test_lane_registry_sidecar_enriches_missing_lease_fields(
     assert record.work_id == "pr:8852"
     assert record.lease_id == "lease-1"
     assert record.lease_status == "active"
-    assert record.lease_health == "ok"
+    assert record.lease_health == "sidecar"
 
 
 def test_lane_registry_native_lease_fields_override_sidecar(
@@ -1202,12 +1202,35 @@ def test_operator_snapshot_summary_reports_active_lanes_missing_dev_lease(
                     "work_id": "pr:8852",
                 },
                 {
+                    "lane_id": "lane-sidecar-only",
+                    "owner_session": "codex-sidecar",
+                    "status": "active",
+                    "branch": "codex/sidecar",
+                },
+                {
                     "lane_id": "lane-complete",
                     "owner_session": "codex-C",
                     "status": "completed",
                     "branch": "codex/done",
                 },
             ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-sidecar-only": {
+                    "branch": "codex/sidecar",
+                    "work_id": "pr:8853",
+                    "lease_id": "stale-sidecar-lease",
+                    "owner_session_id": "codex-sidecar",
+                    "lease_status": "active",
+                    "lease_health": "ok",
+                }
+            }
         ),
         encoding="utf-8",
     )
@@ -1226,8 +1249,9 @@ def test_operator_snapshot_summary_reports_active_lanes_missing_dev_lease(
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["summary"]["active_lanes"] == 2
-    assert payload["summary"]["active_lanes_missing_dev_lease"] == 1
+    assert payload["summary"]["active_lanes"] == 3
+    assert payload["summary"]["active_lanes_missing_dev_lease"] == 2
+    assert payload["summary"]["active_lanes_with_dev_lease"] == 1
 
 
 def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(

@@ -175,6 +175,9 @@ def _resolve_work_id(args: argparse.Namespace, branch: str) -> str | None:
 def _lease_matches_work_id(lease: LeaseRow, work_id: str | None) -> bool:
     if work_id is None:
         return True
+    if work_id.startswith("branch:"):
+        _prefix, _sep, branch_name = work_id.partition(":")
+        return lease.branch == branch_name
     return lease.work_id == work_id or lease.task_id == work_id
 
 

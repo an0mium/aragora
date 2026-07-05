@@ -598,15 +598,21 @@ def _sidecar_compatible_with_lane(record: LaneRecord, sidecar: dict[str, Any]) -
 
 
 def _fill_from_sidecar(record: LaneRecord, sidecar: dict[str, Any]) -> None:
+    filled_lease_from_sidecar = False
     if not record.work_id:
         record.work_id = str(sidecar.get("work_id") or "")
     if not record.lease_id:
         record.lease_id = str(sidecar.get("lease_id") or "")
+        filled_lease_from_sidecar = bool(record.lease_id)
+    if filled_lease_from_sidecar:
+        record.lease_health = "sidecar"
     if not record.lease_status:
         record.lease_status = str(sidecar.get("lease_status") or "")
     if not record.lease_health:
         record.lease_health = str(sidecar.get("lease_health") or "")
-    if record.lease_id and not record.lease_health:
+    if filled_lease_from_sidecar:
+        record.lease_health = "sidecar"
+    elif record.lease_id and not record.lease_health:
         record.lease_health = "sidecar"
 
 
@@ -619,6 +625,21 @@ def _enrich_lane_records_with_leases(records: list[LaneRecord]) -> list[LaneReco
         if sidecar and _sidecar_compatible_with_lane(record, sidecar):
             _fill_from_sidecar(record, sidecar)
     return records
+
+
+def _lane_has_countable_dev_lease(record: LaneRecord) -> bool:
+    if not record.lease_id:
+        return False
+    invalid_statuses = {"expired", "invalid", "missing", "released", "stale"}
+    invalid_health = {
+        "bridge_only_no_dev_lease",
+        "expired",
+        "invalid",
+        "missing",
+        "sidecar",
+        "stale",
+    }
+    return record.lease_status not in invalid_statuses and record.lease_health not in invalid_health
 
 
 def _write_lane_registry(records: list[LaneRecord]) -> None:
@@ -3038,10 +3059,14 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         ),
         "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
         "active_lanes_missing_dev_lease": sum(
-            1 for r in records if r.status in ACTIVE_LANE_STATUSES and not r.lease_id
+            1
+            for r in records
+            if r.status in ACTIVE_LANE_STATUSES and not _lane_has_countable_dev_lease(r)
         ),
         "active_lanes_with_dev_lease": sum(
-            1 for r in records if r.status in ACTIVE_LANE_STATUSES and bool(r.lease_id)
+            1
+            for r in records
+            if r.status in ACTIVE_LANE_STATUSES and _lane_has_countable_dev_lease(r)
         ),
         "conflict_lanes": sum(1 for r in records if r.status == "conflict")
         + len(computed_conflict_lane_ids),

@@ -365,6 +365,80 @@ def test_verify_only_matching_work_id_succeeds_without_sidecar_write(
     assert not (repo / ".aragora" / "agent-bridge" / "lane-leases.json").exists()
 
 
+def test_verify_only_branch_work_id_matches_store_direct_branch_lease(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from aragora.nomic.dev_coordination import DevCoordinationStore
+
+    store = DevCoordinationStore(repo_root=repo)
+    lease = store.claim_lease(
+        task_id="WO-branch-owner",
+        title="swarm work order",
+        owner_agent="swarm",
+        owner_session_id="sess-swarm",
+        branch="feat-x",
+        worktree_path=str(repo),
+        allowed_globs=["aragora/swarm/*.py"],
+    )
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--session-id",
+            "sess-swarm",
+            "--work-id",
+            "branch:feat-x",
+            "--json",
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["reason"] is None
+    assert payload["lease_id"] == lease.lease_id
+    assert payload["owner_session_id"] == "sess-swarm"
+
+
+def test_verify_only_branch_work_id_reports_foreign_store_direct_lease(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from aragora.nomic.dev_coordination import DevCoordinationStore
+
+    store = DevCoordinationStore(repo_root=repo)
+    lease = store.claim_lease(
+        task_id="WO-branch-owner",
+        title="swarm work order",
+        owner_agent="swarm",
+        owner_session_id="sess-swarm",
+        branch="feat-x",
+        worktree_path=str(repo),
+        allowed_globs=["aragora/swarm/*.py"],
+    )
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--session-id",
+            "sess-other",
+            "--work-id",
+            "branch:feat-x",
+            "--json",
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] == "wrong_owner"
+    assert payload["lease_id"] == lease.lease_id
+    assert payload["owner_session_id"] == "sess-swarm"
+
+
 def test_verify_only_rejects_mismatched_work_id_with_stable_reason(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
