@@ -431,7 +431,7 @@ def _terminal_receipted_mailbox_messages(inbox: Path) -> set[str]:
             continue
         receipt_sha = str(payload.get("message_sha256") or "")
         message_sha = messages[message_filename]
-        if receipt_sha and message_sha and receipt_sha != message_sha:
+        if not receipt_sha or not message_sha or receipt_sha != message_sha:
             continue
         terminal_receipted.add(message_filename)
     return terminal_receipted

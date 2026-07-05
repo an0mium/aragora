@@ -1346,6 +1346,83 @@ def test_merged_pr_audit_apply_rejects_terminal_receipt_with_wrong_message_hash(
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
 
 
+def test_merged_pr_audit_apply_rejects_terminal_receipts_with_missing_hashes(
+    tmp_path: Path,
+) -> None:
+    cases = [
+        (
+            "empty-receipt-hash",
+            {"message_sha256": "actual-sha"},
+            {"message_sha256": ""},
+        ),
+        (
+            "missing-receipt-hash",
+            {"message_sha256": "actual-sha"},
+            {},
+        ),
+        (
+            "empty-message-hash",
+            {"message_sha256": ""},
+            {"message_sha256": "actual-sha"},
+        ),
+        (
+            "missing-message-hash",
+            {"subject": "operator ruling"},
+            {"message_sha256": "actual-sha"},
+        ),
+    ]
+
+    for case_name, message_payload, receipt_payload in cases:
+        case_root = tmp_path / case_name
+        registry = case_root / "lanes.json"
+        steering_root = case_root / "operator-steering"
+        inbox = steering_root / "codex-owner"
+        receipt_dir = inbox / "_read_receipts"
+        receipt_dir.mkdir(parents=True)
+        _write_json(inbox / "message.json", message_payload)
+        _write_json(
+            receipt_dir / "receipt.json",
+            {
+                "schema_version": "aragora-operator-steering-read-receipt/1.0",
+                "message_filename": "message.json",
+                "outcome": "superseded",
+                "read_at_utc": "2026-05-23T19:20:00Z",
+                **receipt_payload,
+            },
+        )
+        _write_json(
+            registry,
+            [
+                {
+                    "lane_id": "codex-merged",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "pr_number": 7435,
+                }
+            ],
+        )
+
+        result = resolver.audit_merged_pr_lanes(
+            registry_path=registry,
+            receipt_dir=case_root / "receipts",
+            pr=7435,
+            gh_bin=str(_merged_pr_gh(case_root)),
+            apply=True,
+            operator_authorized=True,
+            expected_merge_commit="merge",
+            heartbeat_path=case_root / "heartbeats.json",
+            steering_inbox_root=steering_root,
+        )
+
+        assert result["resolved_count"] == 0, case_name
+        assert result["blocked_reason"] == "unsafe_terminal_owner_gates", case_name
+        assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"], case_name
+        assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
+            "message.json"
+        ], case_name
+        assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
 def test_merged_pr_audit_apply_labels_invalid_owner_session_separately(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     _write_json(
