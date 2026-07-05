@@ -57,6 +57,25 @@ Not part of the decision table.
 """
 
 
+def _consolidated_packet(*, generated: str, target: str, reply: str) -> str:
+    return f"""# Founder Decision Queue Packet
+
+Generated: {generated}
+
+Purpose: consolidate the current operator rulings after live state drift.
+
+## Pending Rulings
+
+| Priority | Link | Current blocker | Requested action | One-word reply |
+| --- | --- | --- | --- | --- |
+| 1 | {target} | Needs a decision. | Rule on this item. | `{reply}` |
+
+## Current Live Snapshots
+
+Not part of the decision table.
+"""
+
+
 def test_parse_decision_packet_extracts_pending_rulings() -> None:
     items = fdq.parse_decision_packet(PACKET, source="local.md")
 
@@ -124,6 +143,97 @@ def test_collect_decision_items_deduplicates_issue_comment_export(tmp_path: Path
     assert "| Priority 1 | PR #8756:" in rendered
     assert "`approve`" in rendered
     assert "2.0h" in rendered
+
+
+def test_collect_decision_items_keeps_distinct_local_packets(tmp_path: Path) -> None:
+    decisions_root = tmp_path / "founder-decisions"
+    decisions_root.mkdir()
+    (decisions_root / "older.md").write_text(
+        _single_item_packet(
+            generated="2026-07-05T10:00:00Z",
+            target="PR #8756: https://github.com/synaptent/aragora/pull/8756",
+            reply="approve",
+        ),
+        encoding="utf-8",
+    )
+    (decisions_root / "newer.md").write_text(
+        _single_item_packet(
+            generated="2026-07-05T11:00:00Z",
+            target="PR #8897: https://github.com/synaptent/aragora/pull/8897",
+            reply="ready",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(decisions_root=decisions_root)
+
+    assert {item.expected_reply for item in items} == {"approve", "ready"}
+    assert {fdq._target_number(item.target) for item in items} == {"8756", "8897"}
+
+
+def test_collect_decision_items_newer_local_packet_supersedes_same_target(
+    tmp_path: Path,
+) -> None:
+    decisions_root = tmp_path / "founder-decisions"
+    decisions_root.mkdir()
+    target = "PR #8756: https://github.com/synaptent/aragora/pull/8756"
+    (decisions_root / "older.md").write_text(
+        _single_item_packet(
+            generated="2026-07-05T10:00:00Z",
+            target=target,
+            reply="approve",
+        ),
+        encoding="utf-8",
+    )
+    (decisions_root / "newer.md").write_text(
+        _single_item_packet(
+            generated="2026-07-05T11:00:00Z",
+            target=target,
+            reply="hold",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(decisions_root=decisions_root)
+
+    assert len(items) == 1
+    assert items[0].expected_reply == "hold"
+    assert items[0].source.endswith("newer.md")
+
+
+def test_collect_decision_items_uses_latest_local_consolidation_checkpoint(
+    tmp_path: Path,
+) -> None:
+    decisions_root = tmp_path / "founder-decisions"
+    decisions_root.mkdir()
+    (decisions_root / "stale.md").write_text(
+        _single_item_packet(
+            generated="2026-07-05T09:00:00Z",
+            target="PR #8895: https://github.com/synaptent/aragora/pull/8895",
+            reply="ready",
+        ),
+        encoding="utf-8",
+    )
+    (decisions_root / "consolidated.md").write_text(
+        _consolidated_packet(
+            generated="2026-07-05T10:00:00Z",
+            target="PR #8894: https://github.com/synaptent/aragora/pull/8894",
+            reply="ready",
+        ),
+        encoding="utf-8",
+    )
+    (decisions_root / "newer.md").write_text(
+        _single_item_packet(
+            generated="2026-07-05T11:00:00Z",
+            target="PR #8897: https://github.com/synaptent/aragora/pull/8897",
+            reply="ready",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(decisions_root=decisions_root)
+
+    assert {fdq._target_number(item.target) for item in items} == {"8894", "8897"}
 
 
 def test_collect_decision_items_keeps_newest_packet_on_thread(tmp_path: Path) -> None:

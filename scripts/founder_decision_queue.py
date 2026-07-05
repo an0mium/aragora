@@ -83,6 +83,13 @@ def _packet_generated_at(markdown: str) -> datetime | None:
     return _parse_datetime(match.group(1))
 
 
+def _is_consolidated_local_packet(markdown: str) -> bool:
+    match = re.search(r"^Purpose:\s*(.+?)\s*$", markdown, flags=re.MULTILINE)
+    if not match:
+        return False
+    return "consolidat" in match.group(1).lower()
+
+
 def _split_table_row(line: str) -> list[str] | None:
     stripped = line.strip()
     if not stripped.startswith("|") or not stripped.endswith("|"):
@@ -193,10 +200,7 @@ def _newest_sources_by_thread(sources: Iterable[DecisionSource]) -> list[Decisio
 
 
 def _local_thread_key(path: Path, *, decisions_root: Path | None = None) -> str:
-    if decisions_root is not None:
-        return f"local:{decisions_root.resolve()}"
-    parent = path.parent if path.parent != Path("") else Path(".")
-    return f"local:{parent.resolve()}"
+    return f"local-file:{path.resolve()}"
 
 
 def _thread_key_from_comment(comment: dict[str, Any], *, fallback: str) -> str:
@@ -242,6 +246,13 @@ def _target_number(target: str) -> str | None:
     if not match:
         return None
     return match.group(1) or match.group(2)
+
+
+def _target_identity_key(item: DecisionItem) -> str:
+    number = _target_number(item.target)
+    if number is not None:
+        return f"github-number:{number}"
+    return f"text:{_compact_text(item.target).lower()}"
 
 
 def _comment_resolves_item(body: str, item: DecisionItem) -> bool:
@@ -342,18 +353,29 @@ def _collect_sources(
 ) -> list[DecisionSource]:
     sources: list[DecisionSource] = []
     if decisions_root.exists():
+        local_sources: list[DecisionSource] = []
         for path in sorted(decisions_root.glob("*.md")):
             try:
                 body = path.read_text(encoding="utf-8")
             except OSError:
                 continue
-            sources.append(
+            local_sources.append(
                 DecisionSource(
                     source=str(path),
                     body=body,
                     thread_key=_local_thread_key(path, decisions_root=decisions_root),
                 )
             )
+        consolidation_sources = [
+            source for source in local_sources if _is_consolidated_local_packet(source.body)
+        ]
+        if consolidation_sources:
+            checkpoint = max(consolidation_sources, key=_packet_sort_key)
+            checkpoint_key = _packet_sort_key(checkpoint)
+            local_sources = [
+                source for source in local_sources if _packet_sort_key(source) >= checkpoint_key
+            ]
+        sources.extend(local_sources)
     for path in packet_files:
         try:
             body = path.read_text(encoding="utf-8")
@@ -378,19 +400,32 @@ def collect_decision_items(
     issue_comments_json: Path | None = None,
 ) -> list[DecisionItem]:
     deduped: dict[tuple[str, str, str], DecisionItem] = {}
+    seen_targets: set[str] = set()
+    items: list[DecisionItem] = []
     sources = _collect_sources(
         decisions_root=decisions_root,
         packet_files=packet_files,
         issue_comments_json=issue_comments_json,
     )
-    for source in _newest_sources_by_thread(sources):
+    for source in sorted(
+        _newest_sources_by_thread(sources),
+        key=_packet_sort_key,
+        reverse=True,
+    ):
         if not source.thread_open:
             continue
         for item in parse_decision_packet(source.body, source=source.source):
             if _item_resolved_after_packet(source, item):
                 continue
-            deduped.setdefault(item.dedupe_key(), item)
-    return list(deduped.values())
+            if item.dedupe_key() in deduped:
+                continue
+            target_key = _target_identity_key(item)
+            if target_key in seen_targets:
+                continue
+            deduped[item.dedupe_key()] = item
+            seen_targets.add(target_key)
+            items.append(item)
+    return items
 
 
 def _format_age(item: DecisionItem, *, now: datetime) -> str:
