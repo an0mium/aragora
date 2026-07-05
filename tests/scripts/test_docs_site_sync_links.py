@@ -193,11 +193,9 @@ def test_disaster_recovery_links_resolve_by_source_directory_not_last_doc_map_en
     # sibling reference to the (newly mapped) enterprise DR overview.
     assert "[DISASTER_RECOVERY.md](./disaster-recovery)" in enterprise_compliance
 
-    # runbooks/ siblings correctly resolve to the runbooks DR page. This already
-    # produced the right answer by coincidence (runbooks/DISASTER_RECOVERY.md was
-    # the last-defined DOC_MAP entry); pin it down so a future DOC_MAP reordering
-    # cannot silently break it the way the deployment/ and enterprise/ links were
-    # broken.
+    # runbooks/ siblings correctly resolve to the runbooks DR page. Pin this down
+    # so a future DOC_MAP reordering cannot silently break it the way the
+    # deployment/ and enterprise/ links were broken.
     assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in runbook_backup
     assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in runbook_multi_region
     assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in runbook_pg_migration
@@ -224,18 +222,22 @@ def test_disaster_recovery_links_resolve_by_source_directory_not_last_doc_map_en
         assert "DISASTER_RECOVERY.md)" not in content
 
 
-def test_enterprise_disaster_recovery_is_mapped_and_synced() -> None:
+def test_enterprise_disaster_recovery_is_mapped_and_public_safe() -> None:
     # docs/enterprise/DISASTER_RECOVERY.md is a substantial standalone enterprise DR
-    # overview that docs/runbooks/DISASTER_RECOVERY.md links to. It must be mapped
-    # and synced so that link (and any other bare "DISASTER_RECOVERY.md" link whose
-    # source directory is enterprise/) has a real destination instead of falling
-    # through unrewritten.
+    # overview that docs/runbooks/DISASTER_RECOVERY.md links to. The docs-site
+    # route must stay valid without publishing the internal runbook body.
     page = DOCS_SITE_ROOT / "enterprise" / "disaster-recovery.md"
     assert page.exists(), f"Expected synced docs-site page missing: {page}"
 
     content = page.read_text(encoding="utf-8")
-    assert "title: Aragora Disaster Recovery Procedures" in content
+    assert "title: Enterprise Disaster Recovery Overview" in content
     assert "Recovery Objectives" in content
+    assert "Operational response details are restricted" in content
+    assert "Classification: Internal" not in content
+    assert "Primary Region (us-east-1)" not in content
+    assert "s3://aragora-backups" not in content
+    assert "kubectl --context backup" not in content
+    assert "Incident commander" not in content
 
 
 def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:

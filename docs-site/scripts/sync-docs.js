@@ -513,6 +513,38 @@ const REPO_MARKDOWN_LINKS = {
 const SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS = {
   'guides/SDK_CONSOLIDATION.md|README.md': `${REPO_BLOB_BASE}/sdk/typescript/README.md`,
 };
+const PUBLIC_DOC_CONTENT_OVERRIDES = {
+  'enterprise/DISASTER_RECOVERY.md': [
+    '# Enterprise Disaster Recovery Overview',
+    '',
+    'Aragora maintains disaster recovery procedures for enterprise deployments,',
+    'including defined recovery objectives, backup verification, regional',
+    'failover planning, customer communication, and periodic tabletop review.',
+    '',
+    'Detailed operational runbooks, infrastructure diagrams, command sequences,',
+    'hostnames, escalation rosters, and other internal response procedures are',
+    'available only through authorized enterprise support channels.',
+    '',
+    '## Recovery Objectives',
+    '',
+    'Recovery objectives are defined contractually per enterprise deployment',
+    'and reviewed during disaster recovery planning and validation.',
+    '',
+    '## Public Control Summary',
+    '',
+    '- Recovery objectives are defined and reviewed for enterprise deployments.',
+    '- Backup and restore procedures are exercised on a recurring schedule.',
+    '- Regional failover and customer communication procedures are maintained.',
+    '- Operational response details are restricted to authorized recipients.',
+    '',
+    '## Related Documentation',
+    '',
+    '- [Operations disaster recovery runbook](../operations/disaster-recovery-runbook)',
+    '- [Security overview](../security/overview)',
+    '- [Data residency](../security/data-residency)',
+    '',
+  ].join('\n'),
+};
 const basenameCounts = new Map();
 for (const src of Object.keys(DOC_MAP)) {
   const srcName = path.basename(src.replace(/^\.\//, '').replace(/^\//, ''));
@@ -681,14 +713,16 @@ function processFile(srcRelPath, destPath) {
 
   const srcPath = resolved.srcPath;
   let content = fs.readFileSync(srcPath, 'utf8');
-  const title = extractTitle(content);
   const relSrcPath = path.relative(SOURCE_DIR, srcPath);
+  const normalizedRelSrcPath = relSrcPath.replace(/\\/g, '/');
+  content = PUBLIC_DOC_CONTENT_OVERRIDES[normalizedRelSrcPath] || content;
+  const title = extractTitle(content);
   const baseName = path.basename(relSrcPath, '.md');
   const isAdr = relSrcPath.startsWith('ADR' + path.sep);
   const slug = isAdr && baseName !== 'README' ? baseName : null;
 
   const description =
-    relSrcPath.replace(/\\/g, '/') === 'reference/CLI_REFERENCE.md'
+    normalizedRelSrcPath === 'reference/CLI_REFERENCE.md'
       ? 'Generated Aragora CLI command catalog from live parser'
       : undefined;
 
@@ -697,7 +731,7 @@ function processFile(srcRelPath, destPath) {
 
   // Fix content for compatibility (pass relative dest path)
   const relDestPath = destPath.replace(DEST_DIR + '/', '');
-  content = fixContent(content, relDestPath, relSrcPath.replace(/\\/g, '/'));
+  content = fixContent(content, relDestPath, normalizedRelSrcPath);
   content = injectConnectorCatalogBanner(content, relSrcPath);
 
   // Ensure destination directory exists
