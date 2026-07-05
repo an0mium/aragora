@@ -18,6 +18,7 @@ Integration Flow:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -346,6 +347,33 @@ def get_security_debate_runner() -> SecurityDebateRunner | None:
     return _security_debate_runner
 
 
+def _accepted_security_debate_runner_kwargs(
+    runner: SecurityDebateRunner,
+    *,
+    confidence_threshold: float,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    """Return debate options accepted by a custom runner.
+
+    Older integrations registered ``async def runner(event)`` callbacks. The
+    default runner accepts the newer keyword options, but custom callbacks should
+    not break critical event delivery merely because they have not adopted them.
+    """
+    options = {
+        "confidence_threshold": confidence_threshold,
+        "timeout_seconds": timeout_seconds,
+    }
+    try:
+        parameters = inspect.signature(runner).parameters
+    except (TypeError, ValueError):
+        return options
+
+    if any(param.kind is inspect.Parameter.VAR_KEYWORD for param in parameters.values()):
+        return options
+
+    return {name: value for name, value in options.items() if name in parameters}
+
+
 def build_security_debate_question(event: SecurityEvent) -> str:
     """Compatibility wrapper for the relocated security debate question builder."""
     from aragora.debate.security_response import (
@@ -548,11 +576,15 @@ class SecurityEventEmitter:
             return None
 
         try:
-            debate_id = await runner(
-                event=event,
+            runner_kwargs = _accepted_security_debate_runner_kwargs(
+                runner,
                 confidence_threshold=self._debate_confidence_threshold,
                 timeout_seconds=self._debate_timeout_seconds,
             )
+            if runner_kwargs:
+                debate_id = await runner(event=event, **runner_kwargs)
+            else:
+                debate_id = await runner(event)
 
             if debate_id:
                 event.debate_requested = True
@@ -573,7 +605,7 @@ class SecurityEventEmitter:
 
             return debate_id
 
-        except (RuntimeError, ValueError, OSError) as e:
+        except (RuntimeError, TypeError, ValueError, OSError) as e:
             logger.exception("Failed to trigger security debate: %s", e)
             return None
 

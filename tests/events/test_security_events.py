@@ -880,6 +880,49 @@ class TestSecurityEventEmitter:
             assert event.debate_id == "debate-auto-123"
 
     @pytest.mark.asyncio
+    async def test_emit_triggers_legacy_one_arg_debate_runner(self):
+        """Custom pre-options runners should remain valid auto-debate hooks."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        event = self._make_event(severity=SecuritySeverity.CRITICAL)
+        calls: list[SecurityEvent] = []
+
+        async def legacy_runner(event: SecurityEvent) -> str:
+            calls.append(event)
+            return "debate-legacy-123"
+
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=legacy_runner,
+        ):
+            await emitter.emit(event)
+
+        assert calls == [event]
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-legacy-123"
+
+    @pytest.mark.asyncio
+    async def test_emit_isolates_runner_type_error(self, caplog):
+        """Runner signature failures should not escape critical event delivery."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        event = self._make_event(severity=SecuritySeverity.CRITICAL)
+
+        async def broken_runner(event: SecurityEvent, *, confidence_threshold: float) -> str:
+            raise TypeError("runner implementation failed")
+
+        with (
+            patch(
+                "aragora.events.security_events.get_security_debate_runner",
+                return_value=broken_runner,
+            ),
+            caplog.at_level(logging.ERROR, logger="aragora.events.security_events"),
+        ):
+            await emitter.emit(event)
+
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        assert "Failed to trigger security debate" in caplog.text
+
+    @pytest.mark.asyncio
     async def test_emit_with_no_runner_is_graceful(self, caplog):
         """emit() must never await a missing runner (`await None(...)`).
 
