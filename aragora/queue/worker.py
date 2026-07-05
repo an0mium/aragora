@@ -37,13 +37,37 @@ _REGISTERED_WORKERS: dict[str, Any] = {}
 _REGISTERED_JOB_HANDLERS: dict[str, DebateExecutor] = {}
 
 
+def _same_job_handler(existing: DebateExecutor, handler: DebateExecutor) -> bool:
+    """Return whether two handler callables represent the same registration."""
+    if existing is handler:
+        return True
+
+    existing_self = getattr(existing, "__self__", None)
+    handler_self = getattr(handler, "__self__", None)
+    existing_func = getattr(existing, "__func__", None)
+    handler_func = getattr(handler, "__func__", None)
+    if existing_self is None or handler_self is None:
+        return False
+    if existing_func is None or handler_func is None:
+        return False
+    return existing_self is handler_self and existing_func is handler_func
+
+
 def register_worker(name: str, worker: Any) -> None:
     """Register a queue worker instance under ``name`` (keyed, idempotent)."""
     _REGISTERED_WORKERS[name] = worker
 
 
 def register_job_handler(job_type: str, handler: DebateExecutor) -> None:
-    """Register a job handler (executor) for ``job_type`` (keyed, idempotent)."""
+    """Register a job handler (executor) for ``job_type``.
+
+    Re-registering the same handler is a no-op. Registering a different handler
+    for an existing job type fails closed so import order cannot silently
+    redirect queue execution.
+    """
+    existing = _REGISTERED_JOB_HANDLERS.get(job_type)
+    if existing is not None and not _same_job_handler(existing, handler):
+        raise ValueError(f"job handler already registered for job type {job_type!r}")
     _REGISTERED_JOB_HANDLERS[job_type] = handler
 
 

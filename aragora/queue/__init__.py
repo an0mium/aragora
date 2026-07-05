@@ -61,6 +61,7 @@ from aragora.queue.streams import (
 from aragora.queue.worker import (
     DebateExecutor,
     DebateWorker,
+    create_default_executor,
     get_job_handler,
     get_registered_job_handlers,
     get_registered_workers,
@@ -97,6 +98,7 @@ __all__ = [
     # Worker
     "DebateWorker",
     "DebateExecutor",
+    "create_default_executor",
     # Job-handler registry (domain-free; P4a queue inversion Q1)
     "register_worker",
     "register_job_handler",
