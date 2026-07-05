@@ -26,7 +26,7 @@ def _claim(
     positions: dict[str, float] | None = None,
     created_at: datetime | None = None,
 ) -> StakeableClaim:
-    ts = (created_at or datetime.now(tz=UTC))
+    ts = created_at or datetime.now(tz=UTC)
     return StakeableClaim(
         claim_id=claim_id,
         question=f"Will PR #{claim_id} merge?",
@@ -92,8 +92,7 @@ class TestScoreArithmetic:
         assert result["a"].n_predictions == 2
 
     def test_multiple_agents_scored_independently(self):
-        c = _claim("c1", status=ResolutionStatus.RESOLVED_YES,
-                   positions={"a": 1.0, "b": 0.0})
+        c = _claim("c1", status=ResolutionStatus.RESOLVED_YES, positions={"a": 1.0, "b": 0.0})
         result = compute_brier_scores([c], require_enabled=False)
         assert result["a"].score == pytest.approx(0.0)
         assert result["b"].score == pytest.approx(1.0)
@@ -102,14 +101,14 @@ class TestScoreArithmetic:
         # (0.8-1)^2=0.04, (0.6-1)^2=0.16, (0.4-0)^2=0.16, (0.2-0)^2=0.04 → mean=0.10
         now = datetime.now(tz=UTC)
         claims = [
-            _claim("c1", status=ResolutionStatus.RESOLVED_YES,
-                   positions={"a": 0.8}, created_at=now),
-            _claim("c2", status=ResolutionStatus.RESOLVED_YES,
-                   positions={"a": 0.6}, created_at=now),
-            _claim("c3", status=ResolutionStatus.RESOLVED_NO,
-                   positions={"a": 0.4}, created_at=now),
-            _claim("c4", status=ResolutionStatus.RESOLVED_NO,
-                   positions={"a": 0.2}, created_at=now),
+            _claim(
+                "c1", status=ResolutionStatus.RESOLVED_YES, positions={"a": 0.8}, created_at=now
+            ),
+            _claim(
+                "c2", status=ResolutionStatus.RESOLVED_YES, positions={"a": 0.6}, created_at=now
+            ),
+            _claim("c3", status=ResolutionStatus.RESOLVED_NO, positions={"a": 0.4}, created_at=now),
+            _claim("c4", status=ResolutionStatus.RESOLVED_NO, positions={"a": 0.2}, created_at=now),
         ]
         result = compute_brier_scores(claims, require_enabled=False)
         assert result["a"].score == pytest.approx(0.10)
@@ -140,22 +139,23 @@ class TestClaimFiltering:
 
     def test_old_claim_outside_window_excluded(self):
         old = datetime(2020, 1, 1, tzinfo=UTC)
-        c = _claim("c1", status=ResolutionStatus.RESOLVED_YES,
-                   positions={"a": 1.0}, created_at=old)
+        c = _claim("c1", status=ResolutionStatus.RESOLVED_YES, positions={"a": 1.0}, created_at=old)
         assert compute_brier_scores([c], window_days=90, require_enabled=False) == {}
 
     def test_recent_claim_inside_window_included(self):
         recent = datetime.now(tz=UTC) - timedelta(days=10)
-        c = _claim("c1", status=ResolutionStatus.RESOLVED_YES,
-                   positions={"a": 1.0}, created_at=recent)
+        c = _claim(
+            "c1", status=ResolutionStatus.RESOLVED_YES, positions={"a": 1.0}, created_at=recent
+        )
         result = compute_brier_scores([c], window_days=90, require_enabled=False)
         assert "a" in result
 
     def test_future_claim_above_cutoff_excluded(self):
         cutoff = datetime.now(tz=UTC)
         future = cutoff + timedelta(days=5)
-        c = _claim("c1", status=ResolutionStatus.RESOLVED_YES,
-                   positions={"a": 1.0}, created_at=future)
+        c = _claim(
+            "c1", status=ResolutionStatus.RESOLVED_YES, positions={"a": 1.0}, created_at=future
+        )
         result = compute_brier_scores([c], cutoff_dt=cutoff, require_enabled=False)
         assert result == {}
 
@@ -189,4 +189,3 @@ class TestAgentBrierScore:
         assert d["score"] == pytest.approx(0.0)
         assert d["n_predictions"] == 1
         assert d["window_days"] == 45
-

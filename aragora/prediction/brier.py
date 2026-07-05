@@ -127,9 +127,7 @@ def compute_brier_scores(
         RuntimeError: When *require_enabled* is True and the flag is off.
     """
     if require_enabled and not _flag_enabled():
-        raise RuntimeError(
-            f"Prediction markets are disabled. Set {_ENV_FLAG}=1 to enable."
-        )
+        raise RuntimeError(f"Prediction markets are disabled. Set {_ENV_FLAG}=1 to enable.")
 
     cutoff = (cutoff_dt or datetime.now(tz=UTC)).astimezone(UTC)
     window_start = cutoff - timedelta(days=window_days)
