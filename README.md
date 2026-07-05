@@ -20,11 +20,11 @@ standalone verifier ([`pip install -U 'aragora-verify>=0.1.1'`](https://pypi.org
 | Run the standalone debate engine | `pip install aragora-debate` |
 | Verify an Open Decision Receipt with the standalone verifier | `pip install -U 'aragora-verify>=0.1.1' && aragora-verify receipt.odr.json` |
 | Run the current PyPI zero-key demo | `pip install aragora && aragora demo` |
-| See a native debate → receipt → verify loop in ~15 seconds, no API keys, from a current source checkout | `python3 -m pip install -e . && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
+| See a native debate → receipt → verify loop from a current source checkout | `python3 -m pip install -e . && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
-The PyPI `aragora` package at 2.7.4 supports `aragora demo`, but it does not
+PyPI `aragora` releases through 2.7.4 support `aragora demo`, but they do not
 include the explicit `--offline` flag or the source checkout's verifiable
 native demo-receipt round trip.
 
@@ -100,7 +100,7 @@ Current PyPI package:
 
 ```bash
 pip install aragora
-aragora demo                        # no provider key needed; uses offline mocks when no key is set
+aragora demo                        # no provider key required in PyPI 2.7.4
 ```
 
 Current source checkout:
