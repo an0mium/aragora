@@ -56,7 +56,11 @@ def test_main_json_uses_pipe_safe_emitter(
         "generate_report",
         lambda _markers: {
             "total": 0,
+            "justified_total": 0,
+            "unjustified_total": 0,
             "by_category": {},
+            "by_unjustified_category": {},
+            "by_justification_category": {},
             "by_type": {},
             "by_file": {},
             "high_skip_files": [],
@@ -90,7 +94,11 @@ def test_main_default_summary_uses_pipe_safe_emitter(
         "generate_report",
         lambda _markers: {
             "total": 2,
+            "justified_total": 1,
+            "unjustified_total": 1,
             "by_category": {"known_bug": 1, "optional_dependency": 1},
+            "by_unjustified_category": {"known_bug": 1},
+            "by_justification_category": {"optional_dependency": 1},
             "by_type": {"skip": 2},
             "by_file": {"tests/test_example.py": 2},
             "high_skip_files": [{"file": "tests/test_example.py", "count": 2}],
@@ -103,5 +111,87 @@ def test_main_default_summary_uses_pipe_safe_emitter(
     audit_test_skips.main()
 
     assert "Total skip markers: 2" in emitted[0]
+    assert "Justified skip markers: 1" in emitted[0]
+    assert "Unjustified skip markers: 1" in emitted[0]
     assert "known_bug: 1" in emitted[0]
+    assert "optional_dependency: 1" in emitted[0]
     assert "tests/test_example.py: 2" in emitted[0]
+
+
+def test_generate_report_splits_justified_and_unjustified(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    test_file = tests_dir / "test_example.py"
+    test_file.write_text(
+        "\n".join(
+            [
+                "import pytest",
+                "",
+                "@pytest.mark.skip(",
+                '    reason="justified-skip[optional_dependency]: package not installed"',
+                ")",
+                "def test_optional_dep():",
+                "    pass",
+                "",
+                '@pytest.mark.skip(reason="Known bug: GH-123")',
+                "def test_known_bug():",
+                "    pass",
+                "",
+                "def test_runtime_skip():",
+                '    pytest.skip("justified_skip[platform_specific]: symlink unavailable")',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    report = audit_test_skips.generate_report(audit_test_skips.audit_skips(tests_dir))
+
+    assert report["total"] == 3
+    assert report["justified_total"] == 2
+    assert report["unjustified_total"] == 1
+    assert report["by_justification_category"] == {
+        "optional_dependency": 1,
+        "platform_specific": 1,
+    }
+    assert report["by_unjustified_category"] == {"known_bug": 1}
+
+    justified = [marker for marker in report["markers"] if marker["justified"]]
+    assert justified[0]["justification_rationale"] == "package not installed"
+
+
+def test_main_unjustified_count_only_uses_report_metric(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    emitted = []
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["audit_test_skips.py", "--unjustified-count-only", "--tests-dir", str(tests_dir)],
+    )
+    monkeypatch.setattr(audit_test_skips, "audit_skips", lambda _tests_dir: [])
+    monkeypatch.setattr(
+        audit_test_skips,
+        "generate_report",
+        lambda _markers: {
+            "total": 9,
+            "justified_total": 7,
+            "unjustified_total": 2,
+            "by_category": {},
+            "by_unjustified_category": {},
+            "by_justification_category": {},
+            "by_type": {},
+            "by_file": {},
+            "high_skip_files": [],
+            "markers": [],
+            "generated_at": "2026-06-13T00:00:00",
+        },
+    )
+    monkeypatch.setattr(audit_test_skips, "_emit_output", emitted.append)
+
+    audit_test_skips.main()
+
+    assert emitted == ["2"]

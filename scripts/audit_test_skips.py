@@ -38,6 +38,9 @@ class SkipMarker:
     reason: str
     category: str
     condition: str | None = None
+    justified: bool = False
+    justification_category: str | None = None
+    justification_rationale: str | None = None
 
 
 # Category patterns - order matters (first match wins)
@@ -150,6 +153,44 @@ CATEGORY_PATTERNS = {
     ],
 }
 
+JUSTIFIED_SKIP_PATTERN = re.compile(
+    r"^\s*justified[-_]skip\[(?P<category>[a-z][a-z0-9_-]*)\]\s*:\s*(?P<rationale>\S.*)$",
+    re.IGNORECASE,
+)
+
+
+def parse_justified_skip(reason: str) -> tuple[str | None, str | None]:
+    """Extract the report-only justified-skip convention from a skip reason."""
+    match = JUSTIFIED_SKIP_PATTERN.match(reason)
+    if not match:
+        return None, None
+
+    return match.group("category").lower(), match.group("rationale").strip()
+
+
+def make_skip_marker(
+    *,
+    file: str,
+    line: int,
+    marker_type: str,
+    reason: str,
+    condition: str | None = None,
+) -> SkipMarker:
+    """Build a SkipMarker with categorization and justified-skip metadata."""
+    justification_category, justification_rationale = parse_justified_skip(reason)
+
+    return SkipMarker(
+        file=file,
+        line=line,
+        marker_type=marker_type,
+        reason=reason,
+        category=categorize_reason(reason),
+        condition=condition,
+        justified=justification_category is not None,
+        justification_category=justification_category,
+        justification_rationale=justification_rationale,
+    )
+
 
 def categorize_reason(reason: str) -> str:
     """Categorize a skip reason based on pattern matching."""
@@ -215,12 +256,11 @@ def parse_decorator(decorator: ast.expr, file_path: str, line: int) -> SkipMarke
                         else:
                             reason = "No reason provided"
 
-                    return SkipMarker(
+                    return make_skip_marker(
                         file=file_path,
                         line=line,
                         marker_type=func.attr,
                         reason=reason,
-                        category=categorize_reason(reason),
                         condition=condition if condition else None,
                     )
 
@@ -232,12 +272,11 @@ def parse_decorator(decorator: ast.expr, file_path: str, line: int) -> SkipMarke
                 and decorator.value.attr == "mark"
                 and decorator.attr == "skip"
             ):
-                return SkipMarker(
+                return make_skip_marker(
                     file=file_path,
                     line=line,
                     marker_type="skip",
                     reason="No reason provided",
-                    category="uncategorized",
                 )
 
     return None
@@ -267,12 +306,11 @@ def find_pytest_skip_calls(tree: ast.AST, file_path: str) -> list[SkipMarker]:
                         reason = "No reason provided"
 
                     markers.append(
-                        SkipMarker(
+                        make_skip_marker(
                             file=file_path,
                             line=node.lineno,
                             marker_type="pytest.skip",
                             reason=reason,
-                            category=categorize_reason(reason),
                         )
                     )
 
@@ -315,12 +353,11 @@ def find_module_level_importorskip(tree: ast.AST, file_path: str) -> SkipMarker 
             if not reason:
                 reason = f"{module_name} not installed" if module_name else "No reason provided"
 
-            return SkipMarker(
+            return make_skip_marker(
                 file=file_path,
                 line=call_node.lineno,
                 marker_type="pytest.importorskip",
                 reason=reason,
-                category=categorize_reason(reason),
             )
 
     return None
@@ -377,17 +414,34 @@ def audit_skips(tests_dir: Path) -> list[SkipMarker]:
 def generate_report(markers: list[SkipMarker]) -> dict:
     """Generate a structured report from skip markers."""
     by_category = defaultdict(list)
+    by_unjustified_category = defaultdict(list)
+    by_justification_category = defaultdict(list)
     by_file = defaultdict(list)
     by_type = defaultdict(int)
+    justified_markers = []
+    unjustified_markers = []
 
     for marker in markers:
         by_category[marker.category].append(marker)
         by_file[marker.file].append(marker)
         by_type[marker.marker_type] += 1
+        if marker.justified:
+            justified_markers.append(marker)
+            if marker.justification_category:
+                by_justification_category[marker.justification_category].append(marker)
+        else:
+            unjustified_markers.append(marker)
+            by_unjustified_category[marker.category].append(marker)
 
     return {
         "total": len(markers),
+        "justified_total": len(justified_markers),
+        "unjustified_total": len(unjustified_markers),
         "by_category": {k: len(v) for k, v in sorted(by_category.items())},
+        "by_unjustified_category": {k: len(v) for k, v in sorted(by_unjustified_category.items())},
+        "by_justification_category": {
+            k: len(v) for k, v in sorted(by_justification_category.items())
+        },
         "by_type": dict(by_type),
         "by_file": {k: len(v) for k, v in sorted(by_file.items(), key=lambda x: -len(x[1]))},
         "high_skip_files": [
@@ -406,8 +460,37 @@ def generate_markdown(report: dict) -> str:
         "",
         f"**Generated**: {report['generated_at'][:10]}",
         f"**Total Skip Markers**: {report['total']}",
+        f"**Justified Skip Markers**: {report['justified_total']}",
+        f"**Unjustified Skip Markers**: {report['unjustified_total']}",
         "",
         "---",
+        "",
+        "## Justified Skip Convention",
+        "",
+        "Use the skip reason prefix `justified-skip[category]: rationale` when a skip",
+        "is intentional and should not count against the unjustified skip baseline.",
+        "",
+        "The category must be a short machine-readable token, and the rationale must",
+        "explain why the skip is intentionally retained at the skip site.",
+        "",
+        "Example:",
+        "",
+        "```python",
+        '@pytest.mark.skipif(not HAS_Z3, reason="justified-skip[optional_dependency]: Z3 solver not installed")',
+        "```",
+        "",
+        "This v1 is report-only: unmarked skips remain visible as unjustified, and",
+        "the total skip count is still reported.",
+        "",
+        "---",
+        "",
+        "## Justified vs Unjustified",
+        "",
+        "| Metric | Count |",
+        "|--------|-------|",
+        f"| Total skip markers | {report['total']} |",
+        f"| Justified skip markers | {report['justified_total']} |",
+        f"| Unjustified skip markers | {report['unjustified_total']} |",
         "",
         "## Summary by Category",
         "",
@@ -419,6 +502,46 @@ def generate_markdown(report: dict) -> str:
     for category, count in sorted(report["by_category"].items(), key=lambda x: -x[1]):
         pct = (count / total * 100) if total > 0 else 0
         lines.append(f"| {category} | {count} | {pct:.1f}% |")
+
+    lines.extend(
+        [
+            "",
+            "## Summary by Unjustified Category",
+            "",
+            "| Category | Count | Percentage of Unjustified |",
+            "|----------|-------|---------------------------|",
+        ]
+    )
+
+    unjustified_total = report["unjustified_total"]
+    if report["by_unjustified_category"]:
+        for category, count in sorted(
+            report["by_unjustified_category"].items(), key=lambda x: -x[1]
+        ):
+            pct = (count / unjustified_total * 100) if unjustified_total > 0 else 0
+            lines.append(f"| {category} | {count} | {pct:.1f}% |")
+    else:
+        lines.append("| _none_ | 0 | 0.0% |")
+
+    lines.extend(
+        [
+            "",
+            "## Summary by Justification Category",
+            "",
+            "| Justification Category | Count | Percentage of Justified |",
+            "|------------------------|-------|-------------------------|",
+        ]
+    )
+
+    justified_total = report["justified_total"]
+    if report["by_justification_category"]:
+        for category, count in sorted(
+            report["by_justification_category"].items(), key=lambda x: -x[1]
+        ):
+            pct = (count / justified_total * 100) if justified_total > 0 else 0
+            lines.append(f"| {category} | {count} | {pct:.1f}% |")
+    else:
+        lines.append("| _none_ | 0 | 0.0% |")
 
     lines.extend(
         [
@@ -467,6 +590,18 @@ def generate_markdown(report: dict) -> str:
             "",
             "---",
             "",
+            "## Migration Readout Plan",
+            "",
+            "1. Run `python scripts/audit_test_skips.py --json` to inspect existing",
+            "   unjustified skip markers.",
+            "2. Convert only reviewed, intentional skips by changing their reason to",
+            "   `justified-skip[category]: rationale`.",
+            "3. Do not auto-bless old skip markers without adding a local rationale.",
+            "4. Keep monitoring total skips and unjustified skips separately before any",
+            "   stronger enforcement is added.",
+            "",
+            "---",
+            "",
             "## Remediation Guidelines",
             "",
             "1. **optional_dependency**: Add to `[project.optional-dependencies.test]` in pyproject.toml",
@@ -480,10 +615,13 @@ def generate_markdown(report: dict) -> str:
             "",
             "## Skip Count Baseline",
             "",
-            f"Current baseline: **{report['total']}** skips",
+            f"Current unjustified baseline: **{report['unjustified_total']}** skips",
+            f"Current total skip count: **{report['total']}** skips",
             "",
-            "CI will warn if skip count exceeds this baseline.",
-            "Update `tests/.skip_baseline` when intentionally adding skips.",
+            "`tests/.skip_baseline` stores the unjustified skip baseline. CI still",
+            "reports total skips, but baseline arithmetic only uses unjustified skips.",
+            "Update `tests/.skip_baseline` only when intentionally adding an",
+            "unjustified skip.",
             "",
         ]
     )
@@ -603,6 +741,11 @@ def _emit_output(output: str) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Audit test skip markers")
     parser.add_argument("--count-only", action="store_true", help="Only output total count")
+    parser.add_argument(
+        "--unjustified-count-only",
+        action="store_true",
+        help="Only output the count of skips without a justified-skip reason",
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--update-docs", action="store_true", help="Update tests/SKIP_AUDIT.md")
     parser.add_argument(
@@ -653,6 +796,10 @@ def main():
         _emit_output(str(report["total"]))
         return
 
+    if args.unjustified_count_only:
+        _emit_output(str(report["unjustified_total"]))
+        return
+
     if args.json:
         _emit_output(json.dumps(report, indent=2))
         return
@@ -665,12 +812,12 @@ def main():
 
         # Update baseline
         baseline_path = tests_dir / ".skip_baseline"
-        baseline_path.write_text(str(report["total"]))
+        baseline_path.write_text(f"{report['unjustified_total']}\n")
         _emit_output(
             "\n".join(
                 [
                     f"Updated {docs_path}",
-                    f"Updated {baseline_path} with baseline: {report['total']}",
+                    f"Updated {baseline_path} with unjustified baseline: {report['unjustified_total']}",
                 ]
             )
         )
@@ -706,9 +853,33 @@ def main():
         return
 
     # Default: print summary
-    lines = [f"Total skip markers: {report['total']}", "", "By category:"]
+    lines = [
+        f"Total skip markers: {report['total']}",
+        f"Justified skip markers: {report['justified_total']}",
+        f"Unjustified skip markers: {report['unjustified_total']}",
+        "",
+        "By category:",
+    ]
     for category, count in sorted(report["by_category"].items(), key=lambda x: -x[1]):
         lines.append(f"  {category}: {count}")
+
+    lines.extend(["", "By unjustified category:"])
+    if report["by_unjustified_category"]:
+        for category, count in sorted(
+            report["by_unjustified_category"].items(), key=lambda x: -x[1]
+        ):
+            lines.append(f"  {category}: {count}")
+    else:
+        lines.append("  none: 0")
+
+    lines.extend(["", "By justification category:"])
+    if report["by_justification_category"]:
+        for category, count in sorted(
+            report["by_justification_category"].items(), key=lambda x: -x[1]
+        ):
+            lines.append(f"  {category}: {count}")
+    else:
+        lines.append("  none: 0")
 
     lines.extend(["", "By type:"])
     for marker_type, count in sorted(report["by_type"].items(), key=lambda x: -x[1]):

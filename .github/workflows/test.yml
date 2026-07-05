@@ -371,27 +371,29 @@ jobs:
 
       - name: Run skip audit
         run: |
-          CURRENT=$(python scripts/audit_test_skips.py --count-only)
+          TOTAL=$(python scripts/audit_test_skips.py --count-only)
+          CURRENT=$(python scripts/audit_test_skips.py --unjustified-count-only)
           BASELINE=$(cat tests/.skip_baseline 2>/dev/null || echo 600)
           THRESHOLD=2  # Fail if skips increase by more than this (tightened Feb 2026)
-          echo "Current skip count: $CURRENT"
-          echo "Baseline: $BASELINE"
+          echo "Total skip count: $TOTAL"
+          echo "Unjustified skip count: $CURRENT"
+          echo "Unjustified baseline: $BASELINE"
           echo "Threshold: $THRESHOLD"
 
           DIFF=$((CURRENT - BASELINE))
           if [ "$DIFF" -gt "$THRESHOLD" ]; then
-            echo "::error::Skip count increased by $DIFF (from $BASELINE to $CURRENT)"
+            echo "::error::Unjustified skip count increased by $DIFF (from $BASELINE to $CURRENT)"
             echo "::error::This exceeds the threshold of $THRESHOLD additional skips"
             echo "Run 'python scripts/audit_test_skips.py' locally to see details"
             exit 1
           elif [ "$DIFF" -gt 0 ]; then
-            echo "::warning::Skip count increased slightly: $CURRENT > $BASELINE baseline (+$DIFF)"
+            echo "::warning::Unjustified skip count increased slightly: $CURRENT > $BASELINE baseline (+$DIFF)"
             echo "Consider updating tests/.skip_baseline if these skips are intentional"
           elif [ "$DIFF" -lt 0 ]; then
-            echo "::notice::Skip count decreased by $((-DIFF))! Consider updating baseline."
+            echo "::notice::Unjustified skip count decreased by $((-DIFF))! Consider updating baseline."
           fi
           # Store for potential artifact
-          echo "$CURRENT" > skip_count.txt
+          echo "$TOTAL" > skip_count.txt
 
       - name: Upload skip audit
         uses: actions/upload-artifact@v4

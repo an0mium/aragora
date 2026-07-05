@@ -6,7 +6,9 @@ This document defines the policy for using `@pytest.mark.skip` markers in the Ar
 
 Skip markers are essential for maintaining a green CI pipeline while allowing tests that depend on optional components. However, excessive or stale skips reduce test coverage confidence.
 
-**Current baseline:** ~370 skip markers (tracked in `tests/.skip_baseline`)
+**Current baseline:** tracked in `tests/.skip_baseline`. As of the justified-skip
+v1 redesign, this file stores the **unjustified** skip baseline; total skips are
+still reported separately.
 
 ## Categories
 
@@ -57,14 +59,33 @@ Always include a clear reason:
 @pytest.mark.skip()  # No reason at all
 ```
 
+### Justified Skip Convention
+
+Use the report-only convention `justified-skip[category]: rationale` when a skip is
+intentional and should not count against the unjustified skip baseline.
+
+```python
+@pytest.mark.skipif(
+    not HAS_Z3,
+    reason="justified-skip[optional_dependency]: Z3 solver not installed",
+)
+```
+
+The category is a short machine-readable token. The rationale must explain why
+the skip remains intentional at the skip site. Existing skips are **not**
+auto-blessed: convert them only after reviewing the skip and adding a local
+rationale. This v1 remains report-only beyond the existing baseline arithmetic;
+it does not fail builds merely because a skip lacks the convention.
+
 ## CI Enforcement
 
 The `skip-audit` job in `.github/workflows/test.yml`:
 
-1. Counts current skip markers
-2. Compares against baseline (`tests/.skip_baseline`)
-3. **Warns** if count increases by 1-5
-4. **Fails** if count increases by >5
+1. Counts total skip markers for reporting
+2. Counts unjustified skip markers for baseline arithmetic
+3. Compares unjustified skips against baseline (`tests/.skip_baseline`)
+4. **Warns** if unjustified skips increase by 1-2
+5. **Fails** if unjustified skips increase by >2
 
 ### Updating the Baseline
 
@@ -73,11 +94,12 @@ When adding legitimate new skips:
 ```bash
 # Check current count
 python scripts/audit_test_skips.py --count-only
+python scripts/audit_test_skips.py --unjustified-count-only
 
 # Review the changes
 python scripts/audit_test_skips.py
 
-# Update baseline (requires justification in commit message)
+# Update unjustified baseline (requires justification in commit message)
 echo "NEW_COUNT" > tests/.skip_baseline
 ```
 
@@ -90,9 +112,20 @@ python scripts/audit_test_skips.py
 # Count only (used by CI)
 python scripts/audit_test_skips.py --count-only
 
+# Unjustified count only (used by baseline arithmetic)
+python scripts/audit_test_skips.py --unjustified-count-only
+
 # List uncategorized skips (need review)
 python scripts/audit_test_skips.py | grep uncategorized
 ```
+
+## Migration Readout
+
+Before tightening enforcement, run `python scripts/audit_test_skips.py --json` and
+review the `unjustified_total`, `by_unjustified_category`, and
+`by_justification_category` fields. Convert only reviewed intentional skips to
+`justified-skip[category]: rationale`; leave uncertain skips unjustified so they
+remain visible in the baseline.
 
 ## Reducing Skip Count
 

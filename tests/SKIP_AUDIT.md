@@ -1,9 +1,38 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-07-04
+**Generated**: 2026-07-05
 **Total Skip Markers**: 77
+**Justified Skip Markers**: 0
+**Unjustified Skip Markers**: 77
 
 ---
+
+## Justified Skip Convention
+
+Use the skip reason prefix `justified-skip[category]: rationale` when a skip
+is intentional and should not count against the unjustified skip baseline.
+
+The category must be a short machine-readable token, and the rationale must
+explain why the skip is intentionally retained at the skip site.
+
+Example:
+
+```python
+@pytest.mark.skipif(not HAS_Z3, reason="justified-skip[optional_dependency]: Z3 solver not installed")
+```
+
+This v1 is report-only: unmarked skips remain visible as unjustified, and
+the total skip count is still reported.
+
+---
+
+## Justified vs Unjustified
+
+| Metric | Count |
+|--------|-------|
+| Total skip markers | 77 |
+| Justified skip markers | 0 |
+| Unjustified skip markers | 77 |
 
 ## Summary by Category
 
@@ -16,6 +45,24 @@
 | platform_specific | 6 | 7.8% |
 | performance | 4 | 5.2% |
 | known_bug | 1 | 1.3% |
+
+## Summary by Unjustified Category
+
+| Category | Count | Percentage of Unjustified |
+|----------|-------|---------------------------|
+| integration_dependency | 29 | 37.7% |
+| missing_feature | 17 | 22.1% |
+| uncategorized | 12 | 15.6% |
+| optional_dependency | 8 | 10.4% |
+| platform_specific | 6 | 7.8% |
+| performance | 4 | 5.2% |
+| known_bug | 1 | 1.3% |
+
+## Summary by Justification Category
+
+| Justification Category | Count | Percentage of Justified |
+|------------------------|-------|-------------------------|
+| _none_ | 0 | 0.0% |
 
 ## Summary by Marker Type
 
@@ -58,6 +105,18 @@
 
 ---
 
+## Migration Readout Plan
+
+1. Run `python scripts/audit_test_skips.py --json` to inspect existing
+   unjustified skip markers.
+2. Convert only reviewed, intentional skips by changing their reason to
+   `justified-skip[category]: rationale`.
+3. Do not auto-bless old skip markers without adding a local rationale.
+4. Keep monitoring total skips and unjustified skips separately before any
+   stronger enforcement is added.
+
+---
+
 ## Remediation Guidelines
 
 1. **optional_dependency**: Add to `[project.optional-dependencies.test]` in pyproject.toml
@@ -71,16 +130,10 @@
 
 ## Skip Count Baseline
 
-Current baseline: **77** skips
+Current unjustified baseline: **77** skips
+Current total skip count: **77** skips
 
-Baseline history: the enforced value lives in `tests/.skip_baseline`
-(68 → 75 in PR #8800, 75 → 77 in the PR that regenerated this file on
-2026-07-04; each bump ships a per-skip audit table of every net-new
-marker in that PR's description). Note on doc-vs-file history: this
-generated document goes stale between bumps — it was regenerated on
-2026-04-06 when the count was 57, so this file's diff once jumped 57→75;
-that reflected staleness, not 18 unaudited skips. The enforced baseline
-has only ever moved 68 → 75 → 77.
-
-CI will warn if skip count exceeds this baseline.
-Update `tests/.skip_baseline` when intentionally adding skips.
+`tests/.skip_baseline` stores the unjustified skip baseline. CI still
+reports total skips, but baseline arithmetic only uses unjustified skips.
+Update `tests/.skip_baseline` only when intentionally adding an
+unjustified skip.

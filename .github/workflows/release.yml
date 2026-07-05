@@ -448,7 +448,8 @@ jobs:
 
       - name: Skip baseline enforcement
         run: |
-          CURRENT=$(python scripts/audit_test_skips.py --count-only)
+          TOTAL=$(python scripts/audit_test_skips.py --count-only)
+          CURRENT=$(python scripts/audit_test_skips.py --unjustified-count-only)
           if [ ! -f tests/.skip_baseline ]; then
             echo "::error::tests/.skip_baseline file is missing — cannot enforce skip count"
             exit 1
@@ -459,21 +460,22 @@ jobs:
             echo "::error::Invalid skip count values: current='$CURRENT', baseline='$BASELINE'"
             exit 1
           fi
-          echo "Current skip count: $CURRENT"
-          echo "Baseline: $BASELINE"
+          echo "Total skip count: $TOTAL"
+          echo "Unjustified skip count: $CURRENT"
+          echo "Unjustified baseline: $BASELINE"
           DIFF=$((CURRENT - BASELINE))
           if [ "$DIFF" -gt 0 ]; then
-            echo "::error::Skip count increased by $DIFF (from $BASELINE to $CURRENT). No increase allowed without updating tests/.skip_baseline."
+            echo "::error::Unjustified skip count increased by $DIFF (from $BASELINE to $CURRENT). No increase allowed without updating tests/.skip_baseline."
             echo ""
-            echo "If this increase is intentional, update the baseline:"
+            echo "If this unjustified increase is intentional, update the baseline:"
             echo "  echo $CURRENT > tests/.skip_baseline"
             echo "  git add tests/.skip_baseline && git commit -m 'chore: update skip baseline to $CURRENT'"
             exit 1
           fi
           if [ "$DIFF" -lt 0 ]; then
-            echo "::notice::Skip count decreased by $((-DIFF)). Consider updating tests/.skip_baseline to $CURRENT."
+            echo "::notice::Unjustified skip count decreased by $((-DIFF)). Consider updating tests/.skip_baseline to $CURRENT."
           fi
-          echo "Skip baseline check passed (current=$CURRENT, baseline=$BASELINE)"
+          echo "Skip baseline check passed (unjustified=$CURRENT, baseline=$BASELINE)"
         env:
           PYTHONPATH: .
 
