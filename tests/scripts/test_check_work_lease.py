@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import os
 import sqlite3
 import subprocess
 import sys
@@ -240,8 +239,6 @@ def test_wal_sidecars_absent_readonly_dir_still_reads(
     # Clean close removes -wal/-shm; a copied DB never has them. If the
     # store directory is also not writable by the invoking UID, mode=ro
     # cannot create them — the immutable=1 fallback must still read.
-    if hasattr(os, "geteuid") and os.geteuid() == 0:
-        pytest.skip("directory write permissions are not enforced for root")
     assert _main(repo, "feat-x", "--claim", "--session-id", "sess-a") == 0
     capsys.readouterr()
     db = _db_path(repo)
