@@ -685,6 +685,8 @@ def receipt_to_html_paginated(
         {findings_html or '<p class="meta">No findings reported.</p>'}
     </div>
 
+    {_render_epistemic_html(receipt)}
+
     {provenance_html}
 
     <div class="section">

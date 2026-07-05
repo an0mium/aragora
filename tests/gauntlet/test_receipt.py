@@ -238,11 +238,17 @@ class TestDecisionReceiptCreation:
 
         markdown = restored.to_markdown()
         html = restored.to_html()
+        paginated_html = restored.to_html_paginated()
         assert "Epistemic Limits" in markdown
         assert "Not verified" in markdown
         assert "Trial-to-paid conversion stays below 8%." in markdown
         assert "Epistemic Limits" in html
         assert "billing dashboard" in html
+        assert "Epistemic Limits" in paginated_html
+        assert "The support-load forecast was not independently checked." in paginated_html
+        assert "Enterprise buyers will accept the initial manual workflow." in paginated_html
+        assert "Trial-to-paid conversion stays below 8%." in paginated_html
+        assert "billing dashboard" in paginated_html
 
     def test_partial_falsification_is_not_retained(self):
         """Incomplete falsification blocks cannot later export invalid ODR."""
