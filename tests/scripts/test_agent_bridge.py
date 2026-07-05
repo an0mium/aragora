@@ -1236,6 +1236,11 @@ def test_operator_snapshot_summary_reports_active_lanes_missing_dev_lease(
         ),
         encoding="utf-8",
     )
+    monkeypatch.setattr(
+        mod,
+        "_sidecar_points_to_active_dev_lease",
+        lambda record, sidecar: sidecar.get("lease_id") == "lease-1",
+    )
     monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
     monkeypatch.setattr(
         mod,
@@ -1316,6 +1321,52 @@ def test_operator_snapshot_counts_validated_sidecar_dev_lease(
     assert payload["summary"]["active_lanes"] == 1
     assert payload["summary"]["active_lanes_missing_dev_lease"] == 0
     assert payload["summary"]["active_lanes_with_dev_lease"] == 1
+
+
+def test_operator_snapshot_does_not_count_unvalidated_native_dev_lease(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-stale-native",
+                    "owner_session": "codex-stale",
+                    "status": "active",
+                    "branch": "codex/stale",
+                    "work_id": "pr:8853",
+                    "lease_id": "stale-native-lease",
+                    "lease_status": "active",
+                    "lease_health": "ok",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["active_lanes"] == 1
+    assert payload["summary"]["active_lanes_missing_dev_lease"] == 1
+    assert payload["summary"]["active_lanes_with_dev_lease"] == 0
 
 
 def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(

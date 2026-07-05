@@ -677,7 +677,16 @@ def _lane_has_countable_dev_lease(record: LaneRecord) -> bool:
     }
     if record.lease_status in invalid_statuses or record.lease_health in invalid_health:
         return False
-    return record.lease_health == "ok"
+    if record.lease_health != "ok":
+        return False
+    return _sidecar_points_to_active_dev_lease(
+        record,
+        {
+            "branch": record.branch,
+            "lease_id": record.lease_id,
+            "work_id": record.work_id,
+        },
+    )
 
 
 def _write_lane_registry(records: list[LaneRecord]) -> None:
