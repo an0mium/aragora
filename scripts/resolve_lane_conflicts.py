@@ -22,11 +22,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-try:
-    from scripts.send_operator_steering import verify_message_sha256
-except ModuleNotFoundError:  # pragma: no cover - direct script execution fallback
-    from send_operator_steering import verify_message_sha256
-
 _fcntl: Any
 try:
     import fcntl as _fcntl
@@ -57,9 +52,6 @@ TERMINAL_PR_STATES = {"MERGED", "CLOSED"}
 HEARTBEAT_TIMESTAMP_KEYS = ("last_heartbeat_at", "last_seen_at", "heartbeat_at")
 PID_KEYS = ("pid", "owner_pid")
 LOCAL_WORK_KEYS = ("worktree", "local_worktree", "local_work_path")
-READ_RECEIPT_SCHEMA_VERSION = "aragora-operator-steering-read-receipt/1.0"
-TERMINAL_READ_RECEIPT_OUTCOMES = {"completed", "obeyed", "stale", "superseded"}
-EXPLICIT_NON_TERMINAL_READ_RECEIPT_OUTCOMES = {"blocked", "held", "read"}
 
 
 def _canonical_repo_root(path: Path = DEFAULT_REPO_ROOT) -> Path:
@@ -382,43 +374,14 @@ def _safe_steering_inbox(owner_session: str, *, steering_inbox_root: Path) -> Pa
 
 
 def _pending_mailbox_messages(
-    owner_session: str, *, steering_inbox_root: Path, audit_now_ts: float
-) -> tuple[list[str], str | None, dict[str, Any]]:
+    owner_session: str, *, steering_inbox_root: Path
+) -> tuple[list[str], str | None]:
     inbox = _safe_steering_inbox(owner_session, steering_inbox_root=steering_inbox_root)
     if inbox is None:
-        return [], "invalid_owner_session", {}
+        return [], "invalid_owner_session"
     if not inbox.is_dir():
-        return [], None, {}
-    terminal_receipted, receipt_details = _terminal_receipted_mailbox_messages(
-        inbox,
-        audit_now_ts=audit_now_ts,
-    )
-    pending_messages = sorted(
-        path.name
-        for path in inbox.glob("*.json")
-        if path.is_file() and path.name not in terminal_receipted
-    )
-    invalid_receipts = [
-        receipt
-        for receipt in receipt_details.get("invalid_mailbox_receipts", [])
-        if receipt.get("message_filename") in pending_messages
-    ]
-    if invalid_receipts:
-        return (
-            pending_messages,
-            "invalid_mailbox_receipt",
-            {
-                "invalid_mailbox_receipts": invalid_receipts,
-            },
-        )
-    pending_outcomes = {
-        name: outcome
-        for name, outcome in receipt_details.get("latest_mailbox_receipt_outcomes", {}).items()
-        if name in pending_messages
-    }
-    if pending_outcomes:
-        return pending_messages, None, {"latest_mailbox_receipt_outcomes": pending_outcomes}
-    return pending_messages, None, {}
+        return [], None
+    return sorted(path.name for path in inbox.glob("*.json") if path.is_file()), None
 
 
 def _load_json_object(path: Path) -> dict[str, Any] | None:
@@ -427,135 +390,6 @@ def _load_json_object(path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
-
-
-def _terminal_receipted_mailbox_messages(
-    inbox: Path, *, audit_now_ts: float
-) -> tuple[set[str], dict[str, Any]]:
-    # Ordinary read receipts remain proof-only; terminal outcomes are the
-    # supported stale-terminal-owner ack for already-resolved mailbox work.
-    messages: dict[str, tuple[str, float | None]] = {}
-    unverified_messages: set[str] = set()
-    for path in inbox.glob("*.json"):
-        if not path.is_file():
-            continue
-        payload = _load_json_object(path)
-        if payload is None:
-            continue
-        claimed_sha, _, verified = verify_message_sha256(payload)
-        if not claimed_sha or not verified:
-            unverified_messages.add(path.name)
-            continue
-        messages[path.name] = (claimed_sha, _parse_timestamp(payload.get("sent_at_utc")))
-
-    terminal_receipted: set[str] = set()
-    receipt_dir = inbox / "_read_receipts"
-    if not receipt_dir.is_dir():
-        return terminal_receipted, {}
-
-    latest_receipts: dict[str, tuple[float, int, str, str]] = {}
-    invalid_receipts: list[dict[str, str]] = []
-    for path in receipt_dir.glob("*.json"):
-        if not path.is_file():
-            continue
-        payload = _load_json_object(path)
-        if payload is None:
-            continue
-        if str(payload.get("schema_version") or "") != READ_RECEIPT_SCHEMA_VERSION:
-            continue
-        message_filename = str(payload.get("message_filename") or "")
-        if not message_filename:
-            continue
-        outcome = str(payload.get("outcome") or "").strip().lower()
-        clears_mailbox = outcome in TERMINAL_READ_RECEIPT_OUTCOMES
-        if message_filename in unverified_messages:
-            if clears_mailbox:
-                invalid_receipts.append(
-                    {
-                        "message_filename": message_filename,
-                        "receipt_filename": path.name,
-                        "reason": "message_integrity_unverified",
-                    }
-                )
-            continue
-        if message_filename not in messages:
-            continue
-        receipt_sha = str(payload.get("message_sha256") or "")
-        message_sha, message_sent_at = messages[message_filename]
-        if not receipt_sha or not message_sha or receipt_sha != message_sha:
-            if clears_mailbox:
-                invalid_receipts.append(
-                    {
-                        "message_filename": message_filename,
-                        "receipt_filename": path.name,
-                        "reason": "message_sha256_mismatch",
-                    }
-                )
-            continue
-        read_at = _parse_timestamp(payload.get("read_at_utc"))
-        if read_at is None:
-            if clears_mailbox:
-                invalid_receipts.append(
-                    {
-                        "message_filename": message_filename,
-                        "receipt_filename": path.name,
-                        "reason": "invalid_read_at_utc",
-                    }
-                )
-            continue
-        if message_sent_at is None:
-            if clears_mailbox:
-                invalid_receipts.append(
-                    {
-                        "message_filename": message_filename,
-                        "receipt_filename": path.name,
-                        "reason": "invalid_message_sent_at_utc",
-                    }
-                )
-            continue
-        if read_at < message_sent_at:
-            if clears_mailbox:
-                invalid_receipts.append(
-                    {
-                        "message_filename": message_filename,
-                        "receipt_filename": path.name,
-                        "reason": "read_before_message_sent_at_utc",
-                    }
-                )
-            continue
-        if read_at > audit_now_ts:
-            if clears_mailbox:
-                invalid_receipts.append(
-                    {
-                        "message_filename": message_filename,
-                        "receipt_filename": path.name,
-                        "reason": "read_after_audit_time",
-                    }
-                )
-            continue
-        current = latest_receipts.get(message_filename)
-        outcome_rank = 0 if outcome in TERMINAL_READ_RECEIPT_OUTCOMES else 1
-        # Same-timestamp receipts are ambiguous; prefer the non-terminal outcome
-        # and then the receipt filename so ties are deterministic and fail-closed.
-        candidate = (read_at, outcome_rank, path.name, outcome)
-        if current is None or candidate > current:
-            latest_receipts[message_filename] = candidate
-    latest_outcomes: dict[str, str] = {}
-    for message_filename, (_, _, _, outcome) in latest_receipts.items():
-        latest_outcomes[message_filename] = outcome
-        if outcome in TERMINAL_READ_RECEIPT_OUTCOMES:
-            terminal_receipted.add(message_filename)
-        elif outcome not in EXPLICIT_NON_TERMINAL_READ_RECEIPT_OUTCOMES:
-            latest_outcomes[message_filename] = f"unknown:{outcome}"
-    details: dict[str, Any] = {}
-    if invalid_receipts:
-        details["invalid_mailbox_receipts"] = sorted(
-            invalid_receipts,
-            key=lambda item: (item["message_filename"], item["receipt_filename"], item["reason"]),
-        )
-    if latest_outcomes:
-        details["latest_mailbox_receipt_outcomes"] = dict(sorted(latest_outcomes.items()))
-    return terminal_receipted, details
 
 
 def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -821,20 +655,15 @@ def _annotate_terminal_safety(
             blockers.append("heartbeat_state_untrusted")
             details["heartbeat_read_error"] = heartbeat_load_error
 
-        pending_messages, mailbox_blocker, mailbox_details = _pending_mailbox_messages(
+        pending_messages, mailbox_blocker = _pending_mailbox_messages(
             owner_session,
             steering_inbox_root=steering_inbox_root,
-            audit_now_ts=now_ts,
         )
         if mailbox_blocker:
             blockers.append(mailbox_blocker)
-            details.update(mailbox_details)
-            if pending_messages:
-                details["pending_mailbox_messages"] = pending_messages
         elif pending_messages:
             blockers.append("unread_mailbox")
             details["pending_mailbox_messages"] = pending_messages
-            details.update(mailbox_details)
 
         local_work_claims = sorted(set(_local_work_claims(records)))
         if local_work_claims:
