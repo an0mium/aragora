@@ -201,6 +201,33 @@ class TestVerifyReceipt:
         assert integrity_check["passed"] is True
         assert "checksum artifact_hash alias" in integrity_check["detail"]
 
+    def test_artifact_hash_covers_epistemic_fields(self):
+        """Audit-relevant epistemic fields are part of artifact_hash coverage."""
+        data = _make_receipt_data(
+            include_checksum=False,
+            extra={
+                "unverified": ["Load test not run."],
+                "assumptions": ["Manual support can absorb rollout."],
+                "falsification": {
+                    "observation": "P95 latency exceeds 600ms.",
+                    "check_by": "2026-07-15",
+                },
+            },
+        )
+        data["artifact_hash"] = _recompute_artifact_hash(data)
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is True
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert {"unverified", "assumptions", "falsification"} <= set(integrity_check["covers"])
+
+        data["falsification"]["observation"] = "Trial conversion drops below target."
+        tampered = _verify_receipt(data)
+        assert tampered["valid"] is False
+        tampered_integrity = next(c for c in tampered["checks"] if c["name"] == "integrity")
+        assert tampered_integrity["passed"] is False
+
     def test_missing_schema_version(self):
         data = _make_receipt_data()
         del data["schema_version"]

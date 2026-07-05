@@ -256,6 +256,19 @@ class TestMappingLossless:
         odr = decision_receipt_to_odr(_minimal_receipt())
         assert "epistemic" not in odr
 
+    def test_partial_falsification_is_not_exported(self) -> None:
+        receipt = _minimal_receipt()
+        receipt.unverified = ["No live validation run."]
+        receipt.falsification = {"observation": "Conversion drops below target."}
+        receipt.__post_init__()
+
+        odr = decision_receipt_to_odr(receipt)
+
+        assert odr["epistemic"] == {
+            "status": "present",
+            "unverified": ["No live validation run."],
+        }
+
     def test_quorum_block(self) -> None:
         odr = decision_receipt_to_odr(_full_receipt())
         quorum = odr["quorum"]

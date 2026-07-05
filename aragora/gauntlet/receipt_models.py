@@ -68,6 +68,8 @@ def _normalize_falsification(value: Any) -> dict[str, str] | None:
         raw = value.get(key)
         if isinstance(raw, str) and raw.strip():
             normalized[key] = raw.strip()
+    if "observation" not in normalized or "check_by" not in normalized:
+        return None
     return normalized or None
 
 
@@ -607,15 +609,22 @@ class DecisionReceipt:
 
     def _calculate_hash(self) -> str:
         """Calculate content-addressable hash."""
+        payload: dict[str, Any] = {
+            "receipt_id": self.receipt_id,
+            "gauntlet_id": self.gauntlet_id,
+            "input_hash": self.input_hash,
+            "risk_summary": self.risk_summary,
+            "verdict": self.verdict,
+            "confidence": self.confidence,
+        }
+        if self.unverified:
+            payload["unverified"] = self.unverified
+        if self.assumptions:
+            payload["assumptions"] = self.assumptions
+        if self.falsification:
+            payload["falsification"] = self.falsification
         content = json.dumps(
-            {
-                "receipt_id": self.receipt_id,
-                "gauntlet_id": self.gauntlet_id,
-                "input_hash": self.input_hash,
-                "risk_summary": self.risk_summary,
-                "verdict": self.verdict,
-                "confidence": self.confidence,
-            },
+            payload,
             sort_keys=True,
         )
         return hashlib.sha256(content.encode()).hexdigest()

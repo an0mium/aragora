@@ -244,6 +244,68 @@ class TestDecisionReceiptCreation:
         assert "Epistemic Limits" in html
         assert "billing dashboard" in html
 
+    def test_partial_falsification_is_not_retained(self):
+        """Incomplete falsification blocks cannot later export invalid ODR."""
+        receipt = DecisionReceipt(
+            receipt_id="test-receipt-partial-falsification",
+            gauntlet_id="gauntlet-epistemic",
+            timestamp="2024-01-15T10:30:00Z",
+            input_summary="Ship product bet",
+            input_hash="abc123def456",
+            risk_summary={"critical": 0},
+            attacks_attempted=1,
+            attacks_successful=0,
+            probes_run=1,
+            vulnerabilities_found=0,
+            verdict="PASS",
+            confidence=0.8,
+            robustness_score=0.7,
+            falsification={"observation": "Conversion drops below target."},
+        )
+
+        assert receipt.falsification is None
+        assert "falsification" not in receipt.to_dict()
+
+    def test_epistemic_fields_are_integrity_protected(self):
+        """Audit-relevant epistemic fields must affect the artifact hash."""
+        receipt = DecisionReceipt(
+            receipt_id="test-receipt-epistemic-integrity",
+            gauntlet_id="gauntlet-epistemic",
+            timestamp="2024-01-15T10:30:00Z",
+            input_summary="Ship product bet",
+            input_hash="abc123def456",
+            risk_summary={"critical": 0},
+            attacks_attempted=1,
+            attacks_successful=0,
+            probes_run=1,
+            vulnerabilities_found=0,
+            verdict="PASS",
+            confidence=0.8,
+            robustness_score=0.7,
+            unverified=["Load test not run."],
+            assumptions=["Manual support can absorb rollout."],
+            falsification={
+                "observation": "P95 latency exceeds 600ms.",
+                "check_by": "2026-07-15",
+            },
+        )
+
+        original_hash = receipt.artifact_hash
+        assert receipt.verify_integrity() is True
+
+        receipt.unverified.append("Security review skipped.")
+        assert receipt.artifact_hash == original_hash
+        assert receipt.verify_integrity() is False
+
+        receipt.unverified = ["Load test not run."]
+        receipt.assumptions.append("Enterprise demand is stable.")
+        assert receipt.verify_integrity() is False
+
+        receipt.assumptions = ["Manual support can absorb rollout."]
+        assert receipt.falsification is not None
+        receipt.falsification["observation"] = "Trial conversion drops below target."
+        assert receipt.verify_integrity() is False
+
     def test_auto_hash_generation(self, basic_receipt):
         """Test automatic artifact hash generation."""
         assert basic_receipt.artifact_hash  # Should be non-empty

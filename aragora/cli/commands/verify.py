@@ -11,8 +11,9 @@ Runs the following checks on a decision receipt JSON file:
   dual-field receipts cannot hide a mismatched proof. This hash covers the
   *decision-integrity fields* --
   ``receipt_id``, ``gauntlet_id``, ``input_hash``, ``risk_summary``, ``verdict``,
-  and ``confidence`` -- so tampering with any of those is detected. It does **not**
-  cover presentational/metadata fields such as ``timestamp`` or ``schema_version``;
+  ``confidence``, ``unverified``, ``assumptions``, and ``falsification`` -- so
+  tampering with any of those is detected. It does **not** cover presentational
+  metadata fields such as ``timestamp`` or ``schema_version``;
   for full-payload tamper-evidence, sign the receipt and use the signature check
   (or ``aragora receipt verify``). The reported coverage is scoped accordingly so
   the command does not overclaim.
@@ -46,7 +47,7 @@ def create_verify_parser(subparsers: argparse._SubParsersAction) -> None:
             "Validate a decision receipt JSON file. Recomputes the SHA-256 "
             "decision-integrity hash (artifact_hash, plus legacy checksum fallback; "
             "both are checked when both are present) to detect tampering of the decision-integrity fields (receipt_id, "
-            "gauntlet_id, input_hash, risk_summary, verdict, confidence); also checks "
+            "gauntlet_id, input_hash, risk_summary, verdict, confidence, unverified, assumptions, falsification); also checks "
             "schema_version presence, that the verdict is a valid enum value, and "
             "timestamp format. Note: the integrity hash does not cover presentational "
             "fields like timestamp/schema_version -- for full-payload tamper-evidence "
@@ -127,6 +128,9 @@ _INTEGRITY_HASH_FIELDS: tuple[str, ...] = (
     "risk_summary",
     "verdict",
     "confidence",
+    "unverified",
+    "assumptions",
+    "falsification",
 )
 
 # Decision-integrity fields covered by the legacy ``checksum`` field.
@@ -170,17 +174,21 @@ def _recompute_artifact_hash(data: dict[str, Any]) -> str:
     never hard-depends on the gauntlet package being importable. Covers exactly the
     fields in :data:`_INTEGRITY_HASH_FIELDS`.
     """
-    content = json.dumps(
-        {
-            "receipt_id": data.get("receipt_id", ""),
-            "gauntlet_id": data.get("gauntlet_id", ""),
-            "input_hash": data.get("input_hash", ""),
-            "risk_summary": data.get("risk_summary", {}),
-            "verdict": data.get("verdict", ""),
-            "confidence": data.get("confidence", 0.0),
-        },
-        sort_keys=True,
-    )
+    payload = {
+        "receipt_id": data.get("receipt_id", ""),
+        "gauntlet_id": data.get("gauntlet_id", ""),
+        "input_hash": data.get("input_hash", ""),
+        "risk_summary": data.get("risk_summary", {}),
+        "verdict": data.get("verdict", ""),
+        "confidence": data.get("confidence", 0.0),
+    }
+    if data.get("unverified"):
+        payload["unverified"] = data.get("unverified", []) or []
+    if data.get("assumptions"):
+        payload["assumptions"] = data.get("assumptions", []) or []
+    if data.get("falsification"):
+        payload["falsification"] = data.get("falsification")
+    content = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(content.encode()).hexdigest()
 
 
