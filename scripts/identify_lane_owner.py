@@ -1353,9 +1353,14 @@ _LOCAL_WORK_CLAIM_KEYS = (
     "has_uncommitted_changes",
     "uncommitted",
     "unpushed_commits",
+    "possible_unpushed_work",
+    "branch_ahead_of_origin_main",
+    "unique_commits_ahead",
     "local_changes",
     "local_work",
     "dirty",
+    "dirty_worktree",
+    "worktree_dirty",
 )
 
 _SHA_RE = re.compile(r"\b[0-9a-f]{40}\b")
@@ -1445,9 +1450,20 @@ def _local_work_claim_indication(
 ) -> str | None:
     for source_name, record in (("owner record", lane), ("lane ledger", ledger_entry or {})):
         for key in _LOCAL_WORK_CLAIM_KEYS:
-            if record.get(key):
+            if _truthy_local_work_claim(record.get(key)):
                 return f"{source_name} claims local work ({key})"
     return None
+
+
+def _truthy_local_work_claim(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return normalized not in {"", "0", "false", "no", "none", "null", "[]", "{}"}
+    return bool(value)
 
 
 def _worktree_reference_paths(
