@@ -571,6 +571,13 @@ def test_advisory_preserves_missing_lease_reason_but_exits_zero(
     assert payload["branch"] == "feat-x"
 
 
+def test_advisory_rejected_for_mutating_modes(repo: Path) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        _main(repo, "feat-x", "--claim", "--advisory", "--session-id", "sess-a")
+
+    assert excinfo.value.code == 2
+
+
 def test_verify_only_wrong_owner_reason(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert _main(repo, "feat-x", "--claim", "--session-id", "sess-a", "--work-id", "pr:8852") == 0
     capsys.readouterr()

@@ -637,6 +637,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--release cannot be combined with --claim/--renew")
     if args.verify_only and (args.claim or args.renew or args.release):
         parser.error("--verify-only cannot be combined with --claim/--renew/--release")
+    if args.advisory and (args.claim or args.renew or args.release):
+        parser.error("--advisory cannot be combined with --claim/--renew/--release")
 
     repo_root = Path(args.repo).expanduser().resolve()
     session_id, stable = resolve_session_id(args.session_id)
