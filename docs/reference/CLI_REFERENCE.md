@@ -129,7 +129,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `spec` | - | Transform a vague idea into a structured specification | - |
 | `starter` | - | SME Starter Pack -- install to decision receipt in 15 minutes | - |
 | `stats` | - | Show memory statistics | - |
-| `status` | - | Show environment health and agent availability | - |
+| `status` | - | Show environment health, agent availability, or founder ops status | - |
 | `swarm` | - | Launch a swarm of AI agents to accomplish a goal | - |
 | `tasks` | - | Inspect and operate the developer task queue | `claim`, `complete`, `heartbeat`, `leases`, `list`, `release`, `salvage`, `show`, `stats`, `sync` |
 | `template` | - | Manage workflow templates | `list`, `package`, `run`, `show`, `validate` |
