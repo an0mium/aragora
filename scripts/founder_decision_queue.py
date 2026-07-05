@@ -38,6 +38,20 @@ class DecisionItem:
         )
 
 
+@dataclass(frozen=True)
+class DecisionSource:
+    source: str
+    body: str
+    thread_key: str
+    source_created_at: datetime | None = None
+    thread_open: bool = True
+    later_thread_comments: tuple[tuple[datetime | None, str], ...] = ()
+
+    @property
+    def packet_time(self) -> datetime | None:
+        return self.source_created_at or _packet_generated_at(self.body)
+
+
 def _compact_text(value: str) -> str:
     return " ".join(value.strip().split())
 
@@ -88,9 +102,9 @@ def _pending_ruling_rows(markdown: str) -> list[list[str]]:
     in_section = False
     rows: list[list[str]] = []
     for line in lines:
-        if line.startswith("## "):
+        if line.startswith("#"):
             heading = line.lstrip("#").strip().lower()
-            if heading == "pending rulings":
+            if not in_section and heading == "pending rulings":
                 in_section = True
                 continue
             if in_section:
@@ -99,6 +113,8 @@ def _pending_ruling_rows(markdown: str) -> list[list[str]]:
             continue
         cells = _split_table_row(line)
         if cells is None:
+            if rows and line.strip():
+                break
             continue
         rows.append(cells)
     return rows
@@ -160,23 +176,188 @@ def parse_decision_packet(markdown: str, *, source: str) -> list[DecisionItem]:
     return items
 
 
-def _load_issue_comment_bodies(path: Path) -> list[tuple[str, str]]:
+def _packet_sort_key(source: DecisionSource) -> tuple[datetime, str]:
+    return (
+        source.packet_time or datetime.min.replace(tzinfo=UTC),
+        source.source,
+    )
+
+
+def _newest_sources_by_thread(sources: Iterable[DecisionSource]) -> list[DecisionSource]:
+    newest: dict[str, DecisionSource] = {}
+    for source in sources:
+        current = newest.get(source.thread_key)
+        if current is None or _packet_sort_key(source) > _packet_sort_key(current):
+            newest[source.thread_key] = source
+    return list(newest.values())
+
+
+def _local_thread_key(path: Path, *, decisions_root: Path | None = None) -> str:
+    if decisions_root is not None:
+        return f"local:{decisions_root.resolve()}"
+    parent = path.parent if path.parent != Path("") else Path(".")
+    return f"local:{parent.resolve()}"
+
+
+def _thread_key_from_comment(comment: dict[str, Any], *, fallback: str) -> str:
+    for key in ("issue_url", "pull_request_url", "thread_url"):
+        value = comment.get(key)
+        if isinstance(value, str) and value:
+            return value
+    for key in ("html_url", "url"):
+        value = comment.get(key)
+        if not isinstance(value, str) or not value:
+            continue
+        match = re.search(r"/(?:issues|pulls|pull)/(\d+)(?:[/#?]|$)", value)
+        if match:
+            return f"github-thread:{match.group(1)}"
+    return fallback
+
+
+def _thread_open_from_comment(comment: dict[str, Any], *, default: bool) -> bool:
+    for key in ("thread_state", "issue_state", "pr_state", "state"):
+        value = comment.get(key)
+        if isinstance(value, str):
+            return value.lower() == "open"
+    return default
+
+
+def _comment_created_at(comment: dict[str, Any]) -> datetime | None:
+    value = comment.get("created_at") or comment.get("updated_at")
+    if not isinstance(value, str):
+        return None
+    return _parse_datetime(value)
+
+
+def _first_nonempty_line(body: str) -> str:
+    for line in body.splitlines():
+        compact = _compact_text(line)
+        if compact:
+            return compact
+    return ""
+
+
+def _target_number(target: str) -> str | None:
+    match = re.search(r"(?:pull|issues)/(\d+)|#(\d+)", target)
+    if not match:
+        return None
+    return match.group(1) or match.group(2)
+
+
+def _comment_resolves_item(body: str, item: DecisionItem) -> bool:
+    first_line = _strip_markdown_code(_first_nonempty_line(body)).lower()
+    expected = item.expected_reply.lower()
+    if first_line and first_line == expected:
+        return True
+    number = _target_number(item.target)
+    lowered = body.lower()
+    return bool(number and number in lowered and "settlement" in lowered)
+
+
+def _item_resolved_after_packet(source: DecisionSource, item: DecisionItem) -> bool:
+    packet_time = source.packet_time
+    for created_at, body in source.later_thread_comments:
+        if packet_time is not None and created_at is not None and created_at <= packet_time:
+            continue
+        if _comment_resolves_item(body, item):
+            return True
+    return False
+
+
+def _load_issue_comment_sources(path: Path) -> list[DecisionSource]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return []
-    if not isinstance(payload, list):
+
+    default_thread_open = True
+    if isinstance(payload, dict):
+        state = payload.get("state") or payload.get("thread_state")
+        if isinstance(state, str):
+            default_thread_open = state.lower() == "open"
+        comments_payload = payload.get("comments")
+    else:
+        comments_payload = payload
+
+    if not isinstance(comments_payload, list):
         return []
-    bodies: list[tuple[str, str]] = []
-    for index, comment in enumerate(payload):
-        if not isinstance(comment, dict):
-            continue
+    comments = [comment for comment in comments_payload if isinstance(comment, dict)]
+    sources: list[DecisionSource] = []
+    for index, comment in enumerate(comments):
         body = comment.get("body")
         if not isinstance(body, str) or "## Pending Rulings" not in body:
             continue
         source = str(comment.get("html_url") or comment.get("url") or f"{path}#{index}")
-        bodies.append((source, body))
+        thread_key = _thread_key_from_comment(comment, fallback=f"{path}")
+        created_at = _comment_created_at(comment)
+        later_comments: list[tuple[datetime | None, str]] = []
+        for other in comments:
+            other_body = other.get("body")
+            if not isinstance(other_body, str) or "## Pending Rulings" in other_body:
+                continue
+            if _thread_key_from_comment(other, fallback=f"{path}") != thread_key:
+                continue
+            later_comments.append((_comment_created_at(other), other_body))
+        sources.append(
+            DecisionSource(
+                source=source,
+                body=body,
+                thread_key=thread_key,
+                source_created_at=created_at,
+                thread_open=_thread_open_from_comment(comment, default=default_thread_open),
+                later_thread_comments=tuple(later_comments),
+            )
+        )
+    return sources
+
+
+def _legacy_load_issue_comment_bodies(path: Path) -> list[tuple[str, str]]:
+    """Compatibility shim for tests or callers that imported the private helper."""
+
+    bodies: list[tuple[str, str]] = []
+    for source in _load_issue_comment_sources(path):
+        bodies.append((source.source, source.body))
     return bodies
+
+
+_load_issue_comment_bodies = _legacy_load_issue_comment_bodies
+
+
+def _collect_sources(
+    *,
+    decisions_root: Path,
+    packet_files: Iterable[Path],
+    issue_comments_json: Path | None,
+) -> list[DecisionSource]:
+    sources: list[DecisionSource] = []
+    if decisions_root.exists():
+        for path in sorted(decisions_root.glob("*.md")):
+            try:
+                body = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            sources.append(
+                DecisionSource(
+                    source=str(path),
+                    body=body,
+                    thread_key=_local_thread_key(path, decisions_root=decisions_root),
+                )
+            )
+    for path in packet_files:
+        try:
+            body = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        sources.append(
+            DecisionSource(
+                source=str(path),
+                body=body,
+                thread_key=_local_thread_key(path),
+            )
+        )
+    if issue_comments_json is not None:
+        sources.extend(_load_issue_comment_sources(issue_comments_json))
+    return sources
 
 
 def collect_decision_items(
@@ -185,24 +366,18 @@ def collect_decision_items(
     packet_files: Iterable[Path] = (),
     issue_comments_json: Path | None = None,
 ) -> list[DecisionItem]:
-    sources: list[tuple[str, str]] = []
-    if decisions_root.exists():
-        for path in sorted(decisions_root.glob("*.md")):
-            try:
-                sources.append((str(path), path.read_text(encoding="utf-8")))
-            except OSError:
-                continue
-    for path in packet_files:
-        try:
-            sources.append((str(path), path.read_text(encoding="utf-8")))
-        except OSError:
-            continue
-    if issue_comments_json is not None:
-        sources.extend(_load_issue_comment_bodies(issue_comments_json))
-
     deduped: dict[tuple[str, str, str], DecisionItem] = {}
-    for source, body in sources:
-        for item in parse_decision_packet(body, source=source):
+    sources = _collect_sources(
+        decisions_root=decisions_root,
+        packet_files=packet_files,
+        issue_comments_json=issue_comments_json,
+    )
+    for source in _newest_sources_by_thread(sources):
+        if not source.thread_open:
+            continue
+        for item in parse_decision_packet(source.body, source=source.source):
+            if _item_resolved_after_packet(source, item):
+                continue
             deduped.setdefault(item.dedupe_key(), item)
     return list(deduped.values())
 
