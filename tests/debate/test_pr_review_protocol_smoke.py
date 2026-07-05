@@ -46,10 +46,9 @@ def test_pr_review_protocol_packet_smoke(monkeypatch: pytest.MonkeyPatch) -> Non
     assert packet.binding.pr_number == 6355
     assert packet.recommendation_class == RECOMMEND_ATTENTION
     assert len(packet.provider_slots) == 5
-    assert packet.provider_slots[0].selected_provider == "claude"
-    assert packet.provider_slots[1].selected_provider == "openai-api"
-    assert packet.provider_slots[2].selected_provider == "gemini-cli"
-    assert packet.provider_slots[4].selected_provider == "mistral-api"
+    assert [slot.status for slot in packet.provider_slots] == ["not_probed"] * 5
+    assert [slot.selected_provider for slot in packet.provider_slots] == [None] * 5
+    assert packet.provider_slots[0].candidates == ["claude", "anthropic-api"]
     assert packet.top_findings
     assert packet.top_findings[0].source == PROTOCOL_STATUS
     assert packet.validation_summary["has_pending"] is True

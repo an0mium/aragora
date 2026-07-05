@@ -988,6 +988,8 @@ class MemoryManager:
                     )
                 except (ConnectionError, TimeoutError, StopIteration, ImportError) as e:
                     logger.warning("  [continuum] Failed to update memory %s: %s", mem_id, e)
+                except Exception as e:  # noqa: BLE001 - memory reinforcement is best-effort
+                    logger.warning("  [continuum] Failed to update memory %s: %s", mem_id, e)
 
             if updated_count > 0:
                 logger.info(
@@ -1302,6 +1304,8 @@ class MemoryManager:
                 logger.debug("Spectator notification error: %s", e)
             except (OSError, RuntimeError, ValueError, KeyError) as e:
                 # Spectator delivery must never break debate execution.
+                logger.warning("Unexpected spectator notification error: %s", e)
+            except Exception as e:  # noqa: BLE001 - spectator delivery is best-effort
                 logger.warning("Unexpected spectator notification error: %s", e)
 
     def track_retrieved_ids(
