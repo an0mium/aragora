@@ -179,6 +179,7 @@ def _bridge_files_for_lane_lease_read() -> list[Path]:
     """Return sidecar lease mappings written by check_work_lease.py v0."""
     candidates = [
         AGENT_BRIDGE_DIR / LANE_LEASES_FILENAME,
+        CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / LANE_LEASES_FILENAME,
         _state_root_bridge_dir() / LANE_LEASES_FILENAME,
     ]
     paths: list[Path] = []

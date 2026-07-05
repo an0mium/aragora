@@ -166,6 +166,49 @@ def test_lane_registry_sidecar_enriches_missing_lease_fields(
     assert record.lease_health == "sidecar"
 
 
+def test_lane_registry_reads_repo_local_sidecar_when_state_root_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "state-root"))
+    mod.LANE_REGISTRY_FILE.parent.mkdir(parents=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-1",
+                    "owner_session": "codex-A",
+                    "status": "active",
+                    "branch": "codex/lease",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    sidecar = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lane-leases.json"
+    sidecar.parent.mkdir(parents=True)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "lane-1": {
+                    "branch": "codex/lease",
+                    "work_id": "pr:8852",
+                    "lease_id": "lease-1",
+                    "owner_session_id": "sess-1",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    [record] = mod._load_lane_registry()
+
+    assert record.work_id == "pr:8852"
+    assert record.lease_id == "lease-1"
+
+
 def test_lane_registry_native_lease_fields_override_sidecar(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

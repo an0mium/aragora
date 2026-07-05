@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import fcntl
 import getpass
 import json
 import os
@@ -368,37 +369,40 @@ def record_lane_lease(
     """
     sidecar = repo_root / LANE_LEASES_RELPATH
     sidecar.parent.mkdir(parents=True, exist_ok=True)
-    payload: dict[str, Any] = {}
-    if sidecar.exists():
+    lock_path = sidecar.with_name(f"{sidecar.name}.lock")
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        payload: dict[str, Any] = {}
+        if sidecar.exists():
+            try:
+                loaded = json.loads(sidecar.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    payload = loaded
+            except (OSError, json.JSONDecodeError):
+                payload = {}
+        if lease_id is None:
+            payload.pop(lane_id, None)
+        else:
+            payload[lane_id] = {
+                "branch": branch,
+                "lease_id": lease_id,
+                "owner_session_id": session_id,
+                "updated_at": _utcnow().isoformat(),
+            }
+            if work_id:
+                payload[lane_id]["work_id"] = work_id
+        fd, tmp_name = tempfile.mkstemp(dir=str(sidecar.parent), prefix=".lane-leases-")
         try:
-            loaded = json.loads(sidecar.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                payload = loaded
-        except (OSError, json.JSONDecodeError):
-            payload = {}
-    if lease_id is None:
-        payload.pop(lane_id, None)
-    else:
-        payload[lane_id] = {
-            "branch": branch,
-            "lease_id": lease_id,
-            "owner_session_id": session_id,
-            "updated_at": _utcnow().isoformat(),
-        }
-        if work_id:
-            payload[lane_id]["work_id"] = work_id
-    fd, tmp_name = tempfile.mkstemp(dir=str(sidecar.parent), prefix=".lane-leases-")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, sort_keys=True)
-            handle.write("\n")
-        os.replace(tmp_name, sidecar)
-    except OSError:
-        try:
-            os.unlink(tmp_name)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2, sort_keys=True)
+                handle.write("\n")
+            os.replace(tmp_name, sidecar)
         except OSError:
-            pass
-        raise
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
+            raise
     return sidecar
 
 
