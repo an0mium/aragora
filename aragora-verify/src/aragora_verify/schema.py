@@ -184,6 +184,24 @@ def _check_epistemic_falsification(errors: list[str], value: Any) -> None:
             errors.append(f"epistemic.falsification.{optional}: must be a string")
 
 
+def _check_source(errors: list[str], value: Any) -> None:
+    if not isinstance(value, dict):
+        errors.append("source: must be an object")
+        return
+    _unknown_members(
+        errors,
+        "source",
+        value,
+        frozenset({"system", "schema", "schema_version", "receipt_id", "artifact_hash"}),
+    )
+    for required in ("system", "schema", "receipt_id"):
+        if required not in value:
+            errors.append(f"source.{required}: required")
+    for key in ("system", "schema", "schema_version", "receipt_id", "artifact_hash"):
+        if key in value and not isinstance(value[key], str):
+            errors.append(f"source.{key}: must be a string")
+
+
 def validate_structure(doc: Any) -> list[str]:
     """Return a list of conformance errors; empty means the receipt is well-formed."""
     errors: list[str] = []
@@ -242,6 +260,8 @@ def validate_structure(doc: Any) -> list[str]:
     _check_signatures(errors, doc.get("signatures"))
     if "epistemic" in doc:
         _check_epistemic(errors, doc["epistemic"])
+    if "source" in doc:
+        _check_source(errors, doc["source"])
 
     errors.extend(_jsonschema_errors(doc))
     return errors

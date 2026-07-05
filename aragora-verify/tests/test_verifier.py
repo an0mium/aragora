@@ -85,6 +85,42 @@ def test_malformed_epistemic_block_fails_without_jsonschema(monkeypatch) -> None
     assert _check(result, "schema_conformance").status == FAIL
 
 
+def test_source_block_is_validated_without_jsonschema(monkeypatch) -> None:
+    monkeypatch.setattr(schema, "_jsonschema_errors", lambda doc: [])
+    doc = valid_odr()
+    doc["source"] = {
+        "system": "aragora",
+        "schema": "open-decision-receipt",
+        "schema_version": "0.1",
+        "receipt_id": "native-rcpt-0001",
+        "artifact_hash": "sha-256:deadbeef",
+    }
+
+    assert schema.validate_structure(doc) == []
+    result = verify(doc)
+    assert result.ok is True
+    assert _check(result, "schema_conformance").status == PASS
+
+
+def test_malformed_source_block_fails_without_jsonschema(monkeypatch) -> None:
+    monkeypatch.setattr(schema, "_jsonschema_errors", lambda doc: [])
+    doc = valid_odr()
+    doc["source"] = {
+        "system": 42,
+        "schema_version": "0.1",
+        "receipt_id": "native-rcpt-0001",
+        "extra": "unexpected",
+    }
+
+    errors = schema.validate_structure(doc)
+    assert "source.schema: required" in errors
+    assert "source.system: must be a string" in errors
+    assert "source.extra: unknown member (additionalProperties: false)" in errors
+    result = verify(doc)
+    assert result.ok is False
+    assert _check(result, "schema_conformance").status == FAIL
+
+
 def test_unknown_top_level_member_fails_without_jsonschema(monkeypatch) -> None:
     monkeypatch.setattr(schema, "_jsonschema_errors", lambda doc: [])
     doc = valid_odr()
