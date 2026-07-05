@@ -2329,7 +2329,13 @@ def collect_evidence(
                         "advisory-settlement:" + ",".join(item.family for item in advisory_items)
                     )
                     advisory_record_posted = True
-                except Exception as exc:
+                except (
+                    OSError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                    subprocess.SubprocessError,
+                ) as exc:
                     outcome.post_errors.append(f"advisory-settlement: {str(exc)[:200]}")
         if (
             outcome.posted
@@ -2944,7 +2950,13 @@ def apply_prepared_evidence(
                 "advisory-settlement:" + ",".join(item.family for item in advisory_items)
             )
             advisory_record_posted = True
-        except Exception as exc:
+        except (
+            OSError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+            subprocess.SubprocessError,
+        ) as exc:
             outcome.post_errors.append(f"advisory-settlement: {str(exc)[:200]}")
     if (
         outcome.posted
