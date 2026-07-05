@@ -2,9 +2,11 @@
 
 All public symbols are importable regardless of the feature flag.
 The flag (``ARAGORA_PREDICTION_MARKETS_ENABLED``) only gates the runtime
-behaviour of :class:`InMemoryStakeableClaimStore` and the resolution adapter.
+behaviour of :class:`InMemoryStakeableClaimStore`, the resolution adapter,
+and :func:`compute_reputation_deltas`.
 """
 
+from aragora.prediction.reputation_delta import ReputationDelta, compute_reputation_deltas
 from aragora.prediction.stakeable_claim import (
     GithubResolutionAdapterStub,
     InMemoryStakeableClaimStore,
@@ -17,6 +19,8 @@ __all__ = [
     "GithubResolutionAdapterStub",
     "InMemoryStakeableClaimStore",
     "QuestionType",
+    "ReputationDelta",
     "ResolutionStatus",
     "StakeableClaim",
+    "compute_reputation_deltas",
 ]
