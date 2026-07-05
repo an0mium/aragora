@@ -178,6 +178,7 @@ from .genealogy_report import (
     build_genealogy_report,
 )
 from .truth_map import (
+    ArbitrationRow,
     OrgTruthMapReport,
     build_truth_map,
     build_truth_map_from_manifests,
@@ -249,6 +250,7 @@ __all__ = [
     "garden_outstanding_crux",
     "garden_resolved_crux",
     "run_gardening_pass",
+    "ArbitrationRow",
     "build_truth_map",
     "build_truth_map_from_manifests",
     "CodeUnitGenealogy",
