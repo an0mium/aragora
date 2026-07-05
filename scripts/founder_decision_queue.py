@@ -245,13 +245,24 @@ def _target_number(target: str) -> str | None:
 
 
 def _comment_resolves_item(body: str, item: DecisionItem) -> bool:
-    first_line = _strip_markdown_code(_first_nonempty_line(body)).lower()
-    expected = item.expected_reply.lower()
+    first_line = _strip_markdown_code(_first_nonempty_line(body))
+    expected = item.expected_reply
     if first_line and first_line == expected:
         return True
     number = _target_number(item.target)
+    if number is None:
+        return False
     lowered = body.lower()
-    return bool(number and number in lowered and "settlement" in lowered)
+    if "settlement" not in lowered:
+        return False
+    number_pattern = re.escape(number)
+    target_patterns = [
+        rf"#\s*{number_pattern}\b",
+        rf"/(?:issues|pull|pulls)/{number_pattern}\b",
+        rf"\b(?:issue|pr|pull request)\s+#?\s*{number_pattern}\b",
+        rf"\b{number_pattern}\b",
+    ]
+    return any(re.search(pattern, lowered) for pattern in target_patterns)
 
 
 def _item_resolved_after_packet(source: DecisionSource, item: DecisionItem) -> bool:
