@@ -674,7 +674,7 @@ def main(argv: list[str] | None = None) -> int:
     mine = [lease for lease in matching_leases if lease.owner_session_id == session_id]
     branch_mine = [lease for lease in leases if lease.owner_session_id == session_id]
     branch_theirs = [lease for lease in leases if lease.owner_session_id != session_id]
-    if work_id and not mine:
+    if work_id and not mine and not matching_leases:
         mine = [lease for lease in branch_mine if _lease_allows_branch_owner_fallback(lease)]
 
     if args.verify_only:

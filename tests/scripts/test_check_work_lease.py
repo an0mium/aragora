@@ -520,6 +520,48 @@ def test_verify_only_pr_work_id_accepts_owned_branch_level_lease(
     assert payload["owner_session_id"] == "sess-a"
 
 
+def test_verify_only_pr_work_id_rejects_foreign_exact_pr_lease_despite_branch_fallback(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _main(repo, "feat-x", "--claim", "--session-id", "sess-a") == 0
+    with sqlite3.connect(_db_path(repo)) as conn:
+        conn.execute(
+            """
+            INSERT INTO leases (
+                lease_id, task_id, title, owner_agent, owner_session_id, branch, worktree_path,
+                allowed_globs_json, claimed_paths_json, expected_tests_json, status, created_at,
+                updated_at, expires_at, metadata_json
+            )
+            SELECT
+                'lease-foreign-pr', 'pr:8852', title, 'codex', 'sess-b', branch, worktree_path,
+                allowed_globs_json, claimed_paths_json, expected_tests_json, status, created_at,
+                updated_at, expires_at, '{"work_id": "pr:8852"}'
+            FROM leases
+            WHERE branch = ?
+            """,
+            ("feat-x",),
+        )
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--session-id",
+            "sess-a",
+            "--work-id",
+            "pr:8852",
+            "--json",
+        )
+        == 1
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["reason"] in {"ambiguous_owner", "wrong_owner"}
+    assert payload["owner_session_id"] == "sess-b"
+
+
 def test_verify_only_rejects_mismatched_work_id_with_stable_reason(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
