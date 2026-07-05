@@ -1568,6 +1568,49 @@ def _mailbox_command(lane: dict[str, Any] | None, *, pr: int | None, branch: str
     return "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only || true"
 
 
+def _prompt_work_id(
+    lane: dict[str, Any] | None, *, pr: int | None, branch: str | None
+) -> str | None:
+    if lane:
+        raw = str(lane.get("work_id") or "").strip()
+        if raw:
+            return raw
+        raw_pr = lane.get("pr_number")
+        if raw_pr is not None:
+            try:
+                return f"pr:{int(raw_pr)}"
+            except (TypeError, ValueError):
+                pass
+    if pr is not None:
+        return f"pr:{pr}"
+    if branch:
+        return f"branch:{branch}"
+    return None
+
+
+def _branch_write_lease_preflight_lines(
+    lane: dict[str, Any] | None, *, pr: int | None, branch: str | None
+) -> list[str]:
+    if not lane or str(lane.get("status") or "") not in ACTIVE_STATUSES:
+        return []
+    lease_branch = str(lane.get("branch") or branch or "").strip()
+    owner_session = str(lane.get("owner_session") or "").strip()
+    work_id = _prompt_work_id(lane, pr=pr, branch=lease_branch or branch)
+    if not lease_branch or not work_id:
+        return []
+    session_arg = f" --session-id {shlex.quote(owner_session)}" if owner_session else ""
+    command = (
+        "python3 scripts/check_work_lease.py "
+        f"{shlex.quote(lease_branch)} --verify-only --work-id {shlex.quote(work_id)} "
+        f"--strict{session_arg} --json"
+    )
+    return [
+        "",
+        "Before any branch push when ARAGORA_REQUIRE_BRANCH_WRITE_LEASE=1, verify the dev_coordination branch-write lease:",
+        command,
+    ]
+
+
 def build_prompt(
     *,
     registry_path: Path,
@@ -1642,6 +1685,7 @@ def build_prompt(
                 f"python3 -m aragora.cli.main review-queue merge-packet --pr {pr} --json || true",
             ]
         )
+    lines.extend(_branch_write_lease_preflight_lines(lane, pr=pr, branch=branch))
 
     lines.append("")
     if lane:

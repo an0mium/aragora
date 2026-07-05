@@ -13,6 +13,19 @@ Every factual claim below was verified directly against `origin/main` at commit 
 (2026-07-02) using `grep`/`diff`/`wc`/`gh` — see §8 for the exact commands. Nothing here is
 aspirational; where a capability does not exist yet it is labeled a **gap**, not implied to ship.
 
+> **Correction (2026-07-04):** §3.1, §3.3, and §7 below describe `aragora-verify` PyPI
+> publishing as "pending" as of the 2026-07-02 snapshot. That premise was **false even
+> at snapshot time**: Trusted Publishing published `aragora-verify`; 0.1.0 has
+> been live on PyPI since **2026-06-29T23:32Z** (GitHub release
+> [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0),
+> not yanked), and 0.1.1 is now the latest version. `pip install
+> "aragora-verify>=0.1.1"` works from the public index today. Self-verify:
+> `python3 -m pip index versions aragora-verify` or
+> `curl -s https://pypi.org/pypi/aragora-verify/json`. See
+> `docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md` for the corrected verifier-install story.
+> The sections below are left as originally snapshotted, with the affected passages
+> marked "Corrected 2026-07-04" inline, so this document's as-of framing stays intact.
+
 ---
 
 ## 1. Receipt lineages (as-is) and the canonical statement
@@ -105,8 +118,11 @@ targeted at M4):
   (line 215) and `### Honest current state *(docs/HONEST_ASSESSMENT.md, docs/GA_CHECKLIST.md)*`
   (line 503). Both section headings exist verbatim. This satisfies the mission's non-negotiable
   invariant (architecture.md §5.1) — the mission must not delete or water down this content.
-- A PyPI badge (`https://pypi.org/project/aragora/`) is present for the root `aragora` package; the
-  verifier row in the README's own comparison table states `aragora-verify` "PyPI publish pending".
+- A PyPI badge (`https://pypi.org/project/aragora/`) is present for the root `aragora` package; at
+  snapshot time the verifier row in the README's own comparison table stated `aragora-verify`
+  "PyPI publish pending". **Corrected 2026-07-04:** that line (and the premise behind it) was
+  false even at snapshot time — see the correction note above; README's own row is fixed by a
+  separate PR (#8824).
 
 ### 3.2 pyproject.toml — "Decision Integrity Platform" drift persists
 
@@ -134,7 +150,7 @@ open PR #8713, see §7).
 | `aragora` | `pyproject.toml` (root) | 2.9.0 | `pip install aragora` (PyPI, badge confirms) or `pip install -e .` from a clone (`INSTALL.md`) |
 | `aragora-debate` | `aragora-debate/pyproject.toml` | 0.2.3 | `pip install aragora-debate` (`docs/quickstart.md`) — small standalone debate wedge |
 | `aragora-sdk` | `sdk/python/pyproject.toml` | 2.9.0 | `pip install ./sdk/python` (local; no PyPI badge found for this one) |
-| `aragora-verify` | `aragora-verify/pyproject.toml` | 0.1.0 | **Local only**: `cd aragora-verify && PYTHONPATH=src python -m aragora_verify <file>`, or `pip install ./aragora-verify` for the console script. PyPI publish workflow **merged** (#8693) but **no release has been run yet** — `pip install aragora-verify` from PyPI does **not** work today. |
+| `aragora-verify` | `aragora-verify/pyproject.toml` | 0.1.0 (snapshot); 0.1.1 latest | **Corrected 2026-07-04 — PUBLISHED:** `pip install "aragora-verify>=0.1.1"` installs the current verifier from PyPI (0.1.0 live since **2026-06-29T23:32Z**, GitHub release `aragora-verify-v0.1.0`; 0.1.1 is now latest; self-verify `python3 -m pip index versions aragora-verify` or `curl -s https://pypi.org/pypi/aragora-verify/json`). From-checkout alternatives remain available: `cd aragora-verify && PYTHONPATH=src python -m aragora_verify <file>`, or `pip install ./aragora-verify` for a local console script. *(Snapshotted 2026-07-02 as "no release has been run yet" — that premise was false; see the correction note near the top of this document.)* |
 
 A packaging-level drift also exists but is not a docs problem: `aragora-verify`'s runtime floor is
 `cryptography>=41.0` while the root `[tool.uv] constraint-dependencies` floor is `>=48.0.1` (fixes
@@ -271,9 +287,13 @@ paths in a later milestone.
 - **#8674** — README rewrite — **MERGED** 2026-06-29 (added the "Honest current state" + "Proof
   ladder" sections; see §3.1).
 - **#8692** — dependency refresh — **MERGED** 2026-06-30.
-- **#8693** — `aragora-verify` PyPI publish workflow — **MERGED** 2026-06-29. The workflow exists;
-  **no release has actually been published yet** (see §3.3) — do not assert `pip install
-  aragora-verify` from PyPI in any doc.
+- **#8693** — `aragora-verify` PyPI publish workflow — **MERGED** 2026-06-29. **Corrected
+  2026-07-04:** Trusted Publishing published `aragora-verify` after this merge; 0.1.0
+  has been live on PyPI since 2026-06-29T23:32Z, and 0.1.1 is now the latest
+  public-index version (see §3.3). The snapshot's original
+  guidance here ("no release has actually been published yet... do not assert `pip install
+  aragora-verify`") was incorrect even at the time; `pip install "aragora-verify>=0.1.1"`
+  works today.
 - **#8694** — read-only reconcile/settle CLI — **CLOSED, unmerged**, 2026-06-30.
 
 Additionally, `docs/plans/2026-06-30-*.md` (once untracked scratch content) is now **tracked** repo

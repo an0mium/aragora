@@ -19,9 +19,16 @@ standalone verifier ([`pip install -U 'aragora-verify>=0.1.1'`](https://pypi.org
 |------------|---------|
 | Run the standalone debate engine | `pip install aragora-debate` |
 | Verify an Open Decision Receipt with the standalone verifier | `pip install -U 'aragora-verify>=0.1.1' && aragora-verify receipt.odr.json` |
-| See a native debate → receipt → verify loop in ~15 seconds, no API keys | `pip install aragora && aragora demo --offline && aragora verify aragora-demo-receipt.json` |
+| Run the current PyPI zero-key demo | `pip install aragora && aragora demo` |
+| See a native debate → receipt → verify loop from a current source checkout | `python3 -m pip install -e . && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
+
+PyPI `aragora` releases through 2.7.4 support `aragora demo`, but they do not
+include the explicit `--offline` flag or the source checkout's verifiable
+native demo-receipt round trip. If that public-package demo writes
+`aragora-demo-receipt.json`, treat it as demo output, not the verification
+example; use the source checkout path below for `receipt verify`.
 
 ## The problem
 
@@ -91,10 +98,24 @@ evidence, with reproducible queries and caught-bug case studies:
 
 ## Try it now
 
+Current PyPI package:
+
 ```bash
 pip install aragora
-aragora demo --offline              # zero-key debate, writes a local receipt
+aragora demo                        # no provider key required in PyPI 2.7.4
+```
 
+Current source checkout:
+
+```bash
+python3 -m pip install -e .
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
+```
+
+Live review with a provider key:
+
+```bash
 export ANTHROPIC_API_KEY=...        # provider credential for live model review
 aragora review-pr 123               # multi-agent review of a GitHub PR
 aragora receipt export <id> --format odr -o receipt.odr.json   # portable receipt
@@ -232,6 +253,7 @@ Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed
 | What's real vs aspirational | [`docs/HONEST_ASSESSMENT.md`](docs/HONEST_ASSESSMENT.md) |
 | Receipt format (the external contract) | [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) |
 | Decision-semantics roadmap | ODR spine epic [#8223](https://github.com/synaptent/aragora/issues/8223); ODR-1..7 → [#8224](https://github.com/synaptent/aragora/issues/8224)/[#8225](https://github.com/synaptent/aragora/issues/8225)/[#8226](https://github.com/synaptent/aragora/issues/8226)/[#8227](https://github.com/synaptent/aragora/issues/8227)/[#8229](https://github.com/synaptent/aragora/issues/8229)/[#8230](https://github.com/synaptent/aragora/issues/8230)/[#8231](https://github.com/synaptent/aragora/issues/8231) |
+| Jul 2026 durability capture / outsider-verifiable claims | [Durable strategy capture](docs/strategy/2026-07-05-durable-strategy-capture.md); executable claims manifest [`outsider_verifiable_claims.yaml`](docs/status/claims/outsider_verifiable_claims.yaml); parent capture issue [#8856](https://github.com/synaptent/aragora/issues/8856) |
 | Autonomy truth | B0 benchmark [`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](docs/status/B0_BENCHMARK_TRUTH_STATUS.md) |
 | Enterprise / compliance | [GA checklist](docs/GA_CHECKLIST.md) (SOC 2 / pentest gate) · [Enterprise features](docs/enterprise/ENTERPRISE_FEATURES.md) |
 | Frontier work is bounded | the proof-first Foreman gate + capability checkpoints CP-1..5 (below) |

@@ -5,7 +5,7 @@ description: Aragora -- Extended Reference
 
 # Aragora -- Extended Reference
 
-*Comprehensive technical reference for the Decision Integrity Platform. For the concise overview, see the [README](../analysis/adr).*
+*Comprehensive technical reference for the Decision Integrity Platform. For the concise overview, see the [README](https://github.com/synaptent/aragora/blob/main/README.md).*
 
 ---
 
@@ -95,7 +95,7 @@ Deep-dive documentation for core debate algorithms:
 - **[Convergence Detection](../core-concepts/convergence-algorithm)** -- Semantic similarity for debate convergence
 - **[ELO and Calibration](../core-concepts/elo-calibration)** -- Agent skill rating and team selection
 
-See [algorithms/README.md](../analysis/adr) for the full algorithm reference.
+See [algorithms/README.md](https://github.com/synaptent/aragora/blob/main/docs/algorithms/README.md) for the full algorithm reference.
 
 ---
 
@@ -926,7 +926,7 @@ See the full attribution table in [CREDITS.md](./reference/CREDITS.md).
 
 | Document | Purpose |
 |----------|---------|
-| [README](../analysis/adr) | Concise project overview with five pillars |
+| [README](https://github.com/synaptent/aragora/blob/main/README.md) | Concise project overview with five pillars |
 | [CLAUDE.md](./claude) | Development guide for AI assistants |
 | [STATUS.md](./status) | Detailed feature implementation status |
 | [FEATURE_DISCOVERY.md](./feature-discovery) | Complete feature catalog (180+) |
