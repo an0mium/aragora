@@ -141,8 +141,16 @@ class TestFlagOn:
         row = build_truth_map(claim_results=[], arbitration_inputs=[_arb()]).arbitrations[0]
         d = row.to_dict()
         expected = {
-            "arbitration_id", "crux_id", "question_family_id", "statement",
-            "operator", "side", "created_at", "expires_at",
-            "age_days", "is_expired", "is_reversed",
+            "arbitration_id",
+            "crux_id",
+            "question_family_id",
+            "statement",
+            "operator",
+            "side",
+            "created_at",
+            "expires_at",
+            "age_days",
+            "is_expired",
+            "is_reversed",
         }
         assert expected == set(d.keys())

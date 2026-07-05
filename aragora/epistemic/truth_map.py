@@ -276,9 +276,7 @@ def build_truth_map(
                 )
             )
 
-    active_arb_count = sum(
-        1 for a in arbitration_rows if not a.is_expired and not a.is_reversed
-    )
+    active_arb_count = sum(1 for a in arbitration_rows if not a.is_expired and not a.is_reversed)
 
     return OrgTruthMapReport(
         generated_at=datetime.datetime.utcnow().isoformat() + "Z",
