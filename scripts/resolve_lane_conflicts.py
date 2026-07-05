@@ -57,6 +57,7 @@ TERMINAL_PR_STATES = {"MERGED", "CLOSED"}
 HEARTBEAT_TIMESTAMP_KEYS = ("last_heartbeat_at", "last_seen_at", "heartbeat_at")
 PID_KEYS = ("pid", "owner_pid")
 LOCAL_WORK_KEYS = ("worktree", "local_worktree", "local_work_path")
+READ_RECEIPT_SCHEMA_VERSION = "aragora-operator-steering-read-receipt/1.0"
 TERMINAL_READ_RECEIPT_OUTCOMES = {"completed", "obeyed", "stale", "superseded"}
 
 
@@ -426,12 +427,15 @@ def _terminal_receipted_mailbox_messages(inbox: Path) -> set[str]:
     if not receipt_dir.is_dir():
         return terminal_receipted
 
-    latest_receipts: dict[str, tuple[str, str]] = {}
+    latest_receipts: dict[str, tuple[float, str]] = {}
+    now_ts = dt.datetime.now(dt.UTC).timestamp()
     for path in receipt_dir.glob("*.json"):
         if not path.is_file():
             continue
         payload = _load_json_object(path)
         if payload is None:
+            continue
+        if str(payload.get("schema_version") or "") != READ_RECEIPT_SCHEMA_VERSION:
             continue
         message_filename = str(payload.get("message_filename") or "")
         if not message_filename or message_filename not in messages:
@@ -440,7 +444,9 @@ def _terminal_receipted_mailbox_messages(inbox: Path) -> set[str]:
         message_sha = messages[message_filename]
         if not receipt_sha or not message_sha or receipt_sha != message_sha:
             continue
-        read_at = str(payload.get("read_at_utc") or "")
+        read_at = _parse_timestamp(payload.get("read_at_utc"))
+        if read_at is None or read_at > now_ts:
+            continue
         outcome = str(payload.get("outcome") or "").strip().lower()
         current = latest_receipts.get(message_filename)
         candidate = (read_at, outcome)

@@ -1467,6 +1467,158 @@ def test_merged_pr_audit_apply_rejects_when_newer_receipt_is_not_terminal(
     ]
 
 
+def test_merged_pr_audit_apply_rejects_terminal_receipt_with_invalid_timestamp(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    message = _write_bound_message(inbox)
+    _write_read_receipt(
+        inbox,
+        receipt_name="invalid-terminal.json",
+        message_filename="message.json",
+        message_sha256=message["message_sha256"],
+        outcome="completed",
+        read_at_utc="zzzz",
+    )
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
+    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
+        "message.json"
+    ]
+
+
+def test_merged_pr_audit_apply_rejects_future_dated_terminal_receipt(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    message = _write_bound_message(inbox)
+    _write_read_receipt(
+        inbox,
+        receipt_name="future-terminal.json",
+        message_filename="message.json",
+        message_sha256=message["message_sha256"],
+        outcome="completed",
+        read_at_utc="2999-01-01T00:00:00Z",
+    )
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
+    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
+        "message.json"
+    ]
+
+
+def test_merged_pr_audit_apply_orders_receipts_by_parsed_timestamp(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    message = _write_bound_message(inbox)
+    _write_read_receipt(
+        inbox,
+        receipt_name="old-terminal-z.json",
+        message_filename="message.json",
+        message_sha256=message["message_sha256"],
+        outcome="completed",
+        read_at_utc="2026-05-23T19:20:00Z",
+    )
+    _write_read_receipt(
+        inbox,
+        receipt_name="new-held-fractional.json",
+        message_filename="message.json",
+        message_sha256=message["message_sha256"],
+        outcome="held",
+        read_at_utc="2026-05-23T19:20:00.500+00:00",
+    )
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
+    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
+        "message.json"
+    ]
+
+
 def test_merged_pr_audit_apply_rejects_terminal_receipt_with_wrong_message_hash(
     tmp_path: Path,
 ) -> None:
