@@ -53,16 +53,18 @@ from scratch.
 The public (ODR) lineage has **two independent verification implementations** that
 must be kept in lockstep:
 
-1. **`aragora/gauntlet/odr_verify.py`** — the in-tree engine landed via #8389. Its own
-   module docstring describes it as "the server-side single implementation that the
-   `POST /api/receipts/verify` endpoint and any internal caller wrap." As of this
-   reconciliation, no shipped CLI subcommand or HTTP route actually imports
-   `verify_odr_document` / `odr_verify` — the existing `/api/v2/receipts/{id}/verify*`
-   routes and `/receipts/{id}/verify` verify the **native or legacy** receipt
-   (`store.verify_signature`/`verify_integrity`, or
+1. **`aragora/gauntlet/odr_verify.py`** — the in-tree engine landed via #8389. Its module
+   docstring previously overclaimed itself as "the server-side single implementation
+   that the `POST /api/receipts/verify` endpoint and any internal caller wrap"; that
+   wording has been corrected because no shipped CLI subcommand or HTTP route actually
+   imports `verify_odr_document` / `odr_verify` — the existing
+   `/api/v2/receipts/{id}/verify*` routes and `/receipts/{id}/verify` verify the
+   **native or legacy** receipt instead (`store.verify_signature`/`verify_integrity`, or
    `aragora.export.decision_receipt.DecisionReceipt.verify_integrity`), not an ODR
-   document. `odr_verify.py` is exercised today by its own test suite
-   (`tests/gauntlet/test_odr_verify.py`, `tests/gauntlet/test_odr_verify_schema.py`)
+   document. The docstring now states this accurately: an in-tree **library** engine,
+   kept in lockstep with the standalone `aragora-verify` package, not yet wired to any
+   shipped CLI/HTTP entry point. `odr_verify.py` is exercised today by its own test
+   suite (`tests/gauntlet/test_odr_verify.py`, `tests/gauntlet/test_odr_verify_schema.py`)
    and is available for internal callers to import directly.
 2. **`aragora-verify`** (this repo's standalone `aragora-verify/` package, **published
    on PyPI**) — the "no-trust" path: pure stdlib + `cryptography`, zero Aragora
