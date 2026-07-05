@@ -43,6 +43,23 @@ _ACTION_RANK = {"report_only": 0, "repair_required": 1, "fail_closed": 2}
 _RANK_TO_ACTION = {v: k for k, v in _ACTION_RANK.items()}
 
 
+def _reject_disabled_world_event_result(result: "ClaimResult") -> None:
+    """Fail closed if a world-event result reaches evaluation while disabled."""
+
+    detail = getattr(result, "detail", {}) or {}
+    if detail.get("source") != "world_event":
+        return
+
+    from .world_event import world_events_enabled
+
+    if not world_events_enabled():
+        event_id = detail.get("event_id") or "<unknown>"
+        raise RuntimeError(
+            "ARAGORA_WORLD_EVENTS_ENABLED is not set; "
+            f"world-event claim result {event_id!r} must not propagate to decay evaluation."
+        )
+
+
 @dataclass(frozen=True)
 class DecayReason:
     """One reason contributing to integrity deduction."""
@@ -120,6 +137,7 @@ def evaluate_unit(
         result = results.get(claim_id)
         if result is None:
             continue
+        _reject_disabled_world_event_result(result)
         if result.status == ClaimStatus.FAIL:
             reasons.append(
                 DecayReason(

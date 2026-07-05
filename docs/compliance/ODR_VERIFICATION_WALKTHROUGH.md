@@ -14,7 +14,7 @@ are real (originally verified 2026-07-02 with `aragora-verify` 0.1.0, Python
 published `aragora-verify` 0.1.1 installed from PyPI into a clean venv —
 byte-for-byte identical output for this non-tampered fixture, since 0.1.1's
 added `key_id`-binding check only changes behavior on a relabeled/tampered
-signature; see the version note below).
+signature; see the PyPI release note in §2 below).
 
 ---
 
@@ -58,23 +58,21 @@ the public key that verifies it. The only tool needed is **`aragora-verify`**,
 a free, standalone, MIT-licensed verifier published on PyPI whose only
 dependency is the `cryptography` package.
 
-> PyPI release verified: the public index lists `aragora-verify` 0.1.1 as the
-> latest release (self-verify: `python3 -m pip index versions aragora-verify`
-> or `curl -s https://pypi.org/pypi/aragora-verify/json`). CI additionally
-> smoke-tests the CLI against a wheel built from the in-repo
-> [`aragora-verify/`](../../aragora-verify/) source. **Version note (corrected
-> 2026-07-04):** the signer-label (`key_id`) binding described in §"What each
-> check proves" ships in 0.1.1. Pin `pip install aragora-verify==0.1.1` for
-> full signer-label protection; 0.1.0 displays the recorded `key_id` but does
-> not check it against the supplied key, so a relabeled `key_id` on an
-> otherwise-valid signature would silently PASS on 0.1.0 and FAIL as
-> signer-label tampering on 0.1.1. This fixture's `key_id` is correctly bound,
-> so its output is identical on both versions (see the intro above).
+> PyPI release verified: `pip install -U 'aragora-verify>=0.1.1'` from a clean
+> venv (real PyPI, no local wheel) installed `aragora-verify-0.1.1` and verified
+> this fixture with all checks PASS on 2026-07-04. Version 0.1.1+ (published
+> 2026-07-04 03:28 UTC; verify live:
+> https://pypi.org/pypi/aragora-verify/json) binds each signature's recorded
+> `key_id` to the supplied key, so a relabeled signer fails as tampering.
+> Earlier 0.1.0 verification on 2026-07-02 covered content integrity and
+> signature validity but lacked that binding. CI additionally smoke-tests the
+> CLI against a wheel built from the in-repo
+> [`aragora-verify/`](../../aragora-verify/) source.
 
 ```bash
 # 1. Install the standalone verifier into a clean environment
 python3 -m venv odr-env && . odr-env/bin/activate
-pip install aragora-verify==0.1.1
+pip install -U 'aragora-verify>=0.1.1'
 
 # 2. Fetch the two fixture files (or copy them from a repo checkout)
 #    docs/compliance/fixtures/sample_decision_receipt.odr.json
