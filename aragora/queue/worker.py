@@ -30,6 +30,77 @@ logger = logging.getLogger(__name__)
 # Type alias for the debate executor function
 DebateExecutor = Callable[[Job], Coroutine[Any, Any, dict[str, Any]]]
 
+# Domain-free job-handler registry (zero domain imports, eager or lazy). Lets
+# domain/application/interface home modules self-register their worker and job
+# handler instances instead of being imported directly by aragora.queue.
+_REGISTERED_WORKERS: dict[str, Any] = {}
+_REGISTERED_JOB_HANDLERS: dict[str, DebateExecutor] = {}
+
+
+def _same_job_handler(existing: DebateExecutor, handler: DebateExecutor) -> bool:
+    """Return whether two handler callables represent the same registration."""
+    if existing is handler:
+        return True
+
+    existing_self = getattr(existing, "__self__", None)
+    handler_self = getattr(handler, "__self__", None)
+    existing_func = getattr(existing, "__func__", None)
+    handler_func = getattr(handler, "__func__", None)
+    if existing_self is None or handler_self is None:
+        return False
+    if existing_func is None or handler_func is None:
+        return False
+    return existing_self is handler_self and existing_func is handler_func
+
+
+def register_worker(name: str, worker: Any) -> None:
+    """Register a queue worker instance under ``name`` (keyed, idempotent)."""
+    _REGISTERED_WORKERS[name] = worker
+
+
+def register_job_handler(job_type: str, handler: DebateExecutor) -> None:
+    """Register a job handler (executor) for ``job_type``.
+
+    Re-registering the same handler is a no-op. Registering a different handler
+    for an existing job type fails closed so import order cannot silently
+    redirect queue execution.
+    """
+    existing = _REGISTERED_JOB_HANDLERS.get(job_type)
+    if existing is not None and not _same_job_handler(existing, handler):
+        raise ValueError(f"job handler already registered for job type {job_type!r}")
+    _REGISTERED_JOB_HANDLERS[job_type] = handler
+
+
+def get_registered_workers() -> dict[str, Any]:
+    """Return a shallow copy of all registered workers, keyed by name."""
+    return dict(_REGISTERED_WORKERS)
+
+
+def get_registered_job_handlers() -> dict[str, DebateExecutor]:
+    """Return a shallow copy of all registered job handlers, keyed by job type."""
+    return dict(_REGISTERED_JOB_HANDLERS)
+
+
+def get_job_handler(job_type: str) -> DebateExecutor | None:
+    """Return the registered handler for ``job_type``, or ``None`` if unregistered."""
+    return _REGISTERED_JOB_HANDLERS.get(job_type)
+
+
+def registered_worker_names() -> list[str]:
+    """Return the sorted names of all registered workers."""
+    return sorted(_REGISTERED_WORKERS)
+
+
+def registered_job_handler_names() -> list[str]:
+    """Return the sorted job types of all registered job handlers."""
+    return sorted(_REGISTERED_JOB_HANDLERS)
+
+
+def reset_registry() -> None:
+    """Clear both the worker and job-handler registries (for tests)."""
+    _REGISTERED_WORKERS.clear()
+    _REGISTERED_JOB_HANDLERS.clear()
+
 
 class DebateWorker:
     """
