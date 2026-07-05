@@ -505,6 +505,11 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     build_p = sub.add_parser("build", help="Build prioritized review queue from open PRs")
     build_p.add_argument("--limit", type=int, default=100, help="Max PRs to fetch (default: 100)")
     build_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    build_p.add_argument(
         "--ready-only",
         action="store_true",
         help="Show only ready_now lane",
@@ -1006,7 +1011,7 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
 def _cmd_build(args: argparse.Namespace) -> int:
     json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
     try:
-        items = _build_queue(limit=args.limit)
+        items = _build_queue(limit=args.limit, repo_override=getattr(args, "repo", None))
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -1080,7 +1085,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     repo_root = resolve_repo_root(Path.cwd())
     try:
         _require_clean_worktree(repo_root)
-        items = _build_queue(limit=args.limit)
+        items = _build_queue(limit=args.limit, repo_override=getattr(args, "repo", None))
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -1661,7 +1666,7 @@ def _post_human_settlement_status(
     }
 
 
-def _build_queue(*, limit: int) -> list[QueueItem]:
+def _build_queue(*, limit: int, repo_override: str | None = None) -> list[QueueItem]:
     fields = ",".join(
         [
             "number",
@@ -1680,18 +1685,19 @@ def _build_queue(*, limit: int) -> list[QueueItem]:
             "statusCheckRollup",
         ]
     )
-    raw = _gh_json(
-        [
-            "pr",
-            "list",
-            "--state",
-            "open",
-            "--limit",
-            str(limit),
-            "--json",
-            fields,
-        ]
-    )
+    args = [
+        "pr",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        str(limit),
+        "--json",
+        fields,
+    ]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    raw = _gh_json(args)
     items: list[QueueItem] = []
     for pr in raw or []:
         if not isinstance(pr, dict):
@@ -2959,7 +2965,7 @@ def _build_merge_authorization_packet(
         queue_size = len(refs)
         scoped_pr_refs = True
     else:
-        queue = _build_queue(limit=limit)
+        queue = _build_queue(limit=limit, repo_override=repo_override)
         refs = [str(item.number) for item in queue]
         queue_size = len(queue)
 
