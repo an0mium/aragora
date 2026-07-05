@@ -1892,7 +1892,7 @@ class TestWorktreeReferencePreservationProof:
         assert result["stale_claim_advisory"]["available"] is True
         assert result["advisory_withheld"] is None
 
-    def test_absent_terminal_worktree_remote_branch_without_recorded_sha_releases(
+    def test_absent_terminal_worktree_remote_branch_without_recorded_sha_still_withholds(
         self, tmp_path: Path
     ) -> None:
         remote_sha = "dddddddddddddddddddddddddddddddddddddddd"
@@ -1940,12 +1940,8 @@ class TestWorktreeReferencePreservationProof:
         assert proof["upstream_preservation"]["proven"] is False
         assert proof["upstream_preservation"]["method"] == "remote_branch_anchor_no_local_record"
         assert proof["upstream_preservation"]["remote_head_sha"] == remote_sha
-        assert result["stale_claim_advisory"]["available"] is True
-        assert any(
-            "terminal lane branch still exists remotely" in condition
-            for condition in result["stale_claim_advisory"]["conditions_met"]
-        )
-        assert result["advisory_withheld"] is None
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
 
     def test_absent_terminal_worktree_without_recorded_sha_dirty_marker_withholds(
         self, tmp_path: Path
@@ -1992,7 +1988,7 @@ class TestWorktreeReferencePreservationProof:
         assert result["stale_claim_advisory"] is None
         assert result["advisory_withheld"] == "possible_unpushed_work"
 
-    def test_absent_terminal_worktree_without_recorded_sha_false_marker_releases(
+    def test_absent_terminal_worktree_without_recorded_sha_false_marker_still_withholds(
         self, tmp_path: Path
     ) -> None:
         remote_sha = "ffffffffffffffffffffffffffffffffffffffff"
@@ -2037,8 +2033,9 @@ class TestWorktreeReferencePreservationProof:
 
         assert proof["available"] is True
         assert proof["upstream_preservation"]["method"] == "remote_branch_anchor_no_local_record"
-        assert result["stale_claim_advisory"]["available"] is True
-        assert result["advisory_withheld"] is None
+        assert proof["upstream_preservation"]["proven"] is False
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
 
     def test_absent_in_progress_worktree_remote_branch_without_recorded_sha_still_withholds(
         self, tmp_path: Path

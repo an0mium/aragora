@@ -1483,6 +1483,12 @@ def _proof_covers_worktree_paths(
 ) -> bool:
     if not proof or proof.get("available") is not True:
         return False
+    upstream_preservation = proof.get("upstream_preservation")
+    if (
+        not isinstance(upstream_preservation, dict)
+        or upstream_preservation.get("proven") is not True
+    ):
+        return False
     proven_paths = {str(path) for path in proof.get("worktree_paths") or []}
     return all(path in proven_paths for _, path in paths)
 
@@ -1790,9 +1796,10 @@ def build_worktree_reference_preservation_proof(
     Fail closed unless the recorded worktree is absent/noop by
     ``safe_worktree_cleanup.py inspect`` and either the desired head is
     preserved upstream by an exact remote branch or merged PR commit
-    list, or a terminal no-record lane has no local-work claim and a
-    remote branch anchor still exists. Dirty/local-work markers are
-    never discounted.
+    list. A terminal no-record lane with a remote branch anchor remains
+    visible in the returned proof, but it is not proven preservation and
+    cannot discount a possible local worktree tip. Dirty/local-work
+    markers are never discounted.
     """
 
     paths = _worktree_reference_paths(lane, ledger_entry)
