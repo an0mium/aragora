@@ -1031,21 +1031,46 @@ def compose_evidence_comment(
     )
 
 
-def _advisory_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
+def _raw_advisory_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
     return [item for item in items if item.verdict == "changes_requested" and not item.dissenting]
+
+
+def _invalid_advisory_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
+    return [
+        item for item in _raw_advisory_items(items) if not item.would_count or bool(item.problems)
+    ]
+
+
+def _advisory_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
+    invalid = set(id(item) for item in _invalid_advisory_items(items))
+    return [item for item in _raw_advisory_items(items) if id(item) not in invalid]
 
 
 def _issue_refs(followup_issues: Sequence[str] | None) -> list[str]:
     return [str(issue).strip() for issue in (followup_issues or []) if str(issue).strip()]
 
 
-def _advisory_item_summary(item: EvidenceItem) -> list[str]:
+def _advisory_item_findings(item: EvidenceItem) -> list[str]:
     findings: list[str] = []
+    seen: set[str] = set()
     for raw_line in normalize_reviewer_output(item.body, family=item.family).splitlines():
         line = raw_line.strip()
         marker_line = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", line)
         if re.match(r"^(?:\*\*)?\[(?:p2|p3)\](?:\*\*)?(?:\s|$|[:.;-])", marker_line, re.I):
+            key = re.sub(r"\s+", " ", marker_line).strip().lower()
+            if key in seen:
+                continue
+            seen.add(key)
             findings.append(line)
+    return findings
+
+
+def _advisory_finding_count(items: Sequence[EvidenceItem]) -> int:
+    return sum(len(_advisory_item_findings(item)) for item in items)
+
+
+def _advisory_item_summary(item: EvidenceItem) -> list[str]:
+    findings = _advisory_item_findings(item)
     if findings:
         return findings
     return ["Advisory changes-requested review with no [P0]/[P1] finding."]
@@ -1074,8 +1099,11 @@ def compose_advisory_settlement_record(
     if not advisory:
         raise ValueError("advisory settlement requires at least one advisory item")
     issues = _issue_refs(followup_issues)
-    if len(issues) < len(advisory):
-        raise ValueError("advisory settlement requires a follow-up issue for every advisory review")
+    required_issues = _advisory_finding_count(advisory)
+    if len(issues) < required_issues:
+        raise ValueError(
+            "advisory settlement requires a follow-up issue for every advisory finding"
+        )
     fam = canonical_family(advisory[0].family)
     display = FAMILY_DISPLAY.get(fam, fam.title())
     provider = FAMILY_PROVIDERS.get(fam, fam)
@@ -1091,10 +1119,16 @@ def compose_advisory_settlement_record(
     if not support_lines:
         support_lines = ["- none recorded"]
     advisory_lines: list[str] = []
-    for index, item in enumerate(advisory):
-        issue = issues[index]
-        advisory_lines.append(f"- {item.family}: follow-up {issue}")
-        for finding in _advisory_item_summary(item):
+    issue_index = 0
+    for item in advisory:
+        findings = _advisory_item_findings(item)
+        if not findings:
+            advisory_lines.append(f"- {item.family}: advisory review with no [P2]/[P3] finding.")
+            continue
+        for finding in findings:
+            issue = issues[issue_index]
+            issue_index += 1
+            advisory_lines.append(f"- {item.family}: follow-up {issue}")
             advisory_lines.append(f"  - {finding}")
     return (
         f"## {display} advisory settlement record\n\n"
@@ -2237,6 +2271,15 @@ def collect_evidence(
             )
             _record_review_adjudication_if_applicable(outcome)
             return outcome
+        invalid_advisory_items = _invalid_advisory_items(outcome.items)
+        if post_advisory_dissent and invalid_advisory_items:
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                "advisory settlement requires clean lint for advisory reviewer(s): "
+                f"{', '.join(item.family for item in invalid_advisory_items)}"
+            )
+            _record_review_adjudication_if_applicable(outcome)
+            return outcome
         advisory_items = _advisory_items(outcome.items)
         advisory_requested = bool(post_advisory_dissent and advisory_items)
         if advisory_requested:
@@ -2268,10 +2311,11 @@ def collect_evidence(
                     "advisory settlement requires at least one supportive counting review"
                 )
                 return outcome
-            if len(_issue_refs(followup_issues)) < len(advisory_items):
+            required_issues = _advisory_finding_count(advisory_items)
+            if len(_issue_refs(followup_issues)) < required_issues:
                 outcome.action = "prepare"
                 outcome.action_reason = (
-                    "advisory settlement requires a follow-up issue for every advisory review"
+                    "advisory settlement requires a follow-up issue for every advisory finding"
                 )
                 return outcome
         if not outcome.has_supportive_quorum and not advisory_requested:
@@ -2856,6 +2900,15 @@ def apply_prepared_evidence(
         )
         _record_review_adjudication_if_applicable(outcome)
         return outcome
+    invalid_advisory_items = _invalid_advisory_items(outcome.items)
+    if post_advisory_dissent and invalid_advisory_items:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            "advisory settlement requires clean lint for advisory reviewer(s): "
+            f"{', '.join(item.family for item in invalid_advisory_items)}"
+        )
+        _record_review_adjudication_if_applicable(outcome)
+        return outcome
     advisory_items = _advisory_items(outcome.items)
     advisory_requested = bool(post_advisory_dissent and advisory_items)
     if advisory_requested:
@@ -2887,10 +2940,11 @@ def apply_prepared_evidence(
                 "advisory settlement requires at least one supportive counting review"
             )
             return outcome
-        if len(_issue_refs(followup_issues)) < len(advisory_items):
+        required_issues = _advisory_finding_count(advisory_items)
+        if len(_issue_refs(followup_issues)) < required_issues:
             outcome.action = "prepare"
             outcome.action_reason = (
-                "advisory settlement requires a follow-up issue for every advisory review"
+                "advisory settlement requires a follow-up issue for every advisory finding"
             )
             return outcome
     if not outcome.has_supportive_quorum and not advisory_requested:

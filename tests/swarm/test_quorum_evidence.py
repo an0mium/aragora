@@ -1669,6 +1669,66 @@ def test_collect_operator_advisory_dissent_requires_followup(
     assert posted == []
 
 
+def test_collect_operator_advisory_dissent_requires_followup_per_finding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "openai":
+            return ReviewerResult(
+                "openai",
+                "Verdict: CHANGES-REQUESTED\n"
+                "- [P2] Track the first edge case.\n"
+                "- [P3] Track the second edge case.",
+                True,
+            )
+        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+
+    fakes, posted = _fakes(tier=2)
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "openai"],
+        author="me",
+        apply=True,
+        post_advisory_dissent=True,
+        operator_login="scarmani",
+        followup_issues=["#8755"],
+        **fakes,
+    )
+
+    assert outcome.action == "prepare"
+    assert "every advisory finding" in outcome.action_reason
+    assert posted == []
+
+    fakes, posted = _fakes(tier=2)
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "openai"],
+        author="me",
+        apply=True,
+        post_advisory_dissent=True,
+        operator_login="scarmani",
+        followup_issues=["#8755", "#8756"],
+        **fakes,
+    )
+
+    assert outcome.action == "post"
+    assert outcome.posted == ["claude", "advisory-settlement:openai"]
+    assert len(posted) == 2
+    advisory_record = posted[1][1]
+    assert "#8755" in advisory_record
+    assert "#8756" in advisory_record
+    assert "Track the first edge case." in advisory_record
+    assert "Track the second edge case." in advisory_record
+
+
 def test_collect_operator_advisory_dissent_high_tier_stays_prepare(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2852,6 +2912,80 @@ def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
     assert (
         "fresh lint counted reviewer ids do not include prepared family: grok" in grok_item.problems
     )
+    assert outcome.posted == []
+    assert posted == []
+
+
+def test_apply_prepared_evidence_refuses_relint_demoted_advisory_item(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    monkeypatch.setenv("ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE", "1")
+    advisory_body = compose_evidence_comment(
+        family="openai",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=1,
+        reviewer_text="Verdict: CHANGES-REQUESTED\n- [P2] Track the advisory follow-up.",
+    )
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem(
+                "claude",
+                _prepared_body("claude"),
+                True,
+                ["claude"],
+                [],
+                "pass",
+                severity_gated=True,
+            ),
+            EvidenceItem(
+                "openai",
+                advisory_body,
+                True,
+                ["openai"],
+                [],
+                "changes_requested",
+                severity_gated=True,
+            ),
+        ],
+    )
+    posted: list[tuple[str, str]] = []
+
+    def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        if "Model family: openai" in body:
+            return {
+                "would_count": False,
+                "counted_reviewer_ids": [],
+                "problems": ["fresh lint rejected prepared comment"],
+            }
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        }
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "openai"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=linter,
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+        post_advisory_dissent=True,
+        operator_login="scarmani",
+        followup_issues=["#8755"],
+    )
+
+    assert outcome.action == "prepare"
+    assert "clean lint" in outcome.action_reason
+    assert "openai" in outcome.action_reason
     assert outcome.posted == []
     assert posted == []
 
