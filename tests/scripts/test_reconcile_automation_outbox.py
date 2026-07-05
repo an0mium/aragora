@@ -1535,8 +1535,12 @@ def test_remote_branch_preservation_proof_accepts_head_only_exact_remote_head(
         *,
         timeout: int = 60,
     ) -> subprocess.CompletedProcess[str]:
-        if args == ["rev-parse", "--verify", f"refs/remotes/origin/{branch}"]:
-            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args == ["ls-remote", "origin", f"refs/heads/{branch}"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"{desired_head}\trefs/heads/{branch}\n",
+            )
         raise AssertionError(f"unexpected git call: {args}")
 
     monkeypatch.setattr(mod, "run_git", fake_run_git)
@@ -1559,6 +1563,57 @@ def test_remote_branch_preservation_proof_accepts_head_only_exact_remote_head(
     assert proof["available"] is True
     assert proof["upstream_preservation"]["proven"] is True
     assert proof["upstream_preservation"]["method"] == "remote_branch_exact_head"
+    assert proof["upstream_preservation"]["source"] == "git_ls_remote"
+
+
+def test_remote_branch_preservation_proof_rejects_stale_head_only_tracking_ref(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/head-only-stale-remote-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    live_remote_head = "1111111234567890abcdef1234567890abcdef12"
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "local_evidence": {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    }
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["ls-remote", "origin", f"refs/heads/{branch}"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"{live_remote_head}\trefs/heads/{branch}\n",
+            )
+        if args == ["rev-parse", "--verify", f"refs/remotes/origin/{branch}"]:
+            raise AssertionError("head-only remote proof must not trust local tracking refs")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("head-only proof should not call worktree preservation")
+        ),
+    )
+
+    proof = mod._remote_branch_exact_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+    )
+
+    assert proof is None
 
 
 def test_remote_branch_preservation_proof_rejects_head_only_local_work_marker(
@@ -1902,6 +1957,93 @@ def test_unique_branch_archives_when_merged_pr_proof_is_squash_merged(
     assert payload["counts"]["satisfied_by_merged_pr_commit_proof"] == 1
     assert payload["counts"]["still_protecting_active_work"] == 0
     assert payload["actions"][0]["decision"] == "archive"
+    assert "merged PR commit list (PR #8583)" in payload["actions"][0]["reason"]
+
+
+def test_missing_local_branch_archives_before_remote_exact_keep_when_merged_pr_proves_head(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-missing-local-merged-proof-abc123"
+    branch = "codex/missing-local-merged-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree": str(tmp_path / "missing-worktree"),
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args == ["ls-remote", "origin", f"refs/heads/{branch}"]:
+            raise AssertionError("merged PR proof should run before exact remote keep")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    def fake_gh_items(_root: Path, endpoint: str) -> list[dict[str, Any]]:
+        if endpoint == f"repos/synaptent/aragora/commits/{desired_head}/pulls":
+            return [
+                {
+                    "number": 8583,
+                    "merged_at": "2026-06-24T00:00:00Z",
+                    "base": {"ref": "main"},
+                }
+            ]
+        if endpoint == "repos/synaptent/aragora/pulls/8583/commits?per_page=100":
+            return [
+                {"sha": "1111111111111111111111111111111111111111"},
+                {"sha": desired_head},
+            ]
+        raise AssertionError(f"unexpected gh endpoint: {endpoint}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    monkeypatch.setattr(mod, "_gh_api_paginated_items", fake_gh_items)
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree_paths": [str(tmp_path / "missing-worktree")],
+            "worktree_inspections": [
+                {
+                    "path": str(tmp_path / "missing-worktree"),
+                    "absent_noop": True,
+                    "source": "safe_worktree_cleanup.inspect",
+                    "classification": "absent_noop",
+                }
+            ],
+            "upstream_preservation": {
+                "proven": True,
+                "method": "remote_branch_exact_head",
+                "remote_head_sha": desired_head,
+            },
+        },
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_merged_pr_commit_proof"] == 1
+    assert payload["counts"]["missing_branch"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 0
+    assert payload["actions"][0]["decision"] == "archive"
+    assert payload["actions"][0]["synthetic_receipt"] is True
     assert "merged PR commit list (PR #8583)" in payload["actions"][0]["reason"]
 
 

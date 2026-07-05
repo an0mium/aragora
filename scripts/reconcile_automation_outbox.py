@@ -532,10 +532,9 @@ def _remote_branch_exact_preservation_proof(
             return None
 
         if not record.get("worktree"):
-            remote_branch = _normalize_base_ref(record_branch)
-            remote_ref = f"refs/remotes/origin/{remote_branch}"
-            remote_head = _git_ref_head(root, remote_ref)
-            if not remote_head or not _heads_match(desired_head, remote_head):
+            remote = _live_remote_branch_head(root, record_branch)
+            remote_head = str(remote.get("head_sha") or "").strip()
+            if remote.get("status") != "exists" or not _heads_match(desired_head, remote_head):
                 return None
             proofs.append(
                 {
@@ -545,8 +544,9 @@ def _remote_branch_exact_preservation_proof(
                     "upstream_preservation": {
                         "proven": True,
                         "method": "remote_branch_exact_head",
-                        "remote_ref": remote_ref,
+                        "remote_ref": remote.get("remote_ref"),
                         "remote_head_sha": remote_head,
+                        "source": "git_ls_remote",
                     },
                 }
             )
@@ -1110,6 +1110,34 @@ def _git_ref_head(root: Path, ref: str) -> str:
         return ""
     lines = proc.stdout.strip().splitlines()
     return lines[0].strip() if lines else ""
+
+
+def _live_remote_branch_head(root: Path, branch: str) -> Mapping[str, Any]:
+    remote_branch = _normalize_base_ref(branch)
+    if not remote_branch:
+        return {"status": "missing_branch_name"}
+    remote_ref = f"refs/heads/{remote_branch}"
+    try:
+        proc = run_git(["ls-remote", "origin", remote_ref], root, timeout=30)
+    except Exception as exc:
+        return {"status": "lookup_failed", "remote_ref": remote_ref, "reason": str(exc)}
+    if proc.returncode != 0:
+        return {
+            "status": "lookup_failed",
+            "remote_ref": remote_ref,
+            "reason": proc.stderr.strip(),
+        }
+    lines = proc.stdout.strip().splitlines()
+    if not lines:
+        return {"status": "missing", "remote_ref": remote_ref}
+    parts = lines[0].split()
+    if not parts:
+        return {
+            "status": "lookup_failed",
+            "remote_ref": remote_ref,
+            "reason": "unexpected ls-remote output",
+        }
+    return {"status": "exists", "remote_ref": remote_ref, "head_sha": parts[0].strip()}
 
 
 def _receipt_handoff_keep_reason(
@@ -1800,6 +1828,44 @@ def main(argv: list[str] | None = None) -> int:
                         "synthetic_receipt": False,
                     }
                 )
+                continue
+
+            merged_pr_proof = _merged_pr_commit_preservation_proof(
+                root=root,
+                state_root=state_root,
+                payload=payload,
+                branch=branch,
+                repo_name=args.repo_name,
+                base=args.base,
+            )
+            if merged_pr_proof is not None:
+                upstream = merged_pr_proof.get("upstream_preservation") or {}
+                pr_number = upstream.get("pr_number") if isinstance(upstream, Mapping) else None
+                reason = "desired head preserved by merged PR commit list" + (
+                    f" (PR #{pr_number})" if pr_number is not None else ""
+                )
+                counts["satisfied_by_merged_pr_commit_proof"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": reason,
+                        "preservation_proof": merged_pr_proof,
+                        "synthetic_receipt": True,
+                    }
+                )
+                if args.apply:
+                    _write_synthetic_receipt(
+                        receipt_dir=receipt_dir,
+                        outbox_payload=payload,
+                        reason=reason,
+                        pr_number=int(pr_number) if isinstance(pr_number, int) else None,
+                        apply=True,
+                    )
+                    _archive_with_preservation_proof(
+                        path, archive_dir, payload, merged_pr_proof, reason
+                    )
                 continue
 
             remote_branch_proof = _remote_branch_exact_preservation_proof(
