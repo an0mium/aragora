@@ -6,7 +6,7 @@ multi-model review in, a verifiable Decision Receipt out.**
 It coordinates heterogeneous models to adversarially review a change or a
 decision, preserves the dissent and provenance, stops truthfully when evidence
 is thin, and emits a portable receipt anyone can verify offline with the
-standalone verifier. PyPI publishing for the verifier is pending.
+standalone verifier ([`pip install -U 'aragora-verify>=0.1.1'`](https://pypi.org/project/aragora-verify/)).
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -18,9 +18,17 @@ standalone verifier. PyPI publishing for the verifier is pending.
 | I want to… | Command |
 |------------|---------|
 | Run the standalone debate engine | `pip install aragora-debate` |
-| Verify a Decision Receipt with the standalone verifier | `PYTHONPATH=src python -m aragora_verify <receipt>` from `aragora-verify/`; PyPI publish pending |
+| Verify an Open Decision Receipt with the standalone verifier | `pip install -U 'aragora-verify>=0.1.1' && aragora-verify receipt.odr.json` |
+| Run the current PyPI zero-key demo | `pip install aragora && aragora demo` |
+| See a native debate → receipt → verify loop from a current source checkout | `python3 -m pip install -e . && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
+
+PyPI `aragora` releases through 2.7.4 support `aragora demo`, but they do not
+include the explicit `--offline` flag or the source checkout's verifiable
+native demo-receipt round trip. If that public-package demo writes
+`aragora-demo-receipt.json`, treat it as demo output, not the verification
+example; use the source checkout path below for `receipt verify`.
 
 ## The problem
 
@@ -69,20 +77,45 @@ auditor, a customer — can verify it independently with the standalone
 `aragora-verify` verifier (no Aragora dependency):
 
 ```bash
-# PyPI publish pending; today it lives in this repo under aragora-verify/:
-cd aragora-verify
-PYTHONPATH=src python -m aragora_verify ../decision-receipt.odr.json
+pip install -U 'aragora-verify>=0.1.1'
+aragora-verify decision-receipt.odr.json
 
-# After PyPI publish:
-# aragora-verify decision-receipt.odr.json
+# Add a public key when you need issuer authenticity, not just structure/digest:
+aragora-verify decision-receipt.odr.json --pubkey signing-key.pem
+
+# or build from source (this repo, aragora-verify/):
+pip install ./aragora-verify
 ```
+
+> Use **0.1.1+** (`pip install -U 'aragora-verify>=0.1.1'`): it binds each
+> signature's recorded `key_id` to the key you supply, so a relabeled signer
+> fails as tampering. 0.1.0 lacks that binding — upgrade if you have it.
+
+We run this gate on our own repository — every substantive merge is reviewed
+by a heterogeneous model quorum, dissent preserved, receipts written. The
+evidence, with reproducible queries and caught-bug case studies:
+[**Decision Integrity, Dogfooded**](https://github.com/synaptent/aragora/blob/main/docs/artifacts/2026-07-decision-integrity-dogfooding.md).
 
 ## Try it now
 
+Current PyPI package:
+
 ```bash
 pip install aragora
-aragora demo --offline              # zero-key debate, writes a local receipt
+aragora demo                        # no provider key required in PyPI 2.7.4
+```
 
+Current source checkout:
+
+```bash
+python3 -m pip install -e .
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
+```
+
+Live review with a provider key:
+
+```bash
 export ANTHROPIC_API_KEY=...        # provider credential for live model review
 aragora review-pr 123               # multi-agent review of a GitHub PR
 aragora receipt export <id> --format odr -o receipt.odr.json   # portable receipt
@@ -220,6 +253,7 @@ Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed
 | What's real vs aspirational | [`docs/HONEST_ASSESSMENT.md`](docs/HONEST_ASSESSMENT.md) |
 | Receipt format (the external contract) | [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) |
 | Decision-semantics roadmap | ODR spine epic [#8223](https://github.com/synaptent/aragora/issues/8223); ODR-1..7 → [#8224](https://github.com/synaptent/aragora/issues/8224)/[#8225](https://github.com/synaptent/aragora/issues/8225)/[#8226](https://github.com/synaptent/aragora/issues/8226)/[#8227](https://github.com/synaptent/aragora/issues/8227)/[#8229](https://github.com/synaptent/aragora/issues/8229)/[#8230](https://github.com/synaptent/aragora/issues/8230)/[#8231](https://github.com/synaptent/aragora/issues/8231) |
+| Jul 2026 durability capture / outsider-verifiable claims | [Durable strategy capture](docs/strategy/2026-07-05-durable-strategy-capture.md); executable claims manifest [`outsider_verifiable_claims.yaml`](docs/status/claims/outsider_verifiable_claims.yaml); parent capture issue [#8856](https://github.com/synaptent/aragora/issues/8856) |
 | Autonomy truth | B0 benchmark [`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](docs/status/B0_BENCHMARK_TRUTH_STATUS.md) |
 | Enterprise / compliance | [GA checklist](docs/GA_CHECKLIST.md) (SOC 2 / pentest gate) · [Enterprise features](docs/enterprise/ENTERPRISE_FEATURES.md) |
 | Frontier work is bounded | the proof-first Foreman gate + capability checkpoints CP-1..5 (below) |
@@ -304,6 +338,7 @@ truth. *(docs/CANONICAL_GOALS.md)*
 
 ### The complete capability surface
 
+<!-- metrics:begin readme-scale -->
 > Scale (canonical counts in [`docs/METRICS.md`](docs/METRICS.md), rounded):
 > **~4,200 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test
 > functions across ~5,400 files · 3,297 API operations across 2,870 paths ·
@@ -311,6 +346,7 @@ truth. *(docs/CANONICAL_GOALS.md)*
 > (46 files) · 360+ RBAC permissions · Python + TypeScript SDKs · v2.9.0.**
 > (Practical real-time debate uses 2–6 agents; the value is *heterogeneity*, not raw
 > count — see docs/HONEST_ASSESSMENT.md.)
+<!-- metrics:end -->
 
 **Core debate (✅).** Arena engine orchestrates Propose/Critique/Revise/Vote phases,
 extended multi-round debates, semantic convergence detection, ELO-based team

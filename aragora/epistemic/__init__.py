@@ -13,7 +13,12 @@ Exposes:
 - DIC-18: organizational truth map report (:class:`OrgTruthMapReport`,
   :func:`build_truth_map`, :func:`build_truth_map_from_manifests`)
 - DIC-20: epistemic decay monitor (:class:`DecaySignal`,
-  :class:`DecayReason`, :func:`evaluate_unit`)
+  :class:`DecayReason`, :func:`evaluate_unit`) plus world-state
+  event translation (:class:`WorldStateEvent`, :class:`WorldEventKind`,
+  :func:`claims_affected_by_event`, :func:`world_event_to_claim_results`,
+  :func:`world_events_enabled`, :func:`enable_world_events`,
+  :func:`reset_world_events`).
+  Flag gate: ``ARAGORA_WORLD_EVENTS_ENABLED`` (default off).
 - DIC-21: fail-closed quarantine policy (:class:`QuarantineDecision`,
   :class:`QuarantinePolicy`, :func:`apply_quarantine_policy`,
   :func:`quarantine_policy_enabled`)
@@ -103,6 +108,15 @@ from .decay_monitor import (
     DecaySignal,
     compute_decay_impact_set,
     evaluate_unit,
+)
+from .world_event import (
+    WorldEventKind,
+    WorldStateEvent,
+    claims_affected_by_event,
+    enable_world_events,
+    reset_world_events,
+    world_event_to_claim_results,
+    world_events_enabled,
 )
 from .executable_claim import (
     ClaimConfidence,
@@ -286,6 +300,13 @@ __all__ = [
     "epistemic_followup_enabled",
     "compute_decay_impact_set",
     "evaluate_unit",
+    "WorldEventKind",
+    "WorldStateEvent",
+    "claims_affected_by_event",
+    "enable_world_events",
+    "reset_world_events",
+    "world_event_to_claim_results",
+    "world_events_enabled",
     "from_belief_node",
     "propose_followup_for_crux",
     "propose_followup_for_cruxset",

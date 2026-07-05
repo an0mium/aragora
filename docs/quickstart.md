@@ -16,15 +16,20 @@ No API keys required. The offline demo runs a complete adversarial debate with
 mock agents:
 
 ```bash
-python3 -m aragora.cli.main demo
+python3 -m aragora_debate
 ```
 
 You'll see three agents propose, critique each other, vote, reach consensus, and
 produce an audit-ready decision receipt with a SHA-256 verdict hash.
 
+(If you installed the full platform instead — `pip install aragora` — the
+equivalent zero-key demo is `aragora demo`.)
+
 ## 3. Three-Line Debate (Python)
 
 ```python
+import asyncio
+
 from aragora_debate.arena import Arena
 from aragora_debate.styled_mock import StyledMockAgent
 
@@ -95,11 +100,28 @@ Then visit:
 
 ## 7. CLI
 
+Current PyPI package:
+
 ```bash
 pip install aragora
-aragora debate "Should we build or buy our auth system?"
+aragora demo                                            # no provider key required in PyPI 2.7.4
+aragora ask "Should we build or buy our auth system?"   # real debate (needs an API key)
 aragora serve --api-port 8080 --ws-port 8765
 ```
+
+Current source checkout:
+
+```bash
+python3 -m pip install -e .
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
+```
+
+PyPI `aragora` releases through 2.7.4 run `aragora demo`, but the explicit
+`--offline` flag and verifiable native demo-receipt round trip are available
+from source until a later package release carries them. If the public-package
+demo writes `aragora-demo-receipt.json`, treat it as demo output, not the
+verification example; use the source checkout path above for `receipt verify`.
 
 ## Next Steps
 

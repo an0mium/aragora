@@ -72,7 +72,9 @@ Fire **only when the quorum stalls** (not on every PR): convergence detector rep
 advisory-only*, then:
 1. score each disputed finding through the evidence/trickster scorer;
 2. if **all** are below the evidence bar → **auto-settle**, file findings as follow-ups;
-3. if a finding is **evidence-backed** → it becomes blocking (correct);
+3. if a finding is **evidence-backed** → it is never discarded; by default grounded `[P2]`/`[P3]`
+   findings stay capped at advisory follow-up per severity-gated dissent, while callers may
+   explicitly promote grounded advisory findings to blocking;
 4. if reviewers disagree on something **material** → crux-finder names it, **escalate to human with
    the crux stated** (not a wall of nits);
 5. emit a `DecisionReceipt` either way.
@@ -85,7 +87,9 @@ blocker. No new primitives — compose existing ones. Tier: this touches merge-a
 **Acceptance:**
 - On a synthetic stuck cycle (advisory-only dissent, ≥2 unchanged rounds), the adjudicator settles
   and emits a receipt naming the suppressed findings.
-- A single evidence-backed `[P2]` (with citation/specific repro) is **not** suppressed — it blocks.
+- A single evidence-backed `[P2]` (with citation/specific repro) is **not** suppressed; default M0
+  caps it at advisory follow-up, with an explicit promotion policy available for callers that want
+  it to block.
 - A material disagreement produces a crux escalation, not an auto-settle.
 - Behavior is opt-in behind a flag; default OFF until proven.
 

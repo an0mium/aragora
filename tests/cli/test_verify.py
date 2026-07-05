@@ -10,6 +10,7 @@ Validates that the verify command correctly:
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import textwrap
@@ -25,6 +26,7 @@ from aragora.cli.commands.verify import (
     _recompute_checksum,
     _verify_receipt,
     cmd_verify,
+    create_verify_parser,
 )
 
 
@@ -395,3 +397,95 @@ class TestCmdVerify:
         args = _FakeArgs(receipt_path=str(path))
         rc = cmd_verify(args)
         assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# Help-text tests: `aragora receipt verify --help` (VAL-VERIFY-013)
+#
+# The `receipt verify` subcommand (aragora/cli/commands/receipt.py) is a
+# separate implementation from the top-level `verify` command tested above:
+# it checks artifact_hash presence, recomputes the SHA-256 decision-integrity
+# hash, checks required-field presence, and (if present) verifies a
+# cryptographic signature -- but unlike `cmd_verify` it does NOT fall back to
+# a legacy `checksum` field. Its --help text must describe that real behavior
+# instead of being blank, and must stay disambiguated from the standalone
+# `aragora-verify` ODR verifier per docs/specs/INDEPENDENT_VERIFIER_GUIDE.md.
+# ---------------------------------------------------------------------------
+
+
+def _build_receipt_verify_subparser() -> argparse.ArgumentParser:
+    """Construct just the 'receipt verify' subparser for help-text inspection."""
+    from aragora.cli.commands.receipt import add_receipt_parser
+
+    root = argparse.ArgumentParser(prog="aragora")
+    subparsers = root.add_subparsers(dest="command")
+    add_receipt_parser(subparsers)
+    receipt_parser = subparsers.choices["receipt"]
+
+    receipt_subparsers_action = next(
+        action
+        for action in receipt_parser._actions  # noqa: SLF001
+        if isinstance(getattr(action, "choices", None), dict)
+    )
+    return receipt_subparsers_action.choices["verify"]
+
+
+def _build_top_level_verify_parser() -> argparse.ArgumentParser:
+    """Construct just the top-level 'verify' parser for help-text inspection."""
+    root = argparse.ArgumentParser(prog="aragora")
+    subparsers = root.add_subparsers(dest="command")
+    create_verify_parser(subparsers)
+    return subparsers.choices["verify"]
+
+
+# Terms that must appear (case-insensitively) in help text describing native
+# DecisionReceipt integrity verification, per the disambiguation table in
+# docs/specs/INDEPENDENT_VERIFIER_GUIDE.md: native = in-repo DecisionReceipt
+# checks (SHA-256 hash recompute + tamper detection + signature check), as
+# opposed to the standalone `aragora-verify` ODR document verifier.
+_NATIVE_INTEGRITY_TERMS = ("sha-256", "artifact_hash", "tamper", "signature")
+
+
+class TestReceiptVerifyHelpText:
+    """`aragora receipt verify --help` must describe what it actually verifies."""
+
+    def test_receipt_verify_has_nonempty_description(self):
+        """The subparser must declare a description, not rely on `help=` alone."""
+        verify_subparser = _build_receipt_verify_subparser()
+        assert verify_subparser.description, "receipt verify must have a description"
+
+    def test_receipt_verify_description_mentions_native_integrity_terms(self):
+        """Description must name the real checks: SHA-256 hash, tamper, signature."""
+        verify_subparser = _build_receipt_verify_subparser()
+        description = verify_subparser.description.lower()
+        for term in _NATIVE_INTEGRITY_TERMS:
+            assert term in description, f"expected {term!r} in receipt verify description"
+        assert "decisionreceipt" in description
+
+    def test_receipt_verify_description_disambiguates_from_odr_verifier(self):
+        """Description should point ODR holders at the standalone verifier instead."""
+        verify_subparser = _build_receipt_verify_subparser()
+        description = verify_subparser.description.lower()
+        assert "aragora-verify" in description or "odr" in description
+
+    def test_receipt_verify_help_exits_zero_and_prints_native_terms(self, capsys):
+        """`aragora receipt verify --help` must exit 0 and print the description."""
+        verify_subparser = _build_receipt_verify_subparser()
+        with pytest.raises(SystemExit) as exc_info:
+            verify_subparser.parse_args(["--help"])
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        output = captured.out.lower()
+        for term in _NATIVE_INTEGRITY_TERMS:
+            assert term in output
+
+    def test_top_level_verify_help_still_exits_zero_and_prints_native_terms(self, capsys):
+        """`aragora verify --help` keeps describing native verification (no regression)."""
+        verify_parser = _build_top_level_verify_parser()
+        with pytest.raises(SystemExit) as exc_info:
+            verify_parser.parse_args(["--help"])
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        output = captured.out.lower()
+        for term in _NATIVE_INTEGRITY_TERMS:
+            assert term in output

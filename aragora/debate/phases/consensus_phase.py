@@ -718,9 +718,9 @@ class ConsensusPhase:
 
         ctx.vote_tally = dict(vote_counts)
 
-        total_voters = len(votes) + user_vote_count
+        total_voters = len(votes) + user_vote_count + voting_errors
         if voting_errors > 0:
-            logger.info("unanimous_vote_errors excluded=%s from total", voting_errors)
+            logger.info("unanimous_vote_errors counted_as_dissent=%s", voting_errors)
 
         most_common = vote_counts.most_common(1) if vote_counts else []
         if most_common and total_voters > 0:

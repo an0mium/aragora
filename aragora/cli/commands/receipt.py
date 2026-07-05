@@ -100,6 +100,17 @@ Examples:
     verify_parser = receipt_sub.add_parser(
         "verify",
         help="Verify receipt artifact hash and signature integrity",
+        description=(
+            "Validate a native DecisionReceipt JSON file's integrity (this repo's "
+            "internal receipt record -- for the portable Open Decision Receipt/ODR "
+            "format, use the standalone 'aragora-verify' tool instead). Recomputes "
+            "the SHA-256 decision-integrity hash (artifact_hash) over the "
+            "decision-integrity fields (receipt_id, gauntlet_id, input_hash, "
+            "risk_summary, verdict, confidence) and compares it to the stored value "
+            "to detect tampering of those fields; also confirms the required fields "
+            "(receipt_id, verdict, timestamp, confidence) are present. When the "
+            "receipt carries a cryptographic signature, verifies it too."
+        ),
     )
     verify_parser.add_argument("receipt", help="Path to receipt JSON file")
     verify_parser.add_argument(

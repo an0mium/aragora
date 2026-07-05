@@ -249,6 +249,16 @@ class TestArgumentParser:
         args = parser.parse_args(["demo", "rate-limiter"])
         assert args.name == "rate-limiter"
 
+    def test_real_parser_accepts_demo_offline_receipt_path(self):
+        """The public demo round-trip flags must stay wired on the real parser."""
+        parser = cli_parser.build_parser()
+
+        args = parser.parse_args(["demo", "--offline", "--receipt", "aragora-demo-receipt.json"])
+
+        assert args.command == "demo"
+        assert args.offline is True
+        assert args.receipt == "aragora-demo-receipt.json"
+
     def test_parse_serve_command(self, parser):
         """Should parse serve command with defaults."""
         args = parser.parse_args(["serve"])
@@ -536,6 +546,17 @@ class TestDemoTasks:
 
 class TestMain:
     """Tests for main entry point."""
+
+    def test_review_queue_build_accepts_repo_override(self):
+        parser = cli_parser.build_parser()
+        args = parser.parse_args(
+            ["review-queue", "build", "--repo", "synaptent/aragora", "--limit", "7"]
+        )
+
+        assert args.command == "review-queue"
+        assert args.review_queue_command == "build"
+        assert args.repo == "synaptent/aragora"
+        assert args.limit == 7
 
     def test_record_settlement_skips_startup_secret_hydration(self):
         """Receipt-only settlement recording should not need provider secrets."""

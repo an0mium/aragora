@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aragora"
 version = "2.9.0"
-description = "Decision Integrity Platform — multi-agent vetted decisionmaking with audit-ready receipts"
-readme = {text = "# Aragora\n\nThe Decision Integrity Platform: orchestrate multi-agent debates against your org's knowledge and deliver audit-ready decision receipts. Installing this distribution provides the `aragora` CLI and the full `aragora` package. The small standalone debate wedge is published separately as `aragora-debate` (see the `aragora-debate/` subproject).", content-type = "text/markdown"}
+description = "Auditable execution control plane for AI-assisted decisions: multi-model review in, a verifiable Decision Receipt out"
+readme = {text = "# Aragora\n\nAragora is an auditable execution control plane for AI-assisted decisions: multi-model review in, a verifiable Decision Receipt out. Installing this distribution provides the `aragora` CLI and the full `aragora` package. The small standalone debate wedge is published separately as `aragora-debate` (see the `aragora-debate/` subproject).", content-type = "text/markdown"}
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
@@ -98,6 +98,10 @@ dev = [
     # do not need to fall back to `--no-verify`
     # (FIX-ENV-ONCE — docs/AGENT_OPERATING_CONTRACT.md §Conductor).
     "pre-commit>=4.6.0,<5.0",
+    # Build backend for the in-repo aragora-verify package so the ODR
+    # walkthrough CLI smoke tests build the wheel offline-deterministically
+    # in CI (tests/gauntlet/test_odr_walkthrough_fixture.py).
+    "hatchling>=1.18,<2.0",
 ]
 all = [
     "fastapi>=0.138.0,<1.0",

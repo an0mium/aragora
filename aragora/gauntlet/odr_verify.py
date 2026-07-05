@@ -1,16 +1,21 @@
 """In-package verification engine for Open Decision Receipts (ODR v0.1).
 
-This is the *server-side single implementation* that the ``POST
-/api/receipts/verify`` endpoint and any internal caller wrap. It reuses the
+This is an in-tree **library** engine, not a wired API: it reuses the
 emitter's canonicalization and digest (``odr_export.jcs_canonicalize`` /
 ``odr_content_digest`` / ``load_odr_schema``) so a receipt verifies against the
-exact bytes it was emitted and signed over.
+exact bytes it was emitted and signed over. No shipped CLI subcommand or HTTP
+route calls it today — the existing ``/api/v2/receipts/{id}/verify*`` and
+``/receipts/{id}/verify`` routes verify the native or legacy receipt instead
+(see ``docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md`` "Two verifiers" for the
+full picture). It is available for internal callers to import directly and is
+exercised by its own test suite.
 
 The standalone, zero-Aragora-dependency mirror of this engine is the
-``aragora-verify`` PyPI package (issue #8226); both follow the same content
-profile (``docs/specs/OPEN_DECISION_RECEIPT.md``) and signature construction
-(§6 / issue #8225), so a receipt verifies identically whether checked here or
-by an external auditor with only the public key.
+``aragora-verify`` PyPI package (issue #8226); the two are kept in lockstep —
+both follow the same content profile (``docs/specs/OPEN_DECISION_RECEIPT.md``)
+and signature construction (§6 / issue #8225), so a receipt verifies
+identically whether checked here or by an external auditor with only the
+public key.
 
 Checks:
 

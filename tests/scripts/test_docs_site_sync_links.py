@@ -160,3 +160,152 @@ def test_cli_reference_preserves_generated_catalog_description() -> None:
 
     assert "title: Aragora CLI Reference" in content
     assert "description: Generated Aragora CLI command catalog from live parser" in content
+
+
+def test_disaster_recovery_links_resolve_by_source_directory_not_last_doc_map_entry() -> None:
+    # DISASTER_RECOVERY.md is the basename of three DOC_MAP entries (deployment/,
+    # runbooks/, enterprise/). A bare "DISASTER_RECOVERY.md" link must resolve
+    # relative to the linking source's own directory, not to whichever DOC_MAP
+    # entry for that basename happens to be defined last.
+    deployment_async = _read_docs_site("deployment/async-gateway.md")
+    deployment_volumes = _read_docs_site("deployment/container-volumes.md")
+    enterprise_compliance = _read_docs_site("enterprise/compliance.md")
+    production_readiness = _read_docs_site("operations/production-readiness.md")
+    runbook_backup = _read_docs_site("operations/runbook-backup-automation.md")
+    runbook_multi_region = _read_docs_site("operations/runbook-multi-region-setup.md")
+    runbook_pg_migration = _read_docs_site("operations/runbook-postgresql-migration.md")
+    runbook_pg_replication = _read_docs_site("operations/runbook-postgresql-replication.md")
+    disaster_recovery_runbook = _read_docs_site("operations/disaster-recovery-runbook.md")
+
+    # deployment/ siblings resolve to the deployment DR page. Previously these
+    # silently mis-resolved to the runbooks DR page (the last DOC_MAP entry
+    # sharing the "DISASTER_RECOVERY.md" basename).
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery)" in deployment_async
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery)" in deployment_volumes
+
+    # PRODUCTION_READINESS.md's source lives in docs/deployment/, so its two bare
+    # links are deployment/ sibling references too, not runbooks/ references.
+    assert (
+        production_readiness.count("[DISASTER_RECOVERY.md](../deployment/disaster-recovery)") == 2
+    )
+
+    # COMPLIANCE.md's source lives in docs/enterprise/, so its bare link is a
+    # sibling reference to the (newly mapped) enterprise DR overview.
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery)" in enterprise_compliance
+
+    # runbooks/ siblings correctly resolve to the runbooks DR page. Pin this down
+    # so a future DOC_MAP reordering cannot silently break it the way the
+    # deployment/ and enterprise/ links were broken.
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in runbook_backup
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in runbook_multi_region
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in runbook_pg_migration
+    assert "[DISASTER_RECOVERY.md](./disaster-recovery-runbook)" in runbook_pg_replication
+
+    # The runbook route itself is public-safe generated output, so it should keep
+    # navigable links to the related public-safe DR pages without exposing the
+    # source runbook body.
+    assert (
+        "[Deployment disaster recovery overview](../deployment/disaster-recovery)"
+        in disaster_recovery_runbook
+    )
+    assert (
+        "[Enterprise disaster recovery overview](../enterprise/disaster-recovery)"
+        in disaster_recovery_runbook
+    )
+
+    for content in [
+        deployment_async,
+        deployment_volumes,
+        enterprise_compliance,
+        production_readiness,
+        runbook_backup,
+        runbook_multi_region,
+        runbook_pg_migration,
+        runbook_pg_replication,
+        disaster_recovery_runbook,
+    ]:
+        assert "DISASTER_RECOVERY.md)" not in content
+
+
+def test_disaster_recovery_docs_site_pages_are_mapped_and_public_safe() -> None:
+    # Source DR docs include operational runbook details. The docs-site routes
+    # must stay valid without publishing internal topology, commands, or response
+    # rosters.
+    expected_pages = {
+        "deployment/disaster-recovery.md": "Deployment Disaster Recovery Overview",
+        "enterprise/disaster-recovery.md": "Enterprise Disaster Recovery Overview",
+        "operations/disaster-recovery-runbook.md": (
+            "Operations Disaster Recovery Runbook Overview"
+        ),
+    }
+
+    for rel_path, title in expected_pages.items():
+        page = DOCS_SITE_ROOT / rel_path
+        assert page.exists(), f"Expected synced docs-site page missing: {page}"
+
+        content = page.read_text(encoding="utf-8")
+        assert f"title: {title}" in content
+        assert "restricted to authorized" in content
+        assert "Classification: Internal" not in content
+        assert "Primary Region (us-east-1)" not in content
+        assert "s3://aragora-backups" not in content
+        assert "kubectl --context backup" not in content
+        assert "Incident commander" not in content
+        assert "grafana.aragora.internal" not in content
+        assert "verify-backup-region" not in content
+
+
+def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
+    # README.md is also a multi-way-ambiguous basename (case-studies/README.md and
+    # ADR/README.md both map to it), and several other source docs link to
+    # non-docs-site README.md files (e.g. aragora/mcp/README.md, deploy/README.md)
+    # that are intentionally outside DOC_MAP. The resolver must still fail closed
+    # instead of guessing the ADR README, but known repo docs and docs-site pages
+    # should rewrite to stable valid destinations instead of leaving broken
+    # source-relative links in relocated generated docs.
+    reference = _read_docs_site("api/reference.md")
+    status = _read_docs_site("contributing/status.md")
+    extended_readme = _read_docs_site("contributing/extended-readme.md")
+    sdk_consolidation = _read_docs_site("guides/sdk-consolidation.md")
+    sdk_quickstart = _read_docs_site("guides/sdk-quickstart.md")
+    eu_ai_act_guide = _read_docs_site("security/eu-ai-act-guide.md")
+
+    assert (
+        "[MCP README]"
+        "(https://github.com/synaptent/aragora/blob/main/aragora/mcp/README.md)" in reference
+    )
+    assert "[README](https://github.com/synaptent/aragora/blob/main/README.md)" in status
+    assert "[README](https://github.com/synaptent/aragora/blob/main/README.md)" in extended_readme
+    assert (
+        "[algorithms/README.md]"
+        "(https://github.com/synaptent/aragora/blob/main/docs/algorithms/README.md)"
+        in extended_readme
+    )
+    assert (
+        "[sdk/typescript/README.md]"
+        "(https://github.com/synaptent/aragora/blob/main/sdk/typescript/README.md)"
+        in sdk_consolidation
+    )
+    assert (
+        "[`deploy/README.md`]"
+        "(https://github.com/synaptent/aragora/blob/main/deploy/README.md)" in sdk_quickstart
+    )
+    assert "[Gauntlet Testing](../guides/gauntlet)" in eu_ai_act_guide
+
+    for content in [
+        reference,
+        status,
+        extended_readme,
+        sdk_consolidation,
+        sdk_quickstart,
+        eu_ai_act_guide,
+    ]:
+        assert "analysis/adr" not in content
+        for target in [
+            "../../aragora/mcp/README.md",
+            "../README.md",
+            "algorithms/README.md",
+            "../deploy/README.md",
+            "../../aragora/gauntlet/README.md",
+        ]:
+            assert f"]({target})" not in content

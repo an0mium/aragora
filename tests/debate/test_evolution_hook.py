@@ -34,12 +34,15 @@ class TestEvolutionHookWiring:
         config = ArenaConfig(enable_prompt_evolution=True)
         assert config.enable_prompt_evolution is True
 
-    @patch("aragora.debate.orchestrator.init_phases")
-    @patch("aragora.evolution.evolver.PromptEvolver")
-    def test_arena_auto_creates_evolver_when_enabled(self, mock_evolver_class, mock_init_phases):
+    @patch("aragora.debate.orchestrator._init_run_init_subsystems")
+    @patch("aragora.debate.arena_initializer.PromptEvolver")
+    def test_arena_auto_creates_evolver_when_enabled(
+        self, mock_evolver_class, mock_init_subsystems, monkeypatch
+    ):
         """Arena should auto-create PromptEvolver when enable_prompt_evolution=True."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
 
+        monkeypatch.setenv("ARAGORA_ALLOW_PROMPT_EVOLVE", "1")
         mock_evolver_instance = Mock()
         mock_evolver_class.return_value = mock_evolver_instance
 
@@ -58,8 +61,8 @@ class TestEvolutionHookWiring:
         # The evolver should be created
         assert arena.prompt_evolver is not None
 
-    @patch("aragora.debate.orchestrator.init_phases")
-    def test_arena_uses_provided_evolver(self, mock_init_phases):
+    @patch("aragora.debate.orchestrator._init_run_init_subsystems")
+    def test_arena_uses_provided_evolver(self, mock_init_subsystems):
         """Arena should use the provided prompt_evolver from config."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
 
@@ -246,8 +249,8 @@ class TestEvolutionHookE2E:
     """End-to-end tests for evolution hook integration."""
 
     @pytest.mark.asyncio
-    @patch("aragora.debate.orchestrator.init_phases")
-    async def test_arena_run_triggers_evolution(self, mock_init_phases):
+    @patch("aragora.debate.orchestrator._init_run_init_subsystems")
+    async def test_arena_run_triggers_evolution(self, mock_init_subsystems):
         """Running Arena with evolution enabled should trigger pattern recording."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
         from aragora.core import Environment

@@ -126,8 +126,10 @@ class TestSynthesisPromptBuilding:
 
         prompt = generator._build_synthesis_prompt(ctx)
 
-        # Should be truncated to 1500 chars
-        assert len(prompt) < 5000 + 1000  # Some buffer for prompt text
+        # Should truncate the proposal itself even though the contract-guided
+        # prompt includes a larger fixed scaffold.
+        assert "x" * 5000 not in prompt
+        assert "x" * 1500 in prompt
 
 
 class TestProposalCombination:

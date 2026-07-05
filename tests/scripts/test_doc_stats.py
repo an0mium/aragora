@@ -1,3 +1,13 @@
+"""Tests for scripts/doc_stats.py.
+
+Updated to the delimited-block contract for #8792: doc_stats.py rewrites
+only ``<!-- metrics:begin <key> -->`` ... ``<!-- metrics:end -->`` blocks,
+sourcing values from docs/METRICS.md (plus the version from pyproject.toml),
+and fails closed on missing rows, unknown keys, or malformed delimiters.
+The old per-line regex search/replace machinery was deleted in the same
+change, so its tests were replaced rather than weakened.
+"""
+
 from __future__ import annotations
 
 import importlib.util
@@ -10,6 +20,25 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "doc_stats.py"
 
+METRICS_TABLE = "\n".join(
+    [
+        "| Metric | Value | Source | Command |",
+        "|---|---|---|---|",
+        "| Python files under aragora/ | `4219` | `aragora/` | `cmd` |",
+        "| Python lines of code under aragora/ | `1972052` | `aragora/` | `cmd` |",
+        "| Top-level modules under aragora/ | `144` | `aragora/` | `cmd` |",
+        "| Test files (test_*.py under tests/) | `5402` | `tests/` | `cmd` |",
+        "| Test functions (class + module level) | `222659` | `tests/` | `cmd` |",
+        "| OpenAPI paths | `2870` | `docs/api/openapi.json` | `cmd` |",
+        "| OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `cmd` |",
+        "| Allowlisted agent types | `35` | `aragora/config/settings.py` | `cmd` |",
+        "| Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `cmd` |",
+        "| Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `cmd` |",
+    ]
+)
+
+PYPROJECT = 'name = "aragora"\nversion = "2.9.0"\n'
+
 
 def _load_module():
     spec = importlib.util.spec_from_file_location("doc_stats_under_test", str(SCRIPT))
@@ -20,30 +49,21 @@ def _load_module():
     return module
 
 
+def _block(key: str, body: str) -> str:
+    return f"<!-- metrics:begin {key} -->\n{body}\n<!-- metrics:end -->"
+
+
+def _make_root(tmp_path: Path, metrics_table: str = METRICS_TABLE) -> Path:
+    root = tmp_path
+    (root / "docs").mkdir(exist_ok=True)
+    (root / "docs" / "METRICS.md").write_text(metrics_table, encoding="utf-8")
+    (root / "pyproject.toml").write_text(PYPROJECT, encoding="utf-8")
+    return root
+
+
 def test_metrics_doc_values_parse_exact_generated_metrics(tmp_path, monkeypatch):
     mod = _load_module()
-    root = tmp_path
-    docs = root / "docs"
-    docs.mkdir()
-    (docs / "METRICS.md").write_text(
-        "\n".join(
-            [
-                "| Metric | Value | Source | Command |",
-                "|---|---|---|---|",
-                "| Python files under aragora/ | `4219` | `aragora/` | `cmd` |",
-                "| Python lines of code under aragora/ | `1972052` | `aragora/` | `cmd` |",
-                "| Top-level modules under aragora/ | `144` | `aragora/` | `cmd` |",
-                "| Test files (test_*.py under tests/) | `5402` | `tests/` | `cmd` |",
-                "| Test functions (class + module level) | `222659` | `tests/` | `cmd` |",
-                "| OpenAPI paths | `2870` | `docs/api/openapi.json` | `cmd` |",
-                "| OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `cmd` |",
-                "| Allowlisted agent types | `35` | `aragora/config/settings.py` | `cmd` |",
-                "| Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `cmd` |",
-                "| Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `cmd` |",
-            ]
-        ),
-        encoding="utf-8",
-    )
+    root = _make_root(tmp_path)
 
     monkeypatch.setattr(mod, "ROOT", root)
 
@@ -61,209 +81,192 @@ def test_metrics_doc_values_parse_exact_generated_metrics(tmp_path, monkeypatch)
     assert values["adapter_files"].value == 46
 
 
-def test_patch_docs_uses_metrics_doc_for_claude_and_preserves_readme_scope(tmp_path, monkeypatch):
+def test_rewrite_metric_blocks_rewrites_only_delimited_blocks(tmp_path, monkeypatch):
     mod = _load_module()
-    root = tmp_path
-    docs = root / "docs"
-    docs.mkdir()
-    (docs / "METRICS.md").write_text(
-        "\n".join(
-            [
-                "| Metric | Value | Source | Command |",
-                "|---|---|---|---|",
-                "| Python files under aragora/ | `4219` | `aragora/` | `cmd` |",
-                "| Python lines of code under aragora/ | `1972052` | `aragora/` | `cmd` |",
-                "| Top-level modules under aragora/ | `144` | `aragora/` | `cmd` |",
-                "| Test files (test_*.py under tests/) | `5402` | `tests/` | `cmd` |",
-                "| Test functions (class + module level) | `222659` | `tests/` | `cmd` |",
-                "| OpenAPI paths | `2870` | `docs/api/openapi.json` | `cmd` |",
-                "| OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `cmd` |",
-                "| Allowlisted agent types | `35` | `aragora/config/settings.py` | `cmd` |",
-                "| Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `cmd` |",
-                "| Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `cmd` |",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (docs / "CANONICAL_GOALS.md").write_text(
-        "\n".join(
-            [
-                "| Metric | Value | Source |",
-                "|--------|-------|--------|",
-                "| Python files under `aragora/` | 4,069 | `docs/METRICS.md` |",
-                "| Python modules | 135 top-level package directories | `docs/METRICS.md` |",
-                "| Lines of code under `aragora/` | 1,915,420 | `docs/METRICS.md` |",
-                "| Automated tests | 216,016 test functions | `docs/METRICS.md` |",
-                "| Test files | 5,078 | `docs/METRICS.md` |",
-                "| API operations | 3,297 across 2,870 paths | `docs/METRICS.md` |",
-                "| API paths | 2,870 | `docs/METRICS.md` |",
-                "| Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |",
-                "| Agent types | 43 across 6+ LLM providers | agent registry |",
-                "| Workflow templates | 50+ across 6 categories | template registry |",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (docs / "EXTENDED_README.md").write_text(
-        "**Scale:** 4,069 tracked Python files | 135 top-level modules | "
-        "216,000+ test functions across 5,078 test files | canonical counts in [METRICS.md](METRICS.md)",
-        encoding="utf-8",
+    root = _make_root(tmp_path)
+
+    prose_outside_blocks = (
+        "Aragora orchestrates 46 agent types. The old count 3,386 stays untouched."
     )
     (root / "CLAUDE.md").write_text(
         "\n".join(
             [
-                "**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions | 5,078 test files | 3,386 API operations across 2,928 paths | canonical counts in `docs/METRICS.md`",
-                "**Test Suite:** 216,000+ test functions across 5,078 test files (canonical counts in `docs/METRICS.md`)",
-                "│       └── adapters/       # KM adapters (42 registered)",
+                prose_outside_blocks,
+                _block("claude-codebase-scale", "stale scale line"),
+                "middle prose with 9,999 tests that must not change",
+                _block("claude-test-suite", "stale test suite line"),
             ]
         ),
         encoding="utf-8",
     )
-    docs_site_contributing = root / "docs-site" / "docs" / "contributing"
-    docs_site_contributing.mkdir(parents=True)
-    (docs_site_contributing / "claude.md").write_text(
-        "\n".join(
-            [
-                "**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions | 5,078 test files | 3,386 API operations across 2,928 paths | canonical counts in `docs/METRICS.md`",
-                "**Test Suite:** 216,000+ test functions across 5,078 test files (canonical counts in `docs/METRICS.md`)",
-                "│   ├── unified_server.py   # Main server (3,386 API operations)",
-                "│       └── adapters/       # KM adapters (42 registered)",
-            ]
-        ),
+    (root / "docs" / "EXTENDED_README.md").write_text(
+        _block("extended-readme-scale", "stale"),
+        encoding="utf-8",
+    )
+    (root / "docs" / "CANONICAL_GOALS.md").write_text(
+        _block("canonical-goals-metrics", "| stale | table |"),
         encoding="utf-8",
     )
     (root / "README.md").write_text(
-        "\n".join(
-            [
-                "loop (✅); Workflow Engine — DAG automation with 50+ templates (✅); Prompt Engine —",
-                "**The Nomic Loop (✅, 233+ tests).** A five-phase autonomous self-improvement cycle:",
-                "> 3,386 API operations across 2,928 paths",
-            ]
-        ),
+        _block("readme-scale", "> stale quote"),
         encoding="utf-8",
     )
 
     monkeypatch.setattr(mod, "ROOT", root)
-    stats = mod.Stats(
-        python_modules=4256,
-        test_count=163898,
-        test_files=5916,
-        api_paths=2870,
-        api_operations=3297,
-        ws_event_types=272,
-        km_adapters_registered=0,
-        workflow_templates=62,
-        ts_namespaces=191,
-        agent_types_allowlisted=35,
-    )
-
-    mod.patch_docs(stats, write=True)
+    updated = mod.rewrite_metric_blocks(write=True)
+    assert updated == 4
 
     claude = (root / "CLAUDE.md").read_text(encoding="utf-8")
-    assert "4,219 tracked Python files | 144 top-level modules" in claude
-    assert "222,659 test functions | 5,402 test files" in claude
-    assert "3,297 API operations across 2,870 paths" in claude
-    assert "**Test Suite:** 222,659 test functions across 5,402 test files" in claude
-    assert "│       └── adapters/       # KM adapters (41 registered)" in claude
-
-    docs_site_claude = (docs_site_contributing / "claude.md").read_text(encoding="utf-8")
-    assert "222,659 test functions | 5,402 test files" in docs_site_claude
-    assert "│   ├── unified_server.py   # Main server (3,297 API operations)" in docs_site_claude
-    assert "│       └── adapters/       # KM adapters (41 registered)" in docs_site_claude
-
-    canonical_goals = (docs / "CANONICAL_GOALS.md").read_text(encoding="utf-8")
-    assert "| Python files under `aragora/` | 4,219 | `docs/METRICS.md` |" in canonical_goals
-    assert "| Lines of code under `aragora/` | 1,972,052 | `docs/METRICS.md` |" in canonical_goals
-    assert "| Automated tests | 222,659 test functions | `docs/METRICS.md` |" in canonical_goals
-    assert "| Test files | 5,402 | `docs/METRICS.md` |" in canonical_goals
+    assert prose_outside_blocks in claude
+    assert "middle prose with 9,999 tests that must not change" in claude
     assert (
-        "| Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |"
-        in canonical_goals
-    )
+        "**Codebase Scale:** 4,219 tracked Python files | 144 top-level modules | "
+        "222,659 test functions | 5,402 test files | 3,297 API operations across "
+        "2,870 paths | canonical counts in `docs/METRICS.md`"
+    ) in claude
+    assert (
+        "**Test Suite:** 222,659 test functions across 5,402 test files "
+        "(canonical counts in `docs/METRICS.md`)"
+    ) in claude
+    assert "stale" not in claude
 
-    extended_readme = (docs / "EXTENDED_README.md").read_text(encoding="utf-8")
-    assert "4,219 tracked Python files | 144 top-level modules" in extended_readme
-    assert "222,659 test functions across 5,402 test files" in extended_readme
+    extended = (root / "docs" / "EXTENDED_README.md").read_text(encoding="utf-8")
+    assert (
+        "**Scale:** 4,219 tracked Python files | 144 top-level modules | "
+        "222,659 test functions across 5,402 test files | "
+        "canonical counts in [METRICS.md](METRICS.md)"
+    ) in extended
+
+    goals = (root / "docs" / "CANONICAL_GOALS.md").read_text(encoding="utf-8")
+    assert "| Version | 2.9.0 | `pyproject.toml` |" in goals
+    assert "| Python files under `aragora/` | 4,219 | `docs/METRICS.md` |" in goals
+    assert "| Python modules | 144 top-level package directories | `docs/METRICS.md` |" in goals
+    assert "| Lines of code under `aragora/` | 1,972,052 | `docs/METRICS.md` |" in goals
+    assert "| Automated tests | 222,659 test functions | `docs/METRICS.md` |" in goals
+    assert "| API operations | 3,297 across 2,870 paths | `docs/METRICS.md` |" in goals
+    assert (
+        "| Knowledge Mound adapters | 46 adapter files / 41 registered specs "
+        "| `docs/METRICS.md` |" in goals
+    )
 
     readme = (root / "README.md").read_text(encoding="utf-8")
-    assert "Workflow Engine — DAG automation with 50+ templates" in readme
-    assert "**The Nomic Loop (✅, 233+ tests)." in readme
-    assert "3,297 API operations across 2,870 paths" in readme
+    assert "> **~4,200 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test" in readme
+    assert "> functions across ~5,400 files · 3,297 API operations across 2,870 paths ·" in readme
+    assert "> 35+ allowlisted agent types across 12+ providers · 41 Knowledge Mound" in readme
+    assert "v2.9.0.**" in readme
 
 
-def test_patch_docs_refuses_protected_writes_when_metrics_doc_is_partial(tmp_path, monkeypatch):
+def test_rewrite_metric_blocks_is_idempotent(tmp_path, monkeypatch):
     mod = _load_module()
-    root = tmp_path
-    docs = root / "docs"
-    docs.mkdir()
-    (docs / "METRICS.md").write_text(
-        "\n".join(
-            [
-                "| Metric | Value | Source | Command |",
-                "|---|---|---|---|",
-                "| Python files under aragora/ | `4219` | `aragora/` | `cmd` |",
-                "| OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `cmd` |",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (docs / "CANONICAL_GOALS.md").write_text(
-        "\n".join(
-            [
-                "| Metric | Value | Source |",
-                "|--------|-------|--------|",
-                "| API operations | 3,297 across 2,870 paths | `docs/METRICS.md` |",
-                "| API paths | 2,870 | `docs/METRICS.md` |",
-                "| Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    old_codebase_scale = (
-        "**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | "
-        "216,000+ test functions | 5,078 test files | 3,386 API operations across "
-        "2,928 paths | canonical counts in `docs/METRICS.md`"
-    )
-    old_test_suite = (
-        "**Test Suite:** 216,000+ test functions across 5,078 test files "
-        "(canonical counts in `docs/METRICS.md`)"
-    )
+    root = _make_root(tmp_path)
     (root / "CLAUDE.md").write_text(
-        "\n".join(
-            [
-                old_codebase_scale,
-                "│       └── adapters/       # KM adapters (42 registered)",
-                "│   ├── unified_server.py   # Main server (3,386 API operations)",
-                old_test_suite,
-            ]
-        ),
+        _block("claude-codebase-scale", "stale"),
         encoding="utf-8",
     )
 
     monkeypatch.setattr(mod, "ROOT", root)
-    stats = mod.Stats(
-        python_modules=4256,
-        test_count=163898,
-        test_files=5916,
-        api_paths=2870,
-        api_operations=3297,
-        ws_event_types=272,
-        km_adapters_registered=0,
-        workflow_templates=62,
-        ts_namespaces=191,
-        agent_types_allowlisted=35,
+    assert mod.rewrite_metric_blocks(write=True) == 1
+    first = (root / "CLAUDE.md").read_text(encoding="utf-8")
+    assert mod.rewrite_metric_blocks(write=True) == 0
+    assert (root / "CLAUDE.md").read_text(encoding="utf-8") == first
+
+
+def test_rewrite_metric_blocks_reports_without_writing_when_write_is_false(tmp_path, monkeypatch):
+    mod = _load_module()
+    root = _make_root(tmp_path)
+    original = _block("claude-test-suite", "stale")
+    (root / "CLAUDE.md").write_text(original, encoding="utf-8")
+
+    monkeypatch.setattr(mod, "ROOT", root)
+    assert mod.rewrite_metric_blocks(write=False) == 1
+    assert (root / "CLAUDE.md").read_text(encoding="utf-8") == original
+
+
+def test_rewrite_metric_blocks_fails_closed_when_metrics_doc_is_partial(tmp_path, monkeypatch):
+    mod = _load_module()
+    partial = "\n".join(
+        [
+            "| Metric | Value | Source | Command |",
+            "|---|---|---|---|",
+            "| Python files under aragora/ | `4219` | `aragora/` | `cmd` |",
+            "| OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `cmd` |",
+        ]
+    )
+    root = _make_root(tmp_path, metrics_table=partial)
+    original = _block("claude-codebase-scale", "stale but preserved")
+    (root / "CLAUDE.md").write_text(original, encoding="utf-8")
+
+    monkeypatch.setattr(mod, "ROOT", root)
+    with pytest.raises(RuntimeError, match="docs/METRICS.md is missing rows"):
+        mod.rewrite_metric_blocks(write=True)
+    assert (root / "CLAUDE.md").read_text(encoding="utf-8") == original
+
+
+def test_rewrite_metric_blocks_fails_closed_on_missing_version(tmp_path, monkeypatch):
+    mod = _load_module()
+    root = _make_root(tmp_path)
+    (root / "pyproject.toml").unlink()
+    original = _block("claude-codebase-scale", "stale but preserved")
+    (root / "CLAUDE.md").write_text(original, encoding="utf-8")
+
+    monkeypatch.setattr(mod, "ROOT", root)
+    with pytest.raises(RuntimeError, match="version"):
+        mod.rewrite_metric_blocks(write=True)
+    assert (root / "CLAUDE.md").read_text(encoding="utf-8") == original
+
+
+def test_rewrite_metric_blocks_fails_closed_on_unknown_key(tmp_path, monkeypatch):
+    mod = _load_module()
+    root = _make_root(tmp_path)
+    known = _block("claude-test-suite", "stale but preserved")
+    (root / "CLAUDE.md").write_text(known, encoding="utf-8")
+    unknown = _block("no-such-renderer", "body")
+    (root / "docs" / "OTHER.md").write_text(unknown, encoding="utf-8")
+
+    monkeypatch.setattr(mod, "ROOT", root)
+    with pytest.raises(RuntimeError, match="unknown metrics block key"):
+        mod.rewrite_metric_blocks(write=True)
+    # Fail-closed: nothing is written, not even valid blocks in other files.
+    assert (root / "CLAUDE.md").read_text(encoding="utf-8") == known
+    assert (root / "docs" / "OTHER.md").read_text(encoding="utf-8") == unknown
+
+
+def test_rewrite_metric_blocks_fails_closed_on_unterminated_block(tmp_path, monkeypatch):
+    mod = _load_module()
+    root = _make_root(tmp_path)
+    (root / "CLAUDE.md").write_text(
+        "<!-- metrics:begin claude-test-suite -->\nno end marker\n",
+        encoding="utf-8",
     )
 
-    docs_site_contributing = root / "docs-site" / "docs" / "contributing"
-    docs_site_contributing.mkdir(parents=True)
-    (docs_site_contributing / "claude.md").write_text(old_codebase_scale, encoding="utf-8")
+    monkeypatch.setattr(mod, "ROOT", root)
+    with pytest.raises(RuntimeError, match="well-formed"):
+        mod.rewrite_metric_blocks(write=True)
 
-    with pytest.raises(RuntimeError, match="docs/METRICS.md is missing rows"):
-        mod.patch_docs(stats, write=True)
 
-    claude = (root / "CLAUDE.md").read_text(encoding="utf-8")
-    assert old_codebase_scale in claude
-    assert old_test_suite in claude
-    assert "3,386 API operations" in claude
-    docs_site_claude = (docs_site_contributing / "claude.md").read_text(encoding="utf-8")
-    assert docs_site_claude == old_codebase_scale
+def test_rewrite_metric_blocks_excludes_docs_site_mirrors(tmp_path, monkeypatch):
+    mod = _load_module()
+    root = _make_root(tmp_path)
+    mirror_dir = root / "docs-site" / "docs" / "contributing"
+    mirror_dir.mkdir(parents=True)
+    mirror = _block("claude-test-suite", "mirror body owned by sync-docs.js")
+    (mirror_dir / "claude.md").write_text(mirror, encoding="utf-8")
+
+    monkeypatch.setattr(mod, "ROOT", root)
+    assert mod.rewrite_metric_blocks(write=True) == 0
+    assert (mirror_dir / "claude.md").read_text(encoding="utf-8") == mirror
+
+
+def test_every_renderer_is_covered_by_required_metric_keys(tmp_path, monkeypatch):
+    """Rendering every block with only REQUIRED_METRIC_KEYS present must work."""
+    mod = _load_module()
+    root = _make_root(tmp_path)
+    monkeypatch.setattr(mod, "ROOT", root)
+
+    metrics = mod._metrics_doc_values()
+    assert set(metrics) == set(mod.REQUIRED_METRIC_KEYS)
+    ctx = mod.RenderContext(metrics=metrics, version="9.9.9")
+    for key, renderer in mod.RENDERERS.items():
+        rendered = renderer(ctx)
+        assert rendered.strip(), key
+        assert "<!--" not in rendered, key

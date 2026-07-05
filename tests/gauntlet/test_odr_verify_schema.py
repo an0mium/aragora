@@ -15,7 +15,9 @@ against the normative ``odr_schema.json`` when jsonschema is installed.
 from __future__ import annotations
 
 import copy
+import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -24,6 +26,7 @@ from aragora.gauntlet.odr_export import load_odr_schema, odr_content_digest
 from aragora.gauntlet.odr_verify import (
     FAIL,
     PASS,
+    SKIP,
     WARN,
     verify_odr_document,
 )
@@ -72,7 +75,9 @@ def _valid_odr() -> dict[str, Any]:
 
 
 def _check(result: Any, name: str) -> Any:
-    return next(c for c in result.checks if c.name == name)
+    check = next((c for c in result.checks if c.name == name), None)
+    assert check is not None, f"check {name!r} not found in {[c.name for c in result.checks]}"
+    return check
 
 
 # ---------------------------------------------------------------------------
@@ -591,3 +596,108 @@ def test_valid_variants_agree_with_jsonschema(jsonschema_validator: Any, mutate:
     doc = _valid_odr()
     mutate(doc)
     assert jsonschema_validator.is_valid(copy.deepcopy(doc))
+
+
+# ---------------------------------------------------------------------------
+# New unsigned example-state fixtures (m2-odr-unsigned-state-fixtures):
+# approved-clean, blocked/FAIL, and abstained/inconclusive. These exercise the
+# committed docs/specs/examples/ files (not synthetic dicts) so the schema-
+# validation + verifier-behavior contract is pinned against the actual
+# shipped fixtures an external auditor would download.
+# ---------------------------------------------------------------------------
+
+_EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "docs" / "specs" / "examples"
+
+_NEW_FIXTURES = [
+    "example-approved-clean.odr.json",
+    "example-blocked.odr.json",
+    "example-abstained.odr.json",
+]
+
+
+def _load_example(filename: str) -> dict[str, Any]:
+    return json.loads((_EXAMPLES_DIR / filename).read_text(encoding="utf-8"))
+
+
+def _tamper_odr_version(raw_text: str) -> str:
+    """Flip a single byte of the fixed ``odr_version`` literal; stays valid JSON."""
+    marker = '"odr_version": "0.1"'
+    assert marker in raw_text, "fixture does not carry the expected odr_version literal"
+    return raw_text.replace(marker, '"odr_version": "0.2"', 1)
+
+
+@pytest.mark.parametrize("filename", _NEW_FIXTURES)
+def test_new_unsigned_fixture_verifies_ok_with_unsigned_warning(filename: str) -> None:
+    doc = _load_example(filename)
+    result = verify_odr_document(doc)
+    assert result.ok is True, [c for c in result.checks if c.status == FAIL]
+    assert _check(result, "schema_conformance").status == PASS
+    assert _check(result, "canonical_digest").status == PASS
+    signature_check = _check(result, "signature")
+    assert signature_check.status == WARN
+    assert "unsigned" in signature_check.detail
+
+
+@pytest.mark.parametrize("filename", _NEW_FIXTURES)
+def test_new_unsigned_fixture_single_byte_tamper_fails(filename: str) -> None:
+    raw_text = (_EXAMPLES_DIR / filename).read_text(encoding="utf-8")
+    tampered = json.loads(_tamper_odr_version(raw_text))
+    result = verify_odr_document(tampered)
+    assert result.ok is False
+    check = _check(result, "schema_conformance")
+    assert check.status == FAIL
+    assert "odr_version" in check.detail
+
+
+@pytest.mark.parametrize("filename", _NEW_FIXTURES)
+def test_new_fixture_agrees_with_jsonschema(jsonschema_validator: Any, filename: str) -> None:
+    doc = _load_example(filename)
+    assert jsonschema_validator.is_valid(doc)
+
+
+def test_approved_clean_fixture_has_no_weakening_signals() -> None:
+    # The "clean" state fixture is deliberately human-attested, disclosed,
+    # calibrated, and unanimous -- it should carry zero weakening warnings,
+    # contrasting with the intentionally weaker blocked/abstained fixtures.
+    doc = _load_example("example-approved-clean.odr.json")
+    result = verify_odr_document(doc)
+    assert result.ok is True
+    assert result.warnings == []
+
+
+def test_blocked_fixture_surfaces_weakening_signals() -> None:
+    doc = _load_example("example-blocked.odr.json")
+    result = verify_odr_document(doc)
+    assert result.ok is True
+    joined = " ".join(result.warnings)
+    assert "attestation: autonomous" in joined
+    assert "undisclosed" in joined
+    assert "uncalibrated" in joined
+
+
+def test_abstained_fixture_surfaces_weakening_signals() -> None:
+    doc = _load_example("example-abstained.odr.json")
+    result = verify_odr_document(doc)
+    assert result.ok is True
+    # No present quorum block to cross-check -- SKIP, never FAIL.
+    assert _check(result, "quorum_consistency").status == SKIP
+    joined = " ".join(result.warnings)
+    assert "attestation: autonomous" in joined
+    assert "quorum: absent" in joined
+    assert "reasoning: absent" in joined
+
+
+def test_quorum_consistency_tamper_on_blocked_fixture_fails() -> None:
+    # Semantically distinct from a digest/schema tamper (spec §8): an agent
+    # referenced in dissent but never disclosed as a participant must FAIL
+    # quorum_consistency specifically, even though the receipt is unsigned
+    # and every other check (schema, digest) still passes on the mutated doc.
+    doc = _load_example("example-blocked.odr.json")
+    doc["quorum"]["dissent"]["dissenting_agents"] = ["ghost-agent"]
+    doc["quorum"]["dissent"]["present"] = True
+    result = verify_odr_document(doc)
+    assert result.ok is False
+    assert _check(result, "schema_conformance").status == PASS
+    check = _check(result, "quorum_consistency")
+    assert check.status == FAIL
+    assert "ghost-agent" in check.detail
