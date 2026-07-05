@@ -16,6 +16,7 @@ import warnings  # noqa: F401 - used for deprecation warnings in __init__
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
 from aragora.debate.arena_config import (
     AgentConfig,
+    ArenaConfig,  # noqa: F401 - re-exported for historical import compatibility
     DebateConfig,
     MemoryConfig,
     ObservabilityConfig,
@@ -982,6 +983,10 @@ class Arena(ArenaDelegatesMixin):
 
     def _init_phases(self) -> None:
         init_phases(self)
+        if not hasattr(self, "context_initializer"):
+            # Preserve the historical test seam where orchestrator.init_phases
+            # is patched to a no-op; real initialization always sets this.
+            return
         self.phase_executor = create_phase_executor(self)
         if hasattr(self, "_grounded_ops") and self._grounded_ops:
             self._grounded_ops.evidence_grounder = self.evidence_grounder
@@ -1129,7 +1134,8 @@ class Arena(ArenaDelegatesMixin):
         """Close only DatabaseManager instances created after this arena was built."""
         from aragora.storage.schema import DatabaseManager
 
-        created_paths = DatabaseManager.instance_paths() - self._db_manager_snapshot
+        snapshot = getattr(self, "_db_manager_snapshot", DatabaseManager.instance_paths())
+        created_paths = DatabaseManager.instance_paths() - snapshot
         if not created_paths:
             return
         DatabaseManager.close_instances(created_paths)

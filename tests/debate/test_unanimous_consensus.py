@@ -22,9 +22,15 @@ class MockAgent:
     async def generate(self, prompt: str, context: list = None) -> str:
         return f"Proposal from {self.name}"
 
-    async def critique(self, proposal: str, task: str, context: list = None):
+    async def critique(
+        self, proposal: str, task: str, context: list = None, target_agent: str | None = None
+    ):
         return Mock(
-            issues=[], severity=0.1, suggestions=[], target_agent="proposal", to_prompt=lambda: ""
+            issues=[],
+            severity=0.1,
+            suggestions=[],
+            target_agent=target_agent or "proposal",
+            to_prompt=lambda: "",
         )
 
     async def vote(self, proposals: dict, task: str) -> Vote:
@@ -121,7 +127,9 @@ class TestUnanimousThreshold:
         result = await arena.run()
 
         assert result.consensus_reached is False
-        assert "[No unanimous consensus reached]" in result.final_answer
+        assert result.consensus_strength == "none"
+        assert "Proposal from alice" in result.final_answer
+        assert "Proposal from charlie" in result.final_answer
 
 
 class TestVotingErrors:
@@ -147,9 +155,8 @@ class TestVotingErrors:
 
         result = await arena.run()
 
-        # With the fix, voting errors count as dissent
+        # Voting errors count as dissent.
         assert result.consensus_reached is False
-        # 2 successful votes out of 3 total voters (including error)
         assert result.confidence == pytest.approx(2 / 3, rel=0.01)
 
     @pytest.mark.asyncio

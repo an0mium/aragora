@@ -251,7 +251,9 @@ class TestWisdomInjectorInit:
 
         inj = WisdomInjector(loop_id="test")
 
-        expected = Path(".nomic/wisdom")
+        from aragora.persistence.db_config import get_nomic_dir
+
+        expected = get_nomic_dir() / "wisdom"
         assert inj.storage_path == expected
 
     def test_init_empty_lists(self, temp_storage):
