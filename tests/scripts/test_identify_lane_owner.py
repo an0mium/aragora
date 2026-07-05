@@ -1892,6 +1892,84 @@ class TestWorktreeReferencePreservationProof:
         assert result["stale_claim_advisory"]["available"] is True
         assert result["advisory_withheld"] is None
 
+    def test_branch_ahead_marker_discounted_when_remote_exact_head_preserved(
+        self, tmp_path: Path
+    ) -> None:
+        desired_sha = "4966b95bec51fac1ae102443d5e7a2974e03065d"
+        branch = "codex/branch-ahead-preserved"
+        lane, ledger, _worktree = _stale_worktree_lane(
+            tmp_path,
+            branch=branch,
+            desired_head=desired_sha,
+        )
+        lane["branch_ahead_of_origin_main"] = True
+        ledger["unique_commits_ahead"] = 2
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout=f"{desired_sha}\trefs/heads/{branch}\n")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "remote_branch_exact_head"
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
+    def test_clean_dirty_marker_strings_do_not_withhold_advisory(self, tmp_path: Path) -> None:
+        desired_sha = "4966b95bec51fac1ae102443d5e7a2974e03065d"
+        branch = "codex/clean-marker-preserved"
+        lane, ledger, _worktree = _stale_worktree_lane(
+            tmp_path,
+            branch=branch,
+            desired_head=desired_sha,
+        )
+        lane["dirty_worktree"] = "clean"
+        ledger["worktree_dirty"] = "verified-clean"
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout=f"{desired_sha}\trefs/heads/{branch}\n")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "remote_branch_exact_head"
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
     def test_absent_terminal_worktree_remote_branch_without_recorded_sha_still_withholds(
         self, tmp_path: Path
     ) -> None:

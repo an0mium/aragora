@@ -1362,6 +1362,23 @@ _LOCAL_WORK_CLAIM_KEYS = (
     "dirty_worktree",
     "worktree_dirty",
 )
+_UPSTREAM_PRESERVABLE_LOCAL_WORK_CLAIM_KEYS = (
+    "branch_ahead_of_origin_main",
+    "unique_commits_ahead",
+)
+_FALSE_LOCAL_WORK_CLAIM_STRINGS = {
+    "",
+    "0",
+    "false",
+    "no",
+    "none",
+    "null",
+    "[]",
+    "{}",
+    "clean",
+    "verified-clean",
+    "verified_clean",
+}
 
 _SHA_RE = re.compile(r"\b[0-9a-f]{40}\b")
 _PRESERVATION_GIT_TIMEOUT_SECONDS = 10.0
@@ -1446,10 +1463,18 @@ def _normal_state_root(path: Path) -> Path:
 
 
 def _local_work_claim_indication(
-    lane: dict[str, Any], ledger_entry: dict[str, Any] | None
+    lane: dict[str, Any],
+    ledger_entry: dict[str, Any] | None,
+    *,
+    local_work_preservation: dict[str, Any] | None = None,
+    include_preservable_branch_claims: bool = True,
 ) -> str | None:
+    upstream_preserved = _proof_has_upstream_preservation(local_work_preservation)
     for source_name, record in (("owner record", lane), ("lane ledger", ledger_entry or {})):
         for key in _LOCAL_WORK_CLAIM_KEYS:
+            if key in _UPSTREAM_PRESERVABLE_LOCAL_WORK_CLAIM_KEYS:
+                if not include_preservable_branch_claims or upstream_preserved:
+                    continue
             if _truthy_local_work_claim(record.get(key)):
                 return f"{source_name} claims local work ({key})"
     return None
@@ -1462,8 +1487,15 @@ def _truthy_local_work_claim(value: Any) -> bool:
         return value != 0
     if isinstance(value, str):
         normalized = value.strip().lower()
-        return normalized not in {"", "0", "false", "no", "none", "null", "[]", "{}"}
+        return normalized not in _FALSE_LOCAL_WORK_CLAIM_STRINGS
     return bool(value)
+
+
+def _proof_has_upstream_preservation(proof: dict[str, Any] | None) -> bool:
+    if not proof or proof.get("available") is not True:
+        return False
+    upstream_preservation = proof.get("upstream_preservation")
+    return isinstance(upstream_preservation, dict) and upstream_preservation.get("proven") is True
 
 
 def _worktree_reference_paths(
@@ -1481,13 +1513,7 @@ def _proof_covers_worktree_paths(
     proof: dict[str, Any] | None,
     paths: list[tuple[str, str]],
 ) -> bool:
-    if not proof or proof.get("available") is not True:
-        return False
-    upstream_preservation = proof.get("upstream_preservation")
-    if (
-        not isinstance(upstream_preservation, dict)
-        or upstream_preservation.get("proven") is not True
-    ):
+    if not _proof_has_upstream_preservation(proof):
         return False
     proven_paths = {str(path) for path in proof.get("worktree_paths") or []}
     return all(path in proven_paths for _, path in paths)
@@ -1806,7 +1832,11 @@ def build_worktree_reference_preservation_proof(
     if not paths:
         return None
 
-    local_claim = _local_work_claim_indication(lane, ledger_entry)
+    local_claim = _local_work_claim_indication(
+        lane,
+        ledger_entry,
+        include_preservable_branch_claims=False,
+    )
     if local_claim:
         return {
             "available": False,
@@ -1946,7 +1976,11 @@ def _local_work_indication(
     explicit preservation proof for a bare worktree reference.
     """
 
-    local_claim = _local_work_claim_indication(lane, ledger_entry)
+    local_claim = _local_work_claim_indication(
+        lane,
+        ledger_entry,
+        local_work_preservation=local_work_preservation,
+    )
     if local_claim:
         return local_claim
     worktree_paths = _worktree_reference_paths(lane, ledger_entry)
