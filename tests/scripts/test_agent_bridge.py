@@ -1200,6 +1200,8 @@ def test_operator_snapshot_summary_reports_active_lanes_missing_dev_lease(
                     "branch": "codex/held",
                     "lease_id": "lease-1",
                     "work_id": "pr:8852",
+                    "lease_status": "active",
+                    "lease_health": "ok",
                 },
                 {
                     "lane_id": "lane-sidecar-only",

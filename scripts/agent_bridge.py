@@ -603,7 +603,10 @@ def _sidecar_work_id_matches_lease(lease: Any, work_id: str) -> bool:
     if work_id.startswith("branch:"):
         _prefix, _sep, branch_name = work_id.partition(":")
         return getattr(lease, "branch", "") == branch_name
-    return getattr(lease, "work_id", None) == work_id or getattr(lease, "task_id", "") == work_id
+    lease_work_id = getattr(lease, "work_id", None)
+    if lease_work_id is None or str(lease_work_id).startswith("branch:"):
+        return True
+    return lease_work_id == work_id or getattr(lease, "task_id", "") == work_id
 
 
 def _sidecar_points_to_active_dev_lease(record: LaneRecord, sidecar: dict[str, Any]) -> bool:
@@ -672,7 +675,9 @@ def _lane_has_countable_dev_lease(record: LaneRecord) -> bool:
         "sidecar",
         "stale",
     }
-    return record.lease_status not in invalid_statuses and record.lease_health not in invalid_health
+    if record.lease_status in invalid_statuses or record.lease_health in invalid_health:
+        return False
+    return record.lease_health == "ok"
 
 
 def _write_lane_registry(records: list[LaneRecord]) -> None:

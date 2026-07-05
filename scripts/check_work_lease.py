@@ -181,6 +181,11 @@ def _lease_matches_work_id(lease: LeaseRow, work_id: str | None) -> bool:
     return lease.work_id == work_id or lease.task_id == work_id
 
 
+def _lease_allows_branch_owner_fallback(lease: LeaseRow) -> bool:
+    work_id = lease.work_id
+    return work_id is None or work_id.startswith("branch:")
+
+
 def _advisory_exit_code(args: argparse.Namespace, ok: bool) -> int:
     return 0 if ok or getattr(args, "advisory", False) else 1
 
@@ -662,6 +667,8 @@ def main(argv: list[str] | None = None) -> int:
     theirs = [lease for lease in matching_leases if lease.owner_session_id != session_id]
     branch_mine = [lease for lease in leases if lease.owner_session_id == session_id]
     branch_theirs = [lease for lease in leases if lease.owner_session_id != session_id]
+    if work_id and not mine:
+        mine = [lease for lease in branch_mine if _lease_allows_branch_owner_fallback(lease)]
 
     if args.verify_only:
         sidecar = read_lane_lease(repo_root, args.record_lane) if args.record_lane else None

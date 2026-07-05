@@ -477,6 +477,31 @@ def test_verify_only_pr_work_id_reports_nonmatching_foreign_branch_lease(
     assert payload["owner_session_id"] == "sess-swarm"
 
 
+def test_verify_only_pr_work_id_accepts_owned_branch_level_lease(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _main(repo, "feat-x", "--claim", "--session-id", "sess-a") == 0
+    capsys.readouterr()
+
+    assert (
+        _main(
+            repo,
+            "feat-x",
+            "--verify-only",
+            "--session-id",
+            "sess-a",
+            "--work-id",
+            "pr:8852",
+            "--json",
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["reason"] is None
+    assert payload["owner_session_id"] == "sess-a"
+
+
 def test_verify_only_rejects_mismatched_work_id_with_stable_reason(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
