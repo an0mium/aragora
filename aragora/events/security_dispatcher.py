@@ -44,6 +44,7 @@ from aragora.events.security_events import (
     SecurityEventType,
     SecuritySeverity,
     _ensure_default_security_debate_runner_registered,
+    _accepted_security_debate_runner_kwargs,
     get_security_debate_runner,
     get_security_emitter,
 )
@@ -376,11 +377,15 @@ class SecurityDispatcher:
                 if runner is None:
                     raise ImportError("No security debate runner registered")
 
-                debate_id = await runner(
-                    event,
+                runner_kwargs = _accepted_security_debate_runner_kwargs(
+                    runner,
                     confidence_threshold=self.config.debate_confidence_threshold,
                     timeout_seconds=self.config.debate_timeout_seconds,
                 )
+                if runner_kwargs:
+                    debate_id = await runner(event, **runner_kwargs)
+                else:
+                    debate_id = await runner(event)
 
             if debate_id:
                 event.debate_requested = True
