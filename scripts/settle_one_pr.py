@@ -31,6 +31,7 @@ CONVERGENCE_SENTENCE = (
 
 VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
+OPERATOR_REVIEW_REQUIRED_LABEL = "operator-review-required"
 GITHUB_ACTIONS_APP_ID = 15368
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
 BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
@@ -849,6 +850,13 @@ def head_blockers(entry: dict[str, Any], pr_view: Any) -> list[str]:
     merge_state = str(pr_view.get("mergeStateStatus", "") or "").upper()
     if mergeable == "CONFLICTING" or merge_state == "DIRTY":
         blockers.append(f"PR is dirty/conflicting: mergeable={mergeable} state={merge_state}")
+    label_names = {
+        str(label.get("name") or "").strip().lower()
+        for label in pr_view.get("labels") or []
+        if isinstance(label, dict)
+    }
+    if OPERATOR_REVIEW_REQUIRED_LABEL in label_names:
+        blockers.append(f"{OPERATOR_REVIEW_REQUIRED_LABEL} label present")
     return blockers
 
 
@@ -1763,7 +1771,7 @@ def build_report(
                 "--json",
                 (
                     "number,state,isDraft,headRefOid,headRefName,baseRefName,mergeable,"
-                    "mergeStateStatus,statusCheckRollup"
+                    "mergeStateStatus,statusCheckRollup,labels"
                 ),
             ],
             cwd=cwd,

@@ -1674,6 +1674,117 @@ def test_head_drift_blocks_settlement() -> None:
     assert blockers == ["head drift: packet expected live actual"]
 
 
+def test_operator_review_required_label_blocks_settlement() -> None:
+    blockers = head_blockers(
+        {"head_sha": "expected"},
+        {
+            "headRefOid": "expected",
+            "isDraft": False,
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "labels": [{"name": "operator-review-required"}],
+        },
+    )
+
+    assert blockers == ["operator-review-required label present"]
+
+
+def test_build_report_blocks_operator_review_required_label(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata-list", "returncode": 0}
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == OWNER_PREFIX:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == STEERING_PREFIX:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "1011"
+            and args[5] == settle_one_pr.PR_POLICY_FIELDS
+        ):
+            return (
+                {
+                    "number": 1011,
+                    "title": "docs: operator review required",
+                    "headRefName": "codex/operator-review-required",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "docs/example.md"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "view"]:
+            fields = args[args.index("--json") + 1]
+            assert "labels" in fields
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000001011",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "labels": [{"name": "operator-review-required"}],
+                    "statusCheckRollup": [],
+                },
+                {"command": "view", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return (
+                {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+                {"command": "protection", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368, "slug": "github-actions"},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return (
+                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                {"command": "checks", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                1011,
+                status="satisfied",
+                verdict="admin_squash_allowed",
+                admin_squash_allowed=True,
+                reasons=["docs/tests/status-only"],
+            ),
+            admin_order=[1011],
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=1011,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "blocked"
+    assert "operator-review-required label present" in report["blockers"]
+    assert not any(command.startswith("gh pr merge") for command in report["suggested_commands"])
+
+
 def test_missing_evidence_yields_ready_for_minimum_evidence() -> None:
     report = build_report(
         _packet(_entry(1005)),
