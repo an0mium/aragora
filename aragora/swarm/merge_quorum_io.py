@@ -63,6 +63,54 @@ def _looks_like_shadow(name: str) -> bool:
     return bool(tokens) and tokens[-1] in _SHADOW_MARKERS
 
 
+def _check_conclusion(check: dict[str, Any]) -> str:
+    conclusion = str(check.get("conclusion") or check.get("state") or "").upper()
+    if conclusion:
+        return conclusion
+    status = str(check.get("status") or "").upper()
+    return "" if status == "COMPLETED" else status
+
+
+def _check_recency_key(check: dict[str, Any]) -> str:
+    return str(
+        check.get("completedAt")
+        or check.get("startedAt")
+        or check.get("createdAt")
+        or check.get("updatedAt")
+        or ""
+    )
+
+
+def _check_required_rank(check: dict[str, Any]) -> int:
+    is_required = check.get("isRequired")
+    if is_required is True:
+        return 2
+    if is_required is False:
+        return 0
+    return 1
+
+
+def _select_quorum_conclusion(checks: list[Any]) -> str:
+    """Pick the authoritative quorum check from a heterogeneous rollup.
+
+    GitHub can return more than one same-name check run for the same head. The
+    latest required/unknown-required entry is safer than a stale success, and
+    this must be deterministic rather than dependent on rollup ordering.
+    """
+    selected: tuple[int, str, int, str] | None = None
+    for index, check in enumerate(checks):
+        if not isinstance(check, dict):
+            continue
+        name = str(check.get("name") or check.get("context") or "")
+        if name != QUORUM_CHECK_NAME:
+            continue
+        conclusion = _check_conclusion(check)
+        rank = (_check_required_rank(check), _check_recency_key(check), -index, conclusion)
+        if selected is None or rank > selected:
+            selected = rank
+    return selected[3] if selected is not None else ""
+
+
 def aragora_env() -> dict[str, str]:
     env = dict(os.environ)
     env.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
@@ -171,15 +219,15 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
         head_committed_at = str(committer.get("date") or "")
 
     real_failure = False
-    quorum_conclusion = ""
-    for check in data.get("statusCheckRollup") or []:
+    checks = data.get("statusCheckRollup") or []
+    quorum_conclusion = _select_quorum_conclusion(checks)
+    for check in checks:
         if not isinstance(check, dict):
             continue
         name = str(check.get("name") or check.get("context") or "")
-        conclusion = str(check.get("conclusion") or check.get("state") or "").upper()
         if name == QUORUM_CHECK_NAME:
-            quorum_conclusion = conclusion
             continue
+        conclusion = _check_conclusion(check)
         if conclusion not in _FAILED_CONCLUSIONS:
             continue
         is_required = check.get("isRequired")

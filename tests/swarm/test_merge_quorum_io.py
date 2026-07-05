@@ -57,6 +57,34 @@ def test_fetch_pr_context_routes_reads_through_app_token(monkeypatch) -> None:
     assert captured_envs[0].get("ARAGORA_GITHUB_AUTH_SOURCE") == "github_app_installation"
 
 
+def test_fetch_pr_context_uses_newest_duplicate_quorum_check(monkeypatch) -> None:
+    payload = {
+        "headRefOid": "abc",
+        "commits": [],
+        "statusCheckRollup": [
+            {
+                "__typename": "CheckRun",
+                "name": "aragora-merge-quorum",
+                "conclusion": "FAILURE",
+                "status": "COMPLETED",
+                "startedAt": "2026-07-05T17:48:54Z",
+                "completedAt": "2026-07-05T17:49:46Z",
+            },
+            {
+                "__typename": "CheckRun",
+                "name": "aragora-merge-quorum",
+                "conclusion": "SUCCESS",
+                "status": "COMPLETED",
+                "startedAt": "2026-07-05T09:29:59Z",
+                "completedAt": "2026-07-05T09:30:33Z",
+            },
+        ],
+    }
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(payload)))
+
+    assert m.fetch_pr_context("o/r", 8879)["quorum_conclusion"] == "FAILURE"
+
+
 def test_fetch_pr_tier_reads_nested_entries(monkeypatch) -> None:
     payload = {
         "version": "merge_authorization_packet.v1",
