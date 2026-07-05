@@ -1506,7 +1506,8 @@ def _safe_worktree_absent_noop_proof(
 
     safety = payload.get("cleanup_safety")
     classification = safety.get("classification") if isinstance(safety, dict) else None
-    blockers = payload.get("blockers") if isinstance(payload.get("blockers"), list) else []
+    payload_blockers = payload.get("blockers")
+    blockers: list[Any] = payload_blockers if isinstance(payload_blockers, list) else []
     absent_noop = (
         payload.get("exists") is False
         and payload.get("dirty") is not True
@@ -1813,10 +1814,27 @@ def build_worktree_reference_preservation_proof(
             "worktree_inspections": inspections,
         }
     if not desired_head:
+        remote = _remote_branch_head(branch, repo_root=repo_root, runner=runner)
+        if remote.get("status") == "exists":
+            remote_head = remote.get("head_sha")
+            return {
+                "available": True,
+                "branch": branch,
+                "desired_head_sha": remote_head,
+                "desired_head_source": "remote_branch_head",
+                "worktree_paths": [path for _, path in paths],
+                "worktree_inspections": inspections,
+                "upstream_preservation": {
+                    "proven": True,
+                    "method": "remote_branch_head_no_local_record",
+                    "remote_head_sha": remote_head,
+                },
+            }
         return {
             "available": False,
             "reason": "desired_head_unavailable",
             "branch": branch,
+            "remote": remote,
             "worktree_paths": [path for _, path in paths],
             "worktree_inspections": inspections,
         }
@@ -1977,8 +1995,8 @@ def assess_owner_liveness(
     # Lease anchor: the most recent timestamp across the owner record,
     # the matched heartbeat, and the ledger entry. Conservative — any
     # recent signal keeps the owner "live".
-    owner_timestamp_keys = _OWNER_RECORD_TIMESTAMP_KEYS
-    ledger_timestamp_keys = _LEDGER_TIMESTAMP_KEYS
+    owner_timestamp_keys: tuple[str, ...] = _OWNER_RECORD_TIMESTAMP_KEYS
+    ledger_timestamp_keys: tuple[str, ...] = _LEDGER_TIMESTAMP_KEYS
     if heartbeat_terminal:
         owner_timestamp_keys = tuple(
             key for key in _OWNER_RECORD_TIMESTAMP_KEYS if key != "last_heartbeat_at"
