@@ -195,6 +195,140 @@ def test_collect_decision_items_omits_ruled_after_packet(tmp_path: Path) -> None
     assert items == []
 
 
+def test_collect_decision_items_requires_exact_one_word_reply_case(tmp_path: Path) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-05T10:00:00Z",
+            "thread_state": "open",
+            "body": _single_item_packet(
+                generated="2026-07-05T10:00:00Z",
+                target="PR #8886: https://github.com/synaptent/aragora/pull/8886",
+                reply="B",
+            ),
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-05T10:05:00Z",
+            "thread_state": "open",
+            "body": "b",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert len(items) == 1
+    assert items[0].expected_reply == "B"
+
+
+def test_collect_decision_items_accepts_exact_one_word_reply(tmp_path: Path) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-05T10:00:00Z",
+            "thread_state": "open",
+            "body": _single_item_packet(
+                generated="2026-07-05T10:00:00Z",
+                target="PR #8886: https://github.com/synaptent/aragora/pull/8886",
+                reply="B",
+            ),
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-05T10:05:00Z",
+            "thread_state": "open",
+            "body": "`B`",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert items == []
+
+
+def test_collect_decision_items_settlement_match_uses_target_number_boundary(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-05T10:00:00Z",
+            "thread_state": "open",
+            "body": _single_item_packet(
+                generated="2026-07-05T10:00:00Z",
+                target="PR #875: https://github.com/synaptent/aragora/pull/875",
+                reply="approve",
+            ),
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-05T10:05:00Z",
+            "thread_state": "open",
+            "body": "Settlement recorded for PR #8756.",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert len(items) == 1
+    assert items[0].target.startswith("PR #875:")
+
+
+def test_collect_decision_items_settlement_match_resolves_exact_target(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-05T10:00:00Z",
+            "thread_state": "open",
+            "body": _single_item_packet(
+                generated="2026-07-05T10:00:00Z",
+                target="PR #8756: https://github.com/synaptent/aragora/pull/8756",
+                reply="approve",
+            ),
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-05T10:05:00Z",
+            "thread_state": "open",
+            "body": "Settlement recorded for PR #8756.",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert items == []
+
+
 def test_collect_decision_items_omits_closed_thread_packet(tmp_path: Path) -> None:
     comments = [
         {
