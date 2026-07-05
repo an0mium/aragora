@@ -141,6 +141,18 @@ def _write_bound_message(
     return message
 
 
+def _assert_invalid_mailbox_receipt(result: dict[str, Any], reason: str) -> None:
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    details = result["findings"][0]["terminal_safety_details"]
+    assert result["findings"][0]["terminal_safety_blockers"] == ["invalid_mailbox_receipt"]
+    assert details["pending_mailbox_messages"] == ["message.json"]
+    assert any(
+        receipt.get("message_filename") == "message.json" and receipt.get("reason") == reason
+        for receipt in details["invalid_mailbox_receipts"]
+    )
+
+
 def test_detects_completed_owner_conflict_without_mutating(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     registry.write_text(
@@ -1403,12 +1415,7 @@ def test_merged_pr_audit_apply_rejects_tampered_terminal_receipted_mailbox_messa
         steering_inbox_root=steering_root,
     )
 
-    assert result["resolved_count"] == 0
-    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
-    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
-    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
-        "message.json"
-    ]
+    _assert_invalid_mailbox_receipt(result, "message_integrity_unverified")
 
 
 def test_merged_pr_audit_apply_rejects_when_newer_receipt_is_not_terminal(
@@ -1462,9 +1469,9 @@ def test_merged_pr_audit_apply_rejects_when_newer_receipt_is_not_terminal(
     assert result["resolved_count"] == 0
     assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
     assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
-    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
-        "message.json"
-    ]
+    details = result["findings"][0]["terminal_safety_details"]
+    assert details["pending_mailbox_messages"] == ["message.json"]
+    assert details["latest_mailbox_receipt_outcomes"] == {"message.json": "held"}
 
 
 def test_merged_pr_audit_apply_rejects_terminal_receipt_with_invalid_timestamp(
@@ -1507,12 +1514,7 @@ def test_merged_pr_audit_apply_rejects_terminal_receipt_with_invalid_timestamp(
         steering_inbox_root=steering_root,
     )
 
-    assert result["resolved_count"] == 0
-    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
-    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
-    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
-        "message.json"
-    ]
+    _assert_invalid_mailbox_receipt(result, "invalid_read_at_utc")
 
 
 def test_merged_pr_audit_apply_rejects_future_dated_terminal_receipt(
@@ -1555,12 +1557,7 @@ def test_merged_pr_audit_apply_rejects_future_dated_terminal_receipt(
         steering_inbox_root=steering_root,
     )
 
-    assert result["resolved_count"] == 0
-    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
-    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
-    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
-        "message.json"
-    ]
+    _assert_invalid_mailbox_receipt(result, "read_after_audit_time")
 
 
 def test_merged_pr_audit_apply_orders_receipts_by_parsed_timestamp(
@@ -1614,9 +1611,203 @@ def test_merged_pr_audit_apply_orders_receipts_by_parsed_timestamp(
     assert result["resolved_count"] == 0
     assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
     assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
-    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
-        "message.json"
-    ]
+    details = result["findings"][0]["terminal_safety_details"]
+    assert details["pending_mailbox_messages"] == ["message.json"]
+    assert details["latest_mailbox_receipt_outcomes"] == {"message.json": "held"}
+
+
+def test_merged_pr_audit_apply_rejects_receipt_after_audit_time(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    message = _write_bound_message(inbox)
+    _write_read_receipt(
+        inbox,
+        receipt_name="after-audit-terminal.json",
+        message_filename="message.json",
+        message_sha256=message["message_sha256"],
+        outcome="completed",
+        read_at_utc="2026-05-23T19:21:00Z",
+    )
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        resolved_at="2026-05-23T19:20:00Z",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    _assert_invalid_mailbox_receipt(result, "read_after_audit_time")
+
+
+def test_merged_pr_audit_apply_rejects_receipt_before_message_send_time(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    message = _write_bound_message(inbox)
+    _write_read_receipt(
+        inbox,
+        receipt_name="before-message-terminal.json",
+        message_filename="message.json",
+        message_sha256=message["message_sha256"],
+        outcome="completed",
+        read_at_utc="2026-05-23T19:18:59Z",
+    )
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        resolved_at="2026-05-23T19:20:00Z",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    _assert_invalid_mailbox_receipt(result, "read_before_message_sent_at_utc")
+
+
+def test_merged_pr_audit_apply_fails_closed_on_same_timestamp_tie(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    message = _write_bound_message(inbox)
+    _write_read_receipt(
+        inbox,
+        receipt_name="z-terminal.json",
+        message_filename="message.json",
+        message_sha256=message["message_sha256"],
+        outcome="completed",
+        read_at_utc="2026-05-23T19:20:00Z",
+    )
+    _write_read_receipt(
+        inbox,
+        receipt_name="a-held.json",
+        message_filename="message.json",
+        message_sha256=message["message_sha256"],
+        outcome="held",
+        read_at_utc="2026-05-23T19:20:00Z",
+    )
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        resolved_at="2026-05-23T19:20:00Z",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
+    details = result["findings"][0]["terminal_safety_details"]
+    assert details["pending_mailbox_messages"] == ["message.json"]
+    assert details["latest_mailbox_receipt_outcomes"] == {"message.json": "held"}
+
+
+def test_merged_pr_audit_apply_treats_blocked_receipt_as_explicit_nonterminal(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    message = _write_bound_message(inbox)
+    _write_read_receipt(
+        inbox,
+        receipt_name="blocked.json",
+        message_filename="message.json",
+        message_sha256=message["message_sha256"],
+        outcome="blocked",
+        read_at_utc="2026-05-23T19:20:00Z",
+    )
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        resolved_at="2026-05-23T19:20:00Z",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
+    details = result["findings"][0]["terminal_safety_details"]
+    assert details["pending_mailbox_messages"] == ["message.json"]
+    assert details["latest_mailbox_receipt_outcomes"] == {"message.json": "blocked"}
 
 
 def test_merged_pr_audit_apply_rejects_terminal_receipt_with_wrong_message_hash(
@@ -1626,7 +1817,7 @@ def test_merged_pr_audit_apply_rejects_terminal_receipt_with_wrong_message_hash(
     steering_root = tmp_path / "operator-steering"
     inbox = steering_root / "codex-owner"
     inbox.mkdir(parents=True)
-    _write_json(inbox / "message.json", {"message_sha256": "actual-sha"})
+    _write_bound_message(inbox)
     _write_read_receipt(
         inbox,
         message_filename="message.json",
@@ -1657,12 +1848,7 @@ def test_merged_pr_audit_apply_rejects_terminal_receipt_with_wrong_message_hash(
         steering_inbox_root=steering_root,
     )
 
-    assert result["resolved_count"] == 0
-    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
-    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
-    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
-        "message.json"
-    ]
+    _assert_invalid_mailbox_receipt(result, "message_sha256_mismatch")
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
 
 
@@ -1672,34 +1858,42 @@ def test_merged_pr_audit_apply_rejects_terminal_receipts_with_missing_hashes(
     cases = [
         (
             "empty-receipt-hash",
-            {"message_sha256": "actual-sha"},
+            "bound-message",
             {"message_sha256": ""},
+            "message_sha256_mismatch",
         ),
         (
             "missing-receipt-hash",
-            {"message_sha256": "actual-sha"},
+            "bound-message",
             {},
+            "message_sha256_mismatch",
         ),
         (
             "empty-message-hash",
             {"message_sha256": ""},
             {"message_sha256": "actual-sha"},
+            "message_integrity_unverified",
         ),
         (
             "missing-message-hash",
             {"subject": "operator ruling"},
             {"message_sha256": "actual-sha"},
+            "message_integrity_unverified",
         ),
     ]
 
-    for case_name, message_payload, receipt_payload in cases:
+    for case_name, message_payload, receipt_payload, expected_reason in cases:
         case_root = tmp_path / case_name
         registry = case_root / "lanes.json"
         steering_root = case_root / "operator-steering"
         inbox = steering_root / "codex-owner"
         receipt_dir = inbox / "_read_receipts"
         receipt_dir.mkdir(parents=True)
-        _write_json(inbox / "message.json", message_payload)
+        if message_payload == "bound-message":
+            _write_bound_message(inbox)
+            receipt_payload = {**receipt_payload}
+        else:
+            _write_json(inbox / "message.json", message_payload)
         _write_json(
             receipt_dir / "receipt.json",
             {
@@ -1736,10 +1930,12 @@ def test_merged_pr_audit_apply_rejects_terminal_receipts_with_missing_hashes(
 
         assert result["resolved_count"] == 0, case_name
         assert result["blocked_reason"] == "unsafe_terminal_owner_gates", case_name
-        assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"], case_name
-        assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
-            "message.json"
-        ], case_name
+        details = result["findings"][0]["terminal_safety_details"]
+        assert result["findings"][0]["terminal_safety_blockers"] == ["invalid_mailbox_receipt"], (
+            case_name
+        )
+        assert details["pending_mailbox_messages"] == ["message.json"], case_name
+        assert details["invalid_mailbox_receipts"][0]["reason"] == expected_reason
         assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
 
 
