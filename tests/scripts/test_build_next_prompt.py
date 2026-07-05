@@ -123,6 +123,12 @@ def test_prompt_starts_with_mailbox_and_owner_verification(tmp_path: Path) -> No
         "Continue only if you are owner_session droid-P106-merge-gate-settlement-20260521T2118Z"
         in prompt
     )
+    assert "ARAGORA_REQUIRE_BRANCH_WRITE_LEASE=1" in prompt
+    assert (
+        "python3 scripts/check_work_lease.py claude/recover-merge-gate-reconciliation "
+        "--verify-only --work-id pr:7423 --strict "
+        "--session-id droid-P106-merge-gate-settlement-20260521T2118Z --json"
+    ) in prompt
     assert (
         "If the prompt above accomplishes no incremental progress make the next prompt one that does"
         in prompt
@@ -144,6 +150,7 @@ def test_prompt_for_non_owner_read_only_when_no_lane_match(tmp_path: Path) -> No
 
     assert "If you cannot map yourself to a lane, run read-only only" in prompt
     assert "Do not paste raw transcripts" in prompt
+    assert "ARAGORA_REQUIRE_BRANCH_WRITE_LEASE=1" not in prompt
 
 
 def test_prompt_shell_quotes_live_lane_values(tmp_path: Path) -> None:

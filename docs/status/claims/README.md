@@ -27,3 +27,11 @@ only; DIC-14 owns evaluation.
 Queue policy: failed or stale claims must not directly create `boss-ready` work
 from this manifest. DIC-17 may later propose bounded follow-up issues, still
 subject to proof-first queue governance.
+
+## Current Manifests
+
+- `proof_first_claims.yaml` - initial proof-first runtime and queue-policy
+  claims for the Epistemic CI tranche.
+- `outsider_verifiable_claims.yaml` - Jul 2026 preservation claims for the
+  outsider-verifiable ODR path, public dogfood artifact reproducibility,
+  strategy durability, and question-battery tracking.

@@ -12,7 +12,7 @@ Executable sample artifacts for
 Verify the signed receipt with nothing but the standalone verifier:
 
 ```bash
-pip install aragora-verify
+pip install "aragora-verify>=0.1.1"
 aragora-verify sample_decision_receipt.odr.json --pubkey odr_sample_signing_public_key.pem
 ```
 

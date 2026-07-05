@@ -167,6 +167,7 @@ COMPLETED_STATUSES = {"completed", "released", "superseded", "expired"}
 SNAPSHOT_TIMEOUT_SECONDS = 30
 
 SnapshotProvider = Callable[[], dict[str, Any] | None]
+WORK_ID_PREFIXES = ("pr:", "issue:", "factory:", "branch:")
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +330,96 @@ def find_lane(
                 matches.append(r)
         return _best_lane_match(matches)
     return None
+
+
+def _lane_work_id(lane: dict[str, Any]) -> str | None:
+    raw = str(lane.get("work_id") or "").strip()
+    if raw.startswith(WORK_ID_PREFIXES):
+        return raw
+    raw_pr = lane.get("pr_number")
+    if raw_pr is not None:
+        try:
+            return f"pr:{int(raw_pr)}"
+        except (TypeError, ValueError):
+            pass
+    branch = str(lane.get("branch") or "").strip()
+    return f"branch:{branch}" if branch else None
+
+
+def _check_dev_coordination_lease(
+    lane: dict[str, Any],
+    *,
+    repo_root: Path = REPO_ROOT,
+    timeout_seconds: float = 10.0,
+) -> dict[str, Any]:
+    """Advisory read of the dev_coordination branch-write lease for a lane."""
+
+    branch = str(lane.get("branch") or "").strip()
+    work_id = _lane_work_id(lane)
+    if not branch:
+        return {
+            "status": "unavailable",
+            "reason": "missing_branch",
+            "work_id": work_id,
+            "lease_id": None,
+            "owner_session_id": None,
+        }
+
+    cmd = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "check_work_lease.py"),
+        branch,
+        "--repo",
+        str(repo_root),
+        "--verify-only",
+        "--advisory",
+        "--strict",
+        "--json",
+    ]
+    if work_id:
+        cmd.extend(["--work-id", work_id])
+    owner_session = str(lane.get("owner_session") or "").strip()
+    if owner_session:
+        cmd.extend(["--session-id", owner_session])
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=repo_root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {
+            "status": "unavailable",
+            "reason": "store_unreachable",
+            "work_id": work_id,
+            "lease_id": None,
+            "owner_session_id": owner_session or None,
+            "detail": str(exc),
+        }
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return {
+            "status": "unavailable",
+            "reason": "store_unreachable",
+            "work_id": work_id,
+            "lease_id": None,
+            "owner_session_id": owner_session or None,
+            "detail": (proc.stderr or proc.stdout or "").strip(),
+        }
+    if not isinstance(payload, dict):
+        payload = {}
+    return {
+        "status": "valid" if payload.get("ok") is True else "invalid",
+        "reason": payload.get("reason"),
+        "work_id": payload.get("work_id") or work_id,
+        "lease_id": payload.get("lease_id"),
+        "owner_session_id": payload.get("owner_session_id") or owner_session or None,
+        "detail": payload.get("detail"),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -2354,11 +2445,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
 
     output_info, payload = _info_with_aligned_owner_state(info, liveness_payload)
+    dev_coordination_lease: dict[str, Any] | None = None
+    if args.liveness:
+        dev_coordination_lease = _check_dev_coordination_lease(lane)
+        payload["dev_coordination_lease"] = dev_coordination_lease
 
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         _print_human(output_info)
+        if dev_coordination_lease is not None:
+            print(f"dev_coordination_lease: {dev_coordination_lease}")
         if liveness_payload is not None:
             _print_liveness_summary(payload)
 

@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-07-02
-**Total Skip Markers**: 75
+**Generated**: 2026-07-04
+**Total Skip Markers**: 77
 
 ---
 
@@ -9,12 +9,12 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| integration_dependency | 29 | 38.7% |
-| missing_feature | 17 | 22.7% |
-| uncategorized | 11 | 14.7% |
-| optional_dependency | 7 | 9.3% |
-| platform_specific | 6 | 8.0% |
-| performance | 4 | 5.3% |
+| integration_dependency | 29 | 37.7% |
+| missing_feature | 17 | 22.1% |
+| uncategorized | 12 | 15.6% |
+| optional_dependency | 8 | 10.4% |
+| platform_specific | 6 | 7.8% |
+| performance | 4 | 5.2% |
 | known_bug | 1 | 1.3% |
 
 ## Summary by Marker Type
@@ -22,8 +22,8 @@
 | Type | Count |
 |------|-------|
 | `skipif` | 36 |
-| `pytest.skip` | 34 |
-| `pytest.importorskip` | 3 |
+| `pytest.skip` | 35 |
+| `pytest.importorskip` | 4 |
 | `skip` | 2 |
 
 ## High-Skip Files (Top 10)
@@ -71,14 +71,16 @@
 
 ## Skip Count Baseline
 
-Current baseline: **75** skips
+Current baseline: **77** skips
 
-Baseline history: the enforced value lives in `tests/.skip_baseline` (68 →
-75 in PR #8800, with the per-skip audit of all 7 net-new markers in that
-PR's description). This document was previously regenerated on 2026-04-06
-when the count was 57 and had gone stale; the 57→75 jump in this file's
-diff reflects that staleness, not 18 unaudited skips — the enforced
-baseline only ever moved 68→75.
+Baseline history: the enforced value lives in `tests/.skip_baseline`
+(68 → 75 in PR #8800, 75 → 77 in the PR that regenerated this file on
+2026-07-04; each bump ships a per-skip audit table of every net-new
+marker in that PR's description). Note on doc-vs-file history: this
+generated document goes stale between bumps — it was regenerated on
+2026-04-06 when the count was 57, so this file's diff once jumped 57→75;
+that reflected staleness, not 18 unaudited skips. The enforced baseline
+has only ever moved 68 → 75 → 77.
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.
