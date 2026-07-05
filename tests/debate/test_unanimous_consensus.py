@@ -155,9 +155,9 @@ class TestVotingErrors:
 
         result = await arena.run()
 
-        # Voting errors are excluded from unanimity; successful votes still agree.
-        assert result.consensus_reached is True
-        assert result.confidence == pytest.approx(1.0, rel=0.01)
+        # Voting errors count as dissent.
+        assert result.consensus_reached is False
+        assert result.confidence == pytest.approx(2 / 3, rel=0.01)
 
     @pytest.mark.asyncio
     async def test_all_voting_errors_no_consensus(self):

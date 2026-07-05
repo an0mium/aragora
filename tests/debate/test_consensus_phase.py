@@ -359,9 +359,10 @@ class TestUnanimousConsensusMode:
 
         await phase.execute(ctx)
 
-        # Voting errors are logged but don't prevent consensus
-        # If all successful votes agree, that's still unanimous
-        assert ctx.result.consensus_reached is True
+        # Voting errors count as dissent for unanimous consensus.
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.consensus_strength == "none"
+        assert ctx.result.confidence == pytest.approx(0.5, rel=0.01)
         assert "Proposal A" in ctx.result.final_answer
         assert ctx.result.synthesis == ctx.result.final_answer
 
