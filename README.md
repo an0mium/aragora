@@ -26,7 +26,9 @@ standalone verifier ([`pip install -U 'aragora-verify>=0.1.1'`](https://pypi.org
 
 PyPI `aragora` releases through 2.7.4 support `aragora demo`, but they do not
 include the explicit `--offline` flag or the source checkout's verifiable
-native demo-receipt round trip.
+native demo-receipt round trip. If that public-package demo writes
+`aragora-demo-receipt.json`, treat it as demo output, not the verification
+example; use the source checkout path below for `receipt verify`.
 
 ## The problem
 

@@ -31,6 +31,11 @@ def test_readme_does_not_claim_pypi_demo_offline_receipt_round_trip() -> None:
         "Current PyPI package:",
         "Current source checkout:",
     )
+    source_try_it_now = _section_between(
+        readme,
+        "Current source checkout:",
+        "Live review with a provider key:",
+    )
     pypi_table_row = _line_containing(readme, "Run the current PyPI zero-key demo")
 
     assert "pip install aragora && aragora demo --offline" not in readme
@@ -46,6 +51,9 @@ def test_readme_does_not_claim_pypi_demo_offline_receipt_round_trip() -> None:
     assert "aragora verify" not in pypi_try_it_now
     assert "Current source checkout:" in readme
     assert "PyPI `aragora` releases through" in readme
+    assert re.search(r"demo output,\s+not the\s+verification\s+example", readme)
+    assert "aragora demo --offline --receipt aragora-demo-receipt.json" in source_try_it_now
+    assert "aragora receipt verify aragora-demo-receipt.json" in source_try_it_now
 
 
 def test_quickstart_separates_pypi_demo_from_source_receipt_verification() -> None:
@@ -69,3 +77,4 @@ def test_quickstart_separates_pypi_demo_from_source_receipt_verification() -> No
     assert "aragora demo --offline --receipt aragora-demo-receipt.json" in source_section
     assert "aragora receipt verify aragora-demo-receipt.json" in source_section
     assert "PyPI `aragora` releases through" in quickstart
+    assert re.search(r"demo output,\s+not the\s+verification\s+example", quickstart)

@@ -119,7 +119,9 @@ aragora receipt verify aragora-demo-receipt.json
 
 PyPI `aragora` releases through 2.7.4 run `aragora demo`, but the explicit
 `--offline` flag and verifiable native demo-receipt round trip are available
-from source until a later package release carries them.
+from source until a later package release carries them. If the public-package
+demo writes `aragora-demo-receipt.json`, treat it as demo output, not the
+verification example; use the source checkout path above for `receipt verify`.
 
 ## Next Steps
 
