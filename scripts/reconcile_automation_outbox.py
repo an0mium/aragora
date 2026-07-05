@@ -502,6 +502,38 @@ def _merged_pr_commit_preservation_proof(
     }
 
 
+def _remote_branch_exact_preservation_proof(
+    *,
+    root: Path,
+    state_root: Path,
+    payload: dict[str, Any],
+    branch: str,
+) -> Mapping[str, Any] | None:
+    """Return proof that a missing local ref is preserved by exact remote branch."""
+
+    if not _is_pr_publication_request(payload):
+        return None
+    for record in _lane_records_from_payload(payload, branch):
+        if not record.get("worktree"):
+            continue
+        try:
+            proof = build_worktree_reference_preservation_proof(
+                record,
+                repo_root=root,
+                state_root=state_root,
+            )
+        except Exception:
+            return None
+        if not isinstance(proof, Mapping):
+            continue
+        upstream = proof.get("upstream_preservation")
+        if not isinstance(upstream, Mapping):
+            continue
+        if proof.get("available") is True and upstream.get("method") == "remote_branch_exact_head":
+            return proof
+    return None
+
+
 def _preservation_proof_has_absent_worktree(proof: Mapping[str, Any]) -> bool:
     inspections = proof.get("worktree_inspections")
     if not isinstance(inspections, Sequence) or isinstance(inspections, (str, bytes, bytearray)):
@@ -1701,6 +1733,29 @@ def main(argv: list[str] | None = None) -> int:
                         "reason": (
                             "branch no longer exists locally, but open PR state is unavailable"
                         ),
+                        "synthetic_receipt": False,
+                    }
+                )
+                continue
+
+            remote_branch_proof = _remote_branch_exact_preservation_proof(
+                root=root,
+                state_root=state_root,
+                payload=payload,
+                branch=branch,
+            )
+            if remote_branch_proof is not None:
+                counts["still_protecting_active_work"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "keep",
+                        "reason": (
+                            "desired head preserved by exact remote branch; "
+                            "local ref unavailable — actively protecting"
+                        ),
+                        "preservation_proof": remote_branch_proof,
                         "synthetic_receipt": False,
                     }
                 )

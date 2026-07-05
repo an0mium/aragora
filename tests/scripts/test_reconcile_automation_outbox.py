@@ -1232,6 +1232,60 @@ def test_missing_branch_archives_when_open_pr_state_is_available(
     assert payload["actions"][0]["reason"] == "branch no longer exists"
 
 
+def test_missing_local_branch_keeps_when_exact_remote_branch_preserves_desired_head(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-remote-preserved-abc123"
+    branch = "codex/remote-preserved"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree": str(tmp_path / "missing-worktree"),
+        },
+    )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=128, stdout="", stderr="missing ref"
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree_paths": [str(tmp_path / "missing-worktree")],
+            "upstream_preservation": {
+                "proven": True,
+                "method": "remote_branch_exact_head",
+                "remote_head_sha": desired_head,
+            },
+        },
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["missing_branch"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "desired head preserved by exact remote branch" in payload["actions"][0]["reason"]
+
+
 def test_unique_branch_keep_reason_notes_unavailable_open_pr_state(
     tmp_path: Path,
     monkeypatch: Any,
