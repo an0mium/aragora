@@ -232,6 +232,7 @@ Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed
 | What's real vs aspirational | [`docs/HONEST_ASSESSMENT.md`](docs/HONEST_ASSESSMENT.md) |
 | Receipt format (the external contract) | [Open Decision Receipt spec](docs/specs/OPEN_DECISION_RECEIPT.md) |
 | Decision-semantics roadmap | ODR spine epic [#8223](https://github.com/synaptent/aragora/issues/8223); ODR-1..7 → [#8224](https://github.com/synaptent/aragora/issues/8224)/[#8225](https://github.com/synaptent/aragora/issues/8225)/[#8226](https://github.com/synaptent/aragora/issues/8226)/[#8227](https://github.com/synaptent/aragora/issues/8227)/[#8229](https://github.com/synaptent/aragora/issues/8229)/[#8230](https://github.com/synaptent/aragora/issues/8230)/[#8231](https://github.com/synaptent/aragora/issues/8231) |
+| Jul 2026 durability capture / outsider-verifiable claims | [Durable strategy capture](docs/strategy/2026-07-05-durable-strategy-capture.md); executable claims manifest [`outsider_verifiable_claims.yaml`](docs/status/claims/outsider_verifiable_claims.yaml); parent capture issue [#8856](https://github.com/synaptent/aragora/issues/8856) |
 | Autonomy truth | B0 benchmark [`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`](docs/status/B0_BENCHMARK_TRUTH_STATUS.md) |
 | Enterprise / compliance | [GA checklist](docs/GA_CHECKLIST.md) (SOC 2 / pentest gate) · [Enterprise features](docs/enterprise/ENTERPRISE_FEATURES.md) |
 | Frontier work is bounded | the proof-first Foreman gate + capability checkpoints CP-1..5 (below) |
