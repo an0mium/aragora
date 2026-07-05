@@ -71,6 +71,13 @@ SESSION_ENV_VARS = (
 AGENT_ENV_VARS = ("ARAGORA_AGENT", "ARAGORA_AGENT_NAME")
 LANE_LEASES_RELPATH = Path(".aragora") / "agent-bridge" / "lane-leases.json"
 DEFAULT_TTL_HOURS = 8.0
+# Synthetic write-scope entry carried by every helper-mediated claim. The
+# store's conflict detection is file-scope based (allowed_globs /
+# claimed_paths), so an empty-scope lease would never conflict with another
+# empty-scope lease for the same branch. Two identical literal globs DO
+# conflict (_glob_overlap: a == b), so this lock path makes any two helper
+# claims for the same branch conflict transactionally at the store.
+BRANCH_LOCK_GLOB_TEMPLATE = ".aragora/branch-locks/{branch}"
 
 
 class StoreUnreachableError(RuntimeError):
@@ -180,32 +187,50 @@ def resolve_branch(repo_root: Path, explicit: str | None = None) -> str:
     return branch
 
 
-def active_leases_for_branch(db_path: Path, branch: str) -> list[LeaseRow]:
-    """Read-only query of active, unexpired leases for ``branch``.
-
-    A missing DB file means the store has never been initialised, which we
-    treat as "no leases" rather than unreachable (deterministic for fresh
-    checkouts).  Actual sqlite errors raise :class:`StoreUnreachableError`.
-    """
-    if not db_path.exists():
-        return []
-    try:
-        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=5.0)
-    except sqlite3.Error as exc:
-        raise StoreUnreachableError(f"cannot open lease store {db_path}: {exc}") from exc
+def _query_lease_rows(db_path: Path, branch: str, *, immutable: bool) -> list[sqlite3.Row]:
+    uri = f"file:{db_path}?mode=ro"
+    if immutable:
+        uri += "&immutable=1"
+    conn = sqlite3.connect(uri, uri=True, timeout=5.0)
     try:
         conn.row_factory = sqlite3.Row
-        rows = conn.execute(
+        return conn.execute(
             "SELECT lease_id, task_id, title, owner_agent, owner_session_id, branch,"
             " worktree_path, status, created_at, expires_at"
             " FROM leases WHERE branch = ? AND status = 'active'"
             " ORDER BY created_at ASC, lease_id ASC",
             (branch,),
         ).fetchall()
-    except sqlite3.Error as exc:
-        raise StoreUnreachableError(f"cannot query lease store {db_path}: {exc}") from exc
     finally:
         conn.close()
+
+
+def active_leases_for_branch(db_path: Path, branch: str) -> list[LeaseRow]:
+    """Read-only query of active, unexpired leases for ``branch``.
+
+    A missing DB file means the store has never been initialised, which we
+    treat as "no leases" rather than unreachable (deterministic for fresh
+    checkouts).
+
+    Opening a WAL-mode DB with ``mode=ro`` still needs the ``-wal``/``-shm``
+    sidecars: sqlite must create them when absent (a clean close removes
+    them; a copied DB lacks them), which fails when the store directory is
+    not writable by the invoking UID. On ``OperationalError`` we therefore
+    retry with ``immutable=1``, which skips WAL entirely — acceptable
+    staleness for an advisory pre-check, since claims go through the store
+    anyway. Only if both attempts fail is the store treated as unreachable.
+    """
+    if not db_path.exists():
+        return []
+    try:
+        rows = _query_lease_rows(db_path, branch, immutable=False)
+    except sqlite3.OperationalError:
+        try:
+            rows = _query_lease_rows(db_path, branch, immutable=True)
+        except sqlite3.Error as exc:
+            raise StoreUnreachableError(f"cannot read lease store {db_path}: {exc}") from exc
+    except sqlite3.Error as exc:
+        raise StoreUnreachableError(f"cannot read lease store {db_path}: {exc}") from exc
     leases = [
         LeaseRow(
             lease_id=row["lease_id"],
@@ -311,6 +336,21 @@ def _warn_fail_open(args: argparse.Namespace, reason: str) -> int:
     return 0
 
 
+def _conflict_line(conflict: dict[str, Any], branch: str) -> str:
+    """One-line owner report from a ``LeaseConflictError`` conflict dict."""
+    if conflict.get("source") == "fleet_claim":
+        return (
+            f"branch '{branch}' blocked by fleet claim on {conflict.get('path', '?')} "
+            f"(session {conflict.get('session_id', '?')})"
+        )
+    return (
+        f"branch '{conflict.get('branch') or branch}' is leased by "
+        f"{conflict.get('owner_agent', '?')}/{conflict.get('owner_session_id', '?')} "
+        f"(lease {conflict.get('lease_id', '?')}, task {conflict.get('task_id', '?')}, "
+        f"expires {conflict.get('expires_at', '?')})"
+    )
+
+
 def _claim(
     args: argparse.Namespace,
     *,
@@ -319,13 +359,19 @@ def _claim(
     branch: str,
     session_id: str,
 ) -> tuple[int, str | None]:
-    """Claim the branch lease via the live store. Returns (exit_code, lease_id)."""
+    """Claim the branch lease via the live store. Returns (exit_code, lease_id).
+
+    Goes straight to ``store.claim_lease`` (no read-only pre-check) so the
+    store gets to reap expired and dead-worker leases first — a stale lease
+    with a future ``expires_at`` must not squat the branch until TTL.
+    """
     store = _load_store(repo_root, db_path)
     metadata: dict[str, Any] = {"claimed_via": "check_work_lease"}
     if args.pr is not None:
         metadata["pr_number"] = args.pr
     from aragora.nomic.dev_coordination import LeaseConflictError
 
+    branch_lock = BRANCH_LOCK_GLOB_TEMPLATE.format(branch=branch)
     try:
         lease = store.claim_lease(
             task_id=args.task_id or f"branch:{branch}",
@@ -334,27 +380,25 @@ def _claim(
             owner_session_id=session_id,
             branch=branch,
             worktree_path=str(args.worktree or repo_root),
-            allowed_globs=list(args.write_scope),
+            allowed_globs=[branch_lock, *args.write_scope],
             claimed_paths=list(args.path),
             ttl_hours=args.ttl_hours,
             metadata=metadata,
         )
     except LeaseConflictError as exc:
-        summary = "; ".join(
-            f"{c.get('owner_agent', c.get('session_id', '?'))}/"
-            f"{c.get('owner_session_id', '')} lease {c.get('lease_id', c.get('path', '?'))}"
-            for c in exc.conflicts[:3]
-        )
         _emit(
             args,
             ok=False,
             action="claim",
-            detail=f"scope conflict claiming branch '{branch}': {summary}",
+            detail=f"LEASE CONFLICT: {_conflict_line(exc.conflicts[0], branch)}",
             conflicts=exc.conflicts,
         )
         return 1, None
-    # Post-claim double-check: if another active lease for this branch raced
-    # in ahead of ours (earlier created_at wins), back off and release ours.
+    # Post-claim double-check: helper-vs-helper conflicts are caught
+    # transactionally by the branch-lock glob above, but a store-direct
+    # claimant (e.g. swarm) holding this branch with a non-overlapping file
+    # scope is not. If a surviving foreign lease for this branch predates
+    # ours (earlier created_at wins), back off and release ours.
     contenders = active_leases_for_branch(store.db_path, branch)
     for contender in contenders:
         if contender.lease_id == lease.lease_id:
@@ -454,7 +498,11 @@ def main(argv: list[str] | None = None) -> int:
     mine = [lease for lease in leases if lease.owner_session_id == session_id]
     theirs = [lease for lease in leases if lease.owner_session_id != session_id]
 
-    if theirs:
+    # Foreign leases block immediately on the read-only paths. The --claim
+    # path (when we hold nothing) must NOT short-circuit here: it goes to
+    # store.claim_lease first so the store can reap expired and dead-worker
+    # leases instead of letting them squat the branch until TTL.
+    if theirs and not (args.claim and not mine):
         _emit(
             args,
             ok=False,

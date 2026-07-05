@@ -55,11 +55,38 @@ set `ARAGORA_SESSION_ID` for real per-session ownership. `--json` gives
 machine-readable output. `--path`/`--write-scope` pass file scopes through
 to `DevCoordinationStore.claim_lease` for scoped claims.
 
-Claims are branch-keyed leases (`task_id` defaults to `branch:<branch>`);
-expired and dead-worker leases are reaped by the store on claim, so a
-crashed fleet cannot squat a branch past its TTL. A post-claim double-check
-backs off (releases the just-claimed lease) if a concurrent claim on the
-same branch raced in first.
+The read-only check opens the store with `mode=ro` and falls back to
+`immutable=1` when the WAL sidecars are unavailable (absent `-wal`/`-shm`
+after a clean close or a DB copy, or a store directory not writable by the
+invoking UID). The immutable read can be slightly stale — acceptable for an
+advisory pre-check, since claims go through the store.
+
+### Enforcement scope (precisely what conflicts where)
+
+`DevCoordinationStore.claim_lease` detects conflicts on **file scope**
+(`allowed_globs` / `claimed_paths`), not on the `branch` column. The helper
+therefore enforces the branch rule in two layers:
+
+- **Helper-mediated claims conflict at the store.** Every `--claim` carries
+  a synthetic write-scope entry `.aragora/branch-locks/<branch>`; identical
+  literal globs always overlap, so any two helper claims for the same
+  branch conflict transactionally inside `claim_lease` — no read-then-write
+  race window.
+- **Store-direct fleets (swarm supervisor, boss-loop) conflict on file
+  scope only.** A store-direct lease for the same branch with a
+  non-overlapping file scope does not trip `claim_lease`; the helper
+  detects it with a post-claim double-check and backs off (releases the
+  just-claimed lease; earliest `created_at` wins). Read-only invocations
+  (`check`/`--renew`/`--release`) block on any active foreign branch lease.
+- **Full store-level branch uniqueness** (a `branch` conflict predicate
+  inside `claim_lease` itself, covering store-direct claimants too) is a
+  **v1 item**.
+
+Claims are branch-keyed leases (`task_id` defaults to `branch:<branch>`).
+The `--claim` path calls `store.claim_lease` first — the read-only
+pre-check never blocks it — so the store reaps expired **and dead-worker /
+heartbeat-stale** leases before deciding: a crashed fleet's lease with a
+future `expires_at` cannot squat the branch until TTL.
 
 ## Adapters per fleet
 
@@ -113,10 +140,13 @@ Each fleet needs exactly one line at claim time and one before push:
 
 ## Testing
 
-`tests/scripts/test_check_work_lease.py` covers claim, hold, conflict
-(owner report), release (including idempotency and non-owner refusal),
-renew, expired-lease reclaim, the unreachable-store warn path, `--strict`
-fail-closed, the lane sidecar roundtrip, and env-based session identity:
+`tests/scripts/test_check_work_lease.py` covers claim, hold, store-level
+branch-lock conflict (owner report), store-direct-lease back-off, release
+(including idempotency and non-owner refusal), renew, expired-lease and
+heartbeat-stale-lease reclaim, the WAL `immutable=1` fallback (missing
+sidecars + read-only store directory), the unreachable-store warn path,
+`--strict` fail-closed, the lane sidecar roundtrip, and env-based session
+identity:
 
 ```bash
 pytest tests/scripts/test_check_work_lease.py -v
