@@ -19,7 +19,7 @@ aspirational; where a capability does not exist yet it is labeled a **gap**, not
 > been live on PyPI since **2026-06-29T23:32Z** (GitHub release
 > [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0),
 > not yanked), and 0.1.1 is now the latest version. `pip install
-> aragora-verify==0.1.1` works from the public index today. Self-verify:
+> "aragora-verify>=0.1.1"` works from the public index today. Self-verify:
 > `python3 -m pip index versions aragora-verify` or
 > `curl -s https://pypi.org/pypi/aragora-verify/json`. See
 > `docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md` for the corrected verifier-install story.
@@ -150,7 +150,7 @@ open PR #8713, see §7).
 | `aragora` | `pyproject.toml` (root) | 2.9.0 | `pip install aragora` (PyPI, badge confirms) or `pip install -e .` from a clone (`INSTALL.md`) |
 | `aragora-debate` | `aragora-debate/pyproject.toml` | 0.2.3 | `pip install aragora-debate` (`docs/quickstart.md`) — small standalone debate wedge |
 | `aragora-sdk` | `sdk/python/pyproject.toml` | 2.9.0 | `pip install ./sdk/python` (local; no PyPI badge found for this one) |
-| `aragora-verify` | `aragora-verify/pyproject.toml` | 0.1.0 (snapshot); 0.1.1 latest | **Corrected 2026-07-04 — PUBLISHED:** `pip install aragora-verify==0.1.1` installs the current verifier from PyPI (0.1.0 live since **2026-06-29T23:32Z**, GitHub release `aragora-verify-v0.1.0`; 0.1.1 is now latest; self-verify `python3 -m pip index versions aragora-verify` or `curl -s https://pypi.org/pypi/aragora-verify/json`). From-checkout alternatives remain available: `cd aragora-verify && PYTHONPATH=src python -m aragora_verify <file>`, or `pip install ./aragora-verify` for a local console script. *(Snapshotted 2026-07-02 as "no release has been run yet" — that premise was false; see the correction note near the top of this document.)* |
+| `aragora-verify` | `aragora-verify/pyproject.toml` | 0.1.0 (snapshot); 0.1.1 latest | **Corrected 2026-07-04 — PUBLISHED:** `pip install "aragora-verify>=0.1.1"` installs the current verifier from PyPI (0.1.0 live since **2026-06-29T23:32Z**, GitHub release `aragora-verify-v0.1.0`; 0.1.1 is now latest; self-verify `python3 -m pip index versions aragora-verify` or `curl -s https://pypi.org/pypi/aragora-verify/json`). From-checkout alternatives remain available: `cd aragora-verify && PYTHONPATH=src python -m aragora_verify <file>`, or `pip install ./aragora-verify` for a local console script. *(Snapshotted 2026-07-02 as "no release has been run yet" — that premise was false; see the correction note near the top of this document.)* |
 
 A packaging-level drift also exists but is not a docs problem: `aragora-verify`'s runtime floor is
 `cryptography>=41.0` while the root `[tool.uv] constraint-dependencies` floor is `>=48.0.1` (fixes
@@ -292,7 +292,7 @@ paths in a later milestone.
   has been live on PyPI since 2026-06-29T23:32Z, and 0.1.1 is now the latest
   public-index version (see §3.3). The snapshot's original
   guidance here ("no release has actually been published yet... do not assert `pip install
-  aragora-verify`") was incorrect even at the time; `pip install aragora-verify==0.1.1`
+  aragora-verify`") was incorrect even at the time; `pip install "aragora-verify>=0.1.1"`
   works today.
 - **#8694** — read-only reconcile/settle CLI — **CLOSED, unmerged**, 2026-06-30.
 

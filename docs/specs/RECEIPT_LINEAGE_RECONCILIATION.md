@@ -72,7 +72,7 @@ must be kept in lockstep:
    PyPI; 0.1.1 is the latest published version, and 0.1.0 was first published
    2026-06-29T23:32Z (GitHub release
    [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0)).
-   Use `pip install aragora-verify==0.1.1` for the public-index verifier today.
+   Use `pip install "aragora-verify>=0.1.1"` for the public-index verifier today.
    Self-verify rather than trust this sentence: `python3 -m pip index versions
    aragora-verify` or `curl -s https://pypi.org/pypi/aragora-verify/json`. To
    exercise this exact checkout instead of the published package, run
