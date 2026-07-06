@@ -48,6 +48,40 @@ def _receipt_files(root: Path, recipient: str) -> list[Path]:
     return sorted(receipt_dir.glob("*.json")) if receipt_dir.is_dir() else []
 
 
+def _write_terminal_read_receipt(
+    root: Path,
+    recipient: str,
+    message_path: Path,
+    *,
+    outcome: str = "superseded",
+    read_at_utc: str = "2026-05-19T22:01:00Z",
+    message_sha256: str | None = None,
+    receipt_name: str = "terminal.json",
+) -> Path:
+    message = json.loads(message_path.read_text(encoding="utf-8"))
+    receipt_dir = root / recipient / "_read_receipts"
+    receipt_dir.mkdir(parents=True, exist_ok=True)
+    receipt_path = receipt_dir / receipt_name
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "aragora-operator-steering-read-receipt/1.0",
+                "owner_session": recipient,
+                "read_by_session": "reader-session",
+                "read_at_utc": read_at_utc,
+                "message_filename": message_path.name,
+                "message_sha256": (
+                    message["message_sha256"] if message_sha256 is None else message_sha256
+                ),
+                "message_sent_at_utc": message["sent_at_utc"],
+                "outcome": outcome,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return receipt_path
+
+
 def test_reads_only_selected_owner_and_writes_bound_receipt(tmp_path: Path, capsys: Any) -> None:
     steering_root = tmp_path / "steering"
     selected = _write_message(steering_root, "codex-selected", "selected body")
@@ -273,3 +307,191 @@ def test_default_paths_use_canonical_shared_state_from_linked_worktree(
     assert out["steering_inbox_path"] == str(
         canonical_repo / ".aragora" / "operator-steering" / "codex-shared-owner"
     )
+
+
+def test_ack_apply_moves_terminally_receipted_message_and_writes_ack_receipt(
+    tmp_path: Path, capsys: Any
+) -> None:
+    steering_root = tmp_path / "steering"
+    message = _write_message(steering_root, "codex-ack", "ack this")
+    receipt = _write_terminal_read_receipt(steering_root, "codex-ack", message)
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-ack",
+            "--read-by-session",
+            "ack-actor",
+            "--ack",
+            "--apply",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["ack"] is True
+    assert out["dry_run"] is False
+    assert out["ack_count"] == 1
+    assert out["blockers"] == []
+    assert not message.exists()
+    acked_message = steering_root / "codex-ack" / "_acked" / message.name
+    assert acked_message.exists()
+    assert receipt.exists()
+    ack_receipts = list((steering_root / "codex-ack" / "_acked" / "_ack_receipts").glob("*.json"))
+    assert len(ack_receipts) == 1
+    ack = json.loads(ack_receipts[0].read_text(encoding="utf-8"))
+    original = json.loads(acked_message.read_text(encoding="utf-8"))
+    assert ack["schema_version"] == "aragora-operator-steering-ack/1.0"
+    assert ack["owner_session"] == "codex-ack"
+    assert ack["actor"] == "ack-actor"
+    assert ack["message_filename"] == message.name
+    assert ack["message_sha256"] == original["message_sha256"]
+    assert ack["referenced_read_receipt_filename"] == receipt.name
+    assert ack["outcome"] == "superseded"
+
+
+def test_ack_dry_run_makes_no_changes(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    message = _write_message(steering_root, "codex-ack-dry", "dry ack")
+    _write_terminal_read_receipt(steering_root, "codex-ack-dry", message, outcome="completed")
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-ack-dry",
+            "--ack",
+            "--dry-run",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["ack_safe"] is True
+    assert out["ack_candidate_count"] == 1
+    assert out["ack_count"] == 0
+    assert message.exists()
+    assert not (steering_root / "codex-ack-dry" / "_acked").exists()
+
+
+def test_ack_apply_rejects_when_no_read_receipt(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    message = _write_message(steering_root, "codex-no-receipt", "no receipt")
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-no-receipt",
+            "--ack",
+            "--apply",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["ack_safe"] is False
+    assert out["blockers"] == [f"{message.name}:no_bound_read_receipt"]
+    assert message.exists()
+    assert not (steering_root / "codex-no-receipt" / "_acked").exists()
+
+
+def test_ack_apply_rejects_newest_nonterminal_receipt(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    message = _write_message(steering_root, "codex-held", "held receipt")
+    _write_terminal_read_receipt(
+        steering_root,
+        "codex-held",
+        message,
+        outcome="completed",
+        read_at_utc="2026-05-19T22:01:00Z",
+        receipt_name="old-terminal.json",
+    )
+    _write_terminal_read_receipt(
+        steering_root,
+        "codex-held",
+        message,
+        outcome="held",
+        read_at_utc="2026-05-19T22:02:00Z",
+        receipt_name="new-held.json",
+    )
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-held",
+            "--ack",
+            "--apply",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["blockers"] == [f"{message.name}:new-held.json:nonterminal_outcome:held"]
+    assert message.exists()
+
+
+def test_ack_apply_rejects_message_sha_mismatch(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    message = _write_message(steering_root, "codex-sha", "sha mismatch")
+    _write_terminal_read_receipt(
+        steering_root,
+        "codex-sha",
+        message,
+        message_sha256="wrong-sha",
+    )
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-sha",
+            "--ack",
+            "--apply",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["blockers"] == [f"{message.name}:terminal.json:message_sha256_mismatch"]
+    assert message.exists()
+
+
+def test_ack_apply_rejects_future_dated_receipt(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    message = _write_message(steering_root, "codex-future", "future receipt")
+    _write_terminal_read_receipt(
+        steering_root,
+        "codex-future",
+        message,
+        read_at_utc="2999-01-01T00:00:00Z",
+    )
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-future",
+            "--ack",
+            "--apply",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["blockers"] == [f"{message.name}:terminal.json:future_dated_receipt"]
+    assert message.exists()
