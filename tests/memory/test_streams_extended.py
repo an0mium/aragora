@@ -43,6 +43,13 @@ def _fresh_event_loop():
     ``RuntimeError: Event loop is closed`` when ``run_async()`` tries to
     schedule coroutines via ``asyncio.run()`` / ``nest_asyncio``.
     """
+    from aragora.services import EmbeddingProviderService, ServiceRegistry
+
+    _get_cached_embedding.cache_clear()
+    streams_module._embedding_provider_ref = None
+    streams_module._provider_registered = False
+    ServiceRegistry.get().unregister(EmbeddingProviderService)
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     yield
@@ -50,6 +57,10 @@ def _fresh_event_loop():
         loop.close()
     except Exception:
         pass
+    _get_cached_embedding.cache_clear()
+    streams_module._embedding_provider_ref = None
+    streams_module._provider_registered = False
+    ServiceRegistry.get().unregister(EmbeddingProviderService)
 
 
 @pytest.fixture
