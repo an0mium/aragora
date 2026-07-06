@@ -4,6 +4,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+  push:
+    branches: [main]
   schedule:
     # Nightly at 1:10 UTC
     - cron: '10 1 * * *'
