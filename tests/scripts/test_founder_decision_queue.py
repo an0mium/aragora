@@ -431,25 +431,10 @@ def test_collect_decision_items_fetches_github_issue_read_only(
     calls: list[list[str]] = []
 
     class Completed:
-        returncode = 0
-        stderr = ""
-        stdout = json.dumps(
-            {
-                "state": "OPEN",
-                "url": "https://github.com/synaptent/aragora/issues/8845",
-                "comments": [
-                    {
-                        "url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
-                        "createdAt": "2026-07-05T10:00:00Z",
-                        "body": _single_item_packet(
-                            generated="2026-07-05T10:00:00Z",
-                            target="PR #8756: https://github.com/synaptent/aragora/pull/8756",
-                            reply="approve",
-                        ),
-                    }
-                ],
-            }
-        )
+        def __init__(self, *, stdout: str) -> None:
+            self.returncode = 0
+            self.stderr = ""
+            self.stdout = stdout
 
     def fake_run(cmd: list[str], **kwargs: Any) -> Completed:
         calls.append(cmd)
@@ -457,8 +442,35 @@ def test_collect_decision_items_fetches_github_issue_read_only(
         assert kwargs["capture_output"] is True
         assert kwargs["text"] is True
         assert kwargs["timeout"] == fdq.GH_ISSUE_VIEW_TIMEOUT_SECONDS
-        return Completed()
+        assert kwargs["env"] == {"GH_TOKEN": "token"}
+        if cmd[:3] == ["gh", "issue", "view"]:
+            return Completed(
+                stdout=json.dumps(
+                    {
+                        "state": "OPEN",
+                        "url": "https://github.com/synaptent/aragora/issues/8845",
+                    }
+                )
+            )
+        return Completed(
+            stdout=json.dumps(
+                [
+                    [
+                        {
+                            "url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+                            "createdAt": "2026-07-05T10:00:00Z",
+                            "body": _single_item_packet(
+                                generated="2026-07-05T10:00:00Z",
+                                target="PR #8756: https://github.com/synaptent/aragora/pull/8756",
+                                reply="approve",
+                            ),
+                        }
+                    ]
+                ]
+            )
+        )
 
+    monkeypatch.setattr(fdq, "_github_cli_env", lambda: {"GH_TOKEN": "token"})
     monkeypatch.setattr(fdq.subprocess, "run", fake_run)
 
     items = fdq.collect_decision_items(
@@ -478,8 +490,15 @@ def test_collect_decision_items_fetches_github_issue_read_only(
             "--repo",
             "synaptent/aragora",
             "--json",
-            "state,url,comments",
-        ]
+            "state,url",
+        ],
+        [
+            "gh",
+            "api",
+            "--paginate",
+            "--slurp",
+            "repos/synaptent/aragora/issues/8845/comments",
+        ],
     ]
 
 
@@ -494,16 +513,23 @@ def test_collect_decision_items_continues_after_github_issue_failure(
 
     def fake_run(cmd: list[str], **kwargs: Any) -> Completed:
         assert kwargs["timeout"] == fdq.GH_ISSUE_VIEW_TIMEOUT_SECONDS
-        issue = cmd[3]
-        if issue == "8845":
+        if cmd[:3] == ["gh", "issue", "view"] and cmd[3] == "8845":
             return Completed(returncode=1, stderr="temporary API failure")
+        if cmd[:3] == ["gh", "issue", "view"]:
+            return Completed(
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "state": "OPEN",
+                        "url": "https://github.com/synaptent/aragora/issues/8846",
+                    }
+                ),
+            )
         return Completed(
             returncode=0,
             stdout=json.dumps(
-                {
-                    "state": "OPEN",
-                    "url": "https://github.com/synaptent/aragora/issues/8846",
-                    "comments": [
+                [
+                    [
                         {
                             "url": "https://github.com/synaptent/aragora/issues/8846#issuecomment-1",
                             "createdAt": "2026-07-05T10:00:00Z",
@@ -513,22 +539,79 @@ def test_collect_decision_items_continues_after_github_issue_failure(
                                 reply="approve",
                             ),
                         }
-                    ],
-                }
+                    ]
+                ]
             ),
+        )
+
+    monkeypatch.setattr(fdq.subprocess, "run", fake_run)
+
+    collection = fdq.collect_decision_collection(
+        decisions_root=tmp_path / "empty",
+        github_issues=["8845", "8846"],
+        repo="synaptent/aragora",
+    )
+    items = collection.items
+
+    assert len(items) == 1
+    assert items[0].expected_reply == "approve"
+    assert collection.source_failures[0].source == "github issue synaptent/aragora#8845"
+    assert "warning: skipped github issue synaptent/aragora#8845" in capsys.readouterr().err
+    rendered = fdq.render_markdown(
+        items,
+        now=fdq._parse_datetime("2026-07-05T11:00:00Z"),
+        source_failures=collection.source_failures,
+    )
+    assert "## Source Warnings" in rendered
+    assert "temporary API failure" in rendered
+
+
+def test_collect_decision_items_omits_closed_github_issue_live_path(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    class Completed:
+        def __init__(self, *, stdout: str) -> None:
+            self.returncode = 0
+            self.stderr = ""
+            self.stdout = stdout
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> Completed:
+        if cmd[:3] == ["gh", "issue", "view"]:
+            return Completed(
+                stdout=json.dumps(
+                    {
+                        "state": "CLOSED",
+                        "url": "https://github.com/synaptent/aragora/issues/8845",
+                    }
+                )
+            )
+        return Completed(
+            stdout=json.dumps(
+                [
+                    [
+                        {
+                            "url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+                            "createdAt": "2026-07-05T10:00:00Z",
+                            "body": _single_item_packet(
+                                generated="2026-07-05T10:00:00Z",
+                                target="PR #8756: https://github.com/synaptent/aragora/pull/8756",
+                                reply="approve",
+                            ),
+                        }
+                    ]
+                ]
+            )
         )
 
     monkeypatch.setattr(fdq.subprocess, "run", fake_run)
 
     items = fdq.collect_decision_items(
         decisions_root=tmp_path / "empty",
-        github_issues=["8845", "8846"],
+        github_issues=["8845"],
         repo="synaptent/aragora",
     )
 
-    assert len(items) == 1
-    assert items[0].expected_reply == "approve"
-    assert "warning: skipped github issue synaptent/aragora#8845" in capsys.readouterr().err
+    assert items == []
 
 
 def test_collect_decision_items_fails_when_no_sources_collectable(

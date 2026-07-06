@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 UTC = timezone.utc
 DEFAULT_DECISIONS_ROOT = Path(".aragora/founder-decisions")
@@ -61,6 +62,18 @@ class SourceLoadFailure:
     message: str
 
 
+@dataclass(frozen=True)
+class SourceCollection:
+    sources: tuple[DecisionSource, ...]
+    failures: tuple[SourceLoadFailure, ...] = ()
+
+
+@dataclass(frozen=True)
+class DecisionCollection:
+    items: list[DecisionItem]
+    source_failures: tuple[SourceLoadFailure, ...] = ()
+
+
 class SourceCollectionError(RuntimeError):
     def __init__(self, failures: Iterable[SourceLoadFailure]) -> None:
         self.failures = tuple(failures)
@@ -70,6 +83,14 @@ class SourceCollectionError(RuntimeError):
 
 def _warn_source_failure(failure: SourceLoadFailure) -> None:
     print(f"warning: skipped {failure.source}: {failure.message}", file=sys.stderr)
+
+
+def _github_cli_env() -> dict[str, str]:
+    try:
+        from aragora.swarm.github_app_auth import github_cli_env
+    except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
+        return dict(os.environ)
+    return github_cli_env(os.environ)
 
 
 def _compact_text(value: str) -> str:
@@ -386,13 +407,27 @@ def _github_issue_comment_sources(
     return sources
 
 
+def _flatten_paginated_items(value: Any) -> list[Mapping[str, Any]]:
+    items: list[Mapping[str, Any]] = []
+    if isinstance(value, list):
+        for page in value:
+            if isinstance(page, list):
+                items.extend(item for item in page if isinstance(item, Mapping))
+            elif isinstance(page, Mapping):
+                items.append(page)
+    elif isinstance(value, Mapping):
+        items.append(value)
+    return items
+
+
 def _load_github_issue_sources(
     *,
     repo: str,
     issue: str,
     timeout_seconds: int = GH_ISSUE_VIEW_TIMEOUT_SECONDS,
 ) -> list[DecisionSource]:
-    command = [
+    env = _github_cli_env()
+    issue_command = [
         "gh",
         "issue",
         "view",
@@ -400,15 +435,31 @@ def _load_github_issue_sources(
         "--repo",
         repo,
         "--json",
-        "state,url,comments",
+        "state,url",
+    ]
+    comments_command = [
+        "gh",
+        "api",
+        "--paginate",
+        "--slurp",
+        f"repos/{repo}/issues/{issue}/comments",
     ]
     try:
-        completed = subprocess.run(
-            command,
+        issue_proc = subprocess.run(
+            issue_command,
             check=False,
             capture_output=True,
             text=True,
             timeout=timeout_seconds,
+            env=env,
+        )
+        comments_proc = subprocess.run(
+            comments_command,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            env=env,
         )
     except FileNotFoundError as exc:
         raise RuntimeError("gh executable not found") from exc
@@ -416,15 +467,24 @@ def _load_github_issue_sources(
         raise RuntimeError(
             f"gh issue view timed out after {timeout_seconds}s for {repo}#{issue}"
         ) from exc
-    if completed.returncode != 0:
-        message = completed.stderr.strip() or completed.stdout.strip() or "unknown gh error"
+    if issue_proc.returncode != 0:
+        message = issue_proc.stderr.strip() or issue_proc.stdout.strip() or "unknown gh error"
         raise RuntimeError(f"gh issue view failed for {repo}#{issue}: {message}")
+    if comments_proc.returncode != 0:
+        message = comments_proc.stderr.strip() or comments_proc.stdout.strip() or "unknown gh error"
+        raise RuntimeError(f"gh issue comments failed for {repo}#{issue}: {message}")
     try:
-        payload = json.loads(completed.stdout)
+        payload = json.loads(issue_proc.stdout)
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"gh issue view returned malformed JSON for {repo}#{issue}") from exc
     if not isinstance(payload, dict):
         return []
+    try:
+        comments_payload = json.loads(comments_proc.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"gh issue comments returned malformed JSON for {repo}#{issue}") from exc
+    payload = dict(payload)
+    payload["comments"] = _flatten_paginated_items(comments_payload)
     return _github_issue_comment_sources(repo=repo, issue=issue, payload=payload)
 
 
@@ -447,7 +507,7 @@ def _collect_sources(
     issue_comments_json: Path | None,
     github_issues: Iterable[str],
     repo: str,
-) -> list[DecisionSource]:
+) -> SourceCollection:
     sources: list[DecisionSource] = []
     failures: list[SourceLoadFailure] = []
     if decisions_root.exists():
@@ -486,7 +546,36 @@ def _collect_sources(
             _warn_source_failure(failure)
     if failures and not sources:
         raise SourceCollectionError(failures)
-    return sources
+    return SourceCollection(sources=tuple(sources), failures=tuple(failures))
+
+
+def collect_decision_collection(
+    *,
+    decisions_root: Path = DEFAULT_DECISIONS_ROOT,
+    packet_files: Iterable[Path] = (),
+    issue_comments_json: Path | None = None,
+    github_issues: Iterable[str] = (),
+    repo: str = "synaptent/aragora",
+) -> DecisionCollection:
+    deduped: dict[tuple[str, str, str], DecisionItem] = {}
+    source_collection = _collect_sources(
+        decisions_root=decisions_root,
+        packet_files=packet_files,
+        issue_comments_json=issue_comments_json,
+        github_issues=github_issues,
+        repo=repo,
+    )
+    for source in _newest_sources_by_thread(source_collection.sources):
+        if not source.thread_open:
+            continue
+        for item in parse_decision_packet(source.body, source=source.source):
+            if _item_resolved_after_packet(source, item):
+                continue
+            deduped.setdefault(item.dedupe_key(), item)
+    return DecisionCollection(
+        items=list(deduped.values()),
+        source_failures=source_collection.failures,
+    )
 
 
 def collect_decision_items(
@@ -497,22 +586,13 @@ def collect_decision_items(
     github_issues: Iterable[str] = (),
     repo: str = "synaptent/aragora",
 ) -> list[DecisionItem]:
-    deduped: dict[tuple[str, str, str], DecisionItem] = {}
-    sources = _collect_sources(
+    return collect_decision_collection(
         decisions_root=decisions_root,
         packet_files=packet_files,
         issue_comments_json=issue_comments_json,
         github_issues=github_issues,
         repo=repo,
-    )
-    for source in _newest_sources_by_thread(sources):
-        if not source.thread_open:
-            continue
-        for item in parse_decision_packet(source.body, source=source.source):
-            if _item_resolved_after_packet(source, item):
-                continue
-            deduped.setdefault(item.dedupe_key(), item)
-    return list(deduped.values())
+    ).items
 
 
 def _format_age(item: DecisionItem, *, now: datetime) -> str:
@@ -527,15 +607,26 @@ def _format_age(item: DecisionItem, *, now: datetime) -> str:
     return f"{hours / 24.0:.1f}d"
 
 
-def render_markdown(items: Iterable[DecisionItem], *, now: datetime | None = None) -> str:
+def render_markdown(
+    items: Iterable[DecisionItem],
+    *,
+    now: datetime | None = None,
+    source_failures: Iterable[SourceLoadFailure] = (),
+) -> str:
     now_dt = (now or datetime.now(tz=UTC)).astimezone(UTC)
     rows = list(items)
+    failures = list(source_failures)
     lines = [
         "# Founder Decision Queue",
         "",
         f"Generated: {now_dt.isoformat().replace('+00:00', 'Z')}",
         "",
     ]
+    if failures:
+        lines.extend(["## Source Warnings", ""])
+        for failure in failures:
+            lines.append(f"- Skipped {failure.source}: {failure.message}")
+        lines.append("")
     if not rows:
         lines.append("No pending operator rulings found.")
         return "\n".join(lines) + "\n"
@@ -616,7 +707,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         now = datetime.now(tz=UTC)
     try:
-        items = collect_decision_items(
+        collection = collect_decision_collection(
             decisions_root=Path(args.decisions_root),
             packet_files=[Path(path) for path in args.packet_file],
             issue_comments_json=Path(args.issue_comments_json)
@@ -628,10 +719,15 @@ def main(argv: list[str] | None = None) -> int:
     except SourceCollectionError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    items = collection.items
     if args.json:
         payload = {
             "generated_at": now.isoformat().replace("+00:00", "Z"),
             "count": len(items),
+            "source_failures": [
+                {"source": failure.source, "message": failure.message}
+                for failure in collection.source_failures
+            ],
             "items": [
                 {
                     "item": item.item,
@@ -651,7 +747,7 @@ def main(argv: list[str] | None = None) -> int:
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
-    print(render_markdown(items, now=now), end="")
+    print(render_markdown(items, now=now, source_failures=collection.source_failures), end="")
     return 0
 
 
