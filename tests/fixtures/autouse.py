@@ -7,11 +7,71 @@ setup/teardown ordering is identical.
 """
 
 import json
+import math
 import os
+import random
 
 import pytest
 
 from aragora.resilience import reset_all_circuit_breakers
+
+try:
+    import numpy as _np
+except ModuleNotFoundError:  # pragma: no cover - exercised in minimal CI lanes
+    _np = None
+
+
+class _FakeArray(list):
+    """Small list-backed array surface for test doubles when numpy is absent."""
+
+    @property
+    def shape(self):
+        if self and isinstance(self[0], list):
+            return (len(self), len(self[0]))
+        return (len(self),)
+
+    def astype(self, _dtype):
+        return self
+
+    def tolist(self):
+        return [item.tolist() if hasattr(item, "tolist") else item for item in self]
+
+
+def _fake_array(values):
+    if _np is not None:
+        return _np.array(values)
+    if values and isinstance(values[0], (list, tuple)):
+        return _FakeArray(_FakeArray(row) for row in values)
+    return _FakeArray(values)
+
+
+def _fake_zeros(size: int):
+    if _np is not None:
+        return _np.zeros(size, dtype=_np.float32)
+    return _FakeArray([0.0] * size)
+
+
+def _fake_randn(seed: int, size: int):
+    if _np is not None:
+        return _np.random.RandomState(seed).randn(size).astype(_np.float32)
+    rng = random.Random(seed)
+    return _FakeArray([rng.gauss(0.0, 1.0) for _ in range(size)])
+
+
+def _add_scaled(left, right, scale: float):
+    if _np is not None:
+        return left + right * scale
+    return _FakeArray(a + b * scale for a, b in zip(left, right, strict=False))
+
+
+def _normalize(vector):
+    if _np is not None:
+        norm = _np.linalg.norm(vector)
+        return vector / norm if norm > 0 else vector
+    norm = math.sqrt(sum(value * value for value in vector))
+    if norm <= 0:
+        return vector
+    return _FakeArray(value / norm for value in vector)
 
 
 @pytest.fixture(autouse=True)
@@ -135,8 +195,6 @@ def _preinstall_fake_sentence_transformers():
     import sys
     import types
 
-    import numpy as np
-
     # Only install fake if the real module isn't already loaded
     if "sentence_transformers" in sys.modules:
         yield
@@ -151,11 +209,8 @@ def _preinstall_fake_sentence_transformers():
             single = isinstance(sentences, str)
             if single:
                 sentences = [sentences]
-            result = np.array(
-                [
-                    np.random.RandomState(hash(t) % 2**32).randn(384).astype(np.float32)
-                    for t in sentences
-                ]
+            result = _fake_array(
+                [_fake_randn(hash(t) % 2**32, self._embedding_dim) for t in sentences]
             )
             return result[0] if single else result
 
@@ -168,8 +223,8 @@ def _preinstall_fake_sentence_transformers():
 
         def predict(self, sentence_pairs, **kwargs):
             if not sentence_pairs:
-                return np.array([])
-            return np.array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
+                return _fake_array([])
+            return _fake_array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
 
     # Create fake module hierarchy
     fake_st = types.ModuleType("sentence_transformers")
@@ -311,8 +366,6 @@ def mock_sentence_transformers(request, monkeypatch):
     """
     import sys
 
-    import numpy as np
-
     # Clear embedding service cache to ensure fresh instances per test.
     # IMPORTANT: Use sys.modules lookup instead of import to avoid triggering
     # the heavy sentence_transformers/transformers import chain (~30s) which
@@ -364,26 +417,23 @@ def mock_sentence_transformers(request, monkeypatch):
             embeddings = []
             for text in sentences:
                 # Create embedding based on word tokens for semantic-like similarity
-                emb = np.zeros(self._embedding_dim, dtype=np.float32)
+                emb = _fake_zeros(self._embedding_dim)
                 words = text.lower().split()
                 for word in words:
                     # Add contribution from each word (deterministic)
                     word_seed = hash(word) % (2**32)
-                    word_rng = np.random.RandomState(word_seed)
-                    word_vec = word_rng.randn(self._embedding_dim).astype(np.float32)
-                    emb += word_vec * 0.1
+                    word_vec = _fake_randn(word_seed, self._embedding_dim)
+                    emb = _add_scaled(emb, word_vec, 0.1)
                 # Add small unique component for exact text
                 text_seed = hash(text) % (2**32)
-                text_rng = np.random.RandomState(text_seed)
-                emb += text_rng.randn(self._embedding_dim).astype(np.float32) * 0.01
+                text_vec = _fake_randn(text_seed, self._embedding_dim)
+                emb = _add_scaled(emb, text_vec, 0.01)
 
                 if normalize_embeddings:
-                    norm = np.linalg.norm(emb)
-                    if norm > 0:
-                        emb = emb / norm
+                    emb = _normalize(emb)
                 embeddings.append(emb)
 
-            result = np.array(embeddings)
+            result = _fake_array(embeddings)
 
             # Return 1D array for single input (matches real SentenceTransformer behavior)
             if single_input:
@@ -410,9 +460,9 @@ def mock_sentence_transformers(request, monkeypatch):
         def predict(self, sentence_pairs, **kwargs):
             """Return mock contradiction scores."""
             if not sentence_pairs:
-                return np.array([])
+                return _fake_array([])
             # Return neutral scores (entailment, neutral, contradiction)
-            return np.array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
+            return _fake_array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
 
     # Mock at the sentence_transformers module level.
     # IMPORTANT: Only patch if already imported. Do NOT trigger the heavy
