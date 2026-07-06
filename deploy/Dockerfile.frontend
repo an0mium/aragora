@@ -2,7 +2,7 @@
 # Multi-stage build for optimized production image
 
 # Build stage
-FROM node:20.11-alpine AS builder
+FROM node:20.19-alpine AS builder
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ ARG NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws
 COPY sdk/typescript/ /sdk/typescript/
 
 # Copy package files and fix local SDK path for Docker context
-COPY aragora/live/package.json ./
+COPY aragora/live/package.json aragora/live/.npmrc ./
 RUN sed -i 's|file:../../sdk/typescript|file:/sdk/typescript|g' package.json
 
 # Install dependencies (fresh lockfile to avoid version mismatch)
@@ -31,7 +31,7 @@ ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 RUN npm run build:local
 
 # Production stage
-FROM node:20.11-alpine
+FROM node:20.19-alpine
 
 WORKDIR /app
 

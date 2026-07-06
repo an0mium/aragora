@@ -7,7 +7,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json* .npmrc* ./
 RUN npm ci --only=production
 
 # Stage 2: Builder

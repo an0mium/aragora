@@ -7,6 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 LIVE_DIR = REPO_ROOT / "aragora" / "live"
 NODE_RUNTIME_FILES = (
     LIVE_DIR / "Dockerfile",
+    REPO_ROOT / "deploy" / "Dockerfile.frontend",
     REPO_ROOT / "docker-compose.dev.yml",
 )
 SUPABASE_PACKAGES = (
@@ -70,6 +71,15 @@ def test_live_npm_enforces_declared_node_engine() -> None:
 
     assert "engine-strict=true" in npmrc.splitlines()
     assert package_lock["packages"][""]["engines"] == package_json["engines"]
+
+
+def test_live_realtime_phoenix_dependency_is_locked() -> None:
+    package_lock = _load_json(LIVE_DIR / "package-lock.json")
+    packages = package_lock["packages"]
+    realtime_dependencies = packages["node_modules/@supabase/realtime-js"]["dependencies"]
+    phoenix_version = packages["node_modules/@supabase/phoenix"]["version"]
+
+    assert realtime_dependencies["@supabase/phoenix"] == phoenix_version
 
 
 def test_live_supabase_node_engines_fit_docker_runtime() -> None:
