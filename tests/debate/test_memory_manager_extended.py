@@ -287,6 +287,28 @@ class TestOutcomeUpdates:
 
         # All three should have been attempted
         assert mock_continuum_memory.update_outcome.call_count == 3
+        assert manager._retrieved_ids == ["mem_2"]
+
+    def test_failed_outcome_updates_keep_tier_state_for_retry(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
+        """A failed outcome write must not discard retry state for that memory."""
+        manager._retrieved_ids = ["mem_1", "mem_2", "mem_3"]
+        manager._retrieved_tiers = {
+            "mem_1": "fast",
+            "mem_2": "slow",
+            "mem_3": "fast",
+        }
+        mock_continuum_memory.update_outcome.side_effect = [
+            None,
+            RuntimeError("transient write failure"),
+            None,
+        ]
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert manager._retrieved_ids == ["mem_2"]
+        assert manager._retrieved_tiers == {"mem_2": "slow"}
 
     def test_tier_analytics_failures_do_not_abort_batch_or_leave_tracked_ids(
         self, manager, mock_debate_result, mock_continuum_memory

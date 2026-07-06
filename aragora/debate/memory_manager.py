@@ -956,14 +956,16 @@ class MemoryManager:
         Args:
             result: The debate result to use for updates
         """
-        if not self.continuum_memory or not self._retrieved_ids:
+        continuum_memory = self.continuum_memory
+        if not continuum_memory or not self._retrieved_ids:
             return
 
         try:
             success = result.consensus_reached and result.confidence > 0.6
             updated_count = 0
+            successful_memory_ids: list[str] = []
 
-            for mem_id in self._retrieved_ids:
+            for mem_id in list(self._retrieved_ids):
                 # Update outcome with prediction error based on debate confidence.
                 prediction_error = 1.0 - result.confidence if success else result.confidence
 
@@ -971,9 +973,7 @@ class MemoryManager:
                     memory_id: str = mem_id,
                     memory_prediction_error: float = prediction_error,
                 ) -> None:
-                    if self.continuum_memory is None:
-                        return
-                    self.continuum_memory.update_outcome(
+                    continuum_memory.update_outcome(
                         id=memory_id,
                         success=success,
                         agent_prediction_error=memory_prediction_error,
@@ -986,6 +986,7 @@ class MemoryManager:
                     continue
 
                 updated_count += 1
+                successful_memory_ids.append(mem_id)
 
                 # Record usage for tier analytics if tracker available.
                 if self.tier_analytics_tracker and mem_id in self._retrieved_tiers:
@@ -1026,9 +1027,17 @@ class MemoryManager:
                     success,
                 )
 
-            # Clear tracked IDs and tiers after update
-            self._retrieved_ids = []
-            self._retrieved_tiers = {}
+            # Clear only successful outcome updates; failed IDs remain queued so
+            # a transient storage error cannot permanently drop retry state.
+            successful_memory_id_set = set(successful_memory_ids)
+            self._retrieved_ids = [
+                mem_id for mem_id in self._retrieved_ids if mem_id not in successful_memory_id_set
+            ]
+            self._retrieved_tiers = {
+                mem_id: tier
+                for mem_id, tier in self._retrieved_tiers.items()
+                if mem_id not in successful_memory_id_set
+            }
 
         except (AttributeError, TypeError, ValueError) as e:
             # Expected: memory configuration or data format issues
