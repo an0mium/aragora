@@ -377,7 +377,7 @@ class SecurityFinding:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        data = {
             "id": self.id,
             "finding_type": self.finding_type,
             "severity": self.severity.value,
@@ -389,8 +389,12 @@ class SecurityFinding:
             "package_name": self.package_name,
             "package_version": self.package_version,
             "recommendation": self.recommendation,
-            "metadata": redacted_security_metadata_dict(self.metadata),
+            "metadata": self.metadata,
         }
+        if is_secret_finding(data):
+            return redacted_security_finding_dict(data)
+        data["metadata"] = redacted_security_metadata_dict(self.metadata)
+        return data
 
 
 @dataclass
@@ -767,16 +771,17 @@ class SecurityEventEmitter:
         Returns:
             Debate ID if triggered, None otherwise
         """
-        runner = get_security_debate_runner()
-        if runner is None:
-            runner = _ensure_default_security_debate_runner_registered()
-        if runner is None:
-            logger.warning(
-                "No security debate runner registered; skipping auto-debate for %s", event.id
-            )
-            return None
-
         try:
+            runner = get_security_debate_runner()
+            if runner is None:
+                runner = _ensure_default_security_debate_runner_registered()
+            if runner is None:
+                logger.warning(
+                    "No security debate runner registered; skipping auto-debate for %s",
+                    event.id,
+                )
+                return None
+
             runner_kwargs = _accepted_security_debate_runner_kwargs(
                 runner,
                 confidence_threshold=self._debate_confidence_threshold,
@@ -809,7 +814,7 @@ class SecurityEventEmitter:
 
             return debate_id
 
-        except (RuntimeError, TypeError, ValueError, OSError) as e:
+        except (AttributeError, RuntimeError, TypeError, ValueError, OSError) as e:
             logger.exception("Failed to trigger security debate: %s", e)
             return None
 

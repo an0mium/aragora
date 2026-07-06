@@ -238,6 +238,25 @@ class TestSecurityFinding:
         assert deserialized["id"] == "finding-001"
         assert deserialized["metadata"]["nested"]["deep"] is True
 
+    def test_to_dict_redacts_secret_findings(self):
+        """Direct finding serialization should not leak secret material."""
+        finding = self._make_finding(
+            finding_type="secret",
+            severity=SecuritySeverity.CRITICAL,
+            title="Token literal-secret",
+            description="literal-secret",
+            metadata={"secret_type": "api_token", "raw_secret": "literal-secret"},
+        )
+
+        d = finding.to_dict()
+        serialized = json.dumps(d)
+
+        assert d["finding_type"] == "secret"
+        assert d["title"] == "Secret finding"
+        assert d["description"] == "[redacted secret finding description]"
+        assert d["metadata"] == {"secret_type": "api_token"}
+        assert "literal-secret" not in serialized
+
 
 # =============================================================================
 # SecurityEvent dataclass
@@ -1153,6 +1172,29 @@ class TestSecurityEventEmitter:
         assert event.debate_requested is False
         assert event.debate_id is None
         assert "No security debate runner registered" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_emit_isolates_default_runner_import_failure(self, caplog):
+        """Lazy default runner import failures should not break event delivery."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        event = self._make_event(severity=SecuritySeverity.CRITICAL)
+
+        with (
+            patch(
+                "aragora.events.security_events.get_security_debate_runner",
+                return_value=None,
+            ),
+            patch(
+                "aragora.events.security_events._ensure_default_security_debate_runner_registered",
+                side_effect=RuntimeError("debate stack unavailable"),
+            ),
+            caplog.at_level(logging.ERROR, logger="aragora.events.security_events"),
+        ):
+            await emitter.emit(event)
+
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        assert "Failed to trigger security debate" in caplog.text
 
     @pytest.mark.asyncio
     async def test_debate_started_event_redacts_secret_findings(self):
