@@ -96,17 +96,36 @@ SECRET_INDICATOR_TERMS = (
     "private key",
     "access key",
 )
-SECRET_METADATA_KEYS = frozenset(
+SECRET_VALUE_TERMS = (
+    "api key",
+    "api_key",
+    "apikey",
+    "api token",
+    "access token",
+    "auth token",
+    "bearer token",
+    "github token",
+    "gitlab token",
+    "slack token",
+    "private key",
+    "access key",
+    "client secret",
+    "secret key",
+)
+SECRET_METADATA_RULE_KEYS = frozenset({"check_id", "rule", "rule_id", "rule_name"})
+SECRET_METADATA_CONTENT_KEYS = frozenset({"message", "snippet"})
+SECRET_SENSITIVE_METADATA_KEYS = frozenset(
     {
-        "category",
-        "categories",
-        "check_id",
-        "message",
-        "rule",
-        "rule_id",
-        "rule_name",
-        "snippet",
-        "tags",
+        "api_key",
+        "apikey",
+        "credential",
+        "credentials",
+        "matched_secret",
+        "password",
+        "raw_secret",
+        "secret",
+        "secret_value",
+        "token",
     }
 )
 SECRET_CATEGORY_TERMS = ("secret", "secrets", "credential", "credentials")
@@ -128,13 +147,14 @@ SECRET_EXPOSURE_TERMS = (
     "hardcoded",
     "hard coded",
     "embedded",
-    "exposed",
-    "exposure",
-    "leaked",
-    "leak",
     "plaintext",
     "plain text",
     "committed",
+)
+SECRET_VALUE_EXPOSURE_TERMS = (
+    "exposed",
+    "exposure",
+    "leaked",
 )
 
 
@@ -205,7 +225,20 @@ def _has_secret_rule_signature(value: Any) -> bool:
     for text in _iter_text_values(value):
         if _text_has_any_term(text, SECRET_RULE_TERMS):
             return True
+        if _has_secret_content_signature(text):
+            return True
+    return False
+
+
+def _has_secret_content_signature(value: Any) -> bool:
+    for text in _iter_text_values(value):
         if _text_has_any_term(text, SECRET_EXPOSURE_TERMS) and _has_secret_indicator(text):
+            return True
+        if _text_has_any_term(text, SECRET_VALUE_EXPOSURE_TERMS) and _text_has_any_term(
+            text, SECRET_VALUE_TERMS
+        ):
+            return True
+        if "=" in text and _text_has_any_term(text, SECRET_VALUE_TERMS):
             return True
     return False
 
@@ -216,11 +249,15 @@ def _has_secret_metadata_signature(metadata: dict[str, Any]) -> bool:
 
     for key, value in metadata.items():
         key_name = str(key).lower()
+        if key_name in SECRET_SENSITIVE_METADATA_KEYS:
+            return True
         if key_name in {"category", "categories", "tags"}:
             if _has_secret_category_signature(value):
                 return True
             continue
-        if key_name in SECRET_METADATA_KEYS and _has_secret_rule_signature(value):
+        if key_name in SECRET_METADATA_RULE_KEYS and _has_secret_rule_signature(value):
+            return True
+        if key_name in SECRET_METADATA_CONTENT_KEYS and _has_secret_content_signature(value):
             return True
     return False
 
@@ -231,7 +268,14 @@ def _has_secret_finding_text_signature(finding: Any, data: dict[str, Any]) -> bo
         value = data.get(key, getattr(finding, key, None))
         if value:
             values.append(value)
-    return _has_secret_rule_signature(values)
+    return _has_secret_content_signature(values)
+
+
+def redacted_security_metadata_dict(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Serialize event metadata without exposing secret-like material."""
+    if not _has_secret_metadata_signature(metadata):
+        return metadata
+    return {"secret_type": metadata.get("secret_type", "unknown")}
 
 
 def is_secret_finding(
@@ -345,7 +389,7 @@ class SecurityFinding:
             "package_name": self.package_name,
             "package_version": self.package_version,
             "recommendation": self.recommendation,
-            "metadata": self.metadata,
+            "metadata": redacted_security_metadata_dict(self.metadata),
         }
 
 
@@ -397,7 +441,7 @@ class SecurityEvent:
             "debate_id": self.debate_id,
             "debate_question": self.debate_question,
             "correlation_id": self.correlation_id,
-            "metadata": self.metadata,
+            "metadata": redacted_security_metadata_dict(self.metadata),
         }
 
     @property

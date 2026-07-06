@@ -221,6 +221,33 @@ class TestBuildSecurityDebateQuestion:
         assert "literal-secret" not in q
         assert "Scanner finding" not in q
 
+    def test_question_keeps_credential_vulnerability_context(self):
+        """Credential-mentioning CVE text should remain vulnerability context."""
+        finding = SecurityFinding(
+            id="f-credential-redirect",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Credential redirect vulnerability",
+            description="Leaking Authorization credentials on cross-host redirect.",
+            cve_id="CVE-2024-9999",
+            package_name="requests",
+            metadata={
+                "scanner": "dependency-audit",
+                "message": "Leaking Authorization credentials on cross-host redirect.",
+            },
+        )
+        event = SecurityEvent(repository="org/app", findings=[finding])
+
+        q = build_security_debate_question(event)
+
+        assert "vulnerabilities" in q
+        assert "CVE-2024-9999" in q
+        assert "requests" in q
+        assert "Credential redirect vulnerability" in q
+        assert "Authorization credentials" in q
+        assert "Secret finding" not in q
+        assert "exposed secrets" not in q
+
     def test_question_with_mixed_findings(self):
         """Should include both vulnerability and secret details."""
         vuln = SecurityFinding(

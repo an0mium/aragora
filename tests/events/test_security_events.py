@@ -929,7 +929,11 @@ class TestSecurityEventEmitter:
         event = self._make_event(
             severity=SecuritySeverity.CRITICAL,
             findings=[finding],
-            metadata={"rule_id": "python.lang.security.audit.hardcoded-credential"},
+            metadata={
+                "rule_id": "python.lang.security.audit.hardcoded-credential",
+                "snippet": "api_key = 'literal-secret'",
+                "raw_secret": "literal-secret",
+            },
         )
 
         data = event.to_dict()
@@ -938,7 +942,9 @@ class TestSecurityEventEmitter:
         assert is_secret_finding(finding) is False
         assert is_secret_finding(finding, event_metadata=event.metadata) is True
         assert data["findings"][0]["title"] == "Secret finding"
+        assert data["metadata"] == {"secret_type": "unknown"}
         assert "literal-secret" not in serialized
+        assert "api_key" not in serialized
 
     def test_event_to_dict_keeps_sast_token_vulnerability_context(self):
         """SAST vulnerability text mentioning tokens should not be redacted as a secret."""
@@ -984,6 +990,37 @@ class TestSecurityEventEmitter:
             },
         )
         assert is_secret_finding(password_finding) is False
+
+    def test_event_to_dict_keeps_credential_vulnerability_context(self):
+        """Credential-mentioning vulnerabilities are not automatically secrets."""
+        finding = SecurityFinding(
+            id="vuln-credential-redirect-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Credential redirect vulnerability",
+            description="Leaking Authorization credentials on cross-host redirect.",
+            cve_id="CVE-2024-9999",
+            package_name="requests",
+            package_version="2.31.0",
+            metadata={
+                "scanner": "dependency-audit",
+                "message": "Leaking Authorization credentials on cross-host redirect.",
+            },
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is False
+        assert data["findings"][0]["finding_type"] == "vulnerability"
+        assert data["findings"][0]["title"] == "Credential redirect vulnerability"
+        assert data["findings"][0]["description"] == (
+            "Leaking Authorization credentials on cross-host redirect."
+        )
+        assert data["findings"][0]["cve_id"] == "CVE-2024-9999"
+        assert data["findings"][0]["package_name"] == "requests"
+        assert "Secret finding" not in serialized
 
     def test_should_not_trigger_debate_for_low_severity(self):
         """LOW severity events should not trigger debates."""

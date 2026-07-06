@@ -545,6 +545,58 @@ class TestSecurityDebateIntegration:
         assert "password =" not in env.context
 
     @pytest.mark.asyncio
+    async def test_credential_vulnerabilities_stay_in_environment_context(self):
+        """Credential-mentioning vulnerabilities should not be scrubbed as secrets."""
+        from aragora.debate.security_debate import run_security_debate
+
+        mock_event = MockSecurityEvent(
+            findings=[
+                MockFinding(
+                    cve_id="CVE-2024-9999",
+                    severity="critical",
+                    description="Leaking Authorization credentials on cross-host redirect.",
+                    finding_type="vulnerability",
+                )
+            ]
+        )
+        mock_event.findings[0].title = "Credential redirect vulnerability"
+        mock_event.findings[0].metadata = {
+            "scanner": "dependency-audit",
+            "message": "Leaking Authorization credentials on cross-host redirect.",
+        }
+        mock_agent = MagicMock()
+        mock_agent.name = "security-auditor"
+
+        mock_result = MagicMock()
+        mock_result.debate_id = "debate-credential-vulnerability-context"
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.95
+        mock_result.metadata = {}
+
+        mock_arena = MagicMock()
+        mock_arena.run = AsyncMock(return_value=mock_result)
+
+        with (
+            patch(
+                "aragora.debate.security_response.build_security_debate_question",
+                return_value="Q",
+            ),
+            patch(
+                "aragora.debate.orchestrator.Arena",
+                return_value=mock_arena,
+            ) as mock_arena_cls,
+        ):
+            await run_security_debate(event=mock_event, agents=[mock_agent])
+
+        env = mock_arena_cls.call_args.kwargs["environment"]
+        finding = json.loads(env.context)["findings"][0]
+        assert finding["finding_type"] == "vulnerability"
+        assert finding["description"] == "Leaking Authorization credentials on cross-host redirect."
+        assert finding["package_name"] == "test-package"
+        assert "Authorization credentials" in env.context
+        assert "Secret finding" not in env.context
+
+    @pytest.mark.asyncio
     async def test_org_id_parameter(self):
         """Test org_id parameter is accepted."""
         from aragora.debate.security_debate import run_security_debate
