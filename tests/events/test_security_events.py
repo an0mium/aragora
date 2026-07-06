@@ -1005,6 +1005,46 @@ class TestSecurityEventEmitter:
         assert "literal-secret" not in serialized
         assert "client_secret" not in serialized
 
+    def test_event_to_dict_keeps_mixed_event_vulnerability_context(self):
+        """Event-level secret metadata should not redact unrelated findings."""
+        secret_finding = SecurityFinding(
+            id="metadata-secret-key-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Config metadata finding",
+            description="Scanner reported sensitive metadata.",
+            metadata={"secret_key": "literal-secret"},
+        )
+        cve_finding = SecurityFinding(
+            id="cve-credential-redirect-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Credential redirect vulnerability",
+            description="Leaking Authorization credentials on cross-host redirect.",
+            cve_id="CVE-2024-9999",
+            package_name="requests",
+        )
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[secret_finding, cve_finding],
+            metadata={
+                "rule_id": "python.lang.security.audit.hardcoded-credential",
+                "raw_secret": "literal-secret",
+            },
+        )
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert data["metadata"] == {"secret_type": "unknown"}
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert data["findings"][1]["finding_type"] == "vulnerability"
+        assert data["findings"][1]["title"] == "Credential redirect vulnerability"
+        assert data["findings"][1]["cve_id"] == "CVE-2024-9999"
+        assert data["findings"][1]["package_name"] == "requests"
+        assert "literal-secret" not in serialized
+        assert "Authorization credentials" in serialized
+
     def test_event_to_dict_keeps_sast_token_vulnerability_context(self):
         """SAST vulnerability text mentioning tokens should not be redacted as a secret."""
         finding = SecurityFinding(

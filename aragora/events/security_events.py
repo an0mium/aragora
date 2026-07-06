@@ -460,6 +460,7 @@ class SecurityEvent:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
+        finding_event_metadata = self.metadata if len(self.findings) == 1 else None
         return {
             "id": self.id,
             "event_type": self.event_type.value,
@@ -470,7 +471,7 @@ class SecurityEvent:
             "scan_id": self.scan_id,
             "workspace_id": self.workspace_id,
             "findings": [
-                redacted_security_finding_dict(f, event_metadata=self.metadata)
+                redacted_security_finding_dict(f, event_metadata=finding_event_metadata)
                 for f in self.findings
             ],
             "debate_requested": self.debate_requested,
@@ -827,6 +828,7 @@ class SecurityEventEmitter:
             if debate_id:
                 event.debate_requested = True
                 event.debate_id = debate_id
+                finding_event_metadata = event.metadata if len(event.findings) == 1 else None
 
                 # Emit debate started event
                 debate_event = SecurityEvent(
@@ -836,7 +838,7 @@ class SecurityEventEmitter:
                     scan_id=event.scan_id,
                     workspace_id=event.workspace_id,
                     findings=[
-                        redacted_security_finding(f, event_metadata=event.metadata)
+                        redacted_security_finding(f, event_metadata=finding_event_metadata)
                         for f in event.findings
                     ],
                     debate_id=debate_id,

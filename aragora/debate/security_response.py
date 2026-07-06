@@ -52,7 +52,7 @@ def build_security_debate_question(event: SecurityEvent) -> str:
         return f"Analyze and recommend remediation for security findings in {event.repository or 'the codebase'}."
 
     event_metadata = getattr(event, "metadata", None)
-    if not isinstance(event_metadata, dict):
+    if not isinstance(event_metadata, dict) or len(findings) != 1:
         event_metadata = None
 
     def _is_secret(finding: Any) -> bool:

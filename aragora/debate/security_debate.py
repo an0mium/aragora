@@ -90,7 +90,7 @@ async def run_security_debate(
     question = build_security_debate_question(event)
     event.debate_question = question
     event_metadata = getattr(event, "metadata", None)
-    if not isinstance(event_metadata, dict):
+    if not isinstance(event_metadata, dict) or len(event.findings) != 1:
         event_metadata = None
 
     # Create environment with security context

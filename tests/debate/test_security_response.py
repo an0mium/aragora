@@ -248,6 +248,44 @@ class TestBuildSecurityDebateQuestion:
         assert "Secret finding" not in q
         assert "exposed secrets" not in q
 
+    def test_question_keeps_mixed_event_vulnerability_context(self):
+        """Event-level secret metadata should not erase unrelated CVEs."""
+        secret_finding = SecurityFinding(
+            id="metadata-secret-key",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Config metadata finding",
+            description="Scanner reported sensitive metadata.",
+            metadata={"secret_key": "literal-secret"},
+        )
+        cve_finding = SecurityFinding(
+            id="f-credential-redirect",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Credential redirect vulnerability",
+            description="Leaking Authorization credentials on cross-host redirect.",
+            cve_id="CVE-2024-9999",
+            package_name="requests",
+        )
+        event = SecurityEvent(
+            repository="org/app",
+            findings=[secret_finding, cve_finding],
+            metadata={
+                "rule_id": "python.lang.security.audit.hardcoded-credential",
+                "raw_secret": "literal-secret",
+            },
+        )
+
+        q = build_security_debate_question(event)
+
+        assert "exposed secrets" in q
+        assert "vulnerabilities" in q
+        assert "CVE-2024-9999" in q
+        assert "requests" in q
+        assert "Credential redirect vulnerability" in q
+        assert "Authorization credentials" in q
+        assert "literal-secret" not in q
+
     def test_question_with_mixed_findings(self):
         """Should include both vulnerability and secret details."""
         vuln = SecurityFinding(
