@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS_SITE_ROOT = REPO_ROOT / "docs-site" / "docs"
+SYNC_SCRIPT = REPO_ROOT / "docs-site" / "scripts" / "sync-docs.js"
 
 
 def _read_docs_site(path: str) -> str:
     return (DOCS_SITE_ROOT / path).read_text(encoding="utf-8")
+
+
+def _docs_specs_map_entries() -> dict[str, str]:
+    content = SYNC_SCRIPT.read_text(encoding="utf-8")
+    return dict(
+        re.findall(
+            r"'specs/([^']+\.md)'\s*:\s*'specs/([^']+\.md)'",
+            content,
+        )
+    )
 
 
 def test_documentation_index_rewrites_status_and_planning_links() -> None:
@@ -314,30 +326,41 @@ def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
 def test_docs_specs_directory_is_mirrored() -> None:
     # docs/specs/** was previously entirely outside DOC_MAP: any relative link
     # from a mirrored doc into it survived sync unmodified and 404d on the
-    # deployed docs-site. Pin down that every docs/specs/*.md source now has a
-    # mirrored destination.
-    expected_pages = [
-        "specs/advisory-review-recognizable-header.md",
-        "specs/aragora-roadmap-revision-advocates.md",
-        "specs/essay-refinement-pipeline.md",
-        "specs/finding-severity-gate.md",
-        "specs/independent-verifier-guide.md",
-        "specs/local-advocate-training-pipeline.md",
-        "specs/model-dissent-severity-gate.md",
-        "specs/model-lineage-disclosure.md",
-        "specs/model-quorum-family-expansion.md",
-        "specs/open-decision-receipt.md",
-        "specs/quorum-evidence-retrigger.md",
-        "specs/receipt-lineage-reconciliation.md",
-        "specs/tamper-evident-trail.md",
-        "specs/tier4-settlement-probe-timeout-reporting.md",
-        "specs/tiered-merge-gate-quorum-policy.md",
-        "specs/odr-native-mapping.md",
-        "specs/index.md",
-    ]
-    for rel_path in expected_pages:
-        page = DOCS_SITE_ROOT / rel_path
+    # deployed docs-site. Pin down that every docs/specs/*.md source is in the
+    # mirror map, so future spec files cannot be silently omitted.
+    mapped_specs = _docs_specs_map_entries()
+    source_specs = sorted(path.name for path in (REPO_ROOT / "docs" / "specs").glob("*.md"))
+
+    assert sorted(mapped_specs) == source_specs
+
+    for dest in mapped_specs.values():
+        page = DOCS_SITE_ROOT / "specs" / dest
         assert page.exists(), f"Expected synced docs-site page missing: {page}"
+
+    assert (DOCS_SITE_ROOT / "specs" / "index.md").exists()
+
+
+def test_docs_specs_index_lists_mirrored_children() -> None:
+    content = _read_docs_site("specs/index.md")
+
+    assert "## In This Section" in content
+    for dest in _docs_specs_map_entries().values():
+        slug = dest.removesuffix(".md")
+        assert f"](./{slug})" in content
+
+
+def test_specs_sidebar_is_registered() -> None:
+    content = (REPO_ROOT / "docs-site" / "sidebars.js").read_text(encoding="utf-8")
+
+    assert "specsSidebar" in content
+    assert "dirName: 'specs'" in content
+
+
+def test_mdx_prose_brace_sets_are_escaped_outside_fences() -> None:
+    content = _read_docs_site("specs/tamper-evident-trail.md")
+
+    assert r"\{push, merge, branch delete," in content
+    assert "class {push, merge, branch delete," not in content
 
 
 def test_docs_specs_intra_directory_links_resolve_to_mirrored_siblings() -> None:

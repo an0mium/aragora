@@ -494,18 +494,67 @@ function extractTitle(content) {
 }
 
 function escapeUrlParamBracesOutsideCodeFences(content) {
-  let inFence = false;
+  let fenceDepth = 0;
+  let inBraceList = false;
   return content
     .split('\n')
     .map(line => {
       if (/^\s*```/.test(line)) {
-        inFence = !inFence;
+        if (fenceDepth === 0) {
+          fenceDepth = 1;
+        } else if (/^\s*```\S+/.test(line)) {
+          fenceDepth += 1;
+        } else {
+          fenceDepth = Math.max(0, fenceDepth - 1);
+        }
         return line;
       }
-      if (inFence) {
+      if (fenceDepth > 0) {
         return line;
       }
-      return line.replace(/\{([\w-]+)\}/g, '\\{$1\\}');
+
+      let escaped = '';
+      let inInlineCode = false;
+      for (let index = 0; index < line.length; index += 1) {
+        const char = line[index];
+        if (char === '`') {
+          inInlineCode = !inInlineCode;
+          escaped += char;
+          continue;
+        }
+        const rest = line.slice(index + 1);
+        const urlParam = rest.match(/^([\w-]+)\}/);
+        if (char === '{' && urlParam) {
+          escaped += `\\{${urlParam[1]}\\}`;
+          index += urlParam[1].length + 1;
+          continue;
+        }
+        if (inInlineCode) {
+          escaped += char;
+          continue;
+        }
+        if (inBraceList) {
+          if (char === '}') {
+            escaped += '\\}';
+            inBraceList = false;
+          } else {
+            escaped += char;
+          }
+          continue;
+        }
+        if (char !== '{') {
+          escaped += char;
+          continue;
+        }
+
+        if (rest.includes(',')) {
+          escaped += '\\{';
+          inBraceList = true;
+          continue;
+        }
+        escaped += char;
+      }
+      return escaped;
     })
     .join('\n');
 }
@@ -867,6 +916,21 @@ Explore the documentation in this section to learn more.${itemsList}
   console.log(`  ✓ Created index: ${category}/index.md`);
 }
 
+function docsSpecsItems() {
+  return Object.entries(DOC_MAP)
+    .filter(([src, dest]) => src.startsWith('specs/') && dest.startsWith('specs/'))
+    .map(([src, dest]) => {
+      const resolved = resolveSourcePath(src);
+      const content = resolved ? fs.readFileSync(resolved.srcPath, 'utf8') : '';
+      const title = content ? extractTitle(content) : path.basename(dest, '.md');
+      return {
+        title,
+        path: `./${path.basename(dest, '.md')}`,
+      };
+    })
+    .sort((left, right) => left.title.localeCompare(right.title));
+}
+
 // Main sync function
 function syncDocs() {
   console.log('\\n📚 Syncing documentation...\\n');
@@ -913,7 +977,8 @@ function syncDocs() {
   ];
 
   for (const cat of categories) {
-    createIndexFile(cat.path, cat.title, cat.desc);
+    const items = cat.path === 'specs' ? docsSpecsItems() : [];
+    createIndexFile(cat.path, cat.title, cat.desc, items);
   }
 
   console.log(`\\n✅ Done! Synced ${synced} files, skipped ${skipped} (not found)\\n`);

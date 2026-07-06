@@ -109,8 +109,8 @@ A new sentinel check `trail_reconcile` (extends the live fleet sentinel):
 - Pull the last window of witness events (S3 via read-only role with MFA for
   humans; the check itself reads a replicated, read-only view).
 - Pull the anchored intent chain.
-- **Diff**: every witness event of class {push, merge, branch delete,
-  workflow change, token/key/App change, member change} must match an
+- **Diff**: every witness event of class \{push, merge, branch delete,
+  workflow change, token/key/App change, member change\} must match an
   anchored intent (by repo/ref/SHA/actor-class/time-window).
 - Unmatched witness event → **breach** (macOS notification + ledger + morning
   report), severity by event class (token/key/member/workflow = critical).
