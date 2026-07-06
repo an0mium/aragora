@@ -3,7 +3,7 @@
 # as any change to charter §2/§3. IDs are permanent: never reused, never renumbered.
 meta:
   charter: docs/architecture/INTENDED_ARCHITECTURE.md
-  version: "0.2"
+  version: "0.3"
   status: DRAFT
   # Ratified iff the charter file exists on main with 'Status: RATIFIED vN.N' via an
   # operator-approved PR. While DRAFT, only entries with binding_in_draft: true bind.
@@ -131,7 +131,9 @@ authorities:
     concern: conductor-goal-loop
     authority: scripts/fable_goal_cycle.py + scripts/consult_claude.py
     layer: L5
-    disposition: retire
+    disposition: adopt
+    # retirement of the superseded conductor duplicates is chartered in CHR-X-009,
+    # not against this authority
     registry_refs: [CHR-X-009]
   - id: ARCH-021
     concern: worktree-lifecycle
@@ -363,7 +365,7 @@ registry:
     symbols: []
     deadline: null
     owner: null
-    evidence: "superseded by fable_goal_cycle + consult_claude (#8835); goal_conductor.py:310 hardcodes nomic_loop"
+    evidence: "superseded by fable_goal_cycle + consult_claude (#8835); scripts/goal_conductor.py:310 hardcodes the scripts/nomic_loop.py path"
     superseded_by: null
   - id: CHR-X-010
     state: PENDING

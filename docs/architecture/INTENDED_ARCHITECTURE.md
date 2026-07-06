@@ -1,6 +1,6 @@
 # Aragora Intended Architecture Charter
 
-Status: DRAFT v0.2 — pending operator ratification and #8851 adopt-or-retire rulings
+Status: DRAFT v0.3 — pending operator ratification and #8851 adopt-or-retire rulings
 Date: 2026-07-06 | Owner: operator (armand)
 Enforcement targets: merge-gate reviewers, all AI fleets (Claude, Codex, Factory droids, launchd daemons), humans
 
@@ -41,15 +41,18 @@ Before you add a module, package, export, or cross-package import edge:
 2. **Grep your target path and symbols** against `docs/architecture/charters.yaml`
    (the machine encoding of §3). If the path/symbol appears in an entry with state
    `REMOVED` — stop; do not re-add; cite the CHR id. State `PENDING` or `EXPIRING` —
-   no new importers/callers; existing ones keep working. State `EXCLUSION` — never build it.
+   no new importers/callers; existing ones keep working. While this charter's Status is
+   DRAFT, that freeze is OPERATIVE only for the entries listed in the Binding status
+   block; for all other entries it is advisory guidance — flag, don't block.
+   State `EXCLUSION` — never build it.
 3. **Package not in §2 or Appendix A as mapped?** It is **UNMAPPED**: frozen for
    architectural growth (§2d). Fix bugs, don't extend its surface, don't import it anew.
 4. **New top-level `aragora/<pkg>` or new concern?** That requires an operator-approved
    amendment to this charter **in the same PR** (R5).
 5. **Entry says PARKED?** Stop and surface to the operator with the entry ID (R4).
 
-On any structural conflict, **this charter wins over every other file in
-`docs/architecture/`** (see §0 precedence).
+On any structural conflict, once RATIFIED **this charter wins over every other file in
+`docs/architecture/`**; while DRAFT, see the Binding status block (§0 precedence).
 
 ---
 
@@ -67,13 +70,22 @@ Registry entry states (§3): `REMOVED` (edge is gone, do not re-add) | `EXPIRING
 compat exception with an ISO deadline or concrete triggering PR/issue) | `PENDING` (removal or
 absorption chartered, not yet executed — **no new importers/callers**; applies equally to
 EXPIRING per R3) | `EXCLUSION` (never wire this) | `PARKED` (frozen both ways).
+While this charter's Status is DRAFT, the PENDING/EXPIRING no-new-importers/callers rule is
+OPERATIVE only for the entries listed in the Binding status block; for all other entries it
+is advisory guidance — flag, don't block.
 
 **ID permanence rule:** ARCH-ids and CHR-ids are permanent. Never reused, never renumbered.
 Entries are only ever state-transitioned (with date + PR recorded in the entry).
 
-**Precedence:** on any structural or architectural-intent conflict, this charter supersedes
-every other file under `docs/architecture/` (ARCHITECTURE.md, ARCHITECTURE_THREE_LAYER.md,
-SYSTEM_DIAGRAM.md, system-overview.md, GATEWAY_ARCHITECTURE.md, and the rest). Those files
+**Evidence snapshot caveat:** all importer counts and `file:line` anchors in this charter
+(and `charters.yaml`) are a snapshot as of 2026-07-06 — verify by re-running the stated grep
+before citing; a stale anchor is not evidence.
+
+**Precedence:** once RATIFIED, this charter supersedes every other file under
+`docs/architecture/` (ARCHITECTURE.md, ARCHITECTURE_THREE_LAYER.md, SYSTEM_DIAGRAM.md,
+system-overview.md, GATEWAY_ARCHITECTURE.md, and the rest) on any structural or
+architectural-intent conflict; while Status is DRAFT, supersession extends only as far as
+the Binding status block. Those files
 remain useful as description; they are not authority. CHR-X-025 charters their SUPERSEDED-BY
 stamping. On numeric conflict, `docs/METRICS.md` wins (R7). On liveness/feature-status
 conflict with CLAUDE.md's tables, this charter's §1 status marks and §3 states win pending
@@ -184,7 +196,7 @@ legend. **Every row has a permanent ARCH-id; every non-adopt disposition points 
 | ARCH-017 | Idea→execution pipeline | `aragora/pipeline` | `aragora/goals/` (single file, is pipeline stage 2); `aragora/autonomous/` (self-described "Nomic Loop Enhancement") | absorb goals/ into pipeline; fold autonomous/ into nomic (PROPOSED → CHR-X-029) | goals/ = extractor.py only; autonomous importers = handlers + one pipeline util |
 | ARCH-018 | Agent process spawning | `aragora/harnesses` | `swarm/worker_launcher.py` spawns codex/Claude directly (0 harness imports); agent_bridge transports | absorb: worker_launcher becomes a harnesses consumer (PROPOSED → CHR-X-030) | worker_launcher.py:613,685 direct spawn |
 | ARCH-019 | PR settlement | `scripts/settle_tier4_pr.py` + `aragora/cli` review-queue transports | settle_one_pr, tier4_merge_train, auto_merge_quorum_green, settlement_followup (wrapper sprawl) | absorb wrappers, then retire (PROPOSED → CHR-X-008) | settle_tier4_pr imported by 8+ scripts/modules; ~12 fix commits |
-| ARCH-020 | Conductor / goal loop | `scripts/fable_goal_cycle.py` + `scripts/consult_claude.py` | goal_conductor.py (hardcodes nomic_loop.py:310), lane_conductor, overnight_conductor; nomic_loop/self_develop/nomic_staged = legacy **manual** entrypoints | retire old conductors; relabel nomic_loop trio "legacy manual" in CLAUDE.md (PROPOSED → CHR-X-009) | launchd runs swarm boss-loop, nothing runs nomic_loop; fable_goal_cycle merged #8835 |
+| ARCH-020 | Conductor / goal loop | `scripts/fable_goal_cycle.py` + `scripts/consult_claude.py` | goal_conductor.py (its line `scripts/goal_conductor.py:310` hardcodes the `scripts/nomic_loop.py` path), lane_conductor, overnight_conductor; nomic_loop/self_develop/nomic_staged = legacy **manual** entrypoints | adopt authority; retire old conductors; relabel nomic_loop trio "legacy manual" in CLAUDE.md (PROPOSED → CHR-X-009) | launchd runs swarm boss-loop, nothing runs nomic_loop; fable_goal_cycle merged #8835 |
 | ARCH-021 | Worktree lifecycle | `aragora/worktree` (maintainer daemon; `scripts/codex_worktree_autopilot.py` is its implementation detail) | `coordination/worktree_manager.py` (wraps it) | adopt; retire coordination wrapper with coordination/ core (PROPOSED → CHR-X-012) | launchd com.aragora.codex-worktree-maintainer; autopilot.py:49 wrapper |
 | ARCH-022 | Scheduled ops jobs (audits, access reviews, DR drills, token refresh, settlement review) | `aragora/scheduler` | `aragora/schedulers/` — deprecated shim package | adopt; retire shim (PROPOSED → CHR-X-031). Ops-cron is a distinct concern from fleet work-dispatch (ARCH-014) and is NOT covered by exclusion CHR-E-003 | package present with launched jobs; shim self-describes deprecated |
 
@@ -258,7 +270,7 @@ compatibility" is NOT a valid counter-argument to a registry entry.
 | CHR-X-006 | PENDING | `resilience/circuit_breaker_v2.py` shim; top-level `resilience_patterns.py`/`resilience_config.py` | 0 external importers / package-internal only | simple_circuit_breaker.py docstring |
 | CHR-X-007 | PENDING | `aragora/metrics/` shim package (all 7 files) | promised deletion "for one release"; **new imports forbidden effective now** (binding in DRAFT — see Binding status) | metrics/__init__.py DeprecationWarning |
 | CHR-X-008 | PENDING | settlement wrappers `scripts/settle_one_pr.py`, `scripts/tier4_merge_train.py`, `scripts/auto_merge_quorum_green.py` (after absorption into settle_tier4_pr/settle_pr) | one settlement path; wrapper sprawl is where fixes get lost | fleet-ops map |
-| CHR-X-009 | PENDING | conductor scripts `scripts/goal_conductor.py`, `scripts/lane_conductor.py`, `scripts/overnight_conductor.py` | superseded by fable_goal_cycle + consult_claude; goal_conductor still hardcodes legacy nomic_loop | goal_conductor.py:310 |
+| CHR-X-009 | PENDING | conductor scripts `scripts/goal_conductor.py`, `scripts/lane_conductor.py`, `scripts/overnight_conductor.py` | superseded by fable_goal_cycle + consult_claude; goal_conductor still hardcodes legacy nomic_loop | `scripts/goal_conductor.py:310` — hardcodes the `scripts/nomic_loop.py` path |
 | CHR-X-010 | PENDING | zero-importer decision-core modules: `agents/email_agents.py`, `agents/feature_agent.py`, `agents/power_sampling_mixin.py`, `ranking/muse_calibration.py` (email_agents/power_sampling_mixin reachable only via lazy `__init__` re-exports; email_agents' only other mention is a docstring at services/email_prioritization.py:920; debate's PowerSamplingConfig is a separate class, not the mixin). **Explicitly NOT chartered** (real callers verified): `ranking/snapshot.py` (elo.py:96, elo_leaderboard.py:18, elo_matchmaking.py:25), `ranking/redteam.py` (elo.py:90, instantiated elo.py:300,329), `verification/sandbox.py` (formal.py:559 Lean execution, verification/__init__.py:49). `verification/proofs.py` is near-dormant but not chartered here | feature-count inflation; no product or fleet caller for the four listed | zero-importer greps re-verified against critic pass 2026-07-06 |
 | CHR-X-012 | PENDING (per #8851 ruling) | `aragora/coordination/` core: `claims.py`, `task_dispatcher.py`, `registry.py`, `health_watchdog.py`, `worktree_manager.py` — salvage GitReconciler→worktree/, bus→events/ | duplicate of dev_coordination + control_plane concepts; no daemon drives it | orchestration map importer audit |
 | CHR-X-013 | PENDING (per #8851 ruling) | `aragora/fabric/` (flip `ARAGORA_ENABLE_AGENT_FABRIC` default→false first — server import path depends on it) | third agent-pool abstraction; no script/daemon/CI runs a fabric pool | extensions.py:39; instantiation sites only |
@@ -411,7 +423,7 @@ draft). Schema:
 ```yaml
 meta:
   charter: docs/architecture/INTENDED_ARCHITECTURE.md
-  version: "0.2"          # must match this doc's version
+  version: "0.3"          # must match this doc's version
   status: DRAFT           # DRAFT | RATIFIED
 authorities:              # §2 rows
   - id: ARCH-001
@@ -464,6 +476,7 @@ registry:                 # §3 entries
 |---|---|---|---|---|
 | v0.1 | 2026-07-05 | (scratchpad draft, never binding) | operator-commissioned | initial: CHR-P4A-001..004, CHR-X-001..024, CHR-E-001..008 |
 | v0.2 | 2026-07-06 | this PR (draft) | operator-commissioned; adversarial critic pass applied | added ARCH-001..036 ids; CHR-P4A-004 → REMOVED (#8909); CHR-X-002 split (→ CHR-X-038); CHR-X-010 corrected (snapshot/redteam/sandbox de-chartered); added CHR-X-025..039; parked entries got owners+dates; exclusions got operational tests; UNMAPPED default + Appendix A; R3 covers EXPIRING; R7 date source; R7b; R8 → preconditions |
+| v0.3 | 2026-07-06 | this PR (draft) | gate round 1: adversarial review findings applied | DRAFT carve-outs for placement protocol/§0 entry states/precedence (banner + §0); ARCH-020 disposition fix (retire → adopt; retirement confined to CHR-X-009); evidence snapshot caveat (§0); ARCH-020/CHR-X-009 anchor disambiguated (`scripts/goal_conductor.py:310` hardcodes the `scripts/nomic_loop.py` path) |
 
 ---
 
