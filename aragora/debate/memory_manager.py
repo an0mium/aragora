@@ -40,6 +40,16 @@ from aragora.memory.tier_analytics import TierAnalyticsTracker
 logger = logging.getLogger(__name__)
 
 
+def _run_noncritical_memory_side_effect(label: str, action: Callable[[], None]) -> bool:
+    """Run a best-effort memory/spectator side effect without breaking debate flow."""
+    try:
+        action()
+    except Exception as e:  # noqa: BLE001 - side-effect adapters must fail closed.
+        logger.warning("%s: %s", label, e)
+        return False
+    return True
+
+
 # =============================================================================
 # Memory Lookup Cache for Batch Operations
 # =============================================================================
@@ -943,51 +953,46 @@ class MemoryManager:
             updated_count = 0
 
             for mem_id in self._retrieved_ids:
-                try:
-                    # Update outcome with prediction error based on debate confidence
-                    prediction_error = 1.0 - result.confidence if success else result.confidence
-                    self.continuum_memory.update_outcome(
-                        id=mem_id,
-                        success=success,
-                        agent_prediction_error=prediction_error,
-                    )
-                    updated_count += 1
+                # Update outcome with prediction error based on debate confidence.
+                prediction_error = 1.0 - result.confidence if success else result.confidence
+                if not _run_noncritical_memory_side_effect(
+                    f"  [continuum] Failed to update memory {mem_id}",
+                    lambda mem_id=mem_id, prediction_error=prediction_error: (
+                        self.continuum_memory.update_outcome(
+                            id=mem_id,
+                            success=success,
+                            agent_prediction_error=prediction_error,
+                        )
+                    ),
+                ):
+                    continue
 
-                    # Record usage for tier analytics if tracker available
-                    if self.tier_analytics_tracker and mem_id in self._retrieved_tiers:
-                        try:
-                            # quality_before: neutral baseline (0.5)
-                            # quality_after: debate outcome confidence
-                            self.tier_analytics_tracker.record_usage(
-                                memory_id=mem_id,
-                                tier=self._retrieved_tiers[mem_id],
-                                debate_id=result.id,
-                                quality_before=0.5,
-                                quality_after=result.confidence if success else 0.3,
-                            )
-                        except (AttributeError, TypeError, ValueError) as e:
-                            # Expected: tier analytics configuration issues
-                            logger.debug(
-                                "  [tier_analytics] Failed to record usage for %s: %s", mem_id, e
-                            )
-                        except (OSError, RuntimeError) as e:
-                            # Unexpected error
-                            logger.warning(
-                                "  [tier_analytics] Unexpected error recording usage for %s: %s",
-                                mem_id,
-                                e,
-                            )
+                updated_count += 1
 
-                except (AttributeError, TypeError, ValueError, KeyError) as e:
-                    # Expected: memory update configuration or data issues
-                    logger.debug("  [continuum] Failed to update memory %s: %s", mem_id, e)
-                except (OSError, RuntimeError) as e:
-                    # Unexpected error
-                    logger.warning(
-                        "  [continuum] Unexpected error updating memory %s: %s", mem_id, e
-                    )
-                except (ConnectionError, TimeoutError, StopIteration, ImportError) as e:
-                    logger.warning("  [continuum] Failed to update memory %s: %s", mem_id, e)
+                # Record usage for tier analytics if tracker available.
+                if self.tier_analytics_tracker and mem_id in self._retrieved_tiers:
+                    try:
+                        # quality_before: neutral baseline (0.5)
+                        # quality_after: debate outcome confidence
+                        self.tier_analytics_tracker.record_usage(
+                            memory_id=mem_id,
+                            tier=self._retrieved_tiers[mem_id],
+                            debate_id=result.id,
+                            quality_before=0.5,
+                            quality_after=result.confidence if success else 0.3,
+                        )
+                    except (AttributeError, TypeError, ValueError) as e:
+                        # Expected: tier analytics configuration issues
+                        logger.debug(
+                            "  [tier_analytics] Failed to record usage for %s: %s", mem_id, e
+                        )
+                    except (OSError, RuntimeError) as e:
+                        # Unexpected error
+                        logger.warning(
+                            "  [tier_analytics] Unexpected error recording usage for %s: %s",
+                            mem_id,
+                            e,
+                        )
 
             if updated_count > 0:
                 logger.info(
@@ -1295,14 +1300,10 @@ class MemoryManager:
     def _notify_spectator(self, event_type: str, details: str, metric: float = 0.0) -> None:
         """Notify spectator stream of an event."""
         if self.spectator:
-            try:
-                self.spectator.emit(event_type, details=details, metric=metric)
-            except (AttributeError, TypeError) as e:
-                # Expected: spectator method or signature issues
-                logger.debug("Spectator notification error: %s", e)
-            except (OSError, RuntimeError, ValueError, KeyError) as e:
-                # Spectator delivery must never break debate execution.
-                logger.warning("Unexpected spectator notification error: %s", e)
+            _run_noncritical_memory_side_effect(
+                "Spectator notification error",
+                lambda: self.spectator.emit(event_type, details=details, metric=metric),
+            )
 
     def track_retrieved_ids(
         self,
