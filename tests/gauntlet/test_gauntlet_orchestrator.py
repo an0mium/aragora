@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from aragora.gauntlet.orchestrator import GauntletOrchestrator
+from aragora.persistence.db_config import get_nomic_dir
 from aragora.gauntlet.config import (
     GauntletConfig,
     GauntletResult,
@@ -30,7 +31,7 @@ class TestGauntletOrchestratorInit:
         orchestrator = GauntletOrchestrator()
 
         assert orchestrator.agents == []
-        assert orchestrator.nomic_dir == Path(".nomic")
+        assert orchestrator.nomic_dir == get_nomic_dir()
         assert orchestrator.on_phase_complete is None
         assert orchestrator.on_finding is None
         assert callable(orchestrator.run_agent_fn)
