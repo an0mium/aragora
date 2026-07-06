@@ -1,11 +1,11 @@
 """Tests for the debate-home executor factory (P4a queue inversion Q2).
 
 ``create_default_executor`` relocated here from ``aragora.queue.worker``
-(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md section 10 Q2): its nested
+(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §6.2, §10 Q2): its nested
 ``execute_debate`` lazily imports ``aragora.agents.base``, ``aragora.core``,
 and ``aragora.debate.orchestrator`` to run a debate through the Arena, which
 would otherwise pull those domain packages into the infrastructure-layer
-``aragora.queue`` package.
+``aragora.queue`` package (an illegal upward edge under .importlinter).
 """
 
 from __future__ import annotations

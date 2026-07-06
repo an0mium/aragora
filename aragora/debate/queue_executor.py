@@ -6,7 +6,7 @@ Builds the async job-executor callable that ``DebateWorker``
 queue transport to the Arena. Lives in ``aragora.debate`` rather than
 ``aragora.queue`` because it imports ``aragora.agents.base`` and
 ``aragora.debate.orchestrator``, both domain-layer packages
-(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md section 10 Q2).
+(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §5.2, §6.2, §10 Q2).
 """
 
 from __future__ import annotations
@@ -35,10 +35,12 @@ async def create_default_executor() -> Callable[[Job], Coroutine[Any, Any, dict[
 
     async def execute_debate(job: Job) -> dict[str, Any]:
         """Execute a debate from a job."""
+        # Import here to avoid circular imports
         from aragora.queue.job import DebateResult, get_debate_payload
 
         payload = get_debate_payload(job)
 
+        # Import debate infrastructure
         try:
             from aragora.agents.base import create_agent
             from aragora.core import DebateProtocol, Environment
@@ -46,24 +48,30 @@ async def create_default_executor() -> Callable[[Job], Coroutine[Any, Any, dict[
         except ImportError as e:
             raise InfrastructureError(f"Debate infrastructure not available: {e}")
 
+        # Create environment and protocol
         env = Environment(task=payload.question)
+        # DebateProtocol dataclass fields have complex default handling
         protocol = cast(Any, DebateProtocol)(
             rounds=payload.rounds,
             consensus=cast(Any, payload.consensus),
         )
 
+        # Convert agent strings to Agent objects
         agents_list = []
         for agent_type in payload.agents:
             agent = create_agent(cast("AgentType", agent_type))
             if agent is not None:
                 agents_list.append(agent)
+        agents = agents_list
 
+        # Run debate
         start_time = time.time()
-        arena = Arena(env, agents=agents_list, protocol=protocol)
+        arena = Arena(env, agents=agents, protocol=protocol)
         result = await arena.run()
 
         duration = time.time() - start_time
 
+        # Build result
         debate_result = DebateResult(
             debate_id=result.debate_id if hasattr(result, "debate_id") else job.id,
             consensus_reached=(
