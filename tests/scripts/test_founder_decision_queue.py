@@ -254,6 +254,37 @@ def test_collect_decision_items_prefers_newest_duplicate_local_item(
     assert items[0].source == str(new_path)
 
 
+def test_collect_decision_items_non_policy_local_packets_share_directory_thread(
+    tmp_path: Path,
+) -> None:
+    decisions_root = tmp_path / "founder-decisions"
+    decisions_root.mkdir()
+    old_path = decisions_root / "manual-old.md"
+    old_path.write_text(
+        _single_item_packet(
+            generated="2026-07-05T10:00:00Z",
+            target="PR #7300: https://github.com/synaptent/aragora/pull/7300",
+            reply="hold",
+        ),
+        encoding="utf-8",
+    )
+    new_path = decisions_root / "manual-new.md"
+    new_path.write_text(
+        _single_item_packet(
+            generated="2026-07-05T11:00:00Z",
+            target="PR #7301: https://github.com/synaptent/aragora/pull/7301",
+            reply="approve",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(decisions_root=decisions_root)
+
+    assert len(items) == 1
+    assert items[0].source == str(new_path)
+    assert items[0].target == "PR #7301: https://github.com/synaptent/aragora/pull/7301"
+
+
 def test_collect_decision_items_omits_ruled_after_packet(tmp_path: Path) -> None:
     comments = [
         {

@@ -245,7 +245,7 @@ def _local_thread_key(path: Path, *, decisions_root: Path | None = None) -> str:
     match = re.match(r"^policy-exclusion-pr(\d+)-[0-9a-fA-F]+$", path.stem)
     if match:
         return f"local-policy-pr:{root}:{match.group(1)}"
-    return f"local-packet:{path.resolve()}"
+    return f"local:{root}"
 
 
 def _thread_key_from_comment(comment: dict[str, Any], *, fallback: str) -> str:
