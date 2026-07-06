@@ -109,8 +109,36 @@ SECRET_METADATA_KEYS = frozenset(
         "tags",
     }
 )
-SAST_SOURCE_HINT_KEYS = frozenset({"scan_type", "scanner", "source", "tool"})
-SAST_SOURCE_HINTS = frozenset({"sast", "semgrep"})
+SECRET_CATEGORY_TERMS = ("secret", "secrets", "credential", "credentials")
+SECRET_RULE_TERMS = (
+    "secret",
+    "credential",
+    "credentials",
+    "api key",
+    "api_key",
+    "apikey",
+    "api token",
+    "access token",
+    "auth token",
+    "bearer token",
+    "github token",
+    "gitlab token",
+    "slack token",
+    "private key",
+    "access key",
+)
+SECRET_EXPOSURE_TERMS = (
+    "hardcoded",
+    "hard coded",
+    "embedded",
+    "exposed",
+    "exposure",
+    "leaked",
+    "leak",
+    "plaintext",
+    "plain text",
+    "committed",
+)
 
 
 def _finding_dict(finding: Any) -> dict[str, Any]:
@@ -159,13 +187,26 @@ def _has_secret_indicator(value: Any) -> bool:
     return False
 
 
-def _has_sast_source_hint(metadata: dict[str, Any]) -> bool:
-    for key, value in metadata.items():
-        if str(key).lower() not in SAST_SOURCE_HINT_KEYS:
-            continue
-        for text in _iter_text_values(value):
-            if text.lower() in SAST_SOURCE_HINTS:
-                return True
+def _text_has_any_term(text: str, terms: tuple[str, ...]) -> bool:
+    normalized = text.lower().replace("-", " ").replace(".", " ").replace("_", " ")
+    compact = normalized.replace(" ", "")
+    for term in terms:
+        normalized_term = term.lower().replace("-", " ").replace(".", " ").replace("_", " ")
+        if normalized_term in normalized or normalized_term.replace(" ", "") in compact:
+            return True
+    return False
+
+
+def _has_secret_category_signature(value: Any) -> bool:
+    return any(_text_has_any_term(text, SECRET_CATEGORY_TERMS) for text in _iter_text_values(value))
+
+
+def _has_secret_rule_signature(value: Any) -> bool:
+    for text in _iter_text_values(value):
+        if _text_has_any_term(text, SECRET_RULE_TERMS):
+            return True
+        if _text_has_any_term(text, SECRET_EXPOSURE_TERMS) and _has_secret_indicator(text):
+            return True
     return False
 
 
@@ -174,7 +215,12 @@ def _has_secret_metadata_signature(metadata: dict[str, Any]) -> bool:
         return True
 
     for key, value in metadata.items():
-        if str(key).lower() in SECRET_METADATA_KEYS and _has_secret_indicator(value):
+        key_name = str(key).lower()
+        if key_name in {"category", "categories", "tags"}:
+            if _has_secret_category_signature(value):
+                return True
+            continue
+        if key_name in SECRET_METADATA_KEYS and _has_secret_rule_signature(value):
             return True
     return False
 
@@ -189,16 +235,6 @@ def is_secret_finding(finding: Any) -> bool:
     metadata = _finding_metadata(finding, data)
     if _has_secret_metadata_signature(metadata):
         return True
-
-    if _has_sast_source_hint(metadata):
-        return _has_secret_indicator(
-            (
-                data.get("title", getattr(finding, "title", "")),
-                data.get("description", getattr(finding, "description", "")),
-                data.get("recommendation", getattr(finding, "recommendation", "")),
-                metadata,
-            )
-        )
 
     return False
 

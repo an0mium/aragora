@@ -142,6 +142,31 @@ class TestBuildSecurityDebateQuestion:
         assert "exposed secrets" in q
         assert "vulnerabilities" not in q
 
+    def test_question_keeps_sast_token_vulnerability_context(self):
+        """SAST vulnerabilities mentioning tokens should remain vulnerability context."""
+        finding = SecurityFinding(
+            id="f-csrf-token",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Missing CSRF token validation",
+            description="POST handler accepts requests without verifying the CSRF token.",
+            metadata={
+                "scanner": "semgrep",
+                "rule_id": "python.django.security.csrf-token-missing",
+                "message": "Missing CSRF token validation",
+                "snippet": "csrf_token = request.headers.get('X-CSRF-Token')",
+            },
+        )
+        event = SecurityEvent(repository="org/app", findings=[finding])
+
+        q = build_security_debate_question(event)
+
+        assert "vulnerabilities" in q
+        assert "Missing CSRF token validation" in q
+        assert "CSRF token" in q
+        assert "Secret finding" not in q
+        assert "exposed secrets" not in q
+
     def test_question_with_mixed_findings(self):
         """Should include both vulnerability and secret details."""
         vuln = SecurityFinding(

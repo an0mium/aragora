@@ -880,6 +880,51 @@ class TestSecurityEventEmitter:
         assert "AWS_SECRET_ACCESS_KEY" not in serialized
         assert "api_key" not in serialized
 
+    def test_event_to_dict_keeps_sast_token_vulnerability_context(self):
+        """SAST vulnerability text mentioning tokens should not be redacted as a secret."""
+        finding = SecurityFinding(
+            id="sast-csrf-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Missing CSRF token validation",
+            description="POST handler accepts requests without verifying the CSRF token.",
+            file_path="src/views.py",
+            line_number=27,
+            metadata={
+                "scanner": "semgrep",
+                "rule_id": "python.django.security.csrf-token-missing",
+                "message": "Missing CSRF token validation",
+                "snippet": "csrf_token = request.headers.get('X-CSRF-Token')",
+            },
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is False
+        assert data["findings"][0]["title"] == "Missing CSRF token validation"
+        assert data["findings"][0]["description"] == (
+            "POST handler accepts requests without verifying the CSRF token."
+        )
+        assert "Secret finding" not in serialized
+        assert "csrf_token" in serialized
+
+        password_finding = SecurityFinding(
+            id="sast-password-check-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Improper password check bypass",
+            description="Password comparison can be bypassed through alternate auth flow.",
+            metadata={
+                "scanner": "semgrep",
+                "rule_id": "python.auth.security.password-check-bypass",
+                "message": "Improper password check bypass",
+                "snippet": "if password_ok or oauth_bypass: return user",
+            },
+        )
+        assert is_secret_finding(password_finding) is False
+
     def test_should_not_trigger_debate_for_low_severity(self):
         """LOW severity events should not trigger debates."""
         emitter = SecurityEventEmitter(enable_auto_debate=True)
