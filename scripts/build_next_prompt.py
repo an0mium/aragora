@@ -52,7 +52,7 @@ PENDING_CHECK_STATES = {
     "REQUESTED",
     "WAITING",
 }
-SETTLEMENT_STABLE_MERGE_STATE_STATUSES = {"CLEAN", "BLOCKED"}
+MERGE_READY_PROMPT_MERGE_STATE_STATUSES = {"CLEAN"}
 POST_MERGE_LANE_KEYWORDS = ("evidence", "review", "quorum", "settle", "settlement")
 UNRESOLVED_OPERATOR_CHOICE_MARKERS = (
     "1|2|3",
@@ -1034,7 +1034,7 @@ def _live_pr_metadata_blocker(
     expected_head: str,
 ) -> str:
     if live_pr is None:
-        return ""
+        return f"live PR metadata for PR #{pr_number} is missing"
     if not isinstance(live_pr, dict) or not live_pr:
         return f"live PR metadata for PR #{pr_number} is missing or malformed"
     if live_pr.get("error"):
@@ -1045,14 +1045,16 @@ def _live_pr_metadata_blocker(
     if bool(live_pr.get("isDraft")):
         return f"PR #{pr_number} is draft in live metadata"
     live_head = str(live_pr.get("headRefOid") or "")
-    if live_head and live_head != expected_head:
+    if not live_head:
+        return f"live PR metadata for PR #{pr_number} is missing an exact head"
+    if live_head != expected_head:
         return (
             f"live PR head {live_head} does not match merge-packet head {expected_head} "
             f"for PR #{pr_number}"
         )
     mergeable = str(live_pr.get("mergeable") or "").upper()
     merge_state = str(live_pr.get("mergeStateStatus") or "").upper()
-    if mergeable != "MERGEABLE" or merge_state not in SETTLEMENT_STABLE_MERGE_STATE_STATUSES:
+    if mergeable != "MERGEABLE" or merge_state not in MERGE_READY_PROMPT_MERGE_STATE_STATUSES:
         return (
             f"PR #{pr_number} is not settlement-stable in live metadata: "
             f"mergeable={mergeable or 'unknown'}, mergeStateStatus={merge_state or 'unknown'}"
