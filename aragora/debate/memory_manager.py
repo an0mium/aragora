@@ -955,15 +955,22 @@ class MemoryManager:
             for mem_id in self._retrieved_ids:
                 # Update outcome with prediction error based on debate confidence.
                 prediction_error = 1.0 - result.confidence if success else result.confidence
+
+                def update_outcome(
+                    memory_id: str = mem_id,
+                    memory_prediction_error: float = prediction_error,
+                ) -> None:
+                    if self.continuum_memory is None:
+                        return
+                    self.continuum_memory.update_outcome(
+                        id=memory_id,
+                        success=success,
+                        agent_prediction_error=memory_prediction_error,
+                    )
+
                 if not _run_noncritical_memory_side_effect(
                     f"  [continuum] Failed to update memory {mem_id}",
-                    lambda mem_id=mem_id, prediction_error=prediction_error: (
-                        self.continuum_memory.update_outcome(
-                            id=mem_id,
-                            success=success,
-                            agent_prediction_error=prediction_error,
-                        )
-                    ),
+                    update_outcome,
                 ):
                     continue
 
@@ -1299,10 +1306,14 @@ class MemoryManager:
 
     def _notify_spectator(self, event_type: str, details: str, metric: float = 0.0) -> None:
         """Notify spectator stream of an event."""
-        if self.spectator:
+        spectator = self.spectator
+        if spectator:
+            def emit_spectator() -> None:
+                spectator.emit(event_type, details=details, metric=metric)
+
             _run_noncritical_memory_side_effect(
                 "Spectator notification error",
-                lambda: self.spectator.emit(event_type, details=details, metric=metric),
+                emit_spectator,
             )
 
     def track_retrieved_ids(
