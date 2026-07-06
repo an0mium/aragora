@@ -59,7 +59,7 @@ PENDING --> PROCESSING --> COMPLETED
 | `tracing.py` | Distributed trace context propagation |
 | `batch_worker.py` | Batch explainability job processing |
 | `webhook_worker.py` | Reliable webhook delivery with circuit breakers |
-| `workers/` | Specialized workers (gauntlet, transcription, routing, consensus healing) |
+| `workers/` | Specialized workers (transcription) |
 
 ## Quick Start
 
@@ -226,13 +226,13 @@ Located in `aragora/queue/workers/`:
 | Worker | Purpose |
 |--------|---------|
 | `TranscriptionWorker` | Audio/video transcription (Whisper integration) |
-| `RoutingWorker` | Debate result delivery to originating channels |
 
-`GauntletWorker` (`aragora.server.workers.gauntlet_worker`) and
-`ConsensusHealingWorker` (`aragora.memory.consensus_healing_worker`) are not
-in this package: they import interface- and domain-layer packages
-respectively, so they live in those layers instead
-(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §10 Q3).
+`GauntletWorker` (`aragora.server.workers.gauntlet_worker`) and `RoutingWorker`
+(`aragora.server.workers.routing_worker`) import interface-layer packages;
+`ConsensusHealingWorker` (`aragora.memory.consensus_healing_worker`) imports a
+domain-layer package; `TestFixerWorker` (`aragora.nomic.testfixer.queue_worker`)
+imports an application-layer package. None of the four live in this package
+(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §10 Q3/Q4).
 
 ## Job Definitions
 
