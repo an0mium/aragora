@@ -372,8 +372,8 @@ class TestTriggerSecurityDebate:
         mock_store.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_trigger_debate_returns_none_when_threshold_not_met(self):
-        """Low-confidence canonical results should not count as completed auto-debates."""
+    async def test_trigger_debate_stores_low_confidence_result_for_audit(self):
+        """Low-confidence completed debates should stay retrievable for audit."""
         event = SecurityEvent(repository="org/repo")
         mock_result = MagicMock()
         mock_result.debate_id = "low-confidence-debate"
@@ -400,10 +400,11 @@ class TestTriggerSecurityDebate:
         ):
             result = await trigger_security_debate(event, confidence_threshold=0.7)
 
-        assert result is None
-        assert event.debate_requested is False
-        assert event.debate_id is None
-        mock_store.assert_not_awaited()
+        assert result == "low-confidence-debate"
+        assert event.debate_requested is True
+        assert event.debate_id == "low-confidence-debate"
+        mock_store.assert_awaited_once()
+        assert mock_store.await_args.args == ("low-confidence-debate", event, mock_result)
 
     @pytest.mark.asyncio
     async def test_trigger_debate_fails_closed_without_threshold_metadata(self):

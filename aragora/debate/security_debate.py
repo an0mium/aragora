@@ -154,12 +154,8 @@ async def run_security_debate(
         f"consensus={result.consensus_reached}, confidence={result.confidence:.2f}"
     )
 
-    if result.metadata.get("security_confidence_threshold_met") is True:
-        event.debate_requested = True
-        event.debate_id = result.debate_id
-    else:
-        event.debate_requested = False
-        event.debate_id = None
+    event.debate_requested = True
+    event.debate_id = result.debate_id
 
     return result
 

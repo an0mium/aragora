@@ -382,8 +382,8 @@ class TestSecurityDebateIntegration:
             assert result.consensus_reached is False
             assert result.metadata["security_confidence_threshold"] == 0.9
             assert result.metadata["security_confidence_threshold_met"] is False
-            assert mock_event.debate_requested is False
-            assert mock_event.debate_id is None
+            assert mock_event.debate_requested is True
+            assert mock_event.debate_id == "debate-low-confidence"
 
     @pytest.mark.asyncio
     async def test_secret_findings_are_redacted_from_environment_context(self):

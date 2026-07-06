@@ -125,17 +125,6 @@ async def trigger_security_debate(
             org_id=event.workspace_id or "default",
         )
 
-        threshold_met = getattr(result, "metadata", {}).get("security_confidence_threshold_met")
-        if threshold_met is not True:
-            logger.warning(
-                "Security debate %s did not meet confidence threshold %.2f",
-                getattr(result, "debate_id", None),
-                confidence_threshold,
-            )
-            event.debate_requested = False
-            event.debate_id = None
-            return None
-
         if (
             not getattr(result, "messages", [])
             and not getattr(result, "participants", [])
@@ -146,6 +135,22 @@ async def trigger_security_debate(
             event.debate_requested = False
             event.debate_id = None
             return None
+
+        threshold_met = getattr(result, "metadata", {}).get("security_confidence_threshold_met")
+        if threshold_met is not True:
+            if threshold_met is not False:
+                logger.warning(
+                    "Security debate %s did not report confidence threshold status",
+                    getattr(result, "debate_id", None),
+                )
+                event.debate_requested = False
+                event.debate_id = None
+                return None
+            logger.warning(
+                "Security debate %s completed below confidence threshold %.2f",
+                getattr(result, "debate_id", None),
+                confidence_threshold,
+            )
 
         debate_id = (
             getattr(result, "debate_id", "")
