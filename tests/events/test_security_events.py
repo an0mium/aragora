@@ -880,6 +880,66 @@ class TestSecurityEventEmitter:
         assert "AWS_SECRET_ACCESS_KEY" not in serialized
         assert "api_key" not in serialized
 
+    def test_event_to_dict_redacts_sast_scanner_bridge_secret_text(self):
+        """Scanner-emitted generic vulnerabilities should redact hardcoded secrets."""
+        finding = SecurityFinding(
+            id="sast-secret-bridge-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="hardcoded-password",
+            description="Matched code: password = 'literal-secret'",
+            file_path="src/settings.py",
+            line_number=12,
+            metadata={
+                "scanner": "semgrep",
+                "snippet": "password = 'literal-secret'",
+                "rule_source": "semgrep",
+                "vulnerability_class": "hardcoded-password",
+                "confidence": 0.95,
+            },
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert data["findings"][0]["file_path"] == "src/settings.py"
+        assert data["findings"][0]["line_number"] == 12
+        assert "literal-secret" not in serialized
+        assert "hardcoded-password" not in serialized
+        assert "password =" not in serialized
+
+    def test_event_to_dict_uses_event_rule_metadata_for_sast_secret_redaction(self):
+        """Single-finding SAST events may carry the secret rule signal on the event."""
+        finding = SecurityFinding(
+            id="sast-event-rule-secret-1",
+            finding_type="sast",
+            severity=SecuritySeverity.CRITICAL,
+            title="Scanner finding",
+            description="Matched code: literal-secret",
+            file_path="src/settings.py",
+            line_number=12,
+            metadata={
+                "scanner": "semgrep",
+                "snippet": "literal-secret",
+            },
+        )
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[finding],
+            metadata={"rule_id": "python.lang.security.audit.hardcoded-credential"},
+        )
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is False
+        assert is_secret_finding(finding, event_metadata=event.metadata) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert "literal-secret" not in serialized
+
     def test_event_to_dict_keeps_sast_token_vulnerability_context(self):
         """SAST vulnerability text mentioning tokens should not be redacted as a secret."""
         finding = SecurityFinding(
@@ -1139,6 +1199,50 @@ class TestSecurityEventEmitter:
         assert "literal-secret" not in captured_payloads[0]
         assert "AWS_SECRET_ACCESS_KEY" not in captured_payloads[0]
         assert "api_key" not in captured_payloads[0]
+
+    @pytest.mark.asyncio
+    async def test_auto_debate_context_redacts_sast_scanner_bridge_secret_text(self):
+        """Auto-debate payloads should scrub scanner-shaped hardcoded secrets."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        captured_payloads: list[str] = []
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[
+                SecurityFinding(
+                    id="sast-secret-bridge-1",
+                    finding_type="vulnerability",
+                    severity=SecuritySeverity.CRITICAL,
+                    title="hardcoded-password",
+                    description="Matched code: password = 'literal-secret'",
+                    file_path="src/settings.py",
+                    line_number=12,
+                    metadata={
+                        "scanner": "semgrep",
+                        "snippet": "password = 'literal-secret'",
+                        "rule_source": "semgrep",
+                        "vulnerability_class": "hardcoded-password",
+                        "confidence": 0.95,
+                    },
+                )
+            ],
+        )
+
+        async def runner(security_event: SecurityEvent, **_: object) -> str:
+            captured_payloads.append(json.dumps(security_event.to_dict()))
+            return "debate-sast-secret-bridge-123"
+
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await emitter.emit(event)
+
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-sast-secret-bridge-123"
+        assert len(captured_payloads) == 1
+        assert "literal-secret" not in captured_payloads[0]
+        assert "hardcoded-password" not in captured_payloads[0]
+        assert "password =" not in captured_payloads[0]
 
     @pytest.mark.asyncio
     async def test_emit_does_not_trigger_debate_for_low(self):

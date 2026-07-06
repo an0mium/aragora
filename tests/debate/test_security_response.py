@@ -167,6 +167,60 @@ class TestBuildSecurityDebateQuestion:
         assert "Secret finding" not in q
         assert "exposed secrets" not in q
 
+    def test_question_redacts_sast_scanner_bridge_secret_text(self):
+        """Scanner-emitted generic vulnerabilities should not leak hardcoded secrets."""
+        finding = SecurityFinding(
+            id="f-hardcoded-password",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="hardcoded-password",
+            description="Matched code: password = 'literal-secret'",
+            metadata={
+                "scanner": "semgrep",
+                "snippet": "password = 'literal-secret'",
+                "rule_source": "semgrep",
+                "vulnerability_class": "hardcoded-password",
+                "confidence": 0.95,
+            },
+        )
+        event = SecurityEvent(repository="org/app", findings=[finding])
+
+        q = build_security_debate_question(event)
+
+        assert "exposed secrets" in q
+        assert "Secret finding" in q
+        assert "[redacted secret finding description]" in q
+        assert "literal-secret" not in q
+        assert "hardcoded-password" not in q
+        assert "password =" not in q
+        assert "vulnerabilities" not in q
+
+    def test_question_uses_event_rule_metadata_for_sast_secret_redaction(self):
+        """Event-level SAST secret rule metadata should redact prompt details."""
+        finding = SecurityFinding(
+            id="f-event-rule-secret",
+            finding_type="sast",
+            severity=SecuritySeverity.CRITICAL,
+            title="Scanner finding",
+            description="Matched code: literal-secret",
+            metadata={
+                "scanner": "semgrep",
+                "snippet": "literal-secret",
+            },
+        )
+        event = SecurityEvent(
+            repository="org/app",
+            findings=[finding],
+            metadata={"rule_id": "python.lang.security.audit.hardcoded-credential"},
+        )
+
+        q = build_security_debate_question(event)
+
+        assert "exposed secrets" in q
+        assert "Secret finding" in q
+        assert "literal-secret" not in q
+        assert "Scanner finding" not in q
+
     def test_question_with_mixed_findings(self):
         """Should include both vulnerability and secret details."""
         vuln = SecurityFinding(

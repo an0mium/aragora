@@ -111,21 +111,18 @@ SECRET_METADATA_KEYS = frozenset(
 )
 SECRET_CATEGORY_TERMS = ("secret", "secrets", "credential", "credentials")
 SECRET_RULE_TERMS = (
-    "secret",
     "credential",
     "credentials",
     "api key",
     "api_key",
     "apikey",
-    "api token",
-    "access token",
-    "auth token",
-    "bearer token",
     "github token",
     "gitlab token",
     "slack token",
     "private key",
     "access key",
+    "client secret",
+    "secret key",
 )
 SECRET_EXPOSURE_TERMS = (
     "hardcoded",
@@ -139,6 +136,9 @@ SECRET_EXPOSURE_TERMS = (
     "plain text",
     "committed",
 )
+
+
+SECRET_FINDING_TEXT_KEYS = ("title", "description", "recommendation")
 
 
 def _finding_dict(finding: Any) -> dict[str, Any]:
@@ -225,7 +225,20 @@ def _has_secret_metadata_signature(metadata: dict[str, Any]) -> bool:
     return False
 
 
-def is_secret_finding(finding: Any) -> bool:
+def _has_secret_finding_text_signature(finding: Any, data: dict[str, Any]) -> bool:
+    values = []
+    for key in SECRET_FINDING_TEXT_KEYS:
+        value = data.get(key, getattr(finding, key, None))
+        if value:
+            values.append(value)
+    return _has_secret_rule_signature(values)
+
+
+def is_secret_finding(
+    finding: Any,
+    *,
+    event_metadata: dict[str, Any] | None = None,
+) -> bool:
     """Return whether a finding contains secret-like material."""
     data = _finding_dict(finding)
     finding_type = str(data.get("finding_type") or getattr(finding, "finding_type", "")).lower()
@@ -236,13 +249,23 @@ def is_secret_finding(finding: Any) -> bool:
     if _has_secret_metadata_signature(metadata):
         return True
 
+    if event_metadata and _has_secret_metadata_signature(event_metadata):
+        return True
+
+    if _has_secret_finding_text_signature(finding, data):
+        return True
+
     return False
 
 
-def redacted_security_finding_dict(finding: Any) -> dict[str, Any]:
+def redacted_security_finding_dict(
+    finding: Any,
+    *,
+    event_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Serialize a finding while redacting secret-like material."""
     data = _finding_dict(finding)
-    if not is_secret_finding(finding):
+    if not is_secret_finding(finding, event_metadata=event_metadata):
         return data
 
     metadata = _finding_metadata(finding, data)
@@ -262,12 +285,16 @@ def redacted_security_finding_dict(finding: Any) -> dict[str, Any]:
     }
 
 
-def redacted_security_finding(finding: SecurityFinding) -> SecurityFinding:
+def redacted_security_finding(
+    finding: SecurityFinding,
+    *,
+    event_metadata: dict[str, Any] | None = None,
+) -> SecurityFinding:
     """Return a redacted copy when a finding is secret-like."""
-    if not is_secret_finding(finding):
+    if not is_secret_finding(finding, event_metadata=event_metadata):
         return finding
 
-    data = redacted_security_finding_dict(finding)
+    data = redacted_security_finding_dict(finding, event_metadata=event_metadata)
     severity_value = data.get("severity") or SecuritySeverity.HIGH.value
     try:
         severity = SecuritySeverity(str(severity_value))
@@ -362,7 +389,10 @@ class SecurityEvent:
             "repository": self.repository,
             "scan_id": self.scan_id,
             "workspace_id": self.workspace_id,
-            "findings": [redacted_security_finding_dict(f) for f in self.findings],
+            "findings": [
+                redacted_security_finding_dict(f, event_metadata=self.metadata)
+                for f in self.findings
+            ],
             "debate_requested": self.debate_requested,
             "debate_id": self.debate_id,
             "debate_question": self.debate_question,
@@ -724,7 +754,10 @@ class SecurityEventEmitter:
                     repository=event.repository,
                     scan_id=event.scan_id,
                     workspace_id=event.workspace_id,
-                    findings=[redacted_security_finding(f) for f in event.findings],
+                    findings=[
+                        redacted_security_finding(f, event_metadata=event.metadata)
+                        for f in event.findings
+                    ],
                     debate_id=debate_id,
                     correlation_id=event.correlation_id,
                 )

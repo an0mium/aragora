@@ -34,11 +34,15 @@ def _apply_security_confidence_threshold(
     return result
 
 
-def _security_safe_finding_dict(finding: Any) -> dict[str, Any]:
+def _security_safe_finding_dict(
+    finding: Any,
+    *,
+    event_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Serialize finding context without exposing secret material to model agents."""
     from aragora.events.security_events import redacted_security_finding_dict
 
-    return redacted_security_finding_dict(finding)
+    return redacted_security_finding_dict(finding, event_metadata=event_metadata)
 
 
 async def run_security_debate(
@@ -85,6 +89,9 @@ async def run_security_debate(
     # Build the debate question from security findings
     question = build_security_debate_question(event)
     event.debate_question = question
+    event_metadata = getattr(event, "metadata", None)
+    if not isinstance(event_metadata, dict):
+        event_metadata = None
 
     # Create environment with security context
     env = Environment(
@@ -96,7 +103,10 @@ async def run_security_debate(
                 "repository": event.repository,
                 "scan_id": event.scan_id,
                 "source": event.source,
-                "findings": [_security_safe_finding_dict(f) for f in event.findings],
+                "findings": [
+                    _security_safe_finding_dict(f, event_metadata=event_metadata)
+                    for f in event.findings
+                ],
                 "severity": event.severity.value,
             }
         ),

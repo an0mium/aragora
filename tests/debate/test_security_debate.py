@@ -74,6 +74,7 @@ class MockSecurityEvent:
         self.findings = findings or [
             MockFinding("CVE-2024-1234", "critical", "Test vulnerability"),
         ]
+        self.metadata = {}
         self.debate_question = None
         self.debate_requested = False
         self.debate_id = None
@@ -486,6 +487,62 @@ class TestSecurityDebateIntegration:
         assert finding["finding_type"] == "secret"
         assert finding["description"] == "[redacted secret finding description]"
         assert "alias-secret-value" not in env.context
+
+    @pytest.mark.asyncio
+    async def test_sast_scanner_bridge_secret_findings_are_redacted_from_environment_context(self):
+        """Scanner-shaped generic vulnerability findings should be scrubbed."""
+        from aragora.debate.security_debate import run_security_debate
+
+        mock_event = MockSecurityEvent(
+            findings=[
+                MockFinding(
+                    cve_id="SAST-SECRET-1",
+                    severity="critical",
+                    description="Matched code: password = 'literal-secret'",
+                    finding_type="vulnerability",
+                )
+            ]
+        )
+        mock_event.findings[0].title = "hardcoded-password"
+        mock_event.findings[0].metadata = {
+            "scanner": "semgrep",
+            "snippet": "password = 'literal-secret'",
+            "rule_source": "semgrep",
+            "vulnerability_class": "hardcoded-password",
+            "confidence": 0.95,
+        }
+        mock_agent = MagicMock()
+        mock_agent.name = "security-auditor"
+
+        mock_result = MagicMock()
+        mock_result.debate_id = "debate-redacted-sast-context"
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.95
+        mock_result.metadata = {}
+
+        mock_arena = MagicMock()
+        mock_arena.run = AsyncMock(return_value=mock_result)
+
+        with (
+            patch(
+                "aragora.debate.security_response.build_security_debate_question",
+                return_value="Q",
+            ),
+            patch(
+                "aragora.debate.orchestrator.Arena",
+                return_value=mock_arena,
+            ) as mock_arena_cls,
+        ):
+            await run_security_debate(event=mock_event, agents=[mock_agent])
+
+        env = mock_arena_cls.call_args.kwargs["environment"]
+        finding = json.loads(env.context)["findings"][0]
+        assert finding["finding_type"] == "secret"
+        assert finding["title"] == "Secret finding"
+        assert finding["description"] == "[redacted secret finding description]"
+        assert "literal-secret" not in env.context
+        assert "hardcoded-password" not in env.context
+        assert "password =" not in env.context
 
     @pytest.mark.asyncio
     async def test_org_id_parameter(self):

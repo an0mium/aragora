@@ -51,10 +51,17 @@ def build_security_debate_question(event: SecurityEvent) -> str:
     if not findings:
         return f"Analyze and recommend remediation for security findings in {event.repository or 'the codebase'}."
 
+    event_metadata = getattr(event, "metadata", None)
+    if not isinstance(event_metadata, dict):
+        event_metadata = None
+
+    def _is_secret(finding: Any) -> bool:
+        return is_secret_finding(finding, event_metadata=event_metadata)
+
     # Group secret-like findings first so aliases or mislabeled scanner output
     # never reach the unredacted vulnerability summary.
-    secrets = [f for f in findings if is_secret_finding(f)]
-    vulns = [f for f in findings if not is_secret_finding(f) and f.finding_type == "vulnerability"]
+    secrets = [f for f in findings if _is_secret(f)]
+    vulns = [f for f in findings if not _is_secret(f) and f.finding_type == "vulnerability"]
 
     question_parts = []
 
@@ -69,12 +76,12 @@ def build_security_debate_question(event: SecurityEvent) -> str:
     findings_str = " and ".join(question_parts)
 
     def _prompt_safe_title(finding: Any) -> str:
-        if is_secret_finding(finding):
+        if _is_secret(finding):
             return "Secret finding"
         return str(getattr(finding, "title", ""))
 
     def _prompt_safe_description(finding: Any) -> str:
-        if is_secret_finding(finding):
+        if _is_secret(finding):
             return "[redacted secret finding description]"
         return str(getattr(finding, "description", ""))[:200]
 
