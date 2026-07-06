@@ -35,6 +35,8 @@ def test_dry_run_emits_publisher_compatible_payload(tmp_path: Path, capsys: Any)
             "python3 scripts/build_next_prompt.py --json",
             "--pr",
             "8845",
+            "--branch",
+            "codex/prompt-handoff",
             "--expected-head",
             "abc123",
             "--outbox-dir",
@@ -64,8 +66,20 @@ def test_dry_run_emits_publisher_compatible_payload(tmp_path: Path, capsys: Any)
         assert payload[required]
     assert payload["requires_github"] is True
     assert payload["requested_action"]["type"] == "prompt_handoff"
-    assert payload["requested_action"]["target"] == {"pr": 8845, "expected_head": "abc123"}
+    assert payload["requested_action"]["branch"] == "codex/prompt-handoff"
+    assert payload["requested_action"]["desired_head_sha"] == "abc123"
+    assert payload["requested_action"]["head_sha"] == "abc123"
+    assert payload["requested_action"]["target"] == {
+        "pr": 8845,
+        "branch": "codex/prompt-handoff",
+        "expected_head": "abc123",
+        "desired_head_sha": "abc123",
+        "head_sha": "abc123",
+    }
     assert payload["local_evidence"]["kind"] == "prompt_handoff"
+    assert payload["local_evidence"]["branch"] == "codex/prompt-handoff"
+    assert payload["local_evidence"]["desired_head_sha"] == "abc123"
+    assert payload["local_evidence"]["head_sha"] == "abc123"
     assert (
         payload["local_evidence"]["prompt_sha256"] == payload["requested_action"]["prompt_sha256"]
     )
@@ -134,6 +148,53 @@ def test_written_payload_is_loadable_by_automation_handoff_publisher(
     assert handoffs[0].task_title == "Publish prompt handoff through existing publisher"
     assert "Requested Action:" in handoffs[0].body
     assert "prompt_handoff" in handoffs[0].body
+
+
+def test_written_payload_round_trips_through_outbox_consumers(tmp_path: Path, capsys: Any) -> None:
+    rc = mod.main(
+        [
+            "--prompt",
+            "Resume the current-head prompt handoff task.",
+            "--task",
+            "Prompt handoff for current branch",
+            "--branch",
+            "codex/prompt-handoff-outbox",
+            "--expected-head",
+            "070f6aaffccaf726cd6d3c93eff7c88b933fc65f",
+            "--outbox-dir",
+            str(tmp_path),
+            "--created-at",
+            "2026-07-06T15:45:00Z",
+            "--apply",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    result = json.loads(capsys.readouterr().out)
+    payload = json.loads(Path(result["outbox_path"]).read_text(encoding="utf-8"))
+
+    reconcile = _load_script(
+        "reconcile_automation_outbox.py", "reconcile_automation_outbox_for_prompt_test"
+    )
+    assert reconcile._branch_from_payload(payload) == "codex/prompt-handoff-outbox"
+    assert (
+        reconcile._desired_head_from_payload(payload) == "070f6aaffccaf726cd6d3c93eff7c88b933fc65f"
+    )
+    records = reconcile._lane_records_from_payload(payload, reconcile._branch_from_payload(payload))
+    assert records == [
+        {
+            "branch": "codex/prompt-handoff-outbox",
+            "desired_head_sha": "070f6aaffccaf726cd6d3c93eff7c88b933fc65f",
+            "head_sha": "070f6aaffccaf726cd6d3c93eff7c88b933fc65f",
+        }
+    ]
+
+    audit = _load_script("audit_codex_branch_backlog.py", "audit_backlog_for_prompt_test")
+    assert audit._outbox_payload_branches(payload) == {"codex/prompt-handoff-outbox"}
+    assert audit._outbox_payload_branch_heads(payload) == {
+        "codex/prompt-handoff-outbox": {"070f6aaffccaf726cd6d3c93eff7c88b933fc65f"}
+    }
 
 
 def test_apply_refuses_existing_file_without_force(tmp_path: Path, capsys: Any) -> None:

@@ -104,15 +104,28 @@ def build_payload(
         "prompt_chars": len(prompt),
         "prompt": prompt,
     }
-    if target:
-        local_evidence["target"] = target
-
     requested_action: dict[str, Any] = {
         "type": "prompt_handoff",
         "prompt_sha256": prompt_sha,
     }
-    if target:
-        requested_action["target"] = target
+    branch = str(target.get("branch") or "").strip()
+    expected_head = str(target.get("expected_head") or "").strip()
+    target_payload = dict(target)
+    if branch:
+        local_evidence["branch"] = branch
+        requested_action["branch"] = branch
+    if expected_head:
+        local_evidence["desired_head_sha"] = expected_head
+        local_evidence["head_sha"] = expected_head
+        requested_action["desired_head_sha"] = expected_head
+        requested_action["head_sha"] = expected_head
+        target_payload.setdefault("desired_head_sha", expected_head)
+        target_payload.setdefault("head_sha", expected_head)
+    if target_payload:
+        local_evidence["target"] = target_payload
+
+    if target_payload:
+        requested_action["target"] = target_payload
 
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
