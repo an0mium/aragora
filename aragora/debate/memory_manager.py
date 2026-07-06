@@ -40,11 +40,22 @@ from aragora.memory.tier_analytics import TierAnalyticsTracker
 logger = logging.getLogger(__name__)
 
 
+_EXPECTED_SIDE_EFFECT_EXCEPTIONS = (
+    AttributeError,
+    TypeError,
+    ValueError,
+    KeyError,
+)
+
+
 def _run_noncritical_memory_side_effect(label: str, action: Callable[[], None]) -> bool:
     """Run a best-effort memory/spectator side effect without breaking debate flow."""
     try:
         action()
-    except Exception as e:  # noqa: BLE001 - side-effect adapters must fail closed.
+    except _EXPECTED_SIDE_EFFECT_EXCEPTIONS as e:
+        logger.debug("%s: %s", label, e)
+        return False
+    except Exception as e:  # noqa: BLE001 - side-effect adapters must stay contained.
         logger.warning("%s: %s", label, e)
         return False
     return True
@@ -988,12 +999,19 @@ class MemoryManager:
                             quality_before=0.5,
                             quality_after=result.confidence if success else 0.3,
                         )
-                    except (AttributeError, TypeError, ValueError) as e:
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                        KeyError,
+                        StopIteration,
+                        ImportError,
+                    ) as e:
                         # Expected: tier analytics configuration issues
                         logger.debug(
                             "  [tier_analytics] Failed to record usage for %s: %s", mem_id, e
                         )
-                    except (OSError, RuntimeError) as e:
+                    except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                         # Unexpected error
                         logger.warning(
                             "  [tier_analytics] Unexpected error recording usage for %s: %s",

@@ -8,6 +8,7 @@ Tests cover:
 - Event emission (spectator events, WebSocket events, notification failures)
 """
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -287,6 +288,36 @@ class TestOutcomeUpdates:
         # All three should have been attempted
         assert mock_continuum_memory.update_outcome.call_count == 3
 
+    def test_tier_analytics_failures_do_not_abort_batch_or_leave_tracked_ids(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
+        """Tier analytics failures stay per-memory and tracking state is cleared."""
+        manager._retrieved_ids = ["mem_1", "mem_2", "mem_3"]
+        manager._retrieved_tiers = {
+            "mem_1": "fast",
+            "mem_2": "slow",
+            "mem_3": "fast",
+        }
+        tracker = MagicMock()
+        tracker.record_usage.side_effect = [
+            StopIteration("missing tier row"),
+            ImportError("analytics unavailable"),
+            None,
+        ]
+        manager.tier_analytics_tracker = tracker
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert mock_continuum_memory.update_outcome.call_count == 3
+        assert tracker.record_usage.call_count == 3
+        assert [call.kwargs["memory_id"] for call in tracker.record_usage.call_args_list] == [
+            "mem_1",
+            "mem_2",
+            "mem_3",
+        ]
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+
 
 # =============================================================================
 # Event Emission Tests
@@ -350,6 +381,18 @@ class TestEventEmission:
 
         # Should still return context
         assert "HISTORICAL CONTEXT" in result
+
+    def test_expected_spectator_adapter_failures_log_at_debug(
+        self, manager, mock_spectator, caplog
+    ):
+        """Expected adapter-shape failures stay quiet while still being contained."""
+        mock_spectator.emit.side_effect = AttributeError("missing emit shape")
+
+        with caplog.at_level(logging.DEBUG, logger="aragora.debate.memory_manager"):
+            manager._notify_spectator("memory_recall", "details", metric=0.5)
+
+        assert "Spectator notification error" in caplog.text
+        assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 
 # =============================================================================
