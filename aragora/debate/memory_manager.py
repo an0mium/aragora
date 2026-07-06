@@ -1308,6 +1308,7 @@ class MemoryManager:
         """Notify spectator stream of an event."""
         spectator = self.spectator
         if spectator:
+
             def emit_spectator() -> None:
                 spectator.emit(event_type, details=details, metric=metric)
 
