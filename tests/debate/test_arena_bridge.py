@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from aragora.events.arena_bridge import (
+from aragora.debate.arena_bridge import (
     ArenaEventBridge,
     create_arena_bridge,
     EVENT_TYPE_MAP,

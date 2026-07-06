@@ -742,7 +742,7 @@ class TestInitCrossSubscriberBridge:
         mock_bridge = MagicMock()
         mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch.dict(sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}):
+        with patch.dict(sys.modules, {"aragora.debate.arena_bridge": mock_arena_bridge_module}):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result == mock_bridge
@@ -756,7 +756,7 @@ class TestInitCrossSubscriberBridge:
         mock_bridge = MagicMock()
         mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch.dict(sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}):
+        with patch.dict(sys.modules, {"aragora.debate.arena_bridge": mock_arena_bridge_module}):
             init_cross_subscriber_bridge(event_bus=mock_bus)
 
         mock_bridge.connect_to_cross_subscribers.assert_called_once()
@@ -767,7 +767,7 @@ class TestInitCrossSubscriberBridge:
 
         mock_bus = MagicMock()
 
-        with patch.dict(sys.modules, {"aragora.events.arena_bridge": None}):
+        with patch.dict(sys.modules, {"aragora.debate.arena_bridge": None}):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result is None
@@ -781,7 +781,7 @@ class TestInitCrossSubscriberBridge:
         mock_bridge.connect_to_cross_subscribers.side_effect = AttributeError("No attr")
         mock_arena_bridge_module.ArenaEventBridge.return_value = mock_bridge
 
-        with patch.dict(sys.modules, {"aragora.events.arena_bridge": mock_arena_bridge_module}):
+        with patch.dict(sys.modules, {"aragora.debate.arena_bridge": mock_arena_bridge_module}):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 
         assert result is None

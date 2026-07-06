@@ -254,17 +254,22 @@ class TestPostDebateWorkflowSubscriberInvocationCount:
 class TestLegacyDelegatingSitesRemoved:
     """Structural regression guard: both pre-inversion delegating call sites
     for ``PostDebateWorkflowSubscriber`` are gone entirely, not merely
-    unregistered (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §5.3)."""
+    unregistered (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §5.3).
 
-    def test_basic_handlers_mixin_has_no_debate_end_to_workflow_delegate(self):
-        from aragora.events.cross_subscribers.handlers.basic import BasicHandlersMixin
+    P4a Batch E7b dissolved ``BasicHandlersMixin``/``StrategicHandlersMixin``
+    into ``CrossSubscriberManager`` directly, so the guard now targets the
+    manager class itself.
+    """
 
-        assert not hasattr(BasicHandlersMixin, "_handle_debate_end_to_workflow")
+    def test_cross_subscriber_manager_has_no_debate_end_to_workflow_delegate(self):
+        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
 
-    def test_strategic_handlers_mixin_has_no_alert_escalated_to_workflow_brake(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        assert not hasattr(CrossSubscriberManager, "_handle_debate_end_to_workflow")
 
-        assert not hasattr(StrategicHandlersMixin, "_handle_alert_escalated_to_workflow_brake")
+    def test_cross_subscriber_manager_has_no_alert_escalated_to_workflow_brake(self):
+        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
+
+        assert not hasattr(CrossSubscriberManager, "_handle_alert_escalated_to_workflow_brake")
 
     def test_workflow_automation_module_removed_no_shim(self):
         """Relocate-UP no-shim exemption: no re-export module survives at the

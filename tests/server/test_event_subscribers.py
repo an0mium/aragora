@@ -180,17 +180,18 @@ class TestServerEventSubscriberRegistration:
 class TestLegacyDelegatingSitesRemoved:
     """Structural regression guard: both pre-inversion handler methods are
     gone entirely from their old infrastructure mixins, not merely
-    unregistered (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §5.3)."""
+    unregistered (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §5.3).
 
-    def test_basic_handlers_mixin_has_no_webhook_delivery(self):
-        from aragora.events.cross_subscribers.handlers.basic import BasicHandlersMixin
+    P4a Batch E7b dissolved ``BasicHandlersMixin``/``CultureHandlersMixin``
+    into ``CrossSubscriberManager`` directly, so the guard now targets the
+    manager class itself.
+    """
 
-        assert not hasattr(BasicHandlersMixin, "_handle_webhook_delivery")
+    def test_cross_subscriber_manager_has_no_webhook_delivery(self):
+        assert not hasattr(CrossSubscriberManager, "_handle_webhook_delivery")
 
-    def test_culture_handlers_mixin_has_no_staleness_to_debate(self):
-        from aragora.events.cross_subscribers.handlers.culture import CultureHandlersMixin
-
-        assert not hasattr(CultureHandlersMixin, "_handle_staleness_to_debate")
+    def test_cross_subscriber_manager_has_no_staleness_to_debate(self):
+        assert not hasattr(CrossSubscriberManager, "_handle_staleness_to_debate")
 
     def test_manager_no_longer_registers_relocated_names_directly(self):
         """A bare, non-bootstrapped manager must not carry the relocated

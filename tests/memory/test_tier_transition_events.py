@@ -67,27 +67,19 @@ class TestTierDemotionRevalidation:
         mock_mound.mark_for_revalidation = MagicMock()
 
         with patch(
-            "aragora.events.cross_subscribers.handlers.basic.get_knowledge_mound",
+            "aragora.knowledge.mound.get_knowledge_mound",
+            return_value=mock_mound,
             create=True,
         ):
-            # Need to patch the import inside the handler
-            import aragora.events.cross_subscribers.handlers.basic as basic_mod
-
-            with patch.dict("sys.modules", {}):
-                with patch(
-                    "aragora.knowledge.mound.get_knowledge_mound",
-                    return_value=mock_mound,
-                    create=True,
-                ):
-                    event = _make_event(
-                        "memory_tier_demotion",
-                        {"memory_id": "m1", "from_tier": "medium", "to_tier": "slow"},
-                    )
-                    handler(event)
-                    mock_mound.mark_for_revalidation.assert_called_once_with(
-                        source="continuum:m1",
-                        reason="tier_demotion:medium->slow",
-                    )
+            event = _make_event(
+                "memory_tier_demotion",
+                {"memory_id": "m1", "from_tier": "medium", "to_tier": "slow"},
+            )
+            handler(event)
+            mock_mound.mark_for_revalidation.assert_called_once_with(
+                source="continuum:m1",
+                reason="tier_demotion:medium->slow",
+            )
 
     def test_triggers_revalidation_on_demotion_to_glacial(self):
         handler = self._get_handler()

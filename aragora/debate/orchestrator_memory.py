@@ -303,7 +303,7 @@ def init_cross_subscriber_bridge(event_bus: Any) -> Any:
         return None
 
     try:
-        from aragora.events.arena_bridge import ArenaEventBridge
+        from aragora.debate.arena_bridge import ArenaEventBridge
 
         bridge = ArenaEventBridge(event_bus)
         bridge.connect_to_cross_subscribers()
