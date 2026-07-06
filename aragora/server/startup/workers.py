@@ -312,7 +312,7 @@ async def init_testfixer_worker() -> bool:
         logger.debug("TestFixer worker not started (ARAGORA_TESTFIXER_WORKER disabled)")
         return False
     try:
-        from aragora.queue.workers.testfixer_worker import TestFixerWorker
+        from aragora.nomic.testfixer.queue_worker import TestFixerWorker
 
         worker = TestFixerWorker()
         _testfixer_worker = worker
