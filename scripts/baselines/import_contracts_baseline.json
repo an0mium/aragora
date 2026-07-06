@@ -37,7 +37,6 @@
         "aragora.debate -> aragora.workflow",
         "aragora.errors -> aragora.server",
         "aragora.evaluation -> aragora.server",
-        "aragora.events -> aragora.agents",
         "aragora.events -> aragora.debate",
         "aragora.events -> aragora.server",
         "aragora.evidence -> aragora.connectors",
