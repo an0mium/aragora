@@ -479,6 +479,67 @@ class TestOutcomeUpdates:
         assert manager._retrieved_ids == []
         assert manager._retrieved_tiers == {}
 
+    def test_sqlite_tier_analytics_failure_does_not_abort_outcome_drain(
+        self, manager, mock_debate_result, mock_continuum_memory, caplog
+    ):
+        """SQLite analytics failures should not skip later updates or cleanup."""
+        manager._retrieved_ids = ["mem_1", "mem_2"]
+        manager._retrieved_tiers = {
+            "mem_1": "fast",
+            "mem_2": "slow",
+        }
+        tracker = MagicMock()
+        tracker.record_usage.side_effect = [
+            sqlite3.OperationalError("database is locked"),
+            None,
+        ]
+        manager.tier_analytics_tracker = tracker
+
+        with caplog.at_level(logging.WARNING):
+            manager.update_memory_outcomes(mock_debate_result)
+
+        assert mock_continuum_memory.update_outcome.call_count == 2
+        assert tracker.record_usage.call_count == 2
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+        assert manager._pending_outcome_updates == []
+        assert "Unexpected error recording usage for mem_1" in caplog.text
+
+    def test_current_success_clears_stale_pending_retry_for_same_memory(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
+        """A newer successful current update must retire stale same-memory retries."""
+        manager._pending_outcome_updates = [
+            memory_manager_module._PendingMemoryOutcomeUpdate(
+                memory_id="mem_same",
+                success=True,
+                confidence=0.9,
+                debate_id="old-debate",
+                tier="fast",
+            )
+        ]
+        manager.track_retrieved_ids(["mem_same"], tiers={"mem_same": "slow"})
+        mock_continuum_memory.update_outcome.side_effect = [
+            RuntimeError("transient retry failure"),
+            None,
+        ]
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert [
+            call.kwargs["id"] for call in mock_continuum_memory.update_outcome.call_args_list
+        ] == ["mem_same", "mem_same"]
+        assert manager._pending_outcome_updates == []
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+
+        mock_continuum_memory.update_outcome.reset_mock()
+        mock_continuum_memory.update_outcome.side_effect = None
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        mock_continuum_memory.update_outcome.assert_not_called()
+
 
 # =============================================================================
 # Event Emission Tests

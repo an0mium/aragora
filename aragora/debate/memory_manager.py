@@ -1068,12 +1068,29 @@ class MemoryManager:
                         update.memory_id,
                         e,
                     )
-                except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
+                except (
+                    OSError,
+                    RuntimeError,
+                    ConnectionError,
+                    TimeoutError,
+                    sqlite3.Error,
+                ) as e:
                     # Unexpected error
                     logger.warning(
                         "  [tier_analytics] Unexpected error recording usage for %s: %s",
                         update.memory_id,
                         e,
+                    )
+
+            def clear_pending_for_current_success(memory_id: str) -> None:
+                existing_count = len(still_pending)
+                still_pending[:] = [
+                    pending for pending in still_pending if pending.memory_id != memory_id
+                ]
+                if len(still_pending) != existing_count:
+                    logger.debug(
+                        "  [continuum] Cleared stale pending outcome update for %s",
+                        memory_id,
                     )
 
             still_pending: list[_PendingMemoryOutcomeUpdate] = []
@@ -1105,6 +1122,7 @@ class MemoryManager:
                     continue
 
                 updated_count += 1
+                clear_pending_for_current_success(update.memory_id)
                 record_tier_usage(update)
 
             if updated_count > 0:
