@@ -55,13 +55,16 @@ def _resolve_github_token() -> str:
     token = os.environ.get("GITHUB_TOKEN", "").strip()
     if token:
         return token
-    completed = subprocess.run(
-        ["gh", "auth", "token"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
+    try:
+        completed = subprocess.run(
+            ["gh", "auth", "token"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
     if completed.returncode != 0:
         return ""
     return completed.stdout.strip()

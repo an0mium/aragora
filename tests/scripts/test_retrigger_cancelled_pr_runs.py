@@ -352,6 +352,38 @@ def test_main_reports_missing_token_when_env_and_gh_auth_fail(monkeypatch, capsy
     assert "gh auth token" in captured.err
 
 
+def test_main_reports_missing_token_when_gh_binary_missing(monkeypatch, capsys) -> None:
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("gh")
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setattr(retrigger.subprocess, "run", fake_run)
+
+    rc = main(["--repo", "synaptent/aragora"])
+
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "GITHUB_TOKEN is required" in captured.err
+    assert "gh auth token" in captured.err
+
+
+def test_main_reports_missing_token_when_gh_auth_times_out(monkeypatch, capsys) -> None:
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs["timeout"])
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setattr(retrigger.subprocess, "run", fake_run)
+
+    rc = main(["--repo", "synaptent/aragora"])
+
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "GITHUB_TOKEN is required" in captured.err
+    assert "gh auth token" in captured.err
+
+
 def test_main_apply_records_rerun_results_in_receipt(tmp_path, monkeypatch, capsys) -> None:
     class FakeClient:
         def __init__(self, repo: str, token: str) -> None:
