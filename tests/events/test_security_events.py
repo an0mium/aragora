@@ -965,6 +965,46 @@ class TestSecurityEventEmitter:
         assert "literal-secret" not in serialized
         assert "api_key" not in serialized
 
+    def test_event_to_dict_redacts_secret_metadata_keys(self):
+        """Secret-bearing metadata key names should redact generic findings."""
+        finding = SecurityFinding(
+            id="metadata-secret-key-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Config metadata finding",
+            description="Scanner reported sensitive metadata.",
+            metadata={"secret_key": "literal-secret"},
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert "literal-secret" not in serialized
+        assert "secret_key" not in serialized
+
+    def test_event_to_dict_redacts_nested_secret_metadata_keys(self):
+        """Nested secret-bearing metadata key names should fail closed."""
+        finding = SecurityFinding(
+            id="metadata-client-secret-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Config metadata finding",
+            description="Scanner reported sensitive nested metadata.",
+            metadata={"config": {"client_secret": "literal-secret"}},
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert "literal-secret" not in serialized
+        assert "client_secret" not in serialized
+
     def test_event_to_dict_keeps_sast_token_vulnerability_context(self):
         """SAST vulnerability text mentioning tokens should not be redacted as a secret."""
         finding = SecurityFinding(

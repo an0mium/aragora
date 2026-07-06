@@ -116,15 +116,26 @@ SECRET_METADATA_RULE_KEYS = frozenset({"check_id", "rule", "rule_id", "rule_name
 SECRET_METADATA_CONTENT_KEYS = frozenset({"message", "snippet"})
 SECRET_SENSITIVE_METADATA_KEYS = frozenset(
     {
+        "access_key",
+        "access_token",
         "api_key",
+        "api_token",
         "apikey",
+        "auth_token",
+        "bearer_token",
+        "client_secret",
         "credential",
         "credentials",
+        "github_token",
+        "gitlab_token",
         "matched_secret",
         "password",
+        "private_key",
         "raw_secret",
         "secret",
+        "secret_key",
         "secret_value",
+        "slack_token",
         "token",
     }
 )
@@ -221,6 +232,25 @@ def _has_secret_category_signature(value: Any) -> bool:
     return any(_text_has_any_term(text, SECRET_CATEGORY_TERMS) for text in _iter_text_values(value))
 
 
+def _metadata_key_has_secret_signature(key: Any) -> bool:
+    key_name = str(key).lower()
+    return key_name in SECRET_SENSITIVE_METADATA_KEYS or _text_has_any_term(
+        key_name, SECRET_VALUE_TERMS
+    )
+
+
+def _has_secret_metadata_key_signature(value: Any) -> bool:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if _metadata_key_has_secret_signature(key):
+                return True
+            if _has_secret_metadata_key_signature(nested):
+                return True
+    elif isinstance(value, (list, tuple, set)):
+        return any(_has_secret_metadata_key_signature(nested) for nested in value)
+    return False
+
+
 def _has_secret_rule_signature(value: Any) -> bool:
     for text in _iter_text_values(value):
         if _text_has_any_term(text, SECRET_RULE_TERMS):
@@ -246,10 +276,12 @@ def _has_secret_content_signature(value: Any) -> bool:
 def _has_secret_metadata_signature(metadata: dict[str, Any]) -> bool:
     if "secret_type" in metadata:
         return True
+    if _has_secret_metadata_key_signature(metadata):
+        return True
 
     for key, value in metadata.items():
         key_name = str(key).lower()
-        if key_name in SECRET_SENSITIVE_METADATA_KEYS:
+        if _metadata_key_has_secret_signature(key_name):
             return True
         if key_name in {"category", "categories", "tags"}:
             if _has_secret_category_signature(value):
