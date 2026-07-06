@@ -48,7 +48,13 @@ def _mock_gauntlet_runner_external_calls(monkeypatch):
     from aragora.gauntlet.result import AttackSummary, ProbeSummary, ScenarioSummary
     from aragora.gauntlet.runner import GauntletRunner
 
+    original_run_red_team = GauntletRunner._run_red_team
+
     async def _mock_run_red_team(self, input_content, context, result, report_progress):
+        if self.run_agent_fn is not None:
+            return await original_run_red_team(
+                self, input_content, context, result, report_progress
+            )
         return AttackSummary()
 
     async def _mock_run_probes(self, input_content, context, result, report_progress):
