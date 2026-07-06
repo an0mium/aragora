@@ -392,7 +392,7 @@ def build_ack_result(
             plans.append(plan)
 
     acked_messages: list[dict[str, Any]] = []
-    if apply and not blockers:
+    if apply and plans:
         acked_dir = inbox / "_acked"
         acked_dir.mkdir(parents=True, exist_ok=True)
         for plan in plans:
@@ -415,7 +415,7 @@ def build_ack_result(
         "dry_run": not apply,
         "apply": apply,
         "ack_safe": not blockers,
-        "ack_count": len(plans) if apply and not blockers else 0,
+        "ack_count": len(acked_messages) if apply else 0,
         "ack_candidate_count": len(plans),
         "blockers": blockers,
         "ack_candidates": [

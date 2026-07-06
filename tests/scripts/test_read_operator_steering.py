@@ -403,6 +403,47 @@ def test_ack_apply_rejects_when_no_read_receipt(tmp_path: Path, capsys: Any) -> 
     assert not (steering_root / "codex-no-receipt" / "_acked").exists()
 
 
+def test_ack_apply_moves_terminal_candidates_despite_blocked_siblings(
+    tmp_path: Path, capsys: Any
+) -> None:
+    steering_root = tmp_path / "steering"
+    terminal = _write_message(steering_root, "codex-mixed", "terminal")
+    pending = _write_message(steering_root, "codex-mixed", "pending")
+    receipt = _write_terminal_read_receipt(steering_root, "codex-mixed", terminal)
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-mixed",
+            "--read-by-session",
+            "ack-actor",
+            "--ack",
+            "--apply",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["ack_safe"] is False
+    assert out["ack_count"] == 1
+    assert out["ack_candidate_count"] == 1
+    assert out["blockers"] == [f"{pending.name}:no_bound_read_receipt"]
+    assert not terminal.exists()
+    assert pending.exists()
+
+    acked_message = steering_root / "codex-mixed" / "_acked" / terminal.name
+    assert acked_message.exists()
+    assert receipt.exists()
+    ack_receipts = list((steering_root / "codex-mixed" / "_acked" / "_ack_receipts").glob("*.json"))
+    assert len(ack_receipts) == 1
+    ack = json.loads(ack_receipts[0].read_text(encoding="utf-8"))
+    assert ack["message_filename"] == terminal.name
+    assert ack["referenced_read_receipt_filename"] == receipt.name
+
+
 def test_ack_apply_rejects_newest_nonterminal_receipt(tmp_path: Path, capsys: Any) -> None:
     steering_root = tmp_path / "steering"
     message = _write_message(steering_root, "codex-held", "held receipt")
