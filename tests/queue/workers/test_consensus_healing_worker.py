@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.queue.workers.consensus_healing_worker import (
+from aragora.memory.consensus_healing_worker import (
     ConsensusHealingWorker,
     HealingAction,
     HealingCandidate,
@@ -435,7 +435,7 @@ class TestConsensusHealingWorkerLifecycle:
         with patch.object(worker, "_scan_for_candidates", side_effect=failing_scan):
             with patch.object(worker, "_process_candidates", new_callable=AsyncMock):
                 with patch(
-                    "aragora.queue.workers.consensus_healing_worker.asyncio.sleep",
+                    "aragora.memory.consensus_healing_worker.asyncio.sleep",
                     side_effect=fast_sleep,
                 ):
                     task = asyncio.create_task(worker.start())
@@ -1160,7 +1160,7 @@ class TestFindHealingCandidates:
         worker = ConsensusHealingWorker()
 
         with patch(
-            "aragora.queue.workers.consensus_healing_worker.ConsensusHealingWorker._find_healing_candidates",
+            "aragora.memory.consensus_healing_worker.ConsensusHealingWorker._find_healing_candidates",
         ) as mock_find:
             # Simulate the ImportError path
             mock_find.return_value = []
@@ -1299,13 +1299,13 @@ class TestGlobalWorkerManagement:
 
     def setup_method(self):
         """Reset global state before each test."""
-        import aragora.queue.workers.consensus_healing_worker as module
+        import aragora.memory.consensus_healing_worker as module
 
         module._global_worker = None
 
     def teardown_method(self):
         """Reset global state after each test."""
-        import aragora.queue.workers.consensus_healing_worker as module
+        import aragora.memory.consensus_healing_worker as module
 
         module._global_worker = None
 
@@ -1334,7 +1334,7 @@ class TestGlobalWorkerManagement:
     @pytest.mark.asyncio
     async def test_stop_consensus_healing(self):
         """Test stop_consensus_healing stops the global worker."""
-        import aragora.queue.workers.consensus_healing_worker as module
+        import aragora.memory.consensus_healing_worker as module
 
         worker = ConsensusHealingWorker()
         worker._running = True

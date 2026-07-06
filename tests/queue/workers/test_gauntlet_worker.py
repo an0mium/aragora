@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.queue.workers.gauntlet_worker import (
+from aragora.server.workers.gauntlet_worker import (
     GauntletWorker,
     JOB_TYPE_GAUNTLET,
     enqueue_gauntlet_job,
@@ -492,7 +492,7 @@ class TestWorkerJobProcessing:
     async def test_marks_completed_on_success(self, store):
         """Should mark job completed on successful execution."""
         with patch(
-            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            "aragora.server.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
             new_callable=AsyncMock,
         ) as mock_execute:
             mock_execute.return_value = {
@@ -531,7 +531,7 @@ class TestWorkerJobProcessing:
     async def test_marks_failed_on_error(self, store):
         """Should mark job failed and schedule retry on error."""
         with patch(
-            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            "aragora.server.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
             new_callable=AsyncMock,
         ) as mock_execute:
             mock_execute.side_effect = RuntimeError("Test error")
@@ -568,7 +568,7 @@ class TestWorkerJobProcessing:
     async def test_uses_gauntlet_id_from_payload(self, store):
         """Should use gauntlet_id from payload for logging."""
         with patch(
-            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            "aragora.server.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
             new_callable=AsyncMock,
         ) as mock_execute:
             mock_execute.return_value = {
@@ -597,7 +597,7 @@ class TestWorkerJobProcessing:
     async def test_completed_result_includes_verdict(self, store):
         """Should store verdict in completed result."""
         with patch(
-            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            "aragora.server.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
             new_callable=AsyncMock,
         ) as mock_execute:
             mock_execute.return_value = {
@@ -627,7 +627,7 @@ class TestWorkerJobProcessing:
     async def test_max_attempts_exhausted(self, store):
         """Should permanently fail when max attempts exhausted."""
         with patch(
-            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            "aragora.server.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
             new_callable=AsyncMock,
         ) as mock_execute:
             mock_execute.side_effect = RuntimeError("Persistent error")
@@ -655,7 +655,7 @@ class TestWorkerJobProcessing:
     async def test_fallback_gauntlet_id(self, store):
         """Should fall back to job.id when gauntlet_id not in payload."""
         with patch(
-            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            "aragora.server.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
             new_callable=AsyncMock,
         ) as mock_execute:
             mock_execute.return_value = {
