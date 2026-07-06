@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -223,7 +224,12 @@ def _thread_open_from_comment(comment: dict[str, Any], *, default: bool) -> bool
 
 
 def _comment_created_at(comment: dict[str, Any]) -> datetime | None:
-    value = comment.get("created_at") or comment.get("updated_at")
+    value = (
+        comment.get("created_at")
+        or comment.get("createdAt")
+        or comment.get("updated_at")
+        or comment.get("updatedAt")
+    )
     if not isinstance(value, str):
         return None
     return _parse_datetime(value)
@@ -322,6 +328,73 @@ def _load_issue_comment_sources(path: Path) -> list[DecisionSource]:
     return sources
 
 
+def _github_issue_comment_sources(
+    *,
+    repo: str,
+    issue: str,
+    payload: dict[str, Any],
+) -> list[DecisionSource]:
+    comments_payload = payload.get("comments")
+    if not isinstance(comments_payload, list):
+        return []
+    comments = [comment for comment in comments_payload if isinstance(comment, dict)]
+    thread_open = str(payload.get("state") or "open").lower() == "open"
+    thread_url = str(payload.get("url") or f"https://github.com/{repo}/issues/{issue}")
+    thread_key = f"github-thread:{issue}"
+    sources: list[DecisionSource] = []
+    for index, comment in enumerate(comments):
+        body = comment.get("body")
+        if not isinstance(body, str) or "## Pending Rulings" not in body:
+            continue
+        source = str(comment.get("url") or f"{thread_url}#comment-{index}")
+        created_at = _comment_created_at(comment)
+        later_comments: list[tuple[datetime | None, str]] = []
+        for other in comments:
+            other_body = other.get("body")
+            if not isinstance(other_body, str) or "## Pending Rulings" in other_body:
+                continue
+            later_comments.append((_comment_created_at(other), other_body))
+        sources.append(
+            DecisionSource(
+                source=source,
+                body=body,
+                thread_key=thread_key,
+                source_created_at=created_at,
+                thread_open=thread_open,
+                later_thread_comments=tuple(later_comments),
+            )
+        )
+    return sources
+
+
+def _load_github_issue_sources(*, repo: str, issue: str) -> list[DecisionSource]:
+    completed = subprocess.run(
+        [
+            "gh",
+            "issue",
+            "view",
+            issue,
+            "--repo",
+            repo,
+            "--json",
+            "state,url,comments",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        message = completed.stderr.strip() or completed.stdout.strip() or "unknown gh error"
+        raise RuntimeError(f"gh issue view failed for {repo}#{issue}: {message}")
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"gh issue view returned malformed JSON for {repo}#{issue}") from exc
+    if not isinstance(payload, dict):
+        return []
+    return _github_issue_comment_sources(repo=repo, issue=issue, payload=payload)
+
+
 def _legacy_load_issue_comment_bodies(path: Path) -> list[tuple[str, str]]:
     """Compatibility shim for tests or callers that imported the private helper."""
 
@@ -339,6 +412,8 @@ def _collect_sources(
     decisions_root: Path,
     packet_files: Iterable[Path],
     issue_comments_json: Path | None,
+    github_issues: Iterable[str],
+    repo: str,
 ) -> list[DecisionSource]:
     sources: list[DecisionSource] = []
     if decisions_root.exists():
@@ -368,6 +443,8 @@ def _collect_sources(
         )
     if issue_comments_json is not None:
         sources.extend(_load_issue_comment_sources(issue_comments_json))
+    for issue in github_issues:
+        sources.extend(_load_github_issue_sources(repo=repo, issue=issue))
     return sources
 
 
@@ -376,12 +453,16 @@ def collect_decision_items(
     decisions_root: Path = DEFAULT_DECISIONS_ROOT,
     packet_files: Iterable[Path] = (),
     issue_comments_json: Path | None = None,
+    github_issues: Iterable[str] = (),
+    repo: str = "synaptent/aragora",
 ) -> list[DecisionItem]:
     deduped: dict[tuple[str, str, str], DecisionItem] = {}
     sources = _collect_sources(
         decisions_root=decisions_root,
         packet_files=packet_files,
         issue_comments_json=issue_comments_json,
+        github_issues=github_issues,
+        repo=repo,
     )
     for source in _newest_sources_by_thread(sources):
         if not source.thread_open:
@@ -466,6 +547,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional JSON export of issue comments containing founder decision packets.",
     )
     parser.add_argument(
+        "--github-issue",
+        action="append",
+        default=[],
+        help="Read-only GitHub issue number to scan for founder decision packet comments.",
+    )
+    parser.add_argument(
+        "--repo",
+        default="synaptent/aragora",
+        help="GitHub repository for --github-issue lookups.",
+    )
+    parser.add_argument(
         "--now",
         default=None,
         help="Override current UTC timestamp for deterministic rendering.",
@@ -486,6 +578,8 @@ def main(argv: list[str] | None = None) -> int:
         decisions_root=Path(args.decisions_root),
         packet_files=[Path(path) for path in args.packet_file],
         issue_comments_json=Path(args.issue_comments_json) if args.issue_comments_json else None,
+        github_issues=args.github_issue,
+        repo=args.repo,
     )
     if args.json:
         payload = {

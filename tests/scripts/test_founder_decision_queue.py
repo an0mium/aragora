@@ -385,3 +385,96 @@ def test_collect_decision_items_keeps_open_unruled_packet(tmp_path: Path) -> Non
 
     assert len(items) == 1
     assert items[0].expected_reply == "approve"
+
+
+def test_github_issue_sources_normalize_live_comment_payload() -> None:
+    payload = {
+        "state": "OPEN",
+        "url": "https://github.com/synaptent/aragora/issues/8845",
+        "comments": [
+            {
+                "url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+                "createdAt": "2026-07-05T10:00:00Z",
+                "body": _single_item_packet(
+                    generated="2026-07-05T10:00:00Z",
+                    target="PR #8756: https://github.com/synaptent/aragora/pull/8756",
+                    reply="approve",
+                ),
+            },
+            {
+                "url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+                "createdAt": "2026-07-05T10:05:00Z",
+                "body": "approve",
+            },
+        ],
+    }
+
+    sources = fdq._github_issue_comment_sources(
+        repo="synaptent/aragora",
+        issue="8845",
+        payload=payload,
+    )
+    items = []
+    for source in sources:
+        for item in fdq.parse_decision_packet(source.body, source=source.source):
+            if not fdq._item_resolved_after_packet(source, item):
+                items.append(item)
+
+    assert items == []
+
+
+def test_collect_decision_items_fetches_github_issue_read_only(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    calls: list[list[str]] = []
+
+    class Completed:
+        returncode = 0
+        stderr = ""
+        stdout = json.dumps(
+            {
+                "state": "OPEN",
+                "url": "https://github.com/synaptent/aragora/issues/8845",
+                "comments": [
+                    {
+                        "url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+                        "createdAt": "2026-07-05T10:00:00Z",
+                        "body": _single_item_packet(
+                            generated="2026-07-05T10:00:00Z",
+                            target="PR #8756: https://github.com/synaptent/aragora/pull/8756",
+                            reply="approve",
+                        ),
+                    }
+                ],
+            }
+        )
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> Completed:
+        calls.append(cmd)
+        assert kwargs["check"] is False
+        assert kwargs["capture_output"] is True
+        assert kwargs["text"] is True
+        return Completed()
+
+    monkeypatch.setattr(fdq.subprocess, "run", fake_run)
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        github_issues=["8845"],
+        repo="synaptent/aragora",
+    )
+
+    assert len(items) == 1
+    assert items[0].expected_reply == "approve"
+    assert calls == [
+        [
+            "gh",
+            "issue",
+            "view",
+            "8845",
+            "--repo",
+            "synaptent/aragora",
+            "--json",
+            "state,url,comments",
+        ]
+    ]
