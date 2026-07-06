@@ -446,8 +446,35 @@ def _structured_action(value: Any) -> Mapping[str, Any] | None:
     return None
 
 
+def _outbox_requested_action_type(payload: dict[str, Any]) -> str:
+    requested_action = _structured_action(payload.get("requested_action"))
+    if requested_action is not None:
+        return (
+            str(
+                requested_action.get("type")
+                or requested_action.get("action")
+                or requested_action.get("requested_action")
+                or ""
+            )
+            .strip()
+            .lower()
+            .replace("-", "_")
+        )
+    value = payload.get("requested_action")
+    if isinstance(value, str):
+        return value.strip().lower().replace("-", "_")
+    return ""
+
+
+def _is_prompt_handoff_payload(payload: dict[str, Any]) -> bool:
+    return _outbox_requested_action_type(payload) == "prompt_handoff"
+
+
 def _outbox_payload_branches(payload: dict[str, Any]) -> set[str]:
     """Return primary and explicitly superseded branch references from a handoff."""
+
+    if _is_prompt_handoff_payload(payload):
+        return set()
 
     branches: set[str] = set()
     _add_branch_reference(branches, _outbox_payload_branch(payload))
@@ -496,6 +523,9 @@ def _outbox_evidence_head(container: Mapping[str, Any]) -> str | None:
 
 def _outbox_payload_branch_heads(payload: dict[str, Any]) -> dict[str, set[str | None]]:
     """Return branch references with optional explicit head evidence."""
+
+    if _is_prompt_handoff_payload(payload):
+        return {}
 
     refs: dict[str, set[str | None]] = defaultdict(set)
 

@@ -141,6 +141,7 @@ def build_payload(
             "prompt_truncated": True,
             "prompt_artifact_path": prompt_artifact_path,
             "prompt_artifact_sha256": prompt_sha,
+            "prompt_artifact_publication": "github_issue_comments",
             "prompt_preview": prompt_preview,
             "prompt_preview_chars": len(prompt_preview),
             "prompt_omitted_chars": max(len(prompt) - len(prompt_preview), 0),
@@ -151,6 +152,7 @@ def build_payload(
                 "prompt_truncated": True,
                 "prompt_artifact_path": prompt_artifact_path,
                 "prompt_artifact_sha256": prompt_sha,
+                "prompt_artifact_publication": "github_issue_comments",
             }
         )
     else:

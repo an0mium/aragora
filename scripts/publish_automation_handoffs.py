@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import os
 import re
@@ -37,6 +38,7 @@ DEFAULT_LIMIT = 2
 DEFAULT_MAX_OPEN_ISSUES = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
 MAX_ISSUE_BODY_CHARS = 60_000
+MAX_PROMPT_ARTIFACT_COMMENT_CHARS = 55_000
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_BASE_REF = "origin/main"
@@ -176,6 +178,8 @@ class Handoff:
     source_kind: str = "memory"
     branch: str | None = None
     desired_head: str | None = None
+    prompt_artifact_path: str | None = None
+    prompt_artifact_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -665,7 +669,29 @@ def _outbox_branch_fingerprint(payload: dict[str, Any]) -> str | None:
     branch = _outbox_evidence_value(payload, "branch")
     if not requested_action or not repo or not branch:
         return None
-    return "\0".join((requested_action, repo, branch))
+    parts = [requested_action, repo, branch]
+    if requested_action == "prompt_handoff":
+        prompt_sha = _outbox_evidence_value(payload, "prompt_sha256")
+        if not prompt_sha:
+            return None
+        parts.append(prompt_sha)
+    return "\0".join(parts)
+
+
+def _outbox_prompt_artifact_path(payload: dict[str, Any]) -> str | None:
+    if _normalized_requested_action(payload.get("requested_action")) != "prompt_handoff":
+        return None
+    value = _outbox_evidence_value(payload, "prompt_artifact_path")
+    return value or None
+
+
+def _outbox_prompt_artifact_sha256(payload: dict[str, Any]) -> str | None:
+    if _normalized_requested_action(payload.get("requested_action")) != "prompt_handoff":
+        return None
+    value = _outbox_evidence_value(payload, "prompt_artifact_sha256")
+    if value:
+        return value
+    return _outbox_evidence_value(payload, "prompt_sha256") or None
 
 
 def _outbox_desired_head(payload: dict[str, Any]) -> str | None:
@@ -769,7 +795,39 @@ def _stale_outbox_head(repo_root: Path, handoff: Handoff) -> str | None:
     return branch_tip
 
 
+def _resolve_prompt_artifact_path(repo_root: Path, handoff: Handoff) -> Path | None:
+    if not handoff.prompt_artifact_path:
+        return None
+    path = Path(handoff.prompt_artifact_path).expanduser()
+    if not path.is_absolute():
+        path = repo_root / path
+    return path
+
+
+def _prompt_artifact_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _prompt_artifact_blocker(repo_root: Path, handoff: Handoff) -> str | None:
+    path = _resolve_prompt_artifact_path(repo_root, handoff)
+    if path is None:
+        return None
+    if not path.is_file():
+        return "prompt_artifact_missing"
+    expected_sha = str(handoff.prompt_artifact_sha256 or "").strip()
+    if expected_sha and _prompt_artifact_sha256(path) != expected_sha:
+        return "prompt_artifact_sha_mismatch"
+    return None
+
+
 def _local_handoff_blocker(repo_root: Path, handoff: Handoff) -> PublishDecision | None:
+    prompt_artifact_blocker = _prompt_artifact_blocker(repo_root, handoff)
+    if prompt_artifact_blocker is not None:
+        return _decision_for_handoff(
+            handoff,
+            eligible=False,
+            reason=prompt_artifact_blocker,
+        )
     if _stale_outbox_head(repo_root, handoff):
         return _decision_for_handoff(
             handoff,
@@ -985,6 +1043,8 @@ def _load_outbox_handoffs_with_skip_reasons(
             source_kind="outbox",
             branch=_outbox_evidence_value(payload, "branch") or None,
             desired_head=_outbox_desired_head(payload),
+            prompt_artifact_path=_outbox_prompt_artifact_path(payload),
+            prompt_artifact_sha256=_outbox_prompt_artifact_sha256(payload),
         )
         identity = (
             ("branch", branch_fingerprint)
@@ -1270,8 +1330,59 @@ def _create_issue(
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh issue create failed")
     url = str(proc.stdout or "").strip().splitlines()[-1].strip()
+    _add_prompt_artifact_comments(repo_root, repo, url, handoff)
     _add_issue_labels(repo_root, repo, url, labels)
     return url
+
+
+def _prompt_artifact_comment_bodies(repo_root: Path, handoff: Handoff) -> list[str]:
+    path = _resolve_prompt_artifact_path(repo_root, handoff)
+    if path is None:
+        return []
+    prompt = path.read_text(encoding="utf-8")
+    artifact_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    chunks = [
+        prompt[index : index + MAX_PROMPT_ARTIFACT_COMMENT_CHARS]
+        for index in range(0, len(prompt), MAX_PROMPT_ARTIFACT_COMMENT_CHARS)
+    ] or [""]
+    bodies: list[str] = []
+    total_chunks = len(chunks)
+    cursor = 0
+    for chunk_index, chunk in enumerate(chunks, start=1):
+        start = cursor
+        cursor += len(chunk)
+        header = (
+            "Prompt handoff artifact "
+            f"chunk {chunk_index}/{total_chunks}\n\n"
+            f"Prompt SHA-256: `{artifact_sha}`\n"
+            f"Characters: `{start}-{cursor}` of `{len(prompt)}`\n\n"
+            "-----BEGIN ARAGORA PROMPT CHUNK-----\n"
+        )
+        footer = "\n-----END ARAGORA PROMPT CHUNK-----"
+        bodies.append(header + chunk + footer)
+    return bodies
+
+
+def _add_prompt_artifact_comments(
+    repo_root: Path,
+    repo: str,
+    issue_url: str,
+    handoff: Handoff,
+) -> None:
+    number = _issue_number_from_url(issue_url)
+    if not number:
+        return
+    for body in _prompt_artifact_comment_bodies(repo_root, handoff):
+        proc = _run(
+            ["gh", "issue", "comment", number, "--repo", repo, "--body", body],
+            cwd=repo_root,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                proc.stderr.strip()
+                or proc.stdout.strip()
+                or "gh issue comment failed for prompt artifact"
+            )
 
 
 def _fit_issue_body(body: str) -> str:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -718,6 +719,111 @@ def test_load_outbox_handoffs_skips_terminal_receipt_for_same_branch(
     )
 
     assert mod.load_outbox_handoffs(tmp_path) == []
+
+
+def _prompt_handoff_payload(
+    *,
+    branch: str,
+    prompt_sha: str,
+    idempotency_key: str,
+    task: str = "Publish prompt handoff",
+) -> dict[str, Any]:
+    return _outbox_payload(
+        task=task,
+        requested_action={
+            "type": "prompt_handoff",
+            "branch": branch,
+            "prompt_sha256": prompt_sha,
+        },
+        idempotency_key=idempotency_key,
+        local_evidence={
+            "kind": "prompt_handoff",
+            "branch": branch,
+            "prompt_sha256": prompt_sha,
+            "prompt": f"prompt body {prompt_sha}",
+        },
+    )
+
+
+def test_load_outbox_handoffs_keeps_distinct_prompt_handoffs_for_same_branch(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    older = outbox / "older-prompt.json"
+    newer = outbox / "newer-prompt.json"
+    older.write_text(
+        json.dumps(
+            _prompt_handoff_payload(
+                branch="codex/example",
+                prompt_sha="a" * 64,
+                idempotency_key="prompt-handoff-old",
+                task="Publish older prompt handoff",
+            )
+        ),
+        encoding="utf-8",
+    )
+    newer.write_text(
+        json.dumps(
+            _prompt_handoff_payload(
+                branch="codex/example",
+                prompt_sha="b" * 64,
+                idempotency_key="prompt-handoff-new",
+                task="Publish newer prompt handoff",
+            )
+        ),
+        encoding="utf-8",
+    )
+    os.utime(older, (1_000, 1_000))
+    os.utime(newer, (2_000, 2_000))
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert [handoff.idempotency_key for handoff in handoffs] == [
+        "prompt-handoff-new",
+        "prompt-handoff-old",
+    ]
+
+
+def test_terminal_prompt_handoff_receipt_does_not_skip_distinct_prompt_same_branch(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    old_key = "prompt-handoff-old"
+    (outbox / "old-prompt.json").write_text(
+        json.dumps(
+            _prompt_handoff_payload(
+                branch="codex/example",
+                prompt_sha="a" * 64,
+                idempotency_key=old_key,
+                task="Publish older prompt handoff",
+            )
+        ),
+        encoding="utf-8",
+    )
+    (outbox / "new-prompt.json").write_text(
+        json.dumps(
+            _prompt_handoff_payload(
+                branch="codex/example",
+                prompt_sha="b" * 64,
+                idempotency_key="prompt-handoff-new",
+                task="Publish newer prompt handoff",
+            )
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{old_key}.json").write_text(
+        json.dumps({"idempotency_key": old_key, "status": "published"}),
+        encoding="utf-8",
+    )
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].idempotency_key == "prompt-handoff-new"
 
 
 def test_load_outbox_handoffs_skips_already_merged_branch_head(tmp_path: Path) -> None:
@@ -2608,6 +2714,54 @@ def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path)
 
     assert len(bodies[0]) <= mod.MAX_ISSUE_BODY_CHARS
     assert "truncated this issue body" in bodies[0]
+
+
+def test_create_issue_posts_prompt_artifact_as_repo_visible_comment(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    issue_bodies: list[str] = []
+    comment_bodies: list[str] = []
+    prompt = "Start from live repo truth.\n" + ("x" * 1000) + "END-OF-PROMPT"
+    artifact = tmp_path / "prompt.md"
+    artifact.write_text(prompt, encoding="utf-8")
+    prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "create"]:
+            issue_bodies.append(args[args.index("--body") + 1])
+            return subprocess.CompletedProcess(
+                args, 0, "https://github.com/synaptent/aragora/issues/6002\n", ""
+            )
+        if args[:3] == ["gh", "issue", "comment"]:
+            comment_bodies.append(args[args.index("--body") + 1])
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:3] == ["gh", "issue", "edit"]:
+            return subprocess.CompletedProcess(args, 0, "", "")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    url = mod._create_issue(
+        tmp_path,
+        "synaptent/aragora",
+        Handoff(
+            source_file=str(tmp_path / "handoff.json"),
+            task_title="Long prompt handoff",
+            priority="HIGH",
+            body="Prompt preview only",
+            labels={},
+            expires_at=None,
+            prompt_artifact_path=str(artifact),
+            prompt_artifact_sha256=prompt_sha,
+        ),
+        labels=["boss-ready"],
+    )
+
+    assert url == "https://github.com/synaptent/aragora/issues/6002"
+    assert issue_bodies == ["Prompt preview only"]
+    assert len(comment_bodies) == 1
+    assert prompt_sha in comment_bodies[0]
+    assert "END-OF-PROMPT" in comment_bodies[0]
 
 
 def test_create_issue_preserves_boundary_sized_body(monkeypatch: Any, tmp_path: Path) -> None:

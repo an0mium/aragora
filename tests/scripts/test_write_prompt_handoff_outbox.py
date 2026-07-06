@@ -191,6 +191,8 @@ def test_long_prompt_uses_artifact_and_keeps_published_body_recoverable(
     assert payload["requested_action"]["prompt_artifact_path"] == str(artifact_path)
     assert payload["local_evidence"]["prompt_artifact_sha256"] == full_sha
     assert payload["requested_action"]["prompt_artifact_sha256"] == full_sha
+    assert payload["local_evidence"]["prompt_artifact_publication"] == "github_issue_comments"
+    assert payload["requested_action"]["prompt_artifact_publication"] == "github_issue_comments"
     assert payload["local_evidence"]["prompt_sha256"] == full_sha
     assert "prompt" not in payload["local_evidence"]
     assert marker not in payload["local_evidence"]["prompt_preview"]
@@ -213,6 +215,10 @@ def test_long_prompt_uses_artifact_and_keeps_published_body_recoverable(
     assert str(artifact_path) in issue_body
     assert full_sha in issue_body
     assert marker not in issue_body
+    artifact_comments = publisher._prompt_artifact_comment_bodies(tmp_path, handoffs[0])
+    assert len(artifact_comments) == 1
+    assert full_sha in artifact_comments[0]
+    assert marker in artifact_comments[0]
 
 
 def test_written_payload_round_trips_through_outbox_consumers(tmp_path: Path, capsys: Any) -> None:
@@ -256,10 +262,8 @@ def test_written_payload_round_trips_through_outbox_consumers(tmp_path: Path, ca
     ]
 
     audit = _load_script("audit_codex_branch_backlog.py", "audit_backlog_for_prompt_test")
-    assert audit._outbox_payload_branches(payload) == {"codex/prompt-handoff-outbox"}
-    assert audit._outbox_payload_branch_heads(payload) == {
-        "codex/prompt-handoff-outbox": {"070f6aaffccaf726cd6d3c93eff7c88b933fc65f"}
-    }
+    assert audit._outbox_payload_branches(payload) == set()
+    assert audit._outbox_payload_branch_heads(payload) == {}
 
 
 def test_apply_refuses_existing_file_without_force(tmp_path: Path, capsys: Any) -> None:
