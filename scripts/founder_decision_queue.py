@@ -192,8 +192,18 @@ def _newest_sources_by_thread(sources: Iterable[DecisionSource]) -> list[Decisio
     return list(newest.values())
 
 
+def _decision_item_sort_key(item: DecisionItem) -> tuple[datetime, str]:
+    return (
+        item.packet_generated_at or datetime.min.replace(tzinfo=UTC),
+        item.source,
+    )
+
+
 def _local_thread_key(path: Path, *, decisions_root: Path | None = None) -> str:
-    del decisions_root
+    root = decisions_root.resolve() if decisions_root is not None else path.parent.resolve()
+    match = re.match(r"^policy-exclusion-pr(\d+)-[0-9a-fA-F]+$", path.stem)
+    if match:
+        return f"local-policy-pr:{root}:{match.group(1)}"
     return f"local-packet:{path.resolve()}"
 
 
@@ -387,7 +397,9 @@ def collect_decision_items(
         for item in parse_decision_packet(source.body, source=source.source):
             if _item_resolved_after_packet(source, item):
                 continue
-            deduped.setdefault(item.dedupe_key(), item)
+            current = deduped.get(item.dedupe_key())
+            if current is None or _decision_item_sort_key(item) > _decision_item_sort_key(current):
+                deduped[item.dedupe_key()] = item
     return list(deduped.values())
 
 
