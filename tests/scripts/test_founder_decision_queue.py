@@ -163,6 +163,34 @@ def test_collect_decision_items_keeps_newest_packet_on_thread(tmp_path: Path) ->
     assert items[0].expected_reply == "hold"
 
 
+def test_collect_decision_items_keeps_distinct_local_packets(tmp_path: Path) -> None:
+    decisions_root = tmp_path / "founder-decisions"
+    decisions_root.mkdir()
+    (decisions_root / "policy-exclusion-pr7300-a1b2c3d4.md").write_text(
+        _single_item_packet(
+            generated="2026-07-05T10:00:00Z",
+            target="PR #7300: https://github.com/synaptent/aragora/pull/7300",
+            reply="hold",
+        ),
+        encoding="utf-8",
+    )
+    (decisions_root / "policy-exclusion-pr7301-b2c3d4e5.md").write_text(
+        _single_item_packet(
+            generated="2026-07-05T11:00:00Z",
+            target="PR #7301: https://github.com/synaptent/aragora/pull/7301",
+            reply="hold",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(decisions_root=decisions_root)
+
+    assert {item.target for item in items} == {
+        "PR #7300: https://github.com/synaptent/aragora/pull/7300",
+        "PR #7301: https://github.com/synaptent/aragora/pull/7301",
+    }
+
+
 def test_collect_decision_items_omits_ruled_after_packet(tmp_path: Path) -> None:
     comments = [
         {

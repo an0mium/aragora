@@ -193,10 +193,8 @@ def _newest_sources_by_thread(sources: Iterable[DecisionSource]) -> list[Decisio
 
 
 def _local_thread_key(path: Path, *, decisions_root: Path | None = None) -> str:
-    if decisions_root is not None:
-        return f"local:{decisions_root.resolve()}"
-    parent = path.parent if path.parent != Path("") else Path(".")
-    return f"local:{parent.resolve()}"
+    del decisions_root
+    return f"local-packet:{path.resolve()}"
 
 
 def _thread_key_from_comment(comment: dict[str, Any], *, fallback: str) -> str:
