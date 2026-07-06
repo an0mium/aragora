@@ -225,10 +225,14 @@ Located in `aragora/queue/workers/`:
 
 | Worker | Purpose |
 |--------|---------|
-| `GauntletWorker` | Stress-testing and validation jobs |
 | `TranscriptionWorker` | Audio/video transcription (Whisper integration) |
 | `RoutingWorker` | Debate result delivery to originating channels |
-| `ConsensusHealingWorker` | Monitors and heals failed consensus attempts |
+
+`GauntletWorker` (`aragora.server.workers.gauntlet_worker`) and
+`ConsensusHealingWorker` (`aragora.memory.consensus_healing_worker`) are not
+in this package: they import interface- and domain-layer packages
+respectively, so they live in those layers instead
+(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §10 Q3).
 
 ## Job Definitions
 

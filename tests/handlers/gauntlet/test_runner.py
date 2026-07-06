@@ -352,7 +352,7 @@ class TestStartGauntletSuccess:
             patch.dict(
                 "sys.modules",
                 {
-                    "aragora.queue.workers.gauntlet_worker": MagicMock(
+                    "aragora.server.workers.gauntlet_worker": MagicMock(
                         enqueue_gauntlet_job=mock_enqueue,
                     ),
                 },
@@ -385,7 +385,7 @@ class TestStartGauntletSuccess:
             ) as mock_task,
             patch.dict(
                 "sys.modules",
-                {"aragora.queue.workers.gauntlet_worker": None},
+                {"aragora.server.workers.gauntlet_worker": None},
             ),
         ):
             result = await mixin._start_gauntlet(handler)
