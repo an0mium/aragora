@@ -1,16 +1,16 @@
-"""Tests for the domain-free job-handler registry (P4a queue inversion Q1).
+"""Tests for the domain-free job-handler registry (P4a queue inversion Q1/Q2).
 
 Covers the enabler surface introduced by the queue/job-handler registry
-inversion (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.1, §5.2, §10 Q1):
+inversion (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.1, §5.2, §10 Q1/Q2):
 
 - ``register_worker`` / ``register_job_handler`` / ``get_registered_workers`` /
   ``get_registered_job_handlers`` / ``get_job_handler`` / ``reset_registry`` on
   ``aragora.queue.worker`` (re-exported from ``aragora.queue``).
 - ``DebateWorker`` + ``DebateExecutor`` re-exports from ``aragora.queue`` are
   KEPT.
-- The ``create_default_executor`` compatibility re-export is KEPT from
-  ``aragora.queue`` while the underlying symbol stays defined in
-  ``aragora.queue.worker`` (it only relocates in Q2).
+- The ``create_default_executor`` re-export is DROPPED from ``aragora.queue``
+  (no shim, §10 Q2). The factory itself relocated out of ``aragora.queue.worker``
+  to its debate-layer home ``aragora.debate.queue_executor``.
 - The registry functions carry ZERO domain imports.
 """
 
@@ -205,15 +205,20 @@ def test_debate_worker_and_executor_alias_reexported_from_queue_package():
     assert "DebateExecutor" in queue_pkg.__all__
 
 
-def test_create_default_executor_reexport_kept_from_queue_package():
-    """The Q1 registry enabler keeps the documented factory import path."""
+def test_create_default_executor_reexport_dropped_from_queue_package():
+    """The domain-coupled factory re-export is dropped (no shim, §5.2)."""
     import aragora.queue as queue_pkg
 
-    # The underlying symbol is untouched - it only relocates out of worker.py
-    # in Q2, so it must still be directly importable from its defining module.
-    assert queue_pkg.create_default_executor is worker.create_default_executor
-    assert "create_default_executor" in queue_pkg.__all__
-    assert hasattr(worker, "create_default_executor")
+    assert not hasattr(queue_pkg, "create_default_executor")
+    assert "create_default_executor" not in queue_pkg.__all__
+
+    # Q2 relocated the factory itself out of worker.py to its debate-layer
+    # home; the queue package (and its worker module) no longer defines it.
+    assert not hasattr(worker, "create_default_executor")
+
+    from aragora.debate.queue_executor import create_default_executor
+
+    assert callable(create_default_executor)
 
 
 def test_registry_functions_reexported_from_queue_package():
@@ -238,12 +243,10 @@ def test_registry_functions_reexported_from_queue_package():
 def test_registry_functions_have_zero_domain_imports():
     """The registry's own functions must not reference any domain package.
 
-    ``worker.py`` also hosts ``create_default_executor`` (pending relocation to
-    a debate-layer home in Q2), which legitimately lazy-imports domain packages
-    inside its own body. Scoping this static guard to just the registry
-    callables (instead of the whole file) avoids a false positive on that
-    pre-existing, unrelated code; the full-layer grimp/import-linter re-check
-    is the authoritative proof that ``aragora.queue`` gains no new edge.
+    Scoped to just the registry callables (instead of the whole file) so a
+    future addition to ``worker.py`` can't silently introduce a domain import
+    without failing this guard; the full-layer grimp/import-linter re-check is
+    the authoritative proof that ``aragora.queue`` gains no new edge.
     """
     domain_packages = (
         "agents",

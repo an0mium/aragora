@@ -94,8 +94,8 @@ print(f"Status: {status.status.value}")
 from aragora.queue import (
     create_redis_queue,
     DebateWorker,
-    create_default_executor,
 )
+from aragora.debate.queue_executor import create_default_executor
 
 # Create queue and executor
 queue = await create_redis_queue(consumer_name="worker-1")
@@ -133,7 +133,8 @@ python -m scripts.queue_worker --worker-id worker-2 &
 The core worker for processing debate jobs with full Arena integration.
 
 ```python
-from aragora.queue import DebateWorker, create_redis_queue, create_default_executor
+from aragora.queue import DebateWorker, create_redis_queue
+from aragora.debate.queue_executor import create_default_executor
 
 queue = await create_redis_queue(consumer_name="debate-worker-1")
 executor = await create_default_executor()
@@ -535,8 +536,16 @@ class DebateWorker:
     async def start() -> None
     async def stop(timeout=30.0) -> None
     def get_stats() -> dict[str, Any]
+```
 
-# Factory function
+#### create_default_executor
+
+Default `DebateExecutor` factory, defined in `aragora.debate.queue_executor` (not
+`aragora.queue`) since it imports the Arena and agent factory:
+
+```python
+from aragora.debate.queue_executor import create_default_executor
+
 async def create_default_executor() -> DebateExecutor
 ```
 
