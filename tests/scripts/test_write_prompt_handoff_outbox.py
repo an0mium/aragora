@@ -80,6 +80,8 @@ def test_dry_run_emits_publisher_compatible_payload(tmp_path: Path, capsys: Any)
     assert payload["local_evidence"]["branch"] == "codex/prompt-handoff"
     assert payload["local_evidence"]["desired_head_sha"] == "abc123"
     assert payload["local_evidence"]["head_sha"] == "abc123"
+    assert "prompt_truncated" not in payload["local_evidence"]
+    assert "prompt_artifact_path" not in payload["local_evidence"]
     assert (
         payload["local_evidence"]["prompt_sha256"] == payload["requested_action"]["prompt_sha256"]
     )
@@ -148,6 +150,69 @@ def test_written_payload_is_loadable_by_automation_handoff_publisher(
     assert handoffs[0].task_title == "Publish prompt handoff through existing publisher"
     assert "Requested Action:" in handoffs[0].body
     assert "prompt_handoff" in handoffs[0].body
+
+
+def test_long_prompt_uses_artifact_and_keeps_published_body_recoverable(
+    tmp_path: Path, capsys: Any
+) -> None:
+    marker = "END-OF-LONG-PROMPT-MARKER"
+    long_prompt = "Start from live repo truth.\n" + ("x" * mod.MAX_INLINE_PROMPT_CHARS) + marker
+    full_sha = mod._prompt_sha(long_prompt)
+
+    rc = mod.main(
+        [
+            "--prompt",
+            long_prompt,
+            "--task",
+            "Publish long prompt handoff",
+            "--branch",
+            "codex/long-prompt-handoff",
+            "--expected-head",
+            "abc123",
+            "--outbox-dir",
+            str(tmp_path),
+            "--created-at",
+            "2026-07-06T15:46:00Z",
+            "--apply",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    result = json.loads(capsys.readouterr().out)
+    payload = json.loads(Path(result["outbox_path"]).read_text(encoding="utf-8"))
+    artifact_path = Path(result["prompt_artifact_path"])
+
+    assert artifact_path.exists()
+    assert artifact_path.read_text(encoding="utf-8") == long_prompt
+    assert payload["local_evidence"]["prompt_truncated"] is True
+    assert payload["requested_action"]["prompt_truncated"] is True
+    assert payload["local_evidence"]["prompt_artifact_path"] == str(artifact_path)
+    assert payload["requested_action"]["prompt_artifact_path"] == str(artifact_path)
+    assert payload["local_evidence"]["prompt_artifact_sha256"] == full_sha
+    assert payload["requested_action"]["prompt_artifact_sha256"] == full_sha
+    assert payload["local_evidence"]["prompt_sha256"] == full_sha
+    assert "prompt" not in payload["local_evidence"]
+    assert marker not in payload["local_evidence"]["prompt_preview"]
+
+    publisher = _load_script(
+        "publish_automation_handoffs.py", "publish_automation_handoffs_for_long_prompt_test"
+    )
+    handoffs, skipped = publisher._load_outbox_handoffs_with_skip_reasons(
+        tmp_path,
+        outbox_dir=tmp_path,
+        receipt_dir=tmp_path / "receipts",
+        now=publisher.datetime(2026, 7, 6, 15, 47, tzinfo=publisher.UTC),
+    )
+
+    assert skipped == {}
+    assert len(handoffs) == 1
+    issue_body = publisher._fit_issue_body(handoffs[0].body)
+    assert issue_body == handoffs[0].body
+    assert len(issue_body) < publisher.MAX_ISSUE_BODY_CHARS
+    assert str(artifact_path) in issue_body
+    assert full_sha in issue_body
+    assert marker not in issue_body
 
 
 def test_written_payload_round_trips_through_outbox_consumers(tmp_path: Path, capsys: Any) -> None:

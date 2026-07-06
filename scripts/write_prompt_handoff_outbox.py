@@ -22,6 +22,9 @@ from typing import Any
 DEFAULT_OUTBOX_DIR = Path(".aragora") / "automation-outbox"
 DEFAULT_REPO = "synaptent/aragora"
 SCHEMA_VERSION = "aragora-prompt-handoff/1.0"
+MAX_INLINE_PROMPT_CHARS = 40_000
+PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
+PROMPT_PREVIEW_CHARS = 2_000
 
 
 def _utc_now() -> datetime:
@@ -60,6 +63,31 @@ def _read_prompt(args: argparse.Namespace) -> str:
     return Path(raw_path).expanduser().read_text(encoding="utf-8")
 
 
+def _prompt_sha(prompt: str) -> str:
+    return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+
+def _default_idempotency_key(
+    *, task: str, prompt_sha: str, repo: str, target: dict[str, Any]
+) -> str:
+    target_material = json.dumps(
+        {"repo": repo, "target": target},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    target_sha = hashlib.sha256(target_material.encode("utf-8")).hexdigest()
+    return f"prompt-handoff-{_slug(task)}-{prompt_sha[:12]}-{target_sha[:12]}"
+
+
+def _needs_prompt_artifact(prompt: str) -> bool:
+    return len(prompt) > MAX_INLINE_PROMPT_CHARS
+
+
+def _prompt_artifact_path(outbox_dir: Path, idempotency_key: str, prompt_sha: str) -> Path:
+    filename = f"{_slug(idempotency_key, limit=100)}-{prompt_sha[:12]}.prompt.md"
+    return outbox_dir / PROMPT_ARTIFACT_DIR / filename
+
+
 def _target_fields(args: argparse.Namespace) -> dict[str, Any]:
     target: dict[str, Any] = {}
     if args.pr is not None:
@@ -85,29 +113,49 @@ def build_payload(
     validation: list[str],
     target: dict[str, Any],
     idempotency_key: str | None = None,
+    prompt_artifact_path: str | None = None,
 ) -> dict[str, Any]:
     """Return a publisher-compatible automation-outbox payload."""
 
-    prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-    target_material = json.dumps(
-        {"repo": repo, "target": target},
-        sort_keys=True,
-        separators=(",", ":"),
+    prompt_sha = _prompt_sha(prompt)
+    key = idempotency_key or _default_idempotency_key(
+        task=task,
+        prompt_sha=prompt_sha,
+        repo=repo,
+        target=target,
     )
-    target_sha = hashlib.sha256(target_material.encode("utf-8")).hexdigest()
-    key = idempotency_key or f"prompt-handoff-{_slug(task)}-{prompt_sha[:12]}-{target_sha[:12]}"
     local_evidence: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "kind": "prompt_handoff",
         "source": source,
         "prompt_sha256": prompt_sha,
         "prompt_chars": len(prompt),
-        "prompt": prompt,
     }
     requested_action: dict[str, Any] = {
         "type": "prompt_handoff",
         "prompt_sha256": prompt_sha,
     }
+    if prompt_artifact_path:
+        prompt_preview = prompt[:PROMPT_PREVIEW_CHARS]
+        prompt_overflow = {
+            "prompt_truncated": True,
+            "prompt_artifact_path": prompt_artifact_path,
+            "prompt_artifact_sha256": prompt_sha,
+            "prompt_preview": prompt_preview,
+            "prompt_preview_chars": len(prompt_preview),
+            "prompt_omitted_chars": max(len(prompt) - len(prompt_preview), 0),
+        }
+        local_evidence.update(prompt_overflow)
+        requested_action.update(
+            {
+                "prompt_truncated": True,
+                "prompt_artifact_path": prompt_artifact_path,
+                "prompt_artifact_sha256": prompt_sha,
+            }
+        )
+    else:
+        local_evidence["prompt"] = prompt
+
     branch = str(target.get("branch") or "").strip()
     expected_head = str(target.get("expected_head") or "").strip()
     target_payload = dict(target)
@@ -228,21 +276,37 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     validation = list(args.validation) or _default_validation(str(args.source))
+    task = args.task or _default_task(prompt)
+    repo = str(args.repo)
+    target = _target_fields(args)
+    prompt_sha = _prompt_sha(prompt)
+    key = args.idempotency_key or _default_idempotency_key(
+        task=task,
+        prompt_sha=prompt_sha,
+        repo=repo,
+        target=target,
+    )
+    outbox_dir = args.outbox_dir.expanduser()
+    outbox_path = _output_path(outbox_dir, key)
+    prompt_artifact_path = (
+        _prompt_artifact_path(outbox_dir, key, prompt_sha)
+        if _needs_prompt_artifact(prompt)
+        else None
+    )
     payload = build_payload(
         prompt=prompt,
-        task=args.task or _default_task(prompt),
-        repo=str(args.repo),
+        task=task,
+        repo=repo,
         source=str(args.source),
         priority=str(args.priority),
         created_at=created_at,
         expires_hours=args.expires_hours,
         validation=validation,
-        target=_target_fields(args),
-        idempotency_key=args.idempotency_key,
+        target=target,
+        idempotency_key=key,
+        prompt_artifact_path=str(prompt_artifact_path) if prompt_artifact_path else None,
     )
 
-    outbox_dir = args.outbox_dir.expanduser()
-    outbox_path = _output_path(outbox_dir, str(payload["idempotency_key"]))
     result: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "apply": bool(args.apply),
@@ -250,12 +314,20 @@ def main(argv: list[str] | None = None) -> int:
         "outbox_path": str(outbox_path),
         "payload": payload,
     }
+    if prompt_artifact_path is not None:
+        result["prompt_artifact_path"] = str(prompt_artifact_path)
 
     if args.apply:
         if outbox_path.exists() and not args.force:
             print(f"error: handoff already exists: {outbox_path}", file=sys.stderr)
             return 2
+        if prompt_artifact_path is not None and prompt_artifact_path.exists() and not args.force:
+            print(f"error: prompt artifact already exists: {prompt_artifact_path}", file=sys.stderr)
+            return 2
         outbox_dir.mkdir(parents=True, exist_ok=True)
+        if prompt_artifact_path is not None:
+            prompt_artifact_path.parent.mkdir(parents=True, exist_ok=True)
+            prompt_artifact_path.write_text(prompt, encoding="utf-8")
         outbox_path.write_text(
             json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
