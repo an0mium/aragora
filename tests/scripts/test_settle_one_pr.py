@@ -1126,6 +1126,50 @@ def test_build_report_parks_policy_excluded_dependabot_once(
     assert all(command[:3] != ["gh", "pr", "list"] for command in commands)
 
 
+def test_policy_decision_record_path_requires_hex_head_sha(tmp_path: Path) -> None:
+    entry = {
+        **_entry(
+            7300,
+            tier=1,
+            status="satisfied",
+            verdict="admin_squash_allowed",
+            admin_squash_allowed=True,
+        ),
+        "head_sha": "abc1234/../../escape",
+    }
+
+    try:
+        settle_one_pr.write_policy_decision_record(
+            entry=entry,
+            metadata={},
+            reasons=["Dependabot PR"],
+            repo="synaptent/aragora",
+            state_root=tmp_path,
+        )
+    except ValueError as exc:
+        assert "head_sha" in str(exc)
+    else:  # pragma: no cover - the assertion below is clearer than pytest.raises here.
+        raise AssertionError("malformed head_sha should be rejected")
+
+    assert not (tmp_path / ".aragora" / "founder-decisions").exists()
+    assert not (tmp_path / "escape").exists()
+
+
+def test_policy_decision_record_path_normalizes_valid_head_sha(tmp_path: Path) -> None:
+    head = "ABCDEF0123456789ABCDEF0123456789ABCDEF01"
+
+    path = settle_one_pr._policy_decision_record_path(
+        state_root=tmp_path,
+        pr_number=7300,
+        head_sha=head,
+    )
+
+    assert path == (
+        tmp_path / ".aragora" / "founder-decisions" / "policy-exclusion-pr7300-abcdef012345.md"
+    )
+    path.resolve().relative_to((tmp_path / ".aragora" / "founder-decisions").resolve())
+
+
 def test_build_report_does_not_park_dependabot_with_other_blockers(
     monkeypatch,
     tmp_path: Path,

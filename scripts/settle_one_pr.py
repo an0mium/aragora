@@ -448,6 +448,13 @@ def _short_sha(value: Any, *, length: int = 12) -> str:
     return text[:length] if text else "unknown"
 
 
+def _validated_policy_head_sha(head_sha: str) -> str:
+    text = str(head_sha or "").strip()
+    if not re.fullmatch(r"[0-9a-fA-F]{7,40}", text):
+        raise ValueError("policy decision head_sha must be 7-40 hexadecimal characters")
+    return text.lower()
+
+
 def _pr_url(repo: str | None, pr_number: int | None) -> str:
     if pr_number is None:
         return ""
@@ -523,12 +530,12 @@ def _policy_decision_record_path(
     head_sha: str,
 ) -> Path:
     safe_pr = str(pr_number) if pr_number is not None else "unknown"
-    return (
-        state_root
-        / ".aragora"
-        / "founder-decisions"
-        / f"policy-exclusion-pr{safe_pr}-{_short_sha(head_sha)}.md"
-    )
+    normalized_head = _validated_policy_head_sha(head_sha)
+    decisions_root = state_root / ".aragora" / "founder-decisions"
+    path = decisions_root / f"policy-exclusion-pr{safe_pr}-{_short_sha(normalized_head)}.md"
+    if not path.resolve().is_relative_to(decisions_root.resolve()):
+        raise ValueError("policy decision path escaped founder-decisions root")
+    return path
 
 
 def _policy_decision_markdown(payload: dict[str, Any]) -> str:
