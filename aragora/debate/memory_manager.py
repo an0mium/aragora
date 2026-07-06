@@ -1303,6 +1303,8 @@ class MemoryManager:
             except (OSError, RuntimeError, ValueError, KeyError) as e:
                 # Spectator delivery must never break debate execution.
                 logger.warning("Unexpected spectator notification error: %s", e)
+            except (ConnectionError, TimeoutError, StopIteration, ImportError) as e:
+                logger.warning("Unexpected spectator notification error: %s", e)
 
     def track_retrieved_ids(
         self,
