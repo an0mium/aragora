@@ -7,8 +7,12 @@ Monitors debates that failed to reach consensus and attempts healing actions:
 - Notifies users of stuck debates
 - Tracks healing metrics
 
+Lives in ``aragora.memory`` rather than ``aragora.queue.workers`` because it
+imports ``aragora.memory.consensus``, a domain-layer package
+(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §6.2, §10 Q3).
+
 Usage:
-    from aragora.queue.workers.consensus_healing_worker import ConsensusHealingWorker
+    from aragora.memory.consensus_healing_worker import ConsensusHealingWorker
 
     worker = ConsensusHealingWorker()
     await worker.start()  # Starts background healing loop

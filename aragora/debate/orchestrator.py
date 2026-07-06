@@ -124,6 +124,12 @@ from aragora.debate.orchestrator_setup import (  # noqa: F401
     compute_domain_from_task as _compute_domain_from_task,
 )
 
+# Import (for its self-registration side effect only): this is the
+# domain/library composition root that guarantees aragora.events.security_events
+# has a registered security debate runner before any Arena-backed process could
+# emit a security event, without aragora.events importing aragora.debate.
+from aragora.debate import security_response as _security_response  # noqa: F401
+
 # Structured logger for all debate events (JSON-formatted in production)
 logger = get_structured_logger(__name__)
 

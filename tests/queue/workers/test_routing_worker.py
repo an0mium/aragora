@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.queue.workers.routing_worker import (
+from aragora.server.workers.routing_worker import (
     RoutingWorker,
     JOB_TYPE_ROUTING,
     JOB_TYPE_ROUTING_DEBATE,

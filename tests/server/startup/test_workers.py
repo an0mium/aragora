@@ -242,7 +242,7 @@ class TestInitDurableJobQueueRecovery:
         ):
             with patch.dict(
                 "sys.modules",
-                {"aragora.queue.workers.gauntlet_worker": mock_module},
+                {"aragora.server.workers.gauntlet_worker": mock_module},
             ):
                 result = await init_durable_job_queue_recovery()
 
@@ -270,7 +270,7 @@ class TestInitDurableJobQueueRecovery:
         ):
             with patch.dict(
                 "sys.modules",
-                {"aragora.queue.workers.gauntlet_worker": None},
+                {"aragora.server.workers.gauntlet_worker": None},
             ):
                 result = await init_durable_job_queue_recovery()
 
@@ -301,7 +301,7 @@ class TestInitGauntletWorker:
         ):
             with patch.dict(
                 "sys.modules",
-                {"aragora.queue.workers.gauntlet_worker": mock_module},
+                {"aragora.server.workers.gauntlet_worker": mock_module},
             ):
                 result = await init_gauntlet_worker()
 
@@ -329,7 +329,7 @@ class TestInitGauntletWorker:
         ):
             with patch.dict(
                 "sys.modules",
-                {"aragora.queue.workers.gauntlet_worker": None},
+                {"aragora.server.workers.gauntlet_worker": None},
             ):
                 result = await init_gauntlet_worker()
 
@@ -416,7 +416,7 @@ class TestInitTestfixerWorker:
         ):
             with patch.dict(
                 "sys.modules",
-                {"aragora.queue.workers.testfixer_worker": mock_module},
+                {"aragora.nomic.testfixer.queue_worker": mock_module},
             ):
                 result = await init_testfixer_worker()
 
@@ -444,7 +444,7 @@ class TestInitTestfixerWorker:
         ):
             with patch.dict(
                 "sys.modules",
-                {"aragora.queue.workers.testfixer_worker": None},
+                {"aragora.nomic.testfixer.queue_worker": None},
             ):
                 result = await init_testfixer_worker()
 
