@@ -94,6 +94,11 @@ jobs:
           verbose: true
           attestations: false
 
+      - name: Verify public PyPI install
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: python3 scripts/verify_aragora_verify_publish.py --version "$VERSION" --json
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2 (pinned to commit)
         with:
