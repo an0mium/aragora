@@ -46,6 +46,7 @@ _EXPECTED_SIDE_EFFECT_EXCEPTIONS = (
     ValueError,
     KeyError,
 )
+_MAX_PENDING_OUTCOME_UPDATES = 256
 
 
 def _run_noncritical_memory_side_effect(label: str, action: Callable[[], None]) -> bool:
@@ -986,18 +987,47 @@ class MemoryManager:
             success = result.consensus_reached and result.confidence > 0.6
             updated_count = 0
 
-            def apply_outcome_update(update: _PendingMemoryOutcomeUpdate) -> bool:
-                def update_outcome() -> None:
+            def apply_outcome_update(update: _PendingMemoryOutcomeUpdate) -> str:
+                try:
                     continuum_memory.update_outcome(
                         id=update.memory_id,
                         success=update.success,
                         agent_prediction_error=update.agent_prediction_error,
                     )
+                except _EXPECTED_SIDE_EFFECT_EXCEPTIONS as e:
+                    logger.debug(
+                        "  [continuum] Dropping non-retryable memory outcome update for %s: %s",
+                        update.memory_id,
+                        e,
+                    )
+                    return "dropped"
+                except Exception as e:  # noqa: BLE001 - transient adapters must not break debate flow.
+                    logger.warning(
+                        "  [continuum] Failed to update memory %s: %s",
+                        update.memory_id,
+                        e,
+                    )
+                    return "retry"
+                return "applied"
 
-                return _run_noncritical_memory_side_effect(
-                    f"  [continuum] Failed to update memory {update.memory_id}",
-                    update_outcome,
-                )
+            def remember_pending(update: _PendingMemoryOutcomeUpdate) -> None:
+                existing_count = len(still_pending)
+                still_pending[:] = [
+                    pending for pending in still_pending if pending.memory_id != update.memory_id
+                ]
+                if len(still_pending) != existing_count:
+                    logger.debug(
+                        "  [continuum] Coalesced pending outcome update for %s",
+                        update.memory_id,
+                    )
+                still_pending.append(update)
+                if len(still_pending) > _MAX_PENDING_OUTCOME_UPDATES:
+                    overflow = len(still_pending) - _MAX_PENDING_OUTCOME_UPDATES
+                    del still_pending[:overflow]
+                    logger.warning(
+                        "  [continuum] Dropped %s oldest pending outcome update(s) after cap",
+                        overflow,
+                    )
 
             def record_tier_usage(update: _PendingMemoryOutcomeUpdate) -> None:
                 if not self.tier_analytics_tracker or update.tier is None:
@@ -1035,8 +1065,11 @@ class MemoryManager:
 
             still_pending: list[_PendingMemoryOutcomeUpdate] = []
             for pending_update in self._pending_outcome_updates:
-                if not apply_outcome_update(pending_update):
-                    still_pending.append(pending_update)
+                outcome = apply_outcome_update(pending_update)
+                if outcome == "retry":
+                    remember_pending(pending_update)
+                    continue
+                if outcome == "dropped":
                     continue
                 updated_count += 1
                 record_tier_usage(pending_update)
@@ -1051,8 +1084,11 @@ class MemoryManager:
                     tier=self._retrieved_tiers.get(mem_id),
                 )
 
-                if not apply_outcome_update(update):
-                    still_pending.append(update)
+                outcome = apply_outcome_update(update)
+                if outcome == "retry":
+                    remember_pending(update)
+                    continue
+                if outcome == "dropped":
                     continue
 
                 updated_count += 1
@@ -1392,7 +1428,6 @@ class MemoryManager:
         """Clear tracked retrieved IDs and tier info."""
         self._retrieved_ids = []
         self._retrieved_tiers = {}
-        self._pending_outcome_updates = []
 
     @property
     def retrieved_ids(self) -> list[str]:

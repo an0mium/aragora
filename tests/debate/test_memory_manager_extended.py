@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import aragora.debate.memory_manager as memory_manager_module
 from aragora.debate.memory_manager import MemoryManager
 
 
@@ -317,6 +318,28 @@ class TestOutcomeUpdates:
         assert pending.success is True
         assert pending.confidence == pytest.approx(0.8)
 
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            AttributeError("missing update method"),
+            TypeError("bad adapter signature"),
+            ValueError("bad memory payload"),
+            KeyError("missing memory row"),
+        ],
+    )
+    def test_permanent_outcome_update_failures_are_not_queued(
+        self, manager, mock_debate_result, mock_continuum_memory, exception
+    ):
+        """Permanent adapter/data errors are logged and dropped, not retried forever."""
+        manager._retrieved_ids = ["mem_1"]
+        mock_continuum_memory.update_outcome.side_effect = exception
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+        assert manager._pending_outcome_updates == []
+
     def test_outcome_retry_uses_original_debate_payload(self, manager, mock_continuum_memory):
         """Pending outcome retries use their source debate payload, not the next debate's."""
         debate_a = MagicMock()
@@ -353,6 +376,31 @@ class TestOutcomeUpdates:
         assert current_call.kwargs["agent_prediction_error"] == pytest.approx(0.2)
         assert manager._pending_outcome_updates == []
         assert manager._retrieved_ids == []
+
+    def test_pending_outcome_retries_are_coalesced_and_capped(
+        self, manager, mock_continuum_memory, monkeypatch
+    ):
+        """Repeated transient failures keep the bounded latest pending outcome per memory."""
+        monkeypatch.setattr(memory_manager_module, "_MAX_PENDING_OUTCOME_UPDATES", 2)
+        mock_continuum_memory.update_outcome.side_effect = RuntimeError("transient")
+
+        for debate_id, confidence, memory_id in [
+            ("debate-a", 0.7, "mem_a"),
+            ("debate-b", 0.8, "mem_a"),
+            ("debate-c", 0.9, "mem_b"),
+            ("debate-d", 0.6, "mem_c"),
+        ]:
+            result = MagicMock()
+            result.id = debate_id
+            result.consensus_reached = True
+            result.confidence = confidence
+            manager.track_retrieved_ids([memory_id])
+            manager.update_memory_outcomes(result)
+
+        pending = manager._pending_outcome_updates
+        assert [update.memory_id for update in pending] == ["mem_b", "mem_c"]
+        assert [update.debate_id for update in pending] == ["debate-c", "debate-d"]
+        assert len(pending) == 2
 
     def test_tier_analytics_failures_do_not_abort_batch_or_leave_tracked_ids(
         self, manager, mock_debate_result, mock_continuum_memory
@@ -493,6 +541,24 @@ class TestMemoryManagerIntegration:
         manager.clear_retrieved_ids()
 
         assert manager._retrieved_ids == []
+
+    def test_clear_retrieved_ids_preserves_pending_outcome_retries(self, manager):
+        """Clearing per-debate retrieval state must not abandon pending writes."""
+        manager._pending_outcome_updates = [
+            memory_manager_module._PendingMemoryOutcomeUpdate(
+                memory_id="mem_1",
+                success=True,
+                confidence=0.8,
+                debate_id="debate-1",
+            )
+        ]
+        manager.track_retrieved_ids(["id1"], tiers={"id1": "fast"})
+
+        manager.clear_retrieved_ids()
+
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+        assert [update.memory_id for update in manager._pending_outcome_updates] == ["mem_1"]
 
     def test_track_retrieved_ids_filters_empty(self, manager):
         """Test that empty IDs are filtered out."""
