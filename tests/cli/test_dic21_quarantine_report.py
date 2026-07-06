@@ -32,14 +32,20 @@ class _Signal:
 
 
 def _args(**kw) -> argparse.Namespace:
-    return argparse.Namespace(**{
-        "input": "-", "code_unit_class": "default",
-        "request_live_swap": False, "json": False, **kw,
-    })
+    return argparse.Namespace(
+        **{
+            "input": "-",
+            "code_unit_class": "default",
+            "request_live_swap": False,
+            "json": False,
+            **kw,
+        }
+    )
 
 
 def _run(monkeypatch, *, sig: _Signal | None = None, **kw):
     from aragora.cli.commands.dic21_quarantine_report import cmd_quarantine_report
+
     out, err = io.StringIO(), io.StringIO()
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps((sig or _Signal()).to_dict())))
     monkeypatch.setattr("sys.stdout", out)
@@ -99,8 +105,9 @@ def test_live_swap_always_blocked(monkeypatch, flag_on):
 
 def test_live_dispatch_higher_threshold(monkeypatch, flag_on):
     # live_dispatch fail_closed_threshold=0.6; score 0.5 < 0.6 → fail_closed
-    rc, out, _ = _run(monkeypatch, sig=_Signal(integrity_score=0.5),
-                      code_unit_class="live_dispatch", json=True)
+    rc, out, _ = _run(
+        monkeypatch, sig=_Signal(integrity_score=0.5), code_unit_class="live_dispatch", json=True
+    )
     assert rc == 0 and json.loads(out)["fail_closed"] is True
 
 
@@ -112,6 +119,7 @@ def test_default_class_not_fail_closed_at_0_5(monkeypatch, flag_on):
 
 def test_reads_from_file(monkeypatch, tmp_path, flag_on):
     from aragora.cli.commands.dic21_quarantine_report import cmd_quarantine_report
+
     p = tmp_path / "sig.json"
     p.write_text(json.dumps(_Signal().to_dict()))
     out = io.StringIO()
@@ -122,6 +130,7 @@ def test_reads_from_file(monkeypatch, tmp_path, flag_on):
 
 def test_missing_file_exits_2(monkeypatch, flag_on):
     from aragora.cli.commands.dic21_quarantine_report import cmd_quarantine_report
+
     err = io.StringIO()
     monkeypatch.setattr("sys.stderr", err)
     assert cmd_quarantine_report(_args(input="/no/such.json")) == 2
@@ -130,6 +139,7 @@ def test_missing_file_exits_2(monkeypatch, flag_on):
 
 def test_bad_json_exits_2(monkeypatch, flag_on):
     from aragora.cli.commands.dic21_quarantine_report import cmd_quarantine_report
+
     err = io.StringIO()
     monkeypatch.setattr("sys.stdin", io.StringIO("bad {{{"))
     monkeypatch.setattr("sys.stderr", err)
@@ -138,6 +148,7 @@ def test_bad_json_exits_2(monkeypatch, flag_on):
 
 def test_missing_code_unit_id_exits_2(monkeypatch, flag_on):
     from aragora.cli.commands.dic21_quarantine_report import cmd_quarantine_report
+
     err = io.StringIO()
     monkeypatch.setattr("sys.stdin", io.StringIO('{"integrity_score": 0.9}'))
     monkeypatch.setattr("sys.stderr", err)
@@ -152,7 +163,14 @@ def test_text_has_key_fields(monkeypatch, flag_on):
 def test_json_has_all_required_keys(monkeypatch, flag_on):
     rc, out, _ = _run(monkeypatch, json=True)
     assert rc == 0
-    assert all(k in json.loads(out) for k in (
-        "code_unit_id", "policy_action", "fail_closed",
-        "live_swap_blocked", "integrity_score", "provenance_hash",
-    ))
+    assert all(
+        k in json.loads(out)
+        for k in (
+            "code_unit_id",
+            "policy_action",
+            "fail_closed",
+            "live_swap_blocked",
+            "integrity_score",
+            "provenance_hash",
+        )
+    )

@@ -225,12 +225,21 @@ Examples:
     _add_truth_map_parser(subparsers)  # DIC-18 / #6028
     _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
     # DIC-21 / #6032 — quarantine-report (inlined to stay under LOC ratchet)
-    _qr = subparsers.add_parser("quarantine-report", help="DIC-21: fail-closed quarantine policy evaluation")  # noqa: E501
+    _qr = subparsers.add_parser(
+        "quarantine-report", help="DIC-21: fail-closed quarantine policy evaluation"
+    )  # noqa: E501
     _qr.add_argument("--input", metavar="FILE", default="-", help="DecaySignal JSON; '-'=stdin")
-    _qr.add_argument("--code-unit-class", dest="code_unit_class", default="default", choices=["default", "live_dispatch", "report_surface", "demo", "pure_policy"])  # noqa: E501
+    _qr.add_argument(
+        "--code-unit-class",
+        dest="code_unit_class",
+        default="default",
+        choices=["default", "live_dispatch", "report_surface", "demo", "pure_policy"],
+    )  # noqa: E501
     _qr.add_argument("--request-live-swap", dest="request_live_swap", action="store_true")
     _qr.add_argument("--json", action="store_true")
-    _qr.set_defaults(func=_lazy("aragora.cli.commands.dic21_quarantine_report", "cmd_quarantine_report"))  # noqa: E501
+    _qr.set_defaults(
+        func=_lazy("aragora.cli.commands.dic21_quarantine_report", "cmd_quarantine_report")
+    )  # noqa: E501
     _add_epistemic_check_parser(subparsers)  # DIC-14 / #6024
 
     # DIC-27: operator crux arbitration surface

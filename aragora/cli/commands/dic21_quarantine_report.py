@@ -53,8 +53,9 @@ def _build_signal(data: dict) -> _Signal:
 
 def cmd_quarantine_report(args: argparse.Namespace) -> int:
     if not _enabled():
-        print(f"error: {_FLAG} is not set; set it to '1' to enable quarantine-report",
-              file=sys.stderr)
+        print(
+            f"error: {_FLAG} is not set; set it to '1' to enable quarantine-report", file=sys.stderr
+        )
         return 1
 
     input_arg: str = getattr(args, "input", "-") or "-"
