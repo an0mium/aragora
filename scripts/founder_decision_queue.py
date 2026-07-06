@@ -13,6 +13,7 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +21,7 @@ from typing import Any, Iterable
 
 UTC = timezone.utc
 DEFAULT_DECISIONS_ROOT = Path(".aragora/founder-decisions")
+GH_ISSUE_VIEW_TIMEOUT_SECONDS = 30
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,23 @@ class DecisionSource:
     @property
     def packet_time(self) -> datetime | None:
         return self.source_created_at or _packet_generated_at(self.body)
+
+
+@dataclass(frozen=True)
+class SourceLoadFailure:
+    source: str
+    message: str
+
+
+class SourceCollectionError(RuntimeError):
+    def __init__(self, failures: Iterable[SourceLoadFailure]) -> None:
+        self.failures = tuple(failures)
+        detail = "; ".join(f"{failure.source}: {failure.message}" for failure in self.failures)
+        super().__init__(f"no decision sources could be collected ({detail})")
+
+
+def _warn_source_failure(failure: SourceLoadFailure) -> None:
+    print(f"warning: skipped {failure.source}: {failure.message}", file=sys.stderr)
 
 
 def _compact_text(value: str) -> str:
@@ -367,22 +386,36 @@ def _github_issue_comment_sources(
     return sources
 
 
-def _load_github_issue_sources(*, repo: str, issue: str) -> list[DecisionSource]:
-    completed = subprocess.run(
-        [
-            "gh",
-            "issue",
-            "view",
-            issue,
-            "--repo",
-            repo,
-            "--json",
-            "state,url,comments",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+def _load_github_issue_sources(
+    *,
+    repo: str,
+    issue: str,
+    timeout_seconds: int = GH_ISSUE_VIEW_TIMEOUT_SECONDS,
+) -> list[DecisionSource]:
+    command = [
+        "gh",
+        "issue",
+        "view",
+        issue,
+        "--repo",
+        repo,
+        "--json",
+        "state,url,comments",
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("gh executable not found") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"gh issue view timed out after {timeout_seconds}s for {repo}#{issue}"
+        ) from exc
     if completed.returncode != 0:
         message = completed.stderr.strip() or completed.stdout.strip() or "unknown gh error"
         raise RuntimeError(f"gh issue view failed for {repo}#{issue}: {message}")
@@ -416,6 +449,7 @@ def _collect_sources(
     repo: str,
 ) -> list[DecisionSource]:
     sources: list[DecisionSource] = []
+    failures: list[SourceLoadFailure] = []
     if decisions_root.exists():
         for path in sorted(decisions_root.glob("*.md")):
             try:
@@ -444,7 +478,14 @@ def _collect_sources(
     if issue_comments_json is not None:
         sources.extend(_load_issue_comment_sources(issue_comments_json))
     for issue in github_issues:
-        sources.extend(_load_github_issue_sources(repo=repo, issue=issue))
+        try:
+            sources.extend(_load_github_issue_sources(repo=repo, issue=issue))
+        except RuntimeError as exc:
+            failure = SourceLoadFailure(source=f"github issue {repo}#{issue}", message=str(exc))
+            failures.append(failure)
+            _warn_source_failure(failure)
+    if failures and not sources:
+        raise SourceCollectionError(failures)
     return sources
 
 
@@ -574,13 +615,19 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(f"invalid --now timestamp: {args.now}")
     else:
         now = datetime.now(tz=UTC)
-    items = collect_decision_items(
-        decisions_root=Path(args.decisions_root),
-        packet_files=[Path(path) for path in args.packet_file],
-        issue_comments_json=Path(args.issue_comments_json) if args.issue_comments_json else None,
-        github_issues=args.github_issue,
-        repo=args.repo,
-    )
+    try:
+        items = collect_decision_items(
+            decisions_root=Path(args.decisions_root),
+            packet_files=[Path(path) for path in args.packet_file],
+            issue_comments_json=Path(args.issue_comments_json)
+            if args.issue_comments_json
+            else None,
+            github_issues=args.github_issue,
+            repo=args.repo,
+        )
+    except SourceCollectionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     if args.json:
         payload = {
             "generated_at": now.isoformat().replace("+00:00", "Z"),

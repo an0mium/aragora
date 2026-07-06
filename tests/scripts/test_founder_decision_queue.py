@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 
 def _load_module() -> Any:
     here = Path(__file__).resolve()
@@ -454,6 +456,7 @@ def test_collect_decision_items_fetches_github_issue_read_only(
         assert kwargs["check"] is False
         assert kwargs["capture_output"] is True
         assert kwargs["text"] is True
+        assert kwargs["timeout"] == fdq.GH_ISSUE_VIEW_TIMEOUT_SECONDS
         return Completed()
 
     monkeypatch.setattr(fdq.subprocess, "run", fake_run)
@@ -478,3 +481,116 @@ def test_collect_decision_items_fetches_github_issue_read_only(
             "state,url,comments",
         ]
     ]
+
+
+def test_collect_decision_items_continues_after_github_issue_failure(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    class Completed:
+        def __init__(self, *, returncode: int, stdout: str = "", stderr: str = "") -> None:
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> Completed:
+        assert kwargs["timeout"] == fdq.GH_ISSUE_VIEW_TIMEOUT_SECONDS
+        issue = cmd[3]
+        if issue == "8845":
+            return Completed(returncode=1, stderr="temporary API failure")
+        return Completed(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "state": "OPEN",
+                    "url": "https://github.com/synaptent/aragora/issues/8846",
+                    "comments": [
+                        {
+                            "url": "https://github.com/synaptent/aragora/issues/8846#issuecomment-1",
+                            "createdAt": "2026-07-05T10:00:00Z",
+                            "body": _single_item_packet(
+                                generated="2026-07-05T10:00:00Z",
+                                target="PR #8756: https://github.com/synaptent/aragora/pull/8756",
+                                reply="approve",
+                            ),
+                        }
+                    ],
+                }
+            ),
+        )
+
+    monkeypatch.setattr(fdq.subprocess, "run", fake_run)
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        github_issues=["8845", "8846"],
+        repo="synaptent/aragora",
+    )
+
+    assert len(items) == 1
+    assert items[0].expected_reply == "approve"
+    assert "warning: skipped github issue synaptent/aragora#8845" in capsys.readouterr().err
+
+
+def test_collect_decision_items_fails_when_no_sources_collectable(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    class Completed:
+        returncode = 1
+        stdout = ""
+        stderr = "temporary API failure"
+
+    monkeypatch.setattr(fdq.subprocess, "run", lambda *args, **kwargs: Completed())
+
+    with pytest.raises(fdq.SourceCollectionError, match="no decision sources"):
+        fdq.collect_decision_items(
+            decisions_root=tmp_path / "empty",
+            github_issues=["8845"],
+            repo="synaptent/aragora",
+        )
+
+
+def test_github_issue_fetch_reports_timeout(monkeypatch: Any) -> None:
+    def fake_run(cmd: list[str], **kwargs: Any) -> Any:
+        raise fdq.subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(fdq.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="timed out after"):
+        fdq._load_github_issue_sources(repo="synaptent/aragora", issue="8845")
+
+
+def test_github_issue_fetch_reports_missing_gh(monkeypatch: Any) -> None:
+    def fake_run(cmd: list[str], **kwargs: Any) -> Any:
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr(fdq.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="gh executable not found"):
+        fdq._load_github_issue_sources(repo="synaptent/aragora", issue="8845")
+
+
+def test_main_returns_controlled_error_when_no_sources_collectable(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    class Completed:
+        returncode = 1
+        stdout = ""
+        stderr = "temporary API failure"
+
+    monkeypatch.setattr(fdq.subprocess, "run", lambda *args, **kwargs: Completed())
+
+    exit_code = fdq.main(
+        [
+            "--decisions-root",
+            str(tmp_path / "empty"),
+            "--github-issue",
+            "8845",
+            "--repo",
+            "synaptent/aragora",
+        ]
+    )
+
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert "error: no decision sources could be collected" in captured.err
+    assert "Traceback" not in captured.err
