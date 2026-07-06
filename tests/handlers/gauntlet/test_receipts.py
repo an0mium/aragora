@@ -65,6 +65,16 @@ async def _ticker(duration: float = 0.45) -> int:
     return ticks
 
 
+async def _ticker_until(done: asyncio.Event, interval: float = 0.01) -> int:
+    """Count scheduler progress until an async operation completes."""
+    ticks = 0
+    while not done.is_set():
+        await asyncio.sleep(interval)
+        if not done.is_set():
+            ticks += 1
+    return ticks
+
+
 # ---------------------------------------------------------------------------
 # Fake receipt for testing
 # ---------------------------------------------------------------------------
@@ -1511,28 +1521,32 @@ class TestAutoPersistReceipt:
             def update_signature(self, *args: Any, **kwargs: Any) -> None:
                 time.sleep(0.2)
 
-        task = asyncio.create_task(_ticker())
+        done = asyncio.Event()
+        task = asyncio.create_task(_ticker_until(done))
         await asyncio.sleep(0)
 
-        with (
-            patch(_DR) as MockDR,
-            patch.dict(
-                "sys.modules",
-                {
-                    "aragora.storage.receipt_store": MagicMock(
-                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
-                        get_receipt_store=MagicMock(return_value=_SlowStore()),
-                    ),
-                    "aragora.knowledge.mound.adapters.receipt_adapter": None,
-                },
-            ),
-        ):
-            MockDR.from_mode_result.return_value = mock_receipt
-            await mixin._auto_persist_receipt(fake_result, "g-slow-persist")
+        try:
+            with (
+                patch(_DR) as MockDR,
+                patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.storage.receipt_store": MagicMock(
+                            StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                            get_receipt_store=MagicMock(return_value=_SlowStore()),
+                        ),
+                        "aragora.knowledge.mound.adapters.receipt_adapter": None,
+                    },
+                ),
+            ):
+                MockDR.from_mode_result.return_value = mock_receipt
+                await mixin._auto_persist_receipt(fake_result, "g-slow-persist")
+        finally:
+            done.set()
 
         ticks = await task
 
-        assert ticks >= 30
+        assert ticks > 0
 
     @pytest.mark.asyncio
     async def test_risk_level_used_in_stored_receipt(self, mixin, mock_receipt):

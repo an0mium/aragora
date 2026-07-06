@@ -74,6 +74,59 @@ def _normalize(vector):
     return _FakeArray(value / norm for value in vector)
 
 
+def _restore_social_oauth_reexports() -> None:
+    """Repair social OAuth re-export identity after social_media reload tests."""
+    try:
+        import aragora.server.handlers.social as _social_pkg
+        import aragora.server.handlers.social.social_media as _social_media
+    except (ImportError, AttributeError):
+        return
+
+    pkg_states = getattr(_social_pkg, "_oauth_states", None)
+    pkg_lock = getattr(_social_pkg, "_oauth_states_lock", None)
+    if pkg_states is not None:
+        _social_media._oauth_states = pkg_states
+        pkg_states.clear()
+    if pkg_lock is not None:
+        _social_media._oauth_states_lock = pkg_lock
+
+    for name in (
+        "_store_oauth_state",
+        "_validate_oauth_state",
+        "_oauth_states",
+        "_oauth_states_lock",
+        "_OAUTH_STATE_TTL",
+        "MAX_OAUTH_STATES",
+    ):
+        if hasattr(_social_media, name):
+            setattr(_social_pkg, name, getattr(_social_media, name))
+
+
+def _reset_handler_registry_caches() -> None:
+    """Clear lazy handler registry caches that can hold patched test objects."""
+    try:
+        import aragora.server.handlers as _handlers
+        from aragora.server.handlers import _registry
+        from unittest.mock import NonCallableMock
+    except (ImportError, AttributeError):
+        return
+
+    handler_cache = getattr(_handlers, "_handler_cache", None)
+    if isinstance(handler_cache, dict) and any(
+        isinstance(handler, NonCallableMock) for handler in handler_cache.values()
+    ):
+        handler_cache.clear()
+
+    all_handlers_cache = getattr(_handlers, "_all_handlers_cache", None)
+    if isinstance(all_handlers_cache, list) and any(
+        isinstance(handler, NonCallableMock) for handler in all_handlers_cache
+    ):
+        _handlers._all_handlers_cache = None
+    if any(isinstance(handler, NonCallableMock) for handler in _registry.ALL_HANDLERS):
+        _registry.ALL_HANDLERS.clear()
+        _registry.HANDLER_STABILITY.clear()
+
+
 @pytest.fixture(autouse=True)
 def _bypass_rbac_for_root_handler_tests(request, monkeypatch):
     """Auto-bypass RBAC for root-level test_handlers_*.py files.
@@ -1538,6 +1591,9 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    _restore_social_oauth_reexports()
+    _reset_handler_registry_caches()
+
 
 @pytest.fixture(autouse=True)
 def reset_lazy_globals():
@@ -1687,6 +1743,9 @@ def _global_mock_pollution_guard():
         if current is None:
             sys.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module
 
+    _restore_social_oauth_reexports()
+    _reset_handler_registry_caches()
+
     yield
 
     # Teardown: same repairs
@@ -1717,3 +1776,6 @@ def _global_mock_pollution_guard():
         current = sys.modules.get(_GLOBAL_OAUTH_IMPL_MODULE_NAME)
         if current is None:
             sys.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module
+
+    _restore_social_oauth_reexports()
+    _reset_handler_registry_caches()

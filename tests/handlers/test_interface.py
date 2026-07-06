@@ -996,10 +996,10 @@ class TestIsHandler:
         m = MagicMock(spec=_CompleteHandler)
         assert is_handler(m) is True
 
-    def test_magic_mock_without_spec_returns_true(self):
-        """MagicMock without spec has all attribute lookups succeed."""
+    def test_magic_mock_without_spec_returns_false(self):
+        """Runtime protocols do not treat unspecced MagicMock as structural."""
         m = MagicMock()
-        assert is_handler(m) is True
+        assert is_handler(m) is False
 
 
 # =============================================================================

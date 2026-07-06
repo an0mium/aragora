@@ -109,9 +109,24 @@ class TestHandlerInterfaceProtocol:
 
     def test_mock_handler_can_be_made_compatible(self):
         """Test creating a mock that matches interface."""
-        mock_handler = MagicMock(
-            spec=["handle", "handle_post", "handle_delete", "handle_patch", "handle_put"]
-        )
+
+        class FullHandler:
+            def handle(self, path: str, query_params: dict[str, Any], handler: Any):
+                return None
+
+            def handle_post(self, path: str, query_params: dict[str, Any], handler: Any):
+                return None
+
+            def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any):
+                return None
+
+            def handle_patch(self, path: str, query_params: dict[str, Any], handler: Any):
+                return None
+
+            def handle_put(self, path: str, query_params: dict[str, Any], handler: Any):
+                return None
+
+        mock_handler = MagicMock(spec=FullHandler)
         mock_handler.handle.return_value = None
         mock_handler.handle_post.return_value = None
         mock_handler.handle_delete.return_value = None
