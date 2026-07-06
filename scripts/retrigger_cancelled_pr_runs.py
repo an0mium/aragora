@@ -39,6 +39,11 @@ from urllib import error, parse, request
 
 
 PR_EVENTS = {"pull_request", "pull_request_target"}
+APP_TOKEN_RERUN_PERMISSION_MESSAGE = "Resource not accessible by integration"
+APP_TOKEN_RERUN_PERMISSION_RESULT = (
+    "app-token-rerun-permission-denied: Resource not accessible by integration"
+)
+OPERATOR_ACTION_EXIT = 2
 
 
 class GitHubApiError(RuntimeError):
@@ -172,6 +177,8 @@ class GitHubClient:
             return True, "rerun_requested"
         except GitHubApiError as exc:
             message = str(exc)
+            if _is_app_token_rerun_permission_failure(message):
+                return False, APP_TOKEN_RERUN_PERMISSION_RESULT
             if "403" in message:
                 return False, "forbidden"
             return False, message
@@ -184,6 +191,10 @@ def _field(run: dict[str, Any], *names: str, default: str = "") -> Any:
         if value not in (None, ""):
             return value
     return default
+
+
+def _is_app_token_rerun_permission_failure(message: str) -> bool:
+    return "403" in message and APP_TOKEN_RERUN_PERMISSION_MESSAGE in message
 
 
 def _parse_iso(ts: str) -> datetime | None:
@@ -344,6 +355,7 @@ def compute_retriggerable_runs(
                 "sha": sha,
                 "run_attempt": run_attempt,
                 "rerun_command": f"gh run rerun {run_id}",
+                "human_rerun_command": f"gh run rerun {run_id}",
             }
         )
 
@@ -437,6 +449,12 @@ def _write_receipt(
         "rerun_run_ids": [
             int(item["run_id"]) for item in summary.get("rerun_results", []) if item.get("ok")
         ],
+        "operator_action_required": bool(summary.get("operator_action_required", False)),
+        "permission_denied_run_ids": [
+            int(item["run_id"]) for item in summary.get("permission_denied_reruns", [])
+        ],
+        "human_rerun_commands": list(summary.get("human_rerun_commands", [])),
+        "operator_packet": str(summary.get("operator_packet", "") or ""),
         "head_shas": sorted(
             {
                 str(item.get("sha", "")).strip()
@@ -450,6 +468,107 @@ def _write_receipt(
         json.dump(receipt, handle, indent=2, sort_keys=True)
         handle.write("\n")
     return str(receipt_path)
+
+
+def _human_rerun_items(
+    eligible_runs: list[dict[str, Any]],
+    rerun_results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    eligible_by_id = {int(item["run_id"]): item for item in eligible_runs}
+    items: list[dict[str, Any]] = []
+    for result in rerun_results:
+        if result.get("ok"):
+            continue
+        message = str(result.get("message", ""))
+        if APP_TOKEN_RERUN_PERMISSION_RESULT not in message:
+            continue
+        run_id = int(result["run_id"])
+        run = eligible_by_id.get(run_id, {"run_id": run_id})
+        item = dict(run)
+        item["run_id"] = run_id
+        item["failure"] = APP_TOKEN_RERUN_PERMISSION_MESSAGE
+        item["human_rerun_command"] = str(
+            item.get("human_rerun_command") or f"gh run rerun {run_id} --failed"
+        )
+        items.append(item)
+    return items
+
+
+def _github_run_url(repo: str, run_id: int) -> str:
+    return f"https://github.com/{repo}/actions/runs/{run_id}"
+
+
+def _write_operator_rerun_packet(
+    *,
+    packet_dir: str,
+    now: datetime,
+    repo: str,
+    scope: str,
+    human_reruns: list[dict[str, Any]],
+    receipt_path: str = "",
+) -> str:
+    path = Path(packet_dir)
+    path.mkdir(parents=True, exist_ok=True)
+    timestamp = now.strftime("%Y%m%dT%H%M%S%fZ")
+    packet_path = path / (
+        f"HUMAN_RERUN_PACKET_{timestamp}_pid{os.getpid()}_{_safe_filename_fragment(scope)}.md"
+    )
+
+    lines = [
+        "# Cancelled Run Human Rerun Packet",
+        "",
+        f"Generated: {now.isoformat()}",
+        "",
+        "Purpose: surface exact human/operator reruns after the GitHub App token "
+        f"failed with `{APP_TOKEN_RERUN_PERMISSION_MESSAGE}`.",
+        "",
+        "This packet does not edit workflow files, mutate PR state, merge, settle, "
+        "post evidence, or rerun checks by itself.",
+        "",
+        "## Pending Reruns",
+        "",
+        "| Priority | Link | Requested Action | Operator Command |",
+        "| --- | --- | --- | --- |",
+    ]
+    for item in human_reruns:
+        run_id = int(item["run_id"])
+        command = str(item.get("human_rerun_command") or f"gh run rerun {run_id} --failed")
+        workflow = str(item.get("workflow", "") or "workflow run")
+        branch = str(item.get("branch", "") or "unknown-branch")
+        sha = str(item.get("sha", "") or "unknown-sha")
+        requested = (
+            f"Run exactly `{command}` with human/operator credentials. "
+            f"Proof: `{workflow}` on `{branch}` at `{sha}` was selected as a current "
+            f"cancelled run, but the App-token rerun attempt failed with "
+            f"`{APP_TOKEN_RERUN_PERMISSION_MESSAGE}`."
+        )
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    "P1",
+                    _github_run_url(repo, run_id),
+                    requested,
+                    f"`{command}`",
+                ]
+            )
+            + " |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Source",
+            "",
+            f"- Repository: `{repo}`",
+            f"- Scope: `{scope}`",
+        ]
+    )
+    if receipt_path:
+        lines.append(f"- JSON receipt: `{receipt_path}`")
+    lines.append("")
+    packet_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return str(packet_path)
 
 
 def compute_active_head_map(
@@ -532,6 +651,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=168,
         help="Prune retrigger receipts older than this many hours (<=0 disables pruning)",
+    )
+    parser.add_argument(
+        "--operator-packet-dir",
+        default=os.environ.get(
+            "RETRIGGER_OPERATOR_PACKET_DIR", ".aragora/retrigger_cancelled/operator_packets"
+        ),
+        help="Directory for human rerun packets when App-token reruns are permission-denied",
     )
     parser.add_argument(
         "--apply",
@@ -624,6 +750,8 @@ def main(argv: list[str] | None = None) -> int:
             if args.marker_file:
                 save_marker(args.marker_file, marker_data)
 
+        human_reruns = _human_rerun_items(eligible, rerun_results)
+
         summary = {
             "open_prs_total": len(open_pulls),
             "active_heads_total": len(active_heads),
@@ -642,7 +770,28 @@ def main(argv: list[str] | None = None) -> int:
             "scope": f"pr-{args.pr}" if args.pr is not None else "all-open-prs",
             "scoped_branch": scoped_branch,
             "scoped_sha": scoped_sha,
+            "operator_action_required": bool(human_reruns),
+            "permission_denied_reruns": human_reruns,
+            "human_rerun_commands": [
+                str(item.get("human_rerun_command", "")) for item in human_reruns
+            ],
+            "operator_packet": "",
+            "operator_packet_error": "",
         }
+        operator_packet_error = ""
+        if human_reruns:
+            try:
+                packet_path = _write_operator_rerun_packet(
+                    packet_dir=args.operator_packet_dir,
+                    now=now,
+                    repo=args.repo,
+                    scope=str(summary["scope"]),
+                    human_reruns=human_reruns,
+                )
+                summary["operator_packet"] = packet_path
+            except OSError as exc:
+                operator_packet_error = str(exc)
+                summary["operator_packet_error"] = operator_packet_error
         try:
             receipt_path = _write_receipt(
                 receipt_dir=args.receipt_dir,
@@ -658,6 +807,10 @@ def main(argv: list[str] | None = None) -> int:
             summary["receipt"] = ""
             summary["receipt_error"] = str(exc)
         print(json.dumps(summary))
+        if human_reruns:
+            if operator_packet_error or summary.get("receipt_error"):
+                return 1
+            return OPERATOR_ACTION_EXIT
         return 0
     except (GitHubApiError, ValueError) as exc:
         print(f"Re-trigger error: {exc}", file=sys.stderr)

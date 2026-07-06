@@ -308,6 +308,97 @@ def test_main_apply_records_rerun_results_in_receipt(tmp_path, monkeypatch, caps
     assert receipt["rerun_run_ids"] == [41]
 
 
+def test_client_classifies_app_token_rerun_permission_failure(monkeypatch) -> None:
+    client = retrigger.GitHubClient(repo="synaptent/aragora", token="token")
+
+    def fail_post(path: str, payload: dict[str, Any] | None = None) -> None:
+        assert path == "/repos/synaptent/aragora/actions/runs/61/rerun"
+        assert payload is None
+        raise retrigger.GitHubApiError(
+            "GitHub API POST /rerun failed: 403 Forbidden\n"
+            '{"message":"Resource not accessible by integration"}'
+        )
+
+    monkeypatch.setattr(client, "post", fail_post)
+
+    ok, message = client.rerun_workflow_run(61)
+
+    assert ok is False
+    assert message == retrigger.APP_TOKEN_RERUN_PERMISSION_RESULT
+
+
+def test_main_apply_permission_denied_writes_human_packet_and_receipt(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    class FakeClient:
+        def __init__(self, repo: str, token: str) -> None:
+            self.repo = repo
+
+        def list_open_pulls(self) -> list[dict[str, Any]]:
+            return [
+                {
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": "feat/a", "sha": "sha-a"},
+                }
+            ]
+
+        def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
+            return [
+                make_run(
+                    id=61,
+                    name="Portability Lint",
+                    head_branch="feat/a",
+                    head_sha="sha-a",
+                )
+            ]
+
+        def rerun_workflow_run(self, run_id: int) -> tuple[bool, str]:
+            assert run_id == 61
+            return False, retrigger.APP_TOKEN_RERUN_PERMISSION_RESULT
+
+    receipt_dir = tmp_path / "receipts"
+    packet_dir = tmp_path / "operator-packets"
+
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(retrigger, "GitHubClient", FakeClient)
+
+    rc = main(
+        [
+            "--repo",
+            "synaptent/aragora",
+            "--ttl-minutes",
+            "100000",
+            "--apply",
+            "--receipt-dir",
+            str(receipt_dir),
+            "--operator-packet-dir",
+            str(packet_dir),
+        ]
+    )
+
+    assert rc == retrigger.OPERATOR_ACTION_EXIT
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["applied"] == 0
+    assert summary["apply_failed"] == 1
+    assert summary["operator_action_required"] is True
+    assert summary["permission_denied_reruns"][0]["run_id"] == 61
+    assert summary["human_rerun_commands"] == ["gh run rerun 61"]
+
+    packet_path = packet_dir / summary["operator_packet"].split("/")[-1]
+    packet = packet_path.read_text(encoding="utf-8")
+    assert "Resource not accessible by integration" in packet
+    assert "https://github.com/synaptent/aragora/actions/runs/61" in packet
+    assert "`gh run rerun 61`" in packet
+
+    receipt_path = receipt_dir / summary["receipt"].split("/")[-1]
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert receipt["operator_action_required"] is True
+    assert receipt["permission_denied_run_ids"] == [61]
+    assert receipt["human_rerun_commands"] == ["gh run rerun 61"]
+    assert receipt["operator_packet"] == summary["operator_packet"]
+
+
 def test_receipt_write_failure_is_reported_without_failing(monkeypatch, capsys) -> None:
     class FakeClient:
         def __init__(self, repo: str, token: str) -> None:
