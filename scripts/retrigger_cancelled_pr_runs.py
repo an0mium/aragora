@@ -31,6 +31,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,6 +49,22 @@ OPERATOR_ACTION_EXIT = 2
 
 class GitHubApiError(RuntimeError):
     """Raised when GitHub API calls fail."""
+
+
+def _resolve_github_token() -> str:
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if token:
+        return token
+    completed = subprocess.run(
+        ["gh", "auth", "token"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
 
 
 class GitHubClient:
@@ -672,9 +689,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.repo:
         print("--repo is required (or set GITHUB_REPOSITORY)", file=sys.stderr)
         return 1
-    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    token = _resolve_github_token()
     if not token:
-        print("GITHUB_TOKEN is required", file=sys.stderr)
+        print(
+            "GITHUB_TOKEN is required, or authenticate gh so `gh auth token` works", file=sys.stderr
+        )
         return 1
     if args.max_runs < 1:
         print("--max-runs must be >= 1", file=sys.stderr)

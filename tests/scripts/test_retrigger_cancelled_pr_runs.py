@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import datetime, timezone
 from typing import Any
 
@@ -258,6 +259,97 @@ def test_main_scopes_to_pr_and_writes_receipt(tmp_path, monkeypatch, capsys) -> 
     assert receipt["dry_run"] is True
     assert receipt["eligible_run_ids"] == [31]
     assert receipt["head_shas"] == ["sha-a"]
+
+
+def test_main_uses_gh_auth_token_when_env_token_missing(tmp_path, monkeypatch, capsys) -> None:
+    class FakeClient:
+        def __init__(self, repo: str, token: str) -> None:
+            assert repo == "synaptent/aragora"
+            assert token == "from-gh-auth"
+
+        def list_open_pulls(self) -> list[dict[str, Any]]:
+            return [
+                {
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": "feat/a", "sha": "sha-a"},
+                }
+            ]
+
+        def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
+            return [make_run(id=71, head_branch="feat/a", head_sha="sha-a")]
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        assert cmd == ["gh", "auth", "token"]
+        assert kwargs["check"] is False
+        assert kwargs["capture_output"] is True
+        assert kwargs["text"] is True
+        assert kwargs["timeout"] == 10
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=0, stdout="from-gh-auth\n", stderr=""
+        )
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setattr(retrigger.subprocess, "run", fake_run)
+    monkeypatch.setattr(retrigger, "GitHubClient", FakeClient)
+
+    rc = main(
+        [
+            "--repo",
+            "synaptent/aragora",
+            "--ttl-minutes",
+            "100000",
+            "--receipt-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["eligible"] == 1
+
+
+def test_main_prefers_env_token_without_calling_gh_auth(tmp_path, monkeypatch, capsys) -> None:
+    class FakeClient:
+        def __init__(self, repo: str, token: str) -> None:
+            assert token == "from-env"
+
+        def list_open_pulls(self) -> list[dict[str, Any]]:
+            return []
+
+        def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
+            return []
+
+    def unexpected_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise AssertionError("gh auth token should not be called when GITHUB_TOKEN is set")
+
+    monkeypatch.setenv("GITHUB_TOKEN", "from-env")
+    monkeypatch.setattr(retrigger.subprocess, "run", unexpected_run)
+    monkeypatch.setattr(retrigger, "GitHubClient", FakeClient)
+
+    rc = main(["--repo", "synaptent/aragora", "--receipt-dir", str(tmp_path)])
+
+    assert rc == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["scanned"] == 0
+
+
+def test_main_reports_missing_token_when_env_and_gh_auth_fail(monkeypatch, capsys) -> None:
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=1, stdout="", stderr="not logged in"
+        )
+
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setattr(retrigger.subprocess, "run", fake_run)
+
+    rc = main(["--repo", "synaptent/aragora"])
+
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "GITHUB_TOKEN is required" in captured.err
+    assert "gh auth token" in captured.err
 
 
 def test_main_apply_records_rerun_results_in_receipt(tmp_path, monkeypatch, capsys) -> None:
