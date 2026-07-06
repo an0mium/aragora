@@ -988,8 +988,6 @@ class MemoryManager:
                     )
                 except (ConnectionError, TimeoutError, StopIteration, ImportError) as e:
                     logger.warning("  [continuum] Failed to update memory %s: %s", mem_id, e)
-                except Exception as e:
-                    logger.warning("  [continuum] Failed to update memory %s: %s", mem_id, e)
 
             if updated_count > 0:
                 logger.info(
@@ -1305,7 +1303,7 @@ class MemoryManager:
             except (OSError, RuntimeError, ValueError, KeyError) as e:
                 # Spectator delivery must never break debate execution.
                 logger.warning("Unexpected spectator notification error: %s", e)
-            except Exception as e:
+            except (ConnectionError, TimeoutError, StopIteration, ImportError) as e:
                 logger.warning("Unexpected spectator notification error: %s", e)
 
     def track_retrieved_ids(
