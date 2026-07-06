@@ -355,7 +355,7 @@ def compute_retriggerable_runs(
                 "sha": sha,
                 "run_attempt": run_attempt,
                 "rerun_command": f"gh run rerun {run_id}",
-                "human_rerun_command": f"gh run rerun {run_id} --failed",
+                "human_rerun_command": f"gh run rerun {run_id}",
             }
         )
 

@@ -383,19 +383,19 @@ def test_main_apply_permission_denied_writes_human_packet_and_receipt(
     assert summary["apply_failed"] == 1
     assert summary["operator_action_required"] is True
     assert summary["permission_denied_reruns"][0]["run_id"] == 61
-    assert summary["human_rerun_commands"] == ["gh run rerun 61 --failed"]
+    assert summary["human_rerun_commands"] == ["gh run rerun 61"]
 
     packet_path = packet_dir / summary["operator_packet"].split("/")[-1]
     packet = packet_path.read_text(encoding="utf-8")
     assert "Resource not accessible by integration" in packet
     assert "https://github.com/synaptent/aragora/actions/runs/61" in packet
-    assert "`gh run rerun 61 --failed`" in packet
+    assert "`gh run rerun 61`" in packet
 
     receipt_path = receipt_dir / summary["receipt"].split("/")[-1]
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     assert receipt["operator_action_required"] is True
     assert receipt["permission_denied_run_ids"] == [61]
-    assert receipt["human_rerun_commands"] == ["gh run rerun 61 --failed"]
+    assert receipt["human_rerun_commands"] == ["gh run rerun 61"]
     assert receipt["operator_packet"] == summary["operator_packet"]
 
 
