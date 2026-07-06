@@ -1028,6 +1028,154 @@ def test_build_report_explicit_pr_loads_policy_metadata_without_broad_list(monke
     assert report["status"] == "blocked"
     assert commands[0][:3] == ["gh", "pr", "view"]
     assert all(command[:3] != ["gh", "pr", "list"] for command in commands)
+    assert "policy_decision_record" not in report
+
+
+def test_build_report_parks_policy_excluded_dependabot_once(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:3] == ["gh", "pr", "list"]:
+            raise AssertionError("explicit --pr settlement must not call gh pr list")
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7300":
+            return (
+                {
+                    "number": 7300,
+                    "title": "chore(deps): bump fixture",
+                    "headRefName": "dependabot/npm_and_yarn/pkg-1.2.3",
+                    "author": {"login": "app/dependabot"},
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "BLOCKED",
+                    "files": [{"path": "package-lock.json"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    entry = {
+        **_entry(
+            7300,
+            tier=1,
+            status="satisfied",
+            verdict="admin_squash_allowed",
+            admin_squash_allowed=True,
+            checks_summary="6/6 green",
+            reasons=["internal dependency bump"],
+        ),
+        "counted_reviewer_ids": ["claude", "openai"],
+        "reviewer_signals": [{"model_family": "claude"}, {"model_family": "openai"}],
+        "dogfood_evidence": [{"kind": "lockfile"}],
+    }
+
+    report = build_report(
+        _packet(entry, admin_order=[7300]),
+        cwd=Path.cwd(),
+        state_root=tmp_path,
+        explicit_pr=7300,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+        repo=None,
+    )
+
+    assert report["selected_pr"] == 7300
+    assert report["status"] == "parked_policy"
+    assert report["blockers"] == ["excluded_by_policy: Dependabot PR"]
+    record = report["policy_decision_record"]
+    assert record["created"] is True
+    assert record["schema_version"] == "settle_one_policy_decision.v1"
+    assert record["payload"]["pr_number"] == 7300
+    assert record["payload"]["policy_reasons"] == ["Dependabot PR"]
+    assert record["payload"]["required_check_state"]["checks_summary"] == "6/6 green"
+    assert record["payload"]["quorum_state"]["verdict"] == "admin_squash_allowed"
+    assert record["payload"]["mergeability"] == {
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "BLOCKED",
+    }
+    record_path = Path(record["path"])
+    assert record_path.exists()
+    body = record_path.read_text(encoding="utf-8")
+    assert "# Founder Decision Queue Packet" in body
+    assert "| 1 | PR #7300:" in body
+    assert "`hold`" in body
+    assert '"schema_version": "settle_one_policy_decision.v1"' in body
+
+    second_report = build_report(
+        _packet(entry, admin_order=[7300]),
+        cwd=Path.cwd(),
+        state_root=tmp_path,
+        explicit_pr=7300,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+        repo=None,
+    )
+
+    assert second_report["status"] == "parked_policy"
+    assert second_report["policy_decision_record"]["path"] == record["path"]
+    assert second_report["policy_decision_record"]["created"] is False
+    assert all(command[:3] != ["gh", "pr", "list"] for command in commands)
+
+
+def test_build_report_does_not_park_dependabot_with_other_blockers(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7301":
+            return (
+                {
+                    "number": 7301,
+                    "title": "chore(deps): bump pending fixture",
+                    "headRefName": "dependabot/npm_and_yarn/pkg-2.0.0",
+                    "author": {"login": "app/dependabot"},
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "BLOCKED",
+                    "files": [{"path": "package-lock.json"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                7301,
+                checks_summary="5/6 green, 1 pending",
+                reasons=["internal dependency bump"],
+            ),
+            admin_order=[7301],
+        ),
+        cwd=Path.cwd(),
+        state_root=tmp_path,
+        explicit_pr=7301,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+        repo=None,
+    )
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == [
+        "checks pending: 5/6 green, 1 pending",
+        "excluded_by_policy: Dependabot PR",
+    ]
+    assert "policy_decision_record" not in report
+    assert not (tmp_path / ".aragora" / "founder-decisions").exists()
 
 
 def test_build_report_bounds_policy_command_output(monkeypatch) -> None:

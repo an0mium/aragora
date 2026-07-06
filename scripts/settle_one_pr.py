@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Dry-run steward for one exact-head PR settlement attempt.
 
-The script is intentionally read-only. It does not approve, comment, mark
-ready, rerun workflows, or merge. It gathers the repeated settlement gates into
-one report so a follow-up executor can make bounded progress without broad queue
-drain. Live mode fails closed when `gh` cannot read branch-protection required
-check source metadata; app-pinned required checks must be satisfied by the
-expected GitHub App, not by manual status spoofing.
+The script does not approve, comment, mark ready, rerun workflows, or merge. It
+gathers the repeated settlement gates into one report so a follow-up executor can
+make bounded progress without broad queue drain. When a PR is blocked only by the
+Dependabot steward policy exclusion, it writes an idempotent local
+founder-decision packet so the conductor can park once instead of retrying the
+same blocked state. Live mode fails closed when `gh` cannot read
+branch-protection required check source metadata; app-pinned required checks must
+be satisfied by the expected GitHub App, not by manual status spoofing.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ CONVERGENCE_SENTENCE = (
 )
 
 VERSION = "settle_one_steward.v1"
+POLICY_DECISION_SCHEMA_VERSION = "settle_one_policy_decision.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
 GITHUB_ACTIONS_APP_ID = 15368
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
@@ -438,6 +441,178 @@ def _exclusion_record(entry: dict[str, Any], reasons: list[str]) -> dict[str, An
         "head_sha": entry.get("head_sha"),
         "reasons": reasons,
     }
+
+
+def _short_sha(value: Any, *, length: int = 12) -> str:
+    text = str(value or "").strip()
+    return text[:length] if text else "unknown"
+
+
+def _pr_url(repo: str | None, pr_number: int | None) -> str:
+    if pr_number is None:
+        return ""
+    slug = _normalize_repo_slug(repo)
+    if not slug:
+        return f"PR #{pr_number}"
+    return f"https://github.com/{slug}/pull/{pr_number}"
+
+
+def _metadata_field(
+    entry: dict[str, Any],
+    metadata: dict[str, Any],
+    name: str,
+    default: str = "",
+) -> str:
+    value = metadata.get(name)
+    if value is None or value == "":
+        value = entry.get(name)
+    return str(value or default)
+
+
+def _policy_decision_record_payload(
+    *,
+    entry: dict[str, Any],
+    metadata: dict[str, Any],
+    reasons: list[str],
+    repo: str | None,
+    generated_at: str,
+) -> dict[str, Any]:
+    pr_number = _entry_pr(entry)
+    evidence = evidence_summary(entry)
+    return {
+        "schema_version": POLICY_DECISION_SCHEMA_VERSION,
+        "generated_at": generated_at,
+        "source": "scripts/settle_one_pr.py",
+        "status": "parked_policy",
+        "pr_number": pr_number,
+        "title": _metadata_field(entry, metadata, "title"),
+        "url": _pr_url(repo, pr_number),
+        "head_sha": str(entry.get("head_sha") or ""),
+        "policy_reasons": reasons,
+        "blockers": [f"excluded_by_policy: {reason}" for reason in reasons],
+        "mergeability": {
+            "mergeable": _metadata_field(entry, metadata, "mergeable"),
+            "mergeStateStatus": _metadata_field(entry, metadata, "mergeStateStatus"),
+        },
+        "quorum_state": {
+            "status": entry.get("status"),
+            "verdict": entry.get("verdict"),
+            "admin_squash_allowed": bool(entry.get("admin_squash_allowed")),
+            "counted_reviewer_ids": evidence["counted_reviewer_ids"],
+            "reviewer_signal_count": evidence["reviewer_signal_count"],
+            "dogfood_evidence_count": evidence["dogfood_evidence_count"],
+            "missing_model_quorum": evidence["missing_model_quorum"],
+            "missing_focused_dogfood": evidence["missing_focused_dogfood"],
+        },
+        "required_check_state": {
+            "checks_summary": _effective_check_summary(entry),
+            "check_surfaces": entry.get("check_surfaces") or {},
+        },
+        "requested_operator_action": (
+            "Keep this PR parked under steward policy unless the operator explicitly "
+            "authorizes a separate settlement path for this exact head."
+        ),
+        "one_word_reply": "hold",
+    }
+
+
+def _policy_decision_record_path(
+    *,
+    state_root: Path,
+    pr_number: int | None,
+    head_sha: str,
+) -> Path:
+    safe_pr = str(pr_number) if pr_number is not None else "unknown"
+    return (
+        state_root
+        / ".aragora"
+        / "founder-decisions"
+        / f"policy-exclusion-pr{safe_pr}-{_short_sha(head_sha)}.md"
+    )
+
+
+def _policy_decision_markdown(payload: dict[str, Any]) -> str:
+    pr_number = payload.get("pr_number")
+    head_sha = str(payload.get("head_sha") or "")
+    short_head = _short_sha(head_sha)
+    reasons = ", ".join(str(reason) for reason in payload.get("policy_reasons") or [])
+    mergeability = (
+        payload.get("mergeability") if isinstance(payload.get("mergeability"), dict) else {}
+    )
+    quorum = payload.get("quorum_state") if isinstance(payload.get("quorum_state"), dict) else {}
+    checks = (
+        payload.get("required_check_state")
+        if isinstance(payload.get("required_check_state"), dict)
+        else {}
+    )
+    url = str(payload.get("url") or f"PR #{pr_number}")
+    link = f"PR #{pr_number}: {url}" if pr_number is not None else url
+    current_blocker = (
+        f"`settle_one_pr.py` parked this exact head `{short_head}` because policy excludes "
+        f"{reasons or 'this PR'}. Merge state: "
+        f"{mergeability.get('mergeable') or 'unknown'} / "
+        f"{mergeability.get('mergeStateStatus') or 'unknown'}. "
+        f"Quorum verdict: {quorum.get('verdict') or 'unknown'}. "
+        f"Required checks: {checks.get('checks_summary') or 'unknown'}."
+    )
+    return (
+        "# Founder Decision Queue Packet\n\n"
+        f"Generated: {payload.get('generated_at')}\n\n"
+        "Purpose: park a settlement-steward policy exclusion with an exact-head, "
+        "machine-readable record so conductor loops do not retry the same blocked "
+        "Dependabot state.\n\n"
+        "## Pending Rulings\n\n"
+        "| Priority | Link | Current blocker | Requested action | One-word reply |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        f"| 1 | {link} | {current_blocker} | {payload.get('requested_operator_action')} | "
+        f"`{payload.get('one_word_reply')}` |\n\n"
+        "## Structured Record\n\n"
+        "```json\n"
+        f"{json.dumps(payload, indent=2, sort_keys=True)}\n"
+        "```\n\n"
+        "## Safety Notes\n\n"
+        "This packet does not approve, settle, merge, rerun checks, post evidence, "
+        "set statuses, mutate branches, or bypass any gate. It only records the "
+        "policy parking decision needed by operator transport surfaces.\n"
+    )
+
+
+def write_policy_decision_record(
+    *,
+    entry: dict[str, Any],
+    metadata: dict[str, Any],
+    reasons: list[str],
+    repo: str | None,
+    state_root: Path,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    generated_at = (now or datetime.now(UTC)).isoformat()
+    payload = _policy_decision_record_payload(
+        entry=entry,
+        metadata=metadata,
+        reasons=reasons,
+        repo=repo,
+        generated_at=generated_at,
+    )
+    path = _policy_decision_record_path(
+        state_root=state_root,
+        pr_number=_entry_pr(entry),
+        head_sha=str(payload.get("head_sha") or ""),
+    )
+    record = {
+        "schema_version": POLICY_DECISION_SCHEMA_VERSION,
+        "path": str(path),
+        "created": False,
+        "payload": payload,
+    }
+    if path.exists():
+        return record
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f"{path.name}.tmp")
+    tmp_path.write_text(_policy_decision_markdown(payload), encoding="utf-8")
+    tmp_path.replace(path)
+    record["created"] = True
+    return record
 
 
 def _candidate_record(
@@ -1702,16 +1877,28 @@ def build_report(
     report["head_sha"] = str(selected.get("head_sha", "") or "")
     blockers = list(selection_blockers)
     blockers.extend(entry_blockers(selected))
-    blockers.extend(
-        f"excluded_by_policy: {reason}"
-        for reason in policy_exclusion_reasons(
-            selected,
-            exclude_prs=exclude_prs,
-            active_owned_prs=active_owned_prs,
-            policy_metadata=policy_metadata,
-        )
+    policy_reasons = policy_exclusion_reasons(
+        selected,
+        exclude_prs=exclude_prs,
+        active_owned_prs=active_owned_prs,
+        policy_metadata=policy_metadata,
     )
+    policy_blockers = [f"excluded_by_policy: {reason}" for reason in policy_reasons]
+    blockers.extend(policy_blockers)
     report["evidence"] = evidence_summary(selected)
+    should_park_policy = policy_reasons == ["Dependabot PR"]
+    policy_only_blocked = (
+        should_park_policy and policy_blockers and set(blockers).issubset(set(policy_blockers))
+    )
+    if policy_only_blocked:
+        state_root = state_root or _state_repo_root(cwd)
+        report["policy_decision_record"] = write_policy_decision_record(
+            entry=selected,
+            metadata=_metadata_for_entry(selected, policy_metadata),
+            reasons=policy_reasons,
+            repo=repo,
+            state_root=state_root,
+        )
 
     if live and pr_number is not None and not blockers:
         state_root = state_root or _state_repo_root(cwd)
@@ -1866,6 +2053,8 @@ def build_report(
         report["suggested_commands"].append(
             f"collect minimum current-head countable model evidence for #{pr_number}"
         )
+    elif policy_only_blocked:
+        report["status"] = "parked_policy"
     elif blockers:
         report["status"] = "blocked"
     else:
