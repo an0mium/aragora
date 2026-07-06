@@ -7,8 +7,13 @@ originating channels, enabling:
 - Retry logic on transient failures (platform API errors)
 - Priority-based delivery scheduling
 
+Lives in ``aragora.server.workers`` rather than ``aragora.queue.workers``
+because it imports ``aragora.server.debate_origin`` and
+``aragora.integrations.email_reply_loop``, both interface-layer packages
+(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §6.2, §10 Q4).
+
 Usage:
-    from aragora.queue.workers.routing_worker import RoutingWorker
+    from aragora.server.workers.routing_worker import RoutingWorker
 
     worker = RoutingWorker()
     await worker.start()  # Starts processing loop

@@ -192,7 +192,7 @@ class GauntletRunnerMixin:
         if is_durable_queue_enabled():
             # Durable queue - survives server restarts, supports retry
             try:
-                from aragora.queue.workers.gauntlet_worker import enqueue_gauntlet_job
+                from aragora.server.workers.gauntlet_worker import enqueue_gauntlet_job
 
                 create_tracked_task(
                     enqueue_gauntlet_job(

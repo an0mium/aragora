@@ -306,6 +306,14 @@ class DebateHooks:
                     self._continuum_retrieved_ids,
                     tiers=self._continuum_retrieved_tiers,
                 )
+            has_pending_updates = getattr(
+                self.memory_manager,
+                "has_pending_outcome_updates",
+                False,
+            )
+            if not isinstance(has_pending_updates, bool):
+                has_pending_updates = False
+            if self._continuum_retrieved_ids or has_pending_updates:
                 self.memory_manager.update_memory_outcomes(result)
 
             # Clear tracking

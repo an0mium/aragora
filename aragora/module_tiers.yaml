@@ -35,7 +35,7 @@ modules:
   - name: agents
     tier: core
     py_files: 83
-    importer_count: 184
+    importer_count: 183
     test_file_count: 168
     override_reason: "Agent factory, 43 registered types"
   - name: billing
@@ -45,9 +45,9 @@ modules:
     test_file_count: 125
   - name: cli
     tier: core
-    py_files: 121
-    importer_count: 8
-    test_file_count: 149
+    py_files: 122
+    importer_count: 9
+    test_file_count: 151
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
@@ -63,7 +63,7 @@ modules:
   - name: core
     tier: core
     py_files: 19
-    importer_count: 206
+    importer_count: 205
     test_file_count: 196
     override_reason: "root type hierarchy + Agent base class"
   - name: db
@@ -74,20 +74,20 @@ modules:
     override_reason: "database abstraction"
   - name: debate
     tier: core
-    py_files: 264
-    importer_count: 161
-    test_file_count: 609
+    py_files: 265
+    importer_count: 160
+    test_file_count: 611
     override_reason: "Arena + DebateProtocol + consensus — mainline flow"
   - name: events
     tier: core
     py_files: 26
-    importer_count: 128
-    test_file_count: 57
+    importer_count: 129
+    test_file_count: 58
   - name: gauntlet
     tier: core
     py_files: 39
     importer_count: 66
-    test_file_count: 111
+    test_file_count: 112
   - name: knowledge
     tier: core
     py_files: 178
@@ -103,7 +103,7 @@ modules:
     tier: core
     py_files: 162
     importer_count: 89
-    test_file_count: 222
+    test_file_count: 223
   - name: observability
     tier: core
     py_files: 92
@@ -153,7 +153,7 @@ modules:
     tier: integrated
     py_files: 29
     importer_count: 16
-    test_file_count: 27
+    test_file_count: 28
   - name: analytics
     tier: integrated
     py_files: 6
@@ -256,9 +256,9 @@ modules:
     test_file_count: 12
   - name: epistemic
     tier: integrated
-    py_files: 21
+    py_files: 22
     importer_count: 12
-    test_file_count: 25
+    test_file_count: 26
   - name: essay
     tier: integrated
     py_files: 6
@@ -488,8 +488,8 @@ modules:
   - name: review
     tier: integrated
     py_files: 14
-    importer_count: 13
-    test_file_count: 28
+    importer_count: 14
+    test_file_count: 29
   - name: rlm
     tier: integrated
     py_files: 31
@@ -524,7 +524,7 @@ modules:
     tier: integrated
     py_files: 44
     importer_count: 47
-    test_file_count: 55
+    test_file_count: 56
   - name: skills
     tier: integrated
     py_files: 21
@@ -549,7 +549,7 @@ modules:
     tier: integrated
     py_files: 126
     importer_count: 32
-    test_file_count: 198
+    test_file_count: 199
   - name: templates
     tier: integrated
     py_files: 1
@@ -614,7 +614,7 @@ modules:
     test_file_count: 1
   - name: approvals
     tier: experimental
-    py_files: 5
+    py_files: 6
     importer_count: 7
     test_file_count: 3
   - name: brief_engine

@@ -1,4 +1,10 @@
-"""Durable job queue worker for TestFixer."""
+"""
+Durable job queue worker for TestFixer.
+
+Lives in ``aragora.nomic.testfixer`` rather than ``aragora.queue.workers``
+because it imports ``aragora.nomic.testfixer.http_api``, an application-layer
+package (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §6.2, §10 Q4).
+"""
 
 from __future__ import annotations
 
