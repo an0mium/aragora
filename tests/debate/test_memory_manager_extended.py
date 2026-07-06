@@ -287,7 +287,8 @@ class TestOutcomeUpdates:
 
         # All three should have been attempted
         assert mock_continuum_memory.update_outcome.call_count == 3
-        assert manager._retrieved_ids == ["mem_2"]
+        assert manager._retrieved_ids == []
+        assert [update.memory_id for update in manager._pending_outcome_updates] == ["mem_2"]
 
     def test_failed_outcome_updates_keep_tier_state_for_retry(
         self, manager, mock_debate_result, mock_continuum_memory
@@ -307,8 +308,51 @@ class TestOutcomeUpdates:
 
         manager.update_memory_outcomes(mock_debate_result)
 
-        assert manager._retrieved_ids == ["mem_2"]
-        assert manager._retrieved_tiers == {"mem_2": "slow"}
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+        assert len(manager._pending_outcome_updates) == 1
+        pending = manager._pending_outcome_updates[0]
+        assert pending.memory_id == "mem_2"
+        assert pending.tier == "slow"
+        assert pending.success is True
+        assert pending.confidence == pytest.approx(0.8)
+
+    def test_outcome_retry_uses_original_debate_payload(self, manager, mock_continuum_memory):
+        """Pending outcome retries use their source debate payload, not the next debate's."""
+        debate_a = MagicMock()
+        debate_a.id = "debate-a"
+        debate_a.consensus_reached = True
+        debate_a.confidence = 0.9
+
+        debate_b = MagicMock()
+        debate_b.id = "debate-b"
+        debate_b.consensus_reached = False
+        debate_b.confidence = 0.2
+
+        manager.track_retrieved_ids(["mem_a"], tiers={"mem_a": "fast"})
+        mock_continuum_memory.update_outcome.side_effect = [RuntimeError("transient")]
+
+        manager.update_memory_outcomes(debate_a)
+
+        assert manager._retrieved_ids == []
+        assert [update.memory_id for update in manager._pending_outcome_updates] == ["mem_a"]
+
+        manager.track_retrieved_ids(["mem_b"], tiers={"mem_b": "slow"})
+        mock_continuum_memory.update_outcome.side_effect = [None, None]
+
+        manager.update_memory_outcomes(debate_b)
+
+        assert mock_continuum_memory.update_outcome.call_count == 3
+        retry_call = mock_continuum_memory.update_outcome.call_args_list[1]
+        current_call = mock_continuum_memory.update_outcome.call_args_list[2]
+        assert retry_call.kwargs["id"] == "mem_a"
+        assert retry_call.kwargs["success"] is True
+        assert retry_call.kwargs["agent_prediction_error"] == pytest.approx(0.1)
+        assert current_call.kwargs["id"] == "mem_b"
+        assert current_call.kwargs["success"] is False
+        assert current_call.kwargs["agent_prediction_error"] == pytest.approx(0.2)
+        assert manager._pending_outcome_updates == []
+        assert manager._retrieved_ids == []
 
     def test_tier_analytics_failures_do_not_abort_batch_or_leave_tracked_ids(
         self, manager, mock_debate_result, mock_continuum_memory
