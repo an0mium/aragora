@@ -985,6 +985,24 @@ class TestSecurityEventEmitter:
         assert "literal-secret" not in serialized
         assert "secret_key" not in serialized
 
+    def test_event_to_dict_sanitizes_secret_type_metadata(self):
+        """Redacted metadata should not echo scanner-controlled secret_type values."""
+        finding = SecurityFinding(
+            id="metadata-secret-type-1",
+            finding_type="secret",
+            severity=SecuritySeverity.CRITICAL,
+            title="Token literal-secret",
+            description="literal-secret",
+            metadata={"secret_type": "literal-secret", "raw_secret": "literal-secret"},
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert data["findings"][0]["metadata"] == {"secret_type": "unknown"}
+        assert "literal-secret" not in serialized
+
     def test_event_to_dict_redacts_nested_secret_metadata_keys(self):
         """Nested secret-bearing metadata key names should fail closed."""
         finding = SecurityFinding(

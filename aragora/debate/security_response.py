@@ -31,6 +31,7 @@ from aragora.events.security_events import (
     _register_default_security_debate_runner,
     _store_security_debate_result,
     is_secret_finding,
+    safe_secret_type,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ def build_security_debate_question(event: SecurityEvent) -> str:
         question_parts.append(f"vulnerabilities ({vuln_summary})")
 
     if secrets:
-        secret_types = set(s.metadata.get("secret_type", "unknown") for s in secrets)
+        secret_types = set(safe_secret_type(s.metadata.get("secret_type")) for s in secrets)
         question_parts.append(f"exposed secrets ({', '.join(secret_types)})")
 
     findings_str = " and ".join(question_parts)

@@ -221,6 +221,24 @@ class TestBuildSecurityDebateQuestion:
         assert "literal-secret" not in q
         assert "Scanner finding" not in q
 
+    def test_question_sanitizes_secret_type_metadata(self):
+        """Prompt secret summaries should not echo scanner-controlled secret_type."""
+        finding = SecurityFinding(
+            id="f-malformed-secret-type",
+            finding_type="secret",
+            severity=SecuritySeverity.CRITICAL,
+            title="Token literal-secret",
+            description="literal-secret",
+            metadata={"secret_type": "literal-secret"},
+        )
+        event = SecurityEvent(repository="org/app", findings=[finding])
+
+        q = build_security_debate_question(event)
+
+        assert "exposed secrets (unknown)" in q
+        assert "literal-secret" not in q
+        assert "Secret finding" in q
+
     def test_question_keeps_credential_vulnerability_context(self):
         """Credential-mentioning CVE text should remain vulnerability context."""
         finding = SecurityFinding(

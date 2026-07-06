@@ -167,6 +167,31 @@ SECRET_VALUE_EXPOSURE_TERMS = (
     "exposure",
     "leaked",
 )
+SAFE_SECRET_TYPES = frozenset(
+    {
+        "access_key",
+        "access_token",
+        "api_key",
+        "api_token",
+        "auth_token",
+        "aws_access_key",
+        "aws_access_key_id",
+        "aws_secret_access_key",
+        "bearer_token",
+        "client_secret",
+        "credential",
+        "credentials",
+        "github_token",
+        "gitlab_token",
+        "hardcoded_credential",
+        "password",
+        "private_key",
+        "secret_key",
+        "slack_token",
+        "token",
+        "unknown",
+    }
+)
 
 
 SECRET_FINDING_TEXT_KEYS = ("title", "description", "recommendation")
@@ -251,6 +276,16 @@ def _has_secret_metadata_key_signature(value: Any) -> bool:
     return False
 
 
+def safe_secret_type(value: Any) -> str:
+    """Return an allowlisted secret type label safe for logs and prompts."""
+    if value is None:
+        return "unknown"
+    normalized = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized in SAFE_SECRET_TYPES:
+        return normalized
+    return "unknown"
+
+
 def _has_secret_rule_signature(value: Any) -> bool:
     for text in _iter_text_values(value):
         if _text_has_any_term(text, SECRET_RULE_TERMS):
@@ -307,7 +342,7 @@ def redacted_security_metadata_dict(metadata: dict[str, Any]) -> dict[str, Any]:
     """Serialize event metadata without exposing secret-like material."""
     if not _has_secret_metadata_signature(metadata):
         return metadata
-    return {"secret_type": metadata.get("secret_type", "unknown")}
+    return {"secret_type": safe_secret_type(metadata.get("secret_type"))}
 
 
 def is_secret_finding(
@@ -357,7 +392,7 @@ def redacted_security_finding_dict(
         "package_name": None,
         "package_version": None,
         "recommendation": "Rotate or revoke the exposed credential and remove it from history.",
-        "metadata": {"secret_type": metadata.get("secret_type", "unknown")},
+        "metadata": {"secret_type": safe_secret_type(metadata.get("secret_type"))},
     }
 
 
