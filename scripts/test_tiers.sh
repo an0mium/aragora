@@ -186,17 +186,27 @@ case "$tier" in
     # Run mypy on aragora - REQUIRED (0 errors as of Phase 5)
     echo -e "${YELLOW}=== Type checking aragora (REQUIRED) ===${NC}"
 
-    # Count actual errors (not notes) - pattern: "file:line:col: error:"
-    # Disable pipefail for this pipeline since mypy returns non-zero on errors
-    ERROR_COUNT=$(set +o pipefail; mypy aragora/ --ignore-missing-imports --show-error-codes 2>/dev/null | { grep -cE "^[^:]+:[0-9]+:[0-9]+: error:" || true; } | tr -d '[:space:]')
+    set +e
+    MYPY_OUTPUT="$(mypy aragora/ --ignore-missing-imports --show-error-codes 2>&1)"
+    MYPY_STATUS=$?
+    set -e
+
+    # Count actual errors (not notes). Mypy may emit either
+    # "file:line: error:" or "file:line:col: error:" depending on config/version.
+    ERROR_COUNT=$(printf '%s\n' "$MYPY_OUTPUT" | { grep -cE "^[^:]+:[0-9]+(:[0-9]+)?: error:" || true; } | tr -d '[:space:]')
     ERROR_COUNT=${ERROR_COUNT:-0}
 
-    if [ "$ERROR_COUNT" -gt 0 ]; then
+    if [ "$MYPY_STATUS" -ne 0 ] || [ "$ERROR_COUNT" -gt 0 ]; then
       echo -e "${RED}Found $ERROR_COUNT mypy error(s)!${NC}"
-      mypy aragora/ --ignore-missing-imports --show-error-codes
+      if [ -n "$MYPY_OUTPUT" ]; then
+        printf '%s\n' "$MYPY_OUTPUT"
+      fi
       echo ""
       echo -e "${RED}=== Type check FAILED ===${NC}"
       echo "mypy error count must remain at 0 (currently: $ERROR_COUNT)"
+      if [ "$MYPY_STATUS" -ne 0 ]; then
+        exit "$MYPY_STATUS"
+      fi
       exit 1
     fi
 
