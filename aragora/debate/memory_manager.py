@@ -46,6 +46,14 @@ _EXPECTED_SIDE_EFFECT_EXCEPTIONS = (
     ValueError,
     KeyError,
 )
+_TRANSIENT_SIDE_EFFECT_EXCEPTIONS = (
+    OSError,
+    RuntimeError,
+    ConnectionError,
+    TimeoutError,
+    StopIteration,
+    ImportError,
+)
 _MAX_PENDING_OUTCOME_UPDATES = 256
 
 
@@ -56,7 +64,7 @@ def _run_noncritical_memory_side_effect(label: str, action: Callable[[], None]) 
     except _EXPECTED_SIDE_EFFECT_EXCEPTIONS as e:
         logger.debug("%s: %s", label, e)
         return False
-    except Exception as e:  # noqa: BLE001 - side-effect adapters must stay contained.
+    except _TRANSIENT_SIDE_EFFECT_EXCEPTIONS as e:
         logger.warning("%s: %s", label, e)
         return False
     return True
@@ -1001,7 +1009,7 @@ class MemoryManager:
                         e,
                     )
                     return "dropped"
-                except Exception as e:  # noqa: BLE001 - transient adapters must not break debate flow.
+                except _TRANSIENT_SIDE_EFFECT_EXCEPTIONS as e:
                     logger.warning(
                         "  [continuum] Failed to update memory %s: %s",
                         update.memory_id,

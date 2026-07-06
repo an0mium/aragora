@@ -279,7 +279,7 @@ class TestOutcomeUpdates:
         # Make second update fail
         mock_continuum_memory.update_outcome.side_effect = [
             None,  # First succeeds
-            Exception("Database error"),  # Second fails
+            RuntimeError("Database error"),  # Second fails
             None,  # Third succeeds
         ]
 
@@ -488,7 +488,7 @@ class TestEventEmission:
         mock_debate_embeddings.find_similar_debates.return_value = [
             ("debate_1", "Topic 1", 0.85),
         ]
-        mock_spectator.emit.side_effect = Exception("Notification failed")
+        mock_spectator.emit.side_effect = RuntimeError("Notification failed")
 
         # Should not raise
         result = await manager.fetch_historical_context("test task")
