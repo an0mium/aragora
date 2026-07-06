@@ -826,6 +826,110 @@ def test_terminal_prompt_handoff_receipt_does_not_skip_distinct_prompt_same_bran
     assert handoffs[0].idempotency_key == "prompt-handoff-new"
 
 
+def test_prompt_artifact_blocker_rejects_absolute_path_outside_outbox(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    source = outbox / "prompt.json"
+    source.write_text("{}", encoding="utf-8")
+    secret = tmp_path / "secret.txt"
+    secret.write_text("do not publish", encoding="utf-8")
+    secret_sha = hashlib.sha256(secret.read_bytes()).hexdigest()
+
+    blocker = mod._prompt_artifact_blocker(
+        tmp_path,
+        Handoff(
+            source_file=str(source),
+            task_title="Publish prompt handoff",
+            priority="HIGH",
+            body="body",
+            labels={},
+            expires_at=None,
+            source_kind="outbox",
+            requested_action="prompt_handoff",
+            prompt_artifact_path=str(secret),
+            prompt_artifact_sha256=secret_sha,
+        ),
+    )
+
+    assert blocker == "prompt_artifact_outside_outbox"
+
+
+def test_prompt_artifact_blocker_requires_hash_for_outbox_artifact(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    artifact_root = outbox / mod.PROMPT_ARTIFACT_DIR
+    artifact_root.mkdir(parents=True)
+    source = outbox / "prompt.json"
+    source.write_text("{}", encoding="utf-8")
+    artifact = artifact_root / "prompt.md"
+    artifact.write_text("prompt", encoding="utf-8")
+
+    blocker = mod._prompt_artifact_blocker(
+        tmp_path,
+        Handoff(
+            source_file=str(source),
+            task_title="Publish prompt handoff",
+            priority="HIGH",
+            body="body",
+            labels={},
+            expires_at=None,
+            source_kind="outbox",
+            requested_action="prompt_handoff",
+            prompt_artifact_path=str(artifact),
+        ),
+    )
+
+    assert blocker == "prompt_artifact_sha_missing"
+
+
+def test_decide_handoffs_keeps_prompt_handoff_actionable_for_open_branch_pr(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Prompt handoff for active repair branch",
+        priority="HIGH",
+        body="body",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        requested_action="prompt_handoff",
+        branch="codex/active-repair",
+        desired_head="abc1234",
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args and args[0] in {"gh", "git"}:
+            raise AssertionError(f"prompt handoff should not use branch/PR blocker: {args}")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=True,
+            reason="eligible",
+            branch="codex/active-repair",
+            desired_head="abc1234",
+        )
+    ]
+
+
 def test_load_outbox_handoffs_skips_already_merged_branch_head(tmp_path: Path) -> None:
     repo, head = _repo_with_merged_codex_branch(tmp_path)
     outbox = repo / ".aragora" / "automation-outbox"
@@ -2722,7 +2826,8 @@ def test_create_issue_posts_prompt_artifact_as_repo_visible_comment(
     issue_bodies: list[str] = []
     comment_bodies: list[str] = []
     prompt = "Start from live repo truth.\n" + ("x" * 1000) + "END-OF-PROMPT"
-    artifact = tmp_path / "prompt.md"
+    artifact = tmp_path / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
+    artifact.parent.mkdir()
     artifact.write_text(prompt, encoding="utf-8")
     prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
@@ -2762,6 +2867,52 @@ def test_create_issue_posts_prompt_artifact_as_repo_visible_comment(
     assert len(comment_bodies) == 1
     assert prompt_sha in comment_bodies[0]
     assert "END-OF-PROMPT" in comment_bodies[0]
+
+
+def test_create_issue_closes_incomplete_issue_when_prompt_artifact_comment_fails(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    closed: list[list[str]] = []
+    prompt = "Start from live repo truth."
+    artifact = tmp_path / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
+    artifact.parent.mkdir()
+    artifact.write_text(prompt, encoding="utf-8")
+    prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "create"]:
+            return subprocess.CompletedProcess(
+                args, 0, "https://github.com/synaptent/aragora/issues/6003\n", ""
+            )
+        if args[:3] == ["gh", "issue", "comment"]:
+            return subprocess.CompletedProcess(args, 1, "", "comment failed")
+        if args[:3] == ["gh", "issue", "close"]:
+            closed.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    with pytest.raises(RuntimeError, match="comment failed"):
+        mod._create_issue(
+            tmp_path,
+            "synaptent/aragora",
+            Handoff(
+                source_file=str(tmp_path / "handoff.json"),
+                task_title="Long prompt handoff",
+                priority="HIGH",
+                body="Prompt preview only",
+                labels={},
+                expires_at=None,
+                prompt_artifact_path=str(artifact),
+                prompt_artifact_sha256=prompt_sha,
+            ),
+            labels=["boss-ready"],
+        )
+
+    assert closed
+    assert closed[0][:3] == ["gh", "issue", "close"]
+    assert closed[0][3] == "6003"
 
 
 def test_create_issue_preserves_boundary_sized_body(monkeypatch: Any, tmp_path: Path) -> None:

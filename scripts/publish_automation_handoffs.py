@@ -39,6 +39,7 @@ DEFAULT_MAX_OPEN_ISSUES = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
 MAX_ISSUE_BODY_CHARS = 60_000
 MAX_PROMPT_ARTIFACT_COMMENT_CHARS = 55_000
+PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_BASE_REF = "origin/main"
@@ -176,6 +177,7 @@ class Handoff:
     expires_at: str | None
     idempotency_key: str | None = None
     source_kind: str = "memory"
+    requested_action: str | None = None
     branch: str | None = None
     desired_head: str | None = None
     prompt_artifact_path: str | None = None
@@ -248,6 +250,7 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _gh_write_op(args: list[str]) -> bool:
     return len(args) >= 2 and (args[0], args[1]) in {
+        ("issue", "close"),
         ("issue", "create"),
         ("issue", "edit"),
         ("issue", "comment"),
@@ -663,6 +666,10 @@ def _is_pr_open_request(payload: dict[str, Any]) -> bool:
     )
 
 
+def _is_prompt_handoff(handoff: Handoff) -> bool:
+    return handoff.source_kind == "outbox" and handoff.requested_action == "prompt_handoff"
+
+
 def _outbox_branch_fingerprint(payload: dict[str, Any]) -> str | None:
     requested_action = _normalized_requested_action(payload.get("requested_action"))
     repo = str(payload.get("repo") or "").strip()
@@ -795,13 +802,34 @@ def _stale_outbox_head(repo_root: Path, handoff: Handoff) -> str | None:
     return branch_tip
 
 
+def _path_is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _prompt_artifact_root(handoff: Handoff) -> Path:
+    return (Path(handoff.source_file).resolve().parent / PROMPT_ARTIFACT_DIR).resolve()
+
+
 def _resolve_prompt_artifact_path(repo_root: Path, handoff: Handoff) -> Path | None:
     if not handoff.prompt_artifact_path:
         return None
-    path = Path(handoff.prompt_artifact_path).expanduser()
-    if not path.is_absolute():
-        path = repo_root / path
-    return path
+    raw_path = Path(handoff.prompt_artifact_path)
+    allowed_root = _prompt_artifact_root(handoff)
+    source_root = Path(handoff.source_file).resolve().parent
+    candidates = (
+        [raw_path]
+        if raw_path.is_absolute()
+        else [repo_root / raw_path, source_root / raw_path, allowed_root / raw_path]
+    )
+    for candidate in candidates:
+        resolved = candidate.resolve(strict=False)
+        if _path_is_relative_to(resolved, allowed_root):
+            return resolved
+    return None
 
 
 def _prompt_artifact_sha256(path: Path) -> str:
@@ -811,11 +839,17 @@ def _prompt_artifact_sha256(path: Path) -> str:
 def _prompt_artifact_blocker(repo_root: Path, handoff: Handoff) -> str | None:
     path = _resolve_prompt_artifact_path(repo_root, handoff)
     if path is None:
+        if handoff.prompt_artifact_path:
+            return "prompt_artifact_outside_outbox"
         return None
     if not path.is_file():
         return "prompt_artifact_missing"
     expected_sha = str(handoff.prompt_artifact_sha256 or "").strip()
-    if expected_sha and _prompt_artifact_sha256(path) != expected_sha:
+    if not expected_sha:
+        return "prompt_artifact_sha_missing"
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", expected_sha):
+        return "prompt_artifact_sha_invalid"
+    if _prompt_artifact_sha256(path) != expected_sha.lower():
         return "prompt_artifact_sha_mismatch"
     return None
 
@@ -828,7 +862,7 @@ def _local_handoff_blocker(repo_root: Path, handoff: Handoff) -> PublishDecision
             eligible=False,
             reason=prompt_artifact_blocker,
         )
-    if _stale_outbox_head(repo_root, handoff):
+    if not _is_prompt_handoff(handoff) and _stale_outbox_head(repo_root, handoff):
         return _decision_for_handoff(
             handoff,
             eligible=False,
@@ -1041,6 +1075,7 @@ def _load_outbox_handoffs_with_skip_reasons(
             expires_at=expires_at,
             idempotency_key=idempotency_key,
             source_kind="outbox",
+            requested_action=requested_action,
             branch=_outbox_evidence_value(payload, "branch") or None,
             desired_head=_outbox_desired_head(payload),
             prompt_artifact_path=_outbox_prompt_artifact_path(payload),
@@ -1313,6 +1348,7 @@ def _create_issue(
     *,
     labels: list[str],
 ) -> str:
+    prompt_artifact_comment_bodies = _prompt_artifact_comment_bodies(repo_root, handoff)
     args = [
         "gh",
         "issue",
@@ -1330,12 +1366,19 @@ def _create_issue(
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh issue create failed")
     url = str(proc.stdout or "").strip().splitlines()[-1].strip()
-    _add_prompt_artifact_comments(repo_root, repo, url, handoff)
+    try:
+        _add_prompt_artifact_comments(repo_root, repo, url, prompt_artifact_comment_bodies)
+    except RuntimeError as exc:
+        _close_incomplete_prompt_issue(repo_root, repo, url, str(exc))
+        raise
     _add_issue_labels(repo_root, repo, url, labels)
     return url
 
 
 def _prompt_artifact_comment_bodies(repo_root: Path, handoff: Handoff) -> list[str]:
+    prompt_artifact_blocker = _prompt_artifact_blocker(repo_root, handoff)
+    if prompt_artifact_blocker is not None:
+        raise RuntimeError(prompt_artifact_blocker)
     path = _resolve_prompt_artifact_path(repo_root, handoff)
     if path is None:
         return []
@@ -1367,12 +1410,12 @@ def _add_prompt_artifact_comments(
     repo_root: Path,
     repo: str,
     issue_url: str,
-    handoff: Handoff,
+    bodies: list[str],
 ) -> None:
     number = _issue_number_from_url(issue_url)
     if not number:
         return
-    for body in _prompt_artifact_comment_bodies(repo_root, handoff):
+    for body in bodies:
         proc = _run(
             ["gh", "issue", "comment", number, "--repo", repo, "--body", body],
             cwd=repo_root,
@@ -1383,6 +1426,17 @@ def _add_prompt_artifact_comments(
                 or proc.stdout.strip()
                 or "gh issue comment failed for prompt artifact"
             )
+
+
+def _close_incomplete_prompt_issue(repo_root: Path, repo: str, issue_url: str, error: str) -> None:
+    number = _issue_number_from_url(issue_url)
+    if not number:
+        return
+    body = (
+        "Closing incomplete prompt handoff issue: required prompt artifact comment "
+        f"publication failed before the handoff became usable.\n\nError: {error}"
+    )
+    _run(["gh", "issue", "close", number, "--repo", repo, "--comment", body], cwd=repo_root)
 
 
 def _fit_issue_body(body: str) -> str:
@@ -1430,17 +1484,18 @@ def decide_handoffs(
         if local_blocker is not None:
             decisions.append(local_blocker)
             continue
-        target_pr = _target_open_pr(repo_root, repo, handoff)
-        if target_pr:
-            decisions.append(
-                _decision_for_handoff(
-                    handoff,
-                    eligible=False,
-                    reason="target_open_pr",
-                    existing_pr_url=str(target_pr.get("url") or ""),
+        if not _is_prompt_handoff(handoff):
+            target_pr = _target_open_pr(repo_root, repo, handoff)
+            if target_pr:
+                decisions.append(
+                    _decision_for_handoff(
+                        handoff,
+                        eligible=False,
+                        reason="target_open_pr",
+                        existing_pr_url=str(target_pr.get("url") or ""),
+                    )
                 )
-            )
-            continue
+                continue
         existing = _existing_issue(repo_root, repo, handoff.task_title)
         if existing:
             decisions.append(
@@ -1452,28 +1507,29 @@ def decide_handoffs(
                 )
             )
             continue
-        referenced_pr = _referenced_pr(repo_root, repo, handoff)
-        if referenced_pr and _pr_head_satisfies_handoff(handoff, referenced_pr):
-            decisions.append(
-                _decision_for_handoff(
-                    handoff,
-                    eligible=False,
-                    reason="existing_pr",
-                    existing_pr_url=str(referenced_pr.get("url") or ""),
+        if not _is_prompt_handoff(handoff):
+            referenced_pr = _referenced_pr(repo_root, repo, handoff)
+            if referenced_pr and _pr_head_satisfies_handoff(handoff, referenced_pr):
+                decisions.append(
+                    _decision_for_handoff(
+                        handoff,
+                        eligible=False,
+                        reason="existing_pr",
+                        existing_pr_url=str(referenced_pr.get("url") or ""),
+                    )
                 )
-            )
-            continue
-        existing_pr = _existing_pr(repo_root, repo, handoff.task_title)
-        if existing_pr and _pr_head_satisfies_handoff(handoff, existing_pr):
-            decisions.append(
-                _decision_for_handoff(
-                    handoff,
-                    eligible=False,
-                    reason="existing_pr",
-                    existing_pr_url=str(existing_pr.get("url") or ""),
+                continue
+            existing_pr = _existing_pr(repo_root, repo, handoff.task_title)
+            if existing_pr and _pr_head_satisfies_handoff(handoff, existing_pr):
+                decisions.append(
+                    _decision_for_handoff(
+                        handoff,
+                        eligible=False,
+                        reason="existing_pr",
+                        existing_pr_url=str(existing_pr.get("url") or ""),
+                    )
                 )
-            )
-            continue
+                continue
         if open_issue_count >= max_open_issues:
             decisions.append(
                 _decision_for_handoff(
