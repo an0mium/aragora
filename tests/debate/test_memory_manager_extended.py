@@ -9,6 +9,7 @@ Tests cover:
 """
 
 import logging
+import sqlite3
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -291,6 +292,32 @@ class TestOutcomeUpdates:
         assert manager._retrieved_ids == []
         assert [update.memory_id for update in manager._pending_outcome_updates] == ["mem_2"]
 
+    def test_sqlite_outcome_failure_is_retried_without_reapplying_successes(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
+        """SQLite write failures are transient and do not replay already-applied updates."""
+        manager._retrieved_ids = ["mem_ok", "mem_locked"]
+        mock_continuum_memory.update_outcome.side_effect = [
+            None,
+            sqlite3.OperationalError("database is locked"),
+        ]
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert [update.memory_id for update in manager._pending_outcome_updates] == ["mem_locked"]
+        assert [
+            call.kwargs["id"] for call in mock_continuum_memory.update_outcome.call_args_list
+        ] == ["mem_ok", "mem_locked"]
+
+        mock_continuum_memory.update_outcome.reset_mock()
+        mock_continuum_memory.update_outcome.side_effect = None
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        mock_continuum_memory.update_outcome.assert_called_once()
+        assert mock_continuum_memory.update_outcome.call_args.kwargs["id"] == "mem_locked"
+        assert manager._pending_outcome_updates == []
+
     def test_failed_outcome_updates_keep_tier_state_for_retry(
         self, manager, mock_debate_result, mock_continuum_memory
     ):
@@ -401,6 +428,26 @@ class TestOutcomeUpdates:
         assert [update.memory_id for update in pending] == ["mem_b", "mem_c"]
         assert [update.debate_id for update in pending] == ["debate-c", "debate-d"]
         assert len(pending) == 2
+
+    def test_pending_outcome_cap_logs_dropped_memory_ids(
+        self, manager, mock_continuum_memory, monkeypatch, caplog
+    ):
+        """Overflow policy keeps latest unique IDs and logs the dropped memory IDs."""
+        monkeypatch.setattr(memory_manager_module, "_MAX_PENDING_OUTCOME_UPDATES", 2)
+        mock_continuum_memory.update_outcome.side_effect = RuntimeError("transient")
+        manager.track_retrieved_ids(["mem_a", "mem_b", "mem_c"])
+
+        with caplog.at_level(logging.WARNING):
+            manager.update_memory_outcomes(
+                MagicMock(id="debate", consensus_reached=True, confidence=0.8)
+            )
+
+        assert [update.memory_id for update in manager._pending_outcome_updates] == [
+            "mem_b",
+            "mem_c",
+        ]
+        assert "policy=latest_per_memory_id" in caplog.text
+        assert "dropped_memory_ids=mem_a" in caplog.text
 
     def test_tier_analytics_failures_do_not_abort_batch_or_leave_tracked_ids(
         self, manager, mock_debate_result, mock_continuum_memory

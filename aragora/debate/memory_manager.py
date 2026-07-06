@@ -15,6 +15,7 @@ Performance optimizations:
 import asyncio
 import hashlib
 import logging
+import sqlite3
 import threading
 import time
 from collections import OrderedDict
@@ -53,6 +54,7 @@ _TRANSIENT_SIDE_EFFECT_EXCEPTIONS = (
     TimeoutError,
     StopIteration,
     ImportError,
+    sqlite3.Error,
 )
 _MAX_PENDING_OUTCOME_UPDATES = 256
 
@@ -1031,10 +1033,13 @@ class MemoryManager:
                 still_pending.append(update)
                 if len(still_pending) > _MAX_PENDING_OUTCOME_UPDATES:
                     overflow = len(still_pending) - _MAX_PENDING_OUTCOME_UPDATES
+                    dropped = still_pending[:overflow]
                     del still_pending[:overflow]
                     logger.warning(
-                        "  [continuum] Dropped %s oldest pending outcome update(s) after cap",
+                        "  [continuum] Dropped %s pending outcome update(s) after cap; "
+                        "policy=latest_per_memory_id; dropped_memory_ids=%s",
                         overflow,
+                        ",".join(update.memory_id for update in dropped),
                     )
 
             def record_tier_usage(update: _PendingMemoryOutcomeUpdate) -> None:
@@ -1441,6 +1446,11 @@ class MemoryManager:
     def retrieved_ids(self) -> list[str]:
         """Get list of currently tracked memory IDs."""
         return self._retrieved_ids.copy()
+
+    @property
+    def has_pending_outcome_updates(self) -> bool:
+        """Whether transient outcome-write failures are waiting for retry."""
+        return bool(self._pending_outcome_updates)
 
     # =========================================================================
     # Batch Operations and Prefetching
