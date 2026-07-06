@@ -392,6 +392,33 @@ const DOC_MAP = {
   'workflow/MARKETPLACE.md': 'guides/marketplace.md',
 
   // =========================================================================
+  // Specifications
+  //
+  // docs/specs/** design/governance specs. Intra-directory links between these
+  // files (e.g. 'TAMPER_EVIDENT_TRAIL.md' from OPEN_DECISION_RECEIPT.md) resolve
+  // via the source-relative lookup below, not through this table directly.
+  // =========================================================================
+  'specs/ADVISORY_REVIEW_RECOGNIZABLE_HEADER.md':
+    'specs/advisory-review-recognizable-header.md',
+  'specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md':
+    'specs/aragora-roadmap-revision-advocates.md',
+  'specs/ESSAY_REFINEMENT_PIPELINE.md': 'specs/essay-refinement-pipeline.md',
+  'specs/FINDING_SEVERITY_GATE.md': 'specs/finding-severity-gate.md',
+  'specs/INDEPENDENT_VERIFIER_GUIDE.md': 'specs/independent-verifier-guide.md',
+  'specs/LOCAL_ADVOCATE_TRAINING_PIPELINE.md': 'specs/local-advocate-training-pipeline.md',
+  'specs/MODEL_DISSENT_SEVERITY_GATE.md': 'specs/model-dissent-severity-gate.md',
+  'specs/MODEL_LINEAGE_DISCLOSURE.md': 'specs/model-lineage-disclosure.md',
+  'specs/MODEL_QUORUM_FAMILY_EXPANSION.md': 'specs/model-quorum-family-expansion.md',
+  'specs/OPEN_DECISION_RECEIPT.md': 'specs/open-decision-receipt.md',
+  'specs/QUORUM_EVIDENCE_RETRIGGER.md': 'specs/quorum-evidence-retrigger.md',
+  'specs/RECEIPT_LINEAGE_RECONCILIATION.md': 'specs/receipt-lineage-reconciliation.md',
+  'specs/TAMPER_EVIDENT_TRAIL.md': 'specs/tamper-evident-trail.md',
+  'specs/TIER4_SETTLEMENT_PROBE_TIMEOUT_REPORTING.md':
+    'specs/tier4-settlement-probe-timeout-reporting.md',
+  'specs/TIERED_MERGE_GATE_QUORUM_POLICY.md': 'specs/tiered-merge-gate-quorum-policy.md',
+  'specs/odr-native-mapping.md': 'specs/odr-native-mapping.md',
+
+  // =========================================================================
   // Additional Missing Files (commonly referenced)
   // =========================================================================
   // Core
@@ -509,6 +536,10 @@ const REPO_MARKDOWN_LINKS = {
   'algorithms/README.md': `${REPO_BLOB_BASE}/docs/algorithms/README.md`,
   '../deploy/README.md': `${REPO_BLOB_BASE}/deploy/README.md`,
   '../aragora/gauntlet/README.md': 'guides/gauntlet.md',
+  '../aragora-verify/README.md': `${REPO_BLOB_BASE}/aragora-verify/README.md`,
+  // RECEIPT_CONTRACT.md is operator-gated (canonical receipt-lineage statement) --
+  // point off-site rather than adding a DOC_MAP mirror entry for it.
+  'RECEIPT_CONTRACT.md': `${REPO_BLOB_BASE}/docs/RECEIPT_CONTRACT.md`,
 };
 const SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS = {
   'guides/SDK_CONSOLIDATION.md|README.md': `${REPO_BLOB_BASE}/sdk/typescript/README.md`,
@@ -869,6 +900,11 @@ function syncDocs() {
     { path: 'advanced', title: 'Advanced Topics', desc: 'Advanced features and internals' },
     { path: 'analysis', title: 'Analysis & Metrics', desc: 'Performance analysis and benchmarks' },
     { path: 'contributing', title: 'Contributing', desc: 'How to contribute to Aragora' },
+    {
+      path: 'specs',
+      title: 'Specifications',
+      desc: 'Design and governance specifications for receipts, quorum policy, and related protocols',
+    },
   ];
 
   for (const cat of categories) {

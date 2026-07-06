@@ -309,3 +309,117 @@ def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
             "../../aragora/gauntlet/README.md",
         ]:
             assert f"]({target})" not in content
+
+
+def test_docs_specs_directory_is_mirrored() -> None:
+    # docs/specs/** was previously entirely outside DOC_MAP: any relative link
+    # from a mirrored doc into it survived sync unmodified and 404d on the
+    # deployed docs-site. Pin down that every docs/specs/*.md source now has a
+    # mirrored destination.
+    expected_pages = [
+        "specs/advisory-review-recognizable-header.md",
+        "specs/aragora-roadmap-revision-advocates.md",
+        "specs/essay-refinement-pipeline.md",
+        "specs/finding-severity-gate.md",
+        "specs/independent-verifier-guide.md",
+        "specs/local-advocate-training-pipeline.md",
+        "specs/model-dissent-severity-gate.md",
+        "specs/model-lineage-disclosure.md",
+        "specs/model-quorum-family-expansion.md",
+        "specs/open-decision-receipt.md",
+        "specs/quorum-evidence-retrigger.md",
+        "specs/receipt-lineage-reconciliation.md",
+        "specs/tamper-evident-trail.md",
+        "specs/tier4-settlement-probe-timeout-reporting.md",
+        "specs/tiered-merge-gate-quorum-policy.md",
+        "specs/odr-native-mapping.md",
+        "specs/index.md",
+    ]
+    for rel_path in expected_pages:
+        page = DOCS_SITE_ROOT / rel_path
+        assert page.exists(), f"Expected synced docs-site page missing: {page}"
+
+
+def test_docs_specs_intra_directory_links_resolve_to_mirrored_siblings() -> None:
+    # Links between docs/specs/*.md files (e.g. OPEN_DECISION_RECEIPT.md <->
+    # TAMPER_EVIDENT_TRAIL.md) must resolve via the source-relative lookup to
+    # their mirrored specs/ siblings, not survive as raw source-relative .md
+    # targets that 404 once relocated under docs-site/docs/specs/.
+    open_decision_receipt = _read_docs_site("specs/open-decision-receipt.md")
+    receipt_lineage = _read_docs_site("specs/receipt-lineage-reconciliation.md")
+    independent_verifier = _read_docs_site("specs/independent-verifier-guide.md")
+    odr_native_mapping = _read_docs_site("specs/odr-native-mapping.md")
+
+    assert "[`docs/specs/TAMPER_EVIDENT_TRAIL.md`](./tamper-evident-trail)" in open_decision_receipt
+    assert "[`TAMPER_EVIDENT_TRAIL.md`](./tamper-evident-trail)" in open_decision_receipt
+    assert "[`odr-native-mapping.md`](./odr-native-mapping)" in open_decision_receipt
+
+    assert "[`docs/specs/OPEN_DECISION_RECEIPT.md`](./open-decision-receipt)" in receipt_lineage
+    assert "[`docs/specs/odr-native-mapping.md`](./odr-native-mapping)" in receipt_lineage
+
+    assert (
+        "[`docs/specs/OPEN_DECISION_RECEIPT.md`](./open-decision-receipt)" in independent_verifier
+    )
+    assert (
+        "[`docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md`](./receipt-lineage-reconciliation)"
+        in independent_verifier
+    )
+    assert "[`OPEN_DECISION_RECEIPT.md`](./open-decision-receipt)" in independent_verifier
+
+    assert "[`OPEN_DECISION_RECEIPT.md`](./open-decision-receipt)" in odr_native_mapping
+
+    for content in [
+        open_decision_receipt,
+        receipt_lineage,
+        independent_verifier,
+        odr_native_mapping,
+    ]:
+        assert "TAMPER_EVIDENT_TRAIL.md)" not in content
+        assert "OPEN_DECISION_RECEIPT.md)" not in content
+        assert "RECEIPT_LINEAGE_RECONCILIATION.md)" not in content
+        assert "odr-native-mapping.md)" not in content
+
+
+def test_documentation_index_links_into_specs_use_mirrored_relative_paths() -> None:
+    # docs/INDEX.md used to route these three links through absolute GitHub blob
+    # URLs (and a "Notes" caveat) specifically because docs/specs/ wasn't
+    # mirrored. Now that it is, the mirrored index must link to the real
+    # docs-site specs/ pages instead of GitHub, and the stale caveat must be gone.
+    content = _read_docs_site("contributing/documentation-index.md")
+
+    assert "[Open Decision Receipt Spec](../specs/open-decision-receipt)" in content
+    assert "[Receipt Lineage Reconciliation](../specs/receipt-lineage-reconciliation)" in content
+    assert "[Independent Verifier Guide](../specs/independent-verifier-guide)" in content
+
+    assert "github.com/synaptent/aragora/blob/main/docs/specs" not in content
+    assert "is not mirrored into" not in content
+
+
+def test_receipt_contract_link_resolves_to_absolute_repo_url_not_mirrored() -> None:
+    # docs/RECEIPT_CONTRACT.md is an operator-gated canonical statement (see
+    # mission AGENTS.md "Operator-gated" list) that specs quote and link to. It
+    # is intentionally NOT given a DOC_MAP mirror entry -- publishing it onto the
+    # docs site for the first time is a gated decision outside this feature's
+    # scope -- so its links resolve to an absolute GitHub blob URL instead of
+    # 404ing as a raw relative path.
+    receipt_lineage = _read_docs_site("specs/receipt-lineage-reconciliation.md")
+
+    assert (
+        "[`docs/RECEIPT_CONTRACT.md`]"
+        "(https://github.com/synaptent/aragora/blob/main/docs/RECEIPT_CONTRACT.md)"
+    ) in receipt_lineage
+    assert "](../RECEIPT_CONTRACT.md)" not in receipt_lineage
+
+
+def test_aragora_verify_readme_link_resolves_to_absolute_repo_url() -> None:
+    # aragora-verify/ is a standalone top-level package (like the root, mcp,
+    # deploy, and sdk README.md targets already pinned above), not part of the
+    # docs/ mirror boundary. It is intentionally left unmirrored and pointed at
+    # an absolute GitHub blob URL rather than given a DOC_MAP entry.
+    content = _read_docs_site("specs/independent-verifier-guide.md")
+
+    assert (
+        "[`aragora-verify/README.md`]"
+        "(https://github.com/synaptent/aragora/blob/main/aragora-verify/README.md)"
+    ) in content
+    assert "](../../aragora-verify/README.md)" not in content
