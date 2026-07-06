@@ -88,7 +88,7 @@ def _warn_source_failure(failure: SourceLoadFailure) -> None:
 def _github_cli_env() -> dict[str, str]:
     try:
         from aragora.swarm.github_app_auth import github_cli_env
-    except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
+    except ImportError:  # pragma: no cover - fallback for partially bootstrapped script contexts
         return dict(os.environ)
     return github_cli_env(os.environ)
 
@@ -386,7 +386,9 @@ def _github_issue_comment_sources(
         body = comment.get("body")
         if not isinstance(body, str) or "## Pending Rulings" not in body:
             continue
-        source = str(comment.get("url") or f"{thread_url}#comment-{index}")
+        source = str(
+            comment.get("html_url") or comment.get("url") or f"{thread_url}#comment-{index}"
+        )
         created_at = _comment_created_at(comment)
         later_comments: list[tuple[datetime | None, str]] = []
         for other in comments:
@@ -453,6 +455,13 @@ def _load_github_issue_sources(
             timeout=timeout_seconds,
             env=env,
         )
+    except FileNotFoundError as exc:
+        raise RuntimeError("gh executable not found") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"gh issue view timed out after {timeout_seconds}s for {repo}#{issue}"
+        ) from exc
+    try:
         comments_proc = subprocess.run(
             comments_command,
             check=False,
@@ -465,7 +474,7 @@ def _load_github_issue_sources(
         raise RuntimeError("gh executable not found") from exc
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(
-            f"gh issue view timed out after {timeout_seconds}s for {repo}#{issue}"
+            f"gh issue comments timed out after {timeout_seconds}s for {repo}#{issue}"
         ) from exc
     if issue_proc.returncode != 0:
         message = issue_proc.stderr.strip() or issue_proc.stdout.strip() or "unknown gh error"
@@ -478,7 +487,7 @@ def _load_github_issue_sources(
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"gh issue view returned malformed JSON for {repo}#{issue}") from exc
     if not isinstance(payload, dict):
-        return []
+        raise RuntimeError(f"gh issue view returned non-object JSON for {repo}#{issue}")
     try:
         comments_payload = json.loads(comments_proc.stdout or "[]")
     except json.JSONDecodeError as exc:

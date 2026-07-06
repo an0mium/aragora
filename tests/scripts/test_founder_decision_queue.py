@@ -458,6 +458,7 @@ def test_collect_decision_items_fetches_github_issue_read_only(
                     [
                         {
                             "url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+                            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-browser",
                             "createdAt": "2026-07-05T10:00:00Z",
                             "body": _single_item_packet(
                                 generated="2026-07-05T10:00:00Z",
@@ -481,6 +482,9 @@ def test_collect_decision_items_fetches_github_issue_read_only(
 
     assert len(items) == 1
     assert items[0].expected_reply == "approve"
+    assert (
+        items[0].source == "https://github.com/synaptent/aragora/issues/8845#issuecomment-browser"
+    )
     assert calls == [
         [
             "gh",
@@ -638,7 +642,47 @@ def test_github_issue_fetch_reports_timeout(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(fdq.subprocess, "run", fake_run)
 
-    with pytest.raises(RuntimeError, match="timed out after"):
+    with pytest.raises(RuntimeError, match="gh issue view timed out after"):
+        fdq._load_github_issue_sources(repo="synaptent/aragora", issue="8845")
+
+
+def test_github_issue_fetch_reports_comment_timeout(monkeypatch: Any) -> None:
+    class Completed:
+        returncode = 0
+        stderr = ""
+        stdout = json.dumps(
+            {
+                "state": "OPEN",
+                "url": "https://github.com/synaptent/aragora/issues/8845",
+            }
+        )
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> Any:
+        if cmd[:3] == ["gh", "issue", "view"]:
+            return Completed()
+        raise fdq.subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(fdq.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="gh issue comments timed out after"):
+        fdq._load_github_issue_sources(repo="synaptent/aragora", issue="8845")
+
+
+def test_github_issue_fetch_rejects_non_object_issue_json(monkeypatch: Any) -> None:
+    class Completed:
+        def __init__(self, *, stdout: str) -> None:
+            self.returncode = 0
+            self.stderr = ""
+            self.stdout = stdout
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> Completed:
+        if cmd[:3] == ["gh", "issue", "view"]:
+            return Completed(stdout="[]")
+        return Completed(stdout="[]")
+
+    monkeypatch.setattr(fdq.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="non-object JSON"):
         fdq._load_github_issue_sources(repo="synaptent/aragora", issue="8845")
 
 
