@@ -1676,6 +1676,7 @@ except ImportError:
     _GlobalBaseHandler = None
 
 # Capture the side_effect property descriptor
+from unittest.mock import Mock as _GlobalMock
 from unittest.mock import NonCallableMock as _GlobalNCMock
 
 _global_side_effect_descriptor = None
@@ -1702,12 +1703,86 @@ try:
 except ImportError:
     _global_real_oauth_impl_module = None
 
+try:
+    import aragora.server.handlers.social.social_media as _global_real_social_media_module
 
-@pytest.fixture(autouse=True)
-def _global_mock_pollution_guard():
-    """Repair mock pollution that can leak across test files."""
-    import sys
+    _global_real_social_oauth_states = _global_real_social_media_module._oauth_states
+    _global_real_social_oauth_states_lock = _global_real_social_media_module._oauth_states_lock
+    _global_real_social_store_oauth_state = _global_real_social_media_module._store_oauth_state
+    _global_real_social_validate_oauth_state = (
+        _global_real_social_media_module._validate_oauth_state
+    )
+except ImportError:
+    _global_real_social_media_module = None
+    _global_real_social_oauth_states = None
+    _global_real_social_oauth_states_lock = None
+    _global_real_social_store_oauth_state = None
+    _global_real_social_validate_oauth_state = None
 
+
+def _repair_handler_lazy_cache_pollution() -> None:
+    """Drop handler lazy caches if a test populated them with synthetic handlers."""
+    try:
+        import aragora.server.handlers as handlers_pkg
+        from aragora.server.handlers.selection import SelectionHandler
+    except (ImportError, AttributeError):
+        return
+
+    # ALL_HANDLERS is normally served by module __getattr__; a real attribute
+    # shadows lazy resolution after tests patch the package-level export.
+    handlers_pkg.__dict__.pop("ALL_HANDLERS", None)
+
+    cached_handlers = getattr(handlers_pkg, "_all_handlers_cache", None)
+    if cached_handlers is None:
+        return
+
+    if not isinstance(cached_handlers, list):
+        handlers_pkg._all_handlers_cache = None
+        try:
+            handlers_pkg._handler_cache.clear()
+        except AttributeError:
+            pass
+        return
+
+    cache_is_mocked = any(isinstance(handler, _GlobalMock) for handler in cached_handlers)
+    if cache_is_mocked or SelectionHandler not in cached_handlers:
+        handlers_pkg._all_handlers_cache = None
+        try:
+            handlers_pkg._handler_cache.clear()
+        except AttributeError:
+            pass
+
+
+def _repair_social_oauth_alias_pollution() -> None:
+    """Restore social OAuth re-export identity after tests rebind module globals."""
+    if (
+        _global_real_social_media_module is None
+        or _global_real_social_oauth_states is None
+        or _global_real_social_oauth_states_lock is None
+        or _global_real_social_store_oauth_state is None
+        or _global_real_social_validate_oauth_state is None
+    ):
+        return
+
+    social_media = _global_real_social_media_module
+    social_media._oauth_states = _global_real_social_oauth_states
+    social_media._oauth_states_lock = _global_real_social_oauth_states_lock
+    social_media._store_oauth_state = _global_real_social_store_oauth_state
+    social_media._validate_oauth_state = _global_real_social_validate_oauth_state
+
+    try:
+        import aragora.server.handlers.social as social_pkg
+    except ImportError:
+        return
+
+    social_pkg._oauth_states = _global_real_social_oauth_states
+    social_pkg._oauth_states_lock = _global_real_social_oauth_states_lock
+    social_pkg._store_oauth_state = _global_real_social_store_oauth_state
+    social_pkg._validate_oauth_state = _global_real_social_validate_oauth_state
+
+
+def _repair_global_mock_pollution(sys_module) -> None:
+    """Repair process globals that can leak mock state between handler tests."""
     # Repair MagicMock.side_effect property descriptor
     if _global_side_effect_descriptor is not None:
         current = _GlobalNCMock.__dict__.get("side_effect")
@@ -1722,7 +1797,7 @@ def _global_mock_pollution_guard():
 
     # Restore run_async in loaded modules
     if _global_real_run_async is not None:
-        for mod_name, mod in tuple(sys.modules.copy().items()):
+        for mod_name, mod in tuple(sys_module.modules.copy().items()):
             if mod is None or not mod_name.startswith(("aragora.server.", "aragora.utils.")):
                 continue
             for attr in ("run_async", "_run_async"):
@@ -1735,13 +1810,24 @@ def _global_mock_pollution_guard():
         if _GlobalAgent.__init__ is not _global_real_agent_init:
             _GlobalAgent.__init__ = _global_real_agent_init
 
+    _repair_handler_lazy_cache_pollution()
+    _repair_social_oauth_alias_pollution()
+
     # Some OAuth tests temporarily replace or remove _oauth_impl from
     # sys.modules. Restore the canonical module object between tests so later
     # re-export identity assertions see the original module again.
     if _global_real_oauth_impl_module is not None:
-        current = sys.modules.get(_GLOBAL_OAUTH_IMPL_MODULE_NAME)
+        current = sys_module.modules.get(_GLOBAL_OAUTH_IMPL_MODULE_NAME)
         if current is None:
-            sys.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module
+            sys_module.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module
+
+
+@pytest.fixture(autouse=True)
+def _global_mock_pollution_guard():
+    """Repair mock pollution that can leak across test files."""
+    import sys
+
+    _repair_global_mock_pollution(sys)
 
     _restore_social_oauth_reexports()
     _reset_handler_registry_caches()
@@ -1749,33 +1835,6 @@ def _global_mock_pollution_guard():
     yield
 
     # Teardown: same repairs
-    if _global_side_effect_descriptor is not None:
-        current = _GlobalNCMock.__dict__.get("side_effect")
-        if current is not _global_side_effect_descriptor:
-            _GlobalNCMock.side_effect = _global_side_effect_descriptor
-
-    if _GlobalBaseHandler is not None and _global_real_extract_path_param is not None:
-        current = getattr(_GlobalBaseHandler, "extract_path_param", None)
-        if current is not _global_real_extract_path_param:
-            setattr(_GlobalBaseHandler, "extract_path_param", _global_real_extract_path_param)
-
-    if _global_real_run_async is not None:
-        for mod_name, mod in tuple(sys.modules.copy().items()):
-            if mod is None or not mod_name.startswith(("aragora.server.", "aragora.utils.")):
-                continue
-            for attr in ("run_async", "_run_async"):
-                current = getattr(mod, attr, None)
-                if current is not None and current is not _global_real_run_async:
-                    setattr(mod, attr, _global_real_run_async)
-
-    if _GlobalAgent is not None and _global_real_agent_init is not None:
-        if _GlobalAgent.__init__ is not _global_real_agent_init:
-            _GlobalAgent.__init__ = _global_real_agent_init
-
-    if _global_real_oauth_impl_module is not None:
-        current = sys.modules.get(_GLOBAL_OAUTH_IMPL_MODULE_NAME)
-        if current is None:
-            sys.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module
-
+    _repair_global_mock_pollution(sys)
     _restore_social_oauth_reexports()
     _reset_handler_registry_caches()

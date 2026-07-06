@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from aragora.exceptions import REDIS_CONNECTION_ERRORS
 
 if TYPE_CHECKING:
-    from aragora.queue.workers.gauntlet_worker import GauntletWorker
+    from aragora.server.workers.gauntlet_worker import GauntletWorker
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +148,7 @@ async def init_durable_job_queue_recovery() -> int:
         return 0
 
     try:
-        from aragora.queue.workers.gauntlet_worker import recover_interrupted_gauntlets
+        from aragora.server.workers.gauntlet_worker import recover_interrupted_gauntlets
 
         recovered = await recover_interrupted_gauntlets()
         if recovered > 0:
@@ -187,7 +187,7 @@ async def init_gauntlet_worker() -> bool:
         return False
 
     try:
-        from aragora.queue.workers.gauntlet_worker import GauntletWorker
+        from aragora.server.workers.gauntlet_worker import GauntletWorker
 
         max_concurrent = int(os.environ.get("ARAGORA_GAUNTLET_WORKERS", "3"))
         worker = GauntletWorker(max_concurrent=max_concurrent)
@@ -312,7 +312,7 @@ async def init_testfixer_worker() -> bool:
         logger.debug("TestFixer worker not started (ARAGORA_TESTFIXER_WORKER disabled)")
         return False
     try:
-        from aragora.queue.workers.testfixer_worker import TestFixerWorker
+        from aragora.nomic.testfixer.queue_worker import TestFixerWorker
 
         worker = TestFixerWorker()
         _testfixer_worker = worker

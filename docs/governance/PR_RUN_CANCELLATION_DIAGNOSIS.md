@@ -131,13 +131,16 @@ that PR branch/event and verifies the run's PR association before considering it
 eligible:
 
 ```bash
-GITHUB_REPOSITORY=synaptent/aragora GITHUB_TOKEN="$GITHUB_TOKEN" \
-  python scripts/retrigger_cancelled_pr_runs.py \
-    --repo synaptent/aragora \
-    --pr <PR_NUMBER> \
-    --ttl-minutes 1440 \
-    --marker-file .aragora/retrigger_cancelled/marker.json
+python scripts/retrigger_cancelled_pr_runs.py \
+  --repo synaptent/aragora \
+  --pr <PR_NUMBER> \
+  --ttl-minutes 1440 \
+  --marker-file .aragora/retrigger_cancelled/marker.json
 ```
+
+The helper uses `GITHUB_TOKEN` when set, otherwise it falls back to
+`gh auth token`; run `gh auth status` first if the local credential state is
+unclear.
 
 If every eligible run is a current-head cancelled PR run and the conductor lane is
 allowed to spend one rerun per run id, repeat with `--apply`. The tool writes a

@@ -11,6 +11,7 @@ Provides a worker pattern for horizontal scaling with:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import signal
 import time
@@ -50,17 +51,45 @@ def _same_job_handler(existing: DebateExecutor, handler: DebateExecutor) -> bool
 
 
 def register_worker(name: str, worker: Any) -> None:
-    """Register a queue worker instance under ``name`` (keyed, idempotent)."""
+    """Register a queue worker instance under ``name`` (keyed).
+
+    Re-registering a *different* instance under an existing name is allowed
+    (a worker may legitimately be recreated and re-registered under the same
+    name, e.g. on restart) but is logged as a warning so an unexpected clobber
+    stays visible instead of silently swapping the running instance.
+    """
+    existing = _REGISTERED_WORKERS.get(name)
+    if existing is not None and existing is not worker:
+        logger.warning(
+            "Overwriting registered worker %r (existing=%r, new=%r)",
+            name,
+            existing,
+            worker,
+        )
     _REGISTERED_WORKERS[name] = worker
 
 
 def register_job_handler(job_type: str, handler: DebateExecutor) -> None:
     """Register a job handler (executor) for ``job_type``.
 
+    ``handler`` must be callable and a coroutine function (``async def`` or a
+    bound method thereof) so a mis-registered sync callable fails at
+    registration time instead of surfacing as a runtime "coroutine expected"
+    error deep in the queue's job-processing loop.
+
     Re-registering the same handler is a no-op. Registering a different handler
     for an existing job type fails closed so import order cannot silently
     redirect queue execution.
     """
+    if not callable(handler):
+        raise TypeError(
+            f"job handler for job type {job_type!r} must be callable, got {type(handler).__name__}"
+        )
+    if not inspect.iscoroutinefunction(handler):
+        raise TypeError(
+            f"job handler for job type {job_type!r} must be an async callable "
+            "(inspect.iscoroutinefunction(handler) must be True)"
+        )
     existing = _REGISTERED_JOB_HANDLERS.get(job_type)
     if existing is not None and not _same_job_handler(existing, handler):
         raise ValueError(f"job handler already registered for job type {job_type!r}")

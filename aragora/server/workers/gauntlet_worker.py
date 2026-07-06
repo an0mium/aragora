@@ -6,8 +6,14 @@ Processes gauntlet jobs from the durable queue, enabling:
 - Retry logic on transient failures
 - Priority-based scheduling
 
+Lives in ``aragora.server.workers`` rather than ``aragora.queue.workers``
+because it imports ``aragora.server.stream.gauntlet_emitter``, an
+interface-layer package, alongside ``aragora.gauntlet``/``aragora.agents``/
+``aragora.ranking`` (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §6.2,
+§10 Q3).
+
 Usage:
-    from aragora.queue.workers.gauntlet_worker import GauntletWorker
+    from aragora.server.workers.gauntlet_worker import GauntletWorker
 
     worker = GauntletWorker()
     await worker.start()  # Starts processing loop

@@ -23,6 +23,7 @@ from aragora.events.security_events import (
     SecurityEventType,
     SecurityFinding,
     SecuritySeverity,
+    register_security_debate_runner,
 )
 
 
@@ -173,6 +174,17 @@ class TestShouldTriggerDebate:
             event_type=SecurityEventType.CRITICAL_CVE, severity=SecuritySeverity.LOW
         )
         assert dispatcher._should_trigger_debate(event) is True
+
+    def test_existing_debate_correlation_does_not_trigger_again(self):
+        dispatcher = SecurityDispatcher()
+        event = _make_event(
+            event_type=SecurityEventType.CRITICAL_CVE,
+            severity=SecuritySeverity.CRITICAL,
+        )
+        event.debate_requested = True
+        event.debate_id = "debate-existing"
+
+        assert dispatcher._should_trigger_debate(event) is False
 
     def test_severity_below_threshold(self):
         dispatcher = SecurityDispatcher(config=DispatcherConfig(min_severity=SecuritySeverity.HIGH))
@@ -390,6 +402,359 @@ class TestTriggerDebate:
 
         assert "org/repo" in dispatcher._repository_cooldowns
         await dispatcher.stop()
+
+
+# ---------------------------------------------------------------------------
+# _run_debate default path (no custom callback)
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultRunnerPath:
+    """Regression tests for the default dispatch path (no custom callback).
+
+    Before P4a E7a this path imported aragora.debate.orchestrator.Arena
+    directly. It now routes through the same get_security_debate_runner
+    registry hook used by SecurityEventEmitter, so aragora.events never
+    imports aragora.debate.
+    """
+
+    @pytest.mark.asyncio
+    async def test_default_path_uses_registered_runner(self):
+        runner = AsyncMock(return_value="debate-default-1")
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        runner.assert_awaited_once_with(
+            event,
+            confidence_threshold=dispatcher.config.debate_confidence_threshold,
+            timeout_seconds=dispatcher.config.debate_timeout_seconds,
+        )
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_supports_legacy_one_arg_registered_runner(self):
+        """Registered runner callbacks that predate dispatcher kwargs remain valid."""
+        calls: list[SecurityEvent] = []
+
+        async def legacy_runner(event: SecurityEvent) -> str:
+            calls.append(event)
+            return "debate-legacy-1"
+
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=legacy_runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        assert calls == [event]
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-legacy-1"
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_keeps_kwargs_for_modern_registered_runner(self):
+        calls: list[tuple[SecurityEvent, float, int]] = []
+
+        async def modern_runner(
+            event: SecurityEvent,
+            *,
+            confidence_threshold: float,
+            timeout_seconds: int,
+        ) -> str:
+            calls.append((event, confidence_threshold, timeout_seconds))
+            return "debate-modern-1"
+
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=modern_runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        assert calls == [
+            (
+                event,
+                dispatcher.config.debate_confidence_threshold,
+                dispatcher.config.debate_timeout_seconds,
+            )
+        ]
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        assert event.debate_id == "debate-modern-1"
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_passes_event_positionally_to_modern_runner(self):
+        calls: list[tuple[SecurityEvent, float, int]] = []
+
+        async def modern_runner(
+            security_event: SecurityEvent,
+            *,
+            confidence_threshold: float,
+            timeout_seconds: int,
+        ) -> str:
+            calls.append((security_event, confidence_threshold, timeout_seconds))
+            return "debate-modern-positional-1"
+
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=modern_runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        assert calls == [
+            (
+                event,
+                dispatcher.config.debate_confidence_threshold,
+                dispatcher.config.debate_timeout_seconds,
+            )
+        ]
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        assert event.debate_id == "debate-modern-positional-1"
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_sets_event_debate_correlation(self):
+        """The dispatcher must stamp debate_requested/debate_id on success.
+
+        Mirrors SecurityEventEmitter._trigger_security_debate's existing
+        caller-side mutation, and restores what the pre-E7a Arena delegate
+        used to do internally inside security_debate.run_security_debate.
+        """
+        runner = AsyncMock(return_value="debate-correlated-1")
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+        assert event.debate_requested is False
+        assert event.debate_id is None
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-correlated-1"
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_none_result_does_not_inflate_completed(self):
+        """A runner that declines (returns None) without raising must not
+        be counted as completed, and must not stamp debate correlation."""
+        runner = AsyncMock(return_value=None)
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        runner.assert_awaited_once()
+        assert dispatcher._stats.debates_completed == 0
+        assert dispatcher._stats.debates_failed == 0
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_without_registered_runner_fails_gracefully(self):
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with (
+            patch(
+                "aragora.events.security_dispatcher.get_security_debate_runner",
+                return_value=None,
+            ),
+            patch(
+                "aragora.events.security_dispatcher._ensure_default_security_debate_runner_registered",
+                return_value=None,
+            ),
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        assert dispatcher._stats.debates_failed == 1
+        assert dispatcher._stats.debates_completed == 0
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_cancelled_default_path_clears_unresolved_debate_request(self):
+        runner = AsyncMock(side_effect=asyncio.CancelledError)
+        dispatcher = SecurityDispatcher()
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+        event.debate_requested = True
+        event.debate_id = "cancelled-before-completion"
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            result = await dispatcher._run_debate(event)
+
+        assert result is None
+        assert event.debate_requested is False
+        assert event.debate_id is None
+
+    @pytest.mark.asyncio
+    async def test_default_path_lazily_registers_runner_when_cold(self):
+        runner = AsyncMock(return_value="debate-lazy-1")
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with (
+            patch(
+                "aragora.events.security_dispatcher.get_security_debate_runner",
+                return_value=None,
+            ),
+            patch(
+                "aragora.events.security_dispatcher._ensure_default_security_debate_runner_registered",
+                return_value=runner,
+            ),
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        runner.assert_awaited_once()
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-lazy-1"
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_does_not_require_arena_import(self):
+        """The default path must not import aragora.debate.orchestrator directly."""
+        runner = AsyncMock(return_value="debate-default-2")
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+        )
+
+        with patch(
+            "aragora.events.security_dispatcher.get_security_debate_runner",
+            return_value=runner,
+        ):
+            # Simulate Arena being completely unimportable: if the default
+            # path still imported it directly, this would raise ImportError
+            # and the debate would fail instead of completing.
+            with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}):
+                await dispatcher._handle_event(event)
+                await asyncio.sleep(0.05)
+
+        runner.assert_awaited_once()
+        assert dispatcher._stats.debates_completed == 1
+        assert dispatcher._stats.debates_failed == 0
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_emitter_and_dispatcher_do_not_double_trigger(self):
+        """The default emitter auto-debate path should not race the dispatcher."""
+        import aragora.events.security_events as security_events
+
+        original_runner = security_events.get_security_debate_runner()
+        runner = AsyncMock(return_value="debate-single-1")
+        register_security_debate_runner(runner)
+
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        try:
+            event = _make_event(
+                severity=SecuritySeverity.CRITICAL,
+                event_type=SecurityEventType.CRITICAL_CVE,
+            )
+            await emitter.emit(event)
+            await asyncio.sleep(0.05)
+
+            runner.assert_awaited_once()
+            assert event.debate_id == "debate-single-1"
+        finally:
+            await dispatcher.stop()
+            register_security_debate_runner(original_runner)
 
 
 # ---------------------------------------------------------------------------

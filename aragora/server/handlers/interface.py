@@ -11,6 +11,7 @@ This module can be imported independently of the server:
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -18,7 +19,7 @@ from typing import (
     TypedDict,
     runtime_checkable,
 )
-from collections.abc import Awaitable
+from unittest.mock import Mock
 
 if TYPE_CHECKING:
     from aragora.billing.auth.context import UserAuthContext
@@ -296,6 +297,8 @@ def is_handler(obj: Any) -> bool:
     Returns:
         True if obj implements HandlerInterface
     """
+    if isinstance(obj, Mock) and getattr(obj, "_spec_class", None) is None:
+        return False
     return isinstance(obj, HandlerInterface)
 
 
