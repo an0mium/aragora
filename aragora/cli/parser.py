@@ -224,7 +224,13 @@ Examples:
     _add_coherence_scan_parser(subparsers)  # DIC-26 / #6220
     _add_truth_map_parser(subparsers)  # DIC-18 / #6028
     _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
-    _add_quarantine_report_parser(subparsers)  # DIC-21 / #6032
+    # DIC-21 / #6032 — quarantine-report (inlined to stay under LOC ratchet)
+    _qr = subparsers.add_parser("quarantine-report", help="DIC-21: fail-closed quarantine policy evaluation")  # noqa: E501
+    _qr.add_argument("--input", metavar="FILE", default="-", help="DecaySignal JSON; '-'=stdin")
+    _qr.add_argument("--code-unit-class", dest="code_unit_class", default="default", choices=["default", "live_dispatch", "report_surface", "demo", "pure_policy"])  # noqa: E501
+    _qr.add_argument("--request-live-swap", dest="request_live_swap", action="store_true")
+    _qr.add_argument("--json", action="store_true")
+    _qr.set_defaults(func=_lazy("aragora.cli.commands.dic21_quarantine_report", "cmd_quarantine_report"))  # noqa: E501
     _add_epistemic_check_parser(subparsers)  # DIC-14 / #6024
 
     # DIC-27: operator crux arbitration surface
@@ -788,51 +794,6 @@ def _add_decay_monitor_parser(subparsers) -> None:
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic20_decay_monitor", "cmd_decay_monitor"))
-
-
-def _add_quarantine_report_parser(subparsers) -> None:
-    """Add the 'quarantine-report' subcommand (DIC-21 / #6032).
-
-    Flag-gated: ARAGORA_QUARANTINE_POLICY_ENABLED must be set.
-    Live queue effect: none (pure read-only evaluation).
-    """
-    p = subparsers.add_parser(
-        "quarantine-report",
-        help="DIC-21: apply fail-closed quarantine policy to a decay signal",
-        description=(
-            "Read a DecaySignal JSON (from file or stdin) and emit the "
-            "QuarantineDecision produced by the DIC-21 fail-closed policy. "
-            "Pure evaluation — no queue mutation, no live routing change. "
-            "Requires ARAGORA_QUARANTINE_POLICY_ENABLED=1."
-        ),
-    )
-    p.add_argument(
-        "--input",
-        metavar="FILE",
-        default="-",
-        help="Path to DecaySignal JSON file; use '-' for stdin (default: stdin)",
-    )
-    p.add_argument(
-        "--code-unit-class",
-        dest="code_unit_class",
-        default="default",
-        metavar="CLASS",
-        choices=["default", "live_dispatch", "report_surface", "demo", "pure_policy"],
-        help="Policy class to apply (default: default)",
-    )
-    p.add_argument(
-        "--request-live-swap",
-        dest="request_live_swap",
-        action="store_true",
-        default=False,
-        help="Request live-swap routing (always blocked unless unit is allowlisted)",
-    )
-    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
-    p.set_defaults(
-        func=_lazy(
-            "aragora.cli.commands.dic21_quarantine_report", "cmd_quarantine_report"
-        )
-    )
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:

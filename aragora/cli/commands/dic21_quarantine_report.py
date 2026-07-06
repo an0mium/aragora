@@ -14,6 +14,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 _FLAG = "ARAGORA_QUARANTINE_POLICY_ENABLED"
 
@@ -84,8 +85,9 @@ def cmd_quarantine_report(args: argparse.Namespace) -> int:
 
     from aragora.epistemic.quarantine_policy import apply_quarantine_policy
 
+    _sig: Any = signal  # duck-typed local; avoids pyyaml transitive import
     decision = apply_quarantine_policy(
-        signal,  # type: ignore[arg-type]  # duck-typed; avoids pyyaml transitive import
+        _sig,
         code_unit_class=getattr(args, "code_unit_class", "default") or "default",
         request_live_swap=bool(getattr(args, "request_live_swap", False)),
     )
