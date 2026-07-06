@@ -940,6 +940,17 @@ def test_merge_ready_prompt_fails_closed_for_live_metadata_error(tmp_path: Path)
     assert "I authorize normal protected squash merge" not in prompt
 
 
+def test_merge_ready_prompt_fails_closed_for_wrong_live_pr_number(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(number=7827)
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert "live PR metadata number 7827 does not match requested PR #7828" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
 def test_merge_ready_prompt_fails_closed_for_closed_live_pr(tmp_path: Path) -> None:
     packet = _merge_ready_packet()
     packet["live_pr"] = _merge_ready_live_pr(state="CLOSED")

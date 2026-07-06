@@ -1039,6 +1039,12 @@ def _live_pr_metadata_blocker(
         return f"live PR metadata for PR #{pr_number} is missing or malformed"
     if live_pr.get("error"):
         return f"live PR metadata for PR #{pr_number} is unavailable: {live_pr.get('error')}"
+    try:
+        live_number = int(live_pr.get("number"))
+    except (TypeError, ValueError):
+        return f"live PR metadata for PR #{pr_number} is missing a parseable number"
+    if live_number != pr_number:
+        return f"live PR metadata number {live_number} does not match requested PR #{pr_number}"
     state = str(live_pr.get("state") or "").upper()
     if state != "OPEN":
         return f"PR #{pr_number} is not open in live metadata: state={state or 'unknown'}"
