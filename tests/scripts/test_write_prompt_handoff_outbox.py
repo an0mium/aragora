@@ -153,6 +153,31 @@ def test_apply_refuses_existing_file_without_force(tmp_path: Path, capsys: Any) 
     assert "handoff already exists" in capsys.readouterr().err
 
 
+def test_default_idempotency_key_includes_target_metadata(tmp_path: Path, capsys: Any) -> None:
+    base_args = [
+        "--prompt",
+        "Same prompt for different targets.",
+        "--task",
+        "Same task",
+        "--outbox-dir",
+        str(tmp_path),
+        "--created-at",
+        "2026-07-06T15:43:00Z",
+        "--apply",
+        "--json",
+    ]
+
+    assert mod.main([*base_args, "--pr", "100"]) == 0
+    first = json.loads(capsys.readouterr().out)
+    assert mod.main([*base_args, "--pr", "101"]) == 0
+    second = json.loads(capsys.readouterr().out)
+
+    assert first["payload"]["idempotency_key"] != second["payload"]["idempotency_key"]
+    assert first["outbox_path"] != second["outbox_path"]
+    assert Path(first["outbox_path"]).exists()
+    assert Path(second["outbox_path"]).exists()
+
+
 def test_empty_prompt_returns_2(capsys: Any) -> None:
     rc = mod.main(["--prompt", "  "])
     assert rc == 2

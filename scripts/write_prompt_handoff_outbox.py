@@ -89,7 +89,13 @@ def build_payload(
     """Return a publisher-compatible automation-outbox payload."""
 
     prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-    key = idempotency_key or f"prompt-handoff-{_slug(task)}-{prompt_sha[:12]}"
+    target_material = json.dumps(
+        {"repo": repo, "target": target},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    target_sha = hashlib.sha256(target_material.encode("utf-8")).hexdigest()
+    key = idempotency_key or f"prompt-handoff-{_slug(task)}-{prompt_sha[:12]}-{target_sha[:12]}"
     local_evidence: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "kind": "prompt_handoff",
