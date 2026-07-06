@@ -540,6 +540,11 @@ const REPO_MARKDOWN_LINKS = {
   // RECEIPT_CONTRACT.md is operator-gated (canonical receipt-lineage statement) --
   // point off-site rather than adding a DOC_MAP mirror entry for it.
   'RECEIPT_CONTRACT.md': `${REPO_BLOB_BASE}/docs/RECEIPT_CONTRACT.md`,
+  // Neither is in DOC_MAP (charters.yaml isn't even markdown), so ARCHITECTURE.md's
+  // bare links to its siblings would otherwise survive unrewritten and 404.
+  'architecture/INTENDED_ARCHITECTURE.md':
+    `${REPO_BLOB_BASE}/docs/architecture/INTENDED_ARCHITECTURE.md`,
+  'architecture/charters.yaml': `${REPO_BLOB_BASE}/docs/architecture/charters.yaml`,
 };
 const SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS = {
   'guides/SDK_CONSOLIDATION.md|README.md': `${REPO_BLOB_BASE}/sdk/typescript/README.md`,

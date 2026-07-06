@@ -423,3 +423,24 @@ def test_aragora_verify_readme_link_resolves_to_absolute_repo_url() -> None:
         "(https://github.com/synaptent/aragora/blob/main/aragora-verify/README.md)"
     ) in content
     assert "](../../aragora-verify/README.md)" not in content
+
+
+def test_architecture_charter_links_resolve_to_absolute_repo_urls() -> None:
+    # docs/architecture/ARCHITECTURE.md links to two siblings -- INTENDED_ARCHITECTURE.md
+    # and charters.yaml (not markdown, so it can never get a DOC_MAP mirror entry) --
+    # that are outside the mirror set. Left bare, these are source-relative links that
+    # would otherwise survive the sync unrewritten and 404 from core-concepts/ on the
+    # live site, the same failure mode this feature closes for docs/specs/**.
+    content = _read_docs_site("core-concepts/architecture.md")
+
+    assert (
+        "[`docs/architecture/INTENDED_ARCHITECTURE.md`]"
+        "(https://github.com/synaptent/aragora/blob/main/"
+        "docs/architecture/INTENDED_ARCHITECTURE.md)"
+    ) in content
+    assert (
+        "[`charters.yaml`]"
+        "(https://github.com/synaptent/aragora/blob/main/docs/architecture/charters.yaml)"
+    ) in content
+    assert "](INTENDED_ARCHITECTURE.md)" not in content
+    assert "](charters.yaml)" not in content

@@ -7,8 +7,8 @@ description: Aragora Architecture
 
 > **Intent charter:** Where code *belongs* — layer model, per-concern authority modules,
 > and the chartered-removals registry — is defined by
-> [`docs/architecture/INTENDED_ARCHITECTURE.md`](INTENDED_ARCHITECTURE.md)
-> (machine encoding: [`charters.yaml`](charters.yaml)). Once RATIFIED, that charter
+> [`docs/architecture/INTENDED_ARCHITECTURE.md`](https://github.com/synaptent/aragora/blob/main/docs/architecture/INTENDED_ARCHITECTURE.md)
+> (machine encoding: [`charters.yaml`](https://github.com/synaptent/aragora/blob/main/docs/architecture/charters.yaml)). Once RATIFIED, that charter
 > supersedes this document where they conflict; while DRAFT, see its Binding status block.
 > This file remains a descriptive overview.
 
