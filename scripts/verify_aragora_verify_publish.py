@@ -25,7 +25,7 @@ class PublishVerificationError(RuntimeError):
     """Raised when a post-publish verification step fails."""
 
 
-PROBE_SCRIPT = r'''
+PROBE_SCRIPT = r"""
 from __future__ import annotations
 
 import base64
@@ -152,7 +152,7 @@ print(json.dumps({
     "spoofed_key_id_exit": spoofed_run.returncode,
     "spoofed_signature_status": signature_checks[0]["status"],
 }, sort_keys=True))
-'''
+"""
 
 
 @contextmanager
@@ -171,7 +171,9 @@ def _venv_python(venv: Path) -> Path:
     return venv / "bin" / "python"
 
 
-def _run(cmd: list[str], *, timeout: int, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def _run(
+    cmd: list[str], *, timeout: int, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     completed = subprocess.run(
         cmd,
         cwd=str(cwd) if cwd is not None else None,
