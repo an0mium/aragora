@@ -8,11 +8,23 @@ description: Aragora Documentation Index
 Canonical documentation lives in `docs/` and is mirrored into `docs-site/`.
 
 This index intentionally links to actively maintained docs with validated paths.
+For the full goal-oriented landing page, start at **[docs/README.md](https://github.com/synaptent/aragora/blob/main/docs/README.md)**
+— that page is the canonical documentation landing; this index is the flat
+reference list.
+
+## Public Utility Path
+
+The core loop, in order: run a debate, get a receipt, verify it independently,
+then wire it into CI.
+
+1. [Quickstart](quickstart.md) — a working debate in under a minute
+2. [Receipt Lineage Reconciliation](../specs/receipt-lineage-reconciliation) — what a receipt is: the native record vs. the portable ODR
+3. [Independent Verifier Guide](../specs/independent-verifier-guide) — verify a receipt with `aragora-verify`, no Aragora install required
+4. [GitHub Action Setup](GITHUB_ACTION_SETUP.md) — add multi-model CI review + receipts to your pull requests
 
 ## Getting Started
 
 - [Cold Reviewer Guide](COLD_REVIEWER_GUIDE.md)
-- [Getting Started](../getting-started/overview)
 - [SDK Guide (Python)](../guides/sdk)
 - [CLI Reference (generated)](../api/cli)
 

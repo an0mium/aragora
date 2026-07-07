@@ -2,6 +2,16 @@
 
 Add multi-agent AI code review to your pull requests in under 5 minutes.
 
+> **This is the canonical Action setup doc**, for the root `synaptent/aragora`
+> action (the one with `emit-receipt`, below). The
+> [README wedge section](../README.md#the-wedge-a-governance-gate-for-ai-written-code)
+> is a shorter copy-paste version of the same root action; both describe the
+> identical `uses: synaptent/aragora@<sha>` step. If instead you want the
+> **nested, receipt-less** composite actions bundled inside this repository
+> (`.github/actions/aragora-code-review`, `.github/actions/aragora-review`),
+> see [Aragora GitHub Actions Code Review](guides/github-actions-review.md) —
+> read its root-vs-nested note before reusing either snippet outside this repo.
+
 ## Quick Start
 
 ### 1. Add API Keys as GitHub Secrets
