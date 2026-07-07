@@ -1369,7 +1369,12 @@ def _create_issue(
     try:
         _add_prompt_artifact_comments(repo_root, repo, url, prompt_artifact_comment_bodies)
     except RuntimeError as exc:
-        _close_incomplete_prompt_issue(repo_root, repo, url, str(exc))
+        try:
+            _close_incomplete_prompt_issue(repo_root, repo, url, str(exc))
+        except RuntimeError as close_exc:
+            raise RuntimeError(
+                f"{exc}; additionally failed to close incomplete prompt issue: {close_exc}"
+            ) from close_exc
         raise
     _add_issue_labels(repo_root, repo, url, labels)
     return url
@@ -1382,8 +1387,12 @@ def _prompt_artifact_comment_bodies(repo_root: Path, handoff: Handoff) -> list[s
     path = _resolve_prompt_artifact_path(repo_root, handoff)
     if path is None:
         return []
-    prompt = path.read_text(encoding="utf-8")
-    artifact_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    artifact_bytes = path.read_bytes()
+    artifact_sha = hashlib.sha256(artifact_bytes).hexdigest()
+    try:
+        prompt = artifact_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("prompt_artifact_not_utf8") from exc
     chunks = [
         prompt[index : index + MAX_PROMPT_ARTIFACT_COMMENT_CHARS]
         for index in range(0, len(prompt), MAX_PROMPT_ARTIFACT_COMMENT_CHARS)
@@ -1436,7 +1445,13 @@ def _close_incomplete_prompt_issue(repo_root: Path, repo: str, issue_url: str, e
         "Closing incomplete prompt handoff issue: required prompt artifact comment "
         f"publication failed before the handoff became usable.\n\nError: {error}"
     )
-    _run(["gh", "issue", "close", number, "--repo", repo, "--comment", body], cwd=repo_root)
+    proc = _run(["gh", "issue", "close", number, "--repo", repo, "--comment", body], cwd=repo_root)
+    if proc.returncode != 0:
+        raise RuntimeError(
+            proc.stderr.strip()
+            or proc.stdout.strip()
+            or "gh issue close failed for incomplete prompt handoff"
+        )
 
 
 def _fit_issue_body(body: str) -> str:
@@ -1496,18 +1511,18 @@ def decide_handoffs(
                     )
                 )
                 continue
-        existing = _existing_issue(repo_root, repo, handoff.task_title)
-        if existing:
-            decisions.append(
-                _decision_for_handoff(
-                    handoff,
-                    eligible=False,
-                    reason="existing_issue",
-                    existing_issue_url=str(existing.get("url") or ""),
-                )
-            )
-            continue
         if not _is_prompt_handoff(handoff):
+            existing = _existing_issue(repo_root, repo, handoff.task_title)
+            if existing:
+                decisions.append(
+                    _decision_for_handoff(
+                        handoff,
+                        eligible=False,
+                        reason="existing_issue",
+                        existing_issue_url=str(existing.get("url") or ""),
+                    )
+                )
+                continue
             referenced_pr = _referenced_pr(repo_root, repo, handoff)
             if referenced_pr and _pr_head_satisfies_handoff(handoff, referenced_pr):
                 decisions.append(
