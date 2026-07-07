@@ -35,6 +35,7 @@ import datetime as _dt
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -50,16 +51,48 @@ SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
 MAX_ACTIVE_PROCESS_LINES = 40
-ACTIVE_PROCESS_PATTERNS = (
-    "fable_goal_cycle",
-    "consult_claude",
-    "collect_quorum_evidence",
-    "collect-evidence",
-    "claude --print",
+ACTIVE_PROCESS_SCRIPT_NAMES = frozenset(
+    {
+        "agent_bridge.py",
+        "auto_evidence_cycle.py",
+        "boss_drain_pass.py",
+        "build_next_prompt.py",
+        "collect_quorum_evidence.py",
+        "consult_claude.py",
+        "fable_goal_cycle.py",
+        "reconcile_automation_outbox.py",
+        "settle_one_pr.py",
+        "settle_pr.py",
+        "settle_tier4_pr.py",
+    }
+)
+ACTIVE_PROCESS_COMMAND_PATTERNS = (
+    ("aragora", "review-queue", "collect-evidence"),
+    ("aragora", "review-queue", "merge-packet"),
+    ("gh", "pr", "merge"),
+    ("droid", "exec"),
+)
+ACTIVE_PROCESS_TOKEN_PATTERNS = (
     "claude-fable",
-    "settle_one_pr",
-    "settle_tier4_pr",
-    "gh pr merge",
+    "overnight-conductor",
+    "overnight_conductor",
+)
+ACTIVE_PROCESS_IGNORED_EXECUTABLES = frozenset(
+    {
+        "awk",
+        "cat",
+        "code",
+        "emacs",
+        "grep",
+        "head",
+        "less",
+        "nvim",
+        "rg",
+        "sed",
+        "tail",
+        "vi",
+        "vim",
+    }
 )
 NEXT_PROMPT_HEADING = "## NEXT PROMPT"
 NEXT_PROMPT_HEADING_RE = re.compile(
@@ -191,6 +224,46 @@ def _markdown_code_block(body: str, language: str = "text") -> str:
     return f"{opener}\n{body}\n{fence}"
 
 
+def _shell_words(command: str) -> list[str]:
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return command.split()
+
+
+def _active_process_label(command: str) -> str | None:
+    """Return a sanitized collision label for command, or None when irrelevant.
+
+    The packet is sent to an external reviewer, so never include raw argv. CLI
+    arguments can carry credentials, private paths, or unrelated task content.
+    """
+
+    words = _shell_words(command)
+    if not words:
+        return None
+
+    executable = Path(words[0]).name
+    if executable in ACTIVE_PROCESS_IGNORED_EXECUTABLES:
+        return None
+
+    basenames = [Path(word).name for word in words]
+    for index, basename in enumerate(basenames[1:], start=1):
+        if basename in ACTIVE_PROCESS_SCRIPT_NAMES:
+            return f"{executable} {basename}"
+
+    lowered = [word.lower() for word in words]
+    for pattern in ACTIVE_PROCESS_COMMAND_PATTERNS:
+        if len(lowered) >= len(pattern) and tuple(lowered[: len(pattern)]) == pattern:
+            return " ".join(pattern)
+
+    command_lower = " ".join(lowered)
+    for pattern in ACTIVE_PROCESS_TOKEN_PATTERNS:
+        if pattern in command_lower:
+            return pattern
+
+    return None
+
+
 def _active_conductor_processes() -> tuple[bool, str]:
     """Return a compact process snapshot for collision-prone conductor work."""
 
@@ -214,9 +287,9 @@ def _active_conductor_processes() -> tuple[bool, str]:
             pid, _ppid, _elapsed, process_command = fields
             if pid == current_pid:
                 continue
-            command_lower = process_command.lower()
-            if any(pattern in command_lower for pattern in ACTIVE_PROCESS_PATTERNS):
-                matches.append(line.strip())
+            label = _active_process_label(process_command)
+            if label:
+                matches.append(f"pid={pid} elapsed={_elapsed} command={label}")
 
         if not matches:
             return True, "none observed"
