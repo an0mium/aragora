@@ -1,6 +1,6 @@
 # Aragora Intended Architecture Charter
 
-Status: DRAFT v0.3 — pending operator ratification and #8851 adopt-or-retire rulings
+Status: DRAFT v0.4 — pending operator ratification; #8851 adopt-or-retire rulings encoded 2026-07-06 (entries marked `ruled: 2026-07-06`)
 Date: 2026-07-06 | Owner: operator (armand)
 Enforcement targets: merge-gate reviewers, all AI fleets (Claude, Codex, Factory droids, launchd daemons), humans
 
@@ -188,12 +188,12 @@ legend. **Every row has a permanent ARCH-id; every non-adopt disposition points 
 
 | ID | Concern | Single authority | Duplicates found | Disposition | Evidence |
 |---|---|---|---|---|---|
-| ARCH-012 | Work ownership / leases | `aragora/nomic/dev_coordination` (SQLite at `<git-common-dir>/aragora-agent-state/dev_coordination.db`; preflight `scripts/check_work_lease.py`) | `coordination/claims.py`; `control_plane/registry.py` heartbeats; `worktree/fleet.py` FleetCoordinationStore | adopt (RATIFIED by #8851 mandate); worktree/fleet stays a **mirror, never a second truth**; retire coordination/claims with coordination/ core (PROPOSED → CHR-X-012) | check_work_lease.py docstring cites #8851 "single ownership truth" |
-| ARCH-013 | Bead/convoy stores | `aragora/nomic/stores` | `aragora/workspace` (already a delegating wrapper), Gastown dialect (refinery/rig) | finish convergence; retire Gastown dialect (PROPOSED → CHR-X-028) | workspace/bead.py imports NomicBeadStore |
-| ARCH-014 | Fleet task scheduling | swarm boss loop + dev_coordination dispatch | `control_plane/scheduler.py` (Redis-only; returns None **with a warning log** in prod — invisible unless logs are inspected), `coordination/task_dispatcher.py`, `fabric/scheduler.py`, `workflow/scheduler.py`, `tasks/router.py` | retire control_plane scheduler/registry, coordination dispatch, fabric, tasks/ (PROPOSED → CHR-X-012/013/014/015, per #8851; API deprecation path required for control_plane handlers) | startup/control_plane.py:55-58 warn-then-None; prod is sqlite single-instance. Complete scheduler inventory: these five + ARCH-022's ops-cron scheduler (a distinct, sanctioned concern) |
-| ARCH-015 | Durable server-side jobs | `aragora/queue` (Redis Streams workers) | control_plane scheduler (above) | adopt — queue is LIVE, not a #8851 dormant (GauntletWorker default-on, TestFixerWorker) | startup/workers.py:185-210,315 |
-| ARCH-016 | Product DAG workflows | `aragora/workflow` as **library** consumed by pipeline | debate-internal staged execution (see ARCH-001) | adopt as library; must not grow a rival scheduler or debate loop | WorkflowEngine instantiated by pipeline/executor, canvas, mcp, CLI |
-| ARCH-017 | Idea→execution pipeline | `aragora/pipeline` | `aragora/goals/` (single file, is pipeline stage 2); `aragora/autonomous/` (self-described "Nomic Loop Enhancement") | absorb goals/ into pipeline; fold autonomous/ into nomic (PROPOSED → CHR-X-029) | goals/ = extractor.py only; autonomous importers = handlers + one pipeline util |
+| ARCH-012 | Work ownership / leases | `aragora/nomic/dev_coordination` (SQLite at `<git-common-dir>/aragora-agent-state/dev_coordination.db`; preflight `scripts/check_work_lease.py`) | `coordination/claims.py`; `control_plane/registry.py` heartbeats; `worktree/fleet.py` FleetCoordinationStore | adopt (RATIFIED by #8851 mandate); worktree/fleet stays a **mirror, never a second truth**; coordination/claims.py **absorbs into `aragora/swarm`**, not retired (ruled 2026-07-06 → CHR-X-012) | check_work_lease.py docstring cites #8851 "single ownership truth"; operator ruling 2026-07-06 (#8851), salvage-audited |
+| ARCH-013 | Bead/convoy stores | `aragora/nomic/stores` | `aragora/workspace` (delegating wrapper, 11 live importers), Gastown dialect (refinery/rig) | finish convergence; retire Gastown dialect (PROPOSED → CHR-X-028); **absorb workspace/ into nomic/stores, sequenced AFTER CHR-X-028** (ruled 2026-07-06 → CHR-X-043) | workspace/bead.py imports NomicBeadStore; operator ruling 2026-07-06 (#8851), salvage-audited |
+| ARCH-014 | Fleet task scheduling | swarm boss loop + dev_coordination dispatch | `control_plane/scheduler.py` (Redis-only; returns None **with a warning log** in prod — invisible unless logs are inspected), `coordination/task_dispatcher.py`, `fabric/scheduler.py`, `workflow/scheduler.py`, `tasks/router.py` | per-component per #8851 ruling 2026-07-06: retire coordination dispatch (CHR-X-012), fabric (CHR-X-013), tasks/ (CHR-X-014), control_plane auto_scaling/agent_federation/regional_sync (CHR-X-015); **PARK control_plane scheduler.py + registry.py remainder** (CHR-X-040); **RELOCATE blockchain_identity** (CHR-X-041); retire workflow/scheduler.py (CHR-X-042); API deprecation path required for control_plane handlers | startup/control_plane.py:55-58 warn-then-None; prod is sqlite single-instance. Complete scheduler inventory: these five + ARCH-022's ops-cron scheduler (a distinct, sanctioned concern); operator ruling 2026-07-06 (#8851), salvage-audited |
+| ARCH-015 | Durable server-side jobs | `aragora/queue` (Redis Streams workers) | control_plane scheduler (above) | **ADOPT as authority confirmed** (ruled 2026-07-06) — queue is LIVE, not a #8851 dormant: GauntletWorker default-on in startup/workers.py, TestFixerWorker, `scripts/queue_worker.py` entrypoint; no dormant flag applies | startup/workers.py:185-210,315; scripts/queue_worker.py; operator ruling 2026-07-06 (#8851), salvage-audited |
+| ARCH-016 | Product DAG workflows | `aragora/workflow` as **library** consumed by pipeline | debate-internal staged execution (see ARCH-001); `workflow/scheduler.py` (duplicate of scheduling concern) | **ADOPT as authority confirmed** (ruled 2026-07-06; DAG library, 36 external importers, engine live in pipeline/CLI/canvas/MCP/handlers); must not grow a rival scheduler or debate loop; retire workflow/scheduler.py (ruled → CHR-X-042) | WorkflowEngine instantiated by pipeline/executor, canvas, mcp, CLI; operator ruling 2026-07-06 (#8851), salvage-audited |
+| ARCH-017 | Idea→execution pipeline | `aragora/pipeline` | `aragora/goals/` (single file, is pipeline stage 2); `aragora/autonomous/` (self-described "Nomic Loop Enhancement") | **absorb goals/ into pipeline confirmed** (ruled 2026-07-06): extractor.py becomes the pipeline stage-2 module, repoint the 8 live importers; fold autonomous/ into nomic (PROPOSED → CHR-X-029) | goals/ = extractor.py only; autonomous importers = handlers + one pipeline util; operator ruling 2026-07-06 (#8851), salvage-audited |
 | ARCH-018 | Agent process spawning | `aragora/harnesses` | `swarm/worker_launcher.py` spawns codex/Claude directly (0 harness imports); agent_bridge transports | absorb: worker_launcher becomes a harnesses consumer (PROPOSED → CHR-X-030) | worker_launcher.py:613,685 direct spawn |
 | ARCH-019 | PR settlement | `scripts/settle_tier4_pr.py` + `aragora/cli` review-queue transports | settle_one_pr, tier4_merge_train, auto_merge_quorum_green, settlement_followup (wrapper sprawl) | absorb wrappers, then retire (PROPOSED → CHR-X-008) | settle_tier4_pr imported by 8+ scripts/modules; ~12 fix commits |
 | ARCH-020 | Conductor / goal loop | `scripts/fable_goal_cycle.py` + `scripts/consult_claude.py` | goal_conductor.py (its line `scripts/goal_conductor.py:310` hardcodes the `scripts/nomic_loop.py` path), lane_conductor, overnight_conductor; nomic_loop/self_develop/nomic_staged = legacy **manual** entrypoints | adopt authority; retire old conductors; relabel nomic_loop trio "legacy manual" in CLAUDE.md (PROPOSED → CHR-X-009) | launchd runs swarm boss-loop, nothing runs nomic_loop; fable_goal_cycle merged #8835 |
@@ -272,10 +272,10 @@ compatibility" is NOT a valid counter-argument to a registry entry.
 | CHR-X-008 | PENDING | settlement wrappers `scripts/settle_one_pr.py`, `scripts/tier4_merge_train.py`, `scripts/auto_merge_quorum_green.py` (after absorption into settle_tier4_pr/settle_pr) | one settlement path; wrapper sprawl is where fixes get lost | fleet-ops map |
 | CHR-X-009 | PENDING | conductor scripts `scripts/goal_conductor.py`, `scripts/lane_conductor.py`, `scripts/overnight_conductor.py` | superseded by fable_goal_cycle + consult_claude; goal_conductor still hardcodes legacy nomic_loop | `scripts/goal_conductor.py:310` — hardcodes the `scripts/nomic_loop.py` path |
 | CHR-X-010 | PENDING | zero-importer decision-core modules: `agents/email_agents.py`, `agents/feature_agent.py`, `agents/power_sampling_mixin.py`, `ranking/muse_calibration.py` (email_agents/power_sampling_mixin reachable only via lazy `__init__` re-exports; email_agents' only other mention is a docstring at services/email_prioritization.py:920; debate's PowerSamplingConfig is a separate class, not the mixin). **Explicitly NOT chartered** (real callers verified): `ranking/snapshot.py` (elo.py:96, elo_leaderboard.py:18, elo_matchmaking.py:25), `ranking/redteam.py` (elo.py:90, instantiated elo.py:300,329), `verification/sandbox.py` (formal.py:559 Lean execution, verification/__init__.py:49). `verification/proofs.py` is near-dormant but not chartered here | feature-count inflation; no product or fleet caller for the four listed | zero-importer greps re-verified against critic pass 2026-07-06 |
-| CHR-X-012 | PENDING (per #8851 ruling) | `aragora/coordination/` core: `claims.py`, `task_dispatcher.py`, `registry.py`, `health_watchdog.py`, `worktree_manager.py` — salvage GitReconciler→worktree/, bus→events/ | duplicate of dev_coordination + control_plane concepts; no daemon drives it | orchestration map importer audit |
+| CHR-X-012 | PENDING (ruled 2026-07-06) | `aragora/coordination/` core, amended salvage list per #8851 ruling: **ABSORB** `claims.py` (ClaimManager: never-block advisory claims with contested_by reporting) and `registry.py` (SessionRegistry: PID-liveness tri-state discovery with auto-reap) **into `aragora/swarm`** — live consumer `aragora/swarm/session_coordinator.py:20` + `aragora swarm` CLI; existing salvage stands: GitReconciler→worktree/, bus→events/ (session_coordinator also imports CoordinationBus), directives→swarm/; **RETIRE** `task_dispatcher.py`, `health_watchdog.py`, `worktree_manager.py` (sole consumer: nomic/self_improve.py's untested optional path with built-in BranchCoordinator fallback — trim that import block as part of retirement). **GUARD: `cross_workspace.py` and `resolver.py` are NOT covered by this ruling** — they are the package's most-imported modules; **package/`__init__` deletion is BLOCKED** until they receive their own disposition | duplicate of dev_coordination + control_plane concepts; no daemon drives the retired core | orchestration map importer audit; operator ruling 2026-07-06 (#8851), salvage-audited |
 | CHR-X-013 | PENDING (per #8851 ruling) | `aragora/fabric/` (flip `ARAGORA_ENABLE_AGENT_FABRIC` default→false first — server import path depends on it) | third agent-pool abstraction; no script/daemon/CI runs a fabric pool | extensions.py:39; instantiation sites only |
-| CHR-X-014 | PENDING (per #8851 ruling) | `aragora/tasks/` — one implementation module (`router.py`), one caller (`server/handlers/tasks/execution.py:39`) | inline into its handler or route via workflow templates | rg 'from aragora.tasks' |
-| CHR-X-015 | PENDING (per #8851 ruling) | `control_plane/scheduler.py`, `control_plane/registry.py` + speculative enterprise modules (`auto_scaling`, `federation`, `blockchain_identity`, `regional_sync`). **Keep-list (explicit paths): `control_plane/policy.py` + policy store/sync/cache, `control_plane/notifications.py` (until absorbed per CHR-X-015-note/ARCH-026), deliberation worker** | Redis-only; returns None with a warning log in the actual prod deployment; public-API deprecation path REQUIRED (handlers are served surface) | startup/control_plane.py:55-58 |
+| CHR-X-014 | PENDING (ruled 2026-07-06: RETIRE now) | `aragora/tasks/` — inline `router.py` (incl. `VALID_TASK_TYPES`) into `aragora/server/handlers/tasks/execution.py`; **REQUIRED: port the 18 passing tests from `tests/tasks/test_router.py` to the inlined location**; SDK `/api/v2/tasks` unaffected (handler-backed) | one implementation module, one caller (execution.py:39) | rg 'from aragora.tasks'; operator ruling 2026-07-06 (#8851), salvage-audited |
+| CHR-X-015 | PENDING (ruled 2026-07-06: split per-component) | narrowed to the RETIRE set: `control_plane/auto_scaling.py` (recommendation engine, scale callbacks default None — never provisions anything; no exports, no callers), `control_plane/agent_federation.py` (discovery/health scaffold; `remote_endpoint` never read, no RPC layer exists; path corrected from stale `federation.py`), `control_plane/regional_sync.py` (zero active instantiation; region_router works without it). `scheduler.py` + `registry.py` remainder → **PARKED CHR-X-040**; `registry.py` health/liveness surface consumed by `aragora/debate/team_selector.py` (optional health filtering, graceful fallback) is **KEPT**; `blockchain_identity.py` → **RELOCATE CHR-X-041**. **Keep-list unchanged authority: `control_plane/policy.py` + policy store/sync/cache, `control_plane/notifications.py` (until absorbed per ARCH-026), deliberation worker** | Redis-only; returns None with a warning log in the actual prod deployment; public-API deprecation path REQUIRED (handlers are served surface) | startup/control_plane.py:55-58; operator ruling 2026-07-06 (#8851), salvage-audited |
 | CHR-X-016 | PENDING | dead `server/extensions.py` init path + its None-returning consumers, OR wire `init_extensions()` at startup — one or the other, no limbo | ENABLE_MOLTBOT/ENABLE_GASTOWN flags are cosmetic today; docs over-claim | rg: init_extensions has zero callers |
 | CHR-X-017 | PENDING | `aragora/gateway` never-started LocalGateway/device-node/federation server story (registered gateway HTTP handlers stay) | no non-test code starts LocalGateway; untested-in-prod security surface | rg 'LocalGateway' non-test |
 | CHR-X-018 | PENDING | docs: root `docs/STATUS.md` mirror, `docs/COORDINATION.md` (frozen 2026-04-28, folds into AGENT_OPERATING_CONTRACT), stale positioning snapshots → `docs/archive/` | intent layer must not contradict itself; CLAUDE.md still points agents at the stale file | docs-charters map git-log dates |
@@ -284,7 +284,7 @@ compatibility" is NOT a valid counter-argument to a registry entry.
 | CHR-X-026 | PENDING | `agents/calibration.py` → absorb into `aragora/ranking` | dual calibration paths (ARCH-006) | ARCH-006 evidence |
 | CHR-X-027 | PENDING | `knowledge/embeddings.py`, `memory/embeddings.py`, `ml/embeddings.py` → demote to provider plugins behind `aragora/core` embeddings service | 4 embedding stacks; dimension-mix prod crash (ARCH-010); coordinate with CHR-X-038 | ARCH-010 evidence |
 | CHR-X-028 | PENDING | Gastown bead/convoy dialect (`extensions/gastown` refinery/rig store surfaces) | `aragora/nomic/stores` is the single bead/convoy truth (ARCH-013) | workspace/bead.py delegation |
-| CHR-X-029 | PENDING | `aragora/goals/` → absorb into `aragora/pipeline`; `aragora/autonomous/` → fold into `aragora/nomic` | single idea→execution pipeline (ARCH-017) | goals/ = extractor.py only |
+| CHR-X-029 | PENDING (ruled 2026-07-06: ABSORB confirmed) | `aragora/goals/` → absorb into `aragora/pipeline` — `extractor.py` becomes the pipeline stage-2 module; repoint the 8 live importers; `aragora/autonomous/` → fold into `aragora/nomic` | single idea→execution pipeline (ARCH-017) | goals/ = extractor.py only; operator ruling 2026-07-06 (#8851), salvage-audited |
 | CHR-X-030 | PENDING | `swarm/worker_launcher.py` direct process spawning → becomes a `aragora/harnesses` consumer | one spawning authority (ARCH-018) | worker_launcher.py:613,685 |
 | CHR-X-031 | PENDING | `aragora/schedulers/` deprecated shim package (home: `aragora/scheduler`) | shim-retirement family with CHR-X-005/006/007 (ARCH-022) | shim self-describes deprecated |
 | CHR-X-032 | PENDING | `integrations/slack.py`, `integrations/telegram.py`, `integrations/teams.py`, `integrations/whatsapp.py` platform clients → staged migration into `connectors/chat` | one inbound-connector home (ARCH-025); both Telegram stacks live today | runtime wiring rg |
@@ -294,6 +294,9 @@ compatibility" is NOT a valid counter-argument to a registry entry.
 | CHR-X-036 | PENDING | 8 per-provider `security/*_rotator.py` boilerplate files → one table-driven registry in `aragora/security`; no NEW per-provider rotator files meanwhile | each has exactly 1 importer (startup/security.py) (ARCH-034) | startup/security.py wiring |
 | CHR-X-037 | PENDING | `aragora/export/decision_receipt.py` (`LegacyDecisionReceipt`) → absorb-or-retire per RECEIPT_LINEAGE_RECONCILIATION; `aragora/receipts/` chartered as **facade-only** over gauntlet (re-exports + fleet lane/operational receipts; no independent product receipt classes) | three receipt lineages is exactly the believability failure the charter exists to prevent (ARCH-002, CHR-E-002) | receipts/__init__.py:9 |
 | CHR-X-038 | PENDING | `knowledge/vector_store.py` + `knowledge/search/` → **absorb into `knowledge/mound`** (move under mound or re-point imports first; delete top-level only after). Live internal importers: mound/core.py:306 (KnowledgeVectorStore/KnowledgeVectorConfig — live Weaviate connect path), knowledge/embeddings.py:14 (bm25), mound/vector_abstraction/memory.py:27 (bm25) | deleting in place breaks knowledge/mound — the v0.1 "0 external importers" claim was wrong for these two; corrected per critic pass | import sites cited inline, verified 2026-07-06 |
+| CHR-X-041 | PENDING (ruled 2026-07-06: RELOCATE) | `control_plane/blockchain_identity.py` → **relocate to `aragora/blockchain/agent_registry.py`**; live consumer `aragora/blockchain/receipt_settlement.py` must be refactored in the same move (split out of CHR-X-015) | blockchain identity belongs with its sole live consumer, not in control_plane | operator ruling 2026-07-06 (#8851), salvage-audited |
+| CHR-X-042 | PENDING (ruled 2026-07-06: RETIRE) | `aragora/workflow/scheduler.py` — duplicate of the scheduling concern (ARCH-014/ARCH-022 inventory); minted alongside the ARCH-016 workflow ADOPT confirmation | workflow stays a DAG **library**; it must not carry a rival scheduler | operator ruling 2026-07-06 (#8851), salvage-audited |
+| CHR-X-043 | PENDING (ruled 2026-07-06: ABSORB) | `aragora/workspace/` (delegating wrapper over NomicBeadStore, 11 live importers) → **absorb into `aragora/nomic/stores`** (ARCH-013); **sequenced AFTER CHR-X-028** (gastown retirement) | one bead/convoy truth; wrapper adds an indirection layer with no independent behavior | operator ruling 2026-07-06 (#8851), salvage-audited |
 
 ### 3c. Parked (deliberately undecided — named owner + calendar date; do not act either way)
 
@@ -306,6 +309,7 @@ compatibility" is NOT a valid counter-argument to a registry entry.
 | CHR-X-023 | PARKED | connector vertical catalog (~132 dynamically-loaded files) | operator | 2026-10-01 | keep as "catalog tier" with contract tests, or prune; grep-based dead-code claims are invalid here (importlib load, runtime_registry.py:424) |
 | CHR-X-024 | PARKED | debate flag-only exotica (chaos_theater, blackbox, witness, immune_system) | operator | 2026-09-15 | live caller by the review date or move to an experiments namespace |
 | CHR-X-039 | PARKED | L5 fleet-machinery packaging: ships in customer wheel vs excluded via packaging manifest (nomic/, swarm/, worktree/, harnesses/) | operator | 2026-09-01 | P3 pip packaging is proven (#8517); "dev-side only" is currently intent the artifact does not enforce |
+| CHR-X-040 | PARKED (ruled 2026-07-06) | `control_plane/scheduler.py` + `control_plane/registry.py` remainder (region routing, load strategies) — split out of CHR-X-015; registry's health/liveness surface consumed by `debate/team_selector.py` is KEPT and excluded from this park | operator | 2026-07-29 (next charter review, #8762 cadence) | adopt as distributed-dispatch authority when a deployment with a real multi-worker agent pool exists; retire if none exists at next charter review. scheduler.py: 82 behavioral tests; priority-tier streams, capability matching, retry+dead-letter, policy/cost gates — capabilities absent from nomic dev_coordination. Operator ruling 2026-07-06 (#8851), salvage-audited |
 
 Parking rule (§5 vocabulary): a park without an owner is abandonment; an expiry without a date
 has no teeth. Every PARKED/EXPIRING entry carries a named owner and an ISO date (or a concrete
@@ -319,7 +323,7 @@ triggering PR/issue **plus** a backstop date at which it auto-escalates to the o
 | CHR-E-002 | New receipt emitters outside `aragora/gauntlet`; new external verifiers besides `aragora-verify` | any new class/function outside gauntlet that constructs a decision-receipt artifact (product) — excluded; `receipts/` facade re-exports and dev_coordination fleet receipts (the chartered L5 analogue, ARCH-002) are the closed set of exceptions | receipt integrity is the product claim |
 | CHR-E-003 | New schedulers, work-claim/lease stores, or agent registries | allowed dispatch surfaces are the closed list: `aragora/nomic/dev_coordination`, `aragora/queue`, and the swarm boss-loop dispatch inside `aragora/swarm` (supervisor/reconciler). Anything else that assigns work to agents or claims ownership is excluded. Ops-cron (`aragora/scheduler`, ARCH-022) is a distinct sanctioned concern, not a dispatch surface. Complete duplicate inventory: ARCH-014 | six schedulers and three claims systems already; #8851 |
 | CHR-E-004 | Server-local metrics/tracing/http-pool homes in `aragora/server` | any new module under `aragora/server` exporting prometheus metrics, tracing middleware, or an HTTP client pool — excluded | P4a; see CHR-P4A-001..003 |
-| CHR-E-005 | New KM adapters wrapping PENDING-retire subsystems | no new adapter may wrap anything named in registry entries CHR-X-001..CHR-X-038 while in state PENDING (machine check: adapter target path ∈ charters.yaml pending paths) | adapters manufacture fake "integration" evidence |
+| CHR-E-005 | New KM adapters wrapping PENDING-retire subsystems | no new adapter may wrap anything named in registry entries CHR-X-001..CHR-X-043 while in state PENDING (machine check: adapter target path ∈ charters.yaml pending paths) | adapters manufacture fake "integration" evidence |
 | CHR-E-006 | New platform delivery clients outside `connectors/chat` + channels dock | closed platform list: Slack, Teams, Telegram, WhatsApp, Discord, Zoom, Email. A client for any of these outside connectors/chat + channels is excluded; a NEW platform requires a charter amendment (R5) | ~7 Slack stacks is the cautionary tale |
 | CHR-E-007 | Second Python client surfaces beyond the parity-gated SDK | any new module presenting a typed Python API-client resource surface outside `sdk/python/aragora_sdk` — excluded (pending CHR-X-033 client absorption) | ungated clients drift silently |
 | CHR-E-008 | Standing admin credentials / API keys in local env | any PR adding a standing credential to `.env*`, launchd plists, or shell profiles — excluded; AWS Secrets Manager only | credential architecture (post-incident) |
@@ -423,7 +427,7 @@ draft). Schema:
 ```yaml
 meta:
   charter: docs/architecture/INTENDED_ARCHITECTURE.md
-  version: "0.3"          # must match this doc's version
+  version: "0.4"          # must match this doc's version
   status: DRAFT           # DRAFT | RATIFIED
 authorities:              # §2 rows
   - id: ARCH-001
@@ -432,9 +436,12 @@ authorities:              # §2 rows
     layer: L0..L6
     disposition: adopt | absorb | retire | park | interim-adopt
     registry_refs: [CHR-...]   # every non-adopt disposition points at ≥1 entry
+    ruled: <ISO date>          # optional: operator adopt-or-retire ruling date (#8851);
+                               # fixes the disposition, does NOT change binding status
 registry:                 # §3 entries
   - id: CHR-X-001
     state: REMOVED | EXPIRING | PENDING | PARKED | EXCLUSION
+    ruled: <ISO date>                 # optional: operator ruling date (see authorities)
     paths: [<exact repo-relative paths or well-formed globs>]
     symbols: [<module:export_name>]   # may be empty for whole-path entries
     deadline: <ISO date>              # required for EXPIRING and PARKED
@@ -477,6 +484,7 @@ registry:                 # §3 entries
 | v0.1 | 2026-07-05 | (scratchpad draft, never binding) | operator-commissioned | initial: CHR-P4A-001..004, CHR-X-001..024, CHR-E-001..008 |
 | v0.2 | 2026-07-06 | this PR (draft) | operator-commissioned; adversarial critic pass applied | added ARCH-001..036 ids; CHR-P4A-004 → REMOVED (#8909); CHR-X-002 split (→ CHR-X-038); CHR-X-010 corrected (snapshot/redteam/sandbox de-chartered); added CHR-X-025..039; parked entries got owners+dates; exclusions got operational tests; UNMAPPED default + Appendix A; R3 covers EXPIRING; R7 date source; R7b; R8 → preconditions |
 | v0.3 | 2026-07-06 | this PR (draft) | gate round 1: adversarial review findings applied | DRAFT carve-outs for placement protocol/§0 entry states/precedence (banner + §0); ARCH-020 disposition fix (retire → adopt; retirement confined to CHR-X-009); evidence snapshot caveat (§0); ARCH-020/CHR-X-009 anchor disambiguated (`scripts/goal_conductor.py:310` hardcodes the `scripts/nomic_loop.py` path) |
+| v0.4 | 2026-07-06 | this PR (draft) | operator-ratified decision packet #8851 + four adversarial salvage audits (2026-07-06) | operator #8851 rulings encoded after salvage audits: 2 adoptions confirmed, 2 absorptions, 6 retirements, 2 parks, 1 relocation, cross_workspace/resolver guard. Entries amended: ARCH-012/013/014/015/016/017, CHR-X-012/014/015/029; minted: CHR-X-040 (control_plane scheduler+registry park), CHR-X-041 (blockchain_identity relocate), CHR-X-042 (workflow/scheduler retire), CHR-X-043 (workspace absorb). Entries stay PROPOSED-pending-ratification; `ruled: 2026-07-06` marks operator-ruled dispositions |
 
 ---
 
@@ -507,7 +515,7 @@ descriptive inventory — the normative machine encoding is `charters.yaml`.
 | `aragora/autonomous` | L5 | MAPPED | CHR-X-029 fold into nomic |
 | `aragora/backup` | L0 | MAPPED | L0 |
 | `aragora/billing` | L0 | MAPPED | L0 |
-| `aragora/blockchain` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
+| `aragora/blockchain` | — | UNMAPPED | frozen for architectural growth (§2d) EXCEPT as the chartered relocation target for `control_plane/blockchain_identity.py` → `blockchain/agent_registry.py` (CHR-X-041, ruled 2026-07-06); otherwise triage via R5 amendment |
 | `aragora/bots` | L4 | MAPPED | CHR-X-004 slack/teams retire; discord/zoom handlers stay |
 | `aragora/brief_engine` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/broadcast` | L4 | MAPPED | L4 out |
@@ -522,8 +530,8 @@ descriptive inventory — the normative machine encoding is `charters.yaml`.
 | `aragora/computer_use` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/config` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/connectors` | L4 | MAPPED | ARCH-025 authority; CHR-X-023 catalog parked |
-| `aragora/control_plane` | L0 | MAPPED | CHR-X-015 partial retire; policy/notifications keep-list |
-| `aragora/coordination` | L5 | MAPPED | CHR-X-012 retire (core); salvage GitReconciler/bus |
+| `aragora/control_plane` | L0 | MAPPED | ruled 2026-07-06: CHR-X-015 retire (auto_scaling/agent_federation/regional_sync); CHR-X-040 park (scheduler + registry remainder; team_selector health surface kept); CHR-X-041 relocate (blockchain_identity); policy/notifications/deliberation-worker keep-list |
+| `aragora/coordination` | L5 | MAPPED | ruled 2026-07-06: CHR-X-012 — absorb claims/registry→swarm; retire task_dispatcher/health_watchdog/worktree_manager; salvage GitReconciler/bus/directives; GUARD: cross_workspace.py + resolver.py unruled, `__init__` deletion blocked |
 | `aragora/core` | L1 | MAPPED | ARCH-010 embeddings authority; core types |
 | `aragora/db` | L0 | MAPPED | CHR-X-019 fold into storage |
 | `aragora/debate` | L1 | MAPPED | ARCH-001 authority; ARCH-009; CHR-X-024 exotica parked |
@@ -545,7 +553,7 @@ descriptive inventory — the normative machine encoding is `charters.yaml`.
 | `aragora/gateway` | L4 | MAPPED | CHR-X-017 (LocalGateway story); registered handlers stay |
 | `aragora/gauntlet` | L1 | MAPPED | ARCH-002 authority (receipt emission); CHR-X-001 odr_verify |
 | `aragora/genesis` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
-| `aragora/goals` | L3 | MAPPED | CHR-X-029 absorb into pipeline |
+| `aragora/goals` | L3 | MAPPED | CHR-X-029 absorb into pipeline (ruled 2026-07-06: extractor.py → pipeline stage 2, repoint 8 importers) |
 | `aragora/gti` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/harnesses` | L5 | MAPPED | ARCH-018 authority |
 | `aragora/heterogeneity` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
@@ -619,7 +627,7 @@ descriptive inventory — the normative machine encoding is `charters.yaml`.
 | `aragora/streaming` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/swarm` | L5 | MAPPED | ARCH-014 authority (boss loop); CHR-X-030 worker_launcher absorb |
 | `aragora/sync` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
-| `aragora/tasks` | L3 | MAPPED | CHR-X-014 retire |
+| `aragora/tasks` | L3 | MAPPED | CHR-X-014 retire (ruled 2026-07-06: inline router.py into handlers/tasks/execution.py, port 18 tests) |
 | `aragora/telemetry` | L0 | MAPPED | CHR-X-005 shim retire |
 | `aragora/templates` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/tenancy` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
@@ -637,8 +645,8 @@ descriptive inventory — the normative machine encoding is `charters.yaml`.
 | `aragora/visualization` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/webhooks` | L4 | MAPPED | ARCH-027 authority |
 | `aragora/work` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
-| `aragora/workflow` | L3 | MAPPED | ARCH-016 authority (library) |
-| `aragora/workspace` | L5 | MAPPED | ARCH-013 delegating wrapper over nomic/stores |
+| `aragora/workflow` | L3 | MAPPED | ARCH-016 authority (library; ADOPT confirmed, ruled 2026-07-06); CHR-X-042 scheduler.py retire |
+| `aragora/workspace` | L5 | MAPPED | ARCH-013 delegating wrapper over nomic/stores; CHR-X-043 absorb into nomic/stores AFTER CHR-X-028 (ruled 2026-07-06) |
 | `aragora/worktree` | L5 | MAPPED | ARCH-021 authority; fleet.py mirror-only (ARCH-012) |
 
 Totals: 144 top-level packages — 64 MAPPED, 80 UNMAPPED.
