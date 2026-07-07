@@ -208,6 +208,88 @@ def test_build_packet_fences_context_gaps() -> None:
     assert "```text\n- transport error echoed ## injected heading\n```" in packet
 
 
+def test_active_conductor_processes_reports_colliding_work_and_filters_self(monkeypatch) -> None:
+    monkeypatch.setattr(fable_goal_cycle.os, "getpid", lambda: 42)
+
+    def fake_run(command, timeout, cwd=None):
+        assert command == ["ps", "-axo", "pid,ppid,etime,command"]
+        return (
+            True,
+            """\
+  PID  PPID ELAPSED COMMAND
+   42     1   00:05 python3 scripts/fable_goal_cycle.py --goal self
+  100     1   10:00 python3 scripts/collect_quorum_evidence.py --token secret --pr 8982
+  101     1   03:00 python3 scripts/consult_claude.py --model claude-fable-5
+  102     1   02:00 python3 scripts/unrelated.py
+""",
+        )
+
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    ok, body = fable_goal_cycle._active_conductor_processes()
+
+    assert ok is True
+    assert "pid=100 elapsed=10:00 command=python3 collect_quorum_evidence.py" in body
+    assert "pid=101 elapsed=03:00 command=python3 consult_claude.py" in body
+    assert "--token secret" not in body
+    assert "--model claude-fable-5" not in body
+    assert "fable_goal_cycle.py --goal self" not in body
+    assert "unrelated.py" not in body
+
+
+def test_active_process_label_covers_collision_prone_scripts_without_raw_args() -> None:
+    assert (
+        fable_goal_cycle._active_process_label(
+            "python3 scripts/auto_evidence_cycle.py --apply --prepared-json /tmp/secret.json"
+        )
+        == "python3 auto_evidence_cycle.py"
+    )
+    assert (
+        fable_goal_cycle._active_process_label("python3 scripts/boss_drain_pass.py --goal drain")
+        == "python3 boss_drain_pass.py"
+    )
+    assert (
+        fable_goal_cycle._active_process_label(
+            "python3 scripts/agent_bridge.py launch --token secret"
+        )
+        == "python3 agent_bridge.py"
+    )
+    assert (
+        fable_goal_cycle._active_process_label("aragora review-queue collect-evidence --pr 1")
+        == "aragora review-queue collect-evidence"
+    )
+    assert fable_goal_cycle._active_process_label("rg fable_goal_cycle.py") is None
+    assert fable_goal_cycle._active_process_label("vim scripts/fable_goal_cycle.py") is None
+
+
+def test_active_conductor_processes_falls_back_to_portable_ps(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(command, timeout, cwd=None):
+        calls.append(command)
+        if command == ["ps", "-axo", "pid,ppid,etime,command"]:
+            return False, "unsupported ps"
+        assert command == ["ps", "-eo", "pid,ppid,etime,command"]
+        return (
+            True,
+            """\
+  PID  PPID ELAPSED COMMAND
+  200     1   01:00 python3 scripts/settle_pr.py --pr 8988
+""",
+        )
+
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    ok, body = fable_goal_cycle._active_conductor_processes()
+
+    assert ok is True
+    assert calls == [
+        ["ps", "-axo", "pid,ppid,etime,command"],
+        ["ps", "-eo", "pid,ppid,etime,command"],
+    ]
+    assert "pid=200 elapsed=01:00 command=python3 settle_pr.py" in body
+
+
 def test_run_consult_sets_overall_timeout_and_bounded_outer_timeout(
     monkeypatch, tmp_path: Path
 ) -> None:
