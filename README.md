@@ -64,17 +64,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: synaptent/aragora@1e3ce85ae66489753cace8b60551a99fada9749c
+      - uses: synaptent/aragora@main
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           post-comment: 'true'
+          emit-receipt: 'true'
 ```
 
-The action posts a PR review comment and uploads the machine-readable review
-artifact. When a Decision Receipt artifact exists, anyone — a teammate, an
-auditor, a customer — can verify it independently with the standalone
-`aragora-verify` verifier (no Aragora dependency):
+The action posts a PR review comment, uploads the machine-readable review
+artifact, and (with `emit-receipt: 'true'` shown above) emits a Decision
+Receipt artifact from a second, independent quorum pass. Anyone — a teammate,
+an auditor, a customer — can then verify that receipt independently with the
+standalone `aragora-verify` verifier (no Aragora dependency):
 
 ```bash
 pip install -U 'aragora-verify>=0.1.1'
@@ -90,6 +92,11 @@ pip install ./aragora-verify
 > Use **0.1.1+** (`pip install -U 'aragora-verify>=0.1.1'`): it binds each
 > signature's recorded `key_id` to the key you supply, so a relabeled signer
 > fails as tampering. 0.1.0 lacks that binding — upgrade if you have it.
+
+See the [full Action setup guide](docs/GITHUB_ACTION_SETUP.md#emitting-a-verifiable-decision-receipt)
+for the receipt-specific inputs/outputs, secret-dependent limits (receipts are
+unsigned; reviewer defaults need reachable provider keys), and a committed
+example receipt you can verify right now without running any CI.
 
 We run this gate on our own repository — every substantive merge is reviewed
 by a heterogeneous model quorum, dissent preserved, receipts written. The
