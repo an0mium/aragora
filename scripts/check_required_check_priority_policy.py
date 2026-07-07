@@ -128,6 +128,46 @@ def _inline_yaml_value_mentions(value: str, expected: str) -> bool:
     )
 
 
+def _flow_mapping_value(value: str, key: str) -> str | None:
+    stripped = value.strip()
+    if not (stripped.startswith("{") and stripped.endswith("}")):
+        return None
+
+    match = re.search(
+        rf"(?<![A-Za-z0-9_-]){re.escape(key)}\s*:\s*(?P<value>\[[^\]]*\]|[^,}}]+)",
+        stripped[1:-1],
+    )
+    if match is None:
+        return None
+    return match.group("value").strip()
+
+
+def _flow_push_targets_main(value: str) -> bool:
+    branches = _flow_mapping_value(value, "branches")
+    if branches is not None:
+        return _inline_yaml_value_mentions(branches, "main")
+
+    branches_ignore = _flow_mapping_value(value, "branches-ignore")
+    if branches_ignore is not None and _inline_yaml_value_mentions(
+        branches_ignore,
+        "main",
+    ):
+        return False
+
+    return True
+
+
+def _flow_push_has_path_filter(value: str) -> bool:
+    return (
+        _flow_mapping_value(value, "paths") is not None
+        or _flow_mapping_value(
+            value,
+            "paths-ignore",
+        )
+        is not None
+    )
+
+
 def _block_value_for_key(lines: list[str], key: str) -> list[str] | None:
     for index, line in enumerate(lines):
         parsed = _parse_yaml_mapping_line(line)
@@ -182,6 +222,14 @@ def _main_push_trigger(workflow_text: str) -> _MainPushTrigger:
             on_parsed = _parse_yaml_mapping_line(on_line)
             if on_parsed is None or on_parsed.key != "push":
                 continue
+
+            if on_parsed.value:
+                if not _flow_push_targets_main(on_parsed.value):
+                    return _MainPushTrigger(targets_main=False, path_filtered=False)
+                return _MainPushTrigger(
+                    targets_main=True,
+                    path_filtered=_flow_push_has_path_filter(on_parsed.value),
+                )
 
             push_block = _nested_yaml_block(on_block, on_index, on_parsed.indent)
             if not _push_block_targets_main(push_block):
