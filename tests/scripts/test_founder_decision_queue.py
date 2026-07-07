@@ -809,6 +809,39 @@ Generated: 2026-07-07T07:21:53Z
     assert [item.expected_reply for item in items] == ["settle-8951", "settle-8945"]
 
 
+def test_collect_decision_items_keeps_distinct_rulings_for_same_target(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T07:21:53Z",
+            "thread_state": "open",
+            "body": """# Consolidated Founder Decision Queue Packet
+
+Generated: 2026-07-07T07:21:53Z
+
+## Pending Rulings
+
+| Priority | Link | Current blocker | Requested action | One-word reply |
+| --- | --- | --- | --- | --- |
+| P1 | PR #8954: https://github.com/synaptent/aragora/pull/8954 | Draft. | Mark ready for review. | `ready-8954` |
+| P2 | PR #8954: https://github.com/synaptent/aragora/pull/8954 | Tier 4. | Authorize current-head evidence. | `evidence-8954` |
+""",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert [item.expected_reply for item in items] == ["ready-8954", "evidence-8954"]
+
+
 def test_render_brief_includes_token_title_and_exact_head() -> None:
     generated_at = fdq._parse_datetime("2026-07-07T07:34:48Z")
     item = fdq.DecisionItem(

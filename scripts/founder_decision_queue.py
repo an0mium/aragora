@@ -465,18 +465,26 @@ def _item_target_key(item: DecisionItem) -> str:
 
 
 def _dedupe_decision_items(items: Iterable[DecisionItem]) -> list[DecisionItem]:
-    by_target: dict[str, DecisionItem] = {}
+    by_target: dict[str, list[DecisionItem]] = {}
     by_reply: dict[str, DecisionItem] = {}
     for item in items:
         target_key = _item_target_key(item)
-        current = by_target.get(target_key)
-        if current is None or _item_freshness_key(item) >= _item_freshness_key(current):
-            by_target[target_key] = item
-    for item in by_target.values():
-        reply_key = _compact_text(item.expected_reply).lower()
-        current = by_reply.get(reply_key)
-        if current is None or _item_freshness_key(item) >= _item_freshness_key(current):
-            by_reply[reply_key] = item
+        current_items = by_target.get(target_key)
+        if current_items is None:
+            by_target[target_key] = [item]
+            continue
+        current_freshness = _item_freshness_key(current_items[0])
+        item_freshness = _item_freshness_key(item)
+        if item_freshness > current_freshness:
+            by_target[target_key] = [item]
+        elif item_freshness == current_freshness:
+            current_items.append(item)
+    for target_items in by_target.values():
+        for item in target_items:
+            reply_key = _compact_text(item.expected_reply).lower()
+            current = by_reply.get(reply_key)
+            if current is None or _item_freshness_key(item) >= _item_freshness_key(current):
+                by_reply[reply_key] = item
     return sorted(
         by_reply.values(),
         key=lambda item: (
