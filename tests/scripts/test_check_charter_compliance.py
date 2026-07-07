@@ -123,7 +123,7 @@ def test_kept_symbol_does_not_trip_path_level_park(tmp_path: Path) -> None:
 --- a/aragora/debate/team_selector.py
 +++ b/aragora/debate/team_selector.py
 @@ -1,0 +2,2 @@
-+from aragora.control_plane.registry import AgentRegistry, AgentStatus
++from aragora.control_plane.registry import AgentRegistry, AgentInfo, AgentStatus
 +registry = AgentRegistry()
 """
 
@@ -149,6 +149,24 @@ def test_kept_symbol_mention_does_not_hide_new_parked_surface(tmp_path: Path) ->
     assert result.binding_violations == []
     assert [violation.entry_id for violation in result.proposed_violations] == ["CHR-X-040"]
     assert result.proposed_violations[0].authority_ids == ["ARCH-014"]
+
+
+def test_dotted_kept_symbol_does_not_exempt_bare_top_level_export(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/aragora/control_plane/scheduler.py b/aragora/control_plane/scheduler.py
+--- a/aragora/control_plane/scheduler.py
++++ b/aragora/control_plane/scheduler.py
+@@ -0,0 +1,2 @@
++def is_alive():
++    return True
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert result.binding_violations == []
+    assert [violation.entry_id for violation in result.proposed_violations] == ["CHR-X-040"]
+    assert "is_alive" in result.proposed_violations[0].line
 
 
 def test_parked_path_non_kept_surface_is_proposed(tmp_path: Path) -> None:
@@ -202,6 +220,22 @@ def test_removed_symbol_split_alias_use_is_binding(tmp_path: Path) -> None:
     assert result.ok is False
     assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
     assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_removed_symbol_wildcard_import_is_binding(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++from aragora.queue import *
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "*" in result.binding_violations[0].line
 
 
 def test_exclusion_path_violation_reports_arch_context(tmp_path: Path) -> None:

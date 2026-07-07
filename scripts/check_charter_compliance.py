@@ -129,12 +129,17 @@ def _symbol_export(symbol: str) -> str:
     return export.rsplit(".", 1)[-1]
 
 
+def _symbol_root_export(symbol: str) -> str:
+    export = symbol.split(":", 1)[-1]
+    return export.split(".", 1)[0]
+
+
 def _symbol_export_roots(symbols: Iterable[str]) -> set[str]:
     roots: set[str] = set()
     for symbol in symbols:
-        export = symbol.split(":", 1)[-1]
-        parts = [part for part in export.split(".") if part]
-        roots.update(parts)
+        root = _symbol_root_export(symbol)
+        if root:
+            roots.add(root)
     return roots
 
 
@@ -145,7 +150,7 @@ def _parse_imported_names(imports: str) -> list[str]:
     names: list[str] = []
     for part in cleaned.split(","):
         token = part.strip()
-        if not token or token == "*":
+        if not token:
             continue
         names.append(token.split(" as ", 1)[0].strip())
     return names
@@ -196,9 +201,12 @@ def _is_python_path(path: str) -> bool:
 
 
 def _line_reexports_or_defines_symbol(line: str, symbol: str) -> bool:
+    return _line_reexports_or_defines_export(line, _symbol_export(symbol))
+
+
+def _line_reexports_or_defines_export(line: str, export: str) -> bool:
     if line[:1].isspace():
         return False
-    export = _symbol_export(symbol)
     from_import = _from_import(line)
     if from_import is not None:
         _module, names = from_import
@@ -210,7 +218,10 @@ def _line_reexports_or_defines_symbol(line: str, symbol: str) -> bool:
 
 
 def _line_reexports_or_defines_kept_symbol(line: str, entry: CharterEntry) -> bool:
-    return any(_line_reexports_or_defines_symbol(line, symbol) for symbol in entry.kept_symbols)
+    return any(
+        _line_reexports_or_defines_export(line, _symbol_root_export(symbol))
+        for symbol in entry.kept_symbols
+    )
 
 
 def _module_is_under(module: str, parent: str) -> bool:
