@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -48,6 +49,18 @@ MAX_PACKET_SECTION_BYTES = 96 * 1024
 SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
+MAX_ACTIVE_PROCESS_LINES = 40
+ACTIVE_PROCESS_PATTERNS = (
+    "fable_goal_cycle",
+    "consult_claude",
+    "collect_quorum_evidence",
+    "collect-evidence",
+    "claude --print",
+    "claude-fable",
+    "settle_one_pr",
+    "settle_tier4_pr",
+    "gh pr merge",
+)
 NEXT_PROMPT_HEADING = "## NEXT PROMPT"
 NEXT_PROMPT_HEADING_RE = re.compile(
     rf"^{re.escape(NEXT_PROMPT_HEADING)}\s*$", re.IGNORECASE | re.MULTILINE
@@ -178,6 +191,44 @@ def _markdown_code_block(body: str, language: str = "text") -> str:
     return f"{opener}\n{body}\n{fence}"
 
 
+def _active_conductor_processes() -> tuple[bool, str]:
+    """Return a compact process snapshot for collision-prone conductor work."""
+
+    errors: list[str] = []
+    current_pid = str(os.getpid())
+    ps_commands = (
+        ["ps", "-axo", "pid,ppid,etime,command"],
+        ["ps", "-eo", "pid,ppid,etime,command"],
+    )
+    for command in ps_commands:
+        ok, out = _run(command, CONTEXT_STEP_TIMEOUT_SECONDS)
+        if not ok:
+            errors.append(out)
+            continue
+
+        matches: list[str] = []
+        for line in out.splitlines()[1:]:
+            fields = line.split(None, 3)
+            if len(fields) < 4:
+                continue
+            pid, _ppid, _elapsed, process_command = fields
+            if pid == current_pid:
+                continue
+            command_lower = process_command.lower()
+            if any(pattern in command_lower for pattern in ACTIVE_PROCESS_PATTERNS):
+                matches.append(line.strip())
+
+        if not matches:
+            return True, "none observed"
+        body = "\n".join(matches[:MAX_ACTIVE_PROCESS_LINES])
+        omitted = len(matches) - MAX_ACTIVE_PROCESS_LINES
+        if omitted > 0:
+            body += f"\n[truncated {omitted} additional active process(es)]"
+        return True, body
+
+    return False, "; ".join(error for error in errors if error) or "ps unavailable"
+
+
 def _is_relative_to(path: Path, parent: Path) -> bool:
     try:
         path.relative_to(parent)
@@ -257,6 +308,11 @@ def gather_context(root: Path, since_hours: float, max_prs: int, skip_digest: bo
     section("branch status", ["git", "status", "--short", "--branch"])
     section("recent commits (main)", ["git", "log", "--oneline", "-10", "origin/main"])
     section("worktrees", ["git", "worktree", "list"])
+    ok, active_processes = _active_conductor_processes()
+    if ok:
+        sections["active conductor/evidence processes"] = active_processes
+    else:
+        gaps.append(f"active conductor/evidence processes: {active_processes}")
     if shutil.which("gh"):
         section(
             f"open non-draft PRs (up to {max_prs})",

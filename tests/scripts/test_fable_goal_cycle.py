@@ -208,6 +208,33 @@ def test_build_packet_fences_context_gaps() -> None:
     assert "```text\n- transport error echoed ## injected heading\n```" in packet
 
 
+def test_active_conductor_processes_reports_colliding_work_and_filters_self(monkeypatch) -> None:
+    monkeypatch.setattr(fable_goal_cycle.os, "getpid", lambda: 42)
+
+    def fake_run(command, timeout, cwd=None):
+        assert command == ["ps", "-axo", "pid,ppid,etime,command"]
+        return (
+            True,
+            """\
+  PID  PPID ELAPSED COMMAND
+   42     1   00:05 python3 scripts/fable_goal_cycle.py --goal self
+  100     1   10:00 python3 scripts/collect_quorum_evidence.py --pr 8982
+  101     1   03:00 python3 scripts/consult_claude.py --model claude-fable-5
+  102     1   02:00 python3 scripts/unrelated.py
+""",
+        )
+
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    ok, body = fable_goal_cycle._active_conductor_processes()
+
+    assert ok is True
+    assert "collect_quorum_evidence.py --pr 8982" in body
+    assert "consult_claude.py --model claude-fable-5" in body
+    assert "fable_goal_cycle.py --goal self" not in body
+    assert "unrelated.py" not in body
+
+
 def test_run_consult_sets_overall_timeout_and_bounded_outer_timeout(
     monkeypatch, tmp_path: Path
 ) -> None:
