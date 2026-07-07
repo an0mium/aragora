@@ -70,11 +70,15 @@ Remove only after the helper says the worktree is safe:
 python3 scripts/safe_worktree_cleanup.py --repo "$(git rev-parse --show-toplevel)" remove <worktree-path>
 ```
 
-Clean managed Codex worktrees through the autopilot helper:
+Clean managed Codex worktrees through the autopilot helper while preserving
+branch refs for later harvest or retirement review:
 
 ```bash
-python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24
+python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24 --no-delete-branches
 ```
+
+Use branch deletion only as a separate, explicit retirement action after the
+branch has no open PR, no unique commits that need harvest, and no active owner.
 
 Prune stale Git worktree metadata only after helper-mediated removals:
 
