@@ -118,7 +118,7 @@ def _parse_datetime(value: str) -> datetime | None:
 
 
 def _packet_generated_at(markdown: str) -> datetime | None:
-    match = re.search(r"^Generated:\s*(.+?)\s*$", markdown, flags=re.MULTILINE)
+    match = re.search(r"^Generated(?:\s+at)?:\s*(.+?)\s*$", markdown, flags=re.MULTILINE)
     if not match:
         return None
     return _parse_datetime(match.group(1))
@@ -164,9 +164,10 @@ def _pending_ruling_rows(markdown: str) -> list[list[str]]:
 def parse_decision_packet(markdown: str, *, source: str) -> list[DecisionItem]:
     """Parse a founder decision packet markdown body."""
 
+    standalone_items = _standalone_decision_items(markdown, source=source)
     rows = _pending_ruling_rows(markdown)
     if not rows:
-        return []
+        return standalone_items
     header: list[str] | None = None
     data_rows: list[list[str]] = []
     for row in rows:
@@ -215,6 +216,84 @@ def parse_decision_packet(markdown: str, *, source: str) -> list[DecisionItem]:
             )
         )
     return items
+
+
+def _is_decision_packet_body(body: str) -> bool:
+    return "## Pending Rulings" in body or bool(_standalone_decision_items(body, source=""))
+
+
+def _has_pending_rulings_table(source: DecisionSource) -> bool:
+    return bool(_pending_ruling_rows(source.body))
+
+
+def _standalone_decision_items(markdown: str, *, source: str) -> list[DecisionItem]:
+    if "## Pending Rulings" in markdown:
+        return []
+    expected_reply = _standalone_expected_reply(markdown)
+    if expected_reply is None:
+        return []
+    target = _standalone_target(markdown)
+    if target is None:
+        return []
+    return [
+        DecisionItem(
+            item=_standalone_item_name(target),
+            target=target,
+            requested_action=_standalone_requested_action(markdown),
+            expected_reply=expected_reply,
+            source=source,
+            packet_generated_at=_packet_generated_at(markdown),
+        )
+    ]
+
+
+def _standalone_expected_reply(markdown: str) -> str | None:
+    patterns = [
+        r"^Expected one-word reply[^\n]*:\s*\n+(?P<reply>[^\n]+)",
+        r"^## Requested operator reply\s*\n+(?P<reply>[^\n]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, flags=re.IGNORECASE | re.MULTILINE)
+        if not match:
+            continue
+        reply = _strip_markdown_code(_compact_text(match.group("reply")))
+        if reply:
+            return reply
+    return None
+
+
+def _standalone_target(markdown: str) -> str | None:
+    url_match = re.search(
+        r"https://github\.com/[^\s)]+/(?P<kind>pull|issues)/(?P<number>\d+)",
+        markdown,
+    )
+    if url_match:
+        kind = "PR" if url_match.group("kind") == "pull" else "Issue"
+        return f"{kind} #{url_match.group('number')}: {url_match.group(0)}"
+    number_match = re.search(r"\b(?P<kind>PR|Issue)\s+#(?P<number>\d+)\b", markdown)
+    if number_match:
+        return f"{number_match.group('kind')} #{number_match.group('number')}"
+    return None
+
+
+def _standalone_item_name(target: str) -> str:
+    number = _target_number(target)
+    if number is None:
+        return target
+    if "issues/" in target or target.lower().startswith("issue"):
+        return f"Issue #{number}"
+    return f"PR #{number}"
+
+
+def _standalone_requested_action(markdown: str) -> str:
+    match = re.search(
+        r"^## Requested action\s*\n+(?P<body>.+?)(?:\n\n|\Z)",
+        markdown,
+        flags=re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    )
+    if not match:
+        return "Founder/operator decision requested."
+    return _compact_text(match.group("body"))
 
 
 def _packet_sort_key(source: DecisionSource) -> tuple[datetime, str]:
@@ -295,6 +374,8 @@ def _comment_resolves_item(body: str, item: DecisionItem) -> bool:
     expected = item.expected_reply
     if first_line and first_line == expected:
         return True
+    if _is_decision_packet_body(body):
+        return False
     number = _target_number(item.target)
     if number is None:
         return False
@@ -342,7 +423,7 @@ def _load_issue_comment_sources(path: Path) -> list[DecisionSource]:
     sources: list[DecisionSource] = []
     for index, comment in enumerate(comments):
         body = comment.get("body")
-        if not isinstance(body, str) or "## Pending Rulings" not in body:
+        if not isinstance(body, str) or not _is_decision_packet_body(body):
             continue
         source = str(comment.get("html_url") or comment.get("url") or f"{path}#{index}")
         thread_key = _thread_key_from_comment(comment, fallback=f"{path}")
@@ -350,7 +431,7 @@ def _load_issue_comment_sources(path: Path) -> list[DecisionSource]:
         later_comments: list[tuple[datetime | None, str]] = []
         for other in comments:
             other_body = other.get("body")
-            if not isinstance(other_body, str) or "## Pending Rulings" in other_body:
+            if not isinstance(other_body, str) or _is_decision_packet_body(other_body):
                 continue
             if _thread_key_from_comment(other, fallback=f"{path}") != thread_key:
                 continue
@@ -384,7 +465,7 @@ def _github_issue_comment_sources(
     sources: list[DecisionSource] = []
     for index, comment in enumerate(comments):
         body = comment.get("body")
-        if not isinstance(body, str) or "## Pending Rulings" not in body:
+        if not isinstance(body, str) or not _is_decision_packet_body(body):
             continue
         source = str(
             comment.get("html_url") or comment.get("url") or f"{thread_url}#comment-{index}"
@@ -393,7 +474,7 @@ def _github_issue_comment_sources(
         later_comments: list[tuple[datetime | None, str]] = []
         for other in comments:
             other_body = other.get("body")
-            if not isinstance(other_body, str) or "## Pending Rulings" in other_body:
+            if not isinstance(other_body, str) or _is_decision_packet_body(other_body):
                 continue
             later_comments.append((_comment_created_at(other), other_body))
         sources.append(
@@ -574,7 +655,14 @@ def collect_decision_collection(
         github_issues=github_issues,
         repo=repo,
     )
-    for source in _newest_sources_by_thread(source_collection.sources):
+    table_sources = [
+        source for source in source_collection.sources if _has_pending_rulings_table(source)
+    ]
+    standalone_sources = [
+        source for source in source_collection.sources if not _has_pending_rulings_table(source)
+    ]
+    sources = [*_newest_sources_by_thread(table_sources), *standalone_sources]
+    for source in sorted(sources, key=_packet_sort_key):
         if not source.thread_open:
             continue
         for item in parse_decision_packet(source.body, source=source.source):
