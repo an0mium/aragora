@@ -240,13 +240,23 @@ def _packet_entry(packet: dict[str, Any], pr_number: int) -> dict[str, Any]:
     return {}
 
 
-def _load_single(
-    cwd: Path, pr_number: int, repo: str | None
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    packet = settle_one_pr._load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo)
-    entry = _packet_entry(packet, pr_number)
-    metadata, _command = settle_one_pr.load_pr_policy_metadata(cwd, pr_number, repo=repo)
-    live_payload, _live_command = settle_one_pr._run_json(
+def _packet_unavailable_entry(
+    pr_number: int,
+    metadata: dict[str, Any],
+    exc: RuntimeError,
+) -> dict[str, Any]:
+    return {
+        "pr_number": pr_number,
+        "title": metadata.get("title"),
+        "head_sha": metadata.get("headRefOid"),
+        "status": "packet_unavailable",
+        "verdict": "packet_unavailable",
+        "reasons": [str(exc)],
+    }
+
+
+def _load_live_file_metadata(cwd: Path, repo: str | None, pr_number: int) -> dict[str, Any]:
+    live_payload, _command = settle_one_pr._run_json(
         settle_one_pr._with_repo(
             [
                 "gh",
@@ -261,8 +271,19 @@ def _load_single(
         cwd=cwd,
         timeout=settle_one_pr.GH_METADATA_TIMEOUT_SECONDS,
     )
-    if isinstance(live_payload, dict):
-        metadata.update(live_payload)
+    return live_payload if isinstance(live_payload, dict) else {}
+
+
+def _load_single(
+    cwd: Path, pr_number: int, repo: str | None
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    metadata, _command = settle_one_pr.load_pr_policy_metadata(cwd, pr_number, repo=repo)
+    try:
+        packet = settle_one_pr._load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo)
+        entry = _packet_entry(packet, pr_number)
+    except RuntimeError as exc:
+        entry = _packet_unavailable_entry(pr_number, metadata, exc)
+    metadata.update(_load_live_file_metadata(cwd, repo, pr_number))
     return entry, metadata
 
 
@@ -272,18 +293,13 @@ def _classify_queue(cwd: Path, repo: str | None, limit: int) -> list[PreflightRe
     for pr_number, metadata in sorted(metadata_by_pr.items()):
         entry: dict[str, Any] = {}
         if not metadata.get("isDraft"):
+            if not metadata.get("files"):
+                metadata = {**metadata, **_load_live_file_metadata(cwd, repo, pr_number)}
             try:
                 packet = settle_one_pr._load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo)
                 entry = _packet_entry(packet, pr_number)
             except RuntimeError as exc:
-                entry = {
-                    "pr_number": pr_number,
-                    "title": metadata.get("title"),
-                    "head_sha": metadata.get("headRefOid"),
-                    "status": "packet_unavailable",
-                    "verdict": "packet_unavailable",
-                    "reasons": [str(exc)],
-                }
+                entry = _packet_unavailable_entry(pr_number, metadata, exc)
         results.append(classify_pr(entry=entry, metadata=metadata))
     return results
 
@@ -307,24 +323,39 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     cwd = Path.cwd()
-    if args.pr is not None:
+
+    if args.main_red:
+        if args.pr is not None:
+            results = [
+                classify_pr(
+                    entry={"pr_number": args.pr},
+                    metadata={},
+                    main_red=True,
+                )
+            ]
+        else:
+            metadata_by_pr, _command = settle_one_pr.load_open_pr_metadata(
+                cwd, limit=args.limit, repo=args.repo
+            )
+            results = [
+                classify_pr(
+                    entry={
+                        "pr_number": pr_number,
+                        "title": metadata.get("title"),
+                        "head_sha": metadata.get("headRefOid"),
+                    },
+                    metadata=metadata,
+                    main_red=True,
+                )
+                for pr_number, metadata in sorted(metadata_by_pr.items())
+            ]
+            if not results:
+                results = [classify_pr(entry={}, metadata={}, main_red=True)]
+    elif args.pr is not None:
         entry, metadata = _load_single(cwd, args.pr, args.repo)
         results = [classify_pr(entry=entry, metadata=metadata, main_red=args.main_red)]
     else:
         results = _classify_queue(cwd, args.repo, args.limit)
-        if args.main_red:
-            results = [
-                classify_pr(
-                    entry={
-                        "pr_number": item.pr_number,
-                        "title": item.title,
-                        "head_sha": item.head_sha,
-                    },
-                    metadata={},
-                    main_red=True,
-                )
-                for item in results
-            ]
 
     payload = {"results": [result.to_dict() for result in results]}
     if args.json:
