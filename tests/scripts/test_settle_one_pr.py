@@ -43,6 +43,10 @@ OWNER_PREFIX = [settle_one_pr.PYTHON_EXECUTABLE, "scripts/identify_lane_owner.py
 STEERING_PREFIX = [settle_one_pr.PYTHON_EXECUTABLE, "scripts/read_operator_steering.py", "--pr"]
 
 
+def test_pr_policy_fields_include_live_draft_state() -> None:
+    assert "isDraft" in settle_one_pr.PR_POLICY_FIELDS.split(",")
+
+
 def _entry(
     pr_number: int,
     *,

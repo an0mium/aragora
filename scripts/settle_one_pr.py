@@ -62,7 +62,7 @@ OPEN_PR_LIGHT_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
     "reviewDecision,labels,author,additions,deletions,changedFiles"
 )
-PR_POLICY_FIELDS = "number,title,headRefName,author,mergeable,mergeStateStatus,files"
+PR_POLICY_FIELDS = "number,title,headRefName,isDraft,author,mergeable,mergeStateStatus,files"
 SURFACE_EXCLUDE_REASON = (
     "security/auth/RBAC/secrets/deploy/workflow/legal/compliance/destructive/"
     "migration/public-API surface"
