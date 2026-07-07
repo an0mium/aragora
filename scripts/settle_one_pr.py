@@ -410,7 +410,8 @@ def policy_exclusion_reasons(
     title_branch_text = _title_branch_text(entry, metadata)
     if _is_dependabot_pr(entry, metadata):
         reasons.append("Dependabot PR")
-    if bool(metadata.get("isDraft") or entry.get("isDraft")):
+    is_draft = metadata["isDraft"] if "isDraft" in metadata else entry.get("isDraft")
+    if bool(is_draft):
         reasons.append("draft PR")
 
     mergeable = str(metadata.get("mergeable") or entry.get("mergeable") or "").upper()
@@ -1353,6 +1354,7 @@ def load_pr_policy_metadata_rest(
         "number": _coerce_int(pull_payload.get("number")) or pr_number,
         "title": pull_payload.get("title"),
         "headRefName": head.get("ref") if isinstance(head, dict) else "",
+        "isDraft": bool(pull_payload.get("draft")),
         "author": {"login": user.get("login")} if isinstance(user, dict) else {},
         "mergeable": _rest_mergeable(pull_payload.get("mergeable")),
         "mergeStateStatus": _rest_merge_state(pull_payload.get("mergeable_state")),
