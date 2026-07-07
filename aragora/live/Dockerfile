@@ -1,14 +1,20 @@
 # Aragora Live Dashboard
 # Next.js Frontend Dockerfile
+#
+# Build from the repository root:
+#   docker build -f aragora/live/Dockerfile .
 
 # Stage 1: Dependencies
 FROM node:20.19-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json* .npmrc* ./
-RUN npm ci --only=production
+# Copy TypeScript SDK and locked frontend dependency metadata.
+# The package-lock SDK path remains ../../sdk/typescript; from /app this
+# resolves to /sdk/typescript, copied here.
+COPY sdk/typescript/ /sdk/typescript/
+COPY aragora/live/package.json aragora/live/package-lock.json aragora/live/.npmrc ./
+RUN npm ci --legacy-peer-deps
 
 # Stage 2: Builder
 FROM node:20.19-alpine AS builder
@@ -16,7 +22,7 @@ WORKDIR /app
 
 # Copy deps from previous stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY aragora/live/ ./
 
 # Build arguments for API URLs (production defaults)
 ARG NEXT_PUBLIC_API_URL=https://api.aragora.ai
@@ -28,7 +34,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV DOCKER_BUILD=1
 
 # Build the application with production URLs
-RUN npm run build
+RUN npm run build:local
 
 # Stage 3: Runner
 FROM node:20.19-alpine AS runner

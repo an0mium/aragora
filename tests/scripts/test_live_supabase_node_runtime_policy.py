@@ -10,6 +10,10 @@ NODE_RUNTIME_FILES = (
     REPO_ROOT / "deploy" / "Dockerfile.frontend",
     REPO_ROOT / "docker-compose.dev.yml",
 )
+FRONTEND_DOCKERFILES = (
+    LIVE_DIR / "Dockerfile",
+    REPO_ROOT / "deploy" / "Dockerfile.frontend",
+)
 SUPABASE_PACKAGES = (
     "node_modules/@supabase/auth-js",
     "node_modules/@supabase/functions-js",
@@ -82,17 +86,19 @@ def test_live_realtime_phoenix_dependency_is_locked() -> None:
     assert realtime_dependencies["@supabase/phoenix"] == phoenix_version
 
 
-def test_production_frontend_dockerfile_installs_from_lockfile() -> None:
-    text = (REPO_ROOT / "deploy" / "Dockerfile.frontend").read_text(encoding="utf-8")
+def test_frontend_dockerfiles_install_from_lockfile_with_sdk_context() -> None:
+    for dockerfile in FRONTEND_DOCKERFILES:
+        text = dockerfile.read_text(encoding="utf-8")
 
-    assert (
-        "COPY aragora/live/package.json aragora/live/package-lock.json aragora/live/.npmrc ./"
-        in text
-    )
-    assert "RUN npm ci --legacy-peer-deps" in text
-    assert "npm install --legacy-peer-deps" not in text
-    assert "sed -i" not in text
-    assert "replaceAll(" not in text
+        assert "COPY sdk/typescript/ /sdk/typescript/" in text
+        assert (
+            "COPY aragora/live/package.json aragora/live/package-lock.json aragora/live/.npmrc ./"
+        ) in text
+        assert "RUN npm ci --legacy-peer-deps" in text
+        assert "npm install --legacy-peer-deps" not in text
+        assert "npm ci --only=production" not in text
+        assert "sed -i" not in text
+        assert "replaceAll(" not in text
 
 
 def test_live_sdk_lock_path_matches_docker_context() -> None:
@@ -114,6 +120,14 @@ def test_pre_deploy_rejects_sub_node20_frontend_runtime() -> None:
     assert '[[ "${NODE_VERSION%%.*}" -ge 20 ]]' in text
     assert 'print_fail "Node.js version $NODE_VERSION (required: 20+)"' in text
     assert "recommended: 20+" not in text
+
+
+def test_deploy_frontend_workflow_uses_repo_root_docker_context() -> None:
+    text = (REPO_ROOT / ".github" / "workflows" / "deploy-frontend.yml").read_text(encoding="utf-8")
+
+    assert "context: ." in text
+    assert "file: aragora/live/Dockerfile" in text
+    assert "context: aragora/live" not in text
 
 
 def test_live_supabase_node_engines_fit_docker_runtime() -> None:
