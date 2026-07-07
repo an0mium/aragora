@@ -21,6 +21,7 @@ DOC_PATH = Path("docs/GITHUB_ACTION_SETUP.md")
 README_PATH = Path("README.md")
 ROOT_ACTION_PATH = Path("action.yml")
 EXAMPLE_RECEIPT_PATH = Path("docs/specs/examples/example-merge-quorum-receipt.odr.json")
+PINNED_ROOT_ACTION_REF = "synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f"
 
 _BACKTICK_TABLE_FIELD_RE = re.compile(r"^\|\s*`([a-zA-Z0-9_-]+)`\s*\|", re.MULTILINE)
 
@@ -129,7 +130,12 @@ def test_minimal_receipt_snippet_is_valid_yaml_and_wires_emit_receipt() -> None:
     assert verify_steps, "expected an optional aragora-verify step in the snippet"
 
 
-def test_readme_wedge_snippet_is_valid_yaml_and_uses_root_action_at_main() -> None:
+def test_docs_do_not_recommend_mutable_main_action_ref() -> None:
+    for path in (README_PATH, DOC_PATH):
+        assert "synaptent/aragora@main" not in path.read_text(encoding="utf-8")
+
+
+def test_readme_wedge_snippet_is_valid_yaml_and_uses_pinned_root_action() -> None:
     readme = README_PATH.read_text(encoding="utf-8")
     yaml_blocks = _fenced_blocks(readme, "yaml")
     wedge_blocks = [b for b in yaml_blocks if "synaptent/aragora" in b]
@@ -139,9 +145,9 @@ def test_readme_wedge_snippet_is_valid_yaml_and_uses_root_action_at_main() -> No
     steps = next(iter(workflow["jobs"].values()))["steps"]
     aragora_step = _first_uses_step(steps, "synaptent/aragora@")
 
-    assert aragora_step["uses"] == "synaptent/aragora@main", (
-        "README wedge example should track @main, not a pinned SHA that will "
-        "silently predate newer action.yml capabilities like emit-receipt"
+    assert aragora_step["uses"] == PINNED_ROOT_ACTION_REF, (
+        "README wedge example should use an immutable root action ref that "
+        "includes newer action.yml capabilities like emit-receipt"
     )
     assert aragora_step["with"]["emit-receipt"] == "true"
 

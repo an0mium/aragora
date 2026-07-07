@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: Run Aragora Review
         id: review
-        uses: synaptent/aragora@main
+        uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -134,7 +134,7 @@ jobs:
 
       - name: Run Aragora Review
         id: review
-        uses: synaptent/aragora@main
+        uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -262,7 +262,7 @@ on:
 Focus the review on security concerns:
 
 ```yaml
-- uses: synaptent/aragora@main
+- uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
   with:
     focus: 'security'
     rounds: '3'
@@ -274,7 +274,7 @@ Focus the review on security concerns:
 The `max-diff-size` input prevents excessive API costs on large PRs. The default of 50KB handles most PRs. For monorepo or generated code, increase it:
 
 ```yaml
-- uses: synaptent/aragora@main
+- uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
   with:
     max-diff-size: '200000'
 ```
