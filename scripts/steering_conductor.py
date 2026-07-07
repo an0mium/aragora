@@ -26,9 +26,13 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import send_operator_steering
+import identify_lane_owner as owner_lookup
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LEDGER_PATH = Path.home() / ".aragora" / "steering_conductor_ledger.json"
+LANE_REGISTRY_DEFAULT = owner_lookup.LANE_REGISTRY_DEFAULT
+STEERING_INBOX_ROOT_DEFAULT = owner_lookup.STEERING_INBOX_ROOT_DEFAULT
+USER_LANE_REGISTRY_DEFAULT = send_operator_steering.USER_LANE_REGISTRY_DEFAULT
 DEFAULT_RECENT_TARGET_CYCLES = 3
 DEFAULT_RECENT_TARGET_HOURS = 2.0
 DEFAULT_MAX_LANE_AGE_MINUTES = 120.0
@@ -93,8 +97,8 @@ class Candidate:
 class CycleConfig:
     repo_root: Path = REPO_ROOT
     ledger_path: Path = DEFAULT_LEDGER_PATH
-    lane_registry_path: Path = send_operator_steering.LANE_REGISTRY_DEFAULT
-    steering_inbox_root: Path = send_operator_steering.STEERING_INBOX_ROOT_DEFAULT
+    lane_registry_path: Path = LANE_REGISTRY_DEFAULT
+    steering_inbox_root: Path = STEERING_INBOX_ROOT_DEFAULT
     recent_target_cycles: int = DEFAULT_RECENT_TARGET_CYCLES
     recent_target_hours: float = DEFAULT_RECENT_TARGET_HOURS
     max_lane_age_minutes: float = DEFAULT_MAX_LANE_AGE_MINUTES
@@ -207,14 +211,14 @@ def _load_lane_records_file(path: Path) -> list[dict[str, Any]]:
 
 
 def load_lane_records(path: Path) -> list[dict[str, Any]]:
-    if path != send_operator_steering.LANE_REGISTRY_DEFAULT:
+    if path != LANE_REGISTRY_DEFAULT:
         return _load_lane_records_file(path)
 
     records: list[dict[str, Any]] = []
     seen: set[Path] = set()
     for candidate in (
-        send_operator_steering.USER_LANE_REGISTRY_DEFAULT,
-        send_operator_steering.LANE_REGISTRY_DEFAULT,
+        USER_LANE_REGISTRY_DEFAULT,
+        LANE_REGISTRY_DEFAULT,
     ):
         try:
             resolved = candidate.resolve()
@@ -762,16 +766,28 @@ def _run_cycle_locked(
         return result
 
     latest_records = load_lane_records(config.lane_registry_path)
+    latest_owner_conflicts = _active_owner_conflicts(
+        latest_records,
+        open_prs=open_prs,
+        now=now,
+        max_lane_age_minutes=config.max_lane_age_minutes,
+        steering_inbox_root=config.steering_inbox_root,
+    )
+    current_conflict_owners = latest_owner_conflicts.get(candidate.target_key)
     current_record = _find_current_record(latest_records, candidate)
     current_blocker = (
-        "candidate disappeared before send"
-        if current_record is None
-        else _current_record_blocker(
-            current_record,
-            candidate,
-            open_prs=open_prs,
-            now=now,
-            max_lane_age_minutes=config.max_lane_age_minutes,
+        "multiple active owners"
+        if current_conflict_owners
+        else (
+            "candidate disappeared before send"
+            if current_record is None
+            else _current_record_blocker(
+                current_record,
+                candidate,
+                open_prs=open_prs,
+                now=now,
+                max_lane_age_minutes=config.max_lane_age_minutes,
+            )
         )
     )
     if current_blocker is not None:
@@ -782,6 +798,8 @@ def _run_cycle_locked(
             "owner_session": candidate.owner_session,
             "skip_reason": current_blocker,
         }
+        if current_conflict_owners:
+            entry["owner_sessions"] = current_conflict_owners
         ledger = _append_ledger_entry(ledger, entry, sent=False)
         if ledger["consecutive_no_send"] >= 3:
             result["stop"] = True
@@ -792,6 +810,7 @@ def _run_cycle_locked(
             {
                 "selected": {"target_key": candidate.target_key, "reason": candidate.reason},
                 "no_send_reason": current_blocker,
+                "owner_sessions": current_conflict_owners,
                 "ledger_consecutive_no_send": ledger["consecutive_no_send"],
                 "ledger_updated": not config.dry_run,
                 "next_prompt": _next_prompt(config.repo_root),
@@ -937,12 +956,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--lane-registry-path",
         type=Path,
-        default=send_operator_steering.LANE_REGISTRY_DEFAULT,
+        default=LANE_REGISTRY_DEFAULT,
     )
     parser.add_argument(
         "--steering-inbox-root",
         type=Path,
-        default=send_operator_steering.STEERING_INBOX_ROOT_DEFAULT,
+        default=STEERING_INBOX_ROOT_DEFAULT,
     )
     parser.add_argument("--recent-target-cycles", type=int, default=DEFAULT_RECENT_TARGET_CYCLES)
     parser.add_argument("--recent-target-hours", type=float, default=DEFAULT_RECENT_TARGET_HOURS)

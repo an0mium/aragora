@@ -398,12 +398,19 @@ def test_load_lane_records_merges_default_user_and_repo_registries(
     repo_lanes = tmp_path / "repo" / "lanes.json"
     _write_lanes(user_lanes, [_lane("user-lane", "owner-user", pr_number=9001)])
     _write_lanes(repo_lanes, [_lane("repo-lane", "owner-repo", pr_number=9002)])
-    monkeypatch.setattr(sc.send_operator_steering, "USER_LANE_REGISTRY_DEFAULT", user_lanes)
-    monkeypatch.setattr(sc.send_operator_steering, "LANE_REGISTRY_DEFAULT", repo_lanes)
+    monkeypatch.setattr(sc, "USER_LANE_REGISTRY_DEFAULT", user_lanes)
+    monkeypatch.setattr(sc, "LANE_REGISTRY_DEFAULT", repo_lanes)
 
     records = sc.load_lane_records(repo_lanes)
 
     assert [record["lane_id"] for record in records] == ["user-lane", "repo-lane"]
+
+
+def test_default_paths_use_canonical_owner_lookup_state_root() -> None:
+    assert sc.LANE_REGISTRY_DEFAULT == sc.owner_lookup.LANE_REGISTRY_DEFAULT
+    assert sc.STEERING_INBOX_ROOT_DEFAULT == sc.owner_lookup.STEERING_INBOX_ROOT_DEFAULT
+    assert sc.CycleConfig().lane_registry_path == sc.owner_lookup.LANE_REGISTRY_DEFAULT
+    assert sc.CycleConfig().steering_inbox_root == sc.owner_lookup.STEERING_INBOX_ROOT_DEFAULT
 
 
 def test_stale_terminal_and_unpushed_lanes_are_excluded(tmp_path: Path) -> None:
@@ -622,6 +629,38 @@ def test_duplicate_sent_body_is_not_resent(tmp_path: Path) -> None:
     updated = json.loads((tmp_path / "ledger.json").read_text(encoding="utf-8"))
     assert updated["consecutive_no_send"] == 1
     assert updated["entries"][-1]["body_sha256"] == body_hash
+
+
+def test_duplicate_active_owner_appearing_before_send_blocks_target(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    calls = 0
+
+    def fake_load_lane_records(_path: Path) -> list[dict[str, Any]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [_lane("lane-a", "owner-a", pr_number=9001)]
+        return [
+            _lane("lane-a", "owner-a", pr_number=9001),
+            _lane("lane-b", "owner-b", pr_number=9001),
+        ]
+
+    monkeypatch.setattr(sc, "load_lane_records", fake_load_lane_records)
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner([{"number": 9001, "headRefOid": "abc123"}]),
+        now=NOW,
+    )
+
+    assert result["sent"] is False
+    assert result["no_send_reason"] == "multiple active owners"
+    assert result["owner_sessions"] == ["owner-a", "owner-b"]
+    assert len(list((tmp_path / "operator-steering").glob("*/*.json"))) == 0
 
 
 def test_non_dry_run_acquires_and_releases_ledger_lock(tmp_path: Path, monkeypatch: Any) -> None:
