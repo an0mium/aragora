@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import fcntl
 import hashlib
 import json
 import subprocess
@@ -27,7 +28,7 @@ if str(SCRIPT_DIR) not in sys.path:
 import send_operator_steering
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_LEDGER_PATH = Path("/tmp/aragora_steering_conductor_ledger.json")
+DEFAULT_LEDGER_PATH = Path.home() / ".aragora" / "steering_conductor_ledger.json"
 DEFAULT_RECENT_TARGET_CYCLES = 3
 DEFAULT_RECENT_TARGET_HOURS = 2.0
 DEFAULT_MAX_LANE_AGE_MINUTES = 120.0
@@ -181,8 +182,23 @@ def load_ledger(path: Path) -> dict[str, Any]:
 
 
 def write_ledger(path: Path, ledger: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     path.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _acquire_cycle_lock(path: Path) -> Any:
+    lock_path = path.with_name(f"{path.name}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    handle = lock_path.open("a+", encoding="utf-8")
+    fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+    return handle
+
+
+def _release_cycle_lock(handle: Any) -> None:
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    finally:
+        handle.close()
 
 
 def _load_lane_records_file(path: Path) -> list[dict[str, Any]]:
@@ -322,6 +338,20 @@ def _message_body(
 
 def _body_hash(body: str) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def _ledger_has_sent_body(
+    ledger: dict[str, Any],
+    *,
+    target_key: str,
+    body_hash: str,
+) -> bool:
+    for entry in reversed([e for e in ledger.get("entries", []) if isinstance(e, dict)]):
+        if entry.get("target_key") != target_key:
+            continue
+        if entry.get("sent") is True and entry.get("body_sha256") == body_hash:
+            return True
+    return False
 
 
 def _recent_target_keys(
@@ -501,6 +531,26 @@ def _find_current_record(
     return None
 
 
+def _current_record_blocker(
+    record: dict[str, Any],
+    candidate: Candidate,
+    *,
+    open_prs: dict[int, dict[str, Any]],
+    now: dt.datetime,
+    max_lane_age_minutes: float,
+) -> str | None:
+    current_target_key = _target_key(record)
+    if current_target_key != candidate.target_key:
+        return f"candidate target changed to {current_target_key}"
+    excluded = _is_excluded_record(record, now, max_lane_age_minutes)
+    if excluded:
+        return excluded
+    pr_number = _record_pr_number(record)
+    if pr_number is not None and pr_number not in open_prs:
+        return "PR is not open"
+    return None
+
+
 def _append_ledger_entry(
     ledger: dict[str, Any],
     entry: dict[str, Any],
@@ -541,7 +591,7 @@ def collect_live_state(
         command_runner=command_runner,
     )
     rev_lines = (rev.stdout or "").splitlines()
-    pr_payload = _run_json(
+    pr_proc = _run(
         [
             "gh",
             "pr",
@@ -556,13 +606,25 @@ def collect_live_state(
         cwd=repo_root,
         command_runner=command_runner,
     )
+    pr_payload: Any = None
+    pr_error: str | None = None
+    if pr_proc.returncode == 0:
+        try:
+            pr_payload = json.loads(pr_proc.stdout or "null")
+        except json.JSONDecodeError as exc:
+            pr_error = f"invalid gh pr list JSON: {exc}"
+    else:
+        pr_error = (pr_proc.stderr or pr_proc.stdout or "gh pr list failed").strip()
+    if not isinstance(pr_payload, list):
+        pr_payload = None
     return {
         "fetch": fetch_result,
         "status": status.stdout,
         "head": rev_lines[0] if len(rev_lines) >= 1 else None,
         "origin_main": rev_lines[1] if len(rev_lines) >= 2 else None,
-        "open_prs": pr_payload if isinstance(pr_payload, list) else [],
-        "open_pr_count": len(pr_payload) if isinstance(pr_payload, list) else None,
+        "open_prs": pr_payload,
+        "open_pr_count": len(pr_payload) if pr_payload is not None else None,
+        "open_pr_error": pr_error,
     }
 
 
@@ -574,9 +636,54 @@ def run_cycle(
 ) -> dict[str, Any]:
     now = now or _utc_now()
     live_state = collect_live_state(config, command_runner=command_runner)
+    lock_handle = None
+    if not config.dry_run:
+        lock_handle = _acquire_cycle_lock(config.ledger_path)
+    try:
+        return _run_cycle_locked(config, live_state=live_state, now=now)
+    finally:
+        if lock_handle is not None:
+            _release_cycle_lock(lock_handle)
+
+
+def _run_cycle_locked(
+    config: CycleConfig,
+    *,
+    live_state: dict[str, Any],
+    now: dt.datetime,
+) -> dict[str, Any]:
     ledger = load_ledger(config.ledger_path)
     records = load_lane_records(config.lane_registry_path)
-    open_prs = _open_pr_lookup(live_state.get("open_prs"))
+    open_prs_payload = live_state.get("open_prs")
+    open_prs = _open_pr_lookup(open_prs_payload)
+
+    result: dict[str, Any] = {
+        "ok": True,
+        "sent": False,
+        "dry_run": config.dry_run,
+        "timestamp": _iso(now),
+        "origin_main": live_state.get("origin_main"),
+        "open_pr_count": live_state.get("open_pr_count"),
+        "candidate_skips": [],
+        "selected": None,
+        "message_path": None,
+        "stop": False,
+        "stop_reason": None,
+    }
+
+    if open_prs_payload is None:
+        result.update(
+            {
+                "ok": False,
+                "no_send_reason": "open PR list unavailable",
+                "open_pr_error": live_state.get("open_pr_error"),
+                "ledger_consecutive_no_send": ledger["consecutive_no_send"],
+                "ledger_updated": False,
+                "next_prompt": _next_prompt(config.repo_root),
+            }
+        )
+        return result
+
     candidate, skips = choose_candidate(
         records,
         open_prs=open_prs,
@@ -587,20 +694,7 @@ def run_cycle(
         max_lane_age_minutes=config.max_lane_age_minutes,
         steering_inbox_root=config.steering_inbox_root,
     )
-
-    result: dict[str, Any] = {
-        "ok": True,
-        "sent": False,
-        "dry_run": config.dry_run,
-        "timestamp": _iso(now),
-        "origin_main": live_state.get("origin_main"),
-        "open_pr_count": live_state.get("open_pr_count"),
-        "candidate_skips": skips[:25],
-        "selected": None,
-        "message_path": None,
-        "stop": False,
-        "stop_reason": None,
-    }
+    result["candidate_skips"] = skips[:25]
 
     if candidate is None:
         entry = {
@@ -622,13 +716,24 @@ def run_cycle(
 
     latest_records = load_lane_records(config.lane_registry_path)
     current_record = _find_current_record(latest_records, candidate)
-    if current_record is None or current_record != candidate.record:
+    current_blocker = (
+        "candidate disappeared before send"
+        if current_record is None
+        else _current_record_blocker(
+            current_record,
+            candidate,
+            open_prs=open_prs,
+            now=now,
+            max_lane_age_minutes=config.max_lane_age_minutes,
+        )
+    )
+    if current_blocker is not None:
         entry = {
             "timestamp": _iso(now),
             "sent": False,
             "target_key": candidate.target_key,
             "owner_session": candidate.owner_session,
-            "skip_reason": "candidate drifted before send",
+            "skip_reason": current_blocker,
         }
         ledger = _append_ledger_entry(ledger, entry, sent=False)
         if ledger["consecutive_no_send"] >= 3:
@@ -639,13 +744,20 @@ def run_cycle(
         result.update(
             {
                 "selected": {"target_key": candidate.target_key, "reason": candidate.reason},
-                "no_send_reason": "candidate drifted before send",
+                "no_send_reason": current_blocker,
                 "ledger_consecutive_no_send": ledger["consecutive_no_send"],
                 "ledger_updated": not config.dry_run,
                 "next_prompt": _next_prompt(config.repo_root),
             }
         )
         return result
+    candidate = Candidate(
+        record=current_record,
+        target_key=candidate.target_key,
+        owner_session=candidate.owner_session,
+        score=candidate.score,
+        reason=candidate.reason,
+    )
 
     open_pr: dict[str, Any] | None = None
     try:
@@ -660,6 +772,31 @@ def run_cycle(
         open_pr = open_prs.get(pr_number)
     body = _message_body(candidate.record, repo_root=config.repo_root, open_pr=open_pr)
     body_hash = _body_hash(body)
+    if _ledger_has_sent_body(ledger, target_key=candidate.target_key, body_hash=body_hash):
+        entry = {
+            "timestamp": _iso(now),
+            "sent": False,
+            "target_key": candidate.target_key,
+            "owner_session": candidate.owner_session,
+            "skip_reason": "duplicate steering body already sent",
+            "body_sha256": body_hash,
+        }
+        ledger = _append_ledger_entry(ledger, entry, sent=False)
+        if ledger["consecutive_no_send"] >= 3:
+            result["stop"] = True
+            result["stop_reason"] = "three consecutive no-send cycles"
+        if not config.dry_run:
+            write_ledger(config.ledger_path, ledger)
+        result.update(
+            {
+                "selected": {"target_key": candidate.target_key, "reason": candidate.reason},
+                "no_send_reason": "duplicate steering body already sent",
+                "ledger_consecutive_no_send": ledger["consecutive_no_send"],
+                "ledger_updated": not config.dry_run,
+                "next_prompt": _next_prompt(config.repo_root),
+            }
+        )
+        return result
     route = send_operator_steering.direct_route_payload(
         candidate.owner_session, steering_inbox_root=config.steering_inbox_root
     )
@@ -730,7 +867,7 @@ def _next_prompt(repo_root: Path = REPO_ROOT) -> str:
         "Operating contract: re-read docs/AGENT_OPERATING_CONTRACT.md §Conductor, "
         "docs/REVIEW_AUTHORITY_PRINCIPLES.md, and AGENTS.md this cycle. Send at most "
         "one local operator-steering message via scripts/steering_conductor.py, "
-        "respecting /tmp/aragora_steering_conductor_ledger.json rotation and all "
+        "respecting steering-conductor ledger rotation and all "
         "hard exclusions. Do not mutate GitHub, PR branches, evidence, settlements, "
         "workflows, branch protection, or repo-tracked files."
     )

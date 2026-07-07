@@ -428,6 +428,171 @@ def test_third_drift_no_send_cycle_sets_stop(tmp_path: Path, monkeypatch: Any) -
     assert result["ledger_consecutive_no_send"] == 3
 
 
+def test_heartbeat_only_drift_still_sends(tmp_path: Path, monkeypatch: Any) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    calls = 0
+
+    def fake_load_lane_records(_path: Path) -> list[dict[str, Any]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [_lane("lane-a", "owner-a", pr_number=9001)]
+        return [
+            _lane(
+                "lane-a",
+                "owner-a",
+                pr_number=9001,
+                updated_at="2026-07-07T16:56:00Z",
+            )
+        ]
+
+    monkeypatch.setattr(sc, "load_lane_records", fake_load_lane_records)
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner([{"number": 9001, "headRefOid": "abc123"}]),
+        now=NOW,
+    )
+
+    assert result["sent"] is True
+    assert result["selected"]["target_key"] == "pr:9001"
+    assert len(list((tmp_path / "operator-steering" / "owner-a").glob("*.json"))) == 1
+
+
+def test_target_drift_blocks_send(tmp_path: Path, monkeypatch: Any) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    calls = 0
+
+    def fake_load_lane_records(_path: Path) -> list[dict[str, Any]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [_lane("lane-a", "owner-a", pr_number=9001)]
+        return [_lane("lane-a", "owner-a", pr_number=9002)]
+
+    monkeypatch.setattr(sc, "load_lane_records", fake_load_lane_records)
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner(
+            [
+                {"number": 9001, "headRefOid": "abc123"},
+                {"number": 9002, "headRefOid": "def456"},
+            ]
+        ),
+        now=NOW,
+    )
+
+    assert result["sent"] is False
+    assert result["no_send_reason"] == "candidate target changed to pr:9002"
+    assert result["ledger_consecutive_no_send"] == 1
+
+
+def test_pr_list_failure_short_circuits_without_counting_no_send(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    _write_lanes(lanes_path, [_lane("lane-a", "owner-a", pr_number=9001)])
+
+    def failing_pr_runner(
+        command: list[str],
+        *,
+        cwd: str,
+        capture_output: bool,
+        text: bool,
+        timeout: int,
+        check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(command, 1, "", "auth failed")
+        return _runner([])(
+            command,
+            cwd=cwd,
+            capture_output=capture_output,
+            text=text,
+            timeout=timeout,
+            check=check,
+        )
+
+    result = sc.run_cycle(_config(tmp_path, lanes_path), command_runner=failing_pr_runner, now=NOW)
+
+    assert result["ok"] is False
+    assert result["sent"] is False
+    assert result["no_send_reason"] == "open PR list unavailable"
+    assert result["open_pr_error"] == "auth failed"
+    assert result["ledger_consecutive_no_send"] == 0
+    assert result["ledger_updated"] is False
+    assert not (tmp_path / "ledger.json").exists()
+
+
+def test_duplicate_sent_body_is_not_resent(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    lane = _lane("lane-a", "owner-a", pr_number=9001)
+    _write_lanes(lanes_path, [lane])
+    body_hash = sc._body_hash(
+        sc._message_body(lane, repo_root=tmp_path / "repo", open_pr={"headRefOid": "abc123"})
+    )
+    ledger = {
+        "schema_version": sc.SCHEMA_VERSION,
+        "consecutive_no_send": 0,
+        "entries": [
+            {
+                "timestamp": "2026-07-07T16:30:00Z",
+                "sent": True,
+                "target_key": "pr:9001",
+                "body_sha256": body_hash,
+            }
+        ],
+    }
+    (tmp_path / "ledger.json").write_text(json.dumps(ledger), encoding="utf-8")
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner([{"number": 9001, "headRefOid": "abc123"}]),
+        now=NOW,
+    )
+
+    assert result["sent"] is False
+    assert result["no_send_reason"] == "duplicate steering body already sent"
+    assert len(list((tmp_path / "operator-steering" / "owner-a").glob("*.json"))) == 0
+    updated = json.loads((tmp_path / "ledger.json").read_text(encoding="utf-8"))
+    assert updated["consecutive_no_send"] == 1
+    assert updated["entries"][-1]["body_sha256"] == body_hash
+
+
+def test_non_dry_run_acquires_and_releases_ledger_lock(tmp_path: Path, monkeypatch: Any) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    _write_lanes(lanes_path, [_lane("lane-a", "owner-a")])
+    lock_events: list[str] = []
+
+    def fake_acquire(_path: Path) -> object:
+        lock_events.append("acquire")
+        return object()
+
+    def fake_release(_handle: object) -> None:
+        lock_events.append("release")
+
+    monkeypatch.setattr(sc, "_acquire_cycle_lock", fake_acquire)
+    monkeypatch.setattr(sc, "_release_cycle_lock", fake_release)
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner([{"number": 9001, "headRefOid": "abc123"}]),
+        now=NOW,
+    )
+
+    assert result["sent"] is True
+    assert lock_events == ["acquire", "release"]
+
+
 def test_dry_run_does_not_write_message_or_ledger(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
