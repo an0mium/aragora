@@ -1456,11 +1456,11 @@ def _create_issue(
     except RuntimeError as exc:
         if defer_labels_until_ready:
             try:
-                _close_incomplete_prompt_issue(repo_root, repo, url, str(exc))
-            except RuntimeError as close_exc:
+                _mark_incomplete_prompt_issue(repo_root, repo, url, str(exc))
+            except RuntimeError as mark_exc:
                 raise RuntimeError(
-                    f"{exc}; additionally failed to close incomplete prompt issue: {close_exc}"
-                ) from close_exc
+                    f"{exc}; additionally failed to mark incomplete prompt issue: {mark_exc}"
+                ) from mark_exc
         raise
     return url
 
@@ -1559,20 +1559,22 @@ def _add_prompt_artifact_comments(
             )
 
 
-def _close_incomplete_prompt_issue(repo_root: Path, repo: str, issue_url: str, error: str) -> None:
+def _mark_incomplete_prompt_issue(repo_root: Path, repo: str, issue_url: str, error: str) -> None:
     number = _issue_number_from_url(issue_url)
     if not number:
         raise RuntimeError("prompt_artifact_issue_url_unparseable")
     body = (
-        "Closing incomplete prompt handoff issue: required prompt handoff "
-        f"publication failed before the handoff became usable.\n\nError: {error}"
+        "Incomplete prompt handoff issue: required prompt handoff publication "
+        "failed before the handoff became usable. Leaving this issue open so "
+        "prompt identity dedupe can find it and avoid repeated create/close "
+        f"churn.\n\nError: {error}"
     )
-    proc = _run(["gh", "issue", "close", number, "--repo", repo, "--comment", body], cwd=repo_root)
+    proc = _run(["gh", "issue", "comment", number, "--repo", repo, "--body", body], cwd=repo_root)
     if proc.returncode != 0:
         raise RuntimeError(
             proc.stderr.strip()
             or proc.stdout.strip()
-            or "gh issue close failed for incomplete prompt handoff"
+            or "gh issue comment failed for incomplete prompt handoff"
         )
 
 

@@ -2249,6 +2249,131 @@ def test_publish_handoffs_writes_outbox_receipt(monkeypatch: Any, tmp_path: Path
     assert receipt["created_issue_url"] == "https://github.com/synaptent/aragora/issues/7000"
 
 
+def test_publish_handoffs_leaves_failed_prompt_issue_discoverable(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    prompt_sha = hashlib.sha256(b"large prompt body").hexdigest()
+    outbox_file = tmp_path / ".aragora" / "automation-outbox" / "prompt.json"
+    artifact = outbox_file.parent / "_prompt-artifacts" / "prompt.txt"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("large prompt body", encoding="utf-8")
+    handoff = Handoff(
+        source_file=str(outbox_file),
+        task_title="Prompt handoff for repeated artifact failure",
+        priority="HIGH",
+        body=(
+            f"Idempotency Key:\nprompt-handoff-repeated-failure\n\nLocal Evidence:\n{prompt_sha}\n"
+        ),
+        labels={},
+        expires_at=None,
+        idempotency_key="prompt-handoff-repeated-failure",
+        source_kind="outbox",
+        requested_action="prompt_handoff",
+        branch="codex/active-repair",
+        desired_head="abc1234",
+        prompt_sha256=prompt_sha,
+        prompt_artifact_path=str(artifact),
+        prompt_artifact_sha256=prompt_sha,
+    )
+    created: list[str] = []
+    marker_comments: list[str] = []
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "create"]:
+            created.append("https://github.com/synaptent/aragora/issues/7001")
+            return subprocess.CompletedProcess(
+                args, 0, "https://github.com/synaptent/aragora/issues/7001\n", ""
+            )
+        if args[:3] == ["gh", "issue", "comment"]:
+            body = args[args.index("--body") + 1]
+            if body.startswith("Prompt handoff artifact"):
+                return subprocess.CompletedProcess(args, 1, "", "artifact comment failed")
+            marker_comments.append(body)
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            assert len(created) == 1
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 7001,
+                            "title": "Prompt handoff for repeated artifact failure",
+                            "url": "https://github.com/synaptent/aragora/issues/7001",
+                            "state": "OPEN",
+                        }
+                    ]
+                ),
+                "",
+            )
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "number": 7001,
+                        "title": "Prompt handoff for repeated artifact failure",
+                        "url": "https://github.com/synaptent/aragora/issues/7001",
+                        "state": "OPEN",
+                        "body": (
+                            "Idempotency Key:\n"
+                            "prompt-handoff-repeated-failure\n\n"
+                            "Local Evidence:\n"
+                            f"{prompt_sha}\n"
+                        ),
+                    }
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    with pytest.raises(RuntimeError, match="artifact comment failed"):
+        mod.publish_handoffs(
+            [handoff],
+            [
+                PublishDecision(
+                    task_title=handoff.task_title,
+                    source_file=handoff.source_file,
+                    eligible=True,
+                    reason="eligible",
+                )
+            ],
+            repo_root=tmp_path,
+            repo="synaptent/aragora",
+            labels=["boss-ready"],
+            limit=1,
+        )
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert len(created) == 1
+    assert len(marker_comments) == 1
+    assert marker_comments[0].startswith("Incomplete prompt handoff issue")
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="existing_issue",
+            branch="codex/active-repair",
+            desired_head="abc1234",
+            existing_issue_url="https://github.com/synaptent/aragora/issues/7001",
+        )
+    ]
+
+
 def test_main_preview_does_not_write_outbox_receipt(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
@@ -3285,9 +3410,9 @@ def test_add_prompt_artifact_comments_rejects_unparseable_issue_url(tmp_path: Pa
         )
 
 
-def test_close_incomplete_prompt_issue_rejects_unparseable_issue_url(tmp_path: Path) -> None:
+def test_mark_incomplete_prompt_issue_rejects_unparseable_issue_url(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match="prompt_artifact_issue_url_unparseable"):
-        mod._close_incomplete_prompt_issue(
+        mod._mark_incomplete_prompt_issue(
             tmp_path,
             "synaptent/aragora",
             "not-a-github-issue-url",
@@ -3295,11 +3420,11 @@ def test_close_incomplete_prompt_issue_rejects_unparseable_issue_url(tmp_path: P
         )
 
 
-def test_create_issue_closes_incomplete_issue_when_prompt_artifact_comment_fails(
+def test_create_issue_marks_incomplete_issue_when_prompt_artifact_comment_fails(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
     created: list[list[str]] = []
-    closed: list[list[str]] = []
+    marker_comments: list[str] = []
     prompt = "Start from live repo truth."
     artifact = tmp_path / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
     artifact.parent.mkdir()
@@ -3313,10 +3438,13 @@ def test_create_issue_closes_incomplete_issue_when_prompt_artifact_comment_fails
                 args, 0, "https://github.com/synaptent/aragora/issues/6003\n", ""
             )
         if args[:3] == ["gh", "issue", "comment"]:
-            return subprocess.CompletedProcess(args, 1, "", "comment failed")
-        if args[:3] == ["gh", "issue", "close"]:
-            closed.append(args)
+            body = args[args.index("--body") + 1]
+            if body.startswith("Prompt handoff artifact"):
+                return subprocess.CompletedProcess(args, 1, "", "comment failed")
+            marker_comments.append(body)
             return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:3] == ["gh", "issue", "close"]:
+            raise AssertionError("incomplete prompt issue must not be closed")
         if args[:3] == ["gh", "issue", "edit"]:
             raise AssertionError("incomplete prompt issue must not be labeled")
         raise AssertionError(f"unexpected args: {args}")
@@ -3342,15 +3470,14 @@ def test_create_issue_closes_incomplete_issue_when_prompt_artifact_comment_fails
 
     assert created
     assert "--label" not in created[0]
-    assert closed
-    assert closed[0][:3] == ["gh", "issue", "close"]
-    assert closed[0][3] == "6003"
+    assert marker_comments
+    assert marker_comments[0].startswith("Incomplete prompt handoff issue")
 
 
-def test_create_issue_closes_incomplete_prompt_issue_when_label_add_fails(
+def test_create_issue_marks_incomplete_prompt_issue_when_label_add_fails(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    closed: list[list[str]] = []
+    marker_comments: list[str] = []
     prompt = "Start from live repo truth."
     artifact = tmp_path / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
     artifact.parent.mkdir()
@@ -3363,12 +3490,14 @@ def test_create_issue_closes_incomplete_prompt_issue_when_label_add_fails(
                 args, 0, "https://github.com/synaptent/aragora/issues/6004\n", ""
             )
         if args[:3] == ["gh", "issue", "comment"]:
+            body = args[args.index("--body") + 1]
+            if body.startswith("Incomplete prompt handoff issue"):
+                marker_comments.append(body)
             return subprocess.CompletedProcess(args, 0, "", "")
         if args[:3] == ["gh", "issue", "edit"]:
             return subprocess.CompletedProcess(args, 1, "", "label add failed")
         if args[:3] == ["gh", "issue", "close"]:
-            closed.append(args)
-            return subprocess.CompletedProcess(args, 0, "", "")
+            raise AssertionError("incomplete prompt issue must not be closed")
         raise AssertionError(f"unexpected args: {args}")
 
     monkeypatch.setattr(mod, "_run", fake_run)
@@ -3390,12 +3519,11 @@ def test_create_issue_closes_incomplete_prompt_issue_when_label_add_fails(
             labels=["boss-ready"],
         )
 
-    assert closed
-    assert closed[0][:3] == ["gh", "issue", "close"]
-    assert closed[0][3] == "6004"
+    assert marker_comments
+    assert marker_comments[0].startswith("Incomplete prompt handoff issue")
 
 
-def test_create_issue_surfaces_incomplete_issue_close_failure(
+def test_create_issue_surfaces_incomplete_issue_marker_failure(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
     prompt = "Start from live repo truth."
@@ -3412,12 +3540,12 @@ def test_create_issue_surfaces_incomplete_issue_close_failure(
         if args[:3] == ["gh", "issue", "comment"]:
             return subprocess.CompletedProcess(args, 1, "", "comment failed")
         if args[:3] == ["gh", "issue", "close"]:
-            return subprocess.CompletedProcess(args, 1, "", "close failed")
+            raise AssertionError("incomplete prompt issue must not be closed")
         raise AssertionError(f"unexpected args: {args}")
 
     monkeypatch.setattr(mod, "_run", fake_run)
 
-    with pytest.raises(RuntimeError, match="failed to close incomplete prompt issue"):
+    with pytest.raises(RuntimeError, match="failed to mark incomplete prompt issue"):
         mod._create_issue(
             tmp_path,
             "synaptent/aragora",
