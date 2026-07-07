@@ -82,6 +82,40 @@ def test_live_realtime_phoenix_dependency_is_locked() -> None:
     assert realtime_dependencies["@supabase/phoenix"] == phoenix_version
 
 
+def test_production_frontend_dockerfile_installs_from_lockfile() -> None:
+    text = (REPO_ROOT / "deploy" / "Dockerfile.frontend").read_text(encoding="utf-8")
+
+    assert (
+        "COPY aragora/live/package.json aragora/live/package-lock.json aragora/live/.npmrc ./"
+        in text
+    )
+    assert "RUN npm ci --legacy-peer-deps" in text
+    assert "npm install --legacy-peer-deps" not in text
+    assert "sed -i" not in text
+    assert "replaceAll(" not in text
+
+
+def test_live_sdk_lock_path_matches_docker_context() -> None:
+    package_json = _load_json(LIVE_DIR / "package.json")
+    package_lock = _load_json(LIVE_DIR / "package-lock.json")
+
+    assert package_json["dependencies"]["@aragora/sdk"] == "file:../../sdk/typescript"
+    assert package_lock["packages"][""]["dependencies"]["@aragora/sdk"] == (
+        "file:../../sdk/typescript"
+    )
+    assert package_lock["packages"]["node_modules/@aragora/sdk"]["resolved"] == (
+        "../../sdk/typescript"
+    )
+
+
+def test_pre_deploy_rejects_sub_node20_frontend_runtime() -> None:
+    text = (REPO_ROOT / "scripts" / "pre_deploy_check.sh").read_text(encoding="utf-8")
+
+    assert '[[ "${NODE_VERSION%%.*}" -ge 20 ]]' in text
+    assert 'print_fail "Node.js version $NODE_VERSION (required: 20+)"' in text
+    assert "recommended: 20+" not in text
+
+
 def test_live_supabase_node_engines_fit_docker_runtime() -> None:
     package_json = _load_json(LIVE_DIR / "package.json")
     package_lock = _load_json(LIVE_DIR / "package-lock.json")

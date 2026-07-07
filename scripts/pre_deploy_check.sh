@@ -86,7 +86,7 @@ if command -v node &> /dev/null; then
     if [[ "${NODE_VERSION%%.*}" -ge 20 ]]; then
         print_pass "Node.js version: $NODE_VERSION"
     else
-        print_warn "Node.js version $NODE_VERSION (recommended: 20+)"
+        print_fail "Node.js version $NODE_VERSION (required: 20+)"
     fi
 else
     print_warn "Node.js not found (required for frontend)"
