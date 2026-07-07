@@ -60,14 +60,26 @@ That's it. The next PR will get an AI code review comment.
 
 ### Action Inputs
 
+The Inputs and Outputs tables below are kept at full parity with
+[`action.yml`](../action.yml) by `tests/scripts/test_github_action_setup_doc.py`
+(exact-match, not just a subset -- a field added to either side without the other
+fails the test).
+
 | Input | Default | Description |
 |-------|---------|-------------|
 | `agents` | `anthropic-api,openai-api` | Comma-separated agent list |
 | `rounds` | `2` | Number of debate rounds (1-5) |
 | `focus` | `security,performance,quality` | Review focus areas |
+| `anthropic-api-key` | (none) | Anthropic API key for Claude |
+| `openai-api-key` | (none) | OpenAI API key for GPT |
+| `openrouter-api-key` | (none) | OpenRouter API key (fallback provider) |
 | `post-comment` | `true` | Post review as PR comment |
 | `fail-on-critical` | `false` | Fail CI if critical issues found |
 | `max-diff-size` | `50000` | Max diff size in bytes |
+| `pr-number` | (empty string) | Pull request number override, for manual/self-test runs (defaults to the triggering PR's number) |
+| `failure-threshold` | `0` | Fail workflow if total issues exceed this count (`0` = disabled) |
+| `output-format` | `none` | Additional output format besides the PR comment (`sarif`, `json`, `none`) |
+| `sarif-upload` | `false` | Upload the generated SARIF file to the GitHub Security tab (requires `output-format: 'sarif'`) |
 | `emit-receipt` | `false` | Emit a verifiable [Open Decision Receipt](specs/OPEN_DECISION_RECEIPT.md) (ODR) for the review and upload it as a build artifact. See [Emitting a Verifiable Decision Receipt](#emitting-a-verifiable-decision-receipt) below. |
 | `receipt-reviewers` | `claude openai` | Space-separated model families for the receipt's merge-quorum pass. You must hold a reachable provider key for every family listed. |
 | `use-secrets-manager` | `false` | Hydrate provider API keys from AWS Secrets Manager instead of the `*-api-key` inputs. Requires AWS credentials in the job env. |
@@ -90,6 +102,7 @@ That's it. The next PR will get an AI code review comment.
 | `risk-areas-count` | Risk areas noted (lower confidence items) |
 | `split-opinions-count` | Split opinions (agent disagreement items) |
 | `agreement-score` | Agent agreement score (0-1) |
+| `sarif-path` | Path to the generated SARIF output file (only set when `output-format: 'sarif'` produced one) |
 | `receipt-path` | Path to the verifiable ODR decision receipt (only set if `emit-receipt: 'true'` and emission succeeded) |
 | `receipt-verdict` | Receipt verdict (`PASS` / `CHANGES_REQUESTED`) |
 | `receipt-digest` | SHA-256 JCS content digest of the receipt -- the value signatures would cover |
@@ -155,6 +168,8 @@ jobs:
           pip install "aragora-verify>=0.1.1"
           aragora-verify "${{ steps.review.outputs.receipt-path }}"
 ```
+
+See `examples/github-action/receipt.yml` for this snippet as a copy-paste workflow file.
 
 Only the **root** `synaptent/aragora` action shown above (this `action.yml`) can emit
 a receipt. The composite actions nested under `.github/actions/` in this repo
