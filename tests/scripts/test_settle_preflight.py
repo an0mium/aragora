@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import scripts.settle_preflight as settle_preflight
 
 
@@ -193,3 +196,90 @@ def test_head_blocked_when_packet_not_authorized() -> None:
 
     assert result.verdict == settle_preflight.HEAD_BLOCKED
     assert "satisfied model packet" in result.action
+
+
+def test_main_red_pr_short_circuits_packet_loading(monkeypatch, capsys) -> None:
+    def fail_load_single(*_args, **_kwargs):
+        raise AssertionError("main-red should not load PR packets")
+
+    monkeypatch.setattr(settle_preflight, "_load_single", fail_load_single)
+
+    rc = settle_preflight.main(["--pr", "9001", "--main-red", "--json"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["results"][0]["pr_number"] == 9001
+    assert payload["results"][0]["verdict"] == settle_preflight.MAIN_RED_HALT
+
+
+def test_main_red_queue_short_circuits_packet_loading(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_open_pr_metadata",
+        lambda *_args, **_kwargs: (
+            {
+                9001: _metadata(number=9001, files=[]),
+                9002: _metadata(number=9002, title="other", headRefOid="b" * 40, files=[]),
+            },
+            {},
+        ),
+    )
+
+    def fail_packet(*_args, **_kwargs):
+        raise AssertionError("main-red queue should not load merge packets")
+
+    monkeypatch.setattr(settle_preflight.settle_one_pr, "_load_single_pr_packet", fail_packet)
+
+    rc = settle_preflight.main(["--queue", "--main-red", "--json"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert [item["verdict"] for item in payload["results"]] == [
+        settle_preflight.MAIN_RED_HALT,
+        settle_preflight.MAIN_RED_HALT,
+    ]
+
+
+def test_load_single_degrades_packet_failure(monkeypatch) -> None:
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_pr_policy_metadata",
+        lambda *_args, **_kwargs: (_metadata(), {}),
+    )
+
+    def fail_packet(*_args, **_kwargs):
+        raise RuntimeError("packet unavailable")
+
+    monkeypatch.setattr(settle_preflight.settle_one_pr, "_load_single_pr_packet", fail_packet)
+    monkeypatch.setattr(settle_preflight, "_load_live_file_metadata", lambda *_args: {})
+
+    entry, metadata = settle_preflight._load_single(Path.cwd(), 9001, None)
+
+    assert entry["status"] == "packet_unavailable"
+    assert entry["verdict"] == "packet_unavailable"
+    assert entry["reasons"] == ["packet unavailable"]
+    assert metadata["number"] == 9001
+
+
+def test_queue_policy_exclusion_uses_live_file_metadata(monkeypatch) -> None:
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_open_pr_metadata",
+        lambda *_args, **_kwargs: ({9001: _metadata(files=[])}, {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight,
+        "_load_live_file_metadata",
+        lambda *_args: {"files": [{"path": ".github/workflows/build.yml"}]},
+    )
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "_load_single_pr_packet",
+        lambda **_kwargs: {"entries": [_entry()]},
+    )
+
+    results = settle_preflight._classify_queue(Path.cwd(), None, 50)
+
+    assert len(results) == 1
+    assert results[0].verdict == settle_preflight.HUMAN_GATED
+    assert settle_preflight.settle_one_pr.SURFACE_EXCLUDE_REASON in results[0].reasons
