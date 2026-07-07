@@ -40,6 +40,7 @@ QUEUE_CONDUCTOR_READY_BOUNDARY_MODE = "ready-boundary"
 OWNER_TIMEOUT_CLASSIFICATION = "owner_lookup_timeout_preserve"
 TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION = "tier3_or_tier4_evidence_required"
 READY_BOUNDARY_MARK_READY_CLASSIFICATION = "ready_boundary_mark_ready_authorization_required"
+READY_TOKEN_PENDING_CLASSIFICATION = "ready_token_pending_human_gate"
 ACTIVE_OWNER_STATUSES = {
     "active",
     "claimed",
@@ -90,6 +91,7 @@ class ConductorProviders:
     merge_packet: Callable[..., dict[str, Any]] = _build_merge_authorization_packet
     owner_lookup: Callable[[str, float], dict[str, Any]] | None = None
     steering_lookup: Callable[[str, float], dict[str, Any]] | None = None
+    decision_queue_lookup: Callable[[str | None, float], dict[str, Any]] | None = None
     origin_main_sha: Callable[[], str] | None = None
     merge_tree_conflicts: Callable[[str, str], dict[str, Any]] | None = None
 
@@ -109,6 +111,12 @@ def build_queue_conductor_packet(
     active_providers = providers or ConductorProviders()
     conductor_mode = _normalize_mode(mode)
     origin_main_sha = _safe_origin_main_sha(active_providers)
+    decision_queue = _decision_queue_summary(
+        providers=active_providers,
+        supplied_providers=providers,
+        repo_override=repo_override,
+        timeout_seconds=owner_timeout_seconds,
+    )
     pr_views = _fetch_pr_views(
         pr_refs=pr_refs or [],
         limit=limit,
@@ -135,6 +143,7 @@ def build_queue_conductor_packet(
             owner_timeout_seconds=owner_timeout_seconds,
             providers=active_providers,
             origin_main_sha=origin_main_sha,
+            decision_queue=decision_queue,
         )
         candidates.append(candidate)
 
@@ -149,6 +158,7 @@ def build_queue_conductor_packet(
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "repo": repo_override or "",
         "origin_main_sha": origin_main_sha,
+        "decision_queue": decision_queue,
         "pr_refs": [str(ref) for ref in (pr_refs or [])],
         "limit": limit,
         "initial_heads": initial_heads,
@@ -635,6 +645,7 @@ def _build_candidate(
     owner_timeout_seconds: float,
     providers: ConductorProviders,
     origin_main_sha: str,
+    decision_queue: dict[str, Any],
 ) -> dict[str, Any]:
     pr_number = int(view.get("number") or 0)
     branch = str(view.get("headRefName") or "")
@@ -669,6 +680,7 @@ def _build_candidate(
         head_sha=head_sha,
         providers=providers,
     )
+    pending_ready_decision = _pending_ready_decision_for_pr(pr_number, decision_queue)
     classification, mutate_allowed, next_action = _classify_candidate(
         view=view,
         required=required,
@@ -677,6 +689,7 @@ def _build_candidate(
         rollup=rollup,
         head_changed=head_changed,
         supersession_hints=supersession_hints,
+        pending_ready_decision=pending_ready_decision,
     )
     ready_boundary = _ready_boundary_summary(
         view=view,
@@ -688,6 +701,7 @@ def _build_candidate(
         head_changed=head_changed,
         merge_tree=merge_tree,
         repo_override=repo_override,
+        pending_ready_decision=pending_ready_decision,
     )
     return {
         "pr_number": pr_number,
@@ -709,6 +723,7 @@ def _build_candidate(
         "owner": owner,
         "steering": steering,
         "merge_packet": merge_packet,
+        "pending_ready_decision": pending_ready_decision,
         "merge_tree": merge_tree,
         "ready_boundary": ready_boundary,
         "supersession_hints": supersession_hints,
@@ -737,6 +752,140 @@ def _required_summary(surface: dict[str, Any]) -> dict[str, Any]:
         "transport_blocked": bool(surface.get("transport_blocked")),
         "preserve_no_mutate": bool(surface.get("preserve_no_mutate")),
     }
+
+
+def _decision_queue_summary(
+    *,
+    providers: ConductorProviders,
+    supplied_providers: ConductorProviders | None,
+    repo_override: str | None,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    lookup = providers.decision_queue_lookup
+    if lookup is None:
+        if supplied_providers is not None:
+            return _empty_decision_queue_summary()
+        lookup = _default_decision_queue_lookup
+    try:
+        payload = lookup(repo_override, timeout_seconds)
+    except Exception as exc:  # noqa: BLE001 - decision queue is advisory, not a blocker.
+        return {
+            "lookup_state": "failed",
+            "error": str(exc),
+            "count": 0,
+            "items": [],
+            "source_failures": [],
+        }
+    if not isinstance(payload, dict):
+        return {
+            "lookup_state": "malformed",
+            "error": "decision queue lookup returned a non-object payload",
+            "count": 0,
+            "items": [],
+            "source_failures": [],
+        }
+    items = [_compact_decision_queue_item(item) for item in payload.get("items") or []]
+    items = [item for item in items if item]
+    return {
+        "lookup_state": str(payload.get("lookup_state") or "ok"),
+        "error": str(payload.get("error") or ""),
+        "count": int(payload.get("count") or len(items)),
+        "items": items,
+        "source_failures": [
+            {
+                "source": str(item.get("source") or ""),
+                "message": str(item.get("message") or ""),
+            }
+            for item in payload.get("source_failures") or []
+            if isinstance(item, dict)
+        ],
+    }
+
+
+def _empty_decision_queue_summary() -> dict[str, Any]:
+    return {
+        "lookup_state": "not_configured",
+        "error": "",
+        "count": 0,
+        "items": [],
+        "source_failures": [],
+    }
+
+
+def _compact_decision_queue_item(item: Any) -> dict[str, str]:
+    if not isinstance(item, dict):
+        return {}
+    return {
+        "target": str(item.get("target") or ""),
+        "requested_action": str(item.get("requested_action") or ""),
+        "expected_reply": str(item.get("expected_reply") or ""),
+        "source": str(item.get("source") or ""),
+        "age": str(item.get("age") or ""),
+        "packet_generated_at": str(item.get("packet_generated_at") or ""),
+    }
+
+
+def _default_decision_queue_lookup(
+    repo_override: str | None, timeout_seconds: float
+) -> dict[str, Any]:
+    repo_slug = _repo_slug_from_override(repo_override) or "synaptent/aragora"
+    result = _run_json_helper(
+        "founder_decision_queue.py",
+        ["--github-issue", "8845", "--repo", repo_slug, "--json"],
+        timeout_seconds=timeout_seconds,
+    )
+    payload = result.get("payload")
+    if not isinstance(payload, dict):
+        return {
+            "lookup_state": result.get("lookup_state", "failed"),
+            "error": result.get("error", ""),
+            "count": 0,
+            "items": [],
+            "source_failures": [],
+        }
+    return {
+        "lookup_state": result.get("lookup_state", "ok"),
+        "error": result.get("error", ""),
+        "count": payload.get("count") or 0,
+        "items": payload.get("items") or [],
+        "source_failures": payload.get("source_failures") or [],
+    }
+
+
+def _pending_ready_decision_for_pr(
+    pr_number: int, decision_queue: dict[str, Any]
+) -> dict[str, str]:
+    expected = f"ready-{pr_number}"
+    for item in decision_queue.get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        reply = str(item.get("expected_reply") or "").strip().lower()
+        if reply != expected:
+            continue
+        target = str(item.get("target") or "")
+        requested_action = str(item.get("requested_action") or "")
+        if not _decision_mentions_pr(pr_number, target, requested_action):
+            continue
+        return {
+            "expected_reply": str(item.get("expected_reply") or expected),
+            "source": str(item.get("source") or ""),
+            "target": target,
+            "requested_action": requested_action,
+            "age": str(item.get("age") or ""),
+            "packet_generated_at": str(item.get("packet_generated_at") or ""),
+        }
+    return {}
+
+
+def _decision_mentions_pr(pr_number: int, *values: str) -> bool:
+    number = re.escape(str(pr_number))
+    patterns = (
+        rf"#\s*{number}\b",
+        rf"/(?:pull|pulls|issues)/{number}\b",
+        rf"\b(?:pr|pull request|issue)\s+#?\s*{number}\b",
+    )
+    text = " ".join(values).lower()
+    return any(re.search(pattern, text) for pattern in patterns)
 
 
 def _rollup_summary(items: list[Any]) -> dict[str, Any]:
@@ -948,6 +1097,7 @@ def _ready_boundary_summary(
     head_changed: bool,
     merge_tree: dict[str, Any],
     repo_override: str | None,
+    pending_ready_decision: dict[str, Any],
 ) -> dict[str, Any]:
     pr_number = int(view.get("number") or 0)
     head_sha = str(view.get("headRefOid") or "")
@@ -989,6 +1139,11 @@ def _ready_boundary_summary(
         blockers.append("GitHub required-check transport is blocked")
     if merge_packet.get("transport_blocked") or merge_packet.get("preserve_no_mutate"):
         blockers.append("GitHub merge-packet transport is blocked")
+    if pending_ready_decision:
+        token = str(pending_ready_decision.get("expected_reply") or "").strip()
+        blockers.append(
+            "operator ready authorization is already pending" + (f" ({token})" if token else "")
+        )
     if rollup.get("actionable_non_green"):
         blockers.append("actionable non-required rollup rows remain")
     if mergeable != "MERGEABLE":
@@ -1059,6 +1214,7 @@ def _classify_candidate(
     rollup: dict[str, Any],
     head_changed: bool,
     supersession_hints: list[dict[str, Any]],
+    pending_ready_decision: dict[str, Any],
 ) -> tuple[str, bool, str]:
     pr_number = int(view.get("number") or 0)
     state = str(view.get("state") or "").upper()
@@ -1109,6 +1265,18 @@ def _classify_candidate(
         if supersession_hints:
             return ("superseded_or_stale", False, "analyze supersession before conflict repair")
         return ("unowned_repairable", True, "repair or restack one narrow unowned conflict")
+    if is_draft and tier is not None and tier <= 2 and pr_number in not_ready:
+        if pending_ready_decision:
+            token = str(pending_ready_decision.get("expected_reply") or "").strip()
+            return (
+                READY_TOKEN_PENDING_CLASSIFICATION,
+                False,
+                (
+                    "await exact operator ready authorization"
+                    + (f" {token}" if token else "")
+                    + "; do not duplicate evidence or ready requests"
+                ),
+            )
     if is_draft and tier is not None and tier <= 2 and pr_number in not_ready:
         return (
             "unowned_evidence_candidate",
@@ -1165,6 +1333,7 @@ def _build_next_prompt(
             "unowned_repairable",
             "ready_but_human_gated",
             "ready_for_final_premerge_verification",
+            READY_TOKEN_PENDING_CLASSIFICATION,
         ],
     )
     if preferred is None:
@@ -1204,6 +1373,15 @@ def _build_next_prompt(
         primary = (
             f"Primary task: request/record exact-head Tier 3/4 human settlement for PR "
             f"#{pr_number} only at exact head {head}, without merging."
+        )
+    elif classification == READY_TOKEN_PENDING_CLASSIFICATION:
+        pending = preferred.get("pending_ready_decision") or {}
+        token = str(pending.get("expected_reply") or f"ready-{pr_number}")
+        primary = (
+            f"Primary task: check the pending operator ready token `{token}` for PR "
+            f"#{pr_number} at exact head {head}. If the token is absent, do not collect "
+            "duplicate evidence or post another ready request; move to a different "
+            "externally measurable queue unit."
         )
     else:
         primary = (

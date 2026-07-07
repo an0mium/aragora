@@ -8,6 +8,7 @@ from aragora.cli.commands.review_queue import _GhError, add_review_queue_parser
 from aragora.cli.commands.review_queue_conductor import (
     OWNER_TIMEOUT_CLASSIFICATION,
     READY_BOUNDARY_MARK_READY_CLASSIFICATION,
+    READY_TOKEN_PENDING_CLASSIFICATION,
     TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION,
     ConductorProviders,
     build_queue_conductor_packet,
@@ -63,6 +64,26 @@ def _owner_unowned(_branch: str, _timeout: float) -> dict[str, object]:
 
 def _steering_empty(_branch: str, _timeout: float) -> dict[str, object]:
     return {"lookup_state": "ok", "message_count": 0, "has_pending": False}
+
+
+def _decision_queue_ready(pr_number: int) -> dict[str, object]:
+    return {
+        "lookup_state": "ok",
+        "count": 1,
+        "items": [
+            {
+                "target": f"PR #{pr_number}: https://github.com/synaptent/aragora/pull/{pr_number}",
+                "requested_action": (
+                    f"Authorize marking exactly PR #{pr_number} ready for review, "
+                    "or leave it parked as draft."
+                ),
+                "expected_reply": f"ready-{pr_number}",
+                "source": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+                "age": "1h",
+            }
+        ],
+        "source_failures": [],
+    }
 
 
 def _packet(
@@ -193,6 +214,30 @@ def test_conductor_selects_unowned_tier2_evidence_candidate_prompt() -> None:
     assert candidate["mutate_allowed"] is True
     assert "PR #7843" in packet["next_prompt"]
     assert "exact-head" in packet["next_prompt"]
+
+
+def test_conductor_blocks_evidence_candidate_when_ready_token_is_pending() -> None:
+    view = _view(7843, head="exact-head", draft=True)
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7843"],
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _packet(7843, head="exact-head", not_ready=[7843]),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            decision_queue_lookup=lambda _repo, _timeout: _decision_queue_ready(7843),
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    candidate = packet["candidates"][0]
+    assert candidate["classification"] == READY_TOKEN_PENDING_CLASSIFICATION
+    assert candidate["mutate_allowed"] is False
+    assert candidate["pending_ready_decision"]["expected_reply"] == "ready-7843"
+    assert "ready-7843" in packet["next_prompt"]
+    assert "do not collect duplicate evidence" in packet["next_prompt"]
 
 
 def test_conductor_treats_completed_skipped_rollup_as_non_actionable() -> None:
@@ -454,6 +499,36 @@ def test_ready_boundary_mode_emits_mark_ready_authorization_prompt() -> None:
     assert "I explicitly authorize marking PR #7885 ready" in packet["next_prompt"]
     assert "exact head exact-head" in packet["next_prompt"]
     assert "Do not merge or record settlement" in packet["next_prompt"]
+
+
+def test_ready_boundary_mode_blocks_duplicate_ready_token_request() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        mode="ready-boundary",
+        repo_override="synaptent/aragora",
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885,
+                head="exact-head",
+                not_ready=[7885],
+                reasons=["workflow/deploy/destructive surface touched", "draft PR"],
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            decision_queue_lookup=lambda _repo, _timeout: _decision_queue_ready(7885),
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    ready_boundary = packet["candidates"][0]["ready_boundary"]
+    assert ready_boundary["classification"] == "ready_boundary_blocked"
+    assert ready_boundary["eligible_for_mark_ready_authorization"] is False
+    assert "ready-7885" in ready_boundary["blockers"][0]
+    assert "I explicitly authorize marking PR #7885 ready" not in packet["next_prompt"]
 
 
 def test_ready_boundary_mode_blocks_missing_evidence() -> None:
