@@ -443,6 +443,41 @@ def test_collect_decision_items_later_standalone_packet_does_not_resolve_table_i
     ]
 
 
+def test_collect_decision_items_keeps_first_duplicate_item(
+    tmp_path: Path,
+) -> None:
+    older_dir = tmp_path / "older"
+    newer_dir = tmp_path / "newer"
+    older_dir.mkdir()
+    newer_dir.mkdir()
+    older_packet = older_dir / "packet.md"
+    newer_packet = newer_dir / "packet.md"
+    older_packet.write_text(
+        _single_item_packet(
+            generated="2026-07-07T07:21:53Z",
+            target="PR #8891: https://github.com/synaptent/aragora/pull/8891",
+            reply="settle-8891",
+        ),
+        encoding="utf-8",
+    )
+    newer_packet.write_text(
+        _single_item_packet(
+            generated="2026-07-07T10:57:38Z",
+            target="PR #8891: https://github.com/synaptent/aragora/pull/8891",
+            reply="settle-8891",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        packet_files=[newer_packet, older_packet],
+    )
+
+    assert len(items) == 1
+    assert items[0].source == str(older_packet)
+
+
 def test_collect_decision_items_accepts_genuine_standalone_one_word_reply(
     tmp_path: Path,
 ) -> None:

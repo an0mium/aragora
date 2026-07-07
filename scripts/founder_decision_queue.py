@@ -651,7 +651,7 @@ def collect_decision_collection(
         for item in parse_decision_packet(source.body, source=source.source):
             if _item_resolved_after_packet(source, item):
                 continue
-            deduped[item.dedupe_key()] = item
+            deduped.setdefault(item.dedupe_key(), item)
     return DecisionCollection(
         items=list(deduped.values()),
         source_failures=source_collection.failures,
