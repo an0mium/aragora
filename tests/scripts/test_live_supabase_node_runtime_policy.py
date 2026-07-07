@@ -2,6 +2,8 @@ import json
 import re
 from pathlib import Path
 
+import yaml
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LIVE_DIR = REPO_ROOT / "aragora" / "live"
@@ -13,6 +15,14 @@ NODE_RUNTIME_FILES = (
 FRONTEND_DOCKERFILES = (
     LIVE_DIR / "Dockerfile",
     REPO_ROOT / "deploy" / "Dockerfile.frontend",
+)
+FRONTEND_COMPOSE_BUILDS = (
+    (REPO_ROOT / "docker-compose.quickstart.yml", ".", "aragora/live/Dockerfile"),
+    (
+        REPO_ROOT / "deploy" / "self-hosted" / "docker-compose.yml",
+        "../..",
+        "aragora/live/Dockerfile",
+    ),
 )
 SUPABASE_PACKAGES = (
     "node_modules/@supabase/auth-js",
@@ -26,6 +36,10 @@ SUPABASE_PACKAGES = (
 
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_yaml(path: Path) -> dict:
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
 def _node_engine_floor(engine: str) -> tuple[int, int, int]:
@@ -128,6 +142,23 @@ def test_deploy_frontend_workflow_uses_repo_root_docker_context() -> None:
     assert "context: ." in text
     assert "file: aragora/live/Dockerfile" in text
     assert "context: aragora/live" not in text
+
+
+def test_frontend_compose_builds_use_repo_root_docker_context() -> None:
+    for compose_file, expected_context, expected_dockerfile in FRONTEND_COMPOSE_BUILDS:
+        compose = _load_yaml(compose_file)
+        dashboard_build = compose["services"]["dashboard"]["build"]
+
+        assert dashboard_build["context"] == expected_context
+        assert dashboard_build["dockerfile"] == expected_dockerfile
+        context_dir = (compose_file.parent / dashboard_build["context"]).resolve()
+
+        assert context_dir == REPO_ROOT.resolve()
+        assert (context_dir / dashboard_build["dockerfile"]).is_file()
+        assert (context_dir / "sdk" / "typescript").is_dir()
+        assert (context_dir / "aragora" / "live" / "package.json").is_file()
+        assert (context_dir / "aragora" / "live" / "package-lock.json").is_file()
+        assert (context_dir / "aragora" / "live" / ".npmrc").is_file()
 
 
 def test_live_supabase_node_engines_fit_docker_runtime() -> None:
