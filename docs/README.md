@@ -18,7 +18,7 @@ wire it into CI — comes first below; everything else follows.
 
 | Goal | Document |
 |------|----------|
-| **Run your first debate in 5 minutes** | [Quickstart](./quickstart.md) |
+| **Run your first debate in under a minute** | [Quickstart](./quickstart.md) |
 | Understand the receipt model (native record vs. the portable ODR) | [Receipt Lineage Reconciliation](./specs/RECEIPT_LINEAGE_RECONCILIATION.md) |
 | Verify a receipt independently, no Aragora install required | [Independent Verifier Guide](./specs/INDEPENDENT_VERIFIER_GUIDE.md) |
 | Add multi-model CI review + receipts to your pull requests | [GitHub Action Setup](./GITHUB_ACTION_SETUP.md) |
