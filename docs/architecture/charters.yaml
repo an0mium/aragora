@@ -756,6 +756,10 @@ registry:
       - aragora/control_plane/scheduler.py
       - aragora/control_plane/registry.py
     symbols: []
+    kept_symbols:
+      - aragora.control_plane.registry:AgentRegistry
+      - aragora.control_plane.registry:AgentStatus
+      - aragora.control_plane.registry:AgentInfo.is_alive
     deadline: "2026-07-29"
     owner: operator
     evidence: >-
