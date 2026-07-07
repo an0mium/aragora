@@ -133,6 +133,24 @@ def test_kept_symbol_does_not_trip_path_level_park(tmp_path: Path) -> None:
     assert result.violations == []
 
 
+def test_kept_symbol_mention_does_not_hide_new_parked_surface(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/aragora/control_plane/registry.py b/aragora/control_plane/registry.py
+--- a/aragora/control_plane/registry.py
++++ b/aragora/control_plane/registry.py
+@@ -0,0 +1,2 @@
++def new_surface():
++    return AgentRegistry()
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert result.binding_violations == []
+    assert [violation.entry_id for violation in result.proposed_violations] == ["CHR-X-040"]
+    assert result.proposed_violations[0].authority_ids == ["ARCH-014"]
+
+
 def test_parked_path_non_kept_surface_is_proposed(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/aragora/control_plane/registry.py b/aragora/control_plane/registry.py
@@ -150,6 +168,40 @@ def test_parked_path_non_kept_surface_is_proposed(tmp_path: Path) -> None:
     assert [violation.entry_id for violation in result.proposed_violations] == ["CHR-X-040"]
     assert result.proposed_violations[0].binding == "PROPOSED"
     assert result.proposed_violations[0].authority_ids == ["ARCH-014"]
+
+
+def test_removed_symbol_split_fully_qualified_use_is_binding(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1,2 @@
++import aragora.queue
++executor = aragora.queue.create_default_executor()
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_removed_symbol_split_alias_use_is_binding(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1,2 @@
++import aragora.queue as queue_mod
++executor = queue_mod.create_default_executor()
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
 
 
 def test_exclusion_path_violation_reports_arch_context(tmp_path: Path) -> None:

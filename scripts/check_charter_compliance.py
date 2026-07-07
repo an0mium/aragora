@@ -171,6 +171,21 @@ def _plain_import_modules(line: str) -> list[str]:
     return modules
 
 
+def _plain_import_aliases(line: str) -> dict[str, str]:
+    match = PLAIN_IMPORT_RE.match(line)
+    if not match:
+        return {}
+    aliases: dict[str, str] = {}
+    for part in match.group(1).split(","):
+        token = part.strip()
+        if not token or " as " not in token:
+            continue
+        module, alias = [piece.strip() for piece in token.split(" as ", 1)]
+        if module and alias:
+            aliases[alias] = module
+    return aliases
+
+
 def _line_mentions_symbol(line: str, symbol: str) -> bool:
     export = _symbol_export(symbol)
     return bool(re.search(rf"\b{re.escape(export)}\b", line))
@@ -194,6 +209,10 @@ def _line_reexports_or_defines_symbol(line: str, symbol: str) -> bool:
     )
 
 
+def _line_reexports_or_defines_kept_symbol(line: str, entry: CharterEntry) -> bool:
+    return any(_line_reexports_or_defines_symbol(line, symbol) for symbol in entry.kept_symbols)
+
+
 def _module_is_under(module: str, parent: str) -> bool:
     return module == parent or module.startswith(f"{parent}.")
 
@@ -213,7 +232,29 @@ def _line_imports_path(line: str, path_pattern: str) -> bool:
     )
 
 
-def _line_imports_symbol(line: str, symbol: str) -> bool:
+def _line_uses_symbol_reference(
+    line: str,
+    symbol: str,
+    aliases_by_module: dict[str, set[str]],
+) -> bool:
+    module_name = _symbol_module(symbol)
+    if module_name is None:
+        return False
+    export = _symbol_export(symbol)
+    refs = [module_name, *sorted(aliases_by_module.get(module_name, set()))]
+    return any(
+        re.search(rf"(?<![\w.]){re.escape(ref)}\.{re.escape(export)}\b", line) for ref in refs
+    )
+
+
+def _line_imports_symbol(
+    line: str,
+    symbol: str,
+    aliases_by_module: dict[str, set[str]] | None = None,
+) -> bool:
+    aliases_by_module = aliases_by_module or {}
+    if _line_uses_symbol_reference(line, symbol, aliases_by_module):
+        return True
     module_name = _symbol_module(symbol)
     export = _symbol_export(symbol)
     if module_name is None:
@@ -230,9 +271,10 @@ def _line_imports_symbol(line: str, symbol: str) -> bool:
     )
 
 
-def _line_is_kept_only(line: str, entry: CharterEntry) -> bool:
+def _line_is_kept_only(added_line: AddedLine, entry: CharterEntry) -> bool:
     if not entry.kept_symbols:
         return False
+    line = added_line.line
     kept_exports = _symbol_export_roots(entry.kept_symbols)
     from_import = _from_import(line)
     if from_import is not None:
@@ -243,10 +285,9 @@ def _line_is_kept_only(line: str, entry: CharterEntry) -> bool:
         if matching_kept:
             return bool(names) and all(name in kept_exports for name in names)
         return False
-    mentioned_words = set(WORD_RE.findall(line))
-    return bool(mentioned_words & kept_exports) and not (
-        "class " in line and not mentioned_words <= kept_exports
-    )
+    if any(_path_matches(path, added_line.path) for path in entry.paths):
+        return _line_reexports_or_defines_kept_symbol(line, entry)
+    return False
 
 
 def parse_diff(diff_text: str) -> list[AddedLine]:
@@ -313,14 +354,18 @@ def load_charter_entries(
     return entries, authority_by_ref, status
 
 
-def _entry_matches_line(entry: CharterEntry, added_line: AddedLine) -> str | None:
-    if _line_is_kept_only(added_line.line, entry):
+def _entry_matches_line(
+    entry: CharterEntry,
+    added_line: AddedLine,
+    aliases_by_module: dict[str, set[str]],
+) -> str | None:
+    if _line_is_kept_only(added_line, entry):
         return None
     if entry.symbols:
         if not _is_python_path(added_line.path):
             return None
         for symbol in entry.symbols:
-            if _line_imports_symbol(added_line.line, symbol) or (
+            if _line_imports_symbol(added_line.line, symbol, aliases_by_module) or (
                 any(_path_matches(path, added_line.path) for path in entry.paths)
                 and _line_reexports_or_defines_symbol(added_line.line, symbol)
             ):
@@ -337,11 +382,19 @@ def _entry_matches_line(entry: CharterEntry, added_line: AddedLine) -> str | Non
 def check_diff(diff_text: str, *, charter_path: Path | str) -> CheckResult:
     entries, authority_by_ref, _status = load_charter_entries(Path(charter_path))
     added_lines = parse_diff(diff_text)
+    aliases_by_path: dict[str, dict[str, set[str]]] = {}
+    for added_line in added_lines:
+        for alias, module in _plain_import_aliases(added_line.line).items():
+            aliases_by_path.setdefault(added_line.path, {}).setdefault(module, set()).add(alias)
     violations: list[Violation] = []
     seen: set[tuple[str, str, int | None, str]] = set()
     for added_line in added_lines:
         for entry in entries:
-            reason = _entry_matches_line(entry, added_line)
+            reason = _entry_matches_line(
+                entry,
+                added_line,
+                aliases_by_path.get(added_line.path, {}),
+            )
             if reason is None:
                 continue
             if entry.symbols:
