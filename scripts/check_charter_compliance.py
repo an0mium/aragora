@@ -206,18 +206,17 @@ def _is_python_path(path: str) -> bool:
     return path.endswith((".py", ".pyi"))
 
 
-def _python_string_state_for_line(
-    line: str, active_delimiter: str | None
-) -> tuple[bool, str | None]:
-    if active_delimiter is not None:
-        return True, None if line.count(active_delimiter) % 2 == 1 else active_delimiter
-    candidates = [
-        (index, delimiter) for delimiter in ('"""', "'''") if (index := line.find(delimiter)) != -1
-    ]
-    if not candidates:
-        return False, None
-    _index, delimiter = min(candidates)
-    return True, delimiter if line.count(delimiter) % 2 == 1 else None
+def _skip_quoted_string(line: str, quote_index: int) -> int:
+    quote = line[quote_index]
+    index = quote_index + 1
+    while index < len(line):
+        if line[index] == "\\":
+            index += 2
+            continue
+        if line[index] == quote:
+            return index + 1
+        index += 1
+    return len(line)
 
 
 def _python_code_text_for_line(line: str, active_delimiter: str | None) -> tuple[str, str | None]:
@@ -233,22 +232,44 @@ def _python_code_text_for_line(line: str, active_delimiter: str | None) -> tuple
             index = close_index + len(delimiter)
             delimiter = None
             continue
-        if line[index] == "#":
-            break
         next_delimiter = next(
             (candidate for candidate in ('"""', "'''") if line.startswith(candidate, index)),
             None,
         )
-        if next_delimiter is None:
-            code.append(line[index])
-            index += 1
+        if next_delimiter is not None:
+            close_index = line.find(next_delimiter, index + len(next_delimiter))
+            code.append(" ")
+            if close_index == -1:
+                return "".join(code).rstrip(), next_delimiter
+            index = close_index + len(next_delimiter)
             continue
-        close_index = line.find(next_delimiter, index + len(next_delimiter))
-        code.append(" ")
-        if close_index == -1:
-            return "".join(code).rstrip(), next_delimiter
-        index = close_index + len(next_delimiter)
+        if line[index] == "#":
+            break
+        if line[index] in ("'", '"'):
+            code.append(" ")
+            index = _skip_quoted_string(line, index)
+            continue
+        code.append(line[index])
+        index += 1
     return "".join(code).rstrip(), delimiter
+
+
+def _python_string_delimiter_before_line(
+    path: str,
+    line_no: int | None,
+    *,
+    working_tree: Path | None,
+) -> str | None:
+    if line_no is None or line_no <= 1 or working_tree is None:
+        return None
+    try:
+        lines = (working_tree / path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    delimiter: str | None = None
+    for line in lines[: line_no - 1]:
+        _code, delimiter = _python_code_text_for_line(line, delimiter)
+    return delimiter
 
 
 def _line_for_matching(added_line: AddedLine) -> str:
@@ -368,7 +389,7 @@ def _line_is_kept_only(added_line: AddedLine, entry: CharterEntry) -> bool:
     return False
 
 
-def parse_diff(diff_text: str) -> list[AddedLine]:
+def parse_diff(diff_text: str, *, working_tree: Path | None = None) -> list[AddedLine]:
     added: list[AddedLine] = []
     current_path: str | None = None
     current_line: int | None = None
@@ -382,7 +403,15 @@ def parse_diff(diff_text: str) -> list[AddedLine]:
         if raw_line.startswith("@@"):
             match = HUNK_RE.search(raw_line)
             current_line = int(match.group(1)) if match else None
-            current_string_delimiter = None
+            current_string_delimiter = (
+                _python_string_delimiter_before_line(
+                    current_path,
+                    current_line,
+                    working_tree=working_tree,
+                )
+                if current_path is not None and _is_python_path(current_path)
+                else None
+            )
             continue
         if current_path is None:
             continue
@@ -479,9 +508,14 @@ def _entry_matches_line(
     return None
 
 
-def check_diff(diff_text: str, *, charter_path: Path | str) -> CheckResult:
+def check_diff(
+    diff_text: str,
+    *,
+    charter_path: Path | str,
+    working_tree: Path | None = None,
+) -> CheckResult:
     entries, authority_by_ref, _status = load_charter_entries(Path(charter_path))
-    added_lines = parse_diff(diff_text)
+    added_lines = parse_diff(diff_text, working_tree=working_tree)
     aliases_by_path: dict[str, dict[str, set[str]]] = {}
     for added_line in added_lines:
         for alias, module in _plain_import_aliases(_line_for_matching(added_line)).items():
@@ -601,7 +635,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     diff_text = _read_diff(args)
-    result = check_diff(diff_text, charter_path=args.charters)
+    result = check_diff(diff_text, charter_path=args.charters, working_tree=Path.cwd())
     if args.format == "json":
         print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
     else:

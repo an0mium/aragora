@@ -356,6 +356,66 @@ def test_comment_triple_quote_does_not_hide_later_live_symbol(tmp_path: Path) ->
     assert "create_default_executor" in result.binding_violations[0].line
 
 
+def test_hash_inside_string_does_not_hide_later_live_symbol(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++label = "#"; executor = aragora.queue.create_default_executor()
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_hunk_inside_existing_triple_string_uses_worktree_state(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    (tmp_path / "some.py").write_text(
+        'fixture = """existing\nexecutor = aragora.queue.create_default_executor()\n"""\n',
+        encoding="utf-8",
+    )
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -1,0 +2 @@
++executor = aragora.queue.create_default_executor()
+"""
+
+    assert (tmp_path / "some.py").read_text(encoding="utf-8").splitlines()[0] == (
+        'fixture = """existing'
+    )
+    assert checker._python_code_text_for_line('fixture = """existing', None) == (
+        "fixture =",
+        '"""',
+    )
+    assert (
+        checker._python_string_delimiter_before_line(
+            "some.py",
+            2,
+            working_tree=tmp_path,
+        )
+        == '"""'
+    )
+    added_lines = checker.parse_diff(diff_text, working_tree=tmp_path)
+
+    assert len(added_lines) == 1
+    assert added_lines[0].in_string_literal is True
+    assert added_lines[0].code_line == ""
+
+    result = checker.check_diff(
+        diff_text,
+        charter_path=charter_path,
+        working_tree=tmp_path,
+    )
+
+    assert result.ok is True
+    assert result.binding_violations == []
+
+
 def test_removed_symbol_wildcard_import_is_binding(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/some.py b/some.py
