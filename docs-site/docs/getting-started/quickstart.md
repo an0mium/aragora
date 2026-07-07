@@ -90,10 +90,10 @@ import { AragoraClient } from "@aragora/sdk";
 const client = new AragoraClient({ baseUrl: "http://localhost:8080" });
 const result = await client.debates.create({
   task: "Should we use microservices or a monolith?",
-  agents: ["claude", "openai"],
+  agents: ["claude", "gpt-4"],
   rounds: 3,
 });
-console.log(result.summary);
+console.log(result.debate_id, result.status);
 ```
 
 ## 6. Self-Host the Full Platform
@@ -114,7 +114,8 @@ Current PyPI package:
 
 ```bash
 pip install aragora
-aragora demo                                            # no provider key required in PyPI 2.7.4
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
 aragora ask "Should we build or buy our auth system?"   # real debate (needs an API key)
 aragora serve --api-port 8080 --ws-port 8765
 ```
@@ -127,11 +128,9 @@ aragora demo --offline --receipt aragora-demo-receipt.json
 aragora receipt verify aragora-demo-receipt.json
 ```
 
-PyPI `aragora` releases through 2.7.4 run `aragora demo`, but the explicit
-`--offline` flag and verifiable native demo-receipt round trip are available
-from source until a later package release carries them. If the public-package
-demo writes `aragora-demo-receipt.json`, treat it as demo output, not the
-verification example; use the source checkout path above for `receipt verify`.
+PyPI `aragora` 2.9.0 supports the explicit offline demo receipt round trip
+shown above. Use the source checkout path when you need to audit this exact
+branch or unreleased local changes.
 
 ## Next Steps
 

@@ -34,7 +34,7 @@ concurrency:
 
 jobs:
   review:
-    if: "!github.event.pull_request.draft"
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
