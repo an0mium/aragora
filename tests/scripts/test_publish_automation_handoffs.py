@@ -1073,6 +1073,162 @@ def test_decide_handoffs_dedupes_prompt_handoff_by_idempotency_key(
     ]
 
 
+def test_decide_handoffs_ignores_closed_prompt_handoff_identity_match(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    prompt_sha = "d" * 64
+    handoff = Handoff(
+        source_file=str(tmp_path / ".aragora" / "automation-outbox" / "prompt.json"),
+        task_title="Prompt handoff for retry after incomplete issue",
+        priority="HIGH",
+        body="Idempotency Key:\nprompt-handoff-retry-closed\n",
+        labels={},
+        expires_at=None,
+        idempotency_key="prompt-handoff-retry-closed",
+        source_kind="outbox",
+        requested_action="prompt_handoff",
+        branch="codex/active-repair",
+        desired_head="abc1234",
+        prompt_sha256=prompt_sha,
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            assert args[args.index("--state") + 1] == "open"
+            search = args[args.index("--search") + 1]
+            if search == "prompt-handoff-retry-closed":
+                return subprocess.CompletedProcess(
+                    args,
+                    0,
+                    json.dumps(
+                        [
+                            {
+                                "number": 6007,
+                                "title": "Prompt handoff for retry after incomplete issue",
+                                "url": "https://github.com/synaptent/aragora/issues/6007",
+                                "state": "CLOSED",
+                            }
+                        ]
+                    ),
+                    "",
+                )
+            assert search == prompt_sha
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "view"]:
+            raise AssertionError("closed prompt issue should not be viewed as delivered")
+        raise AssertionError(f"unexpected prompt dedupe command: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=True,
+            reason="eligible",
+            branch="codex/active-repair",
+            desired_head="abc1234",
+        )
+    ]
+
+
+def test_decide_handoffs_ignores_prompt_issue_closed_between_list_and_view(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    prompt_sha = "e" * 64
+    handoff = Handoff(
+        source_file=str(tmp_path / ".aragora" / "automation-outbox" / "prompt.json"),
+        task_title="Prompt handoff for retry after race",
+        priority="HIGH",
+        body="Idempotency Key:\nprompt-handoff-race\n",
+        labels={},
+        expires_at=None,
+        idempotency_key="prompt-handoff-race",
+        source_kind="outbox",
+        requested_action="prompt_handoff",
+        branch="codex/active-repair",
+        desired_head="abc1234",
+        prompt_sha256=prompt_sha,
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            search = args[args.index("--search") + 1]
+            if search == "prompt-handoff-race":
+                return subprocess.CompletedProcess(
+                    args,
+                    0,
+                    json.dumps(
+                        [
+                            {
+                                "number": 6008,
+                                "title": "Prompt handoff for retry after race",
+                                "url": "https://github.com/synaptent/aragora/issues/6008",
+                                "state": "OPEN",
+                            }
+                        ]
+                    ),
+                    "",
+                )
+            assert search == prompt_sha
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "view"]:
+            assert args[3] == "6008"
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "number": 6008,
+                        "title": "Prompt handoff for retry after race",
+                        "url": "https://github.com/synaptent/aragora/issues/6008",
+                        "state": "CLOSED",
+                        "body": (
+                            "Idempotency Key:\n"
+                            "prompt-handoff-race\n\n"
+                            "Local Evidence:\n"
+                            f"{prompt_sha}\n"
+                        ),
+                    }
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected prompt dedupe command: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=True,
+            reason="eligible",
+            branch="codex/active-repair",
+            desired_head="abc1234",
+        )
+    ]
+
+
 def test_load_outbox_handoffs_skips_already_merged_branch_head(tmp_path: Path) -> None:
     repo, head = _repo_with_merged_codex_branch(tmp_path)
     outbox = repo / ".aragora" / "automation-outbox"

@@ -1196,7 +1196,7 @@ def _existing_prompt_handoff_issue(
                 "--repo",
                 repo,
                 "--state",
-                "all",
+                "open",
                 "--search",
                 term,
                 "--json",
@@ -1215,6 +1215,8 @@ def _existing_prompt_handoff_issue(
             continue
         for item in payload:
             if not isinstance(item, dict):
+                continue
+            if str(item.get("state") or "").strip().upper() != "OPEN":
                 continue
             number = str(item.get("number") or "").strip()
             if not number:
@@ -1240,6 +1242,8 @@ def _existing_prompt_handoff_issue(
                 )
             viewed = json.loads(view_proc.stdout or "{}")
             if not isinstance(viewed, dict):
+                continue
+            if str(viewed.get("state") or "").strip().upper() != "OPEN":
                 continue
             haystack = "\n".join(str(viewed.get(key) or "") for key in ("title", "body", "url"))
             if term in haystack:
