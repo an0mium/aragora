@@ -19,6 +19,7 @@ then wire it into CI.
 
 ## Getting Started
 
+- [Getting Started](guides/GETTING_STARTED.md)
 - [Cold Reviewer Guide](COLD_REVIEWER_GUIDE.md)
 - [SDK Guide (Python)](SDK_GUIDE.md)
 - [CLI Reference (generated)](reference/CLI_REFERENCE.md)

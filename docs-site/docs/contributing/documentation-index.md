@@ -17,13 +17,14 @@ reference list.
 The core loop, in order: run a debate, get a receipt, verify it independently,
 then wire it into CI.
 
-1. [Quickstart](quickstart.md) — a working debate in under a minute
+1. [Quickstart](../getting-started/quickstart.md) — a working debate in under a minute
 2. [Receipt Lineage Reconciliation](../specs/receipt-lineage-reconciliation) — what a receipt is: the native record vs. the portable ODR
 3. [Independent Verifier Guide](../specs/independent-verifier-guide) — verify a receipt with `aragora-verify`, no Aragora install required
-4. [GitHub Action Setup](GITHUB_ACTION_SETUP.md) — add multi-model CI review + receipts to your pull requests
+4. [GitHub Action Setup](https://github.com/synaptent/aragora/blob/main/docs/GITHUB_ACTION_SETUP.md) — add multi-model CI review + receipts to your pull requests
 
 ## Getting Started
 
+- [Getting Started](../getting-started/overview.md)
 - [Cold Reviewer Guide](COLD_REVIEWER_GUIDE.md)
 - [SDK Guide (Python)](../guides/sdk)
 - [CLI Reference (generated)](../api/cli)
