@@ -8,8 +8,8 @@ population. For release-only hygiene, use
 
 This runbook is intentionally conservative. A worktree that is clean but has
 commits not reachable from `origin/main` is a harvest candidate, not a cleanup
-candidate. A dirty worktree without a live owner signal is blocked for human
-review, not removable.
+candidate. A worktree with tracked or untracked work and no live owner signal
+is blocked for human review, not removable.
 
 ## Read-Only Audit
 
@@ -19,7 +19,7 @@ worktree.
 ```bash
 git fetch origin --prune
 git worktree list --porcelain
-git -C <worktree-path> status --porcelain=v1 -uno
+git -C <worktree-path> status --porcelain=v1 --untracked-files=all
 git -C <worktree-path> log -1 --format='%H %cr'
 git merge-base --is-ancestor <worktree-head> origin/main
 ```
@@ -31,7 +31,8 @@ For each worktree, record:
   repo `.worktrees`, or repo root)
 - branch name or detached state
 - `HEAD` SHA
-- tracked dirty status from `status --porcelain=v1 -uno`
+- tracked and untracked dirty status from
+  `status --porcelain=v1 --untracked-files=all`
 - last commit age
 - whether `HEAD` is an ancestor of `origin/main`
 - any open PR attached to the branch
@@ -45,10 +46,10 @@ Classify every worktree into exactly one class.
 
 | Class | Criteria | Action |
 | --- | --- | --- |
-| `KEEP` | Root worktree, active-session worktree, dirty worktree with an active owner signal, or recent branch tied to an open PR/epic. | Leave it alone and re-check owner state before any future action. |
+| `KEEP` | Root worktree, active-session worktree, dirty or untracked work with an active owner signal, or recent branch tied to an open PR/epic. | Leave it alone and re-check owner state before any future action. |
 | `HARVEST` | Clean worktree whose `HEAD` is not an ancestor of `origin/main`. | Preserve it until its unique commits are mapped to an open PR, branch handoff, or explicit retirement. |
 | `STALE-CLEAN` | Clean worktree whose `HEAD` is an ancestor of `origin/main`, with last commit older than 24 hours. | Candidate for later helper-mediated removal, after a final `inspect` pass. |
-| `BLOCKED` | Dirty tracked files without a visible active owner signal. | Human review required; list dirty paths and do not remove. |
+| `BLOCKED` | Tracked changes or untracked files without a visible active owner signal. | Human review required; list dirty and untracked paths and do not remove. |
 
 When signals conflict, choose the safer class in this order:
 
@@ -88,8 +89,8 @@ find .worktrees -type d -maxdepth 1 -exec rm -rf {} +
 rm -rf /private/tmp/aragora-*
 ```
 
-Raw deletion bypasses active-session locks, dirty-file checks, open-PR checks,
-and unique-commit preservation.
+Raw deletion bypasses active-session locks, tracked and untracked work checks,
+open-PR checks, and unique-commit preservation.
 
 ## 2026-07-07 Snapshot
 
@@ -127,7 +128,8 @@ handoff, or retirement receipt.
 ### Blocked Worktrees
 
 These worktrees had tracked dirty files and no active-session signal visible to
-the read-only audit. Do not remove them without human review or a later owner
+the read-only audit. Future audits must also block untracked-only worktrees.
+Do not remove any blocked worktree without human review or a later owner
 release.
 
 | Path | Branch | Dirty tracked paths |
@@ -142,7 +144,9 @@ release.
 ### Stale-Clean Examples
 
 These are examples only. Re-run `safe_worktree_cleanup.py inspect` immediately
-before any removal.
+before any removal, and re-run the audit with
+`status --porcelain=v1 --untracked-files=all` so untracked-only work cannot be
+misclassified as stale-clean.
 
 | Path | Branch | Last commit age |
 | --- | --- | --- |
