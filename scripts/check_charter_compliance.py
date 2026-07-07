@@ -129,13 +129,22 @@ def _symbol_export(symbol: str) -> str:
     return export.rsplit(".", 1)[-1]
 
 
+def _symbol_root_export(symbol: str) -> str:
+    export = symbol.split(":", 1)[-1]
+    return export.split(".", 1)[0]
+
+
 def _symbol_export_roots(symbols: Iterable[str]) -> set[str]:
     roots: set[str] = set()
     for symbol in symbols:
-        export = symbol.split(":", 1)[-1]
-        parts = [part for part in export.split(".") if part]
-        roots.update(parts)
+        root = _symbol_root_export(symbol)
+        if root:
+            roots.add(root)
     return roots
+
+
+def _is_top_level_symbol(symbol: str) -> bool:
+    return "." not in symbol.split(":", 1)[-1]
 
 
 def _parse_imported_names(imports: str) -> list[str]:
@@ -145,7 +154,7 @@ def _parse_imported_names(imports: str) -> list[str]:
     names: list[str] = []
     for part in cleaned.split(","):
         token = part.strip()
-        if not token or token == "*":
+        if not token:
             continue
         names.append(token.split(" as ", 1)[0].strip())
     return names
@@ -196,13 +205,21 @@ def _is_python_path(path: str) -> bool:
 
 
 def _line_reexports_or_defines_symbol(line: str, symbol: str) -> bool:
+    return _line_reexports_or_defines_export(line, _symbol_export(symbol))
+
+
+def _line_reexports_or_defines_export(
+    line: str,
+    export: str,
+    *,
+    allow_wildcard: bool = True,
+) -> bool:
     if line[:1].isspace():
         return False
-    export = _symbol_export(symbol)
     from_import = _from_import(line)
     if from_import is not None:
         _module, names = from_import
-        return export in names or "*" in names
+        return export in names or (allow_wildcard and "*" in names)
     return bool(
         re.match(rf"^(?:async\s+def|def|class)\s+{re.escape(export)}\b", line)
         or re.match(rf"^{re.escape(export)}\s*=", line)
@@ -210,7 +227,15 @@ def _line_reexports_or_defines_symbol(line: str, symbol: str) -> bool:
 
 
 def _line_reexports_or_defines_kept_symbol(line: str, entry: CharterEntry) -> bool:
-    return any(_line_reexports_or_defines_symbol(line, symbol) for symbol in entry.kept_symbols)
+    return any(
+        _line_reexports_or_defines_export(
+            line,
+            _symbol_root_export(symbol),
+            allow_wildcard=False,
+        )
+        for symbol in entry.kept_symbols
+        if _is_top_level_symbol(symbol)
+    )
 
 
 def _module_is_under(module: str, parent: str) -> bool:
@@ -283,7 +308,7 @@ def _line_is_kept_only(added_line: AddedLine, entry: CharterEntry) -> bool:
             symbol for symbol in entry.kept_symbols if _symbol_module(symbol) == imported_module
         ]
         if matching_kept:
-            return bool(names) and all(name in kept_exports for name in names)
+            return bool(names) and all(name != "*" and name in kept_exports for name in names)
         return False
     if any(_path_matches(path, added_line.path) for path in entry.paths):
         return _line_reexports_or_defines_kept_symbol(line, entry)
