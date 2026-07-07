@@ -1,8 +1,19 @@
 """Offline verification of an Open Decision Receipt (ODR v0.1).
 
-The single library behind both the ``aragora-verify`` CLI and the server's
-``POST /api/receipts/verify`` endpoint. It establishes, with nothing but the
-receipt JSON (and optionally a public key and a hash chain):
+This is the standalone library engine behind the ``aragora-verify`` CLI --
+zero-Aragora-dependency, stdlib + ``cryptography`` only. It is kept in
+lockstep with the in-tree mirror, ``aragora.gauntlet.odr_verify`` (issue
+#8226): both follow the same content profile
+(``docs/specs/OPEN_DECISION_RECEIPT.md``) and signature construction (§6 /
+issue #8225), so a receipt verifies identically whether checked here or
+in-tree. No shipped server endpoint wraps this engine today -- the existing
+``/api/v2/receipts/{id}/verify*`` and ``/receipts/{id}/verify`` routes verify
+the native or legacy receipt instead (see
+``docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md`` "Two verifiers" for the full
+picture).
+
+It establishes, with nothing but the receipt JSON (and optionally a public
+key and a hash chain):
 
 1. **Structural conformance** to the ODR v0.1 profile (``schema``).
 2. **Canonical digest** — recomputes ``odr_digest = SHA-256(JCS(doc - signatures))``

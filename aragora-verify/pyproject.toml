@@ -41,7 +41,17 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "cryptography>=41.0",
+    # Floor matches the root project's [tool.uv] constraint-dependencies floor
+    # (../pyproject.toml): fixes GHSA-537c-gmf6-5ccf. This package only touches
+    # the stable Ed25519 verify + PEM-load surface (hazmat.primitives.
+    # asymmetric.ed25519, serialization, exceptions.InvalidSignature), which is
+    # unaffected by the 41->48 range.
+    # pip-audit risk: a standalone `pip install aragora-verify` resolves this
+    # dependency on its own -- it does not inherit the root project's uv-locked
+    # constraint-dependencies floor. Before this bump, a solo install could
+    # still land on a cryptography release vulnerable to GHSA-537c-gmf6-5ccf;
+    # this direct floor is what keeps a standalone install off it.
+    "cryptography>=48.0.1",
 ]
 
 [project.optional-dependencies]
@@ -90,3 +100,21 @@ packages = ["src/aragora_verify"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Previously this package had no [tool.ruff] table at all. Without one,
+# Ruff's config discovery skips this file (a pyproject.toml with no
+# [tool.ruff] section is ignored) and falls back to the ROOT pyproject.toml,
+# whose [tool.ruff.lint.per-file-ignores] "tests/*" entry is relative to the
+# repo root and never matches "aragora-verify/tests/*" -- so a direct
+# `ruff check aragora-verify/tests` flagged S101 (bare assert) on every test
+# file here. Adding this table makes aragora-verify its own Ruff config root,
+# so line-length is repeated from the root config (../pyproject.toml
+# [tool.ruff]) to keep `ruff format` a no-op here -- Ruff's default
+# line-length (88) would otherwise reflow every line between 89-100 chars.
+[tool.ruff]
+line-length = 100
+
+# Matches the root repo's own "tests/*" = S101 exemption (see
+# ../pyproject.toml [tool.ruff.lint.per-file-ignores]).
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
