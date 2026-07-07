@@ -185,6 +185,7 @@ class Handoff:
     requested_action: str | None = None
     branch: str | None = None
     desired_head: str | None = None
+    prompt_sha256: str | None = None
     prompt_artifact_path: str | None = None
     prompt_artifact_sha256: str | None = None
 
@@ -1083,6 +1084,7 @@ def _load_outbox_handoffs_with_skip_reasons(
             requested_action=requested_action,
             branch=_outbox_evidence_value(payload, "branch") or None,
             desired_head=_outbox_desired_head(payload),
+            prompt_sha256=_outbox_evidence_value(payload, "prompt_sha256") or None,
             prompt_artifact_path=_outbox_prompt_artifact_path(payload),
             prompt_artifact_sha256=_outbox_prompt_artifact_sha256(payload),
         )
@@ -1173,6 +1175,75 @@ def _existing_issue(repo_root: Path, repo: str, title: str) -> dict[str, Any] | 
         existing_title = str(item.get("title") or "")
         if _looks_duplicate(title, existing_title):
             return item
+    return None
+
+
+def _existing_prompt_handoff_issue(
+    repo_root: Path,
+    repo: str,
+    handoff: Handoff,
+) -> dict[str, Any] | None:
+    terms = [
+        str(handoff.idempotency_key or "").strip(),
+        str(handoff.prompt_sha256 or handoff.prompt_artifact_sha256 or "").strip(),
+    ]
+    for term in dict.fromkeys(item for item in terms if item):
+        proc = _run(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "all",
+                "--search",
+                term,
+                "--json",
+                "number,title,url,state",
+                "--limit",
+                "50",
+            ],
+            cwd=repo_root,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                proc.stderr.strip() or proc.stdout.strip() or "failed to list prompt issues"
+            )
+        payload = json.loads(proc.stdout or "[]")
+        if not isinstance(payload, list):
+            continue
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            number = str(item.get("number") or "").strip()
+            if not number:
+                continue
+            view_proc = _run(
+                [
+                    "gh",
+                    "issue",
+                    "view",
+                    number,
+                    "--repo",
+                    repo,
+                    "--json",
+                    "number,title,url,state,body",
+                ],
+                cwd=repo_root,
+            )
+            if view_proc.returncode != 0:
+                raise RuntimeError(
+                    view_proc.stderr.strip()
+                    or view_proc.stdout.strip()
+                    or "failed to view prompt issue"
+                )
+            viewed = json.loads(view_proc.stdout or "{}")
+            if not isinstance(viewed, dict):
+                continue
+            haystack = "\n".join(str(viewed.get(key) or "") for key in ("title", "body", "url"))
+            if term in haystack:
+                return viewed
     return None
 
 
@@ -1540,6 +1611,18 @@ def decide_handoffs(
                         eligible=False,
                         reason="target_open_pr",
                         existing_pr_url=str(target_pr.get("url") or ""),
+                    )
+                )
+                continue
+        if _is_prompt_handoff(handoff):
+            existing_prompt_issue = _existing_prompt_handoff_issue(repo_root, repo, handoff)
+            if existing_prompt_issue:
+                decisions.append(
+                    _decision_for_handoff(
+                        handoff,
+                        eligible=False,
+                        reason="existing_issue",
+                        existing_issue_url=str(existing_prompt_issue.get("url") or ""),
                     )
                 )
                 continue

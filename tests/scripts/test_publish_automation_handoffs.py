@@ -989,6 +989,90 @@ def test_decide_handoffs_ignores_title_duplicate_issue_for_prompt_handoff(
     ]
 
 
+def test_decide_handoffs_dedupes_prompt_handoff_by_idempotency_key(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / ".aragora" / "automation-outbox" / "prompt.json"),
+        task_title="Prompt handoff for active repair branch",
+        priority="HIGH",
+        body="Idempotency Key:\nprompt-handoff-retry-abc123\n",
+        labels={},
+        expires_at=None,
+        idempotency_key="prompt-handoff-retry-abc123",
+        source_kind="outbox",
+        requested_action="prompt_handoff",
+        branch="codex/active-repair",
+        desired_head="abc1234",
+        prompt_sha256="c" * 64,
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            assert args[args.index("--search") + 1] == "prompt-handoff-retry-abc123"
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 6006,
+                            "title": "Prompt handoff for active repair branch",
+                            "url": "https://github.com/synaptent/aragora/issues/6006",
+                            "state": "OPEN",
+                        }
+                    ]
+                ),
+                "",
+            )
+        if args[:3] == ["gh", "issue", "view"]:
+            assert args[3] == "6006"
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "number": 6006,
+                        "title": "Prompt handoff for active repair branch",
+                        "url": "https://github.com/synaptent/aragora/issues/6006",
+                        "state": "OPEN",
+                        "body": (
+                            "Idempotency Key:\n"
+                            "prompt-handoff-retry-abc123\n\n"
+                            "Local Evidence:\n"
+                            f"{'c' * 64}\n"
+                        ),
+                    }
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected prompt dedupe command: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="existing_issue",
+            branch="codex/active-repair",
+            desired_head="abc1234",
+            existing_issue_url="https://github.com/synaptent/aragora/issues/6006",
+        )
+    ]
+
+
 def test_load_outbox_handoffs_skips_already_merged_branch_head(tmp_path: Path) -> None:
     repo, head = _repo_with_merged_codex_branch(tmp_path)
     outbox = repo / ".aragora" / "automation-outbox"

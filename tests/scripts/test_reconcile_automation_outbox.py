@@ -711,6 +711,72 @@ def test_reconcile_existing_receipt_uses_structured_requested_action_branch(
     assert payload["actions"][0]["branch"] == "codex/structured-action"
 
 
+def test_prompt_handoff_branch_metadata_is_preserved_not_archived(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    outbox_dir.mkdir(parents=True)
+    key = "prompt-handoff-codex-landed-abc123"
+    (outbox_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "task": "Prompt handoff for landed branch",
+                "requires_github": True,
+                "requested_action": {
+                    "type": "prompt_handoff",
+                    "branch": "codex/landed",
+                    "prompt_sha256": "a" * 64,
+                },
+                "repo": "synaptent/aragora",
+                "local_evidence": {
+                    "kind": "prompt_handoff",
+                    "branch": "codex/landed",
+                    "prompt_sha256": "a" * 64,
+                    "prompt": "continue the landed branch review",
+                },
+                "idempotency_key": key,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("prompt handoff should not enter branch archival checks")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: (_ for _ in ()).throw(
+            AssertionError("prompt handoff should not query GitHub PR state")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("prompt handoff should not load open PR state")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["archived"] == 0
+    assert payload["kept"] == 1
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert payload["actions"][0]["branch"] == "codex/landed"
+    assert payload["actions"][0]["reason"] == "prompt handoff transport record pending publication"
+    assert (outbox_dir / f"{key}.json").exists()
+    assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
+
+
 @pytest.mark.parametrize(
     ("status", "reason", "issue_key"),
     [

@@ -761,10 +761,25 @@ def _requested_action_type(payload: Mapping[str, Any]) -> str:
     requested_action = payload.get("requested_action")
     requested_action_mapping = _mapping_from_action(requested_action)
     if requested_action_mapping is not None:
-        return str(requested_action_mapping.get("type") or "").strip().lower()
+        return str(requested_action_mapping.get("type") or "").strip().lower().replace("-", "_")
     if isinstance(requested_action, str):
-        return requested_action.strip().lower()
+        return requested_action.strip().lower().replace("-", "_")
     return ""
+
+
+def _is_prompt_handoff_payload(payload: Mapping[str, Any]) -> bool:
+    if _requested_action_type(payload) == "prompt_handoff":
+        return True
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        kind = str(
+            local_evidence.get("kind")
+            or local_evidence.get("type")
+            or local_evidence.get("requested_action")
+            or ""
+        )
+        if kind.strip().lower().replace("-", "_") == "prompt_handoff":
+            return True
+    return False
 
 
 def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
@@ -1630,12 +1645,40 @@ def main(argv: list[str] | None = None) -> int:
         payload["__source_file"] = str(path)
         idem = str(payload.get("idempotency_key") or "").strip()
         branch = _branch_from_payload(payload)
+        is_prompt_handoff = _is_prompt_handoff_payload(payload)
 
-        if not idem or not branch:
+        if not idem or (not branch and not is_prompt_handoff):
             counts["skipped_unparseable"] += 1
             continue
 
         receipt = receipt_payloads_by_key.get(idem)
+        if is_prompt_handoff:
+            if receipt is not None:
+                counts["satisfied_by_existing_receipt"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": "matching prompt handoff receipt exists",
+                        "synthetic_receipt": False,
+                    }
+                )
+                if args.apply:
+                    shutil.move(str(path), str(archive_dir / path.name))
+                continue
+            counts["still_protecting_active_work"] += 1
+            actions.append(
+                {
+                    "path": str(path),
+                    "branch": branch,
+                    "decision": "keep",
+                    "reason": "prompt handoff transport record pending publication",
+                    "synthetic_receipt": False,
+                }
+            )
+            continue
+
         if receipt is not None:
             issue_only_keep_reason = _issue_only_pr_receipt_keep_reason(payload, receipt)
             if issue_only_keep_reason is not None:
