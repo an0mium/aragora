@@ -157,8 +157,8 @@ and truthful stopping behavior.**
 
 | Repo-visible capability | Evidence in repo | Safe claim |
 |---|---|---|
-| Multi-agent debate and review | [README](../../README.md), [Developer Quickstart](../QUICKSTART_DEVELOPER.md) | Aragora can run structured multi-agent review flows and expose pass / changes-requested / blocked outcomes. |
-| Review artifacts on real PR heads | [Developer Quickstart](../QUICKSTART_DEVELOPER.md) | Aragora can review the current remote PR head and persist structured review artifacts to disk. |
+| Multi-agent debate and review | [README](../../README.md), [Developer Quickstart](../quickstart.md) | Aragora can run structured multi-agent review flows and expose pass / changes-requested / blocked outcomes. |
+| Review artifacts on real PR heads | [Developer Quickstart](../quickstart.md) | Aragora can review the current remote PR head and persist structured review artifacts to disk. |
 | Decision receipts and audit-oriented artifacts | [README](../../README.md), [Feature Discovery](../FEATURE_DISCOVERY.md) | Aragora already treats receipts as first-class outputs, not just logs. |
 | Bounded delegation with leases and isolated worktrees | [Feature Discovery](../FEATURE_DISCOVERY.md) | Aragora has supervisor, worker-launch, and reconciliation primitives for bounded multi-agent execution. |
 | Queue / pipeline / workflow surfaces | [README](../../README.md), [Feature Discovery](../FEATURE_DISCOVERY.md) | Aragora has workflow and pipeline surfaces, but those should support the control-plane story rather than become the primary pitch. |

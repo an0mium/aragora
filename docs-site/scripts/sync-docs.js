@@ -109,7 +109,7 @@ const DOC_MAP = {
   // Getting Started
   // =========================================================================
   'GETTING_STARTED.md': 'getting-started/overview.md',
-  'QUICKSTART_DEVELOPER.md': 'getting-started/quickstart.md',
+  'quickstart.md': 'getting-started/quickstart.md',
   'CONFIGURATION.md': 'getting-started/configuration.md',
   'ENVIRONMENT.md': 'getting-started/environment.md',
 
@@ -178,6 +178,8 @@ const DOC_MAP = {
   'SDK_CONSOLIDATION.md': 'guides/sdk-consolidation.md',
   'LIBRARY_USAGE.md': 'guides/library-usage.md',
   'PLUGIN_GUIDE.md': 'guides/plugin-guide.md',
+  'GITHUB_ACTION_SETUP.md': 'guides/github-action-setup.md',
+  'guides/github-actions-review.md': 'guides/github-actions-review.md',
 
   // =========================================================================
   // API Reference

@@ -6,10 +6,10 @@ description: Getting Started
 # Getting Started
 
 > **Consolidated into the canonical quickstart.**
-> See **[Quickstart](quickstart.md)** for the single, maintained onboarding guide.
+> See **[Quickstart](./quickstart)** for the single, maintained onboarding guide.
 
 This page is a redirect stub kept so existing links keep working. The canonical
-[Quickstart](quickstart.md) covers installation, the zero-key offline demo,
+[Quickstart](./quickstart) covers installation, the zero-key offline demo,
 running a real multi-model debate with your own API keys, the Python and
 TypeScript SDKs, and self-hosting the full platform.
 
@@ -23,7 +23,7 @@ troubleshooting in full; each of those now has its own maintained canonical doc:
 
 ## Quick Start
 
-The maintained quickstart now lives at [Quickstart](quickstart.md).
+The maintained quickstart now lives at [Quickstart](./quickstart).
 
 ## CLI User Guide
 

@@ -45,7 +45,8 @@ print(result.receipt.to_markdown())
 
 ## 4. Add Real AI Models
 
-Set at least one API key:
+Set both provider keys for the two-model example below. If you only have one
+provider key, remove the other `create_agent(...)` entry.
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
@@ -58,14 +59,18 @@ Then run a real debate:
 ```python
 import asyncio
 from aragora import Arena, Environment, DebateProtocol
+from aragora.agents import create_agent
 
 env = Environment(task="Design a rate limiter for our API")
 protocol = DebateProtocol(rounds=3, consensus="majority")
 
-# Arena auto-discovers available agents from your API keys
-arena = Arena(env, protocol=protocol)
+agents = [
+    create_agent("anthropic-api", name="claude", role="proposer"),
+    create_agent("openai-api", name="openai", role="critic"),
+]
+arena = Arena(env, agents=agents, protocol=protocol)
 result = asyncio.run(arena.run())
-print(result.summary)
+print(result.summary())
 ```
 
 ## 5. TypeScript SDK
@@ -130,8 +135,8 @@ verification example; use the source checkout path above for `receipt verify`.
 | [Receipt Lineage Reconciliation](specs/RECEIPT_LINEAGE_RECONCILIATION.md) | What a Decision Receipt is: the native record vs. the portable ODR |
 | [Independent Verifier Guide](specs/INDEPENDENT_VERIFIER_GUIDE.md) | Verify a receipt offline with `aragora-verify`, no Aragora install required |
 | [GitHub Action Setup](GITHUB_ACTION_SETUP.md) | Add multi-model CI review + receipts to your pull requests |
-| [CLI Reference](CLI_REFERENCE.md) | All CLI commands and flags |
+| [CLI Reference](reference/CLI_REFERENCE.md) | All CLI commands and flags |
 | [SDK Guide](SDK_GUIDE.md) | Python & TypeScript SDK reference |
 | [API Reference](api/API_REFERENCE.md) | REST API endpoints |
-| [Self-Hosting](guides/SELF_HOSTED_COMPLETE_GUIDE.md) | Production deployment |
-| [Start Here](START_HERE.md) | Deeper architectural overview |
+| [Self-Hosting](deployment/DEPLOYMENT.md) | Production deployment |
+| [Documentation Landing](README.md) | Deeper architectural overview |

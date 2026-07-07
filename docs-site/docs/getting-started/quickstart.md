@@ -1,11 +1,13 @@
 ---
 title: Quickstart
-description: Run your first Aragora debate and receipt path in under a minute.
+description: Quickstart
 ---
 
 # Quickstart
 
 Get from zero to a working adversarial debate in under a minute.
+
+---
 
 ## 1. Install
 
@@ -13,26 +15,22 @@ Get from zero to a working adversarial debate in under a minute.
 pip install aragora-debate
 ```
 
-## 2. Run the Zero-Key Demo
+## 2. Zero-Key Demo
 
-No API keys are required. The offline demo runs a complete adversarial debate
-with mock agents:
+No API keys required. The offline demo runs a complete adversarial debate with
+mock agents:
 
 ```bash
 python3 -m aragora_debate
 ```
 
-You will see three agents propose, critique each other, vote, reach consensus,
-and produce an audit-ready decision receipt with a SHA-256 verdict hash.
+You'll see three agents propose, critique each other, vote, reach consensus, and
+produce an audit-ready decision receipt with a SHA-256 verdict hash.
 
-If you installed the full platform instead with `pip install aragora`, the
-equivalent zero-key demo is:
+(If you installed the full platform instead — `pip install aragora` — the
+equivalent zero-key demo is `aragora demo`.)
 
-```bash
-aragora demo
-```
-
-## 3. Run a Three-Line Debate
+## 3. Three-Line Debate (Python)
 
 ```python
 import asyncio
@@ -50,39 +48,100 @@ result = asyncio.run(arena.run())
 print(result.receipt.to_markdown())
 ```
 
-## 4. Add Real Models
+## 4. Add Real AI Models
 
-Set at least one provider key:
+Set both provider keys for the two-model example below. If you only have one
+provider key, remove the other `create_agent(...)` entry.
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
+export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
 # or
-export OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."          # GPT
 ```
 
 Then run a real debate:
 
 ```python
 import asyncio
-
-from aragora import Arena, DebateProtocol, Environment
+from aragora import Arena, Environment, DebateProtocol
+from aragora.agents import create_agent
 
 env = Environment(task="Design a rate limiter for our API")
 protocol = DebateProtocol(rounds=3, consensus="majority")
 
-arena = Arena(env, protocol=protocol)
+agents = [
+    create_agent("anthropic-api", name="claude", role="proposer"),
+    create_agent("openai-api", name="openai", role="critic"),
+]
+arena = Arena(env, agents=agents, protocol=protocol)
 result = asyncio.run(arena.run())
-print(result.summary)
+print(result.summary())
 ```
 
-## 5. Wire the Public Utility Path
+## 5. TypeScript SDK
 
-The core loop is: run a debate, get a receipt, verify it independently, then
-wire review receipts into CI.
+```bash
+npm install @aragora/sdk
+```
 
-| Next step | Guide |
-|-----------|-------|
-| Understand the receipt model | [Receipt Lineage Reconciliation](../specs/receipt-lineage-reconciliation) |
-| Verify a receipt without installing Aragora | [Independent Verifier Guide](../specs/independent-verifier-guide) |
-| Add multi-model CI review and receipts | [GitHub Action Setup](../guides/github-actions-review) |
-| See every CLI command | [CLI Reference](../api/cli) |
+```typescript
+import { AragoraClient } from "@aragora/sdk";
+
+const client = new AragoraClient({ baseUrl: "http://localhost:8080" });
+const result = await client.debates.create({
+  task: "Should we use microservices or a monolith?",
+  agents: ["claude", "openai"],
+  rounds: 3,
+});
+console.log(result.summary);
+```
+
+## 6. Self-Host the Full Platform
+
+```bash
+docker compose -f deploy/demo/docker-compose.yml up
+```
+
+Then visit:
+- **Landing page:** http://localhost:3000
+- **API docs (Swagger):** http://localhost:8080/api/v2/docs
+- **API docs (Redoc):** http://localhost:8080/api/v2/redoc
+- **Interactive playground:** http://localhost:3000/playground
+
+## 7. CLI
+
+Current PyPI package:
+
+```bash
+pip install aragora
+aragora demo                                            # no provider key required in PyPI 2.7.4
+aragora ask "Should we build or buy our auth system?"   # real debate (needs an API key)
+aragora serve --api-port 8080 --ws-port 8765
+```
+
+Current source checkout:
+
+```bash
+python3 -m pip install -e .
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
+```
+
+PyPI `aragora` releases through 2.7.4 run `aragora demo`, but the explicit
+`--offline` flag and verifiable native demo-receipt round trip are available
+from source until a later package release carries them. If the public-package
+demo writes `aragora-demo-receipt.json`, treat it as demo output, not the
+verification example; use the source checkout path above for `receipt verify`.
+
+## Next Steps
+
+| Guide | What you'll learn |
+|-------|-------------------|
+| [Receipt Lineage Reconciliation](../specs/receipt-lineage-reconciliation) | What a Decision Receipt is: the native record vs. the portable ODR |
+| [Independent Verifier Guide](../specs/independent-verifier-guide) | Verify a receipt offline with `aragora-verify`, no Aragora install required |
+| [GitHub Action Setup](../guides/github-action-setup) | Add multi-model CI review + receipts to your pull requests |
+| [CLI Reference](../api/cli) | All CLI commands and flags |
+| [SDK Guide](../guides/sdk) | Python & TypeScript SDK reference |
+| [API Reference](../api/reference) | REST API endpoints |
+| [Self-Hosting](../deployment/overview) | Production deployment |
+| [Documentation Landing](https://github.com/synaptent/aragora/blob/main/docs/README.md) | Deeper architectural overview |

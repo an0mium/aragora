@@ -15,3 +15,24 @@ troubleshooting in full; each of those now has its own maintained canonical doc:
 - REST API usage: [API Reference](../api/API_REFERENCE.md)
 - Gauntlet adversarial stress-testing: [Gauntlet Guide](../debate/GAUNTLET.md)
 - Common issues: [Troubleshooting](TROUBLESHOOTING.md)
+
+## Quick Start
+
+The maintained quickstart now lives at [Quickstart](../quickstart.md).
+
+## CLI User Guide
+
+CLI commands and flags now live in the [CLI Reference](../reference/CLI_REFERENCE.md).
+
+## REST API
+
+REST API usage now lives in the [API Reference](../api/API_REFERENCE.md).
+
+## Gauntlet
+
+Gauntlet adversarial stress-testing now lives in the
+[Gauntlet Guide](../debate/GAUNTLET.md).
+
+## Troubleshooting
+
+Common fixes now live in [Troubleshooting](TROUBLESHOOTING.md).
