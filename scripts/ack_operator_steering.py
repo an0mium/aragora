@@ -310,8 +310,15 @@ def _ack_message(
     }
 
     acked_message_path.parent.mkdir(parents=True, exist_ok=True)
-    os.replace(message_path, acked_message_path)
     _atomic_write_json(ack_path, ack_payload)
+    try:
+        os.replace(message_path, acked_message_path)
+    except Exception:
+        try:
+            ack_path.unlink()
+        except OSError:
+            pass
+        raise
     result = dict(plan)
     result["status"] = "acked"
     return result

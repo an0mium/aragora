@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 
 def _load_module(script_name: str) -> Any:
     here = Path(__file__).resolve()
@@ -95,6 +97,51 @@ def test_apply_moves_message_and_writes_ack_sidecar(tmp_path: Path, capsys: Any)
     assert ack_payload["schema_version"] == "aragora-operator-steering-ack/1.0"
     assert ack_payload["message_sha256"] == message["message_sha256"]
     assert ack_payload["receipt_filename"] == receipt.name
+
+
+def test_ack_sidecar_write_failure_leaves_message_pending(
+    tmp_path: Path, capsys: Any, monkeypatch: Any
+) -> None:
+    root = tmp_path / "operator-steering"
+    inbox = root / "owner-session"
+    message = _write_message(inbox)
+    _write_receipt(inbox, message_sha256=message["message_sha256"])
+
+    def fail_write(path: Path, payload: dict[str, Any]) -> None:
+        raise RuntimeError("ack sidecar failed")
+
+    monkeypatch.setattr(ack, "_atomic_write_json", fail_write)
+
+    with pytest.raises(RuntimeError, match="ack sidecar failed"):
+        ack.main(["--to", inbox.name, "--steering-inbox-root", str(root), "--apply", "--json"])
+
+    assert (inbox / "message.json").exists()
+    assert not (inbox / "_acked" / "message.json").exists()
+    assert not (inbox / "_acked" / "message.json.ack.json").exists()
+
+
+def test_move_failure_leaves_message_pending_and_removes_ack_sidecar(
+    tmp_path: Path, capsys: Any, monkeypatch: Any
+) -> None:
+    root = tmp_path / "operator-steering"
+    inbox = root / "owner-session"
+    message = _write_message(inbox)
+    _write_receipt(inbox, message_sha256=message["message_sha256"])
+    original_replace = ack.os.replace
+
+    def fail_message_move(src: str, dst: str) -> None:
+        if Path(src).name == "message.json":
+            raise OSError("message move failed")
+        original_replace(src, dst)
+
+    monkeypatch.setattr(ack.os, "replace", fail_message_move)
+
+    with pytest.raises(OSError, match="message move failed"):
+        ack.main(["--to", inbox.name, "--steering-inbox-root", str(root), "--apply", "--json"])
+
+    assert (inbox / "message.json").exists()
+    assert not (inbox / "_acked" / "message.json").exists()
+    assert not (inbox / "_acked" / "message.json.ack.json").exists()
 
 
 def test_dry_run_mutates_nothing(tmp_path: Path, capsys: Any) -> None:
