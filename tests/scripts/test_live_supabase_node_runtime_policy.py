@@ -1,5 +1,6 @@
 import json
 import re
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 import yaml
@@ -87,6 +88,55 @@ def _dockerfile_stage_copies(path: Path) -> dict[str, list[str]]:
             stages[current_stage].append(line)
 
     return stages
+
+
+def _repo_root_dockerignore_patterns() -> list[str]:
+    return [
+        line.strip()
+        for line in (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+
+
+def _dockerignore_pattern_matches(pattern: str, relative_path: str) -> bool:
+    pattern = pattern.replace("\\", "/")
+    relative_path = relative_path.strip("/")
+    anchored = pattern.startswith("/")
+    directory_only = pattern.endswith("/")
+    normalized_pattern = pattern.strip("/")
+    path_parts = relative_path.split("/")
+
+    if not normalized_pattern:
+        return False
+
+    if anchored:
+        return (
+            relative_path == normalized_pattern
+            or (directory_only and relative_path.startswith(f"{normalized_pattern}/"))
+            or (not directory_only and fnmatchcase(relative_path, normalized_pattern))
+        )
+
+    if "/" not in normalized_pattern:
+        return any(fnmatchcase(part, normalized_pattern) for part in path_parts)
+
+    return (
+        relative_path == normalized_pattern
+        or (directory_only and relative_path.startswith(f"{normalized_pattern}/"))
+        or (not directory_only and fnmatchcase(relative_path, normalized_pattern))
+    )
+
+
+def _repo_root_dockerignore_excludes(relative_path: str) -> bool:
+    excluded = False
+
+    for pattern in _repo_root_dockerignore_patterns():
+        negated = pattern.startswith("!")
+        pattern_body = pattern[1:] if negated else pattern
+
+        if _dockerignore_pattern_matches(pattern_body, relative_path):
+            excluded = not negated
+
+    return excluded
 
 
 def test_live_supabase_version_is_exactly_pinned() -> None:
@@ -240,12 +290,13 @@ def test_frontend_compose_builds_use_repo_root_docker_context() -> None:
 
 
 def test_repo_root_dockerignore_excludes_frontend_context_churn() -> None:
-    dockerignore = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
-    ignored = {line.strip() for line in dockerignore if line.strip() and not line.startswith("#")}
+    ignored = set(_repo_root_dockerignore_patterns())
 
     assert ".git" in ignored
     assert ".worktrees/" in ignored
     assert ".venv-scale/" in ignored
+    assert "/lib/" in ignored
+    assert "lib/" not in ignored
     assert ".env" in ignored
     assert ".env.*" in ignored
     assert "**/.env" in ignored
@@ -255,6 +306,17 @@ def test_repo_root_dockerignore_excludes_frontend_context_churn() -> None:
     assert "node_modules/" in ignored
     assert "aragora/live/node_modules/" in ignored
     assert "aragora/live/.next/" in ignored
+    assert "sdk/typescript/node_modules/" in ignored
+
+
+def test_repo_root_dockerignore_keeps_required_frontend_sources() -> None:
+    assert _repo_root_dockerignore_excludes("lib/example.so")
+    assert _repo_root_dockerignore_excludes("sdk/typescript/node_modules/.package-lock.json")
+    assert _repo_root_dockerignore_excludes("aragora/live/node_modules/next/package.json")
+    assert _repo_root_dockerignore_excludes("aragora/live/.next/cache/routes.json")
+
+    assert not _repo_root_dockerignore_excludes("aragora/live/src/lib/backendUrls.ts")
+    assert not _repo_root_dockerignore_excludes("aragora/live/src/lib/aragora-client/client.ts")
 
 
 def test_frontend_dev_compose_mounts_local_sdk_dependency() -> None:
