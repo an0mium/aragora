@@ -273,6 +273,7 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     "scripts/merge_codex_automation_prs.py",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
+OPERATOR_REVIEW_REQUIRED_LABEL = "operator-review-required"
 MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
 MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
 MERGE_QUORUM_JOB_ID = "merge-quorum"
@@ -390,6 +391,8 @@ class ReviewPacket:
     check_surfaces: dict[str, Any] = field(default_factory=dict)
     protocol: dict[str, Any] = field(default_factory=dict)
     model_review_quorum: dict[str, Any] = field(default_factory=dict)
+    labels: list[str] = field(default_factory=list)
+    merge_state_status: str = ""
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
 
@@ -2455,6 +2458,7 @@ def _build_packet(
         "baseRefName",
         "isDraft",
         "mergeable",
+        "mergeStateStatus",
         "reviewDecision",
         "labels",
         "author",
@@ -2945,9 +2949,25 @@ def _build_packet(
             check_surfaces=check_surfaces,
             repo_slug=rest_fallback._repo_slug_from_pr_payload(pr, repo_override),
         ),
+        labels=labels,
+        merge_state_status=str(pr.get("mergeStateStatus") or "").strip().upper(),
     )
     packet.packet_sha = _packet_sha(packet)
     return packet
+
+
+def _admin_squash_live_gate_blockers(packet: ReviewPacket) -> list[str]:
+    blockers: list[str] = []
+    labels = {str(label).strip().lower() for label in packet.labels if str(label).strip()}
+    if OPERATOR_REVIEW_REQUIRED_LABEL in labels:
+        blockers.append("operator-review-required label present")
+
+    merge_state_status = str(packet.merge_state_status or "").strip().upper()
+    if not merge_state_status:
+        blockers.append("mergeStateStatus unavailable; admin squash requires CLEAN")
+    elif merge_state_status != "CLEAN":
+        blockers.append(f"mergeStateStatus={merge_state_status}; admin squash requires CLEAN")
+    return blockers
 
 
 def _build_merge_authorization_packet(
@@ -2992,6 +3012,8 @@ def _build_merge_authorization_packet(
     queue_pressure_active = queue_size > MODEL_REVIEW_QUEUE_CAP
     for packet in packets:
         quorum = dict(packet.model_review_quorum)
+        admin_squash_gate_blockers = _admin_squash_live_gate_blockers(packet)
+        model_quorum_admin_squash_allowed = bool(quorum["admin_squash_allowed"])
         quorum["queue_pressure"] = {
             "current_open_prs": queue_size,
             "cap": MODEL_REVIEW_QUEUE_CAP,
@@ -3016,7 +3038,14 @@ def _build_merge_authorization_packet(
             "tier_name": quorum["tier_name"],
             "status": quorum["status"],
             "verdict": quorum["verdict"],
-            "admin_squash_allowed": quorum["admin_squash_allowed"],
+            "admin_squash_allowed": (
+                model_quorum_admin_squash_allowed and not admin_squash_gate_blockers
+            ),
+            "model_quorum_admin_squash_allowed": model_quorum_admin_squash_allowed,
+            "admin_squash_gate_blockers": admin_squash_gate_blockers,
+            "merge_state_status": packet.merge_state_status,
+            "operator_review_required": OPERATOR_REVIEW_REQUIRED_LABEL
+            in {str(label).strip().lower() for label in packet.labels if str(label).strip()},
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
             "requires_human_preapproval": quorum.get("requires_human_preapproval", False),
             "human_preapproval_recorded": quorum.get("human_preapproval_recorded", False),
