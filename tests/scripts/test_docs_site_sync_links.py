@@ -343,6 +343,13 @@ def test_docs_specs_directory_is_mirrored() -> None:
     source_specs = sorted(path.name for path in (REPO_ROOT / "docs" / "specs").glob("*.md"))
     expected_mirrored = [name for name in source_specs if name not in DOCS_SPECS_MIRROR_ALLOWLIST]
 
+    still_mapped_allowlisted = sorted(set(mapped_specs) & DOCS_SPECS_MIRROR_ALLOWLIST)
+    assert not still_mapped_allowlisted, (
+        "docs/specs/*.md file(s) are listed in DOCS_SPECS_MIRROR_ALLOWLIST but "
+        f"still have DOC_MAP entries: {still_mapped_allowlisted}. Remove the "
+        "DOC_MAP entry when a spec is deliberately excluded from the docs-site mirror."
+    )
+
     missing_doc_map_entries = sorted(set(expected_mirrored) - set(mapped_specs))
     assert not missing_doc_map_entries, (
         "docs/specs/*.md file(s) missing a DOC_MAP entry in "
