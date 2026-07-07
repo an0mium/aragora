@@ -1,15 +1,20 @@
+---
+title: GitHub Action Setup Guide
+description: GitHub Action Setup Guide
+---
+
 # GitHub Action Setup Guide
 
 Add multi-agent AI code review to your pull requests in under 5 minutes.
 
 > **This is the canonical Action setup doc**, for the root `synaptent/aragora`
 > action (the one with `emit-receipt`, below). The
-> [README wedge section](../README.md#the-wedge-a-governance-gate-for-ai-written-code)
+> [README wedge section](https://github.com/synaptent/aragora/blob/main/README.md#the-wedge-a-governance-gate-for-ai-written-code)
 > is a shorter copy-paste version of the same root action; both describe the
 > identical `uses: synaptent/aragora@<sha>` step. If instead you want the
 > **nested, receipt-less** composite actions bundled inside this repository
 > (`.github/actions/aragora-code-review`, `.github/actions/aragora-review`),
-> see [Aragora GitHub Actions Code Review](guides/github-actions-review.md) —
+> see [Aragora GitHub Actions Code Review](./github-actions-review) —
 > read its root-vs-nested note before reusing either snippet outside this repo.
 
 ## Quick Start
@@ -90,7 +95,7 @@ fails the test).
 | `failure-threshold` | `0` | Fail workflow if total issues exceed this count (`0` = disabled) |
 | `output-format` | `none` | Additional output format besides the PR comment (`sarif`, `json`, `none`) |
 | `sarif-upload` | `false` | Upload the generated SARIF file to the GitHub Security tab (requires `output-format: 'sarif'`) |
-| `emit-receipt` | `false` | Emit a verifiable [Open Decision Receipt](specs/OPEN_DECISION_RECEIPT.md) (ODR) for the review and upload it as a build artifact. See [Emitting a Verifiable Decision Receipt](#emitting-a-verifiable-decision-receipt) below. |
+| `emit-receipt` | `false` | Emit a verifiable [Open Decision Receipt](../specs/open-decision-receipt) (ODR) for the review and upload it as a build artifact. See [Emitting a Verifiable Decision Receipt](#emitting-a-verifiable-decision-receipt) below. |
 | `receipt-reviewers` | `claude openai` | Space-separated model families for the receipt's merge-quorum pass. You must hold a reachable provider key for every family listed. |
 | `use-secrets-manager` | `false` | Hydrate provider API keys from AWS Secrets Manager instead of the `*-api-key` inputs. Requires AWS credentials in the job env. |
 | `aws-region` | `us-east-2` | AWS region for Secrets Manager, when `use-secrets-manager` is `true`. |
@@ -133,7 +138,7 @@ See also `examples/github-action/basic.yml` and `examples/github-action/advanced
 
 Since [#8669](https://github.com/synaptent/aragora/pull/8669), this action can turn a
 review into a portable, independently-verifiable
-**[Open Decision Receipt](specs/OPEN_DECISION_RECEIPT.md)** (ODR) and upload it as a
+**[Open Decision Receipt](../specs/open-decision-receipt)** (ODR) and upload it as a
 build artifact. Set `emit-receipt: 'true'` to opt in. This extends the workflow from
 Quick Start:
 
