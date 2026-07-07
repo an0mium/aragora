@@ -2194,18 +2194,9 @@ def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: 
 
     assert published[0].reason == "published"
     assert published[0].created_issue_url == "https://github.com/synaptent/aragora/issues/5890"
+    assert len(created) == 1
     assert created[0][:3] == ["gh", "issue", "create"]
     assert created[0].count("--label") == 2
-    assert created[1] == [
-        "gh",
-        "issue",
-        "edit",
-        "5890",
-        "--repo",
-        "synaptent/aragora",
-        "--add-label",
-        "boss-ready,autonomous",
-    ]
 
 
 def test_publish_handoffs_writes_outbox_receipt(monkeypatch: Any, tmp_path: Path) -> None:

@@ -1449,7 +1449,8 @@ def _create_issue(
     url = str(proc.stdout or "").strip().splitlines()[-1].strip()
     try:
         _add_prompt_artifact_comments(repo_root, repo, url, prompt_artifact_comment_bodies)
-        _add_issue_labels(repo_root, repo, url, labels)
+        if defer_labels_until_ready:
+            _add_issue_labels(repo_root, repo, url, labels)
     except RuntimeError as exc:
         if defer_labels_until_ready:
             try:
