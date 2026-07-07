@@ -46,6 +46,7 @@ class AddedLine:
     line_no: int | None
     line: str
     in_string_literal: bool = False
+    code_line: str | None = None
 
 
 @dataclass(frozen=True)
@@ -219,6 +220,43 @@ def _python_string_state_for_line(
     return True, delimiter if line.count(delimiter) % 2 == 1 else None
 
 
+def _python_code_text_for_line(line: str, active_delimiter: str | None) -> tuple[str, str | None]:
+    code: list[str] = []
+    delimiter = active_delimiter
+    index = 0
+    while index < len(line):
+        if delimiter is not None:
+            close_index = line.find(delimiter, index)
+            if close_index == -1:
+                return "".join(code).rstrip(), delimiter
+            code.append(" ")
+            index = close_index + len(delimiter)
+            delimiter = None
+            continue
+        if line[index] == "#":
+            break
+        next_delimiter = next(
+            (candidate for candidate in ('"""', "'''") if line.startswith(candidate, index)),
+            None,
+        )
+        if next_delimiter is None:
+            code.append(line[index])
+            index += 1
+            continue
+        close_index = line.find(next_delimiter, index + len(next_delimiter))
+        code.append(" ")
+        if close_index == -1:
+            return "".join(code).rstrip(), next_delimiter
+        index = close_index + len(next_delimiter)
+    return "".join(code).rstrip(), delimiter
+
+
+def _line_for_matching(added_line: AddedLine) -> str:
+    if _is_python_path(added_line.path) and added_line.code_line is not None:
+        return added_line.code_line
+    return added_line.line
+
+
 def _line_reexports_or_defines_symbol(line: str, symbol: str) -> bool:
     return _line_reexports_or_defines_export(line, _symbol_export(symbol))
 
@@ -314,7 +352,7 @@ def _line_imports_symbol(
 def _line_is_kept_only(added_line: AddedLine, entry: CharterEntry) -> bool:
     if not entry.kept_symbols:
         return False
-    line = added_line.line
+    line = _line_for_matching(added_line)
     kept_exports = _symbol_export_roots(entry.kept_symbols)
     from_import = _from_import(line)
     if from_import is not None:
@@ -351,19 +389,21 @@ def parse_diff(diff_text: str) -> list[AddedLine]:
         if raw_line.startswith("+") and not raw_line.startswith("+++"):
             line = raw_line[1:]
             in_string_literal = False
+            code_line = None
             if _is_python_path(current_path):
-                in_string_literal, current_string_delimiter = _python_string_state_for_line(
+                code_line, current_string_delimiter = _python_code_text_for_line(
                     line,
                     current_string_delimiter,
                 )
-            added.append(AddedLine(current_path, current_line, line, in_string_literal))
+                in_string_literal = not code_line.strip()
+            added.append(AddedLine(current_path, current_line, line, in_string_literal, code_line))
             if current_line is not None:
                 current_line += 1
         elif raw_line.startswith("-"):
             continue
         elif current_line is not None:
             if raw_line.startswith(" ") and _is_python_path(current_path):
-                _in_string_literal, current_string_delimiter = _python_string_state_for_line(
+                _code_line, current_string_delimiter = _python_code_text_for_line(
                     raw_line[1:],
                     current_string_delimiter,
                 )
@@ -416,22 +456,25 @@ def _entry_matches_line(
 ) -> str | None:
     if added_line.in_string_literal and _is_python_path(added_line.path):
         return None
+    line = _line_for_matching(added_line)
+    if _is_python_path(added_line.path) and not line.strip():
+        return None
     if _line_is_kept_only(added_line, entry):
         return None
     if entry.symbols:
         if not _is_python_path(added_line.path):
             return None
         for symbol in entry.symbols:
-            if _line_imports_symbol(added_line.line, symbol, aliases_by_module) or (
+            if _line_imports_symbol(line, symbol, aliases_by_module) or (
                 any(_path_matches(path, added_line.path) for path in entry.paths)
-                and _line_reexports_or_defines_symbol(added_line.line, symbol)
+                and _line_reexports_or_defines_symbol(line, symbol)
             ):
                 return f"re-adds chartered symbol {symbol}"
         return None
     if any(_path_matches(path, added_line.path) for path in entry.paths):
         return f"adds code under chartered {entry.state.lower()} path"
     for path in entry.paths:
-        if _line_imports_path(added_line.line, path):
+        if _line_imports_path(line, path):
             return f"imports chartered {entry.state.lower()} path {path}"
     return None
 
@@ -441,7 +484,7 @@ def check_diff(diff_text: str, *, charter_path: Path | str) -> CheckResult:
     added_lines = parse_diff(diff_text)
     aliases_by_path: dict[str, dict[str, set[str]]] = {}
     for added_line in added_lines:
-        for alias, module in _plain_import_aliases(added_line.line).items():
+        for alias, module in _plain_import_aliases(_line_for_matching(added_line)).items():
             aliases_by_path.setdefault(added_line.path, {}).setdefault(module, set()).add(alias)
     violations: list[Violation] = []
     seen: set[tuple[str, str, int | None, str]] = set()

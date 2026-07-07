@@ -307,6 +307,55 @@ def test_nested_diff_fixture_text_is_not_live_python_code(tmp_path: Path) -> Non
     assert result.binding_violations == []
 
 
+def test_same_line_literal_does_not_hide_live_symbol_before_it(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++executor = aragora.queue.create_default_executor(); fixture = """not live code"""
+'''
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_same_line_literal_does_not_hide_live_symbol_after_it(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++fixture = """not live code"""; executor = aragora.queue.create_default_executor()
+'''
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_comment_triple_quote_does_not_hide_later_live_symbol(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1,2 @@
++# """ comment marker is not a string delimiter
++executor = aragora.queue.create_default_executor()
+'''
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
 def test_removed_symbol_wildcard_import_is_binding(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/some.py b/some.py
