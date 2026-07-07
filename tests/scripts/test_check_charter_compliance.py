@@ -372,6 +372,53 @@ def test_hash_inside_string_does_not_hide_later_live_symbol(tmp_path: Path) -> N
     assert "create_default_executor" in result.binding_violations[0].line
 
 
+def test_f_string_expression_is_live_python_code(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++label = f"{aragora.queue.create_default_executor()}"
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_triple_f_string_expression_is_live_python_code(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++label = f"""value {aragora.queue.create_default_executor()}"""
+'''
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_f_string_literal_text_is_not_live_python_code(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++label = f"aragora.queue.create_default_executor()"
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is True
+    assert result.binding_violations == []
+
+
 def test_hunk_inside_existing_triple_string_uses_worktree_state(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     (tmp_path / "some.py").write_text(

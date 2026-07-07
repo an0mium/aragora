@@ -219,6 +219,43 @@ def _skip_quoted_string(line: str, quote_index: int) -> int:
     return len(line)
 
 
+def _is_f_string_quote(line: str, quote_index: int) -> bool:
+    prefix_start = quote_index
+    while prefix_start > 0 and line[prefix_start - 1] in "rRuUbBfF":
+        prefix_start -= 1
+    prefix = line[prefix_start:quote_index]
+    return bool(prefix) and "f" in prefix.lower()
+
+
+def _f_string_expression_text(content: str) -> str:
+    expressions: list[str] = []
+    index = 0
+    while index < len(content):
+        if content.startswith("{{", index) or content.startswith("}}", index):
+            index += 2
+            continue
+        if content[index] != "{":
+            index += 1
+            continue
+        start = index + 1
+        depth = 1
+        index = start
+        while index < len(content):
+            if content[index] in ("'", '"'):
+                index = _skip_quoted_string(content, index)
+                continue
+            if content[index] == "{":
+                depth += 1
+            elif content[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    expressions.append(content[start:index])
+                    break
+            index += 1
+        index += 1
+    return " ".join(expressions)
+
+
 def _python_code_text_for_line(line: str, active_delimiter: str | None) -> tuple[str, str | None]:
     code: list[str] = []
     delimiter = active_delimiter
@@ -239,15 +276,26 @@ def _python_code_text_for_line(line: str, active_delimiter: str | None) -> tuple
         if next_delimiter is not None:
             close_index = line.find(next_delimiter, index + len(next_delimiter))
             code.append(" ")
+            is_f_string = _is_f_string_quote(line, index)
             if close_index == -1:
+                if is_f_string:
+                    code.append(line[index + len(next_delimiter) :])
+                    return "".join(code).rstrip(), None
                 return "".join(code).rstrip(), next_delimiter
+            if is_f_string:
+                code.append(
+                    _f_string_expression_text(line[index + len(next_delimiter) : close_index])
+                )
             index = close_index + len(next_delimiter)
             continue
         if line[index] == "#":
             break
         if line[index] in ("'", '"'):
             code.append(" ")
-            index = _skip_quoted_string(line, index)
+            close_index = _skip_quoted_string(line, index)
+            if _is_f_string_quote(line, index):
+                code.append(_f_string_expression_text(line[index + 1 : close_index - 1]))
+            index = close_index
             continue
         code.append(line[index])
         index += 1
