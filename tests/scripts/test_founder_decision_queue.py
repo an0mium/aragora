@@ -842,6 +842,102 @@ Generated: 2026-07-07T07:21:53Z
     assert [item.expected_reply for item in items] == ["ready-8954", "evidence-8954"]
 
 
+def test_collect_decision_items_keeps_distinct_targets_with_same_reply_token(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T07:21:53Z",
+            "thread_state": "open",
+            "body": """# Consolidated Founder Decision Queue Packet
+
+Generated: 2026-07-07T07:21:53Z
+
+## Pending Rulings
+
+| Priority | Link | Current blocker | Requested action | One-word reply |
+| --- | --- | --- | --- | --- |
+| P1 | PR #8954: https://github.com/synaptent/aragora/pull/8954 | Draft. | Keep parked. | `HOLD` |
+| P2 | PR #8955: https://github.com/synaptent/aragora/pull/8955 | Draft. | Keep parked. | `HOLD` |
+""",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert [(item.target, item.expected_reply) for item in items] == [
+        ("PR #8954: https://github.com/synaptent/aragora/pull/8954", "HOLD"),
+        ("PR #8955: https://github.com/synaptent/aragora/pull/8955", "HOLD"),
+    ]
+
+
+def test_collect_decision_items_verbose_reply_with_request_jargon_resolves_packet(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T07:21:53Z",
+            "thread_state": "open",
+            "body": """# Founder Decision Queue Packet
+
+Generated: 2026-07-07T07:21:53Z
+
+## Pending Rulings
+
+| Priority | Link | Current blocker | Requested action | One-word reply |
+| --- | --- | --- | --- | --- |
+| P1 | PR #8951: https://github.com/synaptent/aragora/pull/8951 | Tier 4. | Record current Tier 4 settlement. | `settle-8951` |
+""",
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T07:25:00Z",
+            "thread_state": "open",
+            "body": "`settle-8951`\n\nRecorded operator reply token as the exact reply.",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert items == []
+
+
+def test_parse_standalone_requested_operator_reply_rejects_prose_token() -> None:
+    packet = """# PR #8878 Ready-For-Review Decision
+
+Generated at: 2026-07-07T07:34:48Z
+
+## Requested operator reply
+
+Please reply with ready-8878 after review.
+
+## Target
+
+- PR: https://github.com/synaptent/aragora/pull/8878
+
+## Requested action
+
+Authorize marking exactly PR #8878 ready for review.
+"""
+
+    assert fdq.parse_decision_packet(packet, source="standalone.md") == []
+
+
 def test_render_brief_includes_token_title_and_exact_head() -> None:
     generated_at = fdq._parse_datetime("2026-07-07T07:34:48Z")
     item = fdq.DecisionItem(

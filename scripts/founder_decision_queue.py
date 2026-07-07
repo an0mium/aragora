@@ -341,6 +341,9 @@ def _parse_standalone_request(markdown: str, *, source: str) -> list[DecisionIte
     reply = _extract_first_code_or_line(reply_section) if reply_section else None
     if not reply:
         return []
+    expected_reply = _strip_markdown_code(_compact_text(reply))
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", expected_reply):
+        return []
     target_section = _section_body(markdown, {"target"})
     requested_action = _section_body(markdown, {"requested action", "action requested"})
     target = _extract_target_from_section(target_section or markdown)
@@ -355,7 +358,7 @@ def _parse_standalone_request(markdown: str, *, source: str) -> list[DecisionIte
             item=item,
             target=target,
             requested_action=_compact_text(requested_action) if requested_action else "",
-            expected_reply=_strip_markdown_code(_compact_text(reply)),
+            expected_reply=expected_reply,
             source=source,
             packet_generated_at=generated_at,
             title=title,
@@ -389,11 +392,53 @@ def _body_has_decision_request(body: str) -> bool:
         "## pending rulings" in lowered
         or "## pending ruling" in lowered
         or "## requested operator reply" in lowered
-        or "one-word reply" in lowered
-        or "one word reply" in lowered
-        or "exact reply" in lowered
-        or "reply token" in lowered
+        or _body_has_decision_table(body)
     )
+
+
+def _body_has_decision_table(body: str) -> bool:
+    for table in _all_table_rows(body):
+        header: list[str] | None = None
+        for row in table:
+            if _is_separator_row(row):
+                continue
+            header = row
+            break
+        if header is None:
+            continue
+        has_target = (
+            _header_index(header, {"link", "target", "pr issue", "pr", "issue"}) is not None
+        )
+        has_action = (
+            _header_index(
+                header,
+                {
+                    "requested action",
+                    "requested operator action",
+                    "request",
+                    "recommended default",
+                    "action",
+                },
+            )
+            is not None
+        )
+        has_reply = (
+            _header_index(
+                header,
+                {
+                    "one word reply",
+                    "reply token",
+                    "expected reply",
+                    "exact reply",
+                    "token",
+                    "reply",
+                },
+            )
+            is not None
+        )
+        if has_target and has_action and has_reply:
+            return True
+    return False
 
 
 def _is_local_only_draft(body: str) -> bool:
@@ -466,7 +511,6 @@ def _item_target_key(item: DecisionItem) -> str:
 
 def _dedupe_decision_items(items: Iterable[DecisionItem]) -> list[DecisionItem]:
     by_target: dict[str, list[DecisionItem]] = {}
-    by_reply: dict[str, DecisionItem] = {}
     for item in items:
         target_key = _item_target_key(item)
         current_items = by_target.get(target_key)
@@ -479,14 +523,9 @@ def _dedupe_decision_items(items: Iterable[DecisionItem]) -> list[DecisionItem]:
             by_target[target_key] = [item]
         elif item_freshness == current_freshness:
             current_items.append(item)
-    for target_items in by_target.values():
-        for item in target_items:
-            reply_key = _compact_text(item.expected_reply).lower()
-            current = by_reply.get(reply_key)
-            if current is None or _item_freshness_key(item) >= _item_freshness_key(current):
-                by_reply[reply_key] = item
+    deduped_items = [item for target_items in by_target.values() for item in target_items]
     return sorted(
-        by_reply.values(),
+        deduped_items,
         key=lambda item: (
             item.packet_generated_at or datetime.min.replace(tzinfo=UTC),
             item.expected_reply,
