@@ -43,7 +43,6 @@ PROMPT_ARTIFACT_COMMENT_OVERHEAD_BYTES = 1_000
 MAX_PROMPT_ARTIFACT_CHUNK_BYTES = (
     MAX_PROMPT_ARTIFACT_COMMENT_BYTES - PROMPT_ARTIFACT_COMMENT_OVERHEAD_BYTES
 )
-MAX_PROMPT_ARTIFACT_COMMENT_CHARS = MAX_PROMPT_ARTIFACT_COMMENT_BYTES
 PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
@@ -1450,15 +1449,16 @@ def _create_issue(
     url = str(proc.stdout or "").strip().splitlines()[-1].strip()
     try:
         _add_prompt_artifact_comments(repo_root, repo, url, prompt_artifact_comment_bodies)
+        _add_issue_labels(repo_root, repo, url, labels)
     except RuntimeError as exc:
-        try:
-            _close_incomplete_prompt_issue(repo_root, repo, url, str(exc))
-        except RuntimeError as close_exc:
-            raise RuntimeError(
-                f"{exc}; additionally failed to close incomplete prompt issue: {close_exc}"
-            ) from close_exc
+        if defer_labels_until_ready:
+            try:
+                _close_incomplete_prompt_issue(repo_root, repo, url, str(exc))
+            except RuntimeError as close_exc:
+                raise RuntimeError(
+                    f"{exc}; additionally failed to close incomplete prompt issue: {close_exc}"
+                ) from close_exc
         raise
-    _add_issue_labels(repo_root, repo, url, labels)
     return url
 
 
@@ -1551,7 +1551,7 @@ def _close_incomplete_prompt_issue(repo_root: Path, repo: str, issue_url: str, e
     if not number:
         raise RuntimeError("prompt_artifact_issue_url_unparseable")
     body = (
-        "Closing incomplete prompt handoff issue: required prompt artifact comment "
+        "Closing incomplete prompt handoff issue: required prompt handoff "
         f"publication failed before the handoff became usable.\n\nError: {error}"
     )
     proc = _run(["gh", "issue", "close", number, "--repo", repo, "--comment", body], cwd=repo_root)
@@ -1584,13 +1584,13 @@ def _add_issue_labels(repo_root: Path, repo: str, issue_url: str, labels: list[s
         return
     number = _issue_number_from_url(issue_url)
     if not number:
-        return
+        raise RuntimeError("issue_label_issue_url_unparseable")
     proc = _run(
         ["gh", "issue", "edit", number, "--repo", repo, "--add-label", ",".join(labels)],
         cwd=repo_root,
     )
     if proc.returncode != 0:
-        return
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh issue edit failed")
 
 
 def decide_handoffs(

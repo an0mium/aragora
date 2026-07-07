@@ -3333,6 +3333,54 @@ def test_create_issue_closes_incomplete_issue_when_prompt_artifact_comment_fails
     assert closed[0][3] == "6003"
 
 
+def test_create_issue_closes_incomplete_prompt_issue_when_label_add_fails(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    closed: list[list[str]] = []
+    prompt = "Start from live repo truth."
+    artifact = tmp_path / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
+    artifact.parent.mkdir()
+    artifact.write_text(prompt, encoding="utf-8")
+    prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "create"]:
+            return subprocess.CompletedProcess(
+                args, 0, "https://github.com/synaptent/aragora/issues/6004\n", ""
+            )
+        if args[:3] == ["gh", "issue", "comment"]:
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:3] == ["gh", "issue", "edit"]:
+            return subprocess.CompletedProcess(args, 1, "", "label add failed")
+        if args[:3] == ["gh", "issue", "close"]:
+            closed.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    with pytest.raises(RuntimeError, match="label add failed"):
+        mod._create_issue(
+            tmp_path,
+            "synaptent/aragora",
+            Handoff(
+                source_file=str(tmp_path / "handoff.json"),
+                task_title="Long prompt handoff",
+                priority="HIGH",
+                body="Prompt preview only",
+                labels={},
+                expires_at=None,
+                prompt_artifact_path=str(artifact),
+                prompt_artifact_sha256=prompt_sha,
+            ),
+            labels=["boss-ready"],
+        )
+
+    assert closed
+    assert closed[0][:3] == ["gh", "issue", "close"]
+    assert closed[0][3] == "6004"
+
+
 def test_create_issue_surfaces_incomplete_issue_close_failure(
     monkeypatch: Any, tmp_path: Path
 ) -> None:

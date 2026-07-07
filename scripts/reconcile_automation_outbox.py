@@ -49,6 +49,7 @@ UTC = timezone.utc
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
+PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
 
 # Bounded terminal-archive policy for the existing_issue deadlock:
 # the publisher refuses to open a duplicate PR because a GitHub issue already
@@ -780,6 +781,78 @@ def _is_prompt_handoff_payload(payload: Mapping[str, Any]) -> bool:
         if kind.strip().lower().replace("-", "_") == "prompt_handoff":
             return True
     return False
+
+
+def _path_is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _prompt_artifact_path_value(payload: Mapping[str, Any]) -> str:
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        value = str(requested_action.get("prompt_artifact_path") or "").strip()
+        if value:
+            return value
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        value = str(local_evidence.get("prompt_artifact_path") or "").strip()
+        if value:
+            return value
+    return str(payload.get("prompt_artifact_path") or "").strip()
+
+
+def _resolve_prompt_artifact_path(
+    *,
+    repo_root: Path,
+    outbox_path: Path,
+    payload: Mapping[str, Any],
+) -> Path | None:
+    raw_value = _prompt_artifact_path_value(payload)
+    if not raw_value:
+        return None
+    raw_path = Path(raw_value)
+    allowed_root = (outbox_path.parent / PROMPT_ARTIFACT_DIR).resolve()
+    candidates = (
+        [raw_path]
+        if raw_path.is_absolute()
+        else [repo_root / raw_path, outbox_path.parent / raw_path, allowed_root / raw_path]
+    )
+    for candidate in candidates:
+        resolved = candidate.resolve(strict=False)
+        if _path_is_relative_to(resolved, allowed_root):
+            return resolved
+    return None
+
+
+def _archive_prompt_handoff_files(
+    *,
+    repo_root: Path,
+    outbox_path: Path,
+    archive_dir: Path,
+    payload: Mapping[str, Any],
+) -> None:
+    artifact_path = _resolve_prompt_artifact_path(
+        repo_root=repo_root,
+        outbox_path=outbox_path,
+        payload=payload,
+    )
+    archived_artifact_path: Path | None = None
+    if artifact_path is not None and artifact_path.exists():
+        archived_artifact_path = archive_dir / PROMPT_ARTIFACT_DIR / artifact_path.name
+        archived_artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        if archived_artifact_path.exists():
+            raise RuntimeError(
+                f"prompt_artifact_archive_destination_exists: {archived_artifact_path}"
+            )
+        shutil.copy2(artifact_path, archived_artifact_path)
+
+    shutil.move(str(outbox_path), str(archive_dir / outbox_path.name))
+
+    if artifact_path is not None and artifact_path.exists():
+        artifact_path.unlink()
 
 
 def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
@@ -1665,7 +1738,12 @@ def main(argv: list[str] | None = None) -> int:
                     }
                 )
                 if args.apply:
-                    shutil.move(str(path), str(archive_dir / path.name))
+                    _archive_prompt_handoff_files(
+                        repo_root=root,
+                        outbox_path=path,
+                        archive_dir=archive_dir,
+                        payload=payload,
+                    )
                 continue
             counts["still_protecting_active_work"] += 1
             actions.append(

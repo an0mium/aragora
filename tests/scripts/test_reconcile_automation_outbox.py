@@ -777,6 +777,62 @@ def test_prompt_handoff_branch_metadata_is_preserved_not_archived(
     assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
 
 
+def test_apply_archives_prompt_handoff_artifact_with_terminal_receipt(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "prompt-handoff-codex-published-abc123"
+    prompt_sha = "a" * 64
+    artifact = outbox_dir / mod.PROMPT_ARTIFACT_DIR / "prompt-handoff.prompt.md"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("Start from live repo truth.", encoding="utf-8")
+    handoff = outbox_dir / f"{key}.json"
+    handoff.write_text(
+        json.dumps(
+            {
+                "task": "Prompt handoff already published",
+                "requires_github": True,
+                "requested_action": {
+                    "type": "prompt_handoff",
+                    "branch": "codex/published",
+                    "prompt_sha256": prompt_sha,
+                    "prompt_artifact_path": str(artifact),
+                    "prompt_artifact_sha256": prompt_sha,
+                },
+                "repo": "synaptent/aragora",
+                "local_evidence": {
+                    "kind": "prompt_handoff",
+                    "branch": "codex/published",
+                    "prompt_sha256": prompt_sha,
+                    "prompt_artifact_path": str(artifact),
+                    "prompt_artifact_sha256": prompt_sha,
+                },
+                "idempotency_key": key,
+            }
+        ),
+        encoding="utf-8",
+    )
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    archive_dir = tmp_path / ".aragora" / "automation-outbox-archive"
+    archived_artifact = archive_dir / mod.PROMPT_ARTIFACT_DIR / artifact.name
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 1
+    assert payload["archived"] == 1
+    assert handoff.exists() is False
+    assert artifact.exists() is False
+    assert (archive_dir / handoff.name).exists()
+    assert archived_artifact.read_text(encoding="utf-8") == "Start from live repo truth."
+
+
 @pytest.mark.parametrize(
     ("status", "reason", "issue_key"),
     [
