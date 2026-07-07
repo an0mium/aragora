@@ -1,5 +1,6 @@
 # Git
 .git
+.worktrees/
 .gitignore
 
 # Python
@@ -26,6 +27,7 @@ wheels/
 
 # Virtual environments
 .venv
+.venv-scale/
 venv
 ENV
 env

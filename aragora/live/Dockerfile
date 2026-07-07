@@ -22,6 +22,7 @@ WORKDIR /app
 
 # Copy deps from previous stage
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /sdk/typescript /sdk/typescript
 COPY aragora/live/ ./
 
 # Build arguments for API URLs (production defaults)

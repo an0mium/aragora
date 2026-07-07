@@ -68,6 +68,27 @@ def _node_image_versions(path: Path) -> list[tuple[int, int, int]]:
     ]
 
 
+def _dockerfile_stage_copies(path: Path) -> dict[str, list[str]]:
+    stages: dict[str, list[str]] = {}
+    current_stage = ""
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+
+        from_match = re.match(r"FROM\s+\S+(?:\s+AS\s+([A-Za-z0-9_-]+))?", line, re.IGNORECASE)
+        if from_match:
+            current_stage = from_match.group(1) or f"stage_{len(stages)}"
+            stages[current_stage] = []
+            continue
+
+        if current_stage and line.startswith("COPY "):
+            stages[current_stage].append(line)
+
+    return stages
+
+
 def test_live_supabase_version_is_exactly_pinned() -> None:
     package_json = _load_json(LIVE_DIR / "package.json")
     package_lock = _load_json(LIVE_DIR / "package-lock.json")
@@ -115,6 +136,24 @@ def test_frontend_dockerfiles_install_from_lockfile_with_sdk_context() -> None:
         assert "replaceAll(" not in text
 
 
+def test_frontend_dockerfile_stages_preserve_local_sdk_link_targets() -> None:
+    for dockerfile in FRONTEND_DOCKERFILES:
+        stages = _dockerfile_stage_copies(dockerfile)
+
+        for stage_name, copies in stages.items():
+            receives_deps_node_modules = any(
+                "--from=deps" in copy and "/app/node_modules" in copy for copy in copies
+            )
+            receives_deps_sdk = any(
+                "--from=deps" in copy and "/sdk/typescript" in copy for copy in copies
+            )
+
+            assert not receives_deps_node_modules or receives_deps_sdk, (
+                f"{dockerfile}:{stage_name} copies node_modules from deps without "
+                "also copying /sdk/typescript, leaving @aragora/sdk dangling"
+            )
+
+
 def test_live_sdk_lock_path_matches_docker_context() -> None:
     package_json = _load_json(LIVE_DIR / "package.json")
     package_lock = _load_json(LIVE_DIR / "package-lock.json")
@@ -159,6 +198,18 @@ def test_frontend_compose_builds_use_repo_root_docker_context() -> None:
         assert (context_dir / "aragora" / "live" / "package.json").is_file()
         assert (context_dir / "aragora" / "live" / "package-lock.json").is_file()
         assert (context_dir / "aragora" / "live" / ".npmrc").is_file()
+
+
+def test_repo_root_dockerignore_excludes_frontend_context_churn() -> None:
+    dockerignore = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    ignored = {line.strip() for line in dockerignore if line.strip() and not line.startswith("#")}
+
+    assert ".git" in ignored
+    assert ".worktrees/" in ignored
+    assert ".venv-scale/" in ignored
+    assert "node_modules/" in ignored
+    assert "aragora/live/node_modules/" in ignored
+    assert "aragora/live/.next/" in ignored
 
 
 def test_live_supabase_node_engines_fit_docker_runtime() -> None:
