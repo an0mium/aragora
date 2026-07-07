@@ -470,11 +470,12 @@ jobs:
               core.warning(`Unable to post PR comment: ${error.message}`);
             }
 
+  # sync is manual-only: auto-committing to main on every push was armed accidentally by the push trigger (PR #8952 review); dispatch it deliberately.
   sync:
     name: Sync Spec (main only)
     runs-on: ubuntu-latest
     needs: generate-run
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
 
