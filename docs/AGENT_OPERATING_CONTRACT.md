@@ -664,6 +664,17 @@ Per Codex's recommendation:
 5. **Concurrency cap:** 1 active PR per wave (sequential, default) or up to 2-3 in parallel for unrelated waves?
 6. **Should the next agent proceed with Wave 3.5 (read-only mapping audit) before #6577 resolves**, since it's read-only and unblocks Waves 4-6?
 
+## Operator touchpoints (the four human gates)
+
+Beyond the checkpoint list above, four classes of decision are always operator acts — fleets propose, humans decide:
+
+1. **Hypothesis selection** — which problem deserves the fleet's budget: the operator picks the bet, not the loop that generated the candidate list.
+2. **Implementation architecture** — whether a fix should smooth the path, change behavior, or redesign the surface: the shape of the intervention is a human call.
+3. **Eval curation** — the scorecard/rubrics ARE the hill the fleet climbs; if the eval rewards the wrong behavior the loop faithfully optimizes toward the wrong thing, so curating P7/scoreboard rubrics is an operator act.
+4. **Launch approval** — reading the evidence, understanding blast radius, and owning the rollout (Tier 3/4 settlement) stays with the human who accepts the risk.
+
+(adopted 2026-07-07 from Replit's continual-learning practice; see epic #8972)
+
 ---
 
 ## See also

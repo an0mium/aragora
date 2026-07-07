@@ -66,7 +66,10 @@ blocked, where the highest-leverage gap is.
 
 ## NEXT GOALS
 Ranked list, at most 3, each one line: goal + why it is the best use of the
-next cycles.
+next cycles. Prefer goals whose output is a durable standard — something that
+takes frontier judgment to WRITE but only ordinary intelligence to APPLY
+(charters, rubrics, playbooks, skills, checkers). Test: could a cheaper model
+redo this artifact tomorrow? If yes, rank it lower.
 
 ## NEXT PLAN
 Bounded steps for ONE cycle only (not a roadmap). Each step must be completable
