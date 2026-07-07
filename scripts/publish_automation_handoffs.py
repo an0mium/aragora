@@ -43,6 +43,8 @@ PROMPT_ARTIFACT_COMMENT_OVERHEAD_BYTES = 1_000
 MAX_PROMPT_ARTIFACT_CHUNK_BYTES = (
     MAX_PROMPT_ARTIFACT_COMMENT_BYTES - PROMPT_ARTIFACT_COMMENT_OVERHEAD_BYTES
 )
+MAX_PROMPT_ARTIFACT_CHUNKS = 10
+MAX_PROMPT_ARTIFACT_BYTES = MAX_PROMPT_ARTIFACT_CHUNK_BYTES * MAX_PROMPT_ARTIFACT_CHUNKS
 PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
@@ -1470,13 +1472,23 @@ def _prompt_artifact_comment_bodies(repo_root: Path, handoff: Handoff) -> list[s
     path = _resolve_prompt_artifact_path(repo_root, handoff)
     if path is None:
         return []
+    try:
+        artifact_size = path.stat().st_size
+    except OSError as exc:
+        raise RuntimeError("prompt_artifact_unreadable") from exc
+    if artifact_size > MAX_PROMPT_ARTIFACT_BYTES:
+        raise RuntimeError("prompt_artifact_too_large")
     artifact_bytes = path.read_bytes()
+    if len(artifact_bytes) > MAX_PROMPT_ARTIFACT_BYTES:
+        raise RuntimeError("prompt_artifact_too_large")
     artifact_sha = hashlib.sha256(artifact_bytes).hexdigest()
     try:
         prompt = artifact_bytes.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise RuntimeError("prompt_artifact_not_utf8") from exc
     chunks = _split_text_by_utf8_bytes(prompt, MAX_PROMPT_ARTIFACT_CHUNK_BYTES)
+    if len(chunks) > MAX_PROMPT_ARTIFACT_CHUNKS:
+        raise RuntimeError("prompt_artifact_too_many_chunks")
     bodies: list[str] = []
     total_chunks = len(chunks)
     cursor = 0

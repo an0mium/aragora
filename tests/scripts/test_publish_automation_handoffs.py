@@ -3252,6 +3252,29 @@ def test_prompt_artifact_comment_rejects_non_utf8_as_runtime_blocker(
         )
 
 
+def test_prompt_artifact_comment_rejects_oversized_artifact(tmp_path: Path) -> None:
+    artifact = tmp_path / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
+    artifact.parent.mkdir()
+    prompt = "x" * (mod.MAX_PROMPT_ARTIFACT_BYTES + 1)
+    artifact.write_text(prompt, encoding="utf-8")
+    prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+    with pytest.raises(RuntimeError, match="prompt_artifact_too_large"):
+        mod._prompt_artifact_comment_bodies(
+            tmp_path,
+            Handoff(
+                source_file=str(tmp_path / "handoff.json"),
+                task_title="Oversized prompt handoff",
+                priority="HIGH",
+                body="Prompt preview only",
+                labels={},
+                expires_at=None,
+                prompt_artifact_path=str(artifact),
+                prompt_artifact_sha256=prompt_sha,
+            ),
+        )
+
+
 def test_add_prompt_artifact_comments_rejects_unparseable_issue_url(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match="prompt_artifact_issue_url_unparseable"):
         mod._add_prompt_artifact_comments(
