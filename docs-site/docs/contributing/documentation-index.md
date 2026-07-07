@@ -38,7 +38,7 @@ then wire it into CI.
 ## API
 
 - [API Reference](../api/reference)
-- [Supported API Surface](api/SUPPORTED_SURFACE.md)
+- [Supported API Surface](../api/supported-surface)
 - [API Endpoint Catalog](../api/endpoints)
 - [API Examples](../api/examples)
 - [API Versioning](../api/versioning)

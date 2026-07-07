@@ -54,6 +54,12 @@ export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
 export OPENAI_API_KEY="sk-..."          # GPT
 ```
 
+Install the full `aragora` package before using the platform API imports below:
+
+```bash
+pip install aragora
+```
+
 Then run a real debate:
 
 ```python

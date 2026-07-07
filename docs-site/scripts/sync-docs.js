@@ -108,7 +108,7 @@ const DOC_MAP = {
   // =========================================================================
   // Getting Started
   // =========================================================================
-  'GETTING_STARTED.md': 'getting-started/overview.md',
+  'guides/GETTING_STARTED.md': 'getting-started/overview.md',
   'quickstart.md': 'getting-started/quickstart.md',
   'CONFIGURATION.md': 'getting-started/configuration.md',
   'ENVIRONMENT.md': 'getting-started/environment.md',
@@ -191,6 +191,7 @@ const DOC_MAP = {
   'API_RATE_LIMITS.md': 'api/rate-limits.md',
   'API_STABILITY.md': 'api/stability.md',
   'API_DISCOVERY.md': 'api/discovery.md',
+  'api/SUPPORTED_SURFACE.md': 'api/supported-surface.md',
   'reference/CLI_REFERENCE.md': 'api/cli.md',
   'GITHUB_PR_REVIEW.md': 'api/github-pr-review.md',
   'api/WEBHOOKS.md': 'api/webhooks.md',

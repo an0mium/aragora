@@ -59,7 +59,7 @@ defensible layer is the governance substrate around those executors:
 ## Inspect These First
 
 1. [README](https://github.com/synaptent/aragora/blob/main/README.md) for product framing and install paths.
-2. [Supported API Surface](api/SUPPORTED_SURFACE.md) for what is stable, beta,
+2. [Supported API Surface](../api/supported-surface) for what is stable, beta,
    internal, or experimental.
 3. [Canonical Goals](./canonical-goals) and
    [Evolution Roadmap](./aragora-evolution-roadmap) for the staged
