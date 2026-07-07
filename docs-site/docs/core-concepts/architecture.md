@@ -5,6 +5,13 @@ description: Aragora Architecture
 
 # Aragora Architecture
 
+> **Intent charter:** Where code *belongs* — layer model, per-concern authority modules,
+> and the chartered-removals registry — is defined by
+> [`docs/architecture/INTENDED_ARCHITECTURE.md`](https://github.com/synaptent/aragora/blob/main/docs/architecture/INTENDED_ARCHITECTURE.md)
+> (machine encoding: [`charters.yaml`](https://github.com/synaptent/aragora/blob/main/docs/architecture/charters.yaml)). Once RATIFIED, that charter
+> supersedes this document where they conflict; while DRAFT, see its Binding status block.
+> This file remains a descriptive overview.
+
 > **Last Updated:** 2026-04-24
 >
 > **Scope:** This document is a hand-curated overview of the **core debate-engine subsystems** (agents, debate, reasoning, verification, memory, evolution, connectors, server, RLM, ops, persistence) — about 13 of the ~169 packages in `aragora/`. For the **full module index** (every package, with one-line descriptions), see [`CLAUDE.md`](../contributing/claude). For per-track deep dives, see the other documents in `docs/architecture/`.
