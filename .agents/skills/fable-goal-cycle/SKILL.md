@@ -36,6 +36,11 @@ What it does, all bounded:
    `.aragora/goal_cycles/<timestamp>/` (gitignored) and prints the next
    prompt (or a JSON envelope with `--json`).
 
+Goal-ranking durability filter: prefer goals whose output is a durable
+standard — something that takes frontier judgment to WRITE but only ordinary
+intelligence to APPLY (charters, rubrics, playbooks, skills, checkers). Test:
+could a cheaper model redo this artifact tomorrow? If yes, rank it lower.
+
 Useful flags: `--dry-run` (build the packet only — inspect it before spending
 a consult), `--context-file <path>` (repeatable; include a redacted cycle
 report or steering note only after placing it under
