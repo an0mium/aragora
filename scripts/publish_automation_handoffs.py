@@ -38,7 +38,12 @@ DEFAULT_LIMIT = 2
 DEFAULT_MAX_OPEN_ISSUES = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
 MAX_ISSUE_BODY_CHARS = 60_000
-MAX_PROMPT_ARTIFACT_COMMENT_CHARS = 55_000
+MAX_PROMPT_ARTIFACT_COMMENT_BYTES = 55_000
+PROMPT_ARTIFACT_COMMENT_OVERHEAD_BYTES = 1_000
+MAX_PROMPT_ARTIFACT_CHUNK_BYTES = (
+    MAX_PROMPT_ARTIFACT_COMMENT_BYTES - PROMPT_ARTIFACT_COMMENT_OVERHEAD_BYTES
+)
+MAX_PROMPT_ARTIFACT_COMMENT_CHARS = MAX_PROMPT_ARTIFACT_COMMENT_BYTES
 PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
@@ -1393,10 +1398,7 @@ def _prompt_artifact_comment_bodies(repo_root: Path, handoff: Handoff) -> list[s
         prompt = artifact_bytes.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise RuntimeError("prompt_artifact_not_utf8") from exc
-    chunks = [
-        prompt[index : index + MAX_PROMPT_ARTIFACT_COMMENT_CHARS]
-        for index in range(0, len(prompt), MAX_PROMPT_ARTIFACT_COMMENT_CHARS)
-    ] or [""]
+    chunks = _split_text_by_utf8_bytes(prompt, MAX_PROMPT_ARTIFACT_CHUNK_BYTES)
     bodies: list[str] = []
     total_chunks = len(chunks)
     cursor = 0
@@ -1411,8 +1413,36 @@ def _prompt_artifact_comment_bodies(repo_root: Path, handoff: Handoff) -> list[s
             "-----BEGIN ARAGORA PROMPT CHUNK-----\n"
         )
         footer = "\n-----END ARAGORA PROMPT CHUNK-----"
-        bodies.append(header + chunk + footer)
+        body = header + chunk + footer
+        if _utf8_len(body) > MAX_PROMPT_ARTIFACT_COMMENT_BYTES:
+            raise RuntimeError("prompt_artifact_comment_too_large")
+        bodies.append(body)
     return bodies
+
+
+def _utf8_len(value: str) -> int:
+    return len(value.encode("utf-8"))
+
+
+def _split_text_by_utf8_bytes(text: str, max_bytes: int) -> list[str]:
+    if max_bytes <= 0:
+        raise ValueError("max_bytes must be positive")
+    chunks: list[str] = []
+    current: list[str] = []
+    current_bytes = 0
+    for char in text:
+        char_bytes = _utf8_len(char)
+        if char_bytes > max_bytes:
+            raise RuntimeError("prompt_artifact_character_too_large")
+        if current and current_bytes + char_bytes > max_bytes:
+            chunks.append("".join(current))
+            current = []
+            current_bytes = 0
+        current.append(char)
+        current_bytes += char_bytes
+    if current:
+        chunks.append("".join(current))
+    return chunks or [""]
 
 
 def _add_prompt_artifact_comments(
@@ -1423,6 +1453,8 @@ def _add_prompt_artifact_comments(
 ) -> None:
     number = _issue_number_from_url(issue_url)
     if not number:
+        if bodies:
+            raise RuntimeError("prompt_artifact_issue_url_unparseable")
         return
     for body in bodies:
         proc = _run(
@@ -1440,7 +1472,7 @@ def _add_prompt_artifact_comments(
 def _close_incomplete_prompt_issue(repo_root: Path, repo: str, issue_url: str, error: str) -> None:
     number = _issue_number_from_url(issue_url)
     if not number:
-        return
+        raise RuntimeError("prompt_artifact_issue_url_unparseable")
     body = (
         "Closing incomplete prompt handoff issue: required prompt artifact comment "
         f"publication failed before the handoff became usable.\n\nError: {error}"

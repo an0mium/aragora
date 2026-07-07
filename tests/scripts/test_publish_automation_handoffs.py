@@ -2953,6 +2953,41 @@ def test_prompt_artifact_comment_sha_uses_validated_bytes(tmp_path: Path) -> Non
     assert "line one\r\nline two" in comments[0]
 
 
+def test_prompt_artifact_comments_chunk_by_utf8_byte_limit(tmp_path: Path) -> None:
+    artifact = tmp_path / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
+    artifact.parent.mkdir()
+    prompt = "🙂" * ((mod.MAX_PROMPT_ARTIFACT_CHUNK_BYTES // 4) + 250)
+    artifact.write_text(prompt, encoding="utf-8")
+    prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+    comments = mod._prompt_artifact_comment_bodies(
+        tmp_path,
+        Handoff(
+            source_file=str(tmp_path / "handoff.json"),
+            task_title="Unicode prompt handoff",
+            priority="HIGH",
+            body="Prompt preview only",
+            labels={},
+            expires_at=None,
+            prompt_artifact_path=str(artifact),
+            prompt_artifact_sha256=prompt_sha,
+        ),
+    )
+
+    assert len(comments) > 1
+    assert all(
+        len(comment.encode("utf-8")) <= mod.MAX_PROMPT_ARTIFACT_COMMENT_BYTES
+        for comment in comments
+    )
+    recovered = "".join(
+        body.split("-----BEGIN ARAGORA PROMPT CHUNK-----\n", 1)[1].rsplit(
+            "\n-----END ARAGORA PROMPT CHUNK-----", 1
+        )[0]
+        for body in comments
+    )
+    assert recovered == prompt
+
+
 def test_prompt_artifact_comment_rejects_non_utf8_as_runtime_blocker(
     tmp_path: Path,
 ) -> None:
@@ -2975,6 +3010,26 @@ def test_prompt_artifact_comment_rejects_non_utf8_as_runtime_blocker(
                 prompt_artifact_path=str(artifact),
                 prompt_artifact_sha256=prompt_sha,
             ),
+        )
+
+
+def test_add_prompt_artifact_comments_rejects_unparseable_issue_url(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="prompt_artifact_issue_url_unparseable"):
+        mod._add_prompt_artifact_comments(
+            tmp_path,
+            "synaptent/aragora",
+            "not-a-github-issue-url",
+            ["required prompt artifact body"],
+        )
+
+
+def test_close_incomplete_prompt_issue_rejects_unparseable_issue_url(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="prompt_artifact_issue_url_unparseable"):
+        mod._close_incomplete_prompt_issue(
+            tmp_path,
+            "synaptent/aragora",
+            "not-a-github-issue-url",
+            "comment failed",
         )
 
 

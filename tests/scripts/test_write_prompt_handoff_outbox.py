@@ -221,6 +221,59 @@ def test_long_prompt_uses_artifact_and_keeps_published_body_recoverable(
     assert marker in artifact_comments[0]
 
 
+def test_escaping_heavy_prompt_uses_artifact_before_issue_body_truncation(
+    tmp_path: Path, capsys: Any
+) -> None:
+    prompt = "Start from live repo truth.\n" + ('"\\' * 18_000)
+    full_sha = mod._prompt_sha(prompt)
+    assert len(prompt) < mod.MAX_INLINE_PROMPT_CHARS
+
+    rc = mod.main(
+        [
+            "--prompt",
+            prompt,
+            "--task",
+            "Publish escaping-heavy prompt handoff",
+            "--branch",
+            "codex/escaping-heavy-prompt",
+            "--expected-head",
+            "abc123",
+            "--outbox-dir",
+            str(tmp_path),
+            "--created-at",
+            "2026-07-06T15:46:00Z",
+            "--apply",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    result = json.loads(capsys.readouterr().out)
+    payload = json.loads(Path(result["outbox_path"]).read_text(encoding="utf-8"))
+    artifact_path = Path(result["prompt_artifact_path"])
+
+    assert artifact_path.read_text(encoding="utf-8") == prompt
+    assert payload["local_evidence"]["prompt_truncated"] is True
+    assert payload["local_evidence"]["prompt_artifact_sha256"] == full_sha
+    assert "prompt" not in payload["local_evidence"]
+
+    publisher = _load_script(
+        "publish_automation_handoffs.py", "publish_automation_handoffs_for_escaped_prompt_test"
+    )
+    handoffs, skipped = publisher._load_outbox_handoffs_with_skip_reasons(
+        tmp_path,
+        outbox_dir=tmp_path,
+        receipt_dir=tmp_path / "receipts",
+        now=publisher.datetime(2026, 7, 6, 15, 47, tzinfo=publisher.UTC),
+    )
+
+    assert skipped == {}
+    assert len(handoffs) == 1
+    issue_body = publisher._fit_issue_body(handoffs[0].body)
+    assert issue_body == handoffs[0].body
+    assert len(issue_body.encode("utf-8")) < publisher.MAX_ISSUE_BODY_CHARS
+
+
 def test_written_payload_round_trips_through_outbox_consumers(tmp_path: Path, capsys: Any) -> None:
     rc = mod.main(
         [

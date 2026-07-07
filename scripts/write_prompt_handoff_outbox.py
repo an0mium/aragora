@@ -23,6 +23,9 @@ DEFAULT_OUTBOX_DIR = Path(".aragora") / "automation-outbox"
 DEFAULT_REPO = "synaptent/aragora"
 SCHEMA_VERSION = "aragora-prompt-handoff/1.0"
 MAX_INLINE_PROMPT_CHARS = 40_000
+PUBLISHER_MAX_ISSUE_BODY_BYTES = 60_000
+INLINE_PROMPT_BODY_SAFETY_BYTES = 2_000
+MAX_INLINE_PROMPT_BODY_BYTES = PUBLISHER_MAX_ISSUE_BODY_BYTES - INLINE_PROMPT_BODY_SAFETY_BYTES
 PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
 PROMPT_PREVIEW_CHARS = 2_000
 
@@ -79,8 +82,60 @@ def _default_idempotency_key(
     return f"prompt-handoff-{_slug(task)}-{prompt_sha[:12]}-{target_sha[:12]}"
 
 
-def _needs_prompt_artifact(prompt: str) -> bool:
-    return len(prompt) > MAX_INLINE_PROMPT_CHARS
+def _format_json_block(value: Any) -> str:
+    if value is None or value == "":
+        return "NONE"
+    if isinstance(value, str):
+        return value.strip() or "NONE"
+    return json.dumps(value, indent=2, sort_keys=True)
+
+
+def _format_outbox_body(payload: dict[str, Any], source_file: Path) -> str:
+    fields = [
+        ("Task", payload.get("task")),
+        ("Requested Action", payload.get("requested_action")),
+        ("Requires GitHub", payload.get("requires_github")),
+        ("Repo", payload.get("repo")),
+        ("Created At", payload.get("created_at")),
+        ("Idempotency Key", payload.get("idempotency_key")),
+        ("Local Evidence", payload.get("local_evidence")),
+        ("Validation", payload.get("validation")),
+    ]
+    lines: list[str] = []
+    for label, value in fields:
+        formatted = _format_json_block(value)
+        lines.append(f"{label}:")
+        if "\n" in formatted or formatted.startswith("{") or formatted.startswith("["):
+            lines.append("```json" if formatted.startswith(("{", "[")) else "```")
+            lines.append(formatted)
+            lines.append("```")
+        else:
+            lines.append(formatted)
+        lines.append("")
+    lines.append("---")
+    lines.append(f"Published from automation outbox: `{source_file}`")
+    return "\n".join(lines).strip()
+
+
+def _body_utf8_bytes(value: str) -> int:
+    return len(value.encode("utf-8"))
+
+
+def _inline_prompt_body_bytes(payload: dict[str, Any], source_file: Path) -> int:
+    return _body_utf8_bytes(_format_outbox_body(payload, source_file))
+
+
+def _needs_prompt_artifact(
+    prompt: str,
+    *,
+    inline_payload: dict[str, Any] | None = None,
+    source_file: Path | None = None,
+) -> bool:
+    if len(prompt) > MAX_INLINE_PROMPT_CHARS:
+        return True
+    if inline_payload is not None and source_file is not None:
+        return _inline_prompt_body_bytes(inline_payload, source_file) > MAX_INLINE_PROMPT_BODY_BYTES
+    return False
 
 
 def _prompt_artifact_path(outbox_dir: Path, idempotency_key: str, prompt_sha: str) -> Path:
@@ -290,12 +345,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     outbox_dir = args.outbox_dir.expanduser()
     outbox_path = _output_path(outbox_dir, key)
-    prompt_artifact_path = (
-        _prompt_artifact_path(outbox_dir, key, prompt_sha)
-        if _needs_prompt_artifact(prompt)
-        else None
-    )
-    payload = build_payload(
+    inline_payload = build_payload(
         prompt=prompt,
         task=task,
         repo=repo,
@@ -306,7 +356,29 @@ def main(argv: list[str] | None = None) -> int:
         validation=validation,
         target=target,
         idempotency_key=key,
-        prompt_artifact_path=str(prompt_artifact_path) if prompt_artifact_path else None,
+        prompt_artifact_path=None,
+    )
+    prompt_artifact_path = (
+        _prompt_artifact_path(outbox_dir, key, prompt_sha)
+        if _needs_prompt_artifact(prompt, inline_payload=inline_payload, source_file=outbox_path)
+        else None
+    )
+    payload = (
+        build_payload(
+            prompt=prompt,
+            task=task,
+            repo=repo,
+            source=str(args.source),
+            priority=str(args.priority),
+            created_at=created_at,
+            expires_hours=args.expires_hours,
+            validation=validation,
+            target=target,
+            idempotency_key=key,
+            prompt_artifact_path=str(prompt_artifact_path),
+        )
+        if prompt_artifact_path is not None
+        else inline_payload
     )
 
     result: dict[str, Any] = {
