@@ -428,12 +428,14 @@ def _local_source_thread_key(
 ) -> str | None:
     if _is_consolidated_decision_source(str(path), body):
         return _local_thread_key(path, decisions_root=decisions_root)
-    if _is_standalone_request_source(body):
-        packet_time = _packet_generated_at(body)
-        if newest_consolidated_time is None or _packet_time_sort_key(
-            packet_time
-        ) >= _packet_time_sort_key(newest_consolidated_time):
-            return f"local-standalone:{path.resolve()}"
+    if not _body_has_decision_request(body):
+        return None
+    packet_time = _packet_generated_at(body)
+    if newest_consolidated_time is None or _packet_time_sort_key(
+        packet_time
+    ) >= _packet_time_sort_key(newest_consolidated_time):
+        prefix = "local-standalone" if _is_standalone_request_source(body) else "local-specific"
+        return f"{prefix}:{path.resolve()}"
     return None
 
 

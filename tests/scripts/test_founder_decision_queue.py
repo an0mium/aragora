@@ -725,6 +725,41 @@ Authorize old PR #8895.
     assert [item.expected_reply for item in items] == ["ready-8878", "ready-8954"]
 
 
+def test_collect_decision_items_keeps_newer_plain_local_pending_packet(
+    tmp_path: Path,
+) -> None:
+    decisions_root = tmp_path / "founder-decisions"
+    decisions_root.mkdir()
+    (decisions_root / "20260707T072153Z-consolidated-operator-queue.md").write_text(
+        _single_item_packet(
+            generated="2026-07-07T07:21:53Z",
+            target="PR #8954: https://github.com/synaptent/aragora/pull/8954",
+            reply="ready-8954",
+        ),
+        encoding="utf-8",
+    )
+    (decisions_root / "20260707T074000Z-pr8962-ready.md").write_text(
+        _single_item_packet(
+            generated="2026-07-07T07:40:00Z",
+            target="PR #8962: https://github.com/synaptent/aragora/pull/8962",
+            reply="ready-8962",
+        ),
+        encoding="utf-8",
+    )
+    (decisions_root / "20260705T190306Z-pr8895-ready-request.md").write_text(
+        _single_item_packet(
+            generated="2026-07-05T19:03:06Z",
+            target="PR #8895: https://github.com/synaptent/aragora/pull/8895",
+            reply="ready-8895",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(decisions_root=decisions_root)
+
+    assert [item.expected_reply for item in items] == ["ready-8962", "ready-8954"]
+
+
 def test_collect_decision_items_keeps_specific_issue_packet_missing_from_newest_global(
     tmp_path: Path,
 ) -> None:
