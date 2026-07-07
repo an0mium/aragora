@@ -17,6 +17,7 @@ if str(REPO_ROOT) not in sys.path:
 import scripts.settle_one_pr as settle_one_pr
 
 RECHECK_RULE = "recheck on next origin/main push; never poll in a loop."
+QUEUE_POLICY_METADATA_REASON = "missing queue policy metadata with files"
 
 MAIN_RED_HALT = "MAIN_RED_HALT"
 DRAFT_SKIP = "DRAFT_SKIP"
@@ -148,6 +149,16 @@ def classify_pr(
             (head_drift,),
         )
 
+    if bool(entry.get("policy_metadata_unavailable")):
+        metadata_reasons = tuple(
+            str(reason) for reason in entry.get("reasons") or [QUEUE_POLICY_METADATA_REASON]
+        )
+        return result(
+            HEAD_BLOCKED,
+            "park this head until queue-mode policy metadata with files can be loaded",
+            metadata_reasons,
+        )
+
     policy_reasons = settle_one_pr.policy_exclusion_reasons(
         entry, policy_metadata={pr_number: metadata}
     )
@@ -255,6 +266,41 @@ def _packet_unavailable_entry(
     }
 
 
+def _policy_metadata_unavailable_entry(
+    pr_number: int,
+    metadata: dict[str, Any],
+    reason: str,
+) -> dict[str, Any]:
+    return {
+        "pr_number": pr_number,
+        "title": metadata.get("title"),
+        "head_sha": metadata.get("headRefOid"),
+        "status": "policy_metadata_unavailable",
+        "verdict": "policy_metadata_unavailable",
+        "policy_metadata_unavailable": True,
+        "reasons": [f"{QUEUE_POLICY_METADATA_REASON}: {reason}"],
+    }
+
+
+def _command_failure_reason(command: dict[str, Any]) -> str:
+    for key in ("stderr", "json_error", "stdout"):
+        value = str(command.get(key) or "").strip()
+        if value:
+            return value
+    return "files field missing from PR policy metadata"
+
+
+def _load_queue_policy_metadata(
+    cwd: Path,
+    repo: str | None,
+    pr_number: int,
+) -> tuple[dict[str, Any] | None, str | None]:
+    metadata, command = settle_one_pr.load_pr_policy_metadata(cwd, pr_number, repo=repo)
+    if settle_one_pr._has_policy_file_scope(metadata):
+        return metadata, None
+    return None, _command_failure_reason(command)
+
+
 def _load_live_file_metadata(cwd: Path, repo: str | None, pr_number: int) -> dict[str, Any]:
     live_payload, _command = settle_one_pr._run_json(
         settle_one_pr._with_repo(
@@ -293,8 +339,12 @@ def _classify_queue(cwd: Path, repo: str | None, limit: int) -> list[PreflightRe
     for pr_number, metadata in sorted(metadata_by_pr.items()):
         entry: dict[str, Any] = {}
         if not metadata.get("isDraft"):
-            if not metadata.get("files"):
-                metadata = {**metadata, **_load_live_file_metadata(cwd, repo, pr_number)}
+            policy_metadata, policy_error = _load_queue_policy_metadata(cwd, repo, pr_number)
+            if policy_error:
+                entry = _policy_metadata_unavailable_entry(pr_number, metadata, policy_error)
+                results.append(classify_pr(entry=entry, metadata=metadata))
+                continue
+            metadata = {**metadata, **dict(policy_metadata or {})}
             try:
                 packet = settle_one_pr._load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo)
                 entry = _packet_entry(packet, pr_number)
