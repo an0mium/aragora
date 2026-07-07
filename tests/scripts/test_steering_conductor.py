@@ -58,6 +58,27 @@ def _write_lanes(path: Path, lanes: list[dict[str, Any]]) -> None:
     path.write_text(json.dumps(lanes), encoding="utf-8")
 
 
+def _write_receipt(
+    inbox: Path,
+    *,
+    message_filename: str,
+    message_sha256: str,
+    outcome: str,
+) -> None:
+    receipt_dir = inbox / "_read_receipts"
+    receipt_dir.mkdir(parents=True, exist_ok=True)
+    (receipt_dir / f"{outcome}.json").write_text(
+        json.dumps(
+            {
+                "message_filename": message_filename,
+                "message_sha256": message_sha256,
+                "outcome": outcome,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def _runner(open_prs: list[dict[str, Any]] | None = None) -> Any:
     def fake_runner(
         command: list[str],
@@ -146,6 +167,109 @@ def test_unread_pending_message_blocks_duplicate_send(tmp_path: Path) -> None:
     assert result["candidate_skips"][0]["reason"] == "unread pending steering"
 
 
+def test_read_receipt_does_not_clear_pending_message(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    _write_lanes(lanes_path, [_lane("lane-a", "owner-a")])
+    inbox = tmp_path / "operator-steering" / "owner-a"
+    inbox.mkdir(parents=True)
+    message = sc.send_operator_steering.build_message(
+        to_session="owner-a",
+        body="already pending",
+    )
+    message_path = inbox / "pending.json"
+    message_path.write_text(json.dumps(message), encoding="utf-8")
+    _write_receipt(
+        inbox,
+        message_filename=message_path.name,
+        message_sha256=message["message_sha256"],
+        outcome="read",
+    )
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner([{"number": 9001, "headRefOid": "abc123"}]),
+        now=NOW,
+    )
+
+    assert result["sent"] is False
+    assert result["no_send_reason"] == "no eligible live owner target"
+    assert result["candidate_skips"][0]["reason"] == "unread pending steering"
+
+
+def test_resolved_receipt_clears_pending_message(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    _write_lanes(lanes_path, [_lane("lane-a", "owner-a")])
+    inbox = tmp_path / "operator-steering" / "owner-a"
+    inbox.mkdir(parents=True)
+    message = sc.send_operator_steering.build_message(
+        to_session="owner-a",
+        body="already handled",
+    )
+    message_path = inbox / "pending.json"
+    message_path.write_text(json.dumps(message), encoding="utf-8")
+    _write_receipt(
+        inbox,
+        message_filename=message_path.name,
+        message_sha256=message["message_sha256"],
+        outcome="completed",
+    )
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner([{"number": 9001, "headRefOid": "abc123"}]),
+        now=NOW,
+    )
+
+    assert result["sent"] is True
+    assert result["selected"]["target_key"] == "pr:9001"
+
+
+def test_invalid_owner_session_skips_record_without_aborting(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    _write_lanes(
+        lanes_path,
+        [
+            _lane("bad", "owner/bad", pr_number=9001),
+            _lane("good", "owner-good", pr_number=9002),
+        ],
+    )
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner(
+            [
+                {"number": 9001, "headRefOid": "abc123"},
+                {"number": 9002, "headRefOid": "def456"},
+            ]
+        ),
+        now=NOW,
+    )
+
+    assert result["sent"] is True
+    assert result["selected"]["target_key"] == "pr:9002"
+    reasons = {skip["target_key"]: skip["reason"] for skip in result["candidate_skips"]}
+    assert reasons["pr:9001"].startswith("invalid owner_session:")
+
+
+def test_closed_pr_lane_is_excluded(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    _write_lanes(lanes_path, [_lane("lane-a", "owner-a", pr_number=9001)])
+
+    result = sc.run_cycle(_config(tmp_path, lanes_path), command_runner=_runner([]), now=NOW)
+
+    assert result["sent"] is False
+    assert result["no_send_reason"] == "no eligible live owner target"
+    assert result["candidate_skips"][0]["reason"] == "PR is not open"
+
+
 def test_recent_target_rotation_prefers_different_lane(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -186,6 +310,42 @@ def test_recent_target_rotation_prefers_different_lane(tmp_path: Path) -> None:
     assert result["selected"]["target_key"] == "pr:9002"
     assert len(list((tmp_path / "operator-steering" / "owner-a").glob("*.json"))) == 0
     assert len(list((tmp_path / "operator-steering" / "owner-b").glob("*.json"))) == 1
+
+
+def test_recent_target_cycles_zero_uses_no_cycle_suppression() -> None:
+    ledger = {
+        "entries": [
+            {
+                "timestamp": "2026-07-07T16:30:00Z",
+                "target_key": "pr:9001",
+            }
+        ]
+    }
+
+    assert (
+        sc._recent_target_keys(
+            ledger,
+            now=NOW,
+            recent_cycles=0,
+            recent_hours=0.0,
+        )
+        == set()
+    )
+
+
+def test_load_lane_records_merges_default_user_and_repo_registries(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    user_lanes = tmp_path / "user" / "lanes.json"
+    repo_lanes = tmp_path / "repo" / "lanes.json"
+    _write_lanes(user_lanes, [_lane("user-lane", "owner-user", pr_number=9001)])
+    _write_lanes(repo_lanes, [_lane("repo-lane", "owner-repo", pr_number=9002)])
+    monkeypatch.setattr(sc.send_operator_steering, "USER_LANE_REGISTRY_DEFAULT", user_lanes)
+    monkeypatch.setattr(sc.send_operator_steering, "LANE_REGISTRY_DEFAULT", repo_lanes)
+
+    records = sc.load_lane_records(repo_lanes)
+
+    assert [record["lane_id"] for record in records] == ["user-lane", "repo-lane"]
 
 
 def test_stale_terminal_and_unpushed_lanes_are_excluded(tmp_path: Path) -> None:
@@ -233,6 +393,39 @@ def test_third_no_send_cycle_sets_stop(tmp_path: Path) -> None:
     assert result["stop_reason"] == "three consecutive no-send cycles"
     updated = json.loads((tmp_path / "ledger.json").read_text(encoding="utf-8"))
     assert updated["consecutive_no_send"] == 3
+
+
+def test_third_drift_no_send_cycle_sets_stop(tmp_path: Path, monkeypatch: Any) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    ledger = {
+        "schema_version": sc.SCHEMA_VERSION,
+        "consecutive_no_send": 2,
+        "entries": [],
+    }
+    (tmp_path / "ledger.json").write_text(json.dumps(ledger), encoding="utf-8")
+    calls = 0
+
+    def fake_load_lane_records(_path: Path) -> list[dict[str, Any]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [_lane("lane-a", "owner-a", pr_number=9001)]
+        return []
+
+    monkeypatch.setattr(sc, "load_lane_records", fake_load_lane_records)
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner([{"number": 9001, "headRefOid": "abc123"}]),
+        now=NOW,
+    )
+
+    assert result["sent"] is False
+    assert result["stop"] is True
+    assert result["stop_reason"] == "three consecutive no-send cycles"
+    assert result["ledger_consecutive_no_send"] == 3
 
 
 def test_dry_run_does_not_write_message_or_ledger(tmp_path: Path) -> None:

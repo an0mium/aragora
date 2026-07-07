@@ -51,6 +51,14 @@ TERMINAL_STATUSES = {
     "dead",
     "stale",
 }
+RESOLVED_STEERING_OUTCOMES = {
+    "obeyed",
+    "held",
+    "stale",
+    "superseded",
+    "blocked",
+    "completed",
+}
 EXCLUDED_PR_NUMBERS = {8456}
 EXCLUDED_BRANCH_PREFIXES = ("claude/fusion-",)
 HIGH_LEVERAGE_TERMS = (
@@ -177,9 +185,30 @@ def write_ledger(path: Path, ledger: dict[str, Any]) -> None:
     path.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def load_lane_records(path: Path) -> list[dict[str, Any]]:
+def _load_lane_records_file(path: Path) -> list[dict[str, Any]]:
     data = _load_json_file(path, [])
     return [record for record in data if isinstance(record, dict)] if isinstance(data, list) else []
+
+
+def load_lane_records(path: Path) -> list[dict[str, Any]]:
+    if path != send_operator_steering.LANE_REGISTRY_DEFAULT:
+        return _load_lane_records_file(path)
+
+    records: list[dict[str, Any]] = []
+    seen: set[Path] = set()
+    for candidate in (
+        send_operator_steering.USER_LANE_REGISTRY_DEFAULT,
+        send_operator_steering.LANE_REGISTRY_DEFAULT,
+    ):
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        records.extend(_load_lane_records_file(candidate))
+    return records
 
 
 def _target_key(record: dict[str, Any]) -> str:
@@ -193,6 +222,15 @@ def _target_key(record: dict[str, Any]) -> str:
     if branch:
         return f"branch:{branch}"
     return f"lane:{record.get('lane_id') or record.get('owner_session') or 'unknown'}"
+
+
+def _record_pr_number(record: dict[str, Any]) -> int | None:
+    if record.get("pr_number") is None:
+        return None
+    try:
+        return int(record.get("pr_number"))
+    except (TypeError, ValueError):
+        return None
 
 
 def _lane_age_minutes(record: dict[str, Any], now: dt.datetime) -> float | None:
@@ -294,7 +332,7 @@ def _recent_target_keys(
     recent_hours: float,
 ) -> set[str]:
     entries = [entry for entry in ledger.get("entries", []) if isinstance(entry, dict)]
-    recent_entries = entries[-max(0, recent_cycles) :]
+    recent_entries = entries[-recent_cycles:] if recent_cycles > 0 else []
     cutoff = now - dt.timedelta(hours=recent_hours)
     keys: set[str] = {
         str(entry.get("target_key")) for entry in recent_entries if entry.get("target_key")
@@ -309,7 +347,7 @@ def _recent_target_keys(
     return keys
 
 
-def _receipt_keys(receipt_dir: Path) -> tuple[set[str], set[str]]:
+def _resolved_receipt_keys(receipt_dir: Path) -> tuple[set[str], set[str]]:
     filenames: set[str] = set()
     shas: set[str] = set()
     if not receipt_dir.is_dir():
@@ -317,6 +355,8 @@ def _receipt_keys(receipt_dir: Path) -> tuple[set[str], set[str]]:
     for path in receipt_dir.glob("*.json"):
         payload = _load_json_file(path, {})
         if not isinstance(payload, dict):
+            continue
+        if str(payload.get("outcome") or "").strip().lower() not in RESOLVED_STEERING_OUTCOMES:
             continue
         if payload.get("message_filename"):
             filenames.add(str(payload["message_filename"]))
@@ -331,7 +371,7 @@ def unread_messages(owner_session: str, *, steering_inbox_root: Path) -> list[di
     )
     if not inbox.is_dir():
         return []
-    receipt_filenames, receipt_shas = _receipt_keys(inbox / "_read_receipts")
+    resolved_filenames, resolved_shas = _resolved_receipt_keys(inbox / "_read_receipts")
     unread: list[dict[str, Any]] = []
     for path in sorted(p for p in inbox.glob("*.json") if p.is_file()):
         payload = _load_json_file(path, {})
@@ -339,7 +379,7 @@ def unread_messages(owner_session: str, *, steering_inbox_root: Path) -> list[di
             unread.append({"path": str(path), "reason": "unreadable"})
             continue
         sha = str(payload.get("message_sha256") or "")
-        if path.name not in receipt_filenames and (not sha or sha not in receipt_shas):
+        if path.name not in resolved_filenames and (not sha or sha not in resolved_shas):
             unread.append(
                 {
                     "path": str(path),
@@ -405,8 +445,22 @@ def choose_candidate(
         if excluded:
             skips.append({"target_key": target_key, "reason": excluded})
             continue
+        pr_number = _record_pr_number(record)
+        if pr_number is not None and pr_number not in open_prs:
+            skips.append({"target_key": target_key, "reason": "PR is not open"})
+            continue
         owner_session = str(record.get("owner_session") or "").strip()
-        unread = unread_messages(owner_session, steering_inbox_root=steering_inbox_root)
+        try:
+            unread = unread_messages(owner_session, steering_inbox_root=steering_inbox_root)
+        except ValueError as exc:
+            skips.append(
+                {
+                    "target_key": target_key,
+                    "owner_session": owner_session,
+                    "reason": f"invalid owner_session: {exc}",
+                }
+            )
+            continue
         if unread:
             skips.append(
                 {
@@ -502,24 +556,6 @@ def collect_live_state(
         cwd=repo_root,
         command_runner=command_runner,
     )
-    sessions_payload = _run_json(
-        ["python3", "scripts/list_active_agent_sessions.py", "--json"],
-        cwd=repo_root,
-        command_runner=command_runner,
-        timeout=45,
-    )
-    snapshot_payload = _run_json(
-        ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json"],
-        cwd=repo_root,
-        command_runner=command_runner,
-        timeout=45,
-    )
-    sentinel_payload = _run_json(
-        ["python3", "scripts/fleet_sentinel.py", "--json"],
-        cwd=repo_root,
-        command_runner=command_runner,
-        timeout=45,
-    )
     return {
         "fetch": fetch_result,
         "status": status.stdout,
@@ -527,11 +563,6 @@ def collect_live_state(
         "origin_main": rev_lines[1] if len(rev_lines) >= 2 else None,
         "open_prs": pr_payload if isinstance(pr_payload, list) else [],
         "open_pr_count": len(pr_payload) if isinstance(pr_payload, list) else None,
-        "sessions_summary": sessions_payload if isinstance(sessions_payload, dict) else None,
-        "operator_snapshot_summary": snapshot_payload
-        if isinstance(snapshot_payload, dict)
-        else None,
-        "fleet_sentinel_summary": sentinel_payload if isinstance(sentinel_payload, dict) else None,
     }
 
 
@@ -600,6 +631,9 @@ def run_cycle(
             "skip_reason": "candidate drifted before send",
         }
         ledger = _append_ledger_entry(ledger, entry, sent=False)
+        if ledger["consecutive_no_send"] >= 3:
+            result["stop"] = True
+            result["stop_reason"] = "three consecutive no-send cycles"
         if not config.dry_run:
             write_ledger(config.ledger_path, ledger)
         result.update(
