@@ -618,6 +618,185 @@ def test_collect_decision_items_omits_closed_github_issue_live_path(
     assert items == []
 
 
+def test_parse_standalone_requested_operator_reply_packet() -> None:
+    packet = """# PR #8878 Ready-For-Review Decision
+
+Generated at: 2026-07-07T07:34:48Z
+
+## Requested operator reply
+
+`ready-8878`
+
+## Target
+
+- PR: https://github.com/synaptent/aragora/pull/8878
+- Title: `docs(status): add decision integrity dogfood dashboard`
+- Exact head: `330d164ac26671c5733525b351d5eb14b62ee123`
+
+## Requested action
+
+Authorize marking exactly PR #8878 ready for review at head
+`330d164ac26671c5733525b351d5eb14b62ee123`, or leave it parked as draft.
+"""
+
+    items = fdq.parse_decision_packet(packet, source="standalone.md")
+
+    assert len(items) == 1
+    assert items[0].expected_reply == "ready-8878"
+    assert items[0].target == "PR #8878: https://github.com/synaptent/aragora/pull/8878"
+    assert items[0].title == "docs(status): add decision integrity dogfood dashboard"
+    assert items[0].exact_head_sha == "330d164ac26671c5733525b351d5eb14b62ee123"
+    assert items[0].packet_generated_at.isoformat() == "2026-07-07T07:34:48+00:00"
+
+
+def test_parse_nonstandard_reply_token_table_without_pending_heading() -> None:
+    packet = """# PR #8957 Operator Decision
+
+Generated: 2026-07-07T04:46:12Z
+
+| Target | Requested operator action | Reply token |
+| --- | --- | --- |
+| PR #8957: https://github.com/synaptent/aragora/pull/8957 | Authorize exactly one repair path at head `1111111111111111111111111111111111111111`. | `settle-8957` |
+"""
+
+    items = fdq.parse_decision_packet(packet, source="issue-comment")
+
+    assert len(items) == 1
+    assert items[0].expected_reply == "settle-8957"
+    assert items[0].target.startswith("PR #8957:")
+    assert items[0].exact_head_sha == "1111111111111111111111111111111111111111"
+
+
+def test_collect_decision_items_keeps_newer_standalone_local_packet(
+    tmp_path: Path,
+) -> None:
+    decisions_root = tmp_path / "founder-decisions"
+    decisions_root.mkdir()
+    (decisions_root / "20260707T072153Z-consolidated-operator-queue.md").write_text(
+        _single_item_packet(
+            generated="2026-07-07T07:21:53Z",
+            target="PR #8954: https://github.com/synaptent/aragora/pull/8954",
+            reply="ready-8954",
+        ),
+        encoding="utf-8",
+    )
+    (decisions_root / "20260707T073448Z-pr8878-ready.md").write_text(
+        """# PR #8878 Ready-For-Review Decision
+
+Generated at: 2026-07-07T07:34:48Z
+
+## Requested operator reply
+
+`ready-8878`
+
+## Target
+
+- PR: https://github.com/synaptent/aragora/pull/8878
+- Exact head: `330d164ac26671c5733525b351d5eb14b62ee123`
+
+## Requested action
+
+Authorize marking exactly PR #8878 ready for review.
+""",
+        encoding="utf-8",
+    )
+    (decisions_root / "20260705T190306Z-pr8895-ready-request.md").write_text(
+        """# Old PR #8895 Request
+
+Generated at: 2026-07-05T19:03:06Z
+
+## Requested operator reply
+
+`ready-8895`
+
+## Target
+
+- PR: https://github.com/synaptent/aragora/pull/8895
+
+## Requested action
+
+Authorize old PR #8895.
+""",
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(decisions_root=decisions_root)
+
+    assert [item.expected_reply for item in items] == ["ready-8878", "ready-8954"]
+
+
+def test_collect_decision_items_keeps_specific_issue_packet_missing_from_newest_global(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-06T21:26:00Z",
+            "thread_state": "open",
+            "body": """# Founder Decision Queue Packet
+
+Generated: 2026-07-06T21:26:00Z
+
+## Pending Rulings
+
+| Priority | Link | Current blocker | Requested action | One-word reply |
+| --- | --- | --- | --- | --- |
+| P1 | PR #8945: https://github.com/synaptent/aragora/pull/8945 | Tier 4. | Record Tier 4 settlement. | `settle-8945` |
+| P1 | PR #8951: https://github.com/synaptent/aragora/pull/8951 | Tier 4. | Record old Tier 4 settlement. | `settle-8951-old` |
+""",
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T07:21:53Z",
+            "thread_state": "open",
+            "body": """# Consolidated Founder Decision Queue Packet
+
+Generated: 2026-07-07T07:21:53Z
+
+## Pending Rulings
+
+| Priority | Link | Current blocker | Requested action | One-word reply |
+| --- | --- | --- | --- | --- |
+| P4 | PR #8951: https://github.com/synaptent/aragora/pull/8951 | Tier 4. | Record current Tier 4 settlement. | `settle-8951` |
+""",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert [item.expected_reply for item in items] == ["settle-8951", "settle-8945"]
+
+
+def test_render_brief_includes_token_title_and_exact_head() -> None:
+    generated_at = fdq._parse_datetime("2026-07-07T07:34:48Z")
+    item = fdq.DecisionItem(
+        item="docs(status): add decision integrity dogfood dashboard",
+        target="PR #8878: https://github.com/synaptent/aragora/pull/8878",
+        requested_action="Authorize marking ready.",
+        expected_reply="ready-8878",
+        source="standalone.md",
+        packet_generated_at=generated_at,
+        title="docs(status): add decision integrity dogfood dashboard",
+        exact_head_sha="330d164ac26671c5733525b351d5eb14b62ee123",
+    )
+
+    brief = fdq.render_brief(
+        [item],
+        now=fdq._parse_datetime("2026-07-07T08:34:48Z"),
+    )
+
+    assert "Pending decisions: 1" in brief
+    assert "ready-8878" in brief
+    assert "head=330d164ac26671c5733525b351d5eb14b62ee123" in brief
+
+
 def test_collect_decision_items_fails_when_no_sources_collectable(
     monkeypatch: Any, tmp_path: Path
 ) -> None:

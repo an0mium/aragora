@@ -33,6 +33,8 @@ class DecisionItem:
     expected_reply: str
     source: str
     packet_generated_at: datetime | None = None
+    title: str | None = None
+    exact_head_sha: str | None = None
 
     def dedupe_key(self) -> tuple[str, str, str]:
         return (
@@ -118,10 +120,89 @@ def _parse_datetime(value: str) -> datetime | None:
 
 
 def _packet_generated_at(markdown: str) -> datetime | None:
-    match = re.search(r"^Generated:\s*(.+?)\s*$", markdown, flags=re.MULTILINE)
+    match = re.search(r"^Generated(?:\s+at)?:\s*(.+?)\s*$", markdown, flags=re.MULTILINE)
     if not match:
         return None
     return _parse_datetime(match.group(1))
+
+
+def _normalize_header(value: str) -> str:
+    normalized = _compact_text(_strip_markdown_code(value)).lower()
+    return re.sub(r"[^a-z0-9]+", " ", normalized).strip()
+
+
+def _header_index(header: list[str], aliases: set[str]) -> int | None:
+    for index, value in enumerate(header):
+        if _normalize_header(value) in aliases:
+            return index
+    return None
+
+
+def _markdown_heading_slug(line: str) -> str | None:
+    if not line.startswith("#"):
+        return None
+    heading = line.lstrip("#").strip()
+    if not heading:
+        return None
+    return _normalize_header(heading)
+
+
+def _section_body(markdown: str, aliases: set[str]) -> str:
+    lines = markdown.splitlines()
+    in_section = False
+    body: list[str] = []
+    for line in lines:
+        heading = _markdown_heading_slug(line)
+        if heading is not None:
+            if in_section:
+                break
+            if heading in aliases:
+                in_section = True
+                continue
+        if in_section:
+            body.append(line)
+    return "\n".join(body).strip()
+
+
+def _extract_first_code_or_line(markdown: str) -> str | None:
+    code_match = re.search(r"`([^`\n]+)`", markdown)
+    if code_match:
+        return _compact_text(code_match.group(1))
+    for line in markdown.splitlines():
+        compact = _compact_text(line.strip("- "))
+        if compact:
+            return _strip_markdown_code(compact)
+    return None
+
+
+def _extract_markdown_field(markdown: str, label: str) -> str | None:
+    pattern = rf"^\s*[-*]?\s*{re.escape(label)}\s*:\s*(.+?)\s*$"
+    match = re.search(pattern, markdown, flags=re.IGNORECASE | re.MULTILINE)
+    if not match:
+        return None
+    return _strip_markdown_code(_compact_text(match.group(1)))
+
+
+def _extract_exact_head(value: str) -> str | None:
+    match = re.search(r"\b[0-9a-f]{40}\b", value)
+    if not match:
+        return None
+    return match.group(0)
+
+
+def _extract_target_from_section(markdown: str) -> str | None:
+    pr_url = re.search(r"https://github\.com/[^/\s]+/[^/\s]+/pull/\d+", markdown)
+    if pr_url:
+        number = pr_url.group(0).rstrip("/").rsplit("/", 1)[-1]
+        return f"PR #{number}: {pr_url.group(0)}"
+    issue_url = re.search(r"https://github\.com/[^/\s]+/[^/\s]+/issues/\d+", markdown)
+    if issue_url:
+        number = issue_url.group(0).rstrip("/").rsplit("/", 1)[-1]
+        return f"Issue #{number}: {issue_url.group(0)}"
+    target = _extract_markdown_field(markdown, "Target") or _extract_markdown_field(markdown, "PR")
+    if target:
+        return target
+    return None
 
 
 def _split_table_row(line: str) -> list[str] | None:
@@ -161,48 +242,84 @@ def _pending_ruling_rows(markdown: str) -> list[list[str]]:
     return rows
 
 
-def parse_decision_packet(markdown: str, *, source: str) -> list[DecisionItem]:
-    """Parse a founder decision packet markdown body."""
+def _all_table_rows(markdown: str) -> list[list[list[str]]]:
+    tables: list[list[list[str]]] = []
+    current: list[list[str]] = []
+    for line in markdown.splitlines():
+        cells = _split_table_row(line)
+        if cells is None:
+            if current:
+                tables.append(current)
+                current = []
+            continue
+        current.append(cells)
+    if current:
+        tables.append(current)
+    return tables
 
-    rows = _pending_ruling_rows(markdown)
-    if not rows:
-        return []
+
+def _parse_decision_table(
+    rows: list[list[str]], *, source: str, generated_at: datetime | None
+) -> list[DecisionItem]:
     header: list[str] | None = None
     data_rows: list[list[str]] = []
     for row in rows:
         if _is_separator_row(row):
             continue
         if header is None:
-            header = [cell.lower().strip() for cell in row]
+            header = row
             continue
         data_rows.append(row)
     if header is None:
         return []
 
-    def index(name: str) -> int | None:
-        try:
-            return header.index(name)
-        except ValueError:
-            return None
-
-    priority_i = index("priority")
-    link_i = index("link")
-    action_i = index("requested action")
-    reply_i = index("one-word reply")
-    if link_i is None or action_i is None or reply_i is None:
+    priority_i = _header_index(header, {"priority", "item"})
+    target_i = _header_index(header, {"link", "target", "pr issue", "pr", "issue"})
+    action_i = _header_index(
+        header,
+        {
+            "requested action",
+            "requested operator action",
+            "request",
+            "recommended default",
+            "action",
+        },
+    )
+    reply_i = _header_index(
+        header,
+        {"one word reply", "reply token", "expected reply", "exact reply", "token", "reply"},
+    )
+    title_i = _header_index(header, {"title", "pr title", "issue title"})
+    head_i = _header_index(
+        header,
+        {"exact head", "head", "head sha", "exact head sha", "live head", "sha"},
+    )
+    if target_i is None or action_i is None or reply_i is None:
         return []
 
-    generated_at = _packet_generated_at(markdown)
     items: list[DecisionItem] = []
     for row in data_rows:
-        if max(link_i, action_i, reply_i) >= len(row):
+        if max(target_i, action_i, reply_i) >= len(row):
             continue
         priority = row[priority_i] if priority_i is not None and priority_i < len(row) else ""
-        target = _compact_text(row[link_i])
+        target = _compact_text(row[target_i])
         requested_action = _compact_text(row[action_i])
         expected_reply = _strip_markdown_code(_compact_text(row[reply_i]))
         if not target or not expected_reply:
             continue
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+", expected_reply):
+            continue
+        title = (
+            _strip_markdown_code(_compact_text(row[title_i]))
+            if title_i is not None and title_i < len(row) and row[title_i].strip()
+            else None
+        )
+        head_text = (
+            row[head_i]
+            if head_i is not None and head_i < len(row)
+            else f"{target} {requested_action}"
+        )
+        exact_head_sha = _extract_exact_head(head_text)
         item = f"Priority {priority}" if priority else target
         items.append(
             DecisionItem(
@@ -212,9 +329,160 @@ def parse_decision_packet(markdown: str, *, source: str) -> list[DecisionItem]:
                 expected_reply=expected_reply,
                 source=source,
                 packet_generated_at=generated_at,
+                title=title,
+                exact_head_sha=exact_head_sha,
             )
         )
     return items
+
+
+def _parse_standalone_request(markdown: str, *, source: str) -> list[DecisionItem]:
+    reply_section = _section_body(markdown, {"requested operator reply", "operator reply"})
+    reply = _extract_first_code_or_line(reply_section) if reply_section else None
+    if not reply:
+        return []
+    target_section = _section_body(markdown, {"target"})
+    requested_action = _section_body(markdown, {"requested action", "action requested"})
+    target = _extract_target_from_section(target_section or markdown)
+    if not target:
+        return []
+    generated_at = _packet_generated_at(markdown)
+    title = _extract_markdown_field(target_section, "Title")
+    exact_head_sha = _extract_exact_head(target_section) or _extract_exact_head(requested_action)
+    item = title or target
+    return [
+        DecisionItem(
+            item=item,
+            target=target,
+            requested_action=_compact_text(requested_action) if requested_action else "",
+            expected_reply=_strip_markdown_code(_compact_text(reply)),
+            source=source,
+            packet_generated_at=generated_at,
+            title=title,
+            exact_head_sha=exact_head_sha,
+        )
+    ]
+
+
+def parse_decision_packet(markdown: str, *, source: str) -> list[DecisionItem]:
+    """Parse a founder decision packet markdown body."""
+
+    standalone = _parse_standalone_request(markdown, source=source)
+    if standalone:
+        return standalone
+
+    generated_at = _packet_generated_at(markdown)
+    rows = _pending_ruling_rows(markdown)
+    if not rows:
+        items: list[DecisionItem] = []
+        for table in _all_table_rows(markdown):
+            items.extend(_parse_decision_table(table, source=source, generated_at=generated_at))
+        return items
+    return _parse_decision_table(rows, source=source, generated_at=generated_at)
+
+
+def _body_has_decision_request(body: str) -> bool:
+    if _is_local_only_draft(body):
+        return False
+    lowered = body.lower()
+    return (
+        "## pending rulings" in lowered
+        or "## pending ruling" in lowered
+        or "## requested operator reply" in lowered
+        or "one-word reply" in lowered
+        or "one word reply" in lowered
+        or "exact reply" in lowered
+        or "reply token" in lowered
+    )
+
+
+def _is_local_only_draft(body: str) -> bool:
+    lowered = body.lower()
+    return "draft is local only" in lowered or "this draft is local only" in lowered
+
+
+def _is_consolidated_decision_source(source: str, body: str) -> bool:
+    lowered_source = source.lower()
+    lowered_body = body.lower()
+    return (
+        "consolidated" in lowered_source
+        or "consolidated" in lowered_body
+        or "compact queue blocker" in lowered_body
+    )
+
+
+def _is_standalone_request_source(body: str) -> bool:
+    return "## requested operator reply" in body.lower()
+
+
+def _packet_time_sort_key(value: datetime | None) -> datetime:
+    return value or datetime.min.replace(tzinfo=UTC)
+
+
+def _local_source_thread_key(
+    path: Path,
+    *,
+    body: str,
+    decisions_root: Path,
+    newest_consolidated_time: datetime | None,
+) -> str | None:
+    if _is_consolidated_decision_source(str(path), body):
+        return _local_thread_key(path, decisions_root=decisions_root)
+    if _is_standalone_request_source(body):
+        packet_time = _packet_generated_at(body)
+        if newest_consolidated_time is None or _packet_time_sort_key(
+            packet_time
+        ) >= _packet_time_sort_key(newest_consolidated_time):
+            return f"local-standalone:{path.resolve()}"
+    return None
+
+
+def _comment_source_thread_key(
+    *,
+    body: str,
+    source: str,
+    thread_key: str,
+) -> str:
+    if _is_consolidated_decision_source(source, body):
+        return thread_key
+    return f"{thread_key}:{source}"
+
+
+def _item_freshness_key(item: DecisionItem) -> tuple[datetime, str]:
+    return (
+        item.packet_generated_at or datetime.min.replace(tzinfo=UTC),
+        item.source,
+    )
+
+
+def _item_target_key(item: DecisionItem) -> str:
+    number = _target_number(item.target)
+    if number is not None:
+        return f"target:{number}"
+    return f"reply:{_compact_text(item.expected_reply).lower()}"
+
+
+def _dedupe_decision_items(items: Iterable[DecisionItem]) -> list[DecisionItem]:
+    by_target: dict[str, DecisionItem] = {}
+    by_reply: dict[str, DecisionItem] = {}
+    for item in items:
+        target_key = _item_target_key(item)
+        current = by_target.get(target_key)
+        if current is None or _item_freshness_key(item) >= _item_freshness_key(current):
+            by_target[target_key] = item
+    for item in by_target.values():
+        reply_key = _compact_text(item.expected_reply).lower()
+        current = by_reply.get(reply_key)
+        if current is None or _item_freshness_key(item) >= _item_freshness_key(current):
+            by_reply[reply_key] = item
+    return sorted(
+        by_reply.values(),
+        key=lambda item: (
+            item.packet_generated_at or datetime.min.replace(tzinfo=UTC),
+            item.expected_reply,
+        ),
+        reverse=True,
+    )
 
 
 def _packet_sort_key(source: DecisionSource) -> tuple[datetime, str]:
@@ -291,6 +559,8 @@ def _target_number(target: str) -> str | None:
 
 
 def _comment_resolves_item(body: str, item: DecisionItem) -> bool:
+    if _body_has_decision_request(body) or _is_local_only_draft(body):
+        return False
     first_line = _strip_markdown_code(_first_nonempty_line(body))
     expected = item.expected_reply
     if first_line and first_line == expected:
@@ -342,17 +612,22 @@ def _load_issue_comment_sources(path: Path) -> list[DecisionSource]:
     sources: list[DecisionSource] = []
     for index, comment in enumerate(comments):
         body = comment.get("body")
-        if not isinstance(body, str) or "## Pending Rulings" not in body:
+        if not isinstance(body, str) or not _body_has_decision_request(body):
             continue
         source = str(comment.get("html_url") or comment.get("url") or f"{path}#{index}")
-        thread_key = _thread_key_from_comment(comment, fallback=f"{path}")
+        base_thread_key = _thread_key_from_comment(comment, fallback=f"{path}")
+        thread_key = _comment_source_thread_key(
+            body=body,
+            source=source,
+            thread_key=base_thread_key,
+        )
         created_at = _comment_created_at(comment)
         later_comments: list[tuple[datetime | None, str]] = []
         for other in comments:
             other_body = other.get("body")
-            if not isinstance(other_body, str) or "## Pending Rulings" in other_body:
+            if not isinstance(other_body, str) or _body_has_decision_request(other_body):
                 continue
-            if _thread_key_from_comment(other, fallback=f"{path}") != thread_key:
+            if _thread_key_from_comment(other, fallback=f"{path}") != base_thread_key:
                 continue
             later_comments.append((_comment_created_at(other), other_body))
         sources.append(
@@ -380,20 +655,25 @@ def _github_issue_comment_sources(
     comments = [comment for comment in comments_payload if isinstance(comment, dict)]
     thread_open = str(payload.get("state") or "open").lower() == "open"
     thread_url = str(payload.get("url") or f"https://github.com/{repo}/issues/{issue}")
-    thread_key = f"github-thread:{issue}"
+    base_thread_key = f"github-thread:{issue}"
     sources: list[DecisionSource] = []
     for index, comment in enumerate(comments):
         body = comment.get("body")
-        if not isinstance(body, str) or "## Pending Rulings" not in body:
+        if not isinstance(body, str) or not _body_has_decision_request(body):
             continue
         source = str(
             comment.get("html_url") or comment.get("url") or f"{thread_url}#comment-{index}"
+        )
+        thread_key = _comment_source_thread_key(
+            body=body,
+            source=source,
+            thread_key=base_thread_key,
         )
         created_at = _comment_created_at(comment)
         later_comments: list[tuple[datetime | None, str]] = []
         for other in comments:
             other_body = other.get("body")
-            if not isinstance(other_body, str) or "## Pending Rulings" in other_body:
+            if not isinstance(other_body, str) or _body_has_decision_request(other_body):
                 continue
             later_comments.append((_comment_created_at(other), other_body))
         sources.append(
@@ -520,16 +800,36 @@ def _collect_sources(
     sources: list[DecisionSource] = []
     failures: list[SourceLoadFailure] = []
     if decisions_root.exists():
+        local_bodies: list[tuple[Path, str]] = []
         for path in sorted(decisions_root.glob("*.md")):
             try:
                 body = path.read_text(encoding="utf-8")
             except OSError:
                 continue
+            local_bodies.append((path, body))
+        consolidated_times = [
+            _packet_generated_at(body)
+            for path, body in local_bodies
+            if _is_consolidated_decision_source(str(path), body)
+        ]
+        newest_consolidated_time = max(
+            (time for time in consolidated_times if time is not None),
+            default=None,
+        )
+        for path, body in local_bodies:
+            thread_key = _local_source_thread_key(
+                path,
+                body=body,
+                decisions_root=decisions_root,
+                newest_consolidated_time=newest_consolidated_time,
+            )
+            if thread_key is None:
+                continue
             sources.append(
                 DecisionSource(
                     source=str(path),
                     body=body,
-                    thread_key=_local_thread_key(path, decisions_root=decisions_root),
+                    thread_key=thread_key,
                 )
             )
     for path in packet_files:
@@ -566,7 +866,7 @@ def collect_decision_collection(
     github_issues: Iterable[str] = (),
     repo: str = "synaptent/aragora",
 ) -> DecisionCollection:
-    deduped: dict[tuple[str, str, str], DecisionItem] = {}
+    parsed_items: list[DecisionItem] = []
     source_collection = _collect_sources(
         decisions_root=decisions_root,
         packet_files=packet_files,
@@ -580,9 +880,9 @@ def collect_decision_collection(
         for item in parse_decision_packet(source.body, source=source.source):
             if _item_resolved_after_packet(source, item):
                 continue
-            deduped.setdefault(item.dedupe_key(), item)
+            parsed_items.append(item)
     return DecisionCollection(
-        items=list(deduped.values()),
+        items=_dedupe_decision_items(parsed_items),
         source_failures=source_collection.failures,
     )
 
@@ -663,6 +963,38 @@ def render_markdown(
     return "\n".join(lines) + "\n"
 
 
+def render_brief(
+    items: Iterable[DecisionItem],
+    *,
+    now: datetime | None = None,
+    source_failures: Iterable[SourceLoadFailure] = (),
+) -> str:
+    now_dt = (now or datetime.now(tz=UTC)).astimezone(UTC)
+    rows = list(items)
+    failures = list(source_failures)
+    lines = [
+        "# Founder Decision Queue Brief",
+        "",
+        f"Generated: {now_dt.isoformat().replace('+00:00', 'Z')}",
+        f"Pending decisions: {len(rows)}",
+        "",
+    ]
+    for item in rows:
+        head = f" head={item.exact_head_sha}" if item.exact_head_sha else ""
+        title = f" {item.title}" if item.title else ""
+        lines.append(
+            "- "
+            f"{item.expected_reply}: {item.target}{title}{head} "
+            f"age={_format_age(item, now=now_dt)}"
+        )
+    if failures:
+        lines.append("")
+        lines.append("Source warnings:")
+        for failure in failures:
+            lines.append(f"- {failure.source}: {failure.message}")
+    return "\n".join(lines) + "\n"
+
+
 def _escape_table_cell(value: str) -> str:
     return value.replace("|", "\\|").replace("\n", " ").strip()
 
@@ -704,6 +1036,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override current UTC timestamp for deterministic rendering.",
     )
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of Markdown.")
+    parser.add_argument("--brief", action="store_true", help="Emit a compact Markdown brief.")
     return parser
 
 
@@ -743,7 +1076,10 @@ def main(argv: list[str] | None = None) -> int:
                     "target": item.target,
                     "requested_action": item.requested_action,
                     "expected_reply": item.expected_reply,
+                    "token": item.expected_reply,
                     "source": item.source,
+                    "title": item.title,
+                    "exact_head_sha": item.exact_head_sha,
                     "packet_generated_at": (
                         item.packet_generated_at.isoformat().replace("+00:00", "Z")
                         if item.packet_generated_at
@@ -755,6 +1091,9 @@ def main(argv: list[str] | None = None) -> int:
             ],
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+    if args.brief:
+        print(render_brief(items, now=now, source_failures=collection.source_failures), end="")
         return 0
     print(render_markdown(items, now=now, source_failures=collection.source_failures), end="")
     return 0
