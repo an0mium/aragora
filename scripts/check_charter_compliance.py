@@ -143,6 +143,10 @@ def _symbol_export_roots(symbols: Iterable[str]) -> set[str]:
     return roots
 
 
+def _is_top_level_symbol(symbol: str) -> bool:
+    return "." not in symbol.split(":", 1)[-1]
+
+
 def _parse_imported_names(imports: str) -> list[str]:
     cleaned = imports.split("#", 1)[0].strip()
     if cleaned.startswith("(") and cleaned.endswith(")"):
@@ -230,6 +234,7 @@ def _line_reexports_or_defines_kept_symbol(line: str, entry: CharterEntry) -> bo
             allow_wildcard=False,
         )
         for symbol in entry.kept_symbols
+        if _is_top_level_symbol(symbol)
     )
 
 

@@ -196,6 +196,24 @@ def test_dotted_kept_symbol_does_not_exempt_bare_top_level_export(tmp_path: Path
     assert "is_alive" in result.proposed_violations[0].line
 
 
+def test_dotted_kept_member_does_not_exempt_root_definition(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/aragora/control_plane/registry.py b/aragora/control_plane/registry.py
+--- a/aragora/control_plane/registry.py
++++ b/aragora/control_plane/registry.py
+@@ -0,0 +1,2 @@
++class AgentInfo:
++    pass
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert result.binding_violations == []
+    assert [violation.entry_id for violation in result.proposed_violations] == ["CHR-X-040"]
+    assert "AgentInfo" in result.proposed_violations[0].line
+
+
 def test_wildcard_import_in_parked_path_is_not_kept_only(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/aragora/control_plane/registry.py b/aragora/control_plane/registry.py
