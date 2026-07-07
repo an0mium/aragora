@@ -3122,6 +3122,7 @@ def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path)
 def test_create_issue_posts_prompt_artifact_as_repo_visible_comment(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
+    operations: list[str] = []
     issue_bodies: list[str] = []
     comment_bodies: list[str] = []
     prompt = "Start from live repo truth.\n" + ("x" * 1000) + "END-OF-PROMPT"
@@ -3132,14 +3133,20 @@ def test_create_issue_posts_prompt_artifact_as_repo_visible_comment(
 
     def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "create"]:
+            operations.append("create")
+            assert "--label" not in args
             issue_bodies.append(args[args.index("--body") + 1])
             return subprocess.CompletedProcess(
                 args, 0, "https://github.com/synaptent/aragora/issues/6002\n", ""
             )
         if args[:3] == ["gh", "issue", "comment"]:
+            operations.append("comment")
             comment_bodies.append(args[args.index("--body") + 1])
             return subprocess.CompletedProcess(args, 0, "", "")
         if args[:3] == ["gh", "issue", "edit"]:
+            operations.append("edit")
+            assert args[3] == "6002"
+            assert args[args.index("--add-label") + 1] == "boss-ready"
             return subprocess.CompletedProcess(args, 0, "", "")
         return subprocess.CompletedProcess(args, 0, "", "")
 
@@ -3162,6 +3169,7 @@ def test_create_issue_posts_prompt_artifact_as_repo_visible_comment(
     )
 
     assert url == "https://github.com/synaptent/aragora/issues/6002"
+    assert operations == ["create", "comment", "edit"]
     assert issue_bodies == ["Prompt preview only"]
     assert len(comment_bodies) == 1
     assert prompt_sha in comment_bodies[0]
@@ -3276,6 +3284,7 @@ def test_close_incomplete_prompt_issue_rejects_unparseable_issue_url(tmp_path: P
 def test_create_issue_closes_incomplete_issue_when_prompt_artifact_comment_fails(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
+    created: list[list[str]] = []
     closed: list[list[str]] = []
     prompt = "Start from live repo truth."
     artifact = tmp_path / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
@@ -3285,6 +3294,7 @@ def test_create_issue_closes_incomplete_issue_when_prompt_artifact_comment_fails
 
     def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "create"]:
+            created.append(args)
             return subprocess.CompletedProcess(
                 args, 0, "https://github.com/synaptent/aragora/issues/6003\n", ""
             )
@@ -3293,6 +3303,8 @@ def test_create_issue_closes_incomplete_issue_when_prompt_artifact_comment_fails
         if args[:3] == ["gh", "issue", "close"]:
             closed.append(args)
             return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:3] == ["gh", "issue", "edit"]:
+            raise AssertionError("incomplete prompt issue must not be labeled")
         raise AssertionError(f"unexpected args: {args}")
 
     monkeypatch.setattr(mod, "_run", fake_run)
@@ -3314,6 +3326,8 @@ def test_create_issue_closes_incomplete_issue_when_prompt_artifact_comment_fails
             labels=["boss-ready"],
         )
 
+    assert created
+    assert "--label" not in created[0]
     assert closed
     assert closed[0][:3] == ["gh", "issue", "close"]
     assert closed[0][3] == "6003"

@@ -1429,6 +1429,7 @@ def _create_issue(
     labels: list[str],
 ) -> str:
     prompt_artifact_comment_bodies = _prompt_artifact_comment_bodies(repo_root, handoff)
+    defer_labels_until_ready = _is_prompt_handoff(handoff) or bool(prompt_artifact_comment_bodies)
     args = [
         "gh",
         "issue",
@@ -1440,7 +1441,8 @@ def _create_issue(
         "--body",
         _fit_issue_body(handoff.body),
     ]
-    for label in labels:
+    labels_at_create = [] if defer_labels_until_ready else labels
+    for label in labels_at_create:
         args.extend(["--label", label])
     proc = _run(args, cwd=repo_root)
     if proc.returncode != 0:
