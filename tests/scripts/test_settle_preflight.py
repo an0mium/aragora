@@ -37,6 +37,16 @@ def _metadata(**overrides):
     return base
 
 
+def _light_metadata(**overrides):
+    metadata = _metadata(**overrides)
+    metadata.pop("files", None)
+    return metadata
+
+
+def _packet(entry=None):
+    return {"entries": [entry or _entry()]}
+
+
 def test_main_red_halt_verdict() -> None:
     result = settle_preflight.classify_pr(entry=_entry(), metadata=_metadata(), main_red=True)
 
@@ -261,21 +271,86 @@ def test_load_single_degrades_packet_failure(monkeypatch) -> None:
     assert metadata["number"] == 9001
 
 
-def test_queue_policy_exclusion_uses_live_file_metadata(monkeypatch) -> None:
+def test_queue_mode_uses_policy_files_for_unsafe_surface(monkeypatch) -> None:
     monkeypatch.setattr(
         settle_preflight.settle_one_pr,
         "load_open_pr_metadata",
-        lambda *_args, **_kwargs: ({9001: _metadata(files=[])}, {}),
+        lambda *_args, **_kwargs: ({9001: _light_metadata()}, {}),
     )
     monkeypatch.setattr(
-        settle_preflight,
-        "_load_live_file_metadata",
-        lambda *_args: {"files": [{"path": ".github/workflows/build.yml"}]},
+        settle_preflight.settle_one_pr,
+        "load_pr_policy_metadata",
+        lambda *_args, **_kwargs: (
+            _metadata(
+                files=[
+                    {"path": ".github/workflows/build.yml"},
+                    {"path": "aragora/server/auth/session.py"},
+                ]
+            ),
+            {},
+        ),
     )
     monkeypatch.setattr(
         settle_preflight.settle_one_pr,
         "_load_single_pr_packet",
-        lambda **_kwargs: {"entries": [_entry()]},
+        lambda *_args, **_kwargs: _packet(),
+    )
+
+    results = settle_preflight._classify_queue(Path.cwd(), "synaptent/aragora", 10)
+
+    assert len(results) == 1
+    assert results[0].verdict == settle_preflight.HUMAN_GATED
+    assert settle_preflight.settle_one_pr.SURFACE_EXCLUDE_REASON in results[0].reasons
+
+
+def test_queue_mode_policy_metadata_failure_does_not_classify_ready(monkeypatch) -> None:
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_open_pr_metadata",
+        lambda *_args, **_kwargs: ({9001: _light_metadata()}, {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_pr_policy_metadata",
+        lambda *_args, **_kwargs: (
+            {},
+            {"returncode": 1, "stderr": "gh pr view failed"},
+        ),
+    )
+
+    def fail_packet(*_args, **_kwargs):
+        raise AssertionError("queue mode should not load packet without policy files")
+
+    monkeypatch.setattr(settle_preflight.settle_one_pr, "_load_single_pr_packet", fail_packet)
+
+    results = settle_preflight._classify_queue(Path.cwd(), "synaptent/aragora", 10)
+
+    assert len(results) == 1
+    assert results[0].verdict == settle_preflight.HEAD_BLOCKED
+    assert results[0].verdict != settle_preflight.READY
+    assert any(
+        settle_preflight.QUEUE_POLICY_METADATA_REASON in reason for reason in results[0].reasons
+    )
+
+
+def test_queue_policy_exclusion_uses_policy_file_metadata(monkeypatch) -> None:
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_open_pr_metadata",
+        lambda *_args, **_kwargs: ({9001: _light_metadata()}, {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_pr_policy_metadata",
+        lambda *_args, **_kwargs: (
+            _metadata(files=[{"path": ".github/workflows/build.yml"}]),
+            {},
+        ),
+    )
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "_load_single_pr_packet",
+        lambda **_kwargs: _packet(),
     )
 
     results = settle_preflight._classify_queue(Path.cwd(), None, 50)
