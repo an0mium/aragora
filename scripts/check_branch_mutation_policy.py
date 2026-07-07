@@ -101,11 +101,14 @@ def find_mutating_workflow_violations(workflows: dict[str, str]) -> list[Violati
         if name == "openapi.yml":
             # sync is manual-only (PR #8952 review): the push:main trigger exists so
             # required contexts report on main, and must never arm the auto-commit job.
-            if "if: github.event_name == 'workflow_dispatch'" not in text:
+            if (
+                "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+                not in text
+            ):
                 violations.append(
                     Violation(
                         path=f".github/workflows/{name}",
-                        message="must gate git push behind manual workflow_dispatch condition",
+                        message="must gate git push behind workflow_dispatch AND refs/heads/main condition",
                     )
                 )
             if "if: github.event_name == 'push'" in text:
