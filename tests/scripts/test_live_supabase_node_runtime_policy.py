@@ -127,9 +127,11 @@ def test_frontend_dockerfiles_install_from_lockfile_with_sdk_context() -> None:
 
         assert "COPY sdk/typescript/ /sdk/typescript/" in text
         assert (
-            "COPY aragora/live/package.json aragora/live/package-lock.json aragora/live/.npmrc ./"
+            "COPY aragora/live/package.json aragora/live/package-lock.json aragora/live/.npmrc /app/"
         ) in text
-        assert "RUN npm ci --legacy-peer-deps" in text
+        assert "RUN cd /app && npm ci --legacy-peer-deps" in text
+        assert "COPY aragora/live/ /app/" in text
+        assert "RUN cd /app && npm run build:local" in text
         assert "npm install --legacy-peer-deps" not in text
         assert "npm ci --only=production" not in text
         assert "sed -i" not in text
@@ -207,9 +209,23 @@ def test_repo_root_dockerignore_excludes_frontend_context_churn() -> None:
     assert ".git" in ignored
     assert ".worktrees/" in ignored
     assert ".venv-scale/" in ignored
+    assert ".env" in ignored
+    assert ".env.*" in ignored
+    assert "**/.env" in ignored
+    assert "**/.env.*" in ignored
+    assert ".envrc" in ignored
+    assert "**/.envrc" in ignored
     assert "node_modules/" in ignored
     assert "aragora/live/node_modules/" in ignored
     assert "aragora/live/.next/" in ignored
+
+
+def test_frontend_dev_compose_mounts_local_sdk_dependency() -> None:
+    compose = _load_yaml(REPO_ROOT / "docker-compose.dev.yml")
+    volumes = compose["services"]["frontend-dev"]["volumes"]
+
+    assert "./aragora/live:/app" in volumes
+    assert "./sdk/typescript:/sdk/typescript:ro" in volumes
 
 
 def test_live_supabase_node_engines_fit_docker_runtime() -> None:

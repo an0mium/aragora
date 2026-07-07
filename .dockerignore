@@ -51,7 +51,13 @@ site/
 
 # Local development
 .env
+.env.*
+**/.env
+**/.env.*
+.envrc
+**/.envrc
 *.local
+**/*.local
 *.log
 
 # Docker
