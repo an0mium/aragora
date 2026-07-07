@@ -332,6 +332,27 @@ def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
 DOCS_SPECS_MIRROR_ALLOWLIST: frozenset[str] = frozenset()
 
 
+def _default_specs_mirror_dest(source_name: str) -> str:
+    return f"{source_name.removesuffix('.md').lower().replace('_', '-')}.md"
+
+
+def _allowlisted_spec_publication_artifacts(source_names: frozenset[str] | set[str]) -> list[str]:
+    index_content = _read_docs_site("specs/index.md")
+    artifacts: list[str] = []
+
+    for source_name in sorted(source_names):
+        dest_name = _default_specs_mirror_dest(source_name)
+        slug = dest_name.removesuffix(".md")
+        page = DOCS_SITE_ROOT / "specs" / dest_name
+
+        if page.exists():
+            artifacts.append(str(page.relative_to(REPO_ROOT)))
+        if f"](./{slug})" in index_content:
+            artifacts.append(f"docs-site/docs/specs/index.md -> ./{slug}")
+
+    return artifacts
+
+
 def test_docs_specs_directory_is_mirrored() -> None:
     # docs/specs/** was previously entirely outside DOC_MAP: any relative link
     # from a mirrored doc into it survived sync unmodified and 404d on the
@@ -348,6 +369,16 @@ def test_docs_specs_directory_is_mirrored() -> None:
         "docs/specs/*.md file(s) are listed in DOCS_SPECS_MIRROR_ALLOWLIST but "
         f"still have DOC_MAP entries: {still_mapped_allowlisted}. Remove the "
         "DOC_MAP entry when a spec is deliberately excluded from the docs-site mirror."
+    )
+
+    allowlisted_publication_artifacts = _allowlisted_spec_publication_artifacts(
+        DOCS_SPECS_MIRROR_ALLOWLIST
+    )
+    assert not allowlisted_publication_artifacts, (
+        "docs/specs/*.md file(s) are listed in DOCS_SPECS_MIRROR_ALLOWLIST but "
+        "still have docs-site publication artifacts: "
+        f"{allowlisted_publication_artifacts}. Remove stale generated pages and "
+        "index links when a spec is deliberately excluded from the docs-site mirror."
     )
 
     missing_doc_map_entries = sorted(set(expected_mirrored) - set(mapped_specs))
@@ -372,6 +403,13 @@ def test_docs_specs_directory_is_mirrored() -> None:
         )
 
     assert (DOCS_SITE_ROOT / "specs" / "index.md").exists()
+
+
+def test_docs_specs_allowlist_artifact_detector_finds_published_specs() -> None:
+    artifacts = _allowlisted_spec_publication_artifacts({"OPEN_DECISION_RECEIPT.md"})
+
+    assert "docs-site/docs/specs/open-decision-receipt.md" in artifacts
+    assert "docs-site/docs/specs/index.md -> ./open-decision-receipt" in artifacts
 
 
 def test_docs_specs_index_lists_mirrored_children() -> None:
