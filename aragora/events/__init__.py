@@ -43,11 +43,6 @@ from .cross_subscribers import (
     get_cross_subscriber_manager,
     reset_cross_subscriber_manager,
 )
-from .arena_bridge import (
-    ArenaEventBridge,
-    create_arena_bridge,
-    EVENT_TYPE_MAP,
-)
 from .webhook_verify import (
     VerificationResult,
     generate_signature,
@@ -126,10 +121,6 @@ __all__ = [
     "SubscriberStats",
     "get_cross_subscriber_manager",
     "reset_cross_subscriber_manager",
-    # Arena event bridge
-    "ArenaEventBridge",
-    "create_arena_bridge",
-    "EVENT_TYPE_MAP",
     # Webhook verification
     "VerificationResult",
     "generate_signature",
