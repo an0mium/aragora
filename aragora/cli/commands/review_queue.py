@@ -2964,9 +2964,11 @@ def _admin_squash_live_gate_blockers(packet: ReviewPacket) -> list[str]:
 
     merge_state_status = str(packet.merge_state_status or "").strip().upper()
     if not merge_state_status:
-        blockers.append("mergeStateStatus unavailable; admin squash requires CLEAN")
-    elif merge_state_status != "CLEAN":
-        blockers.append(f"mergeStateStatus={merge_state_status}; admin squash requires CLEAN")
+        blockers.append("mergeStateStatus unavailable; admin squash requires CLEAN or BLOCKED")
+    elif merge_state_status not in {"CLEAN", "BLOCKED"}:
+        blockers.append(
+            f"mergeStateStatus={merge_state_status}; admin squash requires CLEAN or BLOCKED"
+        )
     return blockers
 
 
