@@ -23,13 +23,13 @@ re-verified 2026-07-07):
 | Root platform | `aragora` | `pyproject.toml` | **2.9.0** | Published; latest on PyPI = 2.9.0 |
 | Debate engine | `aragora-debate` | `aragora-debate/pyproject.toml` | **0.2.3** | Published; latest on PyPI = 0.2.3 |
 | Python SDK | `aragora-sdk` | `sdk/python/pyproject.toml` | **2.9.0** | Published; latest on PyPI = **2.8.0** (2026-02-25) — the repo's in-tree version has moved to 2.9.0 but that build has not been released to PyPI yet, so `pip install aragora-sdk` today gives you 2.8.0, not 2.9.0 |
-| Verifier | `aragora-verify` | `aragora-verify/pyproject.toml` | **0.1.1** | Published; latest on PyPI = 0.1.1 (0.1.0 first released 2026-06-29T23:32Z, GitHub release [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0); 0.1.1 followed 2026-07-04T03:28Z) |
+| Verifier | `aragora-verify` | `aragora-verify/pyproject.toml` | **0.1.1** | Published; latest on PyPI = **0.1.0** (first released 2026-06-29T23:32Z, GitHub release [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0)); the repo's in-tree version has moved to 0.1.1 but that build has not been released to PyPI yet, so `pip install aragora-verify` today gives you 0.1.0 |
 
 `aragora-verify` is **live and installable from PyPI today**, not merely
-staged or forthcoming — `pip install aragora-verify` (or the floor-pinned
-form below) installs the real published package. This supersedes any older
-status note suggesting otherwise; self-verify anytime with the `curl`
-command above.
+staged or forthcoming — `pip install aragora-verify` installs the real
+published package. Today that package is 0.1.0; use the from-checkout options
+below when you need this branch's in-tree 0.1.1 verifier behavior.
+Self-verify anytime with the `curl` command above.
 
 ## Install path per audience
 
@@ -47,22 +47,19 @@ Python standard library plus `cryptography` (see the
 [Independent Verifier Guide](../specs/INDEPENDENT_VERIFIER_GUIDE.md) for the
 full exit-code contract and disambiguation from the in-tree `aragora verify`).
 
-**Primary (recommended when verifier security posture matters):** floor-pin
-to `>=0.1.1`, which adds the `key_id`-equality check that closes a
-signer-label-tampering gap present in 0.1.0 (a relabeled `key_id` on an
-otherwise-valid signature silently passes on 0.1.0 but fails on 0.1.1):
-
-```bash
-pip install "aragora-verify>=0.1.1"
-```
-
-Secondary mention — unpinned install also works and today resolves to the
-same 0.1.1, but doesn't *document* the security floor for anyone reading a
-pinned requirements file later:
+**PyPI install:** installs the current published package. As of the live check
+above, PyPI resolves this to 0.1.0:
 
 ```bash
 pip install aragora-verify
 ```
+
+Security note: the in-tree 0.1.1 verifier adds the `key_id`-equality check
+that closes a signer-label-tampering gap present in 0.1.0 (a relabeled
+`key_id` on an otherwise-valid signature silently passes on 0.1.0 but fails on
+0.1.1). Do not use `pip install "aragora-verify>=0.1.1"` until 0.1.1 is
+published to PyPI; it will fail today. Use a from-checkout option below when
+that security behavior is required before publication.
 
 From-checkout options — no PyPI install at all, useful for auditing this
 exact commit or working offline:
@@ -134,10 +131,10 @@ python -m venv /tmp/av-sdk && /tmp/av-sdk/bin/pip install ./sdk/python
 echo "exit: $?"   # 0
 ```
 
-PyPI installs (`pip install aragora`, `pip install "aragora-verify>=0.1.1"`,
-`pip install aragora-sdk`) work too, since all three are published — but the
-local-dist installs above stay the required smoke because they exercise the
-code actually in this checkout, not whatever was last released.
+PyPI installs (`pip install aragora`, `pip install aragora-verify`,
+`pip install aragora-sdk`) work too, since all three names are published — but
+the local-dist installs above stay the required smoke because they exercise
+the code actually in this checkout, not whatever was last released.
 
 ## Verifier console-script exit codes
 
