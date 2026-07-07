@@ -456,6 +456,36 @@ def _score_candidate(
     )
 
 
+def _active_owner_conflicts(
+    records: list[dict[str, Any]],
+    *,
+    open_prs: dict[int, dict[str, Any]],
+    now: dt.datetime,
+    max_lane_age_minutes: float,
+    steering_inbox_root: Path,
+) -> dict[str, list[str]]:
+    owners_by_target: dict[str, set[str]] = {}
+    for record in records:
+        if _is_excluded_record(record, now, max_lane_age_minutes):
+            continue
+        pr_number = _record_pr_number(record)
+        if pr_number is not None and pr_number not in open_prs:
+            continue
+        owner_session = str(record.get("owner_session") or "").strip()
+        try:
+            send_operator_steering.validate_to_session(
+                owner_session, steering_inbox_root=steering_inbox_root
+            )
+        except ValueError:
+            continue
+        owners_by_target.setdefault(_target_key(record), set()).add(owner_session)
+    return {
+        target_key: sorted(owners)
+        for target_key, owners in owners_by_target.items()
+        if len(owners) > 1
+    }
+
+
 def choose_candidate(
     records: list[dict[str, Any]],
     *,
@@ -469,6 +499,13 @@ def choose_candidate(
 ) -> tuple[Candidate | None, list[dict[str, Any]]]:
     skips: list[dict[str, Any]] = []
     candidates: list[Candidate] = []
+    owner_conflicts = _active_owner_conflicts(
+        records,
+        open_prs=open_prs,
+        now=now,
+        max_lane_age_minutes=max_lane_age_minutes,
+        steering_inbox_root=steering_inbox_root,
+    )
     for record in records:
         target_key = _target_key(record)
         excluded = _is_excluded_record(record, now, max_lane_age_minutes)
@@ -480,6 +517,16 @@ def choose_candidate(
             skips.append({"target_key": target_key, "reason": "PR is not open"})
             continue
         owner_session = str(record.get("owner_session") or "").strip()
+        if target_key in owner_conflicts:
+            skips.append(
+                {
+                    "target_key": target_key,
+                    "owner_session": owner_session,
+                    "reason": "multiple active owners",
+                    "owner_sessions": owner_conflicts[target_key],
+                }
+            )
+            continue
         try:
             unread = unread_messages(owner_session, steering_inbox_root=steering_inbox_root)
         except ValueError as exc:

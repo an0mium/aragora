@@ -257,6 +257,64 @@ def test_invalid_owner_session_skips_record_without_aborting(tmp_path: Path) -> 
     assert reasons["pr:9001"].startswith("invalid owner_session:")
 
 
+def test_duplicate_active_owners_block_target(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    _write_lanes(
+        lanes_path,
+        [
+            _lane("lane-a", "owner-a", pr_number=9001),
+            _lane("lane-b", "owner-b", pr_number=9001),
+        ],
+    )
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner([{"number": 9001, "headRefOid": "abc123"}]),
+        now=NOW,
+    )
+
+    assert result["sent"] is False
+    assert result["no_send_reason"] == "no eligible live owner target"
+    assert len(list((tmp_path / "operator-steering").glob("*/*.json"))) == 0
+    duplicate_skips = [
+        skip for skip in result["candidate_skips"] if skip["reason"] == "multiple active owners"
+    ]
+    assert len(duplicate_skips) == 2
+    assert duplicate_skips[0]["owner_sessions"] == ["owner-a", "owner-b"]
+
+
+def test_duplicate_active_owners_do_not_block_clean_target(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    lanes_path = tmp_path / "lanes.json"
+    _write_lanes(
+        lanes_path,
+        [
+            _lane("lane-a", "owner-a", pr_number=9001),
+            _lane("lane-b", "owner-b", pr_number=9001),
+            _lane("lane-c", "owner-c", pr_number=9002),
+        ],
+    )
+
+    result = sc.run_cycle(
+        _config(tmp_path, lanes_path),
+        command_runner=_runner(
+            [
+                {"number": 9001, "headRefOid": "abc123"},
+                {"number": 9002, "headRefOid": "def456"},
+            ]
+        ),
+        now=NOW,
+    )
+
+    assert result["sent"] is True
+    assert result["selected"]["target_key"] == "pr:9002"
+    assert len(list((tmp_path / "operator-steering" / "owner-c").glob("*.json"))) == 1
+    assert any(skip["reason"] == "multiple active owners" for skip in result["candidate_skips"])
+
+
 def test_closed_pr_lane_is_excluded(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
