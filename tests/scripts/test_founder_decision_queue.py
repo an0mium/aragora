@@ -348,8 +348,7 @@ def test_collect_decision_items_settlement_match_resolves_exact_target(
         issue_comments_json=comments_path,
     )
 
-    assert len(items) == 1
-    assert items[0].target.startswith("PR #8756:")
+    assert items == []
 
 
 def test_collect_decision_items_does_not_self_resolve_standalone_packet(
