@@ -284,6 +284,29 @@ def test_removed_symbol_split_alias_use_is_binding(tmp_path: Path) -> None:
     assert "create_default_executor" in result.binding_violations[0].line
 
 
+def test_nested_diff_fixture_text_is_not_live_python_code(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/tests/scripts/test_check_charter_compliance.py b/tests/scripts/test_check_charter_compliance.py
+--- a/tests/scripts/test_check_charter_compliance.py
++++ b/tests/scripts/test_check_charter_compliance.py
+@@ -0,0 +1,9 @@
++def test_fixture_shape() -> None:
++    fixture = """diff --git a/some.py b/some.py
++--- a/some.py
+++++ b/some.py
++@@ -0,0 +1,2 @@
+++import aragora.queue
+++executor = aragora.queue.create_default_executor()
++"""
++    assert fixture
+'''
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is True
+    assert result.binding_violations == []
+
+
 def test_removed_symbol_wildcard_import_is_binding(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/some.py b/some.py

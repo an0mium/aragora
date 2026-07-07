@@ -45,6 +45,7 @@ class AddedLine:
     path: str
     line_no: int | None
     line: str
+    in_string_literal: bool = False
 
 
 @dataclass(frozen=True)
@@ -204,6 +205,20 @@ def _is_python_path(path: str) -> bool:
     return path.endswith((".py", ".pyi"))
 
 
+def _python_string_state_for_line(
+    line: str, active_delimiter: str | None
+) -> tuple[bool, str | None]:
+    if active_delimiter is not None:
+        return True, None if line.count(active_delimiter) % 2 == 1 else active_delimiter
+    candidates = [
+        (index, delimiter) for delimiter in ('"""', "'''") if (index := line.find(delimiter)) != -1
+    ]
+    if not candidates:
+        return False, None
+    _index, delimiter = min(candidates)
+    return True, delimiter if line.count(delimiter) % 2 == 1 else None
+
+
 def _line_reexports_or_defines_symbol(line: str, symbol: str) -> bool:
     return _line_reexports_or_defines_export(line, _symbol_export(symbol))
 
@@ -319,24 +334,39 @@ def parse_diff(diff_text: str) -> list[AddedLine]:
     added: list[AddedLine] = []
     current_path: str | None = None
     current_line: int | None = None
+    current_string_delimiter: str | None = None
     for raw_line in diff_text.splitlines():
         if raw_line.startswith("+++ "):
             current_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
             current_line = None
+            current_string_delimiter = None
             continue
         if raw_line.startswith("@@"):
             match = HUNK_RE.search(raw_line)
             current_line = int(match.group(1)) if match else None
+            current_string_delimiter = None
             continue
         if current_path is None:
             continue
         if raw_line.startswith("+") and not raw_line.startswith("+++"):
-            added.append(AddedLine(current_path, current_line, raw_line[1:]))
+            line = raw_line[1:]
+            in_string_literal = False
+            if _is_python_path(current_path):
+                in_string_literal, current_string_delimiter = _python_string_state_for_line(
+                    line,
+                    current_string_delimiter,
+                )
+            added.append(AddedLine(current_path, current_line, line, in_string_literal))
             if current_line is not None:
                 current_line += 1
         elif raw_line.startswith("-"):
             continue
         elif current_line is not None:
+            if raw_line.startswith(" ") and _is_python_path(current_path):
+                _in_string_literal, current_string_delimiter = _python_string_state_for_line(
+                    raw_line[1:],
+                    current_string_delimiter,
+                )
             current_line += 1
     return added
 
@@ -384,6 +414,8 @@ def _entry_matches_line(
     added_line: AddedLine,
     aliases_by_module: dict[str, set[str]],
 ) -> str | None:
+    if added_line.in_string_literal and _is_python_path(added_line.path):
+        return None
     if _line_is_kept_only(added_line, entry):
         return None
     if entry.symbols:
