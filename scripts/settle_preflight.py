@@ -81,10 +81,19 @@ def _human_preapproval_recorded(entry: dict[str, Any]) -> bool:
 
 
 def _model_authorized(entry: dict[str, Any]) -> bool:
-    return bool(entry.get("admin_squash_allowed")) or (
-        str(entry.get("status") or "") == "satisfied"
+    return (
+        bool(entry.get("admin_squash_allowed"))
+        and str(entry.get("status") or "") == "satisfied"
         and str(entry.get("verdict") or "") == "admin_squash_allowed"
     )
+
+
+def _head_drift_reason(entry: dict[str, Any], metadata: dict[str, Any]) -> str | None:
+    packet_head = str(entry.get("head_sha") or "")
+    live_head = str(metadata.get("headRefOid") or "")
+    if packet_head and live_head and packet_head != live_head:
+        return f"head drift: packet {packet_head} live {live_head}"
+    return None
 
 
 def classify_pr(
@@ -131,31 +140,21 @@ def classify_pr(
             ("PR is draft",),
         )
 
-    human_reasons = settle_one_pr.policy_exclusion_reasons(
+    head_drift = _head_drift_reason(entry, metadata)
+    if head_drift:
+        return result(
+            HEAD_BLOCKED,
+            "park this head until the merge packet is regenerated for the live head",
+            (head_drift,),
+        )
+
+    policy_reasons = settle_one_pr.policy_exclusion_reasons(
         entry, policy_metadata={pr_number: metadata}
     )
     tier_human = tier is not None and tier > 2
-    requires_human = bool(
+    requires_human_risk = bool(
         entry.get("requires_human_risk_settlement")
     ) and not _human_preapproval_recorded(entry)
-    if tier_human or requires_human:
-        reasons = []
-        if tier_human:
-            reasons.append(f"Tier {tier}")
-        if requires_human:
-            reasons.append("requires_human_risk_settlement=true without recorded preapproval")
-        for reason in human_reasons:
-            if reason not in reasons and (
-                reason.startswith("Tier ")
-                or reason == "requires_human_risk_settlement=true"
-                or reason == settle_one_pr.SURFACE_EXCLUDE_REASON
-            ):
-                reasons.append(reason)
-        return result(
-            HUMAN_GATED,
-            "stop and request exact-head human settlement before evidence or merge",
-            tuple(reasons),
-        )
 
     if merge_state in {"DIRTY", "BEHIND"} or mergeable == "CONFLICTING":
         return result(
@@ -164,9 +163,49 @@ def classify_pr(
             (f"mergeable={mergeable or 'unknown'} mergeStateStatus={merge_state or 'unknown'}",),
         )
 
-    if _model_authorized(entry) and (
-        merge_state in {"UNSTABLE", "BLOCKED", "BEHIND"} or mergeable != "MERGEABLE"
-    ):
+    requires_human_preapproval = bool(
+        entry.get("requires_human_preapproval")
+    ) and not _human_preapproval_recorded(entry)
+    recorded_human_settlement = _human_preapproval_recorded(entry)
+    policy_gate_reasons = [
+        reason
+        for reason in policy_reasons
+        if reason != "dirty/conflicting PR"
+        and not (recorded_human_settlement and reason == "requires_human_risk_settlement=true")
+    ]
+    if tier_human or requires_human_risk or requires_human_preapproval or policy_gate_reasons:
+        reasons = []
+        if tier_human:
+            reasons.append(f"Tier {tier}")
+        if requires_human_risk:
+            reasons.append("requires_human_risk_settlement=true without recorded preapproval")
+        if requires_human_preapproval:
+            reasons.append("requires_human_preapproval=true without recorded preapproval")
+        for reason in policy_gate_reasons:
+            if reason not in reasons:
+                reasons.append(reason)
+        return result(
+            HUMAN_GATED,
+            "stop and request exact-head human settlement or operator decision before evidence or merge",
+            tuple(reasons),
+        )
+
+    entry_blockers = settle_one_pr.entry_blockers(entry) if entry else []
+    if recorded_human_settlement:
+        entry_blockers = [
+            blocker
+            for blocker in entry_blockers
+            if blocker != "requires_human_risk_settlement=true"
+        ]
+    if entry_blockers:
+        return result(
+            HEAD_BLOCKED,
+            "park this head until the merge-packet blockers are resolved",
+            tuple(entry_blockers),
+        )
+
+    model_authorized = _model_authorized(entry)
+    if model_authorized and (merge_state not in {"CLEAN", "BLOCKED"} or mergeable != "MERGEABLE"):
         return result(
             GITHUB_UNSTABLE,
             "do not merge; wait for GitHub merge state to become settlement-stable",
@@ -175,15 +214,7 @@ def classify_pr(
             ),
         )
 
-    entry_blockers = settle_one_pr.entry_blockers(entry) if entry else []
-    if entry_blockers:
-        return result(
-            HEAD_BLOCKED,
-            "park this head until the merge-packet blockers are resolved",
-            tuple(entry_blockers),
-        )
-
-    if mergeable == "MERGEABLE" and merge_state in {"CLEAN", ""} and _model_authorized(entry):
+    if mergeable == "MERGEABLE" and merge_state in {"CLEAN", "BLOCKED"} and model_authorized:
         return result(
             READY,
             "run exact-head normal protected squash merge after one final live-state check",
