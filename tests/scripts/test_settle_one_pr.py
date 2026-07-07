@@ -326,6 +326,24 @@ def test_select_candidate_excludes_adc_and_continues() -> None:
     assert exclusions[0]["reasons"] == ["ADC PR"]
 
 
+def test_select_candidate_excludes_draft_and_continues() -> None:
+    draft = _entry(7449, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"])
+    next_entry = _entry(
+        7450, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
+    )
+
+    selected, blockers, exclusions = select_candidate(
+        _packet(draft, next_entry),
+        policy_metadata={7449: {"isDraft": True}},
+        return_exclusions=True,
+    )
+
+    assert blockers == []
+    assert selected is next_entry
+    assert exclusions[0]["pr_number"] == 7449
+    assert exclusions[0]["reasons"] == ["draft PR"]
+
+
 def test_select_candidate_excludes_active_owned_and_dependabot() -> None:
     active = _entry(7460, tier=0, reasons=["docs/tests/status-only"])
     dependabot = _entry(7300, tier=1, reasons=["docs/tests/status-only"])

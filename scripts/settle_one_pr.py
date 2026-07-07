@@ -410,6 +410,8 @@ def policy_exclusion_reasons(
     title_branch_text = _title_branch_text(entry, metadata)
     if _is_dependabot_pr(entry, metadata):
         reasons.append("Dependabot PR")
+    if bool(metadata.get("isDraft") or entry.get("isDraft")):
+        reasons.append("draft PR")
 
     mergeable = str(metadata.get("mergeable") or entry.get("mergeable") or "").upper()
     merge_state = str(
