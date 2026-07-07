@@ -89,6 +89,31 @@ def test_dry_run_emits_publisher_compatible_payload(tmp_path: Path, capsys: Any)
     assert payload["expires_at"] == "2026-07-09T15:41:00Z"
 
 
+def test_prompt_content_is_preserved_verbatim(tmp_path: Path, capsys: Any) -> None:
+    prompt = "\n```text\nStart from live repo truth.\n```\n\n"
+    rc = mod.main(
+        [
+            "--prompt",
+            prompt,
+            "--task",
+            "Preserve prompt bytes",
+            "--outbox-dir",
+            str(tmp_path),
+            "--created-at",
+            "2026-07-06T15:41:00Z",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    result = json.loads(capsys.readouterr().out)
+    payload = result["payload"]
+    assert payload["local_evidence"]["prompt"] == prompt
+    assert payload["local_evidence"]["prompt_chars"] == len(prompt)
+    assert payload["local_evidence"]["prompt_sha256"] == mod._prompt_sha(prompt)
+    assert payload["requested_action"]["prompt_sha256"] == mod._prompt_sha(prompt)
+
+
 def test_apply_writes_deterministic_outbox_file(tmp_path: Path, capsys: Any) -> None:
     rc = mod.main(
         [

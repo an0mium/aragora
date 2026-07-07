@@ -318,11 +318,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        prompt = _read_prompt(args).strip()
+        prompt = _read_prompt(args)
     except OSError as exc:
         print(f"error: failed to read prompt: {exc}", file=sys.stderr)
         return 2
-    if not prompt:
+    if not prompt.strip():
         print("error: prompt must not be empty", file=sys.stderr)
         return 2
 
