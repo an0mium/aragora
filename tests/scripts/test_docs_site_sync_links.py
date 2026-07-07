@@ -323,19 +323,46 @@ def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
             assert f"]({target})" not in content
 
 
+# docs/specs/*.md files that are deliberately excluded from the docs-site
+# mirror (e.g. a draft or an operator-gated spec not meant for public
+# publication). Empty today -- every current docs/specs/*.md file is
+# mirrored -- but test_docs_specs_directory_is_mirrored consults this set so a
+# future deliberate exclusion has an explicit, reviewable home instead of a
+# silent special case grown into the assertion logic below.
+DOCS_SPECS_MIRROR_ALLOWLIST: frozenset[str] = frozenset()
+
+
 def test_docs_specs_directory_is_mirrored() -> None:
     # docs/specs/** was previously entirely outside DOC_MAP: any relative link
     # from a mirrored doc into it survived sync unmodified and 404d on the
-    # deployed docs-site. Pin down that every docs/specs/*.md source is in the
-    # mirror map, so future spec files cannot be silently omitted.
+    # deployed docs-site. The expected mirror set is derived from a live glob
+    # of docs/specs/*.md -- never a hard-coded page list -- so a future spec
+    # file added without a DOC_MAP entry fails here instead of silently
+    # shipping unmirrored.
     mapped_specs = _docs_specs_map_entries()
     source_specs = sorted(path.name for path in (REPO_ROOT / "docs" / "specs").glob("*.md"))
+    expected_mirrored = [name for name in source_specs if name not in DOCS_SPECS_MIRROR_ALLOWLIST]
 
-    assert sorted(mapped_specs) == source_specs
+    missing_doc_map_entries = sorted(set(expected_mirrored) - set(mapped_specs))
+    assert not missing_doc_map_entries, (
+        "docs/specs/*.md file(s) missing a DOC_MAP entry in "
+        f"docs-site/scripts/sync-docs.js: {missing_doc_map_entries}. Add a "
+        "'specs/<NAME>.md': 'specs/<slug>.md' DOC_MAP entry, or add the "
+        "filename to DOCS_SPECS_MIRROR_ALLOWLIST above if it is deliberately "
+        "excluded from the mirror."
+    )
 
-    for dest in mapped_specs.values():
+    stale_doc_map_entries = sorted(set(mapped_specs) - set(source_specs))
+    assert not stale_doc_map_entries, (
+        "docs-site/scripts/sync-docs.js has specs/ DOC_MAP entries for file(s) "
+        f"no longer present under docs/specs/: {stale_doc_map_entries}"
+    )
+
+    for source_name, dest in mapped_specs.items():
         page = DOCS_SITE_ROOT / "specs" / dest
-        assert page.exists(), f"Expected synced docs-site page missing: {page}"
+        assert page.exists(), (
+            f"Expected synced docs-site page missing for docs/specs/{source_name}: {page}"
+        )
 
     assert (DOCS_SITE_ROOT / "specs" / "index.md").exists()
 
