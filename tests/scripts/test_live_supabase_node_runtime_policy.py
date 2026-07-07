@@ -126,16 +126,53 @@ def test_frontend_dockerfiles_install_from_lockfile_with_sdk_context() -> None:
         text = dockerfile.read_text(encoding="utf-8")
 
         assert "COPY sdk/typescript/ /sdk/typescript/" in text
+        assert "RUN cd /sdk/typescript && npm ci --no-audit --no-fund && npm run build" in text
         assert (
             "COPY aragora/live/package.json aragora/live/package-lock.json aragora/live/.npmrc /app/"
         ) in text
-        assert "RUN cd /app && npm ci --legacy-peer-deps" in text
+        assert "RUN cd /app && npm ci" in text
         assert "COPY aragora/live/ /app/" in text
         assert "RUN cd /app && npm run build:local" in text
+        assert "--legacy-peer-deps" not in text
         assert "npm install --legacy-peer-deps" not in text
         assert "npm ci --only=production" not in text
         assert "sed -i" not in text
         assert "replaceAll(" not in text
+
+
+def test_frontend_dockerfiles_build_sdk_before_frontend_install() -> None:
+    for dockerfile in FRONTEND_DOCKERFILES:
+        text = dockerfile.read_text(encoding="utf-8")
+
+        sdk_copy = text.index("COPY sdk/typescript/ /sdk/typescript/")
+        sdk_build = text.index(
+            "RUN cd /sdk/typescript && npm ci --no-audit --no-fund && npm run build"
+        )
+        frontend_manifest_copy = text.index(
+            "COPY aragora/live/package.json aragora/live/package-lock.json aragora/live/.npmrc /app/"
+        )
+        frontend_install = text.index("RUN cd /app && npm ci")
+        frontend_source_copy = text.index("COPY aragora/live/ /app/")
+        frontend_build = text.index("RUN cd /app && npm run build:local")
+
+        assert (
+            sdk_copy
+            < sdk_build
+            < frontend_manifest_copy
+            < frontend_install
+            < frontend_source_copy
+            < frontend_build
+        )
+
+
+def test_live_npm_install_policy_matches_ci_peer_resolution() -> None:
+    npmrc = (LIVE_DIR / ".npmrc").read_text(encoding="utf-8")
+    assert "legacy-peer-deps=true" not in npmrc
+
+    for dockerfile in FRONTEND_DOCKERFILES:
+        text = dockerfile.read_text(encoding="utf-8")
+        assert "RUN cd /app && npm ci" in text
+        assert "legacy-peer-deps" not in text
 
 
 def test_frontend_dockerfile_stages_preserve_local_sdk_link_targets() -> None:

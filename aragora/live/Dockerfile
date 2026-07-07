@@ -13,8 +13,9 @@ WORKDIR /app
 # The package-lock SDK path remains ../../sdk/typescript. Install from /app
 # so npm resolves the local SDK dependency to the absolute /sdk/typescript copy.
 COPY sdk/typescript/ /sdk/typescript/
+RUN cd /sdk/typescript && npm ci --no-audit --no-fund && npm run build
 COPY aragora/live/package.json aragora/live/package-lock.json aragora/live/.npmrc /app/
-RUN cd /app && npm ci --legacy-peer-deps
+RUN cd /app && npm ci
 
 # Stage 2: Builder
 FROM node:20.19-alpine AS builder
