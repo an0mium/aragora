@@ -15,6 +15,19 @@ class Violation:
     message: str
 
 
+@dataclass(frozen=True)
+class _YamlMappingLine:
+    indent: int
+    key: str
+    value: str
+
+
+@dataclass(frozen=True)
+class _MainPushTrigger:
+    targets_main: bool
+    path_filtered: bool
+
+
 WORKFLOW_PATH = Path(".github/workflows/required-check-priority.yml")
 
 REQUIRED_KEEP_WORKFLOW_PATHS = {
@@ -77,6 +90,110 @@ def _extract_js_set_items(workflow_text: str, set_name: str) -> list[str] | None
     return re.findall(r"""["']([^"']+)["']""", body)
 
 
+def _parse_yaml_mapping_line(line: str) -> _YamlMappingLine | None:
+    if not line.strip() or line.lstrip().startswith("#"):
+        return None
+    match = re.match(
+        r"^(?P<indent>\s*)(?P<key>['\"]?[A-Za-z0-9_-]+['\"]?)\s*:\s*(?P<value>.*)$",
+        line,
+    )
+    if not match:
+        return None
+    return _YamlMappingLine(
+        indent=len(match.group("indent")),
+        key=match.group("key").strip("\"'"),
+        value=match.group("value").strip(),
+    )
+
+
+def _nested_yaml_block(lines: list[str], index: int, parent_indent: int) -> list[str]:
+    block: list[str] = []
+    for line in lines[index + 1 :]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            block.append(line)
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= parent_indent:
+            break
+        block.append(line)
+    return block
+
+
+def _inline_yaml_value_mentions(value: str, expected: str) -> bool:
+    return bool(
+        re.search(
+            rf"(?<![A-Za-z0-9_./-]){re.escape(expected)}(?![A-Za-z0-9_./-])",
+            value,
+        )
+    )
+
+
+def _block_value_for_key(lines: list[str], key: str) -> list[str] | None:
+    for index, line in enumerate(lines):
+        parsed = _parse_yaml_mapping_line(line)
+        if parsed is None or parsed.key != key:
+            continue
+
+        values = [parsed.value]
+        for child in lines[index + 1 :]:
+            child_parsed = _parse_yaml_mapping_line(child)
+            if child_parsed is not None and child_parsed.indent <= parsed.indent:
+                break
+            values.append(child.strip())
+        return values
+    return None
+
+
+def _push_block_targets_main(push_block: list[str]) -> bool:
+    branch_values = _block_value_for_key(push_block, "branches")
+    if branch_values is not None:
+        return _inline_yaml_value_mentions("\n".join(branch_values), "main")
+
+    ignored_branch_values = _block_value_for_key(push_block, "branches-ignore")
+    if ignored_branch_values is not None and _inline_yaml_value_mentions(
+        "\n".join(ignored_branch_values),
+        "main",
+    ):
+        return False
+
+    return True
+
+
+def _push_block_has_path_filter(push_block: list[str]) -> bool:
+    for line in push_block:
+        parsed = _parse_yaml_mapping_line(line)
+        if parsed is not None and parsed.key in {"paths", "paths-ignore"}:
+            return True
+    return False
+
+
+def _main_push_trigger(workflow_text: str) -> _MainPushTrigger:
+    lines = workflow_text.splitlines()
+    for index, line in enumerate(lines):
+        parsed = _parse_yaml_mapping_line(line)
+        if parsed is None or parsed.key != "on" or parsed.indent != 0:
+            continue
+
+        if parsed.value and _inline_yaml_value_mentions(parsed.value, "push"):
+            return _MainPushTrigger(targets_main=True, path_filtered=False)
+
+        on_block = _nested_yaml_block(lines, index, parsed.indent)
+        for on_index, on_line in enumerate(on_block):
+            on_parsed = _parse_yaml_mapping_line(on_line)
+            if on_parsed is None or on_parsed.key != "push":
+                continue
+
+            push_block = _nested_yaml_block(on_block, on_index, on_parsed.indent)
+            if not _push_block_targets_main(push_block):
+                return _MainPushTrigger(targets_main=False, path_filtered=False)
+            return _MainPushTrigger(
+                targets_main=True,
+                path_filtered=_push_block_has_path_filter(push_block),
+            )
+
+    return _MainPushTrigger(targets_main=False, path_filtered=False)
+
+
 def find_required_check_priority_violations(
     workflow_text: str,
     *,
@@ -114,6 +231,7 @@ def find_required_check_priority_violations(
         violations.append(f"missing required keep workflow name: {name}")
 
     if repo_root is not None:
+        mapped_workflows: dict[str, str] = {}
         for rel in sorted(path_set):
             wf_path = (repo_root / rel).resolve()
             if not wf_path.exists():
@@ -123,9 +241,19 @@ def find_required_check_priority_violations(
             if not wf_path.exists():
                 continue
             text = wf_path.read_text(encoding="utf-8")
+            mapped_workflows[rel] = text
             if context not in text:
                 violations.append(
                     f"required context marker `{context}` not found in mapped workflow: {rel}"
+                )
+        for context, rel in sorted(REQUIRED_CONTEXT_TO_WORKFLOW_PATH.items()):
+            text = mapped_workflows.get(rel)
+            if text is None:
+                continue
+            main_push = _main_push_trigger(text)
+            if main_push.targets_main and main_push.path_filtered:
+                violations.append(
+                    f"required context `{context}` maps to path-filtered main push workflow: {rel}"
                 )
 
     return violations
