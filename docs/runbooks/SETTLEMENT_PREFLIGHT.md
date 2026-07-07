@@ -22,6 +22,12 @@ Classify the open queue:
 python3 scripts/settle_preflight.py --queue --repo synaptent/aragora --json
 ```
 
+`--queue` is intentionally a thin enumerator. It lists open PR numbers, then
+classifies each PR through the same single-PR loader used by `--pr`: live PR
+metadata, non-empty policy file metadata, required-check state, active-owner
+state, and the merge packet all flow through one classification path. Queue mode
+must not carry a separate policy or readiness implementation.
+
 Callers must run the main-health check first. If any material required context
 on `origin/main` is red or missing, pass `--main-red` only to produce a
 `MAIN_RED_HALT` report; do not keep advancing PRs.
@@ -40,6 +46,17 @@ Every verdict carries this recheck rule:
 | `HEAD_BLOCKED` | The packet head does not match the live head, the head is conflicting, behind, dirty, missing a satisfied packet, or has current-head blockers. | Park this head until the blocker clears or a repair head lands. |
 | `GITHUB_UNSTABLE` | The model packet is authorized, but GitHub reports an unstable, unknown, or non-mergeable state. | Do not merge; wait for settlement-stable GitHub state on a future main push. |
 | `READY` | The PR is model-authorized and settlement-stable: `MERGEABLE` plus `CLEAN`, or `MERGEABLE` plus `BLOCKED` when packet/check blockers are clear and the only remaining gate is quorum/human-settlement. | Run one final live check, then use normal exact-head protected squash merge. |
+
+## READY Invariant
+
+`READY` is fail-closed. A PR with `mergeStateStatus=BLOCKED` is only
+settlement-stable when the live required-check surface proves the block is
+quorum-only: `lint`, `typecheck`, `sdk-parity`, `Generate & Validate`, and
+`TypeScript SDK Type Check` are successful, `aragora-merge-quorum` is the only
+non-success required context, `reviewDecision` is not `CHANGES_REQUESTED`, and
+policy metadata includes at least one changed file. Missing live metadata,
+missing or empty file scope, missing required-check metadata, unknown required
+contexts, or active-owner uncertainty parks the PR as `HEAD_BLOCKED`.
 
 ## Park vs. Wait
 

@@ -31,10 +31,34 @@ def _metadata(**overrides):
         "isDraft": False,
         "mergeable": "MERGEABLE",
         "mergeStateStatus": "CLEAN",
+        "reviewDecision": "",
         "files": [{"path": "docs/example.md"}],
     }
     base.update(overrides)
     return base
+
+
+def _check(name, state="SUCCESS"):
+    return {"name": name, "state": state, "workflow": name, "link": ""}
+
+
+def _required_checks(**overrides):
+    states = {
+        "lint": "SUCCESS",
+        "typecheck": "SUCCESS",
+        "sdk-parity": "SUCCESS",
+        "Generate & Validate": "SUCCESS",
+        "TypeScript SDK Type Check": "SUCCESS",
+        "aragora-merge-quorum": "FAILURE",
+    }
+    states.update(overrides)
+    return [_check(name, state) for name, state in states.items()]
+
+
+def _blocked_metadata(**overrides):
+    base = {"mergeStateStatus": "BLOCKED", "required_checks": _required_checks()}
+    base.update(overrides)
+    return _metadata(**base)
 
 
 def _light_metadata(**overrides):
@@ -177,11 +201,49 @@ def test_ready_for_model_authorized_clean_state() -> None:
 def test_ready_for_model_authorized_blocked_quorum_state() -> None:
     result = settle_preflight.classify_pr(
         entry=_entry(),
-        metadata=_metadata(mergeStateStatus="BLOCKED"),
+        metadata=_blocked_metadata(),
     )
 
     assert result.verdict == settle_preflight.READY
-    assert any("settlement-stable" in reason for reason in result.reasons)
+    assert any("aragora-merge-quorum" in reason for reason in result.reasons)
+
+
+def test_blocked_required_red_context_does_not_become_ready() -> None:
+    result = settle_preflight.classify_pr(
+        entry=_entry(),
+        metadata=_blocked_metadata(required_checks=_required_checks(typecheck="FAILURE")),
+    )
+
+    assert result.verdict == settle_preflight.HEAD_BLOCKED
+    assert any("typecheck" in reason for reason in result.reasons)
+
+
+def test_blocked_review_changes_requested_does_not_become_ready() -> None:
+    result = settle_preflight.classify_pr(
+        entry=_entry(),
+        metadata=_blocked_metadata(reviewDecision="CHANGES_REQUESTED"),
+    )
+
+    assert result.verdict == settle_preflight.HEAD_BLOCKED
+    assert "reviewDecision=CHANGES_REQUESTED" in result.reasons
+
+
+def test_empty_file_scope_does_not_become_ready() -> None:
+    result = settle_preflight.classify_pr(entry=_entry(), metadata=_metadata(files=[]))
+
+    assert result.verdict == settle_preflight.HEAD_BLOCKED
+    assert settle_preflight.POLICY_METADATA_REASON in result.reasons
+
+
+def test_active_owner_signal_parks_head() -> None:
+    result = settle_preflight.classify_pr(
+        entry=_entry(),
+        metadata=_metadata(),
+        active_owned_prs={9001},
+    )
+
+    assert result.verdict == settle_preflight.HEAD_BLOCKED
+    assert settle_preflight.ACTIVE_OWNER_REASON in result.reasons
 
 
 def test_status_and_verdict_do_not_authorize_without_boolean() -> None:
@@ -256,12 +318,21 @@ def test_load_single_degrades_packet_failure(monkeypatch) -> None:
         "load_pr_policy_metadata",
         lambda *_args, **_kwargs: (_metadata(), {}),
     )
+    monkeypatch.setattr(
+        settle_preflight,
+        "_load_live_metadata",
+        lambda *_args, **_kwargs: (_metadata(), {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight,
+        "_load_required_checks",
+        lambda *_args, **_kwargs: (_required_checks(), {}),
+    )
 
     def fail_packet(*_args, **_kwargs):
         raise RuntimeError("packet unavailable")
 
     monkeypatch.setattr(settle_preflight.settle_one_pr, "_load_single_pr_packet", fail_packet)
-    monkeypatch.setattr(settle_preflight, "_load_live_file_metadata", lambda *_args: {})
 
     entry, metadata = settle_preflight._load_single(Path.cwd(), 9001, None)
 
@@ -278,6 +349,11 @@ def test_queue_mode_uses_policy_files_for_unsafe_surface(monkeypatch) -> None:
         lambda *_args, **_kwargs: ({9001: _light_metadata()}, {}),
     )
     monkeypatch.setattr(
+        settle_preflight,
+        "_load_live_metadata",
+        lambda *_args, **_kwargs: (_metadata(), {}),
+    )
+    monkeypatch.setattr(
         settle_preflight.settle_one_pr,
         "load_pr_policy_metadata",
         lambda *_args, **_kwargs: (
@@ -289,6 +365,11 @@ def test_queue_mode_uses_policy_files_for_unsafe_surface(monkeypatch) -> None:
             ),
             {},
         ),
+    )
+    monkeypatch.setattr(
+        settle_preflight,
+        "_load_required_checks",
+        lambda *_args, **_kwargs: (_required_checks(), {}),
     )
     monkeypatch.setattr(
         settle_preflight.settle_one_pr,
@@ -308,6 +389,11 @@ def test_queue_mode_policy_metadata_failure_does_not_classify_ready(monkeypatch)
         settle_preflight.settle_one_pr,
         "load_open_pr_metadata",
         lambda *_args, **_kwargs: ({9001: _light_metadata()}, {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight,
+        "_load_live_metadata",
+        lambda *_args, **_kwargs: (_metadata(), {}),
     )
     monkeypatch.setattr(
         settle_preflight.settle_one_pr,
@@ -340,12 +426,22 @@ def test_queue_policy_exclusion_uses_policy_file_metadata(monkeypatch) -> None:
         lambda *_args, **_kwargs: ({9001: _light_metadata()}, {}),
     )
     monkeypatch.setattr(
+        settle_preflight,
+        "_load_live_metadata",
+        lambda *_args, **_kwargs: (_metadata(), {}),
+    )
+    monkeypatch.setattr(
         settle_preflight.settle_one_pr,
         "load_pr_policy_metadata",
         lambda *_args, **_kwargs: (
             _metadata(files=[{"path": ".github/workflows/build.yml"}]),
             {},
         ),
+    )
+    monkeypatch.setattr(
+        settle_preflight,
+        "_load_required_checks",
+        lambda *_args, **_kwargs: (_required_checks(), {}),
     )
     monkeypatch.setattr(
         settle_preflight.settle_one_pr,
@@ -358,3 +454,95 @@ def test_queue_policy_exclusion_uses_policy_file_metadata(monkeypatch) -> None:
     assert len(results) == 1
     assert results[0].verdict == settle_preflight.HUMAN_GATED
     assert settle_preflight.settle_one_pr.SURFACE_EXCLUDE_REASON in results[0].reasons
+
+
+def test_policy_metadata_failure_exits_nonzero_and_parks(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(settle_preflight, "_load_active_owner_scope", lambda *_args: (set(), None))
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_open_pr_metadata",
+        lambda *_args, **_kwargs: ({9001: _light_metadata()}, {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight,
+        "_load_live_metadata",
+        lambda *_args, **_kwargs: (_metadata(), {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_pr_policy_metadata",
+        lambda *_args, **_kwargs: (
+            {},
+            {"returncode": 1, "stderr": "gh pr view failed"},
+        ),
+    )
+
+    def fail_packet(*_args, **_kwargs):
+        raise AssertionError("preflight should not load packet without policy files")
+
+    monkeypatch.setattr(settle_preflight.settle_one_pr, "_load_single_pr_packet", fail_packet)
+
+    rc = settle_preflight.main(["--queue", "--json"])
+
+    assert rc == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["results"][0]["verdict"] == settle_preflight.HEAD_BLOCKED
+    assert any(
+        settle_preflight.POLICY_METADATA_REASON in reason
+        for reason in payload["results"][0]["reasons"]
+    )
+
+
+def test_open_queue_metadata_failure_exits_nonzero(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(settle_preflight, "_load_active_owner_scope", lambda *_args: (set(), None))
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_open_pr_metadata",
+        lambda *_args, **_kwargs: (
+            {},
+            {"returncode": 1, "stderr": "gh pr list failed"},
+        ),
+    )
+
+    rc = settle_preflight.main(["--queue", "--json"])
+
+    assert rc == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["results"][0]["verdict"] == settle_preflight.HEAD_BLOCKED
+    assert any(
+        settle_preflight.OPEN_QUEUE_METADATA_REASON in reason
+        for reason in payload["results"][0]["reasons"]
+    )
+
+
+def test_queue_and_single_pr_modes_share_classification_path(monkeypatch) -> None:
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_open_pr_metadata",
+        lambda *_args, **_kwargs: ({9001: _light_metadata()}, {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight,
+        "_load_live_metadata",
+        lambda *_args, **_kwargs: (_blocked_metadata(), {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "load_pr_policy_metadata",
+        lambda *_args, **_kwargs: (_metadata(), {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight,
+        "_load_required_checks",
+        lambda *_args, **_kwargs: (_required_checks(), {}),
+    )
+    monkeypatch.setattr(
+        settle_preflight.settle_one_pr,
+        "_load_single_pr_packet",
+        lambda *_args, **_kwargs: _packet(),
+    )
+
+    single = settle_preflight._classify_single(Path.cwd(), 9001, None)
+    queue = settle_preflight._classify_queue(Path.cwd(), None, 50)[0]
+
+    assert queue.to_dict() == single.to_dict()
