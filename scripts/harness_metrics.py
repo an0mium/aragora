@@ -205,7 +205,7 @@ def _iter_receipt_records(receipt_dir: Path) -> list[dict[str, Any]]:
 
 def _within_window(event_time: datetime | None, *, as_of: datetime, window_days: int) -> bool:
     if event_time is None:
-        return True
+        return False
     return as_of - timedelta(days=window_days) <= event_time <= as_of
 
 

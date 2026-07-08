@@ -184,6 +184,44 @@ def test_window_filtering_excludes_future_events(tmp_path: Path) -> None:
     assert "future" not in lanes
 
 
+def test_window_filtering_excludes_undated_events(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "dated",
+                "external_progress": True,
+            },
+            {
+                "lane": "undated",
+                "external_progress": True,
+            },
+            {
+                "timestamp": "not-a-timestamp",
+                "lane": "ambiguous",
+                "external_progress": True,
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lanes = {lane["lane"]: lane for lane in report["lanes"]}
+    assert "dated" in lanes
+    assert "undated" not in lanes
+    assert "ambiguous" not in lanes
+
+
 def test_rounds_to_merge_average_uses_only_merged_records(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.jsonl"
     fixture = tmp_path / "eval.json"
