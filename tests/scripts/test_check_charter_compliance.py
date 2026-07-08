@@ -419,6 +419,73 @@ def test_f_string_literal_text_is_not_live_python_code(tmp_path: Path) -> None:
     assert result.binding_violations == []
 
 
+def test_multiline_f_string_close_preserves_later_live_code(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    (tmp_path / "some.py").write_text(
+        'label = f"""existing\n{value}\n"""\n# existing\n',
+        encoding="utf-8",
+    )
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -3,0 +4 @@
++executor = aragora.queue.create_default_executor()
+"""
+
+    result = checker.check_diff(
+        diff_text,
+        charter_path=charter_path,
+        working_tree=tmp_path,
+    )
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_hunk_inside_existing_multiline_f_string_uses_worktree_state(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    (tmp_path / "some.py").write_text(
+        'label = f"""existing\nexecutor = aragora.queue.create_default_executor()\n"""\n',
+        encoding="utf-8",
+    )
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -1,0 +2 @@
++executor = aragora.queue.create_default_executor()
+"""
+
+    result = checker.check_diff(
+        diff_text,
+        charter_path=charter_path,
+        working_tree=tmp_path,
+    )
+
+    assert result.ok is True
+    assert result.binding_violations == []
+
+
+def test_non_utf8_worktree_state_fails_closed_without_crashing(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    (tmp_path / "some.py").write_bytes(b"label = \\xff\\xfe\\n")
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -1,0 +2 @@
++executor = aragora.queue.create_default_executor()
+"""
+
+    result = checker.check_diff(
+        diff_text,
+        charter_path=charter_path,
+        working_tree=tmp_path,
+    )
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+
+
 def test_hunk_inside_existing_triple_string_uses_worktree_state(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     (tmp_path / "some.py").write_text(

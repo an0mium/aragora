@@ -278,9 +278,6 @@ def _python_code_text_for_line(line: str, active_delimiter: str | None) -> tuple
             code.append(" ")
             is_f_string = _is_f_string_quote(line, index)
             if close_index == -1:
-                if is_f_string:
-                    code.append(line[index + len(next_delimiter) :])
-                    return "".join(code).rstrip(), None
                 return "".join(code).rstrip(), next_delimiter
             if is_f_string:
                 code.append(
@@ -312,7 +309,7 @@ def _python_string_delimiter_before_line(
         return None
     try:
         lines = (working_tree / path).read_text(encoding="utf-8").splitlines()
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return None
     delimiter: str | None = None
     for line in lines[: line_no - 1]:
