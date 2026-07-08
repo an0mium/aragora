@@ -451,6 +451,33 @@ class TestInitializeDebateContext:
         mock_arena._apply_culture_hints.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_culture_task_failure_outside_narrow_tuple_does_not_fail_debate_start(
+        self, mock_arena
+    ):
+        """A culture-task exception outside the old narrow _NON_BLOCKING_KM_INIT_ERRORS
+        tuple must still not propagate out of initialize_debate_context.
+
+        Reviewer-flagged on P4a E8 PR #9002 (claude [P3], grok [P2]): awaiting the
+        pending culture task newly exposed debate start to its exceptions, but the
+        except clause only covered _NON_BLOCKING_KM_INIT_ERRORS - narrower than the
+        module's own "culture hints must never block or fail debate start" invariant.
+        KeyError (deliberately outside that tuple) exercises the gap.
+        """
+
+        async def _raises_key_error() -> None:
+            await asyncio.sleep(0)
+            raise KeyError("simulated KM backend failure outside the narrow tuple")
+
+        pending_task = asyncio.ensure_future(_raises_key_error())
+        mock_arena._init_km_context = AsyncMock(return_value=pending_task)
+        mock_arena._get_culture_hints = MagicMock(return_value=None)
+
+        state = await initialize_debate_context(mock_arena, "corr-123")
+
+        assert state is not None
+        mock_arena._apply_culture_hints.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_creates_debate_context(self, mock_arena):
         """Test that DebateContext is created with correct fields."""
         state = await initialize_debate_context(mock_arena, "corr-123")

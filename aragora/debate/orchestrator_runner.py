@@ -756,14 +756,17 @@ async def initialize_debate_context(
                 _CULTURE_HINTS_WAIT_TIMEOUT_S,
                 debate_id,
             )
-        except _NON_BLOCKING_KM_INIT_ERRORS as e:
+        except Exception as e:  # noqa: BLE001 - culture hints are best-effort; awaiting the
+            # retrieval task must never fail debate start, so this must catch wider than the
+            # specific _NON_BLOCKING_KM_INIT_ERRORS tuple used for _init_km_context itself.
             logger.debug("Culture profile retrieval task failed while awaited: %s", e)
 
     try:
         culture_hints = arena._get_culture_hints(debate_id)
         if culture_hints:
             arena._apply_culture_hints(culture_hints)
-    except (RuntimeError, TypeError, ValueError, AttributeError, KeyError) as e:
+    except Exception as e:  # noqa: BLE001 - culture hints are best-effort and must never fail
+        # debate start regardless of which exception type a KM/storage backend raises.
         logger.debug(
             "Culture hint retrieval/application failed (non-critical) for debate %s: %s",
             debate_id,
