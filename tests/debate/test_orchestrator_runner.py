@@ -461,14 +461,17 @@ class TestInitializeDebateContext:
         pending culture task newly exposed debate start to its exceptions, but the
         except clause only covered _NON_BLOCKING_KM_INIT_ERRORS - narrower than the
         module's own "culture hints must never block or fail debate start" invariant.
-        KeyError (deliberately outside that tuple) exercises the gap.
+        A custom exception (deliberately outside that tuple) exercises the gap.
         """
 
-        async def _raises_key_error() -> None:
-            await asyncio.sleep(0)
-            raise KeyError("simulated KM backend failure outside the narrow tuple")
+        class CultureBackendError(Exception):
+            pass
 
-        pending_task = asyncio.ensure_future(_raises_key_error())
+        async def _raises_custom_error() -> None:
+            await asyncio.sleep(0)
+            raise CultureBackendError("simulated KM backend failure outside the narrow tuple")
+
+        pending_task = asyncio.ensure_future(_raises_custom_error())
         mock_arena._init_km_context = AsyncMock(return_value=pending_task)
         mock_arena._get_culture_hints = MagicMock(return_value=None)
 

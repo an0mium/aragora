@@ -209,7 +209,10 @@ _NON_BLOCKING_KM_INIT_ERRORS = (
     AttributeError,
     ImportError,
 )
-_NON_BLOCKING_CULTURE_HINT_ERRORS = _NON_BLOCKING_KM_INIT_ERRORS + (LookupError,)
+# Culture hint enrichment is a best-effort boundary around KM/storage/client
+# adapters that may raise provider-specific ordinary exceptions. This alias
+# deliberately excludes BaseException subclasses such as cancellation.
+_CULTURE_HINT_FAILURE = Exception
 
 # Bound on awaiting the fire-and-forget KM culture-profile retrieval task
 # (scheduled by the culture_to_debate reaction during _init_km_context) before
@@ -757,15 +760,15 @@ async def initialize_debate_context(
                 _CULTURE_HINTS_WAIT_TIMEOUT_S,
                 debate_id,
             )
-        except _NON_BLOCKING_CULTURE_HINT_ERRORS as e:
+        except Exception as e:  # noqa: BLE001 - culture hints are best-effort and must never fail
+            # debate start regardless of which exception type a KM/storage backend raises.
             logger.debug("Culture profile retrieval task failed while awaited: %s", e)
 
     try:
         culture_hints = arena._get_culture_hints(debate_id)
         if culture_hints:
             arena._apply_culture_hints(culture_hints)
-    except Exception as e:  # noqa: BLE001 - culture hints are best-effort and must never fail
-        # debate start regardless of which exception type a KM/storage backend raises.
+    except _CULTURE_HINT_FAILURE as e:
         logger.debug(
             "Culture hint retrieval/application failed (non-critical) for debate %s: %s",
             debate_id,
