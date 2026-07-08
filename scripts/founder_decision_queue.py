@@ -611,6 +611,32 @@ def _dedupe_table_decision_items(items: Iterable[DecisionItem]) -> list[Decision
     return list(by_identity.values())
 
 
+def _newest_consolidated_sources_by_thread(
+    sources: Iterable[DecisionSource],
+) -> dict[str, DecisionSource]:
+    newest: dict[str, DecisionSource] = {}
+    for source in sources:
+        if not _is_consolidated_decision_source(source.source, source.body):
+            continue
+        current = newest.get(source.thread_key)
+        if current is None or _packet_sort_key(source) > _packet_sort_key(current):
+            newest[source.thread_key] = source
+    return newest
+
+
+def _consolidated_source_item_filter(
+    table_sources: Iterable[DecisionSource],
+) -> dict[str, set[str]]:
+    newest_sources = _newest_consolidated_sources_by_thread(table_sources)
+    newest_target_keys: dict[str, set[str]] = {}
+    for thread_key, source in newest_sources.items():
+        newest_target_keys[thread_key] = {
+            _item_target_key(item)
+            for item in parse_decision_packet(source.body, source=source.source)
+        }
+    return newest_target_keys
+
+
 def _sort_decision_items_newest_first(items: Iterable[DecisionItem]) -> list[DecisionItem]:
     return sorted(
         items,
@@ -693,12 +719,12 @@ def _target_number(target: str) -> str | None:
 
 
 def _comment_resolves_item(body: str, item: DecisionItem) -> bool:
-    if _body_has_decision_request(body) or _is_local_only_draft(body):
-        return False
     first_line = _strip_markdown_code(_first_nonempty_line(body))
     expected = item.expected_reply
     if first_line and first_line == expected:
         return True
+    if _body_has_decision_request(body) or _is_local_only_draft(body):
+        return False
     if _is_decision_packet_body(body):
         return False
     number = _target_number(item.target)
@@ -761,7 +787,7 @@ def _load_issue_comment_sources(path: Path) -> list[DecisionSource]:
         later_comments: list[tuple[datetime | None, str]] = []
         for other in comments:
             other_body = other.get("body")
-            if not isinstance(other_body, str) or _body_has_decision_request(other_body):
+            if not isinstance(other_body, str):
                 continue
             if _thread_key_from_comment(other, fallback=f"{path}") != base_thread_key:
                 continue
@@ -809,7 +835,7 @@ def _github_issue_comment_sources(
         later_comments: list[tuple[datetime | None, str]] = []
         for other in comments:
             other_body = other.get("body")
-            if not isinstance(other_body, str) or _body_has_decision_request(other_body):
+            if not isinstance(other_body, str):
                 continue
             later_comments.append((_comment_created_at(other), other_body))
         sources.append(
@@ -1012,6 +1038,8 @@ def collect_decision_collection(
         repo=repo,
     )
     table_sources = [source for source in source_collection.sources if _has_decision_table(source)]
+    newest_consolidated_sources = _newest_consolidated_sources_by_thread(table_sources)
+    newest_consolidated_target_keys = _consolidated_source_item_filter(table_sources)
     standalone_sources = [
         source for source in source_collection.sources if not _has_decision_table(source)
     ]
@@ -1019,6 +1047,15 @@ def collect_decision_collection(
         if not source.thread_open:
             continue
         for item in parse_decision_packet(source.body, source=source.source):
+            newest_source = newest_consolidated_sources.get(source.thread_key)
+            if (
+                newest_source is not None
+                and source != newest_source
+                and _is_consolidated_decision_source(source.source, source.body)
+                and _item_target_key(item)
+                not in newest_consolidated_target_keys.get(source.thread_key, set())
+            ):
+                continue
             if _item_resolved_after_packet(source, item):
                 continue
             table_items.append(item)

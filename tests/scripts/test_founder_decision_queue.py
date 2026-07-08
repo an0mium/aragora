@@ -1038,6 +1038,57 @@ Generated: 2026-07-07T07:21:53Z
     ]
 
 
+def test_collect_decision_items_omits_rows_removed_from_newest_consolidated_packet(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T07:21:53Z",
+            "thread_state": "open",
+            "body": """# Consolidated Founder Decision Queue Packet
+
+Generated: 2026-07-07T07:21:53Z
+
+## Pending Rulings
+
+| Priority | Link | Current blocker | Requested action | One-word reply |
+| --- | --- | --- | --- | --- |
+| P1 | PR #8951: https://github.com/synaptent/aragora/pull/8951 | Tier 4. | Record stale settlement. | `settle-8951-old` |
+| P2 | PR #8952: https://github.com/synaptent/aragora/pull/8952 | Tier 2. | Collect evidence. | `ready-8952-old` |
+""",
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T08:21:53Z",
+            "thread_state": "open",
+            "body": """# Consolidated Founder Decision Queue Packet
+
+Generated: 2026-07-07T08:21:53Z
+
+## Pending Rulings
+
+| Priority | Link | Current blocker | Requested action | One-word reply |
+| --- | --- | --- | --- | --- |
+| P2 | PR #8952: https://github.com/synaptent/aragora/pull/8952 | Tier 2. | Collect evidence. | `ready-8952` |
+""",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert [(item.target, item.expected_reply) for item in items] == [
+        ("PR #8952: https://github.com/synaptent/aragora/pull/8952", "ready-8952")
+    ]
+
+
 def test_collect_decision_items_keeps_distinct_rulings_for_same_target(
     tmp_path: Path,
 ) -> None:
@@ -1226,6 +1277,52 @@ Generated: 2026-07-07T07:21:53Z
             "created_at": "2026-07-07T07:25:00Z",
             "thread_state": "open",
             "body": "`settle-8951`\n\nRecorded operator reply token as the exact reply.",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert items == []
+
+
+def test_collect_decision_items_first_line_reply_with_quoted_packet_context_resolves_packet(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T07:21:53Z",
+            "thread_state": "open",
+            "body": """# Founder Decision Queue Packet
+
+Generated: 2026-07-07T07:21:53Z
+
+## Pending Rulings
+
+| Priority | Link | Current blocker | Requested action | One-word reply |
+| --- | --- | --- | --- | --- |
+| P1 | PR #8951: https://github.com/synaptent/aragora/pull/8951 | Tier 4. | Record current Tier 4 settlement. | `settle-8951` |
+""",
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T07:25:00Z",
+            "thread_state": "open",
+            "body": """`settle-8951`
+
+Quoting the packet below for context.
+
+## Pending Rulings
+
+The quoted context still uses decision-request wording.
+""",
         },
     ]
     comments_path = tmp_path / "comments.json"
