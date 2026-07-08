@@ -38,6 +38,7 @@ from aragora.analysis.codebase.sast.models import (
 )
 from aragora.events.security_events import (
     SecurityEvent,
+    SecurityEventEmitter,
     SecurityEventType,
     SecurityFinding,
     SecuritySeverity,
@@ -664,6 +665,89 @@ class TestEmitScanEvents:
 
         finding = mock_emitter.emit.call_args[0][0].findings[0]
         assert finding.metadata["cvss_score"] is None
+
+
+class TestEmitScanEventsColdRunnerRegistration:
+    """Regression test for P4a E8 SCOPE #5.
+
+    This module never explicitly imports aragora.debate.security_response
+    (that import was deliberately reverted to avoid a Tier-3 reclassification
+    for this interface-tier handler - see aragora/debate/security_response.py's
+    module docstring for the two composition roots that DO import it
+    explicitly: aragora.debate.orchestrator and
+    aragora.analysis.codebase.sast.scanner). This proves the handler's
+    auto-debate path is robust to that import-order drift anyway, because
+    SecurityEventEmitter._trigger_security_debate self-heals the runner
+    registry on first real use
+    (aragora.events.security_events._ensure_default_security_debate_runner_registered)
+    regardless of whether either composition root ran first - a stronger,
+    more realistic guarantee than a cold-import subprocess check (which only
+    proves an import side effect, not this runtime self-heal). See also
+    tests/debate/test_security_response.py::TestConsumerRegistrationSideEffect
+    for the equivalent proof from the SAST scanner composition root's side.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_runner_registry(self):
+        import aragora.events.security_events as security_events_mod
+
+        original = security_events_mod._security_debate_runner
+        security_events_mod._security_debate_runner = security_events_mod._UNSET_RUNNER
+        yield
+        security_events_mod._security_debate_runner = original
+
+    @pytest.mark.asyncio
+    async def test_critical_finding_self_heals_runner_and_triggers_debate(self):
+        """A critical finding through the real handler+emitter path triggers a
+        debate even though no composition root ever registered the runner."""
+        from aragora.events.security_events import get_security_debate_runner
+
+        assert get_security_debate_runner() is None
+
+        vuln = _make_vuln(severity=VulnerabilitySeverity.CRITICAL, cvss_score=9.8)
+        dep = _make_dep(vulnerabilities=[vuln])
+        result = _make_scan_result(dependencies=[dep])
+
+        mock_debate_result = MagicMock()
+        mock_debate_result.debate_id = "cold-start-debate-1"
+        mock_debate_result.consensus_reached = True
+        mock_debate_result.confidence = 0.85
+        mock_debate_result.final_answer = "Patch immediately"
+        mock_debate_result.messages = [MagicMock()]
+        mock_debate_result.participants = ["security-auditor"]
+        mock_debate_result.rounds_used = 2
+        mock_debate_result.metadata = {"security_confidence_threshold_met": True}
+
+        real_emitter = SecurityEventEmitter(enable_auto_debate=True)
+
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.events.get_security_emitter",
+                return_value=real_emitter,
+            ),
+            patch(
+                "aragora.debate.security_debate.run_security_debate",
+                new_callable=AsyncMock,
+                return_value=mock_debate_result,
+            ) as mock_run,
+            patch(
+                "aragora.debate.security_response._store_security_debate_result",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await emit_scan_events(result, "repo-1", "scan-1")
+
+        mock_run.assert_awaited_once()
+        assert get_security_debate_runner() is not None
+        assert get_security_debate_runner().__name__ == "trigger_security_debate"
+
+        # get_recent_events() is newest-first: the original scan event is
+        # last (it also triggers a SECURITY_DEBATE_STARTED event, emitted
+        # after debate_requested/debate_id are set on it).
+        scan_event = real_emitter.get_recent_events()[-1]
+        assert scan_event.event_type == SecurityEventType.CRITICAL_VULNERABILITY
+        assert scan_event.debate_requested is True
+        assert scan_event.debate_id == "cold-start-debate-1"
 
 
 # ============================================================================

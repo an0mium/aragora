@@ -1,0 +1,314 @@
+{
+  "generated_at": "2026-07-05T08:36:54Z",
+  "issue": 8861,
+  "known_gaps": [
+    {
+      "gap": "GitHub Search API counts are live, regenerable marker counts; exact audited truth still requires thread-by-thread PR evidence enumeration.",
+      "metric_id": "github_search_counts",
+      "status": "limited"
+    },
+    {
+      "gap": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set. This is a phrase marker only; it does not prove the comment SHA matched the PR head.",
+      "metric_id": "exact_head_marker_comments",
+      "status": "limited"
+    },
+    {
+      "gap": "This is only a live phrase-marker proxy. The remaining stronger grounding gap is a per-PR audit that resolves each evidence comment SHA against the actual merged head.",
+      "metric_id": "exact_head_marker_coverage",
+      "status": "limited"
+    },
+    {
+      "gap": "Operator merge-executor receipts are local machine artifacts, not repo-visible public proof.",
+      "metric_id": "operator_local_merge_executor_receipts",
+      "status": "local_only"
+    }
+  ],
+  "metrics": [
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 --jq .total_count",
+      "details": {
+        "count": 495
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "merged_prs",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "495"
+    },
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"independent model review\" in:comments --jq .total_count",
+      "details": {
+        "count": 462
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs with \"independent model review\" comments",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "independent_model_review_comments",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"independent model review\" in:comments",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "462"
+    },
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"Verdict: PASS\" in:comments --jq .total_count",
+      "details": {
+        "count": 464
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs with \"Verdict: PASS\" comments",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "verdict_pass_comments",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"Verdict: PASS\" in:comments",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "464"
+    },
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"merge-quorum\" in:comments --jq .total_count",
+      "details": {
+        "count": 146
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs mentioning \"merge-quorum\"",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "merge_quorum_comments",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"merge-quorum\" in:comments",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "146"
+    },
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"CHANGES-REQUESTED\" in:comments --jq .total_count",
+      "details": {
+        "count": 35
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs with \"CHANGES-REQUESTED\" comments",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "changes_requested_comments",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"CHANGES-REQUESTED\" in:comments",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "35"
+    },
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"[P0]\" in:comments --jq .total_count",
+      "details": {
+        "count": 18
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs with [P0] comment markers",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "p0_dissent_comments",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"[P0]\" in:comments",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "18"
+    },
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"[P1]\" in:comments --jq .total_count",
+      "details": {
+        "count": 64
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs with [P1] comment markers",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "p1_dissent_comments",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"[P1]\" in:comments",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "64"
+    },
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"[P2]\" in:comments --jq .total_count",
+      "details": {
+        "count": 99
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs with [P2] comment markers",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "p2_dissent_comments",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"[P2]\" in:comments",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "99"
+    },
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"[P3]\" in:comments --jq .total_count",
+      "details": {
+        "count": 290
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs with [P3] comment markers",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "p3_dissent_comments",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"[P3]\" in:comments",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "290"
+    },
+    {
+      "caveat": "GitHub Search API total_count is a live search-index marker count, not a hand-audited exact truth set. This is a phrase marker only; it does not prove the comment SHA matched the PR head.",
+      "command": "gh api -X GET search/issues -f q=repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"exact-head\" in:comments --jq .total_count",
+      "details": {
+        "count": 427
+      },
+      "error": "",
+      "failure_behavior": "Mark stale after SLA; if the query fails, show failed and rerun manually.",
+      "label": "Merged PRs with \"exact-head\" comment markers",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "exact_head_marker_comments",
+      "source_query": "repo:synaptent/aragora is:pr is:merged merged:2026-06-05..2026-07-05 \"exact-head\" in:comments",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "427"
+    },
+    {
+      "caveat": "Coverage is based on GitHub Search comment markers and is not a thread-by-thread audit.",
+      "command": "n/a",
+      "details": {
+        "denominator": 495,
+        "numerator": 462
+      },
+      "error": "",
+      "failure_behavior": "Derived metric follows the staleness/failure behavior of its inputs.",
+      "label": "Independent-review marker coverage",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "independent_model_review_coverage",
+      "source_query": "derived from independent_model_review_comments/merged_prs",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "462/495 (93.3%)"
+    },
+    {
+      "caveat": "Coverage is based on GitHub Search comment markers and is not a thread-by-thread audit.",
+      "command": "n/a",
+      "details": {
+        "denominator": 495,
+        "numerator": 464
+      },
+      "error": "",
+      "failure_behavior": "Derived metric follows the staleness/failure behavior of its inputs.",
+      "label": "Verdict PASS marker coverage",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "verdict_pass_coverage",
+      "source_query": "derived from verdict_pass_comments/merged_prs",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "464/495 (93.7%)"
+    },
+    {
+      "caveat": "Coverage is based on GitHub Search comment markers and is not a thread-by-thread audit.",
+      "command": "n/a",
+      "details": {
+        "denominator": 495,
+        "numerator": 146
+      },
+      "error": "",
+      "failure_behavior": "Derived metric follows the staleness/failure behavior of its inputs.",
+      "label": "Merge-quorum marker coverage",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "merge_quorum_marker_coverage",
+      "source_query": "derived from merge_quorum_comments/merged_prs",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "146/495 (29.5%)"
+    },
+    {
+      "caveat": "This is only a live phrase-marker proxy. The remaining stronger grounding gap is a per-PR audit that resolves each evidence comment SHA against the actual merged head.",
+      "command": "n/a",
+      "details": {
+        "denominator": 495,
+        "numerator": 427
+      },
+      "error": "",
+      "failure_behavior": "Derived metric follows the staleness/failure behavior of its inputs.",
+      "label": "Exact-head marker coverage",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "exact_head_marker_coverage",
+      "source_query": "derived from exact_head_marker_comments/merged_prs",
+      "stale_after_hours": 24,
+      "status": "limited",
+      "value": "427/495 (86.3%)"
+    },
+    {
+      "caveat": "These are committed settlement receipts, not operator-local merge-executor receipts.",
+      "command": "git fetch origin elves/close-the-loop-20260701; for f in b3-8767-settlement b4-8768-settlement b6-cleanup-batch1; do git show FETCH_HEAD:docs/elves/receipts/$f.json; done; python3 - <<'EOF' ... DecisionReceipt.from_dict(...).verify_integrity() ... EOF",
+      "details": {
+        "failed": [],
+        "verified": [
+          "docs/elves/receipts/b3-8767-settlement.json",
+          "docs/elves/receipts/b4-8768-settlement.json",
+          "docs/elves/receipts/b6-cleanup-batch1.json"
+        ]
+      },
+      "error": "",
+      "failure_behavior": "If any receipt is missing or fails integrity verification, mark the metric failed.",
+      "label": "Committed settlement receipts verified",
+      "last_updated_at": "2026-07-05T08:36:54Z",
+      "metric_id": "settlement_receipts_verified",
+      "source_query": "elves/close-the-loop-20260701:docs/elves/receipts/b3-8767-settlement.json,docs/elves/receipts/b4-8768-settlement.json,docs/elves/receipts/b6-cleanup-batch1.json",
+      "stale_after_hours": 168,
+      "status": "ok",
+      "value": "3/3"
+    },
+    {
+      "caveat": "Operator merge-executor receipts are local machine artifacts, not repo-visible public proof.",
+      "command": "find .aragora/merge_executor/receipts, ~/.aragora/merge-executor-receipts -maxdepth 1 -type f -name '*.json'",
+      "details": {
+        "exact_head_receipt_count": 5,
+        "prs": [
+          8775,
+          8776,
+          8800,
+          8801,
+          8840
+        ],
+        "receipt_count": 5,
+        "roots": [
+          ".aragora/merge_executor/receipts",
+          "~/.aragora/merge-executor-receipts"
+        ]
+      },
+      "error": "",
+      "failure_behavior": "If local paths are absent, mark missing; do not infer public receipt counts from operator-local storage.",
+      "label": "Operator-local merge-executor receipts observed",
+      "last_updated_at": "2026-07-04T21:45:57Z",
+      "metric_id": "operator_local_merge_executor_receipts",
+      "source_query": ".aragora/merge_executor/receipts, ~/.aragora/merge-executor-receipts",
+      "stale_after_hours": 168,
+      "status": "local_only",
+      "value": "5"
+    }
+  ],
+  "repo": "synaptent/aragora",
+  "report_only": true,
+  "schema": "decision-integrity-dogfood-dashboard/v1",
+  "source_artifact": "docs/artifacts/2026-07-decision-integrity-dogfooding.md",
+  "window": {
+    "end": "2026-07-05",
+    "note": "Rolling 30-day GitHub search window using the July artifact query shapes.",
+    "start": "2026-06-05"
+  }
+}

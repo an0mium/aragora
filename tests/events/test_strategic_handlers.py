@@ -27,9 +27,9 @@ class TestRiskWarningToHealth:
     """Test risk warning → health registry degradation handler."""
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
 
-        return StrategicHandlersMixin()
+        return CrossSubscriberManager()
 
     def test_skips_when_no_component(self, make_event):
         handler = self._get_handler()
@@ -127,9 +127,9 @@ class TestGenesisToControlPlane:
     """Test genesis events → control plane registry sync handler."""
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
 
-        return StrategicHandlersMixin()
+        return CrossSubscriberManager()
 
     def test_skips_when_no_agent_id(self, make_event):
         handler = self._get_handler()
@@ -236,7 +236,8 @@ class TestApprovalToKMReinforcement:
     """Test approval approved → KM confidence reinforcement handler.
 
     Relocated to ``KnowledgeEventSubscriber`` (P4a Batch E2c): it is
-    knowledge-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    knowledge-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
     """
 
     def _get_handler(self):
@@ -312,7 +313,8 @@ class TestBudgetAlertToTeamSelection:
     """Test budget alert → team selection constraint handler.
 
     Relocated to ``DebateEventSubscriber`` (P4a Batch E4): it is
-    debate-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    debate-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
     """
 
     def _get_handler(self):
@@ -380,7 +382,8 @@ class TestAlertEscalatedToWorkflowBrake:
     """Test alert escalated → workflow emergency brake handler.
 
     Relocated to ``WorkflowEventSubscriber`` (P4a Batch E5): it is
-    workflow-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    workflow-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
     """
 
     def _get_handler(self):
@@ -458,7 +461,8 @@ class TestMetaLearningToTeamSelection:
     """Test meta-learning → team selection recalibration handler.
 
     Relocated to ``DebateEventSubscriber`` (P4a Batch E4): it is
-    debate-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    debate-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
     """
 
     def _get_handler(self):

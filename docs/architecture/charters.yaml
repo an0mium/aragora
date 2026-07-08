@@ -3,7 +3,7 @@
 # as any change to charter §2/§3. IDs are permanent: never reused, never renumbered.
 meta:
   charter: docs/architecture/INTENDED_ARCHITECTURE.md
-  version: "0.4"
+  version: "0.5"
   status: DRAFT
   # Ratified iff the charter file exists on main with 'Status: RATIFIED vN.N' via an
   # operator-approved PR. While DRAFT, only entries with binding_in_draft: true bind.
@@ -756,6 +756,10 @@ registry:
       - aragora/control_plane/scheduler.py
       - aragora/control_plane/registry.py
     symbols: []
+    kept_symbols:
+      - aragora.control_plane.registry:AgentRegistry
+      - aragora.control_plane.registry:AgentStatus
+      - aragora.control_plane.registry:AgentInfo.is_alive
     deadline: "2026-07-29"
     owner: operator
     evidence: >-

@@ -59,6 +59,26 @@ Not part of the decision table.
 """
 
 
+def _standalone_pr_packet(*, generated: str, pr: int, reply: str) -> str:
+    return f"""# PR #{pr} Tier 4 Settlement/Ready Decision
+
+Generated: {generated}
+
+## Live Evidence
+
+- PR: https://github.com/synaptent/aragora/pull/{pr}
+- State: open draft, `MERGEABLE`, `CLEAN`
+
+## Requested action
+
+Authorize exactly one bounded decision path for PR #{pr}, or leave it parked.
+
+Expected one-word reply on issue #8845:
+
+`{reply}`
+"""
+
+
 def test_parse_decision_packet_extracts_pending_rulings() -> None:
     items = fdq.parse_decision_packet(PACKET, source="local.md")
 
@@ -318,6 +338,166 @@ def test_collect_decision_items_settlement_match_resolves_exact_target(
             "created_at": "2026-07-05T10:05:00Z",
             "thread_state": "open",
             "body": "Settlement recorded for PR #8756.",
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert items == []
+
+
+def test_collect_decision_items_does_not_self_resolve_standalone_packet(
+    tmp_path: Path,
+) -> None:
+    decisions_root = tmp_path / "founder-decisions"
+    decisions_root.mkdir()
+    (decisions_root / "standalone.md").write_text(
+        _standalone_pr_packet(
+            generated="2026-07-07T10:57:38Z",
+            pr=8891,
+            reply="settle-8891",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(decisions_root=decisions_root)
+
+    assert len(items) == 1
+    assert items[0].item == "PR #8891"
+    assert items[0].target == "PR #8891: https://github.com/synaptent/aragora/pull/8891"
+    assert items[0].expected_reply == "settle-8891"
+    assert items[0].packet_generated_at.isoformat() == "2026-07-07T10:57:38+00:00"
+
+
+def test_collect_decision_items_keeps_consolidated_packet_after_standalone_packet(
+    tmp_path: Path,
+) -> None:
+    decisions_root = tmp_path / "founder-decisions"
+    decisions_root.mkdir()
+    (decisions_root / "20260707T072153Z-consolidated.md").write_text(
+        _single_item_packet(
+            generated="2026-07-07T07:21:53Z",
+            target="PR #8954: https://github.com/synaptent/aragora/pull/8954",
+            reply="ready-8954",
+        ),
+        encoding="utf-8",
+    )
+    (decisions_root / "20260707T105738Z-pr8891.md").write_text(
+        _standalone_pr_packet(
+            generated="2026-07-07T10:57:38Z",
+            pr=8891,
+            reply="settle-8891",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(decisions_root=decisions_root)
+
+    assert sorted(item.expected_reply for item in items) == ["ready-8954", "settle-8891"]
+
+
+def test_collect_decision_items_later_standalone_packet_does_not_resolve_table_item(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T07:21:53Z",
+            "thread_state": "open",
+            "body": _single_item_packet(
+                generated="2026-07-07T07:21:53Z",
+                target="PR #8891: https://github.com/synaptent/aragora/pull/8891",
+                reply="settle-8891",
+            ),
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T10:57:38Z",
+            "thread_state": "open",
+            "body": _standalone_pr_packet(
+                generated="2026-07-07T10:57:38Z",
+                pr=8891,
+                reply="settle-8891",
+            ),
+        },
+    ]
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        issue_comments_json=comments_path,
+    )
+
+    assert sorted(item.source for item in items) == [
+        "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+        "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+    ]
+
+
+def test_collect_decision_items_keeps_first_duplicate_item(
+    tmp_path: Path,
+) -> None:
+    older_dir = tmp_path / "older"
+    newer_dir = tmp_path / "newer"
+    older_dir.mkdir()
+    newer_dir.mkdir()
+    older_packet = older_dir / "packet.md"
+    newer_packet = newer_dir / "packet.md"
+    older_packet.write_text(
+        _single_item_packet(
+            generated="2026-07-07T07:21:53Z",
+            target="PR #8891: https://github.com/synaptent/aragora/pull/8891",
+            reply="settle-8891",
+        ),
+        encoding="utf-8",
+    )
+    newer_packet.write_text(
+        _single_item_packet(
+            generated="2026-07-07T10:57:38Z",
+            target="PR #8891: https://github.com/synaptent/aragora/pull/8891",
+            reply="settle-8891",
+        ),
+        encoding="utf-8",
+    )
+
+    items = fdq.collect_decision_items(
+        decisions_root=tmp_path / "empty",
+        packet_files=[newer_packet, older_packet],
+    )
+
+    assert len(items) == 1
+    assert items[0].source == str(older_packet)
+
+
+def test_collect_decision_items_accepts_genuine_standalone_one_word_reply(
+    tmp_path: Path,
+) -> None:
+    comments = [
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-1",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T10:57:38Z",
+            "thread_state": "open",
+            "body": _standalone_pr_packet(
+                generated="2026-07-07T10:57:38Z",
+                pr=8891,
+                reply="settle-8891",
+            ),
+        },
+        {
+            "html_url": "https://github.com/synaptent/aragora/issues/8845#issuecomment-2",
+            "issue_url": "https://api.github.com/repos/synaptent/aragora/issues/8845",
+            "created_at": "2026-07-07T11:00:00Z",
+            "thread_state": "open",
+            "body": "settle-8891\n\nI authorize that exact path.",
         },
     ]
     comments_path = tmp_path / "comments.json"

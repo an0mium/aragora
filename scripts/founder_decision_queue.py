@@ -336,28 +336,88 @@ def _parse_decision_table(
     return items
 
 
+def _standalone_expected_reply(markdown: str) -> str | None:
+    patterns = [
+        r"^Expected one-word reply[^\n]*:\s*\n+(?P<reply>[^\n]+)",
+        r"^## Requested operator reply\s*\n+(?P<reply>[^\n]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, flags=re.IGNORECASE | re.MULTILINE)
+        if not match:
+            continue
+        reply = _strip_markdown_code(_compact_text(match.group("reply")))
+        if reply:
+            return reply
+    return None
+
+
+def _standalone_target(markdown: str) -> str | None:
+    url_match = re.search(
+        r"https://github\.com/[^\s)]+/(?P<kind>pull|issues)/(?P<number>\d+)",
+        markdown,
+    )
+    if url_match:
+        kind = "PR" if url_match.group("kind") == "pull" else "Issue"
+        return f"{kind} #{url_match.group('number')}: {url_match.group(0)}"
+    number_match = re.search(r"\b(?P<kind>PR|Issue)\s+#(?P<number>\d+)\b", markdown)
+    if number_match:
+        return f"{number_match.group('kind')} #{number_match.group('number')}"
+    return None
+
+
+def _standalone_item_name(target: str) -> str:
+    number = _target_number(target)
+    if number is None:
+        return target
+    if "issues/" in target or target.lower().startswith("issue"):
+        return f"Issue #{number}"
+    return f"PR #{number}"
+
+
+def _standalone_requested_action(markdown: str) -> str:
+    match = re.search(
+        r"^## Requested action\s*\n+(?P<body>.+?)(?:\n\n|\Z)",
+        markdown,
+        flags=re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    )
+    if not match:
+        return "Founder/operator decision requested."
+    return _compact_text(match.group("body"))
+
+
 def _parse_standalone_request(markdown: str, *, source: str) -> list[DecisionItem]:
     reply_section = _section_body(markdown, {"requested operator reply", "operator reply"})
-    reply = _extract_first_code_or_line(reply_section) if reply_section else None
+    reply = (
+        _extract_first_code_or_line(reply_section)
+        if reply_section
+        else _standalone_expected_reply(markdown)
+    )
     if not reply:
         return []
     expected_reply = _strip_markdown_code(_compact_text(reply))
     if not re.fullmatch(r"[A-Za-z0-9_.-]+", expected_reply):
         return []
     target_section = _section_body(markdown, {"target"})
-    requested_action = _section_body(markdown, {"requested action", "action requested"})
-    target = _extract_target_from_section(target_section or markdown)
+    requested_action_section = _section_body(markdown, {"requested action", "action requested"})
+    requested_action = (
+        _compact_text(requested_action_section)
+        if requested_action_section
+        else _standalone_requested_action(markdown)
+    )
+    target = _extract_target_from_section(target_section or markdown) or _standalone_target(
+        markdown
+    )
     if not target:
         return []
     generated_at = _packet_generated_at(markdown)
     title = _extract_markdown_field(target_section, "Title")
     exact_head_sha = _extract_exact_head(target_section) or _extract_exact_head(requested_action)
-    item = title or target
+    item = title or _standalone_item_name(target)
     return [
         DecisionItem(
             item=item,
             target=target,
-            requested_action=_compact_text(requested_action) if requested_action else "",
+            requested_action=requested_action,
             expected_reply=expected_reply,
             source=source,
             packet_generated_at=generated_at,
@@ -384,6 +444,10 @@ def parse_decision_packet(markdown: str, *, source: str) -> list[DecisionItem]:
     return _parse_decision_table(rows, source=source, generated_at=generated_at)
 
 
+def _has_pending_rulings_table(source: DecisionSource) -> bool:
+    return bool(_pending_ruling_rows(source.body))
+
+
 def _body_has_decision_request(body: str) -> bool:
     if _is_local_only_draft(body):
         return False
@@ -392,8 +456,13 @@ def _body_has_decision_request(body: str) -> bool:
         "## pending rulings" in lowered
         or "## pending ruling" in lowered
         or "## requested operator reply" in lowered
+        or (_standalone_expected_reply(body) is not None and _standalone_target(body) is not None)
         or _body_has_decision_table(body)
     )
+
+
+def _is_decision_packet_body(body: str) -> bool:
+    return _body_has_decision_request(body)
 
 
 def _body_has_decision_table(body: str) -> bool:
@@ -457,7 +526,8 @@ def _is_consolidated_decision_source(source: str, body: str) -> bool:
 
 
 def _is_standalone_request_source(body: str) -> bool:
-    return "## requested operator reply" in body.lower()
+    lowered = body.lower()
+    return "## requested operator reply" in lowered or "expected one-word reply" in lowered
 
 
 def _packet_time_sort_key(value: datetime | None) -> datetime:
@@ -510,8 +580,20 @@ def _item_target_key(item: DecisionItem) -> str:
 
 
 def _dedupe_decision_items(items: Iterable[DecisionItem]) -> list[DecisionItem]:
+    deduped: dict[tuple[str, str, str], DecisionItem] = {}
+    for item in items:
+        deduped.setdefault(item.dedupe_key(), item)
+    return list(deduped.values())
+
+
+def _dedupe_table_decision_items(items: Iterable[DecisionItem]) -> list[DecisionItem]:
+    seen_exact: set[tuple[str, str, str]] = set()
     by_target: dict[str, list[DecisionItem]] = {}
     for item in items:
+        exact_key = item.dedupe_key()
+        if exact_key in seen_exact:
+            continue
+        seen_exact.add(exact_key)
         target_key = _item_target_key(item)
         current_items = by_target.get(target_key)
         if current_items is None:
@@ -523,13 +605,13 @@ def _dedupe_decision_items(items: Iterable[DecisionItem]) -> list[DecisionItem]:
             by_target[target_key] = [item]
         elif item_freshness == current_freshness:
             current_items.append(item)
-    deduped_items = [item for target_items in by_target.values() for item in target_items]
+    return [item for target_items in by_target.values() for item in target_items]
+
+
+def _sort_decision_items_newest_first(items: Iterable[DecisionItem]) -> list[DecisionItem]:
     return sorted(
-        deduped_items,
-        key=lambda item: (
-            item.packet_generated_at or datetime.min.replace(tzinfo=UTC),
-            item.expected_reply,
-        ),
+        items,
+        key=lambda item: _packet_time_sort_key(item.packet_generated_at),
         reverse=True,
     )
 
@@ -614,6 +696,8 @@ def _comment_resolves_item(body: str, item: DecisionItem) -> bool:
     expected = item.expected_reply
     if first_line and first_line == expected:
         return True
+    if _is_decision_packet_body(body):
+        return False
     number = _target_number(item.target)
     if number is None:
         return False
@@ -915,7 +999,8 @@ def collect_decision_collection(
     github_issues: Iterable[str] = (),
     repo: str = "synaptent/aragora",
 ) -> DecisionCollection:
-    parsed_items: list[DecisionItem] = []
+    table_items: list[DecisionItem] = []
+    standalone_items: list[DecisionItem] = []
     source_collection = _collect_sources(
         decisions_root=decisions_root,
         packet_files=packet_files,
@@ -923,15 +1008,32 @@ def collect_decision_collection(
         github_issues=github_issues,
         repo=repo,
     )
-    for source in _newest_sources_by_thread(source_collection.sources):
+    table_sources = [
+        source for source in source_collection.sources if _has_pending_rulings_table(source)
+    ]
+    standalone_sources = [
+        source for source in source_collection.sources if not _has_pending_rulings_table(source)
+    ]
+    for source in sorted(table_sources, key=_packet_sort_key):
         if not source.thread_open:
             continue
         for item in parse_decision_packet(source.body, source=source.source):
             if _item_resolved_after_packet(source, item):
                 continue
-            parsed_items.append(item)
+            table_items.append(item)
+    for source in sorted(standalone_sources, key=_packet_sort_key):
+        if not source.thread_open:
+            continue
+        for item in parse_decision_packet(source.body, source=source.source):
+            if _item_resolved_after_packet(source, item):
+                continue
+            standalone_items.append(item)
+    deduped_items = [
+        *_dedupe_table_decision_items(table_items),
+        *_dedupe_decision_items(standalone_items),
+    ]
     return DecisionCollection(
-        items=_dedupe_decision_items(parsed_items),
+        items=_sort_decision_items_newest_first(deduped_items),
         source_failures=source_collection.failures,
     )
 
