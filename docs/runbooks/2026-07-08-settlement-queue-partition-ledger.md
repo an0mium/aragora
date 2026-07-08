@@ -103,14 +103,32 @@ Counts:
 
 PR #8908 was open when the initial non-draft list was captured, then closed externally at `2026-07-08T15:02:23Z` while this ledger was running. It is intentionally omitted from the live open partition above. Its preserved branch/head was `codex/steering-message-ack-flow-20260706` at `7848d6ad02551a03bb283b0e60e466a9bb2fd4bb`.
 
+## New-Arrival Intake Update
+
+Checked: 2026-07-08T15:13Z
+
+After this ledger was published, #9013 entered the non-draft queue and #9012 received additional governance context. Follow-up classification:
+
+| PR | Head | Tier | Diff Scope | Lane Owner / Competing Work | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| #9013 | `36a97bcda23e` | Tier 2 per `merge-packet` | `.agents/skills/fable-goal-cycle/SKILL.md`, `docs/AGENT_OPERATING_CONTRACT.md`, `scripts/fable_goal_cycle.py` | A separate `collect_quorum_evidence.py` / settlement shell was already running against #9013; repo-visible Claude/OpenAI evidence and a scarmani settlement comment already existed. | Do not start another lane. `merge-packet` reported counted Claude/OpenAI evidence, 19/19 checks green, `unresolved_dissent=false`, but `mergeStateStatus=UNSTABLE`; this is not a merge target for this ledger cycle. |
+| #9012 | `c9fa521f4044` | Tier 2 | M6 docs and two docs-check scripts | No owner lane matched, but the PR has `operator-review-required`. | Not autonomous-settlement-ready. `merge-packet` reported `operator_review_required=true`, no counted model families, and `admin_squash_gate_blockers=["operator-review-required label present"]`. |
+
+New-arrival intake rule:
+
+1. Record PR number, exact head SHA, tier, diff scope, lane owner or competing process, and verdict.
+2. If any competing evidence or settlement process already targets the PR, stop instead of opening a second lane.
+3. If `operator-review-required` is present, treat the PR as a handoff target, not autonomous settlement-ready.
+4. Re-run targeted `merge-packet` before any evidence or settlement prompt; do not rely on the ledger snapshot.
+
 ## Safe Next Action
 
-The only unowned Tier 0-2 non-human-risk item found in the live non-draft queue is #9012. It is not merge-ready; it needs current-head evidence collection first.
+No autonomous merge target was found. #9013 is under an active external lane, and #9012 is blocked by the operator-review-required gate before it can be treated as settlement-ready.
 
 Paste-ready next prompt:
 
 ```text
-Start from live truth in the Aragora repo root. Goal: collect only the minimum current-head evidence for non-draft PR #9012 at exact head c9fa521f4044b6984e904a04f54ecc7e006a4e95, without marking ready, merging, using --admin, rerunning workflows, touching outbox/receipts, labels, branch protection, unrelated PRs/worktrees, queue settlement state, deploy/workflow/security/auth/RBAC/public-API surfaces, product-proof, or human-risk settlement state.
+Start from live truth in the Aragora repo root. Goal: reclassify non-draft PR #9012 at exact head c9fa521f4044b6984e904a04f54ecc7e006a4e95 and prepare the smallest operator-review handoff, without collecting evidence, marking ready, merging, using --admin, rerunning workflows, touching outbox/receipts, labels, branch protection, unrelated PRs/worktrees, queue settlement state, deploy/workflow/security/auth/RBAC/public-API surfaces, product-proof, or human-risk settlement state.
 
-Check mailbox/owner state read-only/no receipt if possible for #9012 and branch factory/pum-m6-docs-scrutiny-fixes; fetch; verify exact head/open/non-draft/unowned/mergeable, required checks are green except aragora-merge-quorum, Tier 2, requires_human_risk_settlement=false, unresolved_dissent=false, and the only blocker is missing focused dogfood/model quorum. Run focused current-head dogfood for the M6 docs scrutiny fixes, then exactly the minimum no-publish model reviews required by policy from counted healthy families. If reviews are non-blocking and countable, post no more than the minimum evidence comments required by policy, rerun review-queue merge-packet --pr 9012 --json and settle_one_pr.py --json --pr 9012, and report readiness without marking ready or merging.
+Check mailbox/owner state read-only/no receipt if possible for #9012 and branch factory/pum-m6-docs-scrutiny-fixes; fetch; verify exact head/open/non-draft/unowned/mergeable, required checks are green except aragora-merge-quorum, Tier 2, requires_human_risk_settlement=false, unresolved_dissent=false, and `operator-review-required` is still present. Run `settle_one_pr.py --json --pr 9012` and `review-queue merge-packet --pr 9012 --json`. Report the exact operator-review blocker, whether model/dogfood evidence is still missing, and the smallest explicit authorization prompt needed before evidence collection or settlement.
 ```
