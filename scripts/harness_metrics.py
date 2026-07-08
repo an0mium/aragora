@@ -238,6 +238,8 @@ def _timestamp_for(record: dict[str, Any]) -> datetime | None:
             "generated_at",
             "created_at",
             "createdAt",
+            "reviewed_at",
+            "reviewedAt",
             "updated_at",
             "updatedAt",
             "mergedAt",
@@ -423,7 +425,9 @@ def lane_summary(
         else None
     )
     external_rate = (
-        accumulator.external_progress_cycles / accumulator.cycles if accumulator.cycles else None
+        accumulator.external_progress_cycles / accumulator.external_progress_observations
+        if accumulator.external_progress_observations
+        else None
     )
     rounds_average = (
         sum(accumulator.rounds_to_merge_values) / len(accumulator.rounds_to_merge_values)
