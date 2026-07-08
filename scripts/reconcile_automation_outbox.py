@@ -237,6 +237,20 @@ def _has_requested_action_contract(payload: Mapping[str, Any]) -> bool:
 
 
 def _looks_like_non_handoff_report(payload: Mapping[str, Any]) -> bool:
+    preservation_markers = {
+        "branch",
+        "constraints",
+        "desired_head",
+        "desired_head_sha",
+        "head_sha",
+        "local_evidence",
+        "requested_action",
+        "worktree",
+        "worktree_path",
+    }
+    if any(key in payload for key in preservation_markers):
+        return False
+
     report_markers = {
         "candidate_notes",
         "cycle_dir",
@@ -245,7 +259,15 @@ def _looks_like_non_handoff_report(payload: Mapping[str, Any]) -> bool:
         "rows",
         "verified_8992",
     }
-    return any(key in payload for key in report_markers)
+    report_identity_markers = {
+        "candidate_notes",
+        "cycle_dir",
+        "main_required_check_state",
+        "verified_8992",
+    }
+    return sum(1 for key in report_markers if key in payload) >= 2 and any(
+        key in payload for key in report_identity_markers
+    )
 
 
 def _non_handoff_report_terminal_info(payload: Mapping[str, Any]) -> dict[str, Any] | None:
