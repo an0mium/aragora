@@ -37,6 +37,27 @@ summary that is being held open by cancelled or stale check runs.
    | Advisory check ran and failed in files touched by the PR | in-scope failure | Repair or explicitly park the PR. |
    | Advisory check ran and failed outside PR scope | possible main regression | Verify on `origin/main`, then open or link a main-health issue. |
 
+## Settlement-Window Head Freeze
+
+Exact-head evidence becomes stale as soon as the PR branch moves. During a
+settlement window, treat the head SHA as part of the gate:
+
+1. Record the target `headRefOid` before collecting evidence.
+2. After every reviewer dry run, evidence post, quorum rerun, and merge-packet
+   read, re-read `headRefOid`.
+3. If the head changed, stop the settlement attempt. Do not post stale evidence,
+   rerun quorum, or chase the new head in the same cycle.
+4. Leave a PR-visible head-churn note naming the old head, the new head, and any
+   stale evidence artifact that must not be counted.
+5. The session or person that pushed the new head owns the next exact-head
+   evidence pass. A different settlement owner may resume only after a fresh
+   owner/steering read and a new dry-run artifact for the new head.
+
+This is a coordination guard, not a branch lock. It preserves the exact-head
+contract without blocking repair pushes: pushes are allowed, but they invalidate
+the current settlement window and transfer responsibility for refreshing
+evidence to the pusher or next explicit owner.
+
 ## Portability Cancellation Pattern
 
 Issue #9031 tracks the July 8, 2026 instance where `Portability Lint /
