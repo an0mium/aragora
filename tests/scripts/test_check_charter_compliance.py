@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -307,6 +308,23 @@ def test_nested_diff_fixture_text_is_not_live_python_code(tmp_path: Path) -> Non
     assert result.binding_violations == []
 
 
+def test_same_patch_triple_quote_opener_hides_fixture_import(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1,3 @@
++fixture = """
++from aragora.queue import create_default_executor
++"""
+'''
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is True
+    assert result.binding_violations == []
+
+
 def test_same_line_literal_does_not_hide_live_symbol_before_it(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = '''diff --git a/some.py b/some.py
@@ -471,10 +489,6 @@ def test_f_string_literal_text_is_not_live_python_code(tmp_path: Path) -> None:
 
 def test_multiline_f_string_close_preserves_later_live_code(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
-    (tmp_path / "some.py").write_text(
-        'label = f"""existing\n{value}\n"""\n# existing\n',
-        encoding="utf-8",
-    )
     diff_text = """diff --git a/some.py b/some.py
 --- a/some.py
 +++ b/some.py
@@ -485,7 +499,12 @@ def test_multiline_f_string_close_preserves_later_live_code(tmp_path: Path) -> N
     result = checker.check_diff(
         diff_text,
         charter_path=charter_path,
-        working_tree=tmp_path,
+        post_images={
+            "some.py": (
+                'label = f"""existing\n{value}\n"""\n'
+                "executor = aragora.queue.create_default_executor()\n# existing\n"
+            )
+        },
     )
 
     assert result.ok is False
@@ -493,12 +512,10 @@ def test_multiline_f_string_close_preserves_later_live_code(tmp_path: Path) -> N
     assert "create_default_executor" in result.binding_violations[0].line
 
 
-def test_hunk_inside_existing_multiline_f_string_uses_worktree_state(tmp_path: Path) -> None:
+def test_hunk_inside_existing_multiline_f_string_uses_post_image_state(
+    tmp_path: Path,
+) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
-    (tmp_path / "some.py").write_text(
-        'label = f"""existing\nexecutor = aragora.queue.create_default_executor()\n"""\n',
-        encoding="utf-8",
-    )
     diff_text = """diff --git a/some.py b/some.py
 --- a/some.py
 +++ b/some.py
@@ -509,16 +526,19 @@ def test_hunk_inside_existing_multiline_f_string_uses_worktree_state(tmp_path: P
     result = checker.check_diff(
         diff_text,
         charter_path=charter_path,
-        working_tree=tmp_path,
+        post_images={
+            "some.py": (
+                'label = f"""existing\nexecutor = aragora.queue.create_default_executor()\n"""\n'
+            )
+        },
     )
 
     assert result.ok is True
     assert result.binding_violations == []
 
 
-def test_non_utf8_worktree_state_fails_closed_without_crashing(tmp_path: Path) -> None:
+def test_untokenizable_post_image_fails_closed_without_crashing(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
-    (tmp_path / "some.py").write_bytes(b"label = \\xff\\xfe\\n")
     diff_text = """diff --git a/some.py b/some.py
 --- a/some.py
 +++ b/some.py
@@ -529,19 +549,19 @@ def test_non_utf8_worktree_state_fails_closed_without_crashing(tmp_path: Path) -
     result = checker.check_diff(
         diff_text,
         charter_path=charter_path,
-        working_tree=tmp_path,
+        post_images={
+            "some.py": (
+                'fixture = """unterminated\nexecutor = aragora.queue.create_default_executor()\n'
+            )
+        },
     )
 
     assert result.ok is False
     assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
 
 
-def test_hunk_inside_existing_triple_string_uses_worktree_state(tmp_path: Path) -> None:
+def test_hunk_inside_existing_triple_string_uses_post_image_state(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
-    (tmp_path / "some.py").write_text(
-        'fixture = """existing\nexecutor = aragora.queue.create_default_executor()\n"""\n',
-        encoding="utf-8",
-    )
     diff_text = """diff --git a/some.py b/some.py
 --- a/some.py
 +++ b/some.py
@@ -549,19 +569,12 @@ def test_hunk_inside_existing_triple_string_uses_worktree_state(tmp_path: Path) 
 +executor = aragora.queue.create_default_executor()
 """
 
-    assert (tmp_path / "some.py").read_text(encoding="utf-8").splitlines()[0] == (
-        'fixture = """existing'
-    )
-    assert checker._python_code_text_for_line('fixture = """existing', None) == (
-        "fixture =",
-        checker.PythonStringState('"""'),
-    )
-    assert checker._python_string_delimiter_before_line(
-        "some.py",
-        2,
-        working_tree=tmp_path,
-    ) == checker.PythonStringState('"""')
-    added_lines = checker.parse_diff(diff_text, working_tree=tmp_path)
+    post_images = {
+        "some.py": (
+            'fixture = """existing\nexecutor = aragora.queue.create_default_executor()\n"""\n'
+        )
+    }
+    added_lines = checker.parse_diff(diff_text, post_images=post_images)
 
     assert len(added_lines) == 1
     assert added_lines[0].in_string_literal is True
@@ -570,7 +583,7 @@ def test_hunk_inside_existing_triple_string_uses_worktree_state(tmp_path: Path) 
     result = checker.check_diff(
         diff_text,
         charter_path=charter_path,
-        working_tree=tmp_path,
+        post_images=post_images,
     )
 
     assert result.ok is True
@@ -583,7 +596,23 @@ def test_diff_file_does_not_trust_mismatched_worktree_string_state(
     capsys: Any,
 ) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
-    (tmp_path / "some.py").write_text('fixture = """stale worktree state\n', encoding="utf-8")
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, stdout=subprocess.PIPE)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "some.py").write_text(
+        'fixture = """head post image\nexecutor = aragora.queue.create_default_executor()\n"""\n',
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "some.py"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "post image"], cwd=tmp_path, check=True)
+    (tmp_path / "some.py").write_text(
+        "executor = aragora.queue.create_default_executor()\n",
+        encoding="utf-8",
+    )
     diff_path = tmp_path / "change.patch"
     diff_path.write_text(
         """diff --git a/some.py b/some.py
@@ -608,9 +637,9 @@ def test_diff_file_does_not_trust_mismatched_worktree_string_state(
     )
     payload = json.loads(capsys.readouterr().out)
 
-    assert rc == 1
-    assert payload["ok"] is False
-    assert payload["binding_violations"][0]["entry_id"] == "CHR-P4A-004"
+    assert rc == 0
+    assert payload["ok"] is True
+    assert payload["binding_violations"] == []
 
 
 def test_removed_symbol_wildcard_import_is_binding(tmp_path: Path) -> None:

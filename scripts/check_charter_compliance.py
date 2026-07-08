@@ -5,10 +5,13 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import io
 import json
 import re
 import subprocess
 import sys
+import token
+import tokenize
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -47,12 +50,6 @@ class AddedLine:
     line: str
     in_string_literal: bool = False
     code_line: str | None = None
-
-
-@dataclass(frozen=True)
-class PythonStringState:
-    delimiter: str
-    is_f_string: bool = False
 
 
 @dataclass(frozen=True)
@@ -212,131 +209,45 @@ def _is_python_path(path: str) -> bool:
     return path.endswith((".py", ".pyi"))
 
 
-def _skip_quoted_string(line: str, quote_index: int) -> int:
-    quote = line[quote_index]
-    index = quote_index + 1
-    while index < len(line):
-        if line[index] == "\\":
-            index += 2
+_NON_CODE_TOKEN_TYPES = {
+    token.STRING,
+    token.COMMENT,
+    *(getattr(token, name) for name in ("FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END")),
+}
+
+
+def _blank_token_span(
+    masked_lines: list[list[str]], start: tuple[int, int], end: tuple[int, int]
+) -> None:
+    start_row, start_col = start
+    end_row, end_col = end
+    for row in range(start_row, end_row + 1):
+        index = row - 1
+        if index < 0 or index >= len(masked_lines):
             continue
-        if line[index] == quote:
-            return index + 1
-        index += 1
-    return len(line)
+        line = masked_lines[index]
+        left = start_col if row == start_row else 0
+        right = end_col if row == end_row else len(line)
+        for column in range(max(0, left), min(len(line), right)):
+            line[column] = " "
 
 
-def _is_f_string_quote(line: str, quote_index: int) -> bool:
-    prefix_start = quote_index
-    while prefix_start > 0 and line[prefix_start - 1] in "rRuUbBfF":
-        prefix_start -= 1
-    prefix = line[prefix_start:quote_index]
-    return bool(prefix) and "f" in prefix.lower()
+def _python_code_lines_from_blob(source: str) -> dict[int, str] | None:
+    """Return code-only text by physical line using Python's tokenizer.
 
-
-def _f_string_expression_text(content: str) -> str:
-    expressions: list[str] = []
-    index = 0
-    while index < len(content):
-        if content.startswith("{{", index) or content.startswith("}}", index):
-            index += 2
-            continue
-        if content[index] != "{":
-            index += 1
-            continue
-        start = index + 1
-        depth = 1
-        index = start
-        while index < len(content):
-            if content[index] in ("'", '"'):
-                index = _skip_quoted_string(content, index)
-                continue
-            if content[index] == "{":
-                depth += 1
-            elif content[index] == "}":
-                depth -= 1
-                if depth == 0:
-                    expressions.append(content[start:index])
-                    break
-            index += 1
-        index += 1
-    return " ".join(expressions)
-
-
-def _python_code_text_for_line(
-    line: str,
-    active_state: PythonStringState | None,
-) -> tuple[str, PythonStringState | None]:
-    code: list[str] = []
-    state = active_state
-    index = 0
-    while index < len(line):
-        if state is not None:
-            close_index = line.find(state.delimiter, index)
-            if close_index == -1:
-                if state.is_f_string:
-                    code.append(_f_string_expression_text(line[index:]))
-                return "".join(code).rstrip(), state
-            if state.is_f_string:
-                code.append(_f_string_expression_text(line[index:close_index]))
-            code.append(" ")
-            index = close_index + len(state.delimiter)
-            state = None
-            continue
-        next_delimiter = next(
-            (candidate for candidate in ('"""', "'''") if line.startswith(candidate, index)),
-            None,
-        )
-        if next_delimiter is not None:
-            close_index = line.find(next_delimiter, index + len(next_delimiter))
-            code.append(" ")
-            is_f_string = _is_f_string_quote(line, index)
-            if close_index == -1:
-                remainder = line[index + len(next_delimiter) :]
-                if not "".join(code).strip() and remainder.lstrip().startswith(";"):
-                    index += len(next_delimiter)
-                    continue
-                if is_f_string:
-                    code.append(_f_string_expression_text(remainder))
-                return "".join(code).rstrip(), PythonStringState(
-                    next_delimiter,
-                    is_f_string=is_f_string,
-                )
-            if is_f_string:
-                code.append(
-                    _f_string_expression_text(line[index + len(next_delimiter) : close_index])
-                )
-            index = close_index + len(next_delimiter)
-            continue
-        if line[index] == "#":
-            break
-        if line[index] in ("'", '"'):
-            code.append(" ")
-            close_index = _skip_quoted_string(line, index)
-            if _is_f_string_quote(line, index):
-                code.append(_f_string_expression_text(line[index + 1 : close_index - 1]))
-            index = close_index
-            continue
-        code.append(line[index])
-        index += 1
-    return "".join(code).rstrip(), state
-
-
-def _python_string_delimiter_before_line(
-    path: str,
-    line_no: int | None,
-    *,
-    working_tree: Path | None,
-) -> PythonStringState | None:
-    if line_no is None or line_no <= 1 or working_tree is None:
-        return None
+    ``None`` means the blob could not be tokenized; callers must fail closed by
+    treating added lines as live code.
+    """
+    physical_lines = source.splitlines()
+    masked_lines = [list(line) for line in physical_lines]
     try:
-        lines = (working_tree / path).read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeDecodeError):
+        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
+        for tok in tokens:
+            if tok.type in _NON_CODE_TOKEN_TYPES:
+                _blank_token_span(masked_lines, tok.start, tok.end)
+    except (IndentationError, tokenize.TokenError, UnicodeDecodeError):
         return None
-    state: PythonStringState | None = None
-    for line in lines[: line_no - 1]:
-        _code, state = _python_code_text_for_line(line, state)
-    return state
+    return {line_no: "".join(chars).rstrip() for line_no, chars in enumerate(masked_lines, 1)}
 
 
 def _line_for_matching(added_line: AddedLine) -> str:
@@ -456,29 +367,109 @@ def _line_is_kept_only(added_line: AddedLine, entry: CharterEntry) -> bool:
     return False
 
 
-def parse_diff(diff_text: str, *, working_tree: Path | None = None) -> list[AddedLine]:
-    added: list[AddedLine] = []
+def _paths_with_added_lines(diff_text: str) -> set[str]:
+    paths: set[str] = set()
+    current_path: str | None = None
+    for raw_line in diff_text.splitlines():
+        if raw_line.startswith("+++ "):
+            current_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
+            continue
+        if current_path is not None and raw_line.startswith("+") and not raw_line.startswith("+++"):
+            paths.add(current_path)
+    return paths
+
+
+def _post_images_from_diff(diff_text: str) -> dict[str, str]:
+    line_maps: dict[str, dict[int, str]] = {}
     current_path: str | None = None
     current_line: int | None = None
-    current_string_state: PythonStringState | None = None
     for raw_line in diff_text.splitlines():
         if raw_line.startswith("+++ "):
             current_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
             current_line = None
-            current_string_state = None
             continue
         if raw_line.startswith("@@"):
             match = HUNK_RE.search(raw_line)
             current_line = int(match.group(1)) if match else None
-            current_string_state = (
-                _python_string_delimiter_before_line(
-                    current_path,
-                    current_line,
-                    working_tree=working_tree,
-                )
-                if current_path is not None and _is_python_path(current_path)
-                else None
-            )
+            continue
+        if current_path is None or current_line is None:
+            continue
+        if raw_line.startswith("+") and not raw_line.startswith("+++"):
+            line_maps.setdefault(current_path, {})[current_line] = raw_line[1:]
+            current_line += 1
+        elif raw_line.startswith(" "):
+            line_maps.setdefault(current_path, {})[current_line] = raw_line[1:]
+            current_line += 1
+        elif raw_line.startswith("-"):
+            continue
+    images: dict[str, str] = {}
+    for path, line_map in line_maps.items():
+        if not line_map:
+            continue
+        max_line = max(line_map)
+        images[path] = "\n".join(line_map.get(line_no, "") for line_no in range(1, max_line + 1))
+    return images
+
+
+def _git_show_blob(repo_root: Path, head_ref: str, path: str) -> str | None:
+    proc = subprocess.run(
+        ["git", "-C", str(repo_root), "show", f"{head_ref}:{path}"],
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout
+
+
+def _line_classifications_for_diff(
+    diff_text: str,
+    *,
+    head_ref: str | None,
+    repo_root: Path | None,
+    post_images: dict[str, str] | None,
+) -> dict[str, dict[int, str] | None]:
+    images = dict(post_images or {})
+    fallback_images = _post_images_from_diff(diff_text)
+    classifications: dict[str, dict[int, str] | None] = {}
+    for path in _paths_with_added_lines(diff_text):
+        if not _is_python_path(path):
+            continue
+        image = images.get(path)
+        if image is None and head_ref is not None and repo_root is not None:
+            image = _git_show_blob(repo_root, head_ref, path)
+        if image is None:
+            image = fallback_images.get(path)
+        classifications[path] = None if image is None else _python_code_lines_from_blob(image)
+    return classifications
+
+
+def parse_diff(
+    diff_text: str,
+    *,
+    head_ref: str | None = None,
+    repo_root: Path | None = None,
+    post_images: dict[str, str] | None = None,
+) -> list[AddedLine]:
+    added: list[AddedLine] = []
+    current_path: str | None = None
+    current_line: int | None = None
+    classifications = _line_classifications_for_diff(
+        diff_text,
+        head_ref=head_ref,
+        repo_root=repo_root,
+        post_images=post_images,
+    )
+    for raw_line in diff_text.splitlines():
+        if raw_line.startswith("+++ "):
+            current_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
+            current_line = None
+            continue
+        if raw_line.startswith("@@"):
+            match = HUNK_RE.search(raw_line)
+            current_line = int(match.group(1)) if match else None
             continue
         if current_path is None:
             continue
@@ -487,22 +478,19 @@ def parse_diff(diff_text: str, *, working_tree: Path | None = None) -> list[Adde
             in_string_literal = False
             code_line = None
             if _is_python_path(current_path):
-                code_line, current_string_state = _python_code_text_for_line(
-                    line,
-                    current_string_state,
-                )
-                in_string_literal = not code_line.strip()
+                code_lines = classifications.get(current_path)
+                if code_lines is not None and current_line is not None:
+                    code_line = code_lines.get(current_line, "")
+                    in_string_literal = not code_line.strip()
+                else:
+                    code_line = line
+                    in_string_literal = False
             added.append(AddedLine(current_path, current_line, line, in_string_literal, code_line))
             if current_line is not None:
                 current_line += 1
         elif raw_line.startswith("-"):
             continue
-        elif current_line is not None:
-            if raw_line.startswith(" ") and _is_python_path(current_path):
-                _code_line, current_string_state = _python_code_text_for_line(
-                    raw_line[1:],
-                    current_string_state,
-                )
+        elif current_line is not None and raw_line.startswith(" "):
             current_line += 1
     return added
 
@@ -579,10 +567,17 @@ def check_diff(
     diff_text: str,
     *,
     charter_path: Path | str,
-    working_tree: Path | None = None,
+    head_ref: str | None = None,
+    repo_root: Path | None = None,
+    post_images: dict[str, str] | None = None,
 ) -> CheckResult:
     entries, authority_by_ref, _status = load_charter_entries(Path(charter_path))
-    added_lines = parse_diff(diff_text, working_tree=working_tree)
+    added_lines = parse_diff(
+        diff_text,
+        head_ref=head_ref,
+        repo_root=repo_root,
+        post_images=post_images,
+    )
     aliases_by_path: dict[str, dict[str, set[str]]] = {}
     for added_line in added_lines:
         for alias, module in _plain_import_aliases(_line_for_matching(added_line)).items():
@@ -654,6 +649,15 @@ def _read_diff(args: argparse.Namespace) -> str:
     return _git_diff(ref_range)
 
 
+def _head_ref(args: argparse.Namespace) -> str:
+    if args.ref_range:
+        if "..." in args.ref_range:
+            return args.ref_range.rsplit("...", 1)[1]
+        if ".." in args.ref_range:
+            return args.ref_range.rsplit("..", 1)[1]
+    return args.head
+
+
 def _render_text(result: CheckResult) -> str:
     if result.ok:
         return "Charter compliance: PASS\nNo chartered re-adds or enforceable placement violations found."
@@ -702,8 +706,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     diff_text = _read_diff(args)
-    working_tree = None if args.diff_file else Path.cwd()
-    result = check_diff(diff_text, charter_path=args.charters, working_tree=working_tree)
+    result = check_diff(
+        diff_text,
+        charter_path=args.charters,
+        head_ref=_head_ref(args),
+        repo_root=Path.cwd(),
+    )
     if args.format == "json":
         print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
     else:
