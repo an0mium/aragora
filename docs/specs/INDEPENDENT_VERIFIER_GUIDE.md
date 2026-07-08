@@ -149,10 +149,16 @@ standalone, its *own* dependency floor — not the root project's — governs wh
 an isolated `pip install aragora-verify` resolves to. The source package now
 declares `cryptography>=48.0.1`, matching the root `aragora` distribution's
 `[tool.uv] constraint-dependencies` floor for
-[GHSA-537c-gmf6-5ccf](https://github.com/advisories/GHSA-537c-gmf6-5ccf). If
-you are auditing the currently published `0.1.1` PyPI line before a `0.1.2`
-release exists, verify the installed wheel's metadata directly or run from this
-checkout so the raised floor is part of the package under test.
+[GHSA-537c-gmf6-5ccf](https://github.com/advisories/GHSA-537c-gmf6-5ccf).
+The verifier's public API uses stable Ed25519 verification and PEM loading, but
+the packaged wheel still brings in `cryptography`'s OpenSSL-backed distribution;
+the raised floor keeps isolated installs off affected wheels even when Aragora's
+root lockfile is absent. If you are auditing the currently published `0.1.1`
+PyPI line before a `0.1.2` release exists, verify the installed wheel's
+metadata directly or run from this checkout so the raised floor is part of the
+package under test. The local metadata guard test covers the source tree; making
+that guard a required PR workflow is intentionally separate from this packaging
+repair and needs the normal workflow-change approval path.
 
 ## Running from a checkout (no PyPI install)
 
