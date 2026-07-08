@@ -239,13 +239,11 @@ def _has_requested_action_contract(payload: Mapping[str, Any]) -> bool:
 def _looks_like_non_handoff_report(payload: Mapping[str, Any]) -> bool:
     report_markers = {
         "candidate_notes",
-        "constraints",
         "cycle_dir",
         "main_required_check_state",
         "required_contexts",
         "rows",
         "verified_8992",
-        "worktree",
     }
     return any(key in payload for key in report_markers)
 

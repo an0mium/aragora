@@ -226,6 +226,32 @@ def test_malformed_report_without_idempotency_key_stays_unparseable(
     assert payload["counts"]["skipped_unparseable"] == 1
 
 
+def test_branchless_preservation_payload_is_not_non_handoff_report(
+    tmp_path: Path, capsys: Any
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    outbox_dir.mkdir(parents=True)
+    (outbox_dir / "open-pr-preservation-marker.json").write_text(
+        json.dumps(
+            {
+                "constraints": ["preserve local work before cleanup"],
+                "idempotency_key": "open-pr-preservation-marker",
+                "worktree": str(tmp_path / "preserved-worktree"),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = mod.main(["--repo", str(tmp_path), "--dry-run", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["counts"]["non_handoff_report"] == 0
+    assert payload["counts"]["skipped_unparseable"] == 1
+    assert payload["actions"] == []
+    assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
+
+
 def test_github_open_pr_state_fails_closed_when_open_pr_fetch_returns_none(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
