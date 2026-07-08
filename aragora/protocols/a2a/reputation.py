@@ -9,6 +9,7 @@ Out of scope: HTTP routes, pagination, on-chain ERC-8004 reads.
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -87,6 +88,25 @@ class AgentReputationView:
         }
 
 
+def _decay_weight(delta: Any, now: datetime) -> float:
+    """Exponential half-life decay for one reputation delta.
+
+    Mirrors the same function in :mod:`aragora.reputation.store` so this
+    module does not need to import a private symbol.
+    """
+    half_life = getattr(delta, "decay_half_life_days", None)
+    if half_life is None:
+        return 1.0
+    try:
+        applied = datetime.fromisoformat(
+            delta.applied_at.replace("Z", "+00:00")
+        ).astimezone(UTC)
+    except (ValueError, TypeError):
+        return 1.0
+    age_days = max(0.0, (now - applied).total_seconds() / 86_400.0)
+    return math.exp(-math.log(2.0) * age_days / half_life)
+
+
 def _domain_slices(
     agent_id: str,
     store: "ReputationStore",
@@ -94,8 +114,6 @@ def _domain_slices(
     apply_decay: bool,
     now: datetime,
 ) -> tuple[DomainReputationSlice, ...]:
-    from aragora.reputation.store import _decay_weight  # type: ignore[attr-defined]
-
     raw_deltas = store.deltas_for(agent_id)
     if not raw_deltas:
         return ()
