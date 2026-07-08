@@ -121,9 +121,11 @@ New-arrival intake rule:
 3. If `operator-review-required` is present, treat the PR as a handoff target, not autonomous settlement-ready.
 4. Re-run targeted `merge-packet` before any evidence or settlement prompt; do not rely on the ledger snapshot.
 
+Post-amendment live check: #9013 merged externally at `2026-07-08T15:13:42Z` with merge commit `32e692ed2162cea7abf36ea83c1843d30d684007`. Its source branch was deleted. #9012 remained open at `c9fa521f4044b6984e904a04f54ecc7e006a4e95` with `operator-review-required` still present.
+
 ## Safe Next Action
 
-No autonomous merge target was found. #9013 is under an active external lane, and #9012 is blocked by the operator-review-required gate before it can be treated as settlement-ready.
+No autonomous merge target was found. #9013 merged externally during the intake update, and #9012 is blocked by the operator-review-required gate before it can be treated as settlement-ready.
 
 Paste-ready next prompt:
 
