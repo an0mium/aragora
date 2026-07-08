@@ -339,6 +339,38 @@ def test_same_line_literal_does_not_hide_live_symbol_after_it(tmp_path: Path) ->
     assert "create_default_executor" in result.binding_violations[0].line
 
 
+def test_leading_same_line_triple_literal_does_not_hide_live_symbol(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++"""not live code"""; executor = aragora.queue.create_default_executor()
+'''
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_leading_triple_quote_semicolon_code_fails_closed(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++"""; executor = aragora.queue.create_default_executor()
+'''
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
 def test_comment_triple_quote_does_not_hide_later_live_symbol(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = '''diff --git a/some.py b/some.py
@@ -395,6 +427,24 @@ def test_triple_f_string_expression_is_live_python_code(tmp_path: Path) -> None:
 +++ b/some.py
 @@ -0,0 +1 @@
 +label = f"""value {aragora.queue.create_default_executor()}"""
+'''
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
+def test_multiline_f_string_expression_line_is_live_python_code(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1,3 @@
++label = f"""existing
++{aragora.queue.create_default_executor()}
++"""
 '''
 
     result = checker.check_diff(diff_text, charter_path=charter_path)
@@ -504,16 +554,13 @@ def test_hunk_inside_existing_triple_string_uses_worktree_state(tmp_path: Path) 
     )
     assert checker._python_code_text_for_line('fixture = """existing', None) == (
         "fixture =",
-        '"""',
+        checker.PythonStringState('"""'),
     )
-    assert (
-        checker._python_string_delimiter_before_line(
-            "some.py",
-            2,
-            working_tree=tmp_path,
-        )
-        == '"""'
-    )
+    assert checker._python_string_delimiter_before_line(
+        "some.py",
+        2,
+        working_tree=tmp_path,
+    ) == checker.PythonStringState('"""')
     added_lines = checker.parse_diff(diff_text, working_tree=tmp_path)
 
     assert len(added_lines) == 1
@@ -528,6 +575,42 @@ def test_hunk_inside_existing_triple_string_uses_worktree_state(tmp_path: Path) 
 
     assert result.ok is True
     assert result.binding_violations == []
+
+
+def test_diff_file_does_not_trust_mismatched_worktree_string_state(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    (tmp_path / "some.py").write_text('fixture = """stale worktree state\n', encoding="utf-8")
+    diff_path = tmp_path / "change.patch"
+    diff_path.write_text(
+        """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -1,0 +2 @@
++executor = aragora.queue.create_default_executor()
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    rc = checker.main(
+        [
+            "--charters",
+            str(charter_path),
+            "--diff-file",
+            str(diff_path),
+            "--format",
+            "json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 1
+    assert payload["ok"] is False
+    assert payload["binding_violations"][0]["entry_id"] == "CHR-P4A-004"
 
 
 def test_removed_symbol_wildcard_import_is_binding(tmp_path: Path) -> None:

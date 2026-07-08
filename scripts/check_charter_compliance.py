@@ -50,6 +50,12 @@ class AddedLine:
 
 
 @dataclass(frozen=True)
+class PythonStringState:
+    delimiter: str
+    is_f_string: bool = False
+
+
+@dataclass(frozen=True)
 class Violation:
     binding: str
     entry_id: str
@@ -256,18 +262,25 @@ def _f_string_expression_text(content: str) -> str:
     return " ".join(expressions)
 
 
-def _python_code_text_for_line(line: str, active_delimiter: str | None) -> tuple[str, str | None]:
+def _python_code_text_for_line(
+    line: str,
+    active_state: PythonStringState | None,
+) -> tuple[str, PythonStringState | None]:
     code: list[str] = []
-    delimiter = active_delimiter
+    state = active_state
     index = 0
     while index < len(line):
-        if delimiter is not None:
-            close_index = line.find(delimiter, index)
+        if state is not None:
+            close_index = line.find(state.delimiter, index)
             if close_index == -1:
-                return "".join(code).rstrip(), delimiter
+                if state.is_f_string:
+                    code.append(_f_string_expression_text(line[index:]))
+                return "".join(code).rstrip(), state
+            if state.is_f_string:
+                code.append(_f_string_expression_text(line[index:close_index]))
             code.append(" ")
-            index = close_index + len(delimiter)
-            delimiter = None
+            index = close_index + len(state.delimiter)
+            state = None
             continue
         next_delimiter = next(
             (candidate for candidate in ('"""', "'''") if line.startswith(candidate, index)),
@@ -278,7 +291,16 @@ def _python_code_text_for_line(line: str, active_delimiter: str | None) -> tuple
             code.append(" ")
             is_f_string = _is_f_string_quote(line, index)
             if close_index == -1:
-                return "".join(code).rstrip(), next_delimiter
+                remainder = line[index + len(next_delimiter) :]
+                if not "".join(code).strip() and remainder.lstrip().startswith(";"):
+                    index += len(next_delimiter)
+                    continue
+                if is_f_string:
+                    code.append(_f_string_expression_text(remainder))
+                return "".join(code).rstrip(), PythonStringState(
+                    next_delimiter,
+                    is_f_string=is_f_string,
+                )
             if is_f_string:
                 code.append(
                     _f_string_expression_text(line[index + len(next_delimiter) : close_index])
@@ -296,7 +318,7 @@ def _python_code_text_for_line(line: str, active_delimiter: str | None) -> tuple
             continue
         code.append(line[index])
         index += 1
-    return "".join(code).rstrip(), delimiter
+    return "".join(code).rstrip(), state
 
 
 def _python_string_delimiter_before_line(
@@ -304,17 +326,17 @@ def _python_string_delimiter_before_line(
     line_no: int | None,
     *,
     working_tree: Path | None,
-) -> str | None:
+) -> PythonStringState | None:
     if line_no is None or line_no <= 1 or working_tree is None:
         return None
     try:
         lines = (working_tree / path).read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeDecodeError):
         return None
-    delimiter: str | None = None
+    state: PythonStringState | None = None
     for line in lines[: line_no - 1]:
-        _code, delimiter = _python_code_text_for_line(line, delimiter)
-    return delimiter
+        _code, state = _python_code_text_for_line(line, state)
+    return state
 
 
 def _line_for_matching(added_line: AddedLine) -> str:
@@ -438,17 +460,17 @@ def parse_diff(diff_text: str, *, working_tree: Path | None = None) -> list[Adde
     added: list[AddedLine] = []
     current_path: str | None = None
     current_line: int | None = None
-    current_string_delimiter: str | None = None
+    current_string_state: PythonStringState | None = None
     for raw_line in diff_text.splitlines():
         if raw_line.startswith("+++ "):
             current_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
             current_line = None
-            current_string_delimiter = None
+            current_string_state = None
             continue
         if raw_line.startswith("@@"):
             match = HUNK_RE.search(raw_line)
             current_line = int(match.group(1)) if match else None
-            current_string_delimiter = (
+            current_string_state = (
                 _python_string_delimiter_before_line(
                     current_path,
                     current_line,
@@ -465,9 +487,9 @@ def parse_diff(diff_text: str, *, working_tree: Path | None = None) -> list[Adde
             in_string_literal = False
             code_line = None
             if _is_python_path(current_path):
-                code_line, current_string_delimiter = _python_code_text_for_line(
+                code_line, current_string_state = _python_code_text_for_line(
                     line,
-                    current_string_delimiter,
+                    current_string_state,
                 )
                 in_string_literal = not code_line.strip()
             added.append(AddedLine(current_path, current_line, line, in_string_literal, code_line))
@@ -477,9 +499,9 @@ def parse_diff(diff_text: str, *, working_tree: Path | None = None) -> list[Adde
             continue
         elif current_line is not None:
             if raw_line.startswith(" ") and _is_python_path(current_path):
-                _code_line, current_string_delimiter = _python_code_text_for_line(
+                _code_line, current_string_state = _python_code_text_for_line(
                     raw_line[1:],
-                    current_string_delimiter,
+                    current_string_state,
                 )
             current_line += 1
     return added
@@ -680,7 +702,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     diff_text = _read_diff(args)
-    result = check_diff(diff_text, charter_path=args.charters, working_tree=Path.cwd())
+    working_tree = None if args.diff_file else Path.cwd()
+    result = check_diff(diff_text, charter_path=args.charters, working_tree=working_tree)
     if args.format == "json":
         print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
     else:
