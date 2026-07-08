@@ -681,6 +681,46 @@ def test_merged_pr_detection_ignores_boolean_sentinel_before_pr_number(tmp_path:
     assert lane["token_cost_per_merged_pr"] == 12.5
 
 
+def test_merged_pr_detection_coerces_string_sentinels_before_pr_number(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "direct_pr_merged": "true",
+                "pr_number": "1001",
+                "rounds_to_merge": 2,
+                "token_cost": 12.5,
+            },
+            {
+                "timestamp": "2026-07-08T11:00:00Z",
+                "lane": "conductor",
+                "direct_pr_merged": "false",
+                "pr_number": "1002",
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=30,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["merged_prs"] == 1
+    assert lane["rounds_to_merge_average"] == 2.0
+    assert lane["token_cost_per_merged_pr"] == 12.5
+
+
 def test_render_markdown_escapes_table_cells() -> None:
     report = {
         "lanes": [

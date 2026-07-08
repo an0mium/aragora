@@ -374,8 +374,9 @@ def _event_merged_pr(record: dict[str, Any]) -> int | None:
         value = _first_present(record, (key,))
         if value is None:
             continue
-        if isinstance(value, bool):
-            if not value:
+        sentinel = _coerce_bool(value)
+        if sentinel is not None:
+            if not sentinel:
                 continue
             for fallback_key in pr_reference_keys:
                 pr_number = _coerce_pr_number(_first_present(record, (fallback_key,)))
