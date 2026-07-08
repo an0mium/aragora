@@ -73,6 +73,22 @@ def _normalize_falsification(value: Any) -> dict[str, str] | None:
     return normalized or None
 
 
+def _has_malformed_epistemic_hash_fields(data: dict[str, Any]) -> bool:
+    if "unverified" in data and data.get("unverified") != _normalize_epistemic_string_list(
+        data.get("unverified")
+    ):
+        return True
+    if "assumptions" in data and data.get("assumptions") != _normalize_epistemic_string_list(
+        data.get("assumptions")
+    ):
+        return True
+    if "falsification" in data and data.get("falsification") != _normalize_falsification(
+        data.get("falsification")
+    ):
+        return True
+    return False
+
+
 def normalize_live_explainability(payload: Any) -> dict[str, Any] | None:
     """Normalize live explainability snapshots before persisting them in receipts."""
     if not isinstance(payload, dict):
@@ -585,6 +601,16 @@ class DecisionReceipt:
     unverified: list[str] = field(default_factory=list)
     assumptions: list[str] = field(default_factory=list)
     falsification: dict[str, str] | None = None
+    _raw_epistemic_hash_fields_present: bool = field(
+        default=False,
+        repr=False,
+        compare=False,
+    )
+    _malformed_epistemic_hash_fields_present: bool = field(
+        default=False,
+        repr=False,
+        compare=False,
+    )
 
     # Schema version for forward compatibility
     schema_version: str = "1.1"
@@ -648,10 +674,17 @@ class DecisionReceipt:
         return hashlib.sha256(content.encode()).hexdigest()
 
     def _has_epistemic_hash_fields(self) -> bool:
-        return bool(self.unverified or self.assumptions or self.falsification)
+        return bool(
+            self._raw_epistemic_hash_fields_present
+            or self.unverified
+            or self.assumptions
+            or self.falsification
+        )
 
     def verify_integrity(self) -> bool:
         """Verify receipt has not been tampered with."""
+        if self._malformed_epistemic_hash_fields_present:
+            return False
         expected_hash = self._calculate_hash()
         if expected_hash == self.artifact_hash:
             return True
@@ -2172,6 +2205,10 @@ class DecisionReceipt:
             unverified=data.get("unverified", []) or [],
             assumptions=data.get("assumptions", []) or [],
             falsification=data.get("falsification"),
+            _raw_epistemic_hash_fields_present=any(
+                field_name in data for field_name in ("unverified", "assumptions", "falsification")
+            ),
+            _malformed_epistemic_hash_fields_present=_has_malformed_epistemic_hash_fields(data),
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),
