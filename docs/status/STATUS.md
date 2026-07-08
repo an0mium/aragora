@@ -181,7 +181,7 @@ The short version on April 21, 2026:
 - **Agent types**: 43
 - **API operations**: 3,100+ across 2,600+ paths
 - **RBAC permissions**: 420+
-- **Version**: v2.8.0
+- **Version**: v2.9.0
 
 ---
 

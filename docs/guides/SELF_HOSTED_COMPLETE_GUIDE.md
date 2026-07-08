@@ -1271,7 +1271,7 @@ curl http://localhost:8080/api/health
 ```bash
 # Update image
 kubectl -n aragora set image deployment/aragora \
-  aragora=aragora/server:v2.9.0
+  aragora=ghcr.io/synaptent/aragora/backend:2.9.0
 
 # Watch rollout
 kubectl -n aragora rollout status deployment/aragora

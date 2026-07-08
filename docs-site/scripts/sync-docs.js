@@ -105,6 +105,9 @@ function resolveSourcePath(srcRelPath) {
 
 // Document mapping: source -> destination with category organization
 const DOC_MAP = {
+  // `docs-site/docs/enterprise/positioning.md` is intentionally hand-maintained
+  // as a redirect-style stub after archiving `docs/status/COMMERCIAL_POSITIONING.md`.
+
   // =========================================================================
   // Getting Started
   // =========================================================================
