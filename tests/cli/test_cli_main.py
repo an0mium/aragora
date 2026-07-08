@@ -350,6 +350,7 @@ class TestCommandHandlers:
         """Should fail before debate when any selected provider cannot be configured."""
         from aragora.cli.main import cmd_ask
 
+        monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
         monkeypatch.setenv("GROK_API_KEY", "test-grok-key")
         monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
