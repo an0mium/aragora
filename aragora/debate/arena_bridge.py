@@ -5,7 +5,7 @@ Enables cross-pollination by translating debate events to stream events
 that cross-subsystem subscribers can process.
 
 Usage:
-    from aragora.events.arena_bridge import ArenaEventBridge
+    from aragora.debate.arena_bridge import ArenaEventBridge
 
     # In Arena initialization
     bridge = ArenaEventBridge(event_bus)

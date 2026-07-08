@@ -11,16 +11,13 @@ Provides a worker pattern for horizontal scaling with:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import signal
 import time
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any
 from collections.abc import Callable, Coroutine
 
-if TYPE_CHECKING:
-    from aragora.agents.base import AgentType
-
-from aragora.exceptions import InfrastructureError
 from aragora.queue.base import Job, JobQueue
 from aragora.queue.config import get_queue_config
 from aragora.queue.retry import RetryPolicy, is_retryable_error
@@ -29,6 +26,105 @@ logger = logging.getLogger(__name__)
 
 # Type alias for the debate executor function
 DebateExecutor = Callable[[Job], Coroutine[Any, Any, dict[str, Any]]]
+
+# Domain-free job-handler registry (zero domain imports, eager or lazy). Lets
+# domain/application/interface home modules self-register their worker and job
+# handler instances instead of being imported directly by aragora.queue.
+_REGISTERED_WORKERS: dict[str, Any] = {}
+_REGISTERED_JOB_HANDLERS: dict[str, DebateExecutor] = {}
+
+
+def _same_job_handler(existing: DebateExecutor, handler: DebateExecutor) -> bool:
+    """Return whether two handler callables represent the same registration."""
+    if existing is handler:
+        return True
+
+    existing_self = getattr(existing, "__self__", None)
+    handler_self = getattr(handler, "__self__", None)
+    existing_func = getattr(existing, "__func__", None)
+    handler_func = getattr(handler, "__func__", None)
+    if existing_self is None or handler_self is None:
+        return False
+    if existing_func is None or handler_func is None:
+        return False
+    return existing_self is handler_self and existing_func is handler_func
+
+
+def register_worker(name: str, worker: Any) -> None:
+    """Register a queue worker instance under ``name`` (keyed).
+
+    Re-registering a *different* instance under an existing name is allowed
+    (a worker may legitimately be recreated and re-registered under the same
+    name, e.g. on restart) but is logged as a warning so an unexpected clobber
+    stays visible instead of silently swapping the running instance.
+    """
+    existing = _REGISTERED_WORKERS.get(name)
+    if existing is not None and existing is not worker:
+        logger.warning(
+            "Overwriting registered worker %r (existing=%r, new=%r)",
+            name,
+            existing,
+            worker,
+        )
+    _REGISTERED_WORKERS[name] = worker
+
+
+def register_job_handler(job_type: str, handler: DebateExecutor) -> None:
+    """Register a job handler (executor) for ``job_type``.
+
+    ``handler`` must be callable and a coroutine function (``async def`` or a
+    bound method thereof) so a mis-registered sync callable fails at
+    registration time instead of surfacing as a runtime "coroutine expected"
+    error deep in the queue's job-processing loop.
+
+    Re-registering the same handler is a no-op. Registering a different handler
+    for an existing job type fails closed so import order cannot silently
+    redirect queue execution.
+    """
+    if not callable(handler):
+        raise TypeError(
+            f"job handler for job type {job_type!r} must be callable, got {type(handler).__name__}"
+        )
+    if not inspect.iscoroutinefunction(handler):
+        raise TypeError(
+            f"job handler for job type {job_type!r} must be an async callable "
+            "(inspect.iscoroutinefunction(handler) must be True)"
+        )
+    existing = _REGISTERED_JOB_HANDLERS.get(job_type)
+    if existing is not None and not _same_job_handler(existing, handler):
+        raise ValueError(f"job handler already registered for job type {job_type!r}")
+    _REGISTERED_JOB_HANDLERS[job_type] = handler
+
+
+def get_registered_workers() -> dict[str, Any]:
+    """Return a shallow copy of all registered workers, keyed by name."""
+    return dict(_REGISTERED_WORKERS)
+
+
+def get_registered_job_handlers() -> dict[str, DebateExecutor]:
+    """Return a shallow copy of all registered job handlers, keyed by job type."""
+    return dict(_REGISTERED_JOB_HANDLERS)
+
+
+def get_job_handler(job_type: str) -> DebateExecutor | None:
+    """Return the registered handler for ``job_type``, or ``None`` if unregistered."""
+    return _REGISTERED_JOB_HANDLERS.get(job_type)
+
+
+def registered_worker_names() -> list[str]:
+    """Return the sorted names of all registered workers."""
+    return sorted(_REGISTERED_WORKERS)
+
+
+def registered_job_handler_names() -> list[str]:
+    """Return the sorted job types of all registered job handlers."""
+    return sorted(_REGISTERED_JOB_HANDLERS)
+
+
+def reset_registry() -> None:
+    """Clear both the worker and job-handler registries (for tests)."""
+    _REGISTERED_WORKERS.clear()
+    _REGISTERED_JOB_HANDLERS.clear()
 
 
 class DebateWorker:
@@ -284,70 +380,3 @@ class DebateWorker:
                 break
             except (RuntimeError, OSError, ConnectionError) as e:
                 logger.error("Error claiming stale jobs: %s", e)
-
-
-async def create_default_executor() -> DebateExecutor:
-    """
-    Create a default debate executor.
-
-    This imports the debate infrastructure and creates an executor
-    that runs debates using the Arena.
-
-    Returns:
-        An async function that executes debate jobs
-    """
-
-    async def execute_debate(job: Job) -> dict[str, Any]:
-        """Execute a debate from a job."""
-        # Import here to avoid circular imports
-        from aragora.queue.job import DebateResult, get_debate_payload
-
-        payload = get_debate_payload(job)
-
-        # Import debate infrastructure
-        try:
-            from aragora.agents.base import create_agent
-            from aragora.core import DebateProtocol, Environment
-            from aragora.debate.orchestrator import Arena
-        except ImportError as e:
-            raise InfrastructureError(f"Debate infrastructure not available: {e}")
-
-        # Create environment and protocol
-        env = Environment(task=payload.question)
-        # DebateProtocol dataclass fields have complex default handling
-        protocol = cast(Any, DebateProtocol)(
-            rounds=payload.rounds,
-            consensus=cast(Any, payload.consensus),
-        )
-
-        # Convert agent strings to Agent objects
-        agents_list = []
-        for agent_type in payload.agents:
-            agent = create_agent(cast("AgentType", agent_type))
-            if agent is not None:
-                agents_list.append(agent)
-        agents = agents_list
-
-        # Run debate
-        start_time = time.time()
-        arena = Arena(env, agents=agents, protocol=protocol)
-        result = await arena.run()
-
-        duration = time.time() - start_time
-
-        # Build result
-        debate_result = DebateResult(
-            debate_id=result.debate_id if hasattr(result, "debate_id") else job.id,
-            consensus_reached=(
-                result.consensus_reached if hasattr(result, "consensus_reached") else False
-            ),
-            final_answer=result.final_answer if hasattr(result, "final_answer") else None,
-            confidence=result.confidence if hasattr(result, "confidence") else 0.0,
-            rounds_used=result.rounds_used if hasattr(result, "rounds_used") else payload.rounds,
-            participants=payload.agents,
-            duration_seconds=duration,
-        )
-
-        return debate_result.to_dict()
-
-    return execute_debate

@@ -62,7 +62,7 @@ OPEN_PR_LIGHT_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
     "reviewDecision,labels,author,additions,deletions,changedFiles"
 )
-PR_POLICY_FIELDS = "number,title,headRefName,author,mergeable,mergeStateStatus,files"
+PR_POLICY_FIELDS = "number,title,headRefName,isDraft,author,mergeable,mergeStateStatus,files"
 SURFACE_EXCLUDE_REASON = (
     "security/auth/RBAC/secrets/deploy/workflow/legal/compliance/destructive/"
     "migration/public-API surface"
@@ -410,6 +410,9 @@ def policy_exclusion_reasons(
     title_branch_text = _title_branch_text(entry, metadata)
     if _is_dependabot_pr(entry, metadata):
         reasons.append("Dependabot PR")
+    is_draft = metadata["isDraft"] if "isDraft" in metadata else entry.get("isDraft")
+    if bool(is_draft):
+        reasons.append("draft PR")
 
     mergeable = str(metadata.get("mergeable") or entry.get("mergeable") or "").upper()
     merge_state = str(
@@ -1351,6 +1354,7 @@ def load_pr_policy_metadata_rest(
         "number": _coerce_int(pull_payload.get("number")) or pr_number,
         "title": pull_payload.get("title"),
         "headRefName": head.get("ref") if isinstance(head, dict) else "",
+        "isDraft": bool(pull_payload.get("draft")),
         "author": {"login": user.get("login")} if isinstance(user, dict) else {},
         "mergeable": _rest_mergeable(pull_payload.get("mergeable")),
         "mergeStateStatus": _rest_merge_state(pull_payload.get("mergeable_state")),

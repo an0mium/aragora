@@ -33,7 +33,9 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -46,8 +48,56 @@ MAX_CONTEXT_FILE_BYTES = 64 * 1024
 MAX_PACKET_BYTES = 400 * 1024
 MAX_PACKET_SECTION_BYTES = 96 * 1024
 SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
+SAFE_CONTEXT_SUBDIRS = (
+    SAFE_CONTEXT_SUBDIR,
+    Path(".aragora") / "conductor_cycles",
+)
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
+MAX_ACTIVE_PROCESS_LINES = 40
+ACTIVE_PROCESS_SCRIPT_NAMES = frozenset(
+    {
+        "agent_bridge.py",
+        "auto_evidence_cycle.py",
+        "boss_drain_pass.py",
+        "build_next_prompt.py",
+        "collect_quorum_evidence.py",
+        "consult_claude.py",
+        "fable_goal_cycle.py",
+        "reconcile_automation_outbox.py",
+        "settle_one_pr.py",
+        "settle_pr.py",
+        "settle_tier4_pr.py",
+    }
+)
+ACTIVE_PROCESS_COMMAND_PATTERNS = (
+    ("aragora", "review-queue", "collect-evidence"),
+    ("aragora", "review-queue", "merge-packet"),
+    ("gh", "pr", "merge"),
+    ("droid", "exec"),
+)
+ACTIVE_PROCESS_TOKEN_PATTERNS = (
+    "claude-fable",
+    "overnight-conductor",
+    "overnight_conductor",
+)
+ACTIVE_PROCESS_IGNORED_EXECUTABLES = frozenset(
+    {
+        "awk",
+        "cat",
+        "code",
+        "emacs",
+        "grep",
+        "head",
+        "less",
+        "nvim",
+        "rg",
+        "sed",
+        "tail",
+        "vi",
+        "vim",
+    }
+)
 NEXT_PROMPT_HEADING = "## NEXT PROMPT"
 NEXT_PROMPT_HEADING_RE = re.compile(
     rf"^{re.escape(NEXT_PROMPT_HEADING)}\s*$", re.IGNORECASE | re.MULTILINE
@@ -66,7 +116,15 @@ blocked, where the highest-leverage gap is.
 
 ## NEXT GOALS
 Ranked list, at most 3, each one line: goal + why it is the best use of the
-next cycles.
+next cycles. Prefer goals whose output is a durable standard — something that
+takes frontier judgment to WRITE but only ordinary intelligence to APPLY
+(charters, rubrics, playbooks, skills, checkers). Test: could a cheaper model
+redo this artifact tomorrow? If yes, rank it lower.
+Before ranking goals: if the standing mission metric itself is the wrong
+hill — mis-specified, superseded by events, or clearly worse than an adjacent
+goal — say so FIRST in a dedicated 'WRONG HILL' section with one-paragraph
+evidence, and propose the better goal. Misalignment disclosure is invited and
+costs nothing; grinding a bad metric costs cycles.
 
 ## NEXT PLAN
 Bounded steps for ONE cycle only (not a roadmap). Each step must be completable
@@ -175,6 +233,84 @@ def _markdown_code_block(body: str, language: str = "text") -> str:
     return f"{opener}\n{body}\n{fence}"
 
 
+def _shell_words(command: str) -> list[str]:
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return command.split()
+
+
+def _active_process_label(command: str) -> str | None:
+    """Return a sanitized collision label for command, or None when irrelevant.
+
+    The packet is sent to an external reviewer, so never include raw argv. CLI
+    arguments can carry credentials, private paths, or unrelated task content.
+    """
+
+    words = _shell_words(command)
+    if not words:
+        return None
+
+    executable = Path(words[0]).name
+    if executable in ACTIVE_PROCESS_IGNORED_EXECUTABLES:
+        return None
+
+    basenames = [Path(word).name for word in words]
+    for index, basename in enumerate(basenames[1:], start=1):
+        if basename in ACTIVE_PROCESS_SCRIPT_NAMES:
+            return f"{executable} {basename}"
+
+    lowered = [word.lower() for word in words]
+    for pattern in ACTIVE_PROCESS_COMMAND_PATTERNS:
+        if len(lowered) >= len(pattern) and tuple(lowered[: len(pattern)]) == pattern:
+            return " ".join(pattern)
+
+    command_lower = " ".join(lowered)
+    for pattern in ACTIVE_PROCESS_TOKEN_PATTERNS:
+        if pattern in command_lower:
+            return pattern
+
+    return None
+
+
+def _active_conductor_processes() -> tuple[bool, str]:
+    """Return a compact process snapshot for collision-prone conductor work."""
+
+    errors: list[str] = []
+    current_pid = str(os.getpid())
+    ps_commands = (
+        ["ps", "-axo", "pid,ppid,etime,command"],
+        ["ps", "-eo", "pid,ppid,etime,command"],
+    )
+    for command in ps_commands:
+        ok, out = _run(command, CONTEXT_STEP_TIMEOUT_SECONDS)
+        if not ok:
+            errors.append(out)
+            continue
+
+        matches: list[str] = []
+        for line in out.splitlines()[1:]:
+            fields = line.split(None, 3)
+            if len(fields) < 4:
+                continue
+            pid, _ppid, _elapsed, process_command = fields
+            if pid == current_pid:
+                continue
+            label = _active_process_label(process_command)
+            if label:
+                matches.append(f"pid={pid} elapsed={_elapsed} command={label}")
+
+        if not matches:
+            return True, "none observed"
+        body = "\n".join(matches[:MAX_ACTIVE_PROCESS_LINES])
+        omitted = len(matches) - MAX_ACTIVE_PROCESS_LINES
+        if omitted > 0:
+            body += f"\n[truncated {omitted} additional active process(es)]"
+        return True, body
+
+    return False, "; ".join(error for error in errors if error) or "ps unavailable"
+
+
 def _is_relative_to(path: Path, parent: Path) -> bool:
     try:
         path.relative_to(parent)
@@ -210,15 +346,16 @@ def _packet_with_footer(parts: list[str]) -> str:
 
 def _read_context_file(path: Path, root: Path) -> tuple[str | None, str | None]:
     """Read a repo-local safe context file with a hard byte cap."""
-    safe_root = (root / SAFE_CONTEXT_SUBDIR).resolve(strict=False)
+    safe_roots = tuple((root / subdir).resolve(strict=False) for subdir in SAFE_CONTEXT_SUBDIRS)
     candidate = path if path.is_absolute() else root / path
     try:
         resolved = candidate.resolve(strict=True)
     except OSError as exc:
         return None, f"context file unreadable: {path}: {exc}"
 
-    if not _is_relative_to(resolved, safe_root):
-        return None, f"context file must be under {SAFE_CONTEXT_SUBDIR}: {path}"
+    if not any(_is_relative_to(resolved, safe_root) for safe_root in safe_roots):
+        allowed_roots = " or ".join(str(subdir) for subdir in SAFE_CONTEXT_SUBDIRS)
+        return None, f"context file must be under {allowed_roots}: {path}"
     try:
         if not resolved.is_file():
             return None, f"context file is not a regular file: {path}"
@@ -254,6 +391,11 @@ def gather_context(root: Path, since_hours: float, max_prs: int, skip_digest: bo
     section("branch status", ["git", "status", "--short", "--branch"])
     section("recent commits (main)", ["git", "log", "--oneline", "-10", "origin/main"])
     section("worktrees", ["git", "worktree", "list"])
+    ok, active_processes = _active_conductor_processes()
+    if ok:
+        sections["active conductor/evidence processes"] = active_processes
+    else:
+        gaps.append(f"active conductor/evidence processes: {active_processes}")
     if shutil.which("gh"):
         section(
             f"open non-draft PRs (up to {max_prs})",
@@ -351,10 +493,16 @@ def build_packet(
         ]
     for path in extra_files:
         body, note = _read_context_file(path, root)
+        if body is None:
+            if note:
+                parts += [
+                    "",
+                    f"### Operator context {path} (unavailable)",
+                    f"OPERATOR CONTEXT MISSING: {note}",
+                ]
+            continue
         if note:
             parts += ["", f"### Operator context {path} ({note})"]
-        if body is None:
-            continue
         parts += [
             "",
             f"### Operator context: {path.name}",

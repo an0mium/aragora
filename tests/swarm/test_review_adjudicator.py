@@ -16,6 +16,7 @@ Default is flag-OFF (byte-identical to today).
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 
 import pytest
@@ -83,6 +84,18 @@ class TestGroundednessScorer:
 
     def test_grounded_above_default_bar(self) -> None:
         assert score_groundedness(_GROUNDED_P2) >= 0.5
+
+    def test_default_scorer_falls_back_to_in_tree_analyzer(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setitem(sys.modules, "aragora_debate", None)
+        monkeypatch.setitem(sys.modules, "aragora_debate.evidence", None)
+
+        r = adjudicate([_pass("claude"), _Item("openai", _GROUNDED_P2, "changes_requested")])
+        dissent = next(a for a in r.assessments if a.family == "openai")
+
+        assert r.verdict is AdjudicationVerdict.SETTLE
+        assert dissent.groundedness >= 0.5
 
 
 class TestAdjudicate:
@@ -220,12 +233,8 @@ class TestReviewFindingsFixes:
         # claude [P3] round 2: a definite [P0]/[P1] block must not construct (or
         # import) the default analyzer, so a missing aragora_debate never crashes
         # a hard block.
-        import aragora_debate.evidence as ev
-
-        def _explode(*_a: object, **_k: object) -> None:
-            raise ImportError("aragora_debate unavailable")
-
-        monkeypatch.setattr(ev, "EvidenceQualityAnalyzer", _explode)
+        monkeypatch.setitem(sys.modules, "aragora_debate", None)
+        monkeypatch.setitem(sys.modules, "aragora_debate.evidence", None)
         items = [_pass("claude"), _Item("openai", _BLOCKING_P1, "changes_requested")]
         r = adjudicate(items)  # scorer=None default; must not raise
         assert r.verdict is AdjudicationVerdict.BLOCK

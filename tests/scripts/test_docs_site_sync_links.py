@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS_SITE_ROOT = REPO_ROOT / "docs-site" / "docs"
+SYNC_SCRIPT = REPO_ROOT / "docs-site" / "scripts" / "sync-docs.js"
 
 
 def _read_docs_site(path: str) -> str:
     return (DOCS_SITE_ROOT / path).read_text(encoding="utf-8")
+
+
+def _docs_specs_map_entries() -> dict[str, str]:
+    content = SYNC_SCRIPT.read_text(encoding="utf-8")
+    return dict(
+        re.findall(
+            r"'specs/([^']+\.md)'\s*:\s*'specs/([^']+\.md)'",
+            content,
+        )
+    )
 
 
 def test_documentation_index_rewrites_status_and_planning_links() -> None:
@@ -309,3 +321,221 @@ def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
             "../../aragora/gauntlet/README.md",
         ]:
             assert f"]({target})" not in content
+
+
+# docs/specs/*.md files that are deliberately excluded from the docs-site
+# mirror (e.g. a draft or an operator-gated spec not meant for public
+# publication). Empty today -- every current docs/specs/*.md file is
+# mirrored -- but test_docs_specs_directory_is_mirrored consults this set so a
+# future deliberate exclusion has an explicit, reviewable home instead of a
+# silent special case grown into the assertion logic below.
+DOCS_SPECS_MIRROR_ALLOWLIST: frozenset[str] = frozenset()
+
+
+def _default_specs_mirror_dest(source_name: str) -> str:
+    return f"{source_name.removesuffix('.md').lower().replace('_', '-')}.md"
+
+
+def _allowlisted_spec_publication_artifacts(source_names: frozenset[str] | set[str]) -> list[str]:
+    index_content = _read_docs_site("specs/index.md")
+    artifacts: list[str] = []
+
+    for source_name in sorted(source_names):
+        dest_name = _default_specs_mirror_dest(source_name)
+        slug = dest_name.removesuffix(".md")
+        page = DOCS_SITE_ROOT / "specs" / dest_name
+
+        if page.exists():
+            artifacts.append(str(page.relative_to(REPO_ROOT)))
+        if f"](./{slug})" in index_content:
+            artifacts.append(f"docs-site/docs/specs/index.md -> ./{slug}")
+
+    return artifacts
+
+
+def test_docs_specs_directory_is_mirrored() -> None:
+    # docs/specs/** was previously entirely outside DOC_MAP: any relative link
+    # from a mirrored doc into it survived sync unmodified and 404d on the
+    # deployed docs-site. The expected mirror set is derived from a live glob
+    # of docs/specs/*.md -- never a hard-coded page list -- so a future spec
+    # file added without a DOC_MAP entry fails here instead of silently
+    # shipping unmirrored.
+    mapped_specs = _docs_specs_map_entries()
+    source_specs = sorted(path.name for path in (REPO_ROOT / "docs" / "specs").glob("*.md"))
+    expected_mirrored = [name for name in source_specs if name not in DOCS_SPECS_MIRROR_ALLOWLIST]
+
+    still_mapped_allowlisted = sorted(set(mapped_specs) & DOCS_SPECS_MIRROR_ALLOWLIST)
+    assert not still_mapped_allowlisted, (
+        "docs/specs/*.md file(s) are listed in DOCS_SPECS_MIRROR_ALLOWLIST but "
+        f"still have DOC_MAP entries: {still_mapped_allowlisted}. Remove the "
+        "DOC_MAP entry when a spec is deliberately excluded from the docs-site mirror."
+    )
+
+    allowlisted_publication_artifacts = _allowlisted_spec_publication_artifacts(
+        DOCS_SPECS_MIRROR_ALLOWLIST
+    )
+    assert not allowlisted_publication_artifacts, (
+        "docs/specs/*.md file(s) are listed in DOCS_SPECS_MIRROR_ALLOWLIST but "
+        "still have docs-site publication artifacts: "
+        f"{allowlisted_publication_artifacts}. Remove stale generated pages and "
+        "index links when a spec is deliberately excluded from the docs-site mirror."
+    )
+
+    missing_doc_map_entries = sorted(set(expected_mirrored) - set(mapped_specs))
+    assert not missing_doc_map_entries, (
+        "docs/specs/*.md file(s) missing a DOC_MAP entry in "
+        f"docs-site/scripts/sync-docs.js: {missing_doc_map_entries}. Add a "
+        "'specs/<NAME>.md': 'specs/<slug>.md' DOC_MAP entry, or add the "
+        "filename to DOCS_SPECS_MIRROR_ALLOWLIST above if it is deliberately "
+        "excluded from the mirror."
+    )
+
+    stale_doc_map_entries = sorted(set(mapped_specs) - set(source_specs))
+    assert not stale_doc_map_entries, (
+        "docs-site/scripts/sync-docs.js has specs/ DOC_MAP entries for file(s) "
+        f"no longer present under docs/specs/: {stale_doc_map_entries}"
+    )
+
+    for source_name, dest in mapped_specs.items():
+        page = DOCS_SITE_ROOT / "specs" / dest
+        assert page.exists(), (
+            f"Expected synced docs-site page missing for docs/specs/{source_name}: {page}"
+        )
+
+    assert (DOCS_SITE_ROOT / "specs" / "index.md").exists()
+
+
+def test_docs_specs_allowlist_artifact_detector_finds_published_specs() -> None:
+    artifacts = _allowlisted_spec_publication_artifacts({"OPEN_DECISION_RECEIPT.md"})
+
+    assert "docs-site/docs/specs/open-decision-receipt.md" in artifacts
+    assert "docs-site/docs/specs/index.md -> ./open-decision-receipt" in artifacts
+
+
+def test_docs_specs_index_lists_mirrored_children() -> None:
+    content = _read_docs_site("specs/index.md")
+
+    assert "## In This Section" in content
+    for dest in _docs_specs_map_entries().values():
+        slug = dest.removesuffix(".md")
+        assert f"](./{slug})" in content
+
+
+def test_specs_sidebar_is_registered() -> None:
+    content = (REPO_ROOT / "docs-site" / "sidebars.js").read_text(encoding="utf-8")
+
+    assert "specsSidebar" in content
+    assert "dirName: 'specs'" in content
+
+
+def test_mdx_prose_brace_sets_are_escaped_outside_fences() -> None:
+    content = _read_docs_site("specs/tamper-evident-trail.md")
+
+    assert r"\{push, merge, branch delete," in content
+    assert "class {push, merge, branch delete," not in content
+
+
+def test_docs_specs_intra_directory_links_resolve_to_mirrored_siblings() -> None:
+    # Links between docs/specs/*.md files (e.g. OPEN_DECISION_RECEIPT.md <->
+    # TAMPER_EVIDENT_TRAIL.md) must resolve via the source-relative lookup to
+    # their mirrored specs/ siblings, not survive as raw source-relative .md
+    # targets that 404 once relocated under docs-site/docs/specs/.
+    open_decision_receipt = _read_docs_site("specs/open-decision-receipt.md")
+    receipt_lineage = _read_docs_site("specs/receipt-lineage-reconciliation.md")
+    independent_verifier = _read_docs_site("specs/independent-verifier-guide.md")
+    odr_native_mapping = _read_docs_site("specs/odr-native-mapping.md")
+
+    assert "[`docs/specs/TAMPER_EVIDENT_TRAIL.md`](./tamper-evident-trail)" in open_decision_receipt
+    assert "[`TAMPER_EVIDENT_TRAIL.md`](./tamper-evident-trail)" in open_decision_receipt
+    assert "[`odr-native-mapping.md`](./odr-native-mapping)" in open_decision_receipt
+
+    assert "[`docs/specs/OPEN_DECISION_RECEIPT.md`](./open-decision-receipt)" in receipt_lineage
+    assert "[`docs/specs/odr-native-mapping.md`](./odr-native-mapping)" in receipt_lineage
+
+    assert (
+        "[`docs/specs/OPEN_DECISION_RECEIPT.md`](./open-decision-receipt)" in independent_verifier
+    )
+    assert (
+        "[`docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md`](./receipt-lineage-reconciliation)"
+        in independent_verifier
+    )
+    assert "[`OPEN_DECISION_RECEIPT.md`](./open-decision-receipt)" in independent_verifier
+
+    assert "[`OPEN_DECISION_RECEIPT.md`](./open-decision-receipt)" in odr_native_mapping
+
+    for content in [
+        open_decision_receipt,
+        receipt_lineage,
+        independent_verifier,
+        odr_native_mapping,
+    ]:
+        assert "TAMPER_EVIDENT_TRAIL.md)" not in content
+        assert "OPEN_DECISION_RECEIPT.md)" not in content
+        assert "RECEIPT_LINEAGE_RECONCILIATION.md)" not in content
+        assert "odr-native-mapping.md)" not in content
+
+
+def test_documentation_index_links_into_specs_use_mirrored_relative_paths() -> None:
+    # docs/INDEX.md used to route these three links through absolute GitHub blob
+    # URLs (and a "Notes" caveat) specifically because docs/specs/ wasn't
+    # mirrored. Now that it is, the mirrored index must link to the real
+    # docs-site specs/ pages instead of GitHub, and the stale caveat must be gone.
+    content = _read_docs_site("contributing/documentation-index.md")
+
+    assert "[Open Decision Receipt Spec](../specs/open-decision-receipt)" in content
+    assert "[Receipt Lineage Reconciliation](../specs/receipt-lineage-reconciliation)" in content
+    assert "[Independent Verifier Guide](../specs/independent-verifier-guide)" in content
+
+    assert "github.com/synaptent/aragora/blob/main/docs/specs" not in content
+    assert "is not mirrored into" not in content
+
+
+def test_receipt_contract_link_resolves_to_absolute_repo_url_not_mirrored() -> None:
+    # docs/RECEIPT_CONTRACT.md is an operator-gated canonical statement (see
+    # mission AGENTS.md "Operator-gated" list) that specs quote and link to. It
+    # is intentionally NOT given a DOC_MAP mirror entry -- publishing it onto the
+    # docs site for the first time is a gated decision outside this feature's
+    # scope -- so its links resolve to an absolute GitHub blob URL instead of
+    # 404ing as a raw relative path.
+    receipt_lineage = _read_docs_site("specs/receipt-lineage-reconciliation.md")
+
+    assert (
+        "[`docs/RECEIPT_CONTRACT.md`]"
+        "(https://github.com/synaptent/aragora/blob/main/docs/RECEIPT_CONTRACT.md)"
+    ) in receipt_lineage
+    assert "](../RECEIPT_CONTRACT.md)" not in receipt_lineage
+
+
+def test_aragora_verify_readme_link_resolves_to_absolute_repo_url() -> None:
+    # aragora-verify/ is a standalone top-level package (like the root, mcp,
+    # deploy, and sdk README.md targets already pinned above), not part of the
+    # docs/ mirror boundary. It is intentionally left unmirrored and pointed at
+    # an absolute GitHub blob URL rather than given a DOC_MAP entry.
+    content = _read_docs_site("specs/independent-verifier-guide.md")
+
+    assert (
+        "[`aragora-verify/README.md`]"
+        "(https://github.com/synaptent/aragora/blob/main/aragora-verify/README.md)"
+    ) in content
+    assert "](../../aragora-verify/README.md)" not in content
+
+
+def test_architecture_charter_links_resolve_to_absolute_repo_urls() -> None:
+    # docs/architecture/ARCHITECTURE.md links to two siblings -- INTENDED_ARCHITECTURE.md
+    # and charters.yaml (not markdown, so it can never get a DOC_MAP mirror entry) --
+    # that are outside the mirror set. Left bare, these are source-relative links that
+    # would otherwise survive the sync unrewritten and 404 from core-concepts/ on the
+    # live site, the same failure mode this feature closes for docs/specs/**.
+    content = _read_docs_site("core-concepts/architecture.md")
+
+    assert (
+        "[`docs/architecture/INTENDED_ARCHITECTURE.md`]"
+        "(https://github.com/synaptent/aragora/blob/main/"
+        "docs/architecture/INTENDED_ARCHITECTURE.md)"
+    ) in content
+    assert (
+        "[`charters.yaml`]"
+        "(https://github.com/synaptent/aragora/blob/main/docs/architecture/charters.yaml)"
+    ) in content
+    assert "](INTENDED_ARCHITECTURE.md)" not in content
+    assert "](charters.yaml)" not in content

@@ -1,6 +1,6 @@
 # Aragora v3.0 Migration Guide
 
-> **Current version:** v2.8.0
+> **Current version:** v2.9.0
 > **Target version:** v3.0.0 (Q3 2026)
 > **Deprecation warnings active since:** v2.7-v2.9
 

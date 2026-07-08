@@ -19,16 +19,14 @@ standalone verifier ([`pip install -U 'aragora-verify>=0.1.1'`](https://pypi.org
 |------------|---------|
 | Run the standalone debate engine | `pip install aragora-debate` |
 | Verify an Open Decision Receipt with the standalone verifier | `pip install -U 'aragora-verify>=0.1.1' && aragora-verify receipt.odr.json` |
-| Run the current PyPI zero-key demo | `pip install aragora && aragora demo` |
-| See a native debate → receipt → verify loop from a current source checkout | `python3 -m pip install -e . && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
+| Run the current PyPI zero-key receipt demo | `pip install aragora && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
+| Audit this source checkout's exact CLI | `python3 -m pip install -e . && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
-PyPI `aragora` releases through 2.7.4 support `aragora demo`, but they do not
-include the explicit `--offline` flag or the source checkout's verifiable
-native demo-receipt round trip. If that public-package demo writes
-`aragora-demo-receipt.json`, treat it as demo output, not the verification
-example; use the source checkout path below for `receipt verify`.
+PyPI `aragora` 2.9.0 supports the explicit offline demo receipt round trip.
+Use the source checkout path when you need to audit this exact branch or
+unreleased local changes.
 
 ## The problem
 
@@ -64,17 +62,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: synaptent/aragora@1e3ce85ae66489753cace8b60551a99fada9749c
+      - uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           post-comment: 'true'
+          emit-receipt: 'true'
 ```
 
-The action posts a PR review comment and uploads the machine-readable review
-artifact. When a Decision Receipt artifact exists, anyone — a teammate, an
-auditor, a customer — can verify it independently with the standalone
-`aragora-verify` verifier (no Aragora dependency):
+The action posts a PR review comment, uploads the machine-readable review
+artifact, and (with `emit-receipt: 'true'` shown above) emits a Decision
+Receipt artifact from a second, independent quorum pass. Anyone — a teammate,
+an auditor, a customer — can then verify that receipt independently with the
+standalone `aragora-verify` verifier (no Aragora dependency):
 
 ```bash
 pip install -U 'aragora-verify>=0.1.1'
@@ -91,6 +91,11 @@ pip install ./aragora-verify
 > signature's recorded `key_id` to the key you supply, so a relabeled signer
 > fails as tampering. 0.1.0 lacks that binding — upgrade if you have it.
 
+See the [full Action setup guide](docs/GITHUB_ACTION_SETUP.md#emitting-a-verifiable-decision-receipt)
+for the receipt-specific inputs/outputs, secret-dependent limits (receipts are
+unsigned; reviewer defaults need reachable provider keys), and a committed
+example receipt you can verify right now without running any CI.
+
 We run this gate on our own repository — every substantive merge is reviewed
 by a heterogeneous model quorum, dissent preserved, receipts written. The
 evidence, with reproducible queries and caught-bug case studies:
@@ -102,7 +107,8 @@ Current PyPI package:
 
 ```bash
 pip install aragora
-aragora demo                        # no provider key required in PyPI 2.7.4
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
 ```
 
 Current source checkout:

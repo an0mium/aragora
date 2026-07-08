@@ -2,6 +2,21 @@
 
 Add multi-agent AI code review to any repository using GitHub Actions.
 
+> **Root vs. nested action.** This guide covers the two **composite actions
+> bundled inside this repository** — `.github/actions/aragora-code-review` and
+> `.github/actions/aragora-review` — referenced below via same-repository
+> `uses: ./.github/actions/...` paths. GitHub only resolves a `uses: ./path`
+> reference within the repository that owns the workflow, so reusing either
+> snippet from a *different* repository means first copying (vendoring) that
+> action directory into your own repo. Neither nested action has an
+> `emit-receipt` input, so neither can produce a Decision Receipt.
+>
+> Most external adopters instead want the **root** `synaptent/aragora` action:
+> `uses: synaptent/aragora@<sha>` works directly from any repository, needs no
+> vendoring, and supports `emit-receipt`. See the
+> [GitHub Action Setup Guide](../GITHUB_ACTION_SETUP.md) — the canonical doc
+> for that action.
+
 ## Quick Start
 
 Copy this workflow into `.github/workflows/aragora-review.yml`:
@@ -19,7 +34,7 @@ concurrency:
 
 jobs:
   review:
-    if: "!github.event.pull_request.draft"
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -2,6 +2,16 @@
 
 Add multi-agent AI code review to your pull requests in under 5 minutes.
 
+> **This is the canonical Action setup doc**, for the root `synaptent/aragora`
+> action (the one with `emit-receipt`, below). The
+> [README wedge section](../README.md#the-wedge-a-governance-gate-for-ai-written-code)
+> is a shorter copy-paste version of the same root action; both describe the
+> identical `uses: synaptent/aragora@<sha>` step. If instead you want the
+> **nested, receipt-less** composite actions bundled inside this repository
+> (`.github/actions/aragora-code-review`, `.github/actions/aragora-review`),
+> see [Aragora GitHub Actions Code Review](guides/github-actions-review.md) —
+> read its root-vs-nested note before reusing either snippet outside this repo.
+
 ## Quick Start
 
 ### 1. Add API Keys as GitHub Secrets
@@ -44,7 +54,7 @@ jobs:
     steps:
       - name: Run Aragora Review
         id: review
-        uses: synaptent/aragora@main
+        uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -60,14 +70,30 @@ That's it. The next PR will get an AI code review comment.
 
 ### Action Inputs
 
+The Inputs and Outputs tables below are kept at full parity with
+[`action.yml`](https://github.com/synaptent/aragora/blob/main/action.yml) by `tests/scripts/test_github_action_setup_doc.py`
+(exact-match, not just a subset -- a field added to either side without the other
+fails the test).
+
 | Input | Default | Description |
 |-------|---------|-------------|
 | `agents` | `anthropic-api,openai-api` | Comma-separated agent list |
 | `rounds` | `2` | Number of debate rounds (1-5) |
 | `focus` | `security,performance,quality` | Review focus areas |
+| `anthropic-api-key` | (none) | Anthropic API key for Claude |
+| `openai-api-key` | (none) | OpenAI API key for GPT |
+| `openrouter-api-key` | (none) | OpenRouter API key (fallback provider) |
 | `post-comment` | `true` | Post review as PR comment |
 | `fail-on-critical` | `false` | Fail CI if critical issues found |
 | `max-diff-size` | `50000` | Max diff size in bytes |
+| `pr-number` | (empty string) | Pull request number override, for manual/self-test runs (defaults to the triggering PR's number) |
+| `failure-threshold` | `0` | Fail workflow if total issues exceed this count (`0` = disabled) |
+| `output-format` | `none` | Additional output format besides the PR comment (`sarif`, `json`, `none`) |
+| `sarif-upload` | `false` | Upload the generated SARIF file to the GitHub Security tab (requires `output-format: 'sarif'`) |
+| `emit-receipt` | `false` | Emit a verifiable [Open Decision Receipt](specs/OPEN_DECISION_RECEIPT.md) (ODR) for the review and upload it as a build artifact. See [Emitting a Verifiable Decision Receipt](#emitting-a-verifiable-decision-receipt) below. |
+| `receipt-reviewers` | `claude openai` | Space-separated model families for the receipt's merge-quorum pass. You must hold a reachable provider key for every family listed. |
+| `use-secrets-manager` | `false` | Hydrate provider API keys from AWS Secrets Manager instead of the `*-api-key` inputs. Requires AWS credentials in the job env. |
+| `aws-region` | `us-east-2` | AWS region for Secrets Manager, when `use-secrets-manager` is `true`. |
 
 ### Action Outputs
 
@@ -86,6 +112,11 @@ That's it. The next PR will get an AI code review comment.
 | `risk-areas-count` | Risk areas noted (lower confidence items) |
 | `split-opinions-count` | Split opinions (agent disagreement items) |
 | `agreement-score` | Agent agreement score (0-1) |
+| `sarif-path` | Path to the generated SARIF output file (only set when `output-format: 'sarif'` produced one) |
+| `receipt-path` | Path to the verifiable ODR decision receipt (only set if `emit-receipt: 'true'` and emission succeeded) |
+| `receipt-verdict` | Receipt verdict (`PASS` / `CHANGES_REQUESTED`) |
+| `receipt-digest` | SHA-256 JCS content digest of the receipt -- the value signatures would cover |
+| `receipt-verified` | `'true'` only if the receipt passed schema + digest verification before this output was set |
 
 ### Strict Mode (Block PRs on Critical Issues)
 
@@ -97,6 +128,135 @@ Set `fail-on-critical: 'true'` and add the review as a required status check:
 
 See `examples/github-action/aragora-review-strict.yml` for a complete example.
 See also `examples/github-action/basic.yml` and `examples/github-action/advanced.yml`.
+
+## Emitting a Verifiable Decision Receipt
+
+Since [#8669](https://github.com/synaptent/aragora/pull/8669), this action can turn a
+review into a portable, independently-verifiable
+**[Open Decision Receipt](specs/OPEN_DECISION_RECEIPT.md)** (ODR) and upload it as a
+build artifact. Set `emit-receipt: 'true'` to opt in. This extends the workflow from
+Quick Start:
+
+```yaml
+name: Aragora AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Aragora Review
+        id: review
+        uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          post-comment: 'true'
+          emit-receipt: 'true'
+          receipt-reviewers: 'claude openai'   # must be families you hold keys for
+
+      - name: Upload the decision receipt
+        if: steps.review.outputs.receipt-verified == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: decision-receipt
+          path: ${{ steps.review.outputs.receipt-path }}
+
+      - name: Verify the receipt offline (optional)
+        if: steps.review.outputs.receipt-verified == 'true'
+        run: |
+          pip install "aragora-verify>=0.1.1"
+          aragora-verify "${{ steps.review.outputs.receipt-path }}"
+```
+
+See `examples/github-action/receipt.yml` for this snippet as a copy-paste workflow file.
+
+Only the **root** `synaptent/aragora` action shown above (this `action.yml`) can emit
+a receipt. The composite actions nested under `.github/actions/` in this repo
+(`aragora-code-review`, `aragora-review`) have no `emit-receipt` input -- pointing
+`uses:` at either of those will not produce one.
+
+### What the emit step actually does
+
+The `Emit decision receipt` step (gated on `inputs.emit-receipt == 'true'`) runs after
+the normal review and:
+
+1. Collects a **dry-run** heterogeneous-model merge-quorum pass over the same PR
+   (`scripts/collect_quorum_evidence.py`) -- this never posts a comment or applies
+   anything, regardless of merge tier.
+2. Bridges that outcome into a native `DecisionReceipt` and exports it as an ODR
+   document (`scripts/emit_pr_receipt.py`, calling
+   `aragora.gauntlet.odr_export.decision_receipt_to_odr`).
+3. Re-validates the receipt's schema conformance and recomputes its canonical digest
+   (`--verify`) before treating emission as successful.
+4. Appends a short receipt summary to the PR comment and writes the receipt to
+   `./aragora-artifacts/decision-receipt.odr.json`, which the action's own final step
+   uploads as part of the `aragora-review-<pr>` build artifact (the snippet above
+   additionally re-uploads just the receipt, under its own artifact name, for
+   convenience).
+
+Outputs: `receipt-path`, `receipt-verdict`, `receipt-digest`, `receipt-verified` (see
+[Action Outputs](#action-outputs) above). Receipt emission is fail-closed once
+requested: if `emit-receipt: 'true'` and no verified receipt comes out, the action's
+own `Check receipt emission` step fails the job rather than silently skipping it.
+
+### Secret-dependent limits
+
+- **Receipts are unsigned unless a signing key is wired in -- and this action does
+  not wire one in today.** The emit step never calls Aragora's Ed25519 signer
+  (`aragora.gauntlet.odr_signing.sign_odr_receipt`); it only exports and
+  schema/digest-validates the ODR. Every receipt this action produces has
+  `signatures: []`, so `aragora-verify` reports `[WARN] signature: receipt is
+  unsigned` (still exit `0` -- `schema_conformance` / `canonical_digest` /
+  `quorum_consistency` are the checks actually backing that exit code). This is
+  unrelated to `use-secrets-manager`; treat every receipt from this action as
+  structurally verified, not authenticated.
+- **`use-secrets-manager` / `aws-region` control *provider* keys, not the receipt.**
+  When `use-secrets-manager: 'true'`, the quorum step hydrates
+  `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / etc. from AWS Secrets Manager instead of
+  the `*-api-key` inputs. It has no effect on whether the receipt gets signed.
+- **`receipt-reviewers` defaults to `'claude openai'`**, matching the review's own
+  default agent families. Both need a reachable provider key (`ANTHROPIC_API_KEY`
+  and `OPENAI_API_KEY`, as inputs or via Secrets Manager) -- if your repo only holds
+  keys for other providers, override `receipt-reviewers` accordingly (e.g.
+  `receipt-reviewers: 'gemini mistral'`), or the quorum step collects nothing and the
+  job fails at `Check receipt emission`.
+
+### Verify a receipt offline right now
+
+You do not need to run the action to see the shape of a receipt it produces -- this
+repository ships a real example built by the same merge-quorum pipeline
+(`aragora/swarm/quorum_receipt.py`):
+
+```bash
+pip install "aragora-verify>=0.1.1"
+aragora-verify docs/specs/examples/example-merge-quorum-receipt.odr.json
+```
+
+This exits `0` (`PASS` on schema conformance, canonical digest, and quorum
+consistency; `WARN` on signature, since it is unsigned per the note above) and
+reports `quorum.independence.distinct_model_families: 3`. The committed fixture is
+illustrative -- it is not literally a file a live run produced -- but it comes from
+the identical emitter this action's `Emit decision receipt` step calls, so its shape
+is what `receipt-path` will point to.
+
+`aragora-verify`'s full exit-code contract is
+`0 verified / 1 failed / 2 usage / 3 signatures-present-unchecked` -- see the
+[Independent Verifier Guide](specs/INDEPENDENT_VERIFIER_GUIDE.md#exit-code-contract)
+for what each of the other three codes means. This is always the standalone
+`aragora-verify`, never the in-tree `aragora verify` / `aragora receipt verify`
+commands, which check a different object (the native `DecisionReceipt`, not the
+portable ODR).
 
 ## How It Works
 
@@ -135,7 +295,7 @@ on:
 Focus the review on security concerns:
 
 ```yaml
-- uses: synaptent/aragora@main
+- uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
   with:
     focus: 'security'
     rounds: '3'
@@ -147,7 +307,7 @@ Focus the review on security concerns:
 The `max-diff-size` input prevents excessive API costs on large PRs. The default of 50KB handles most PRs. For monorepo or generated code, increase it:
 
 ```yaml
-- uses: synaptent/aragora@main
+- uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
   with:
     max-diff-size: '200000'
 ```
