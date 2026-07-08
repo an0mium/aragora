@@ -40,7 +40,15 @@ from aragora.server.handlers.base import (
     success_response,
     require_permission,
 )
+from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.responses import HandlerResult
+
+_MESSAGE_ID_PARAM = {
+    "name": "message_id",
+    "in": "path",
+    "required": True,
+    "schema": {"type": "string"},
+}
 
 logger = logging.getLogger(__name__)
 
@@ -341,6 +349,38 @@ async def _maybe_handle_wedge_action(
 # =============================================================================
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/send",
+    summary="Send email",
+    description="Send a new email through a connected Gmail or Outlook account.",
+    tags=["Inbox", "Email Actions"],
+    request_body={
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["gmail", "outlook"]},
+                        "to": {"type": "array", "items": {"type": "string"}},
+                        "subject": {"type": "string"},
+                        "body": {"type": "string"},
+                        "cc": {"type": "array", "items": {"type": "string"}},
+                        "bcc": {"type": "array", "items": {"type": "string"}},
+                        "reply_to": {"type": "string"},
+                        "html_body": {"type": "string"},
+                    },
+                    "required": ["to"],
+                }
+            }
+        }
+    },
+    responses={
+        "200": {"description": "Email sent"},
+        "400": {"description": "Missing required fields"},
+        "500": {"description": "Send failed"},
+    },
+)
 @require_permission("email:create")
 async def handle_send_email(
     data: dict[str, Any],
@@ -410,6 +450,35 @@ async def handle_send_email(
         return error_response("Email send failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/reply",
+    summary="Reply to email",
+    description="Reply to an existing email message via its provider.",
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    request_body={
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["gmail", "outlook"]},
+                        "body": {"type": "string"},
+                        "cc": {"type": "array", "items": {"type": "string"}},
+                        "html_body": {"type": "string"},
+                    },
+                    "required": ["body"],
+                }
+            }
+        }
+    },
+    responses={
+        "200": {"description": "Reply sent"},
+        "400": {"description": "message_id or body missing"},
+        "500": {"description": "Reply failed"},
+    },
+)
 @require_permission("email:create")
 async def handle_reply_email(
     data: dict[str, Any],
@@ -473,6 +542,23 @@ async def handle_reply_email(
 # =============================================================================
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/archive",
+    summary="Archive message",
+    description=(
+        "Archive a message. Requires a receipt_id for an approved decision "
+        "receipt, or create_receipt=true to mint one (inbox trust wedge)."
+    ),
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    responses={
+        "200": {"description": "Message archived or receipt created"},
+        "400": {"description": "message_id missing or receipt mismatch"},
+        "428": {"description": "Decision receipt required"},
+        "500": {"description": "Archive failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_archive_message(
     data: dict[str, Any],
@@ -539,6 +625,19 @@ async def handle_archive_message(
         return error_response("Archive operation failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/trash",
+    summary="Trash message",
+    description="Move a message to trash.",
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    responses={
+        "200": {"description": "Message moved to trash"},
+        "400": {"description": "message_id is required"},
+        "500": {"description": "Trash failed"},
+    },
+)
 @require_permission("email:delete")
 async def handle_trash_message(
     data: dict[str, Any],
@@ -594,6 +693,19 @@ async def handle_trash_message(
         return error_response("Trash operation failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/restore",
+    summary="Restore message",
+    description="Restore a message from trash.",
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    responses={
+        "200": {"description": "Message restored"},
+        "400": {"description": "message_id is required"},
+        "500": {"description": "Restore failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_restore_message(
     data: dict[str, Any],
@@ -648,6 +760,34 @@ async def handle_restore_message(
 # =============================================================================
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/snooze",
+    summary="Snooze message",
+    description="Snooze a message until a specific time (snooze_until, snooze_hours, or snooze_days).",
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    request_body={
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["gmail", "outlook"]},
+                        "snooze_until": {"type": "string", "format": "date-time"},
+                        "snooze_hours": {"type": "integer"},
+                        "snooze_days": {"type": "integer"},
+                    },
+                }
+            }
+        }
+    },
+    responses={
+        "200": {"description": "Message snoozed"},
+        "400": {"description": "Missing or invalid snooze time"},
+        "500": {"description": "Snooze failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_snooze_message(
     data: dict[str, Any],
@@ -738,6 +878,19 @@ async def handle_snooze_message(
 # =============================================================================
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/read",
+    summary="Mark message read",
+    description="Mark a message as read.",
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    responses={
+        "200": {"description": "Message marked read"},
+        "400": {"description": "message_id is required"},
+        "500": {"description": "Mark read failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_mark_read(
     data: dict[str, Any],
@@ -792,6 +945,19 @@ async def handle_mark_read(
         return error_response("Mark read operation failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/unread",
+    summary="Mark message unread",
+    description="Mark a message as unread.",
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    responses={
+        "200": {"description": "Message marked unread"},
+        "400": {"description": "message_id is required"},
+        "500": {"description": "Mark unread failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_mark_unread(
     data: dict[str, Any],
@@ -841,6 +1007,23 @@ async def handle_mark_unread(
         return error_response("Mark unread operation failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/star",
+    summary="Star message",
+    description=(
+        "Star a message. Requires a receipt_id for an approved decision "
+        "receipt, or create_receipt=true to mint one (inbox trust wedge)."
+    ),
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    responses={
+        "200": {"description": "Message starred or receipt created"},
+        "400": {"description": "message_id missing or receipt mismatch"},
+        "428": {"description": "Decision receipt required"},
+        "500": {"description": "Star failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_star_message(
     data: dict[str, Any],
@@ -906,6 +1089,19 @@ async def handle_star_message(
         return error_response("Star operation failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/unstar",
+    summary="Unstar message",
+    description="Remove the star from a message.",
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    responses={
+        "200": {"description": "Message unstarred"},
+        "400": {"description": "message_id is required"},
+        "500": {"description": "Unstar failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_unstar_message(
     data: dict[str, Any],
@@ -960,6 +1156,34 @@ async def handle_unstar_message(
 # =============================================================================
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/move",
+    summary="Move message to folder",
+    description="Move a message to a folder or label.",
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    request_body={
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["gmail", "outlook"]},
+                        "folder": {"type": "string"},
+                        "remove_from_inbox": {"type": "boolean"},
+                    },
+                    "required": ["folder"],
+                }
+            }
+        }
+    },
+    responses={
+        "200": {"description": "Message moved"},
+        "400": {"description": "message_id or folder missing"},
+        "500": {"description": "Move failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_move_to_folder(
     data: dict[str, Any],
@@ -1022,6 +1246,37 @@ async def handle_move_to_folder(
         return error_response("Move operation failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/labels/add",
+    summary="Add labels to message",
+    description=(
+        "Add labels to a message. Trust-wedge receipt flow applies when "
+        "receipt_id or create_receipt is provided."
+    ),
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    request_body={
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["gmail", "outlook"]},
+                        "labels": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["labels"],
+                }
+            }
+        }
+    },
+    responses={
+        "200": {"description": "Labels added or receipt created"},
+        "400": {"description": "message_id or labels missing"},
+        "428": {"description": "Decision receipt required"},
+        "500": {"description": "Add labels failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_add_label(
     data: dict[str, Any],
@@ -1089,6 +1344,33 @@ async def handle_add_label(
         return error_response("Add labels operation failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/{message_id}/labels/remove",
+    summary="Remove labels from message",
+    description="Remove labels from a message.",
+    tags=["Inbox", "Email Actions"],
+    parameters=[_MESSAGE_ID_PARAM],
+    request_body={
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["gmail", "outlook"]},
+                        "labels": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["labels"],
+                }
+            }
+        }
+    },
+    responses={
+        "200": {"description": "Labels removed"},
+        "400": {"description": "message_id or labels missing"},
+        "500": {"description": "Remove labels failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_remove_label(
     data: dict[str, Any],
@@ -1149,6 +1431,32 @@ async def handle_remove_label(
 # =============================================================================
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/batch/archive",
+    summary="Batch archive messages",
+    description="Archive up to 100 messages in one request.",
+    tags=["Inbox", "Email Actions"],
+    request_body={
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["gmail", "outlook"]},
+                        "message_ids": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["message_ids"],
+                }
+            }
+        }
+    },
+    responses={
+        "200": {"description": "Messages archived"},
+        "400": {"description": "message_ids missing or over batch limit"},
+        "500": {"description": "Batch archive failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_batch_archive(
     data: dict[str, Any],
@@ -1205,6 +1513,32 @@ async def handle_batch_archive(
         return error_response("Batch archive failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/batch/trash",
+    summary="Batch trash messages",
+    description="Move up to 100 messages to trash; reports partial success per message.",
+    tags=["Inbox", "Email Actions"],
+    request_body={
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["gmail", "outlook"]},
+                        "message_ids": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["message_ids"],
+                }
+            }
+        }
+    },
+    responses={
+        "200": {"description": "Batch result with per-message successes and failures"},
+        "400": {"description": "message_ids missing or over batch limit"},
+        "500": {"description": "Batch trash failed"},
+    },
+)
 @require_permission("email:delete")
 async def handle_batch_trash(
     data: dict[str, Any],
@@ -1276,6 +1610,34 @@ async def handle_batch_trash(
         return error_response("Batch trash failed", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/messages/batch/modify",
+    summary="Batch modify message labels",
+    description="Add or remove labels on up to 100 messages; reports partial success per message.",
+    tags=["Inbox", "Email Actions"],
+    request_body={
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {"type": "string", "enum": ["gmail", "outlook"]},
+                        "message_ids": {"type": "array", "items": {"type": "string"}},
+                        "add_labels": {"type": "array", "items": {"type": "string"}},
+                        "remove_labels": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["message_ids"],
+                }
+            }
+        }
+    },
+    responses={
+        "200": {"description": "Batch result with per-message successes and failures"},
+        "400": {"description": "message_ids or labels missing, or over batch limit"},
+        "500": {"description": "Batch modify failed"},
+    },
+)
 @require_permission("email:update")
 async def handle_batch_modify(
     data: dict[str, Any],
@@ -1373,6 +1735,34 @@ async def handle_batch_modify(
 # =============================================================================
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/inbox/actions/logs",
+    summary="Get email action logs",
+    description="Get email action logs for audit and compliance, with optional filters.",
+    tags=["Inbox", "Email Actions"],
+    parameters=[
+        {"name": "action_type", "in": "query", "required": False, "schema": {"type": "string"}},
+        {"name": "provider", "in": "query", "required": False, "schema": {"type": "string"}},
+        {
+            "name": "since",
+            "in": "query",
+            "required": False,
+            "schema": {"type": "string", "format": "date-time"},
+        },
+        {
+            "name": "limit",
+            "in": "query",
+            "required": False,
+            "schema": {"type": "integer", "default": 100, "maximum": 1000},
+        },
+    ],
+    responses={
+        "200": {"description": "Action logs returned"},
+        "400": {"description": "Invalid filter value"},
+        "500": {"description": "Failed to retrieve logs"},
+    },
+)
 @require_permission("email:read")
 async def handle_get_action_logs(
     data: dict[str, Any],
@@ -1449,6 +1839,32 @@ async def handle_get_action_logs(
         return error_response("Failed to retrieve logs", status=500)
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/inbox/actions/export",
+    summary="Export email action logs",
+    description="Export email action logs for compliance reporting (maximum 90-day range).",
+    tags=["Inbox", "Email Actions"],
+    parameters=[
+        {
+            "name": "start_date",
+            "in": "query",
+            "required": True,
+            "schema": {"type": "string", "format": "date-time"},
+        },
+        {
+            "name": "end_date",
+            "in": "query",
+            "required": True,
+            "schema": {"type": "string", "format": "date-time"},
+        },
+    ],
+    responses={
+        "200": {"description": "Exported logs returned"},
+        "400": {"description": "Missing or invalid date range"},
+        "500": {"description": "Export failed"},
+    },
+)
 @require_permission("admin:audit")
 async def handle_export_action_logs(
     data: dict[str, Any],
