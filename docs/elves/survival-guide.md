@@ -1,8 +1,10 @@
-# READ THIS FILE FIRST AFTER ANY COMPACTION OR RESTART
+# ARCHIVAL SURVIVAL GUIDE — CLOSE-THE-LOOP RUN
 
-> This is the Survival Guide — your persistent memory across compactions and restarts. After any
-> compaction event, read this file before touching code. If it contradicts what you think you
-> remember, trust this file. Your memory is gone; this is not.
+> This was the Survival Guide for the 2026-07-01 close-the-loop run. It is preserved as a
+> historical run artifact, not a current operating runbook. After compaction, read it to
+> understand the run, then verify live repo/owner state before acting. If this file conflicts
+> with later entries in `docs/elves/execution-log.md`, the later execution-log entry supersedes
+> it.
 >
 > Read order after compaction: this file → `.elves-session.json` → `docs/elves/learnings.md` →
 > the plan → `docs/elves/execution-log.md` → `docs/AGENT_OPERATING_CONTRACT.md` →
@@ -12,13 +14,14 @@
 
 ## Mission
 
-Execute the Close the Loop strategic plan (`docs/plans/2026-07-01-strategic-plan-close-the-loop.md`,
+Executed the Close the Loop strategic plan (`docs/plans/2026-07-01-strategic-plan-close-the-loop.md`,
 epic #8762): drain the stuck ready-PR queue, build the mission intake bridge, merge executor, and
 harvest engine, and start the ODR compliance wedge — all under the aragora validation gate
 (local truth → adversarial review → verified receipt → tier settlement). Invariants: never merge
 by default; Tier 3-4 prepare-only; no shared-root mutation; no edits to
-`aragora/swarm/quorum_evidence.py` or `aragora/cli/commands/review_queue.py` (Codex-owned
-timeout-family + Tier 4 merge-authority surface).
+`aragora/swarm/quorum_evidence.py` or `aragora/cli/commands/review_queue.py` during the run while
+the Codex timeout-family lane owned them. Future operators must re-check live ownership/steering
+instead of treating this archival freeze as current.
 
 ---
 
@@ -49,10 +52,10 @@ timeout-family + Tier 4 merge-authority surface).
 ## Stop Gate
 
 - **Planned batches remaining:** 0 unblocked (B1,B3,B4,B6 done; B2 parked; B5 packet delivered; B7,B8 skipped w/ reasons)
-- **Batches blocked on human settlement (Tier 3-4):** none yet (B5 adjudicator-wiring and B6 cleanup-execution will queue packets; B3-arming waits on dry-run evidence)
+- **Batches blocked on human settlement (Tier 3-4):** none for this archival run. Later execution-log entries record the operator-only residuals and supersede earlier queue snapshots.
 - **Stop allowed right now:** yes
 - **Why:** every remaining item is blocked on human settlement, operator decisions, or external CI.
-- **Next required action:** operator works the settlement queue (see final handoff on epic #8762).
+- **Next required action:** none from this file. Use the latest execution-log section and live GitHub/repo state before choosing any new action.
 
 ---
 
@@ -79,9 +82,10 @@ A genuine Tier 3-4 human-settlement block **is** a valid pause for *that batch o
 - No destructive git: `reset --hard`, `checkout .`, `clean -fd`, `push --force`, rebase on shared.
 - Stage specific files; never `git add -A`. Scope ≤800 LOC delta per batch.
 - Closing commits carry `Co-authored-by: claude[bot]`.
-- **Project-specific:** (1) DO NOT touch `aragora/swarm/quorum_evidence.py`,
-  `aragora/cli/commands/review_queue.py`, or PRs #8726/#8720 — active Codex conductor lane owns
-  the timeout family. (2) Check mailbox/owner state (`scripts/agent_bridge` / operator steering)
+- **Project-specific:** (1) During this run, do not touch `aragora/swarm/quorum_evidence.py`,
+  `aragora/cli/commands/review_queue.py`, or PRs #8726/#8720 because an active Codex conductor
+  lane owned the timeout family. Future work must re-check live owner/steering state rather than
+  inheriting this archival freeze. (2) Check mailbox/owner state (`scripts/agent_bridge` / operator steering)
   before claiming ANY existing PR in the drain campaign. (3) Shared root
   (the main repo checkout, `git rev-parse --show-toplevel` of the primary clone) is read-only —
   it is behind origin/main with untracked dirt.
@@ -127,16 +131,19 @@ ownership immediately before starting each batch — other fleet agents may clai
 
 ## Current Phase
 
-**Status:** Launch-ready (staged 2026-07-01 ~17:45 CDT)
-**Active batch:** none — awaiting launch call
-**What was just finished:** staging (worktree, artifacts, authorization recorded on #8762)
-**Single next action:** on launch, start B1 drain campaign wave 1: probe live state (origin/main SHA, mailbox/owners, publisher, quota), then triage the oldest unowned ready PR.
+**Status:** Archived complete. This section records the pre-launch state and is superseded by the
+later execution-log waves.
+**Active batch:** none
+**What was just finished:** the run artifacts were harvested into this PR for preservation.
+**Single next action:** none from this archival file.
 
 ---
 
 ## Next Exact Batch
 
-**Batch:** B1: Drain campaign wave 1 (#8761)
+**Historical next batch at staging:** B1: Drain campaign wave 1 (#8761). Do not execute this
+section as a current prompt; later execution-log entries record which parts completed, parked,
+or were superseded.
 **Predicted merge tier:** 2 (operations; per-PR tier governs each settlement)
 **Scope:**
 - Probe live state; list ready PRs >7d; exclude Codex-owned (#8726/#8720) and mailbox-frozen items

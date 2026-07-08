@@ -3,6 +3,10 @@
 > Chronological, append-only record of work, decisions, commands, review outcomes, receipts, and
 > settlement state. This is the proof of what is done. If a batch appears here as complete with a
 > verified receipt, it is complete — do not re-implement it.
+>
+> Read this chronologically: later sections supersede earlier queue snapshots. In particular,
+> the B6 cleanup entry supersedes the earlier B1 rows that still listed #8405/#8406 as open
+> Tier-4 packets.
 
 - **Plan:** docs/plans/2026-07-01-strategic-plan-close-the-loop.md (epic #8762, plan PR #8763)
 - **Branch / worktree:** elves/close-the-loop-20260701 / .claude/worktrees/elves-close-the-loop-20260701
@@ -32,7 +36,7 @@
 
 ---
 
-## Batch 1: Drain campaign wave 1 (#8761) — IN PROGRESS
+## Batch 1: Drain campaign wave 1 (#8761) — HISTORICAL IN-PROGRESS SNAPSHOT
 
 - **Predicted tier:** 2 (operations; per-PR tier governs each settlement)
 - **Rollback tag:** `elves/ctl-pre-batch-1` (pushed: yes; note `elves/pre-batch-1` name was taken by an older run)
@@ -43,7 +47,7 @@
   - **#8282** (T3): merge-conflict repaired — merged origin/main, resolved `sdk/typescript/src/namespaces/unified-inbox.ts` docstring conflict (kept main's not-mounted NOTE; PR does not mount the route) and `aragora/server/handlers/admin/system.py` (kept main's deliberate no-op handle_post + _ROUTE_MAP reconciliation); 47 admin handler tests pass; pushed f0d63ba2. LESSON: first attempt used a stale LOCAL branch ref and produced non-FF reject — always base repair worktrees on origin/<branch> detached. Superseded scratch worktree `.claude/worktrees/elves-b1-8282` left in place (safe-cleanup helper blocks removal while PR open). Waiting-on: CI on new head, then quorum evidence, then human settlement (T3).
   - **#8289** (T3): merge-conflict repaired — union-resolved `aragora/gauntlet/odr_export.py` (PR's `attestation: Any` + main's `calibration_provenance` param, both docstrings); 87 gauntlet ODR tests pass; pushed 3f93e84a. Waiting-on: CI, quorum, human settlement (T3).
   - **#8389** (T1, ODR verify engine): first gate cycle returned real dissent — claude: [P2] weakening_signals FAIL on non-numeric distinct_model_families (spec §8 says warn-only) + [P3] load_public_key strips raw 32-byte keys; openai: [P2] signature verification not bound to key_id (tampered key_id could PASS). FIXED all three at exact head 136f3002 → e0e7df74 with 3 regression tests (45 ODR tests pass, mypy clean). Nothing was posted on the dissent round (correct). Re-gate (attempt 2 of 2) launched.
-  - **#8405/#8406** (T4): prepare-only — packets recorded: merge conflicts + quorum incomplete (8405: 1/2 signals; 8406: 0/2). Queued for human settlement; NO autonomous implementation on T4 surfaces.
+  - **#8405/#8406** (T4): historical prepare-only snapshot — packets recorded merge conflicts + quorum incomplete (8405: 1/2 signals; 8406: 0/2). Later B6 cleanup closed both as churn with reversible rationale comments; NO autonomous implementation on T4 surfaces.
   - **#8461** (T3, withheld owner): read-only packet recorded (conflict + 0/2 quorum); left for owner or later wave.
   - **#8460** (T2, withheld owner): evidence collection planned read-only after 8389/8519.
   - **#8519** (T3): evidence collection queued after 8389 re-gate.
@@ -54,7 +58,11 @@
   - **#8519 evidence collected (Tier 3, prepare-only):** claude supportive; openai [P2] says `_check_expiry` wall-clock check discards valid pre-expiry events processed late. INVESTIGATED: that behavior is encoded in an intentional characterization test (`test_already_expired_claim_does_not_resolve_from_historical_event`) — design disagreement, NOT a clear bug. No autonomous semantic change; both positions recorded for human settlement. Worktree removed clean.
   - **#8460 evidence collection launched (Tier 2, owner-withheld → read-only).**
 
-## Open human-settlement queue (B1)
+## Historical human-settlement queue (B1 snapshot)
+
+This table is the B1 snapshot before later cleanup and settlement waves. Later entries record the
+current disposition; #8405/#8406 were subsequently closed as churn in B6, with reversible rationale
+comments.
 
 | Item | Tier | State | What the human decides |
 | --- | --- | --- | --- |

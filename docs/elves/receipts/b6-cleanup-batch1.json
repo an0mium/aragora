@@ -21,7 +21,7 @@
   "verdict": "PASS",
   "confidence": 0.85,
   "robustness_score": 0.9,
-  "verdict_reasoning": "Executed batch 1 only, reversible-first, manifests-before-delete, conservative filters (4/30 close cap used). DISCREPANCY RECORDED: #8405/#8406 closed as settle-substrate churn though B1 had queued them as Tier-4 packets; closes are reversible and rationale comments invite reopening.",
+  "verdict_reasoning": "Executed batch 1 only, reversible-first, manifests-before-delete, conservative filters (4/30 close cap used). This PASS records operator-preapproved cleanup execution, not model-quorum approval of destructive deletion. DISCREPANCY RECORDED: #8405/#8406 closed as settle-substrate churn though B1 had queued them as Tier-4 packets; closes are reversible and rationale comments invite reopening.",
   "dissenting_views": [],
   "consensus_proof": null,
   "provenance_chain": [],

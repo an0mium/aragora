@@ -12,10 +12,10 @@
   grok/deepseek via OpenRouter (`ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK=1`). Codex is
   hardening collector preflight transport in #8726 — if that merges mid-run, the collector gains
   `--reviewer-timeout/--overall-timeout` flags; prefer them.
-- **Codex conductor lane is ACTIVE** (long-running task, 2d+ uptime): owns #8726, #8720, and the
-  timeout-family files (`aragora/swarm/quorum_evidence.py`, `aragora/cli/commands/review_queue.py`).
-  Never claim those. Check owner/mailbox state before every PR claim; live state moves fast
-  (heads moved mid-cycle twice today).
+- **Historical Codex conductor freeze:** at staging, a long-running Codex lane owned #8726, #8720,
+  and the timeout-family files (`aragora/swarm/quorum_evidence.py`,
+  `aragora/cli/commands/review_queue.py`). Do not inherit that as current truth. Before every PR
+  claim, re-check live owner/mailbox state; heads moved mid-cycle twice during this run.
 - **Evidence-lane self-owner trap:** your own evidence session can show as a "competing owner" —
   verify the pane vs `$TMUX_PANE` before treating a PR as owned.
 - **Tier-4 --merge-apply 403:** use `ARAGORA_DISABLE_GITHUB_APP_TOKEN=1`; quorum check needs a
