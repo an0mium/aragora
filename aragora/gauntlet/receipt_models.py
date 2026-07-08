@@ -647,11 +647,16 @@ class DecisionReceipt:
         )
         return hashlib.sha256(content.encode()).hexdigest()
 
+    def _has_epistemic_hash_fields(self) -> bool:
+        return bool(self.unverified or self.assumptions or self.falsification)
+
     def verify_integrity(self) -> bool:
         """Verify receipt has not been tampered with."""
         expected_hash = self._calculate_hash()
         if expected_hash == self.artifact_hash:
             return True
+        if self._has_epistemic_hash_fields():
+            return False
         return self._calculate_legacy_hash() == self.artifact_hash
 
     def sign(self, signer: ReceiptSigner | None = None) -> DecisionReceipt:

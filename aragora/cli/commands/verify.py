@@ -143,6 +143,8 @@ _LEGACY_ARTIFACT_HASH_FIELDS: tuple[str, ...] = (
     "confidence",
 )
 
+_EPISTEMIC_HASH_FIELDS: tuple[str, ...] = ("unverified", "assumptions", "falsification")
+
 # Decision-integrity fields covered by the legacy ``checksum`` field.
 _LEGACY_CHECKSUM_FIELDS: tuple[str, ...] = (
     "receipt_id",
@@ -194,6 +196,10 @@ def _artifact_hash_payload(data: dict[str, Any], *, include_epistemic: bool) -> 
 def _hash_artifact_payload(payload: dict[str, Any]) -> str:
     content = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(content.encode()).hexdigest()
+
+
+def _has_epistemic_hash_fields(data: dict[str, Any]) -> bool:
+    return any(field in data for field in _EPISTEMIC_HASH_FIELDS)
 
 
 def _recompute_legacy_artifact_hash(data: dict[str, Any]) -> str:
@@ -354,11 +360,18 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
         else:
             expected_legacy_artifact_hash = _recompute_legacy_artifact_hash(data)
             if stored_artifact_hash == expected_legacy_artifact_hash:
-                covered_fields.extend(_LEGACY_ARTIFACT_HASH_FIELDS)
-                detail = f"legacy artifact_hash={stored_artifact_hash[:16]}..."
-                if verbose:
-                    detail += f" (recomputed={expected_legacy_artifact_hash[:16]}...)"
-                proof_details.append(detail)
+                if _has_epistemic_hash_fields(data):
+                    covered_fields.extend(_LEGACY_ARTIFACT_HASH_FIELDS)
+                    proof_failures.append(
+                        "legacy artifact_hash cannot validate epistemic fields "
+                        "(unverified, assumptions, falsification)"
+                    )
+                else:
+                    covered_fields.extend(_LEGACY_ARTIFACT_HASH_FIELDS)
+                    detail = f"legacy artifact_hash={stored_artifact_hash[:16]}..."
+                    if verbose:
+                        detail += f" (recomputed={expected_legacy_artifact_hash[:16]}...)"
+                    proof_details.append(detail)
             else:
                 covered_fields.extend(_INTEGRITY_HASH_FIELDS)
                 proof_failures.append(
@@ -377,11 +390,18 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
             else:
                 expected_legacy_checksum_alias = _recompute_legacy_artifact_hash(data)
                 if stored_checksum == expected_legacy_checksum_alias:
-                    covered_fields.extend(_LEGACY_ARTIFACT_HASH_FIELDS)
-                    detail = f"legacy checksum artifact_hash alias={stored_checksum[:16]}..."
-                    if verbose:
-                        detail += f" (recomputed={expected_legacy_checksum_alias[:16]}...)"
-                    proof_details.append(detail)
+                    if _has_epistemic_hash_fields(data):
+                        covered_fields.extend(_LEGACY_ARTIFACT_HASH_FIELDS)
+                        proof_failures.append(
+                            "legacy checksum artifact_hash alias cannot validate epistemic "
+                            "fields (unverified, assumptions, falsification)"
+                        )
+                    else:
+                        covered_fields.extend(_LEGACY_ARTIFACT_HASH_FIELDS)
+                        detail = f"legacy checksum artifact_hash alias={stored_checksum[:16]}..."
+                        if verbose:
+                            detail += f" (recomputed={expected_legacy_checksum_alias[:16]}...)"
+                        proof_details.append(detail)
                 else:
                     covered_fields.extend(_INTEGRITY_HASH_FIELDS)
                     proof_failures.append(
