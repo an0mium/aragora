@@ -386,6 +386,39 @@ jobs:
     )
 
 
+def test_policy_ignores_comments_when_matching_main_push_branches(
+    tmp_path: Path,
+) -> None:
+    repo_root = _write_policy_repo(tmp_path)
+    (repo_root / ".github/workflows/lint.yml").write_text(
+        """
+name: Lint
+on:
+  push:
+    branches:
+      # main is intentionally handled by another workflow.
+      - release
+    paths:
+      - "aragora/**"
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+""",
+        encoding="utf-8",
+    )
+
+    violations = find_required_check_priority_violations(
+        _valid_workflow_text(),
+        repo_root=repo_root,
+    )
+
+    assert violations == []
+
+
 def test_repo_required_check_priority_policy_passes_for_current_tree() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     violations = check_repo(repo_root)

@@ -102,8 +102,26 @@ def _parse_yaml_mapping_line(line: str) -> _YamlMappingLine | None:
     return _YamlMappingLine(
         indent=len(match.group("indent")),
         key=match.group("key").strip("\"'"),
-        value=match.group("value").strip(),
+        value=_strip_yaml_comment(match.group("value")).strip(),
     )
+
+
+def _strip_yaml_comment(value: str) -> str:
+    in_single = False
+    in_double = False
+    for index, char in enumerate(value):
+        if char == "'" and not in_double:
+            in_single = not in_single
+        elif char == '"' and not in_single:
+            in_double = not in_double
+        elif (
+            char == "#"
+            and not in_single
+            and not in_double
+            and (index == 0 or value[index - 1].isspace())
+        ):
+            return value[:index].rstrip()
+    return value.rstrip()
 
 
 def _nested_yaml_block(lines: list[str], index: int, parent_indent: int) -> list[str]:
@@ -179,7 +197,9 @@ def _block_value_for_key(lines: list[str], key: str) -> list[str] | None:
             child_parsed = _parse_yaml_mapping_line(child)
             if child_parsed is not None and child_parsed.indent <= parsed.indent:
                 break
-            values.append(child.strip())
+            child_value = _strip_yaml_comment(child.strip())
+            if child_value:
+                values.append(child_value)
         return values
     return None
 
