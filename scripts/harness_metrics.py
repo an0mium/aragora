@@ -300,19 +300,22 @@ def _event_gate_pass(record: dict[str, Any]) -> bool | None:
 
 
 def _event_merged_pr(record: dict[str, Any]) -> int | None:
-    value = _first_present(
-        record,
-        (
-            "direct_pr_merged",
-            "merged_pr",
-            "pr_merged",
-            "pr_number",
-            "pr",
-            "target_pr",
-            "mutations.merged_pr",
-        ),
-    )
-    return _coerce_pr_number(value)
+    for key in (
+        "direct_pr_merged",
+        "merged_pr",
+        "pr_merged",
+        "pr_number",
+        "pr",
+        "target_pr",
+        "mutations.merged_pr",
+    ):
+        value = _first_present(record, (key,))
+        if value is None:
+            continue
+        pr_number = _coerce_pr_number(value)
+        if pr_number is not None:
+            return pr_number
+    return None
 
 
 def _event_rounds_to_merge(record: dict[str, Any]) -> float | None:
