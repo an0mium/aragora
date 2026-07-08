@@ -29,7 +29,8 @@ For detailed migration instructions, see:
 
 | Version | Release | End of Support | Status |
 |---------|---------|----------------|--------|
-| **v2.8.x** | 2026-02-25 | Active | **Current** |
+| **v2.9.x** | 2026-04-25 | Active | **Current** |
+| v2.8.x | 2026-02-25 | Active | Supported |
 | v2.7.x | 2026-02-15 | Active | Supported |
 | v2.6.x | 2026-02-03 | Active | Supported |
 | v2.5.x | 2026-02-01 | Active | Supported |
@@ -47,12 +48,12 @@ For detailed migration instructions, see:
 
 ## Current Version
 
-**Aragora v2.8.0** (released 2026-02-25)
+**Aragora v2.9.0** (released 2026-04-25)
 
 ```python
 # Check your version
 from aragora.__version__ import __version__
-print(__version__)  # "2.8.0"
+print(__version__)  # "2.9.0"
 ```
 
 **Python support:** 3.10, 3.11, 3.12, 3.13
@@ -61,12 +62,12 @@ print(__version__)  # "2.8.0"
 
 ## Upgrade Paths
 
-### v2.x.x -> v2.8.0 (Minor Upgrade)
+### v2.x.x -> v2.9.0 (Minor Upgrade)
 
 No breaking changes between v2.x releases. Standard upgrade:
 
 ```bash
-pip install --upgrade aragora==2.8.0
+pip install --upgrade aragora==2.9.0
 ```
 
 Run database migrations if any are pending:
@@ -75,13 +76,13 @@ Run database migrations if any are pending:
 python -m aragora.migrations.runner migrate
 ```
 
-### v1.0.x -> v2.8.0 (Major Upgrade)
+### v1.0.x -> v2.9.0 (Major Upgrade)
 
 This upgrade requires API and SDK migration. Follow these steps in order:
 
 **Step 1: Update dependencies**
 ```bash
-pip install --upgrade aragora==2.8.0
+pip install --upgrade aragora==2.9.0
 ```
 
 **Step 2: Run database migrations**
@@ -148,7 +149,7 @@ ARAGORA_REQUIRE_DISTRIBUTED=true
 
 See [MIGRATION_V1_TO_V2.md](../status/MIGRATION_V1_TO_V2.md) for the complete migration guide.
 
-### v0.8.x -> v2.8.0 (Legacy Upgrade)
+### v0.8.x -> v2.9.0 (Legacy Upgrade)
 
 Upgrade to v1.0.0 first, then follow the v1 -> v2 path:
 
@@ -160,8 +161,8 @@ python -m aragora.migrations.runner migrate
 # Step 2: Verify v1 works
 pytest tests/ -v --timeout=60
 
-# Step 3: Upgrade to v2.8.0
-pip install aragora==2.8.0
+# Step 3: Upgrade to v2.9.0
+pip install aragora==2.9.0
 python -m aragora.migrations.runner migrate
 ```
 
@@ -198,7 +199,7 @@ Run through this checklist before any upgrade:
 
 ```bash
 # Create a full backup
-python -m aragora.backup.manager create --label "pre-upgrade-v2.8.0"
+python -m aragora.backup.manager create --label "pre-upgrade-v2.9.0"
 
 # Verify the backup
 python -m aragora.backup.manager verify --latest
@@ -273,7 +274,7 @@ Major version rollbacks require restoring from backup:
 systemctl stop aragora
 
 # 2. Restore from backup
-python -m aragora.backup.manager restore --label "pre-upgrade-v2.8.0"
+python -m aragora.backup.manager restore --label "pre-upgrade-v2.9.0"
 
 # 3. Downgrade the package
 pip install aragora==1.0.0
@@ -492,4 +493,4 @@ See [ENVIRONMENT.md](../reference/ENVIRONMENT.md) for the full environment varia
 
 ---
 
-*Last updated: 2026-02-01*
+*Last updated: 2026-07-07*
