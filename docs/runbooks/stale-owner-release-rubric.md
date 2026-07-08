@@ -33,21 +33,27 @@ Capture fresh proof in the handoff, blocker comment, or lane receipt before any
 release action.
 
 ```bash
-python3 scripts/agent_bridge.py owner --pr <number> --json
-python3 scripts/read_operator_steering.py --pr <number> --json
-git fetch origin --prune
-git worktree list --porcelain
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+python3 "$REPO_ROOT/scripts/identify_lane_owner.py" --pr <number> --json
+python3 "$REPO_ROOT/scripts/read_operator_steering.py" --pr <number> --json
+git -C "$REPO_ROOT" fetch origin --prune
+git -C "$REPO_ROOT" worktree list --porcelain
 git -C <worktree-path> status --porcelain=v1 --untracked-files=all
 git -C <worktree-path> rev-parse HEAD
 if git -C <worktree-path> merge-base --is-ancestor HEAD origin/main; then echo "ancestor"; else echo "not-ancestor"; fi
-python3 scripts/safe_worktree_cleanup.py --repo "$(git -C <worktree-path> rev-parse --show-toplevel)" inspect <worktree-path>
+python3 "$REPO_ROOT/scripts/safe_worktree_cleanup.py" --repo "$REPO_ROOT" inspect <worktree-path>
 ```
+
+Set `REPO_ROOT` from the repository checkout running the helper. Do not derive
+`--repo` from `<worktree-path>`; that argument must identify the repository
+whose worktree registry is being inspected, while `<worktree-path>` is the
+candidate target.
 
 If `read_operator_steering.py` returns messages, write an outcome receipt before
 any mutation:
 
 ```bash
-python3 scripts/read_operator_steering.py --pr <number> --outcome held --outcome-note "<reason>" --json
+python3 "$REPO_ROOT/scripts/read_operator_steering.py" --pr <number> --outcome held --outcome-note "<reason>" --json
 ```
 
 Use the narrowest true outcome (`obeyed`, `held`, `stale`, `superseded`,
@@ -55,7 +61,7 @@ Use the narrowest true outcome (`obeyed`, `held`, `stale`, `superseded`,
 not owner release and does not satisfy an unresolved restriction.
 
 If the target is not a PR lane, use only the selectors the helpers support:
-`agent_bridge.py owner --branch <branch>` or `--worktree <worktree-path>`, and
+`identify_lane_owner.py --branch <branch>` or `--worktree <worktree-path>`, and
 `read_operator_steering.py --branch <branch>` or `--lane-id <lane-id>`. If the
 right selector is unclear, classify the lane as `PRESERVE` or `HUMAN-GATED`.
 
@@ -75,11 +81,11 @@ retirement record. Without that mapping, classify as `PRESERVE`.
 
    ```bash
    python3 scripts/check_work_lease.py <branch> --pr <number> --claim --json
-   python3 scripts/check_work_lease.py <branch> --work-id branch:<branch> --claim --json
+   python3 scripts/check_work_lease.py <branch> --claim --json
    ```
 
-   Use the `--pr` form for PR lanes and the `--work-id branch:<branch>` form for
-   branch-only or non-PR lanes.
+   Use the `--pr` form for PR lanes and the plain branch form for branch-only
+   or non-PR lanes.
 
 5. Re-run the owner check and proceed only if this session is now the active
    owner.
