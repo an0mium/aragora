@@ -147,8 +147,8 @@ the code actually in this checkout, not whatever was last released.
 ## Verifier console-script exit codes
 
 The same `aragora-verify` console script installed above honors the full
-exit-code contract (`0` verified / `1` failed / `2` usage / `3` signatures
-present but unchecked — see the
+exit-code contract (`0 verified / 1 failed / 2 usage / 3 signatures-present-unchecked`
+— see the
 [Independent Verifier Guide](../specs/INDEPENDENT_VERIFIER_GUIDE.md#exit-code-contract)
 for all four). The two ends of that contract that this matrix's smoke test
 depends on:

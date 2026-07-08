@@ -209,6 +209,17 @@ _NON_BLOCKING_KM_INIT_ERRORS = (
     AttributeError,
     ImportError,
 )
+# Culture hint enrichment is a best-effort boundary around KM/storage/client
+# adapters that may raise provider-specific ordinary exceptions. This alias
+# deliberately excludes BaseException subclasses such as cancellation.
+_CULTURE_HINT_FAILURE = Exception
+
+# Bound on awaiting the fire-and-forget KM culture-profile retrieval task
+# (scheduled by the culture_to_debate reaction during _init_km_context) before
+# falling back to whatever get_culture_hints already has. Keeps a slow KM
+# backend from stalling debate start while still closing the race where the
+# read otherwise always ran before the retrieval task got a turn.
+_CULTURE_HINTS_WAIT_TIMEOUT_S = 2.0
 
 
 def _read_arena_attr(arena: Arena, name: str, default: Any = None) -> Any:
@@ -699,21 +710,19 @@ async def initialize_debate_context(
     domain = arena._extract_debate_domain()
     km_metadata = _build_km_metadata_template(arena)
 
-    # Initialize Knowledge Mound context and culture hints concurrently.
-    # Latency optimization (issue #268): these two independent I/O
-    # operations ran sequentially before; gather them in parallel.
-    async def _init_km() -> None:
-        await arena._init_km_context(debate_id, domain)
+    # Initialize Knowledge Mound context. Latency optimization (issue #268):
+    # this used to run strictly before culture-hint retrieval; _init_km_context
+    # now returns the culture_to_debate reaction's in-flight retrieval task (if
+    # any) instead of leaving it fire-and-forget, so hint retrieval below can
+    # wait on that specific task (bounded) rather than racing it blind.
+    async def _init_km() -> "asyncio.Task[Any] | None":
+        return await arena._init_km_context(debate_id, domain)
 
-    async def _init_culture() -> None:
-        culture_hints = arena._get_culture_hints(debate_id)
-        if culture_hints:
-            arena._apply_culture_hints(culture_hints)
-
-    _gather_results = await asyncio.gather(_init_km(), _init_culture(), return_exceptions=True)
+    _gather_results = await asyncio.gather(_init_km(), return_exceptions=True)
     # KM init failures should not block the default debate route; report them
     # truthfully in result metadata instead of inventing successful enrichment.
     km_init_result = _gather_results[0]
+    pending_culture_task: asyncio.Task[Any] | None = None
     if isinstance(km_init_result, BaseException):
         if isinstance(km_init_result, (asyncio.CancelledError, KeyboardInterrupt, SystemExit)):
             raise km_init_result
@@ -731,8 +740,40 @@ async def initialize_debate_context(
             )
         else:
             raise km_init_result
-    elif km_metadata["context_handoff"].get("status") == "pending":
-        km_metadata["context_handoff"]["status"] = "succeeded"
+    else:
+        pending_culture_task = km_init_result
+        if km_metadata["context_handoff"].get("status") == "pending":
+            km_metadata["context_handoff"]["status"] = "succeeded"
+
+    # Give any in-flight culture-profile retrieval a bounded chance to land
+    # before reading hints back, then apply whatever is available. Both steps
+    # are best-effort: culture hints must never block or fail debate start.
+    if pending_culture_task is not None:
+        try:
+            await asyncio.wait_for(
+                asyncio.shield(pending_culture_task), timeout=_CULTURE_HINTS_WAIT_TIMEOUT_S
+            )
+        except asyncio.TimeoutError:
+            logger.debug(
+                "Culture profile retrieval still pending after %.1fs for debate %s; "
+                "proceeding without it",
+                _CULTURE_HINTS_WAIT_TIMEOUT_S,
+                debate_id,
+            )
+        except Exception as e:  # noqa: BLE001 - culture hints are best-effort and must never fail
+            # debate start regardless of which exception type a KM/storage backend raises.
+            logger.debug("Culture profile retrieval task failed while awaited: %s", e)
+
+    try:
+        culture_hints = arena._get_culture_hints(debate_id)
+        if culture_hints:
+            arena._apply_culture_hints(culture_hints)
+    except _CULTURE_HINT_FAILURE as e:
+        logger.debug(
+            "Culture hint retrieval/application failed (non-critical) for debate %s: %s",
+            debate_id,
+            e,
+        )
 
     _init_elapsed_ms = (time.perf_counter() - _init_start) * 1000
     logger.debug("debate_context_setup elapsed_ms=%.1f", _init_elapsed_ms)

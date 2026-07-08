@@ -12,12 +12,18 @@ touched by this document: `aragora/gauntlet/odr_schema.json` is unmodified.
 
 ## Purpose
 
-"Decision receipt" currently names at least three independent code lineages in this
-repo, each with its own module path, its own hashing/signing mechanism, and its own
-level of maturity. This document maps the three lineages, states which one is
-canonical for which audience, and documents how each lineage's decision-state
-(`verdict`) field relates to the others. It introduces no new receipt implementation,
-changes no schema, and does not edit `RECEIPT_CONTRACT.md`.
+Per the front-door positioning in [`README.md`](https://github.com/synaptent/aragora/blob/main/README.md) (quoted verbatim; not
+edited by this document):
+
+> **Aragora is an auditable execution control plane for AI-assisted decisions: multi-model review in, a verifiable Decision Receipt out.**
+
+The "receipt out" half of that sentence is not one artifact. "Decision receipt"
+currently names at least three independent code lineages in this repo, each with its
+own module path, its own hashing/signing mechanism, and its own level of maturity.
+This document maps the three lineages, states which one is canonical for which
+audience, and documents how each lineage's decision-state (`verdict`) field relates to
+the others. It introduces no new receipt implementation, changes no schema, and does
+not edit `RECEIPT_CONTRACT.md`.
 
 ## Canonical decision
 

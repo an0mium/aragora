@@ -177,7 +177,10 @@ def mock_arena(
     # Methods
     arena._reinit_convergence_for_debate = MagicMock()
     arena._extract_debate_domain = MagicMock(return_value="general")
-    arena._init_km_context = AsyncMock()
+    # Real _init_km_context returns the pending culture-retrieval task (or
+    # None); default to None so initialize_debate_context's post-fix
+    # asyncio.shield(pending_culture_task) await has nothing to wait on.
+    arena._init_km_context = AsyncMock(return_value=None)
     arena._get_culture_hints = MagicMock(return_value=None)
     arena._apply_culture_hints = MagicMock()
     arena._setup_belief_network = MagicMock()
@@ -398,6 +401,83 @@ class TestInitializeDebateContext:
 
         await initialize_debate_context(mock_arena, "corr-123")
 
+        mock_arena._apply_culture_hints.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_awaits_pending_culture_task_before_reading_hints(self, mock_arena):
+        """Regression test for P4a E8 Problem #2 (culture-hints race).
+
+        Before the fix, KM-context init and culture-hint retrieval ran
+        concurrently via asyncio.gather with no ordering guarantee: the
+        FIFO-scheduled hint read always got a turn before the fire-and-forget
+        culture-retrieval task, so hints populated by KM after the read had
+        already run were silently lost. _init_km_context now returns the
+        in-flight retrieval task, and initialize_debate_context must await it
+        (bounded) before consulting _get_culture_hints.
+        """
+        retrieved = {"done": False}
+
+        async def _slow_retrieval() -> None:
+            for _ in range(5):
+                await asyncio.sleep(0)
+            retrieved["done"] = True
+
+        pending_task = asyncio.ensure_future(_slow_retrieval())
+        mock_arena._init_km_context = AsyncMock(return_value=pending_task)
+        mock_arena._get_culture_hints = MagicMock(
+            side_effect=lambda debate_id: ({"formality": "high"} if retrieved["done"] else None)
+        )
+
+        await initialize_debate_context(mock_arena, "corr-123")
+
+        assert retrieved["done"] is True, "culture task must be awaited before hint read"
+        mock_arena._apply_culture_hints.assert_called_once_with({"formality": "high"})
+
+    @pytest.mark.asyncio
+    async def test_culture_task_wait_is_bounded_by_timeout(self, mock_arena):
+        """A pending culture task slower than the wait budget must not hang
+        debate start indefinitely; it should time out and proceed without hints."""
+        never_done: "asyncio.Future" = asyncio.get_running_loop().create_future()
+        mock_arena._init_km_context = AsyncMock(return_value=never_done)
+        mock_arena._get_culture_hints = MagicMock(return_value=None)
+
+        try:
+            with patch("aragora.debate.orchestrator_runner._CULTURE_HINTS_WAIT_TIMEOUT_S", 0.01):
+                state = await initialize_debate_context(mock_arena, "corr-123")
+        finally:
+            never_done.cancel()
+
+        assert state is not None
+        mock_arena._apply_culture_hints.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_culture_task_failure_outside_narrow_tuple_does_not_fail_debate_start(
+        self, mock_arena
+    ):
+        """A culture-task exception outside the old narrow _NON_BLOCKING_KM_INIT_ERRORS
+        tuple must still not propagate out of initialize_debate_context.
+
+        Reviewer-flagged on P4a E8 PR #9002 (claude [P3], grok [P2]): awaiting the
+        pending culture task newly exposed debate start to its exceptions, but the
+        except clause only covered _NON_BLOCKING_KM_INIT_ERRORS - narrower than the
+        module's own "culture hints must never block or fail debate start" invariant.
+        A custom exception (deliberately outside that tuple) exercises the gap.
+        """
+
+        class CultureBackendError(Exception):
+            pass
+
+        async def _raises_custom_error() -> None:
+            await asyncio.sleep(0)
+            raise CultureBackendError("simulated KM backend failure outside the narrow tuple")
+
+        pending_task = asyncio.ensure_future(_raises_custom_error())
+        mock_arena._init_km_context = AsyncMock(return_value=pending_task)
+        mock_arena._get_culture_hints = MagicMock(return_value=None)
+
+        state = await initialize_debate_context(mock_arena, "corr-123")
+
+        assert state is not None
         mock_arena._apply_culture_hints.assert_not_called()
 
     @pytest.mark.asyncio

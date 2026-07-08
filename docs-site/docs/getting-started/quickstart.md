@@ -7,13 +7,33 @@ description: Quickstart
 
 Get from zero to a working adversarial debate in under a minute.
 
+**Fastest path:** already have `aragora` installed (`pip install aragora`)? Skip
+the numbered steps below and run the guided command directly -- no API keys
+required. This is the same offline chain the [Independent Verifier
+Guide](../specs/independent-verifier-guide) and
+[GitHub Action Setup](../guides/github-action-setup) both build on:
+
+```bash
+aragora quickstart --demo --no-browser --output r.json
+aragora receipt export r.json --format odr -o r.odr.json
+pip install -U 'aragora-verify>=0.1.1' && aragora-verify r.odr.json
+```
+
+This runs a demo debate, exports the receipt to the portable ODR format, and
+verifies it offline with the standalone verifier -- exit `0` end to end. Run
+`aragora quickstart --help` for the live-provider and spec-first variants.
+
 ---
 
 ## 1. Install
 
 ```bash
-pip install aragora-debate
+pip install aragora aragora-debate
 ```
+
+The full `aragora` distribution provides the `aragora` CLI used by the
+fastest-path ODR commands above. The smaller `aragora-debate` package provides
+the Python module used by the demo and code examples below.
 
 ## 2. Zero-Key Demo
 
