@@ -120,6 +120,27 @@ def test_build_packet_accepts_conductor_cycles_context_file(tmp_path: Path) -> N
     assert "OPERATOR CONTEXT MISSING" not in packet
 
 
+def test_build_packet_accepts_default_output_dir_context_file(tmp_path: Path) -> None:
+    default_output_subdir = Path(fable_goal_cycle.DEFAULT_OUTPUT_DIR)
+    assert default_output_subdir in fable_goal_cycle.SAFE_CONTEXT_SUBDIRS
+
+    context_dir = tmp_path / default_output_subdir / "20260708T190000Z"
+    context_dir.mkdir(parents=True)
+    context_file = context_dir / "cycle-summary.md"
+    context_file.write_text("cycle 90: goal-cycle output context", encoding="utf-8")
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        "standing mission",
+        [context_file],
+        since_hours=24,
+        root=tmp_path,
+    )
+
+    assert "cycle 90: goal-cycle output context" in packet
+    assert "OPERATOR CONTEXT MISSING" not in packet
+
+
 def test_build_packet_accepts_operator_context_file(tmp_path: Path) -> None:
     context_dir = tmp_path / ".aragora" / "operator-context"
     context_dir.mkdir(parents=True)

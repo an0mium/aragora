@@ -47,13 +47,15 @@ DIGEST_TIMEOUT_SECONDS = 120
 MAX_CONTEXT_FILE_BYTES = 64 * 1024
 MAX_PACKET_BYTES = 400 * 1024
 MAX_PACKET_SECTION_BYTES = 96 * 1024
+DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
+# Every directory this script writes cycle context to must be accepted here.
 SAFE_CONTEXT_SUBDIRS = (
     SAFE_CONTEXT_SUBDIR,
+    Path(DEFAULT_OUTPUT_DIR),
     Path(".aragora") / "conductor_cycles",
     Path(".aragora") / "operator-context",
 )
-DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
 MAX_ACTIVE_PROCESS_LINES = 40
 ACTIVE_PROCESS_SCRIPT_NAMES = frozenset(
