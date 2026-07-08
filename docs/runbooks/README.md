@@ -34,6 +34,7 @@ Operational runbooks for responding to Aragora alerts and incidents.
 | Fleet Coordination | [RUNBOOK_FLEET_COORDINATION.md](./RUNBOOK_FLEET_COORDINATION.md) | Multi-agent worktree ownership and merge queue policy |
 | Proof-First tmux Operator | [RUNBOOK_PROOF_FIRST_TMUX_OPERATOR.md](./RUNBOOK_PROOF_FIRST_TMUX_OPERATOR.md) | Conductor-led tmux coordination for benchmark/docs/monitor lanes without replacing the unattended proof-first shift |
 | Outbox Depth Reconcile | [RUNBOOK_OUTBOX_DEPTH_RECONCILE.md](./RUNBOOK_OUTBOX_DEPTH_RECONCILE.md) | Queue-depth disposition rubric for protected, human-gated, and unparseable automation outbox items |
+| Outbox Disposition | [outbox-disposition-rubric.md](./outbox-disposition-rubric.md) | Read-only rubric for classifying automation outbox-depth blockers before any publisher or reconcile mutation |
 
 ## Incident Severity Levels
 
