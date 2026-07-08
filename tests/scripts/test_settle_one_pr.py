@@ -43,6 +43,10 @@ OWNER_PREFIX = [settle_one_pr.PYTHON_EXECUTABLE, "scripts/identify_lane_owner.py
 STEERING_PREFIX = [settle_one_pr.PYTHON_EXECUTABLE, "scripts/read_operator_steering.py", "--pr"]
 
 
+def test_pr_policy_fields_include_live_draft_state() -> None:
+    assert "isDraft" in settle_one_pr.PR_POLICY_FIELDS.split(",")
+
+
 def _entry(
     pr_number: int,
     *,
@@ -324,6 +328,45 @@ def test_select_candidate_excludes_adc_and_continues() -> None:
     assert selected is next_entry
     assert exclusions[0]["pr_number"] == 7376
     assert exclusions[0]["reasons"] == ["ADC PR"]
+
+
+def test_select_candidate_excludes_draft_and_continues() -> None:
+    draft = _entry(7449, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"])
+    next_entry = _entry(
+        7450, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
+    )
+
+    selected, blockers, exclusions = select_candidate(
+        _packet(draft, next_entry),
+        policy_metadata={7449: {"isDraft": True}},
+        return_exclusions=True,
+    )
+
+    assert blockers == []
+    assert selected is next_entry
+    assert exclusions[0]["pr_number"] == 7449
+    assert exclusions[0]["reasons"] == ["draft PR"]
+
+
+def test_live_not_draft_metadata_overrides_stale_packet_draft() -> None:
+    stale_draft = {
+        **_entry(
+            7449,
+            tier=0,
+            reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"],
+        ),
+        "isDraft": True,
+    }
+
+    selected, blockers, exclusions = select_candidate(
+        _packet(stale_draft),
+        policy_metadata={7449: {"isDraft": False}},
+        return_exclusions=True,
+    )
+
+    assert blockers == []
+    assert selected is stale_draft
+    assert exclusions == []
 
 
 def test_select_candidate_excludes_active_owned_and_dependabot() -> None:
@@ -1468,6 +1511,7 @@ def test_pr_policy_metadata_uses_rest_fallback_when_graphql_unavailable(monkeypa
                     "number": 7451,
                     "title": "docs: candidate",
                     "head": {"ref": "codex/docs-candidate"},
+                    "draft": False,
                     "user": {"login": "alice"},
                     "mergeable": True,
                     "mergeable_state": "clean",
@@ -1489,6 +1533,7 @@ def test_pr_policy_metadata_uses_rest_fallback_when_graphql_unavailable(monkeypa
         "number": 7451,
         "title": "docs: candidate",
         "headRefName": "codex/docs-candidate",
+        "isDraft": False,
         "author": {"login": "alice"},
         "mergeable": "MERGEABLE",
         "mergeStateStatus": "CLEAN",
