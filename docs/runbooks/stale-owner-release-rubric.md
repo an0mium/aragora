@@ -24,8 +24,8 @@ Classify the lane into exactly one class.
 
 When signals conflict, choose the safer class in this order:
 
-`HUMAN-GATED` over `RELEASE-CANDIDATE`, `PRESERVE` over
-`RELEASE-CANDIDATE`, and `ACTIVE` over any takeover.
+`HUMAN-GATED` over every other class, `ACTIVE` over `PRESERVE`,
+and `PRESERVE` over `RELEASE-CANDIDATE`.
 
 ## Required Proof
 
@@ -40,7 +40,7 @@ git worktree list --porcelain
 git -C <worktree-path> status --porcelain=v1 --untracked-files=all
 git -C <worktree-path> rev-parse HEAD
 if git -C <worktree-path> merge-base --is-ancestor HEAD origin/main; then echo "ancestor"; else echo "not-ancestor"; fi
-python3 scripts/safe_worktree_cleanup.py --repo "$(git rev-parse --show-toplevel)" inspect <worktree-path>
+python3 scripts/safe_worktree_cleanup.py --repo "$(git -C <worktree-path> rev-parse --show-toplevel)" inspect <worktree-path>
 ```
 
 If `read_operator_steering.py` returns messages, write an outcome receipt before
@@ -75,7 +75,11 @@ retirement record. Without that mapping, classify as `PRESERVE`.
 
    ```bash
    python3 scripts/check_work_lease.py <branch> --pr <number> --claim --json
+   python3 scripts/check_work_lease.py <branch> --work-id branch:<branch> --claim --json
    ```
+
+   Use the `--pr` form for PR lanes and the `--work-id branch:<branch>` form for
+   branch-only or non-PR lanes.
 
 5. Re-run the owner check and proceed only if this session is now the active
    owner.
