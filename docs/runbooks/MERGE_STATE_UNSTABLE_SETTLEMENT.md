@@ -91,3 +91,75 @@ If local `origin/main` and the exact PR head both pass, or the exact PR head
 already has a prior green portability run and the failed workflow never reached
 the guard command, classify the target PR as parked on CI/merge-state noise
 rather than source correctness.
+
+## Candidate Settlement-Stability Predicate for Cancelled Non-Required Contexts
+
+Issue #9034 tracks the wider July 8, 2026 pattern where completed/cancelled
+non-required check runs left otherwise-ready PRs in `mergeStateStatus=UNSTABLE`.
+This section is a policy proposal and implementation spec, not current merge
+authority. Until the helper change below lands, conductors must continue to park
+or hand off these PRs instead of merging through the live gate.
+
+A future settlement helper may treat a completed/cancelled non-required context
+as settlement-stable only when all of these exact-head predicates are true:
+
+1. The PR is open, non-draft, and `mergeable=MERGEABLE`.
+2. The exact `headRefOid` has not changed since model evidence was collected.
+3. Every branch-protection-required context is green, including
+   `aragora-merge-quorum` when the action is a merge.
+4. Model quorum is satisfied for the current head and `unresolved_dissent=false`.
+5. The cancelled context is non-required under the current branch-protection
+   context list.
+6. The cancelled context is on this allowlist:
+   - `Build Documentation (PR Check)` / `build`
+   - `Portability Lint` / `portability`
+   - `Docs Consistency` / `Docs Consistency`
+   - `Self-Hosted Shadow CI` / `Mac TypeScript SDK Shadow`
+7. The latest cancelled run for the allowlisted context is completed/cancelled
+   before the substantive verifier command ran, or the exact head has an older
+   successful run for the same context after the last file change relevant to
+   that workflow.
+8. The helper emits an explicit receipt field naming each ignored non-required
+   cancelled context, run URL, and reason so the merge record does not silently
+   hide GitHub rollup noise.
+
+### July 8, 2026 Observations
+
+The cycle that opened #9034 confirmed two non-draft PRs with green required
+checks and model quorum, but GitHub still reported `mergeStateStatus=UNSTABLE`:
+
+| PR | Head | Required checks | Cancelled non-required contexts |
+| --- | --- | --- | --- |
+| #9049 | `9790df5ae848b9a5458eed2cfc7edd34c3c85072` | all green, including `aragora-merge-quorum` | Build Documentation, Docs Consistency, Portability Lint |
+| #9053 | `e4083d0b415648bd341b342b4d4228d8cf8a45c4` | all green, including `aragora-merge-quorum` | Build Documentation, Portability Lint |
+
+The observed safe current behavior is to stop merge attempts, link the affected
+head to #9034, and either wait for GitHub merge state to stabilize or work a
+separate workflow/helper fix. Do not rerun cancelled workflows from conductor
+automation without exact operator authorization for that cycle.
+
+### Follow-Up Helper Spec
+
+A future `settle_one_pr.py` change should add an opt-in predicate that consumes
+the branch-protection required-context list, the exact PR `statusCheckRollup`,
+and the merge-packet evidence state. When the predicate succeeds, the dry-run
+packet should report something like:
+
+```json
+{
+  "merge_state_status": "UNSTABLE",
+  "unstable_non_required_contexts_ignored": [
+    {
+      "workflow": "Build Documentation (PR Check)",
+      "name": "build",
+      "url": "https://github.com/synaptent/aragora/actions/runs/...",
+      "reason": "allowlisted non-required completed/cancelled context"
+    }
+  ]
+}
+```
+
+The merge/apply path should require the same exact-head recheck immediately
+before merge and include the receipt in the conductor report. Any required
+context failure, unknown context, unallowlisted context, unresolved dissent, or
+head movement must fail closed.
