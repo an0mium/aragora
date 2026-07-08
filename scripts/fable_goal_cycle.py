@@ -51,6 +51,7 @@ SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
 SAFE_CONTEXT_SUBDIRS = (
     SAFE_CONTEXT_SUBDIR,
     Path(".aragora") / "conductor_cycles",
+    Path(".aragora") / "operator-context",
 )
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
@@ -120,6 +121,11 @@ next cycles. Prefer goals whose output is a durable standard — something that
 takes frontier judgment to WRITE but only ordinary intelligence to APPLY
 (charters, rubrics, playbooks, skills, checkers). Test: could a cheaper model
 redo this artifact tomorrow? If yes, rank it lower.
+Before ranking goals: if the standing mission metric itself is the wrong
+hill — mis-specified, superseded by events, or clearly worse than an adjacent
+goal — say so FIRST in a dedicated 'WRONG HILL' section with one-paragraph
+evidence, and propose the better goal. Misalignment disclosure is invited and
+costs nothing; grinding a bad metric costs cycles.
 
 ## NEXT PLAN
 Bounded steps for ONE cycle only (not a roadmap). Each step must be completable
