@@ -73,13 +73,15 @@ target PR head before clearing the PR source.
 
 ```bash
 git fetch origin main:refs/remotes/origin/main
-main_tmp="$(mktemp -d /tmp/aragora-portability-main.XXXXXX)"
+main_parent="$(mktemp -d /tmp/aragora-portability-main.XXXXXX)"
+main_tmp="$main_parent/worktree"
 git worktree add --detach "$main_tmp" origin/main
 (cd "$main_tmp" && python3 scripts/check_portability.py)
 
 head_sha="$(gh pr view <pr> --repo synaptent/aragora --json headRefOid --jq .headRefOid)"
 git fetch origin "pull/<pr>/head:refs/remotes/pr/<pr>/head"
-pr_tmp="$(mktemp -d /tmp/aragora-portability-pr.XXXXXX)"
+pr_parent="$(mktemp -d /tmp/aragora-portability-pr.XXXXXX)"
+pr_tmp="$pr_parent/worktree"
 git worktree add --detach "$pr_tmp" "$head_sha"
 test "$(git -C "$pr_tmp" rev-parse HEAD)" = "$head_sha"
 (cd "$pr_tmp" && python3 scripts/check_portability.py)
