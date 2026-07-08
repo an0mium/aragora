@@ -72,7 +72,7 @@ failure. Check `origin/main` for a possible main regression, then check the
 target PR head before clearing the PR source.
 
 ```bash
-git fetch origin main
+git fetch origin main:refs/remotes/origin/main
 main_tmp="$(mktemp -d /tmp/aragora-portability-main.XXXXXX)"
 git worktree add --detach "$main_tmp" origin/main
 (cd "$main_tmp" && python3 scripts/check_portability.py)
