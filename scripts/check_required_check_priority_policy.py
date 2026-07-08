@@ -151,13 +151,68 @@ def _flow_mapping_value(value: str, key: str) -> str | None:
     if not (stripped.startswith("{") and stripped.endswith("}")):
         return None
 
-    match = re.search(
-        rf"(?<![A-Za-z0-9_-]){re.escape(key)}\s*:\s*(?P<value>\[[^\]]*\]|[^,}}]+)",
-        stripped[1:-1],
-    )
-    if match is None:
-        return None
-    return match.group("value").strip()
+    for item in _split_flow_items(stripped[1:-1]):
+        colon_index = _top_level_colon_index(item)
+        if colon_index is None:
+            continue
+        item_key = item[:colon_index].strip().strip("\"'")
+        if item_key == key:
+            return item[colon_index + 1 :].strip()
+    return None
+
+
+def _split_flow_items(value: str) -> list[str]:
+    items: list[str] = []
+    start = 0
+    depth_curly = 0
+    depth_square = 0
+    in_single = False
+    in_double = False
+    for index, char in enumerate(value):
+        if char == "'" and not in_double:
+            in_single = not in_single
+        elif char == '"' and not in_single:
+            in_double = not in_double
+        elif not in_single and not in_double:
+            if char == "{":
+                depth_curly += 1
+            elif char == "}":
+                depth_curly = max(depth_curly - 1, 0)
+            elif char == "[":
+                depth_square += 1
+            elif char == "]":
+                depth_square = max(depth_square - 1, 0)
+            elif char == "," and depth_curly == 0 and depth_square == 0:
+                items.append(value[start:index].strip())
+                start = index + 1
+    trailing = value[start:].strip()
+    if trailing:
+        items.append(trailing)
+    return items
+
+
+def _top_level_colon_index(value: str) -> int | None:
+    depth_curly = 0
+    depth_square = 0
+    in_single = False
+    in_double = False
+    for index, char in enumerate(value):
+        if char == "'" and not in_double:
+            in_single = not in_single
+        elif char == '"' and not in_single:
+            in_double = not in_double
+        elif not in_single and not in_double:
+            if char == "{":
+                depth_curly += 1
+            elif char == "}":
+                depth_curly = max(depth_curly - 1, 0)
+            elif char == "[":
+                depth_square += 1
+            elif char == "]":
+                depth_square = max(depth_square - 1, 0)
+            elif char == ":" and depth_curly == 0 and depth_square == 0:
+                return index
+    return None
 
 
 def _flow_push_targets_main(value: str) -> bool:
@@ -234,8 +289,18 @@ def _main_push_trigger(workflow_text: str) -> _MainPushTrigger:
         if parsed is None or parsed.key != "on" or parsed.indent != 0:
             continue
 
-        if parsed.value and _inline_yaml_value_mentions(parsed.value, "push"):
-            return _MainPushTrigger(targets_main=True, path_filtered=False)
+        if parsed.value:
+            inline_push = _flow_mapping_value(parsed.value, "push")
+            if inline_push is None:
+                if _inline_yaml_value_mentions(parsed.value, "push"):
+                    return _MainPushTrigger(targets_main=True, path_filtered=False)
+            else:
+                if not _flow_push_targets_main(inline_push):
+                    return _MainPushTrigger(targets_main=False, path_filtered=False)
+                return _MainPushTrigger(
+                    targets_main=True,
+                    path_filtered=_flow_push_has_path_filter(inline_push),
+                )
 
         on_block = _nested_yaml_block(lines, index, parsed.indent)
         for on_index, on_line in enumerate(on_block):
