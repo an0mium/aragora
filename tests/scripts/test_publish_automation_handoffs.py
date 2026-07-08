@@ -2827,6 +2827,122 @@ def test_publish_handoffs_resumes_after_deferred_label_failure_without_duplicate
     assert any(comment.startswith("Completed prompt handoff issue:") for comment in issue_comments)
 
 
+def test_publish_handoffs_reuses_unmarked_prompt_identity_orphan(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    prompt_sha = "d" * 64
+    outbox_file = tmp_path / ".aragora" / "automation-outbox" / "prompt.json"
+    handoff = Handoff(
+        source_file=str(outbox_file),
+        task_title="Prompt handoff after marker failure",
+        priority="HIGH",
+        body=f"Idempotency Key:\nprompt-handoff-marker-failed\n\nLocal Evidence:\n{prompt_sha}\n",
+        labels={},
+        expires_at=None,
+        idempotency_key="prompt-handoff-marker-failed",
+        source_kind="outbox",
+        requested_action="prompt_handoff",
+        branch="codex/active-repair",
+        desired_head="abc1234",
+        prompt_sha256=prompt_sha,
+    )
+    issue_comments: list[str] = []
+    label_edits: list[str] = []
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "create"]:
+            raise AssertionError("orphaned prompt identity issue should be reused")
+        if args[:3] == ["gh", "issue", "comment"]:
+            issue_comments.append(args[args.index("--body") + 1])
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:3] == ["gh", "issue", "edit"]:
+            label_edits.extend(args[args.index("--add-label") + 1].split(","))
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 7003,
+                            "title": "Prompt handoff after marker failure",
+                            "url": "https://github.com/synaptent/aragora/issues/7003",
+                            "state": "OPEN",
+                        }
+                    ]
+                ),
+                "",
+            )
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "number": 7003,
+                        "title": "Prompt handoff after marker failure",
+                        "url": "https://github.com/synaptent/aragora/issues/7003",
+                        "state": "OPEN",
+                        "body": (
+                            "Idempotency Key:\n"
+                            "prompt-handoff-marker-failed\n\n"
+                            "Local Evidence:\n"
+                            f"{prompt_sha}\n"
+                        ),
+                        "labels": [{"name": label} for label in label_edits],
+                        "comments": [{"body": body} for body in issue_comments],
+                    }
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    published = mod.publish_handoffs(
+        [handoff],
+        [
+            PublishDecision(
+                task_title=handoff.task_title,
+                source_file=handoff.source_file,
+                eligible=True,
+                reason="eligible",
+            )
+        ],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        limit=1,
+    )
+
+    assert published[0].reason == "published"
+    assert published[0].created_issue_url == "https://github.com/synaptent/aragora/issues/7003"
+    assert label_edits == ["boss-ready"]
+    assert any(comment.startswith("Completed prompt handoff issue:") for comment in issue_comments)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="existing_issue",
+            branch="codex/active-repair",
+            desired_head="abc1234",
+            existing_issue_url="https://github.com/synaptent/aragora/issues/7003",
+        )
+    ]
+
+
 def test_main_preview_does_not_write_outbox_receipt(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:

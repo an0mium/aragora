@@ -1447,12 +1447,13 @@ def _existing_incomplete_prompt_handoff_issue(
     repo_root: Path,
     repo: str,
     handoff: Handoff,
+    labels: Sequence[str],
 ) -> dict[str, Any] | None:
     return _find_prompt_handoff_issue(
         repo_root,
         repo,
         handoff,
-        predicate=_issue_contains_incomplete_prompt_marker,
+        predicate=lambda issue: not _prompt_issue_is_usable(issue, labels),
     )
 
 
@@ -1676,7 +1677,7 @@ def _publish_prompt_handoff_issue(
     *,
     labels: list[str],
 ) -> str:
-    incomplete_issue = _existing_incomplete_prompt_handoff_issue(repo_root, repo, handoff)
+    incomplete_issue = _existing_incomplete_prompt_handoff_issue(repo_root, repo, handoff, labels)
     if incomplete_issue:
         return _complete_existing_prompt_handoff_issue(
             repo_root,
@@ -1792,7 +1793,7 @@ def _complete_existing_prompt_handoff_issue(
             existing_comment_bodies=existing_comment_bodies,
         )
         _add_issue_labels(repo_root, repo, issue_url, labels)
-        if _issue_contains_incomplete_prompt_marker(issue):
+        if not _issue_contains_marker(issue, COMPLETE_PROMPT_HANDOFF_MARKER):
             _mark_completed_prompt_issue(repo_root, repo, issue_url)
     except RuntimeError as exc:
         try:
