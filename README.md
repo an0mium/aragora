@@ -19,14 +19,15 @@ standalone verifier ([`pip install -U 'aragora-verify>=0.1.1'`](https://pypi.org
 |------------|---------|
 | Run the standalone debate engine | `pip install aragora-debate` |
 | Verify an Open Decision Receipt with the standalone verifier | `pip install -U 'aragora-verify>=0.1.1' && aragora-verify receipt.odr.json` |
-| Run the current PyPI zero-key receipt demo | `pip install aragora && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
+| Run the current PyPI zero-key receipt demo | `pip install -U 'aragora>=2.9.0' && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
 | Audit this source checkout's exact CLI | `python3 -m pip install -e . && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
-PyPI `aragora` 2.9.0 supports the explicit offline demo receipt round trip.
-Use the source checkout path when you need to audit this exact branch or
-unreleased local changes.
+Use `aragora>=2.9.0` for the explicit offline demo receipt round trip. Earlier
+PyPI releases do not support the `--offline` receipt flags. Use the source
+checkout path when you need to audit this exact branch or unreleased local
+changes.
 
 ## The problem
 
@@ -106,7 +107,7 @@ evidence, with reproducible queries and caught-bug case studies:
 Current PyPI package:
 
 ```bash
-pip install aragora
+pip install -U 'aragora>=2.9.0'
 aragora demo --offline --receipt aragora-demo-receipt.json
 aragora receipt verify aragora-demo-receipt.json
 ```
