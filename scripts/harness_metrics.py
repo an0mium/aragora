@@ -339,7 +339,16 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
         "mutations.github_status",
         "direct_pr_merged",
     )
-    return True if any(_first_present(record, (key,)) for key in mutation_keys) else None
+    mutation_seen = False
+    for key in mutation_keys:
+        value = _first_present(record, (key,))
+        if value is None:
+            continue
+        coerced_mutation = _coerce_bool(value)
+        if coerced_mutation is not None:
+            return coerced_mutation
+        mutation_seen = True
+    return True if mutation_seen else None
 
 
 def _event_gate_pass(record: dict[str, Any]) -> bool | None:
