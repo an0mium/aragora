@@ -105,6 +105,9 @@ function resolveSourcePath(srcRelPath) {
 
 // Document mapping: source -> destination with category organization
 const DOC_MAP = {
+  // `docs-site/docs/enterprise/positioning.md` is intentionally hand-maintained
+  // as a redirect-style stub after archiving `docs/status/COMMERCIAL_POSITIONING.md`.
+
   // =========================================================================
   // Getting Started
   // =========================================================================
@@ -262,7 +265,6 @@ const DOC_MAP = {
   'COMMERCIAL_OVERVIEW.md': 'enterprise/commercial-overview.md',
   'WHY_ARAGORA.md': 'enterprise/why-aragora.md',
   'PRICING.md': 'enterprise/pricing.md',
-  'COMMERCIAL_POSITIONING.md': 'enterprise/positioning.md',
   'BILLING.md': 'enterprise/billing.md',
   'BILLING_UNITS.md': 'enterprise/billing-units.md',
   'SSO_SETUP.md': 'enterprise/sso.md',

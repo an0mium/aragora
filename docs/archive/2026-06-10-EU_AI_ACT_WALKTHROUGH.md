@@ -7,7 +7,7 @@
 > is the buyer-facing path from "we use AI for decisions" to "here is our
 > audit-ready conformity evidence", in three commands.
 >
-> Companion reference: [EU_AI_ACT_GUIDE.md](EU_AI_ACT_GUIDE.md) (article
+> Companion reference: [EU_AI_ACT_GUIDE.md](../compliance/EU_AI_ACT_GUIDE.md) (article
 > mappings and artifact schemas). Raw outputs for this walkthrough are
 > operator-held under `.aragora/run-20260610/euaiact/`.
 
