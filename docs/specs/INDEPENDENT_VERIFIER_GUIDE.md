@@ -112,6 +112,8 @@ aragora-verify RECEIPT.odr.json [--pubkey KEY.pem] [--chain CHAIN.jsonl] [--json
 
 ## Exit-code contract
 
+In short: `0 verified / 1 failed / 2 usage / 3 signatures-present-unchecked`. In full:
+
 | Exit | Meaning |
 |---|---|
 | `0` | **Verified.** No check failed, and any present signatures were checked against `--pubkey` and passed. |
