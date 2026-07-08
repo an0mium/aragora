@@ -86,7 +86,7 @@ def main() -> int:
 
     require_contains(
         "docs/README.md",
-        "auditable execution control plane for consequential",
+        "auditable execution control plane for AI-assisted decisions",
     )
     require_contains("docs/README.md", "Cold Reviewer Guide")
     require_contains("docs/README.md", "Supported API Surface")
