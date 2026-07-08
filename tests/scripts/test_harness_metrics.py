@@ -1,0 +1,226 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+
+def _load_module() -> Any:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "harness_metrics.py"
+    spec = importlib.util.spec_from_file_location("harness_metrics_under_test", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+harness_metrics = _load_module()
+AS_OF = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
+
+
+def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
+    path.write_text(
+        "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_eval_fixture(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "schema": "adjudicator_eval_cases.v1",
+                "cases": [
+                    {"id": "a", "passed": True},
+                    {"id": "b", "passed": False},
+                    {"id": "c", "passed": False},
+                    {"id": "d", "passed": False},
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_build_report_computes_lane_metrics_and_drift_alarm(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "external_progress": True,
+                "first_round_gate_pass": True,
+                "direct_pr_merged": 1001,
+                "rounds_to_merge": 2,
+                "token_cost": 12.5,
+            },
+            {
+                "timestamp": "2026-07-08T11:00:00Z",
+                "lane": "conductor",
+                "external_progress": False,
+                "first_round_gate_pass": False,
+            },
+            {
+                "timestamp": "2026-07-08T11:30:00Z",
+                "lane": "scout",
+                "external_progress": True,
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[tmp_path / "missing-receipts"],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=30,
+        drift_threshold=0.2,
+    )
+
+    lanes = {lane["lane"]: lane for lane in report["lanes"]}
+    assert report["schema_version"] == "harness_metrics.v1"
+    assert report["fixture_performance"]["fixture_pass_rate"] == 0.25
+    assert lanes["conductor"]["cycles"] == 2
+    assert lanes["conductor"]["external_progress_per_cycle"] == 0.5
+    assert lanes["conductor"]["first_round_gate_pass_rate"] == 0.5
+    assert lanes["conductor"]["rounds_to_merge_average"] == 2.0
+    assert lanes["conductor"]["token_cost_per_merged_pr"] == 12.5
+    assert lanes["conductor"]["drift_check"]["alarm"] is True
+    assert lanes["scout"]["insufficient_data"] == [
+        "first_round_gate_pass_rate",
+        "rounds_to_merge_average:no_merged_prs",
+        "token_cost_per_merged_pr:no_merged_prs",
+    ]
+
+
+def test_window_filtering_and_receipt_store_support(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-06-01T00:00:00Z",
+                "lane": "old",
+                "external_progress": True,
+            },
+            {
+                "timestamp": "2026-07-08T00:00:00Z",
+                "lane": "recent",
+                "external_progress": "success",
+                "first_round_gate_pass": "passed",
+            },
+        ],
+    )
+    (receipts / "merge.json").write_text(
+        json.dumps(
+            {
+                "created_at": "2026-07-08T01:00:00Z",
+                "action": "admin_squash_merge",
+                "direct_pr_merged": "#2002",
+                "token_usage": {"total_cost_usd": 4.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[receipts],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lanes = {lane["lane"]: lane for lane in report["lanes"]}
+    assert "old" not in lanes
+    assert lanes["recent"]["first_round_gate_pass_rate"] == 1.0
+    assert lanes["receipt_store"]["merged_prs"] == 1
+    assert lanes["receipt_store"]["token_cost_total"] == 4.0
+
+
+def test_render_markdown_is_single_table(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "external_progress": True,
+                "first_round_gate_pass": True,
+            }
+        ],
+    )
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=30,
+    )
+
+    markdown = harness_metrics.render_markdown(report)
+
+    assert len(markdown.strip().splitlines()) == 3
+    assert "| conductor | 1 | 100% | 100% |" in markdown
+    assert "first_round_gate_pass_rate" not in markdown
+
+
+def test_cli_writes_one_json_document_and_one_markdown_table(tmp_path: Path) -> None:
+    repo = tmp_path
+    ledger = repo / "ledger.jsonl"
+    fixture = repo / "eval.json"
+    json_out = repo / "latest.json"
+    md_out = repo / "latest.md"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "external_progress": True,
+                "first_round_gate_pass": True,
+            }
+        ],
+    )
+
+    exit_code = harness_metrics.main(
+        [
+            "--repo-root",
+            str(repo),
+            "--ledger",
+            str(ledger),
+            "--receipt-dir",
+            str(repo / "missing"),
+            "--eval-fixture",
+            str(fixture),
+            "--as-of",
+            "2026-07-08T12:00:00Z",
+            "--json-out",
+            str(json_out),
+            "--markdown-out",
+            str(md_out),
+        ]
+    )
+
+    assert exit_code == 0
+    assert json.loads(json_out.read_text(encoding="utf-8"))["lanes"][0]["lane"] == ("conductor")
+    markdown = md_out.read_text(encoding="utf-8")
+    assert markdown.startswith("| Lane |")
+    assert markdown.count("| conductor |") == 1
