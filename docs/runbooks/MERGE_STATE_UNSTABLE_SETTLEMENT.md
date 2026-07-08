@@ -68,16 +68,24 @@ gh run view <run-id> --repo synaptent/aragora --log \
 ```
 
 Use local reproduction to distinguish a workflow cancellation from a real guard
-failure:
+failure. Check `origin/main` for a possible main regression, then check the
+target PR head before clearing the PR source.
 
 ```bash
 git fetch origin main
-tmp="$(mktemp -d /tmp/aragora-portability-repro.XXXXXX)"
-git worktree add --detach "$tmp" origin/main
-git -C "$tmp" status --short --branch
-(cd "$tmp" && python3 scripts/check_portability.py)
+main_tmp="$(mktemp -d /tmp/aragora-portability-main.XXXXXX)"
+git worktree add --detach "$main_tmp" origin/main
+(cd "$main_tmp" && python3 scripts/check_portability.py)
+
+head_sha="$(gh pr view <pr> --repo synaptent/aragora --json headRefOid --jq .headRefOid)"
+git fetch origin "pull/<pr>/head:refs/remotes/pr/<pr>/head"
+pr_tmp="$(mktemp -d /tmp/aragora-portability-pr.XXXXXX)"
+git worktree add --detach "$pr_tmp" "$head_sha"
+test "$(git -C "$pr_tmp" rev-parse HEAD)" = "$head_sha"
+(cd "$pr_tmp" && python3 scripts/check_portability.py)
 ```
 
-If local `origin/main` passes and the failed workflow never reached the guard
-command, classify the target PR as parked on CI/merge-state noise rather than
-source correctness.
+If local `origin/main` and the exact PR head both pass, or the exact PR head
+already has a prior green portability run and the failed workflow never reached
+the guard command, classify the target PR as parked on CI/merge-state noise
+rather than source correctness.
