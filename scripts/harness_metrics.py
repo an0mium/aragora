@@ -59,7 +59,9 @@ class LaneAccumulator:
     first_round_gate_passes: int = 0
     first_round_gate_observations: int = 0
     merged_prs: set[int] = field(default_factory=set)
+    rounds_to_merge_prs: set[int] = field(default_factory=set)
     rounds_to_merge_values: list[float] = field(default_factory=list)
+    token_cost_prs: set[int] = field(default_factory=set)
     token_cost_total: float = 0.0
     token_cost_observations: int = 0
 
@@ -76,9 +78,18 @@ class LaneAccumulator:
                     self.first_round_gate_passes += 1
         if event.merged_pr is not None:
             self.merged_prs.add(event.merged_pr)
-        if event.merged_pr is not None and event.rounds_to_merge is not None:
+        if (
+            event.merged_pr is not None
+            and event.rounds_to_merge is not None
+            and event.merged_pr not in self.rounds_to_merge_prs
+        ):
             self.rounds_to_merge_values.append(event.rounds_to_merge)
+            self.rounds_to_merge_prs.add(event.merged_pr)
         if event.token_cost is not None:
+            if event.merged_pr is not None:
+                if event.merged_pr in self.token_cost_prs:
+                    return
+                self.token_cost_prs.add(event.merged_pr)
             self.token_cost_total += event.token_cost
             self.token_cost_observations += 1
 
@@ -158,7 +169,11 @@ def _coerce_pr_number(value: Any) -> int | None:
     if isinstance(value, int):
         return value if value > 0 else None
     if isinstance(value, str):
-        match = re.search(r"#?(\d+)", value)
+        candidate = value.strip()
+        match = re.fullmatch(
+            r"(?i)(?:pr|pull request)?\s*#?\s*(\d+)",
+            candidate,
+        )
         if match:
             return int(match.group(1))
     return None
@@ -173,12 +188,18 @@ def _read_json_records(path: Path) -> list[dict[str, Any]]:
             stripped = line.strip()
             if not stripped:
                 continue
-            parsed = json.loads(stripped)
+            try:
+                parsed = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
             if isinstance(parsed, dict):
                 records.append(parsed)
         return records
 
-    parsed = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        parsed = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
     if isinstance(parsed, list):
         return [item for item in parsed if isinstance(item, dict)]
     if isinstance(parsed, dict):
@@ -263,9 +284,37 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
     if coerced is not None:
         return coerced
 
-    outcome = str(_first_present(record, ("outcome", "result", "status", "decision")) or "").lower()
-    if any(token in outcome for token in ("merged", "pushed", "posted", "repaired", "completed")):
-        return True
+    outcome = str(_first_present(record, ("outcome", "result", "status", "decision")) or "")
+    if outcome:
+        normalized = outcome.strip().lower()
+        tokens = set(re.findall(r"[a-z0-9]+", normalized))
+        negative_tokens = {
+            "blocked",
+            "cancelled",
+            "canceled",
+            "fail",
+            "failed",
+            "failure",
+            "false",
+            "no",
+            "not",
+            "unmerged",
+            "unsuccessful",
+        }
+        positive_tokens = {
+            "complete",
+            "completed",
+            "merged",
+            "posted",
+            "pushed",
+            "repaired",
+            "success",
+            "succeeded",
+        }
+        if tokens & negative_tokens:
+            return False
+        if tokens & positive_tokens:
+            return True
 
     mutation_keys = (
         "mutations.push",

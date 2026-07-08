@@ -181,6 +181,134 @@ def test_receipts_use_reviewed_at_timestamp(tmp_path: Path) -> None:
     assert lanes["receipt_store"]["token_cost_total"] == 4.0
 
 
+def test_external_progress_negative_outcomes_are_not_positive_substrings(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {"timestamp": "2026-07-08T08:00:00Z", "lane": "a", "outcome": "unmerged"},
+            {
+                "timestamp": "2026-07-08T09:00:00Z",
+                "lane": "a",
+                "outcome": "pushed_failed",
+            },
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "a",
+                "outcome": "not completed",
+            },
+            {
+                "timestamp": "2026-07-08T11:00:00Z",
+                "lane": "a",
+                "outcome": "repaired: false",
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 4
+    assert lane["external_progress_per_cycle"] == 0.0
+
+
+def test_pr_number_parsing_requires_whole_pr_token() -> None:
+    assert harness_metrics._coerce_pr_number("#1234") == 1234
+    assert harness_metrics._coerce_pr_number("PR #1234") == 1234
+    assert harness_metrics._coerce_pr_number("9790cdd") is None
+    assert harness_metrics._coerce_pr_number("v2-migration") is None
+
+
+def test_malformed_jsonl_records_are_skipped(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    ledger.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "timestamp": "2026-07-08T10:00:00Z",
+                        "lane": "valid",
+                        "external_progress": True,
+                    }
+                ),
+                "{not-json",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lanes = {lane["lane"]: lane for lane in report["lanes"]}
+    assert lanes["valid"]["cycles"] == 1
+
+
+def test_duplicate_merged_pr_records_do_not_double_count_merge_metrics(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "direct_pr_merged": 1001,
+                "rounds_to_merge": 2,
+                "token_cost": 12.5,
+            }
+        ],
+    )
+    (receipts / "merge.json").write_text(
+        json.dumps(
+            {
+                "reviewed_at": "2026-07-08T11:00:00Z",
+                "lane": "conductor",
+                "direct_pr_merged": "#1001",
+                "rounds_to_merge": 6,
+                "token_usage": {"total_cost_usd": 12.5},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[receipts],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["merged_prs"] == 1
+    assert lane["rounds_to_merge_average"] == 2.0
+    assert lane["token_cost_total"] == 12.5
+
+
 def test_receipts_do_not_count_as_lane_cycles(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.jsonl"
     fixture = tmp_path / "eval.json"
