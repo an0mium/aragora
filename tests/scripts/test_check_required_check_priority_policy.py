@@ -420,6 +420,44 @@ jobs:
     )
 
 
+def test_policy_rejects_multiline_flow_style_path_filtered_main_push_required_workflow(
+    tmp_path: Path,
+) -> None:
+    repo_root = _write_policy_repo(tmp_path)
+    (repo_root / ".github/workflows/lint.yml").write_text(
+        """
+name: Lint
+on:
+  push: {
+    branches: [main],
+    paths: ["aragora/**"],
+  }
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+""",
+        encoding="utf-8",
+    )
+
+    violations = find_required_check_priority_violations(
+        _valid_workflow_text(),
+        repo_root=repo_root,
+    )
+
+    assert (
+        "required context `lint` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+    assert (
+        "required context `typecheck` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+
+
 def test_policy_ignores_comments_when_matching_main_push_branches(
     tmp_path: Path,
 ) -> None:

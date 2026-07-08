@@ -124,6 +124,44 @@ def _strip_yaml_comment(value: str) -> str:
     return value.rstrip()
 
 
+def _flow_curly_balance(value: str) -> int:
+    balance = 0
+    in_single = False
+    in_double = False
+    for char in value:
+        if char == "'" and not in_double:
+            in_single = not in_single
+        elif char == '"' and not in_single:
+            in_double = not in_double
+        elif not in_single and not in_double:
+            if char == "{":
+                balance += 1
+            elif char == "}":
+                balance -= 1
+    return balance
+
+
+def _complete_flow_mapping_value(
+    value: str,
+    lines: list[str],
+    index: int,
+) -> str:
+    if not value.strip().startswith("{"):
+        return value
+
+    parts = [value]
+    balance = _flow_curly_balance(value)
+    for child in lines[index + 1 :]:
+        if balance <= 0:
+            break
+        child_value = _strip_yaml_comment(child.strip())
+        if not child_value:
+            continue
+        parts.append(child_value)
+        balance += _flow_curly_balance(child_value)
+    return " ".join(parts)
+
+
 def _nested_yaml_block(lines: list[str], index: int, parent_indent: int) -> list[str]:
     block: list[str] = []
     for line in lines[index + 1 :]:
@@ -290,9 +328,10 @@ def _main_push_trigger(workflow_text: str) -> _MainPushTrigger:
             continue
 
         if parsed.value:
-            inline_push = _flow_mapping_value(parsed.value, "push")
+            on_value = _complete_flow_mapping_value(parsed.value, lines, index)
+            inline_push = _flow_mapping_value(on_value, "push")
             if inline_push is None:
-                if _inline_yaml_value_mentions(parsed.value, "push"):
+                if _inline_yaml_value_mentions(on_value, "push"):
                     return _MainPushTrigger(targets_main=True, path_filtered=False)
             else:
                 if not _flow_push_targets_main(inline_push):
@@ -309,11 +348,16 @@ def _main_push_trigger(workflow_text: str) -> _MainPushTrigger:
                 continue
 
             if on_parsed.value:
-                if not _flow_push_targets_main(on_parsed.value):
+                push_value = _complete_flow_mapping_value(
+                    on_parsed.value,
+                    on_block,
+                    on_index,
+                )
+                if not _flow_push_targets_main(push_value):
                     return _MainPushTrigger(targets_main=False, path_filtered=False)
                 return _MainPushTrigger(
                     targets_main=True,
-                    path_filtered=_flow_push_has_path_filter(on_parsed.value),
+                    path_filtered=_flow_push_has_path_filter(push_value),
                 )
 
             push_block = _nested_yaml_block(on_block, on_index, on_parsed.indent)
