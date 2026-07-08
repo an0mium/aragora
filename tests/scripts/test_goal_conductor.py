@@ -460,10 +460,14 @@ def test_panel_context_file_outside_safe_roots_is_materialized(tmp_path: Path) -
     command = result.decisions[0].commands[0]
     context_arg = command[command.index("--context-file") + 1]
     materialized = tmp_path / context_arg
-    assert context_arg.startswith(".aragora/goal-cycle-context/")
+    assert context_arg.startswith(".aragora/conductor_cycles/goal-conductor/")
     assert materialized.exists()
     body = materialized.read_text(encoding="utf-8")
-    assert body.startswith(f"<!-- Source context materialized from: {external_context}")
+    assert body.startswith(
+        "<!-- Source context materialized by goal_conductor from outside safe roots; "
+    )
+    assert f"source_name={external_context.name}" in body
+    assert str(external_context) not in body
     assert "operator says: include this" in body
 
 
@@ -528,6 +532,44 @@ def test_panel_context_file_unreadable_blocks_lane(tmp_path: Path) -> None:
     assert result.decisions[0].action == "blocked"
     assert "context file unreadable for lane panel" in result.decisions[0].reason
     assert runner.executed == []
+
+
+def test_bad_review_context_does_not_consume_review_slot(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["limits"]["max_review_lanes"] = 1
+    payload["lanes"] = [
+        {
+            "id": "bad-panel",
+            "mode": "panel",
+            "goal": "Review with missing context.",
+            "prompt": "Review only.",
+            "context_file": str(tmp_path / "missing.md"),
+        },
+        {
+            "id": "good-panel",
+            "mode": "panel",
+            "goal": "Review with valid context.",
+            "prompt": "Review only.",
+        },
+    ]
+    mission = mod.Mission.from_dict(payload)
+    runner = FakeRunner(mod, open_prs=[])
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=False,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "blocked"
+    assert "context file unreadable for lane bad-panel" in result.decisions[0].reason
+    assert result.decisions[1].action == "dry_run"
+    assert result.decisions[1].commands[0][:2] == ["python3", "scripts/multi_agent_dialog.py"]
 
 
 def test_execute_reuses_existing_agent_lane_and_sends_prompt(tmp_path: Path) -> None:

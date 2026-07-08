@@ -115,12 +115,13 @@ merge PRs, bypass Tier gates, install launchd jobs, run `observe-outcomes
 
 ### Operator Context Contract
 
-`context_file` values in goal-conductor mission lanes must ultimately be
-presented to `scripts/fable_goal_cycle.py` from one of its safe context roots:
-`.aragora/goal-cycle-context/` or `.aragora/conductor_cycles/`. If a mission
-references operator context elsewhere, `scripts/goal_conductor.py` materializes
-a capped copy into `.aragora/goal-cycle-context/` with a provenance header before
-passing it to downstream panel or goal-cycle commands. Missing, directory, or
+`context_file` values in goal-conductor mission lanes must be presented to
+downstream panel or goal-cycle commands from one of the safe context roots also
+accepted by `scripts/fable_goal_cycle.py`: `.aragora/goal-cycle-context/` or
+`.aragora/conductor_cycles/`. If a mission references operator context elsewhere,
+`scripts/goal_conductor.py` materializes a capped copy into the run-scoped
+`.aragora/conductor_cycles/goal-conductor/.../context/` tree with a provenance
+header before passing it to downstream panel commands. Missing, directory, or
 unreadable sources block that lane with an actionable error instead of launching
 a panel that would silently lose the operator context.
 

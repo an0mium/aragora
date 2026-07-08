@@ -14,6 +14,7 @@ The conductor is intentionally conservative. It is read-only by default; pass
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -550,7 +551,7 @@ class GoalConductor:
             (self.repo_root / subdir).resolve(strict=False) for subdir in SAFE_CONTEXT_SUBDIRS
         )
 
-    def _materialized_context_file_for(self, lane: LaneSpec) -> str:
+    def _materialized_context_file_for(self, lane: LaneSpec, run_dir: Path) -> str:
         if not lane.context_file:
             return ""
         original = Path(lane.context_file)
@@ -579,13 +580,26 @@ class GoalConductor:
 
         truncated = len(data) > MAX_CONTEXT_FILE_BYTES
         body = data[:MAX_CONTEXT_FILE_BYTES].decode("utf-8", errors="replace")
-        context_dir = self.repo_root / SAFE_CONTEXT_SUBDIRS[0]
+        run_context_root = (
+            self.repo_root
+            / SAFE_CONTEXT_SUBDIRS[1]
+            / "goal-conductor"
+            / _slug(self.mission.name)
+            / run_dir.name
+            / "context"
+        )
+        context_dir = run_context_root
         context_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
         materialized = context_dir / f"{stamp}-{_slug(lane.lane_id)}.md"
         truncate_note = f"; truncated to {MAX_CONTEXT_FILE_BYTES} bytes" if truncated else ""
+        digest = hashlib.sha256(data[:MAX_CONTEXT_FILE_BYTES]).hexdigest()
         materialized.write_text(
-            f"<!-- Source context materialized from: {resolved}{truncate_note} -->\n{body}",
+            "<!-- "
+            "Source context materialized by goal_conductor from outside safe roots; "
+            f"source_name={resolved.name}; sha256={digest}{truncate_note} "
+            "-->\n"
+            f"{body}",
             encoding="utf-8",
         )
         return materialized.relative_to(self.repo_root).as_posix()
@@ -655,7 +669,7 @@ class GoalConductor:
             str(output_dir),
         ]
         if lane.context_file:
-            command.extend(["--context-file", self._materialized_context_file_for(lane)])
+            command.extend(["--context-file", self._materialized_context_file_for(lane, run_dir)])
         return [command]
 
     def plan_lanes(self, snapshot: dict[str, Any], run_dir: Path) -> list[LaneDecision]:
@@ -674,6 +688,8 @@ class GoalConductor:
                     )
                 )
                 continue
+            reserve_implementation = False
+            reserve_review = False
             if lane.mutates:
                 if implementation_used >= self.mission.limits.max_implementation_lanes:
                     decisions.append(
@@ -684,7 +700,7 @@ class GoalConductor:
                         )
                     )
                     continue
-                implementation_used += 1
+                reserve_implementation = True
             elif lane.is_review:
                 if review_used >= self.mission.limits.max_review_lanes:
                     decisions.append(
@@ -695,7 +711,7 @@ class GoalConductor:
                         )
                     )
                     continue
-                review_used += 1
+                reserve_review = True
             try:
                 commands = (
                     self._panel_commands(lane, run_dir)
@@ -711,6 +727,10 @@ class GoalConductor:
                     )
                 )
                 continue
+            if reserve_implementation:
+                implementation_used += 1
+            if reserve_review:
+                review_used += 1
             decisions.append(
                 LaneDecision(
                     lane_id=lane.lane_id,
