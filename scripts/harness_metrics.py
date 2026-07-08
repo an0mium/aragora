@@ -103,6 +103,8 @@ def _utc_now() -> datetime:
 def parse_timestamp(value: Any) -> datetime | None:
     if value in (None, ""):
         return None
+    if isinstance(value, bool):
+        return None
     if isinstance(value, (int, float)):
         try:
             return datetime.fromtimestamp(float(value), tz=timezone.utc)
@@ -113,7 +115,7 @@ def parse_timestamp(value: Any) -> datetime | None:
     candidate = value.strip()
     if not candidate:
         return None
-    if candidate.endswith("Z"):
+    if candidate.endswith(("Z", "z")):
         candidate = f"{candidate[:-1]}+00:00"
     try:
         parsed = datetime.fromisoformat(candidate)
@@ -129,6 +131,8 @@ def _iso(dt: datetime) -> str:
 
 
 def _get_path(mapping: dict[str, Any], path: str) -> Any:
+    if path in mapping:
+        return mapping[path]
     current: Any = mapping
     for part in path.split("."):
         if not isinstance(current, dict) or part not in current:
@@ -432,7 +436,7 @@ def normalize_event(record: dict[str, Any], *, source: str, source_type: str) ->
 
 
 def _load_eval_cases(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
+    if not path.exists() or path.is_dir():
         return []
     try:
         parsed = json.loads(path.read_text(encoding="utf-8"))

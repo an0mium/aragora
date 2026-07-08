@@ -322,6 +322,17 @@ def test_numeric_timestamp_overflow_returns_none() -> None:
     assert harness_metrics.parse_timestamp(999999999999999999999) is None
 
 
+def test_boolean_timestamp_returns_none() -> None:
+    assert harness_metrics.parse_timestamp(True) is None
+    assert harness_metrics.parse_timestamp(False) is None
+
+
+def test_lowercase_z_timestamp_is_accepted() -> None:
+    parsed = harness_metrics.parse_timestamp("2026-07-08T10:00:00z")
+    assert parsed is not None
+    assert parsed.isoformat() == "2026-07-08T10:00:00+00:00"
+
+
 def test_malformed_eval_fixture_degrades_to_no_cases(tmp_path: Path) -> None:
     fixture = tmp_path / "eval.json"
     fixture.write_text("{not-json", encoding="utf-8")
@@ -331,6 +342,46 @@ def test_malformed_eval_fixture_degrades_to_no_cases(tmp_path: Path) -> None:
     assert result["available"] is True
     assert result["case_count"] == 0
     assert result["fixture_pass_rate"] is None
+
+
+def test_directory_eval_fixture_degrades_to_no_cases(tmp_path: Path) -> None:
+    result = harness_metrics.fixture_performance(tmp_path)
+
+    assert result["available"] is True
+    assert result["case_count"] == 0
+    assert result["fixture_pass_rate"] is None
+
+
+def test_flat_dotted_record_keys_are_resolved(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "progress.external": True,
+                "first_round_gate_pass": True,
+                "direct_pr_merged": "#1001",
+                "rounds_to_merge": 2,
+                "token_usage.total_cost_usd": 7.5,
+            }
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["external_progress_per_cycle"] == 1.0
+    assert lane["token_cost_total"] == 7.5
 
 
 def test_duplicate_merged_pr_records_do_not_double_count_merge_metrics(
