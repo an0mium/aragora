@@ -779,6 +779,7 @@ def test_prompt_handoff_branch_metadata_is_preserved_not_archived(
 
 def test_apply_archives_prompt_handoff_artifact_with_terminal_receipt(
     tmp_path: Path,
+    monkeypatch: Any,
     capsys: Any,
 ) -> None:
     outbox_dir = tmp_path / ".aragora" / "automation-outbox"
@@ -816,9 +817,33 @@ def test_apply_archives_prompt_handoff_artifact_with_terminal_receipt(
     )
     receipt_dir.mkdir(parents=True)
     (receipt_dir / f"{key}.json").write_text(
-        json.dumps({"idempotency_key": key, "status": "published"}),
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "published",
+                "reason": "published",
+                "created_issue_url": "https://github.com/synaptent/aragora/issues/7001",
+                "labels": ["boss-ready"],
+            }
+        ),
         encoding="utf-8",
     )
+
+    def fake_fetch(self: Any, repo: str, number: int) -> tuple[dict[str, Any], None]:
+        return (
+            {
+                "number": number,
+                "state": "OPEN",
+                "stateReason": "",
+                "url": f"https://github.com/{repo}/issues/{number}",
+                "body": "Idempotency Key:\nprompt-handoff-codex-published-abc123\n",
+                "labels": [{"name": "boss-ready"}],
+                "comments": [],
+            },
+            None,
+        )
+
+    monkeypatch.setattr(mod._IssueStateChecker, "_fetch", fake_fetch)
 
     assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
 
@@ -831,6 +856,86 @@ def test_apply_archives_prompt_handoff_artifact_with_terminal_receipt(
     assert artifact.exists() is False
     assert (archive_dir / handoff.name).exists()
     assert archived_artifact.read_text(encoding="utf-8") == "Start from live repo truth."
+
+
+def test_reconcile_keeps_prompt_handoff_receipt_when_issue_unlabeled(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "prompt-handoff-label-failed-abc123"
+    prompt_sha = "b" * 64
+    artifact = outbox_dir / mod.PROMPT_ARTIFACT_DIR / "prompt-handoff.prompt.md"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("Start from live repo truth.", encoding="utf-8")
+    handoff = outbox_dir / f"{key}.json"
+    handoff.write_text(
+        json.dumps(
+            {
+                "task": "Prompt handoff with failed label admission",
+                "requires_github": True,
+                "requested_action": {
+                    "type": "prompt_handoff",
+                    "branch": "codex/label-failed",
+                    "prompt_sha256": prompt_sha,
+                    "prompt_artifact_path": str(artifact),
+                    "prompt_artifact_sha256": prompt_sha,
+                },
+                "repo": "synaptent/aragora",
+                "local_evidence": {
+                    "kind": "prompt_handoff",
+                    "branch": "codex/label-failed",
+                    "prompt_sha256": prompt_sha,
+                    "prompt_artifact_path": str(artifact),
+                    "prompt_artifact_sha256": prompt_sha,
+                },
+                "idempotency_key": key,
+            }
+        ),
+        encoding="utf-8",
+    )
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "published",
+                "reason": "published",
+                "created_issue_url": "https://github.com/synaptent/aragora/issues/7002",
+                "labels": ["boss-ready"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_fetch(self: Any, repo: str, number: int) -> tuple[dict[str, Any], None]:
+        return (
+            {
+                "number": number,
+                "state": "OPEN",
+                "stateReason": "",
+                "url": f"https://github.com/{repo}/issues/{number}",
+                "body": "Idempotency Key:\nprompt-handoff-label-failed-abc123\n",
+                "labels": [],
+                "comments": [],
+            },
+            None,
+        )
+
+    monkeypatch.setattr(mod._IssueStateChecker, "_fetch", fake_fetch)
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["archived"] == 0
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "missing required prompt labels" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+    assert artifact.exists()
 
 
 @pytest.mark.parametrize(

@@ -50,6 +50,9 @@ DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
+DEFAULT_PROMPT_HANDOFF_LABELS = ("boss-ready",)
+INCOMPLETE_PROMPT_HANDOFF_MARKER = "Incomplete prompt handoff issue:"
+COMPLETE_PROMPT_HANDOFF_MARKER = "Completed prompt handoff issue:"
 
 # Bounded terminal-archive policy for the existing_issue deadlock:
 # the publisher refuses to open a duplicate PR because a GitHub issue already
@@ -1028,6 +1031,17 @@ def _issue_url_from_receipt(receipt: Mapping[str, Any]) -> str:
     return ""
 
 
+def _receipt_labels(receipt: Mapping[str, Any]) -> list[str]:
+    raw_labels = receipt.get("labels")
+    if isinstance(raw_labels, str):
+        labels = [item.strip() for item in raw_labels.split(",")]
+    elif isinstance(raw_labels, Sequence) and not isinstance(raw_labels, (bytes, bytearray, str)):
+        labels = [str(item).strip() for item in raw_labels]
+    else:
+        labels = []
+    return [label for label in labels if label] or list(DEFAULT_PROMPT_HANDOFF_LABELS)
+
+
 def _issue_number_from_url(url: str) -> int | None:
     text = str(url or "").strip().rstrip("/")
     marker = "/issues/"
@@ -1113,7 +1127,7 @@ class _IssueStateChecker:
                     "--repo",
                     repo,
                     "--json",
-                    "number,state,stateReason,url",
+                    "number,state,stateReason,url,body,labels,comments",
                 ],
                 cwd=self._root,
                 text=True,
@@ -1133,6 +1147,73 @@ class _IssueStateChecker:
         if not isinstance(payload, Mapping):
             return None, "gh issue view returned non-mapping JSON"
         return payload, None
+
+
+def _issue_label_names(issue: Mapping[str, Any]) -> set[str]:
+    labels = issue.get("labels")
+    if not isinstance(labels, Sequence) or isinstance(labels, (bytes, bytearray, str)):
+        return set()
+    names: set[str] = set()
+    for item in labels:
+        if isinstance(item, Mapping):
+            name = str(item.get("name") or "").strip()
+        else:
+            name = str(item or "").strip()
+        if name:
+            names.add(name)
+    return names
+
+
+def _issue_comment_bodies(issue: Mapping[str, Any]) -> list[str]:
+    comments = issue.get("comments")
+    if not isinstance(comments, Sequence) or isinstance(comments, (bytes, bytearray, str)):
+        return []
+    bodies: list[str] = []
+    for comment in comments:
+        if isinstance(comment, Mapping):
+            bodies.append(str(comment.get("body") or ""))
+    return bodies
+
+
+def _issue_contains_marker(issue: Mapping[str, Any], marker: str) -> bool:
+    if marker in str(issue.get("body") or ""):
+        return True
+    return any(marker in body for body in _issue_comment_bodies(issue))
+
+
+def _issue_contains_incomplete_prompt_marker(issue: Mapping[str, Any]) -> bool:
+    if _issue_contains_marker(issue, COMPLETE_PROMPT_HANDOFF_MARKER):
+        return False
+    return _issue_contains_marker(issue, INCOMPLETE_PROMPT_HANDOFF_MARKER)
+
+
+def _prompt_handoff_receipt_keep_reason(
+    issue_checker: _IssueStateChecker,
+    receipt: Mapping[str, Any],
+) -> str | None:
+    issue_url = _issue_url_from_receipt(receipt)
+    if not issue_url:
+        return "prompt handoff receipt has no linked issue URL"
+    issue_state, error = issue_checker.state(issue_url, receipt)
+    if issue_state is None:
+        return f"prompt handoff receipt issue state unverified ({error})"
+    if _issue_contains_incomplete_prompt_marker(issue_state):
+        return "prompt handoff receipt issue is marked incomplete"
+    state = str(issue_state.get("state") or "").strip().upper()
+    state_reason = str(issue_state.get("stateReason") or "").strip().upper()
+    if state == "CLOSED" and state_reason == "COMPLETED":
+        return None
+    if state != "OPEN":
+        return (
+            f"prompt handoff receipt issue {issue_url} is "
+            f"{state or 'UNKNOWN'}/{state_reason or 'unknown'}, not open or closed-completed"
+        )
+    missing_labels = sorted(set(_receipt_labels(receipt)) - _issue_label_names(issue_state))
+    if missing_labels:
+        return "prompt handoff receipt issue missing required prompt labels: " + ", ".join(
+            missing_labels
+        )
+    return None
 
 
 def _existing_issue_terminal_candidate(
@@ -1727,6 +1808,19 @@ def main(argv: list[str] | None = None) -> int:
         receipt = receipt_payloads_by_key.get(idem)
         if is_prompt_handoff:
             if receipt is not None:
+                keep_reason = _prompt_handoff_receipt_keep_reason(issue_checker, receipt)
+                if keep_reason is not None:
+                    counts["still_protecting_active_work"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "keep",
+                            "reason": keep_reason,
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    continue
                 counts["satisfied_by_existing_receipt"] += 1
                 actions.append(
                     {

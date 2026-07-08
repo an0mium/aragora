@@ -431,12 +431,32 @@ def _terminal_receipts_by_key(receipt_dir: Path) -> dict[str, list[dict[str, Any
     return receipts
 
 
+def _receipt_labels(receipt_payload: Mapping[str, Any]) -> list[str]:
+    raw_labels = receipt_payload.get("labels")
+    if isinstance(raw_labels, str):
+        labels = [item.strip() for item in raw_labels.split(",")]
+    elif isinstance(raw_labels, Sequence) and not isinstance(raw_labels, (bytes, bytearray, str)):
+        labels = [str(item).strip() for item in raw_labels]
+    else:
+        labels = []
+    return [label for label in labels if label] or list(DEFAULT_LABELS)
+
+
+def _receipt_issue_url(receipt_payload: Mapping[str, Any]) -> str:
+    for key in ("created_issue_url", "existing_issue_url", "issue_url"):
+        url = str(receipt_payload.get(key) or "").strip()
+        if url:
+            return url
+    return ""
+
+
 def _write_receipt(
     receipt_dir: Path,
     handoff: Handoff,
     decision: PublishDecision,
     *,
     repo: str,
+    labels: Sequence[str] | None = None,
 ) -> None:
     if handoff.source_kind != "outbox" or not handoff.idempotency_key:
         return
@@ -457,6 +477,8 @@ def _write_receipt(
         "existing_pr_url": decision.existing_pr_url,
         "recorded_at": datetime.now(UTC).isoformat(),
     }
+    if _is_prompt_handoff(handoff):
+        payload["labels"] = [label for label in (labels or DEFAULT_LABELS) if label]
     _receipt_path(receipt_dir, handoff.idempotency_key).write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -673,6 +695,10 @@ def _is_pr_open_request(payload: dict[str, Any]) -> bool:
         _normalized_requested_action(payload.get("requested_action"))
         == PR_OPEN_REQUEST_CANONICAL_ACTION
     )
+
+
+def _is_prompt_handoff_payload(payload: Mapping[str, Any]) -> bool:
+    return _normalized_requested_action(payload.get("requested_action")) == "prompt_handoff"
 
 
 def _is_prompt_handoff(handoff: Handoff) -> bool:
@@ -916,6 +942,9 @@ def _receipt_satisfies_outbox(
     payload: dict[str, Any],
     receipt_payload: dict[str, Any],
 ) -> bool:
+    if _is_prompt_handoff_payload(payload):
+        return _prompt_receipt_issue_is_usable(repo_root, payload, receipt_payload)
+
     reason = str(receipt_payload.get("reason") or "").strip().lower()
     if _is_pr_open_request(payload):
         created_issue_url = str(receipt_payload.get("created_issue_url") or "").strip()
@@ -930,6 +959,48 @@ def _receipt_satisfies_outbox(
     if not remote_head:
         return False
     return _head_matches(desired_head, remote_head)
+
+
+def _prompt_receipt_issue_is_usable(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+    receipt_payload: Mapping[str, Any],
+) -> bool:
+    issue_url = _receipt_issue_url(receipt_payload)
+    number = _issue_number_from_url(issue_url)
+    if not number:
+        return False
+    repo = str(receipt_payload.get("repo") or payload.get("repo") or DEFAULT_REPO).strip()
+    if not repo:
+        repo = DEFAULT_REPO
+    proc = _run(
+        [
+            "gh",
+            "issue",
+            "view",
+            number,
+            "--repo",
+            repo,
+            "--json",
+            "number,title,url,state,stateReason,body,labels,comments",
+        ],
+        cwd=repo_root,
+    )
+    if proc.returncode != 0:
+        return False
+    try:
+        issue = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(issue, dict):
+        return False
+    state = str(issue.get("state") or "").strip().upper()
+    state_reason = str(issue.get("stateReason") or "").strip().upper()
+    if state == "CLOSED" and state_reason == "COMPLETED":
+        return not _issue_contains_incomplete_prompt_marker(issue)
+    if state != "OPEN":
+        return False
+    return _prompt_issue_is_usable(issue, _receipt_labels(receipt_payload))
 
 
 def _terminal_outbox_fingerprints(
@@ -1932,7 +2003,7 @@ def publish_handoffs(
             created_issue_url=url,
         )
         if receipt_dir is not None:
-            _write_receipt(receipt_dir, handoff, published_decision, repo=repo)
+            _write_receipt(receipt_dir, handoff, published_decision, repo=repo, labels=labels)
         published.append(published_decision)
     return published
 
@@ -2161,7 +2232,7 @@ def main(argv: list[str] | None = None) -> int:
         for item in results:
             handoff = by_key.get((item.task_title, item.source_file))
             if handoff is not None:
-                _write_receipt(receipt_dir, handoff, item, repo=args.github_repo)
+                _write_receipt(receipt_dir, handoff, item, repo=args.github_repo, labels=labels)
 
     payload = {
         "repo": str(repo_root),

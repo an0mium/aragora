@@ -786,6 +786,7 @@ def test_load_outbox_handoffs_keeps_distinct_prompt_handoffs_for_same_branch(
 
 
 def test_terminal_prompt_handoff_receipt_does_not_skip_distinct_prompt_same_branch(
+    monkeypatch: Any,
     tmp_path: Path,
 ) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
@@ -816,14 +817,104 @@ def test_terminal_prompt_handoff_receipt_does_not_skip_distinct_prompt_same_bran
         encoding="utf-8",
     )
     (receipts / f"{old_key}.json").write_text(
-        json.dumps({"idempotency_key": old_key, "status": "published"}),
+        json.dumps(
+            {
+                "idempotency_key": old_key,
+                "status": "published",
+                "reason": "published",
+                "created_issue_url": "https://github.com/synaptent/aragora/issues/7001",
+                "labels": ["boss-ready"],
+            }
+        ),
         encoding="utf-8",
     )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "number": 7001,
+                        "state": "OPEN",
+                        "stateReason": "",
+                        "url": "https://github.com/synaptent/aragora/issues/7001",
+                        "body": "Idempotency Key:\nprompt-handoff-old\n",
+                        "labels": [{"name": "boss-ready"}],
+                        "comments": [],
+                    }
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
 
     handoffs = mod.load_outbox_handoffs(tmp_path)
 
     assert len(handoffs) == 1
     assert handoffs[0].idempotency_key == "prompt-handoff-new"
+
+
+def test_prompt_handoff_receipt_does_not_suppress_unlabeled_issue(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "prompt-handoff-label-failed"
+    (outbox / "prompt.json").write_text(
+        json.dumps(
+            _prompt_handoff_payload(
+                branch="codex/example",
+                prompt_sha="c" * 64,
+                idempotency_key=key,
+                task="Publish prompt after failed label admission",
+            )
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "published",
+                "reason": "published",
+                "created_issue_url": "https://github.com/synaptent/aragora/issues/7002",
+                "labels": ["boss-ready"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "number": 7002,
+                        "state": "OPEN",
+                        "stateReason": "",
+                        "url": "https://github.com/synaptent/aragora/issues/7002",
+                        "body": "Idempotency Key:\nprompt-handoff-label-failed\n",
+                        "labels": [],
+                        "comments": [],
+                    }
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert [handoff.idempotency_key for handoff in handoffs] == [key]
 
 
 def test_prompt_artifact_blocker_rejects_absolute_path_outside_outbox(
