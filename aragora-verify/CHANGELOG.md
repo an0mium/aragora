@@ -4,6 +4,14 @@ All notable changes to `aragora-verify` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses semantic
 versioning.
 
+## [0.1.2] — Unreleased
+
+### Security
+- Raise the standalone package's direct `cryptography` dependency floor to
+  `>=48.0.1`, matching the root project security floor for GHSA-537c-gmf6-5ccf.
+  This matters for isolated `pip install aragora-verify` environments because
+  they do not inherit the root repository's uv constraint-dependencies.
+
 ## [0.1.1] — 2026-07-04 (03:28 UTC)
 
 ### Fixed
