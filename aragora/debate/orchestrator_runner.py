@@ -209,6 +209,7 @@ _NON_BLOCKING_KM_INIT_ERRORS = (
     AttributeError,
     ImportError,
 )
+_NON_BLOCKING_CULTURE_HINT_ERRORS = _NON_BLOCKING_KM_INIT_ERRORS + (LookupError,)
 
 # Bound on awaiting the fire-and-forget KM culture-profile retrieval task
 # (scheduled by the culture_to_debate reaction during _init_km_context) before
@@ -756,9 +757,7 @@ async def initialize_debate_context(
                 _CULTURE_HINTS_WAIT_TIMEOUT_S,
                 debate_id,
             )
-        except Exception as e:  # noqa: BLE001 - culture hints are best-effort; awaiting the
-            # retrieval task must never fail debate start, so this must catch wider than the
-            # specific _NON_BLOCKING_KM_INIT_ERRORS tuple used for _init_km_context itself.
+        except _NON_BLOCKING_CULTURE_HINT_ERRORS as e:
             logger.debug("Culture profile retrieval task failed while awaited: %s", e)
 
     try:
