@@ -184,10 +184,10 @@ def _extract_markdown_field(markdown: str, label: str) -> str | None:
 
 
 def _extract_exact_head(value: str) -> str | None:
-    match = re.search(r"\b[0-9a-f]{40}\b", value)
+    match = re.search(r"\b[0-9a-f]{40}\b", value, flags=re.IGNORECASE)
     if not match:
         return None
-    return match.group(0)
+    return match.group(0).lower()
 
 
 def _extract_target_from_section(markdown: str) -> str | None:
@@ -431,21 +431,26 @@ def parse_decision_packet(markdown: str, *, source: str) -> list[DecisionItem]:
     """Parse a founder decision packet markdown body."""
 
     standalone = _parse_standalone_request(markdown, source=source)
-    if standalone:
-        return standalone
 
     generated_at = _packet_generated_at(markdown)
     rows = _pending_ruling_rows(markdown)
+    table_items: list[DecisionItem] = []
     if not rows:
-        items: list[DecisionItem] = []
         for table in _all_table_rows(markdown):
-            items.extend(_parse_decision_table(table, source=source, generated_at=generated_at))
-        return items
-    return _parse_decision_table(rows, source=source, generated_at=generated_at)
+            table_items.extend(
+                _parse_decision_table(table, source=source, generated_at=generated_at)
+            )
+    else:
+        table_items = _parse_decision_table(rows, source=source, generated_at=generated_at)
+    return [*standalone, *table_items]
 
 
 def _has_pending_rulings_table(source: DecisionSource) -> bool:
     return bool(_pending_ruling_rows(source.body))
+
+
+def _has_decision_table(source: DecisionSource) -> bool:
+    return _has_pending_rulings_table(source) or _body_has_decision_table(source.body)
 
 
 def _body_has_decision_request(body: str) -> bool:
@@ -579,33 +584,31 @@ def _item_target_key(item: DecisionItem) -> str:
     return f"reply:{_compact_text(item.expected_reply).lower()}"
 
 
+def _item_identity_key(item: DecisionItem) -> tuple[str, str]:
+    return (
+        _item_target_key(item),
+        _compact_text(item.requested_action).lower(),
+    )
+
+
 def _dedupe_decision_items(items: Iterable[DecisionItem]) -> list[DecisionItem]:
-    deduped: dict[tuple[str, str, str], DecisionItem] = {}
+    deduped: dict[tuple[str, str], DecisionItem] = {}
     for item in items:
-        deduped.setdefault(item.dedupe_key(), item)
+        key = _item_identity_key(item)
+        current = deduped.get(key)
+        if current is None or _item_freshness_key(item) > _item_freshness_key(current):
+            deduped[key] = item
     return list(deduped.values())
 
 
 def _dedupe_table_decision_items(items: Iterable[DecisionItem]) -> list[DecisionItem]:
-    seen_exact: set[tuple[str, str, str]] = set()
-    by_target: dict[str, list[DecisionItem]] = {}
+    by_identity: dict[tuple[str, str], DecisionItem] = {}
     for item in items:
-        exact_key = item.dedupe_key()
-        if exact_key in seen_exact:
-            continue
-        seen_exact.add(exact_key)
-        target_key = _item_target_key(item)
-        current_items = by_target.get(target_key)
-        if current_items is None:
-            by_target[target_key] = [item]
-            continue
-        current_freshness = _item_freshness_key(current_items[0])
-        item_freshness = _item_freshness_key(item)
-        if item_freshness > current_freshness:
-            by_target[target_key] = [item]
-        elif item_freshness == current_freshness:
-            current_items.append(item)
-    return [item for target_items in by_target.values() for item in target_items]
+        key = _item_identity_key(item)
+        current = by_identity.get(key)
+        if current is None or _item_freshness_key(item) > _item_freshness_key(current):
+            by_identity[key] = item
+    return list(by_identity.values())
 
 
 def _sort_decision_items_newest_first(items: Iterable[DecisionItem]) -> list[DecisionItem]:
@@ -1008,11 +1011,9 @@ def collect_decision_collection(
         github_issues=github_issues,
         repo=repo,
     )
-    table_sources = [
-        source for source in source_collection.sources if _has_pending_rulings_table(source)
-    ]
+    table_sources = [source for source in source_collection.sources if _has_decision_table(source)]
     standalone_sources = [
-        source for source in source_collection.sources if not _has_pending_rulings_table(source)
+        source for source in source_collection.sources if not _has_decision_table(source)
     ]
     for source in sorted(table_sources, key=_packet_sort_key):
         if not source.thread_open:
