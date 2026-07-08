@@ -225,6 +225,7 @@ def test_external_progress_negative_outcomes_are_not_positive_substrings(
 def test_pr_number_parsing_requires_whole_pr_token() -> None:
     assert harness_metrics._coerce_pr_number("#1234") == 1234
     assert harness_metrics._coerce_pr_number("PR #1234") == 1234
+    assert harness_metrics._coerce_pr_number("0") is None
     assert harness_metrics._coerce_pr_number("9790cdd") is None
     assert harness_metrics._coerce_pr_number("v2-migration") is None
 
@@ -307,6 +308,43 @@ def test_duplicate_merged_pr_records_do_not_double_count_merge_metrics(
     assert lane["merged_prs"] == 1
     assert lane["rounds_to_merge_average"] == 2.0
     assert lane["token_cost_total"] == 12.5
+
+
+def test_repeated_non_merge_pr_cycles_keep_token_cost_observations(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "pr_number": 1001,
+                "token_cost": 2.0,
+            },
+            {
+                "timestamp": "2026-07-08T11:00:00Z",
+                "lane": "conductor",
+                "pr_number": "#1001",
+                "token_cost": 3.0,
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 2
+    assert lane["token_cost_total"] == 5.0
 
 
 def test_receipts_do_not_count_as_lane_cycles(tmp_path: Path) -> None:

@@ -86,12 +86,16 @@ class LaneAccumulator:
             self.rounds_to_merge_values.append(event.rounds_to_merge)
             self.rounds_to_merge_prs.add(event.merged_pr)
         if event.token_cost is not None:
-            if event.merged_pr is not None:
-                if event.merged_pr in self.token_cost_prs:
-                    return
-                self.token_cost_prs.add(event.merged_pr)
-            self.token_cost_total += event.token_cost
-            self.token_cost_observations += 1
+            duplicate_merge_cost = (
+                event.merged_pr is not None
+                and event.rounds_to_merge is not None
+                and event.merged_pr in self.token_cost_prs
+            )
+            if not duplicate_merge_cost:
+                if event.merged_pr is not None and event.rounds_to_merge is not None:
+                    self.token_cost_prs.add(event.merged_pr)
+                self.token_cost_total += event.token_cost
+                self.token_cost_observations += 1
 
 
 def _utc_now() -> datetime:
@@ -175,7 +179,8 @@ def _coerce_pr_number(value: Any) -> int | None:
             candidate,
         )
         if match:
-            return int(match.group(1))
+            pr_number = int(match.group(1))
+            return pr_number if pr_number > 0 else None
     return None
 
 
