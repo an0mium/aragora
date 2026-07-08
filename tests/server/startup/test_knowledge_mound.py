@@ -548,6 +548,45 @@ class TestInitKMAdapters:
         assert result is False
 
     @pytest.mark.asyncio
+    async def test_bootstrap_fail_closed_runtime_error_is_logged_loudly(self, caplog) -> None:
+        """Regression test for P4a E8 SCOPE #3.
+
+        bootstrap_event_subscribers() fail-closes with a RuntimeError when an
+        expected application/interface handler didn't self-register. Before
+        the fix this fell through to the generic adapter-failure except and
+        was logged at .warning level, indistinguishable from e.g. a
+        RankingAdapter hiccup. It must now be logged at .error level via a
+        distinct message so the guard is actually visible to operators.
+        """
+        mock_event_subs = MagicMock()
+        mock_event_subs.bootstrap_event_subscribers = MagicMock(
+            side_effect=RuntimeError(
+                "Application event subscriber bootstrap incomplete; missing "
+                "handlers: ['alert_escalated_to_workflow_brake']"
+            )
+        )
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.startup.event_subscribers": mock_event_subs,
+                "aragora.knowledge.mound.adapters": MagicMock(),
+            },
+        ):
+            import logging
+
+            from aragora.server.startup.knowledge_mound import init_km_adapters
+
+            with caplog.at_level(logging.ERROR, logger="aragora.server.startup.knowledge_mound"):
+                result = await init_km_adapters()
+
+        assert result is False
+        error_records = [r for r in caplog.records if r.levelno >= logging.ERROR]
+        assert error_records, "bootstrap fail-closed RuntimeError must be logged at ERROR level"
+        assert any("bootstrap" in r.getMessage().lower() for r in error_records)
+        assert not any(r.levelno == logging.WARNING for r in caplog.records)
+
+    @pytest.mark.asyncio
     async def test_attribute_error(self) -> None:
         """Test AttributeError returns False."""
         mock_event_subs = self._mock_event_subscribers(MagicMock())
@@ -567,3 +606,41 @@ class TestInitKMAdapters:
             result = await init_km_adapters()
 
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_alert_escalated_handler_wired_after_production_bootstrap(self) -> None:
+        """Regression test for P4a E8 SCOPE #3(a).
+
+        alert_escalated_to_workflow_brake is wired ONLY via the
+        interface-superset bootstrap (chartered design: a bare
+        CrossSubscriberManager deliberately excludes it - see
+        tests/events/test_strategic_handlers.py::test_strategic_event_types_have_subscribers
+        and tests/events/test_cross_subscriber_registry.py::
+        test_application_tier_reactions_registered_via_superset_bootstrap).
+        This exercises the actual production entrypoint server startup calls
+        (init_km_adapters, invoked from Phase 3 of run_startup_sequence via
+        aragora.server.startup.parallel._init_knowledge_mound /
+        aragora.server.startup._init_all_components) end-to-end (no mocking
+        of bootstrap_event_subscribers itself) to prove the handler is
+        registered on the real singleton once server startup reaches this
+        point - closing the loop between "the superset bootstrap wires it"
+        and "server startup calls the superset bootstrap".
+        """
+        from aragora.events.cross_subscribers import (
+            get_cross_subscriber_manager,
+            reset_cross_subscriber_manager,
+            reset_registry,
+        )
+        from aragora.server.startup.knowledge_mound import init_km_adapters
+
+        reset_registry()
+        reset_cross_subscriber_manager()
+        try:
+            result = await init_km_adapters()
+            assert result is True
+
+            manager = get_cross_subscriber_manager()
+            assert "alert_escalated_to_workflow_brake" in manager.get_stats()
+        finally:
+            reset_registry()
+            reset_cross_subscriber_manager()
