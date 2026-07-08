@@ -11,26 +11,13 @@ PARK_RECORD_MARKERS: tuple[str, ...] = (
     "Current-head evidence blocker",
     "Evidence safety correction",
 )
+PARK_LIFT_RECORD_MARKERS: tuple[str, ...] = (
+    "Current-head park lift",
+    "Current-head park override",
+)
+TRUSTED_LIFT_AUTHOR_ASSOCIATIONS: frozenset[str] = frozenset({"OWNER"})
 
 _HEAD_RE = re.compile(r"(?im)\b(?:exact\s+head|current\s+head|head)\s*[:=]\s*`?([0-9a-f]{40})`?")
-_LIFT_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\b(?:operator\s+)?park\s+(?:lift|override|clear|cleared|rescinded)\b", re.I),
-    re.compile(
-        r"\b(?:lift|override|clear|cleared|rescind|rescinded)\b.{0,80}\b"
-        r"(?:current-head\s+)?park\b",
-        re.I | re.S,
-    ),
-    re.compile(
-        r"\b(?:current-head\s+)?park\b.{0,80}\b"
-        r"(?:lifted|overridden|cleared|rescinded|override)\b",
-        re.I | re.S,
-    ),
-)
-_NEGATED_LIFT_RE = re.compile(
-    r"\b(?:not|no|never|without)\b.{0,40}\b"
-    r"(?:lift|lifted|override|overridden|clear|cleared|rescind|rescinded)\b",
-    re.I | re.S,
-)
 
 
 def current_head_park_record(comments: list[Any], *, head_sha: str) -> dict[str, Any]:
@@ -50,15 +37,15 @@ def current_head_park_record(comments: list[Any], *, head_sha: str) -> dict[str,
         body = _comment_body(comment)
         if not body or not _body_mentions_head(body, head):
             continue
-        lift_record = _lift_record(comment, head)
-        if lift_record is not None:
-            standing_park = None
-            lifted_by = lift_record
-            continue
         park_record = _park_record(comment, head)
         if park_record is not None:
             standing_park = park_record
             lifted_by = None
+            continue
+        lift_record = _lift_record(comment, head)
+        if lift_record is not None:
+            standing_park = None
+            lifted_by = lift_record
 
     if standing_park is None:
         return {"blocked": False, "head_sha": head, "lifted_by": lifted_by}
@@ -99,9 +86,12 @@ def _comment_timestamp(comment: Any) -> datetime:
     if not raw:
         return datetime.min.replace(tzinfo=timezone.utc)
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
         return datetime.min.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _comment_body(comment: Any) -> str:
@@ -132,6 +122,18 @@ def _park_marker(body: str) -> str:
     return ""
 
 
+def _structured_marker(body: str, markers: tuple[str, ...]) -> str:
+    marker_map = {marker.casefold(): marker for marker in markers}
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+        while line.startswith("#"):
+            line = line[1:].strip()
+        normalized = line.strip().strip(":").casefold()
+        if normalized in marker_map:
+            return marker_map[normalized]
+    return ""
+
+
 def _park_record(comment: Any, head_sha: str) -> dict[str, Any] | None:
     body = _comment_body(comment)
     marker = _park_marker(body)
@@ -147,12 +149,25 @@ def _park_record(comment: Any, head_sha: str) -> dict[str, Any] | None:
 
 def _lift_record(comment: Any, head_sha: str) -> dict[str, Any] | None:
     body = _comment_body(comment)
-    if not body or _NEGATED_LIFT_RE.search(body):
+    if not body or not _trusted_lift_author(comment):
         return None
-    if not any(pattern.search(body) for pattern in _LIFT_PATTERNS):
+    marker = _structured_marker(body, PARK_LIFT_RECORD_MARKERS)
+    if not marker:
         return None
     return {
         "head_sha": head_sha,
+        "lift_marker": marker,
         "created_at": _comment_created_at(comment),
         "comment_url": _comment_url(comment),
     }
+
+
+def _trusted_lift_author(comment: Any) -> bool:
+    if not isinstance(comment, dict):
+        return False
+    association = (
+        str(comment.get("authorAssociation") or comment.get("author_association") or "")
+        .strip()
+        .upper()
+    )
+    return association in TRUSTED_LIFT_AUTHOR_ASSOCIATIONS
