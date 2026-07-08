@@ -96,6 +96,26 @@ def _write_receipt(tmp_path: Path, data: dict[str, Any], filename: str = "receip
     return path
 
 
+def _old_vulnerable_artifact_hash(data: dict[str, Any]) -> str:
+    """Recreate the pre-fix standalone verifier hash construction."""
+    payload: dict[str, Any] = {
+        "receipt_id": data.get("receipt_id", ""),
+        "gauntlet_id": data.get("gauntlet_id", ""),
+        "input_hash": data.get("input_hash", ""),
+        "risk_summary": data.get("risk_summary", {}),
+        "verdict": data.get("verdict", ""),
+        "confidence": data.get("confidence", 0.0),
+    }
+    if data.get("unverified"):
+        payload["unverified"] = data.get("unverified", []) or []
+    if data.get("assumptions"):
+        payload["assumptions"] = data.get("assumptions", []) or []
+    if data.get("falsification"):
+        payload["falsification"] = data.get("falsification")
+    content = json.dumps(payload, sort_keys=True)
+    return hashlib.sha256(content.encode()).hexdigest()
+
+
 class _FakeArgs:
     """Minimal argparse.Namespace stand-in for cmd_verify."""
 
@@ -230,6 +250,26 @@ class TestVerifyReceipt:
         assert tampered["valid"] is False
         tampered_integrity = next(c for c in tampered["checks"] if c["name"] == "integrity")
         assert tampered_integrity["passed"] is False
+
+    def test_artifact_hash_rejects_malformed_epistemic_fields_even_when_hash_matches(self):
+        """Malformed epistemic fields must not be accepted by recomputing their hash."""
+        data = _make_receipt_data(
+            include_checksum=False,
+            extra={
+                "unverified": "claims without review",
+                "falsification": {"observation": "Latency rose above threshold."},
+            },
+        )
+        data["artifact_hash"] = _old_vulnerable_artifact_hash(data)
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is False
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is False
+        assert "malformed epistemic hash fields" in integrity_check["detail"]
+        assert "unverified" in integrity_check["detail"]
+        assert "falsification" in integrity_check["detail"]
 
     def test_legacy_artifact_hash_verifies_without_epistemic_fields(self):
         """Receipts hashed before epistemic fields existed remain verifiable."""
