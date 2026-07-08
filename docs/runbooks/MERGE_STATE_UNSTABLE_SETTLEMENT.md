@@ -43,15 +43,17 @@ Exact-head evidence becomes stale as soon as the PR branch moves. During a
 settlement window, treat the head SHA as part of the gate:
 
 1. Record the target `headRefOid` before collecting evidence.
-2. After every reviewer dry run, evidence post, quorum rerun, and merge-packet
-   read, re-read `headRefOid`.
+2. Immediately before and after every evidence post, quorum rerun, merge-packet
+   read, and final merge attempt, re-read `headRefOid`. Reviewer dry runs also
+   need a post-run head check before their artifact can be used.
 3. If the head changed, stop the settlement attempt. Do not post stale evidence,
    rerun quorum, or chase the new head in the same cycle.
 4. Leave a PR-visible head-churn note naming the old head, the new head, and any
    stale evidence artifact that must not be counted.
-5. The session or person that pushed the new head owns the next exact-head
-   evidence pass. A different settlement owner may resume only after a fresh
-   owner/steering read and a new dry-run artifact for the new head.
+5. The session or person that pushed the new head should either run the next
+   exact-head evidence pass or leave an explicit handoff. A different
+   settlement owner may resume after a fresh owner/steering read and a new
+   dry-run artifact for the new head.
 
 This is a coordination guard, not a branch lock. It preserves the exact-head
 contract without blocking repair pushes: pushes are allowed, but they invalidate
