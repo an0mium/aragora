@@ -3029,6 +3029,14 @@ def _build_merge_authorization_packet(
                 "merge_authorization_packet",
             ],
         }
+        entry_status = quorum["status"]
+        entry_verdict = quorum["verdict"]
+        if model_quorum_admin_squash_allowed and admin_squash_gate_blockers:
+            # The live gate flipped admin_squash_allowed to false; the quorum
+            # status/verdict ("satisfied"/"admin_squash_allowed") would be
+            # misleading in human-readable output (#8965 openai [P3]).
+            entry_status = "blocked_by_live_gate"
+            entry_verdict = "admin_squash_blocked_by_live_gate"
         entry = {
             "pr_number": packet.pr_number,
             "title": packet.title,
@@ -3038,8 +3046,8 @@ def _build_merge_authorization_packet(
             "machine_recommendation": packet.machine_recommendation,
             "tier": quorum["tier"],
             "tier_name": quorum["tier_name"],
-            "status": quorum["status"],
-            "verdict": quorum["verdict"],
+            "status": entry_status,
+            "verdict": entry_verdict,
             "admin_squash_allowed": (
                 model_quorum_admin_squash_allowed and not admin_squash_gate_blockers
             ),
@@ -5641,6 +5649,11 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
             f"{len(entry.get('dogfood_evidence') or [])} dogfood note(s), "
             f"{len(entry.get('counted_reviewer_ids') or [])} counted reviewer(s)"
         )
+        gate_blockers = entry.get("admin_squash_gate_blockers") or []
+        if gate_blockers:
+            print("  admin squash live-gate blockers:")
+            for blocker in gate_blockers:
+                print(f"    - {blocker}")
         for reason in entry.get("reasons") or []:
             print(f"  - {reason}")
         print()
