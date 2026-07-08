@@ -151,6 +151,97 @@ def test_window_filtering_and_receipt_store_support(tmp_path: Path) -> None:
     assert lanes["receipt_store"]["token_cost_total"] == 4.0
 
 
+def test_window_filtering_excludes_future_events(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "current",
+                "external_progress": True,
+            },
+            {
+                "timestamp": "2026-07-09T00:00:00Z",
+                "lane": "future",
+                "external_progress": True,
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lanes = {lane["lane"]: lane for lane in report["lanes"]}
+    assert "current" in lanes
+    assert "future" not in lanes
+
+
+def test_rounds_to_merge_average_uses_only_merged_records(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "direct_pr_merged": 1001,
+                "rounds_to_merge": 2,
+            },
+            {
+                "timestamp": "2026-07-08T11:00:00Z",
+                "lane": "conductor",
+                "rounds_to_merge": 8,
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=30,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["merged_prs"] == 1
+    assert lane["rounds_to_merge_average"] == 2.0
+
+
+def test_render_markdown_escapes_table_cells() -> None:
+    report = {
+        "lanes": [
+            {
+                "lane": "lane|with\nbreak",
+                "cycles": 1,
+                "external_progress_per_cycle": None,
+                "first_round_gate_pass_rate": None,
+                "rounds_to_merge_average": None,
+                "token_cost_per_merged_pr": None,
+                "merged_prs": 0,
+                "drift_check": {"alarm": False},
+                "insufficient_data": ["needs|data\nagain"],
+            }
+        ]
+    }
+
+    markdown = harness_metrics.render_markdown(report)
+
+    assert "lane\\|with break" in markdown
+    assert "needs\\|data again" in markdown
+    assert len(markdown.strip().splitlines()) == 3
+
+
 def test_render_markdown_is_single_table(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.jsonl"
     fixture = tmp_path / "eval.json"

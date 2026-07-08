@@ -74,7 +74,7 @@ class LaneAccumulator:
                 self.first_round_gate_passes += 1
         if event.merged_pr is not None:
             self.merged_prs.add(event.merged_pr)
-        if event.rounds_to_merge is not None:
+        if event.merged_pr is not None and event.rounds_to_merge is not None:
             self.rounds_to_merge_values.append(event.rounds_to_merge)
         if event.token_cost is not None:
             self.token_cost_total += event.token_cost
@@ -206,7 +206,7 @@ def _iter_receipt_records(receipt_dir: Path) -> list[dict[str, Any]]:
 def _within_window(event_time: datetime | None, *, as_of: datetime, window_days: int) -> bool:
     if event_time is None:
         return True
-    return event_time >= as_of - timedelta(days=window_days)
+    return as_of - timedelta(days=window_days) <= event_time <= as_of
 
 
 def _lane_for(record: dict[str, Any], source_type: str) -> str:
@@ -555,6 +555,10 @@ def _fmt_number(value: float | int | None, *, percent: bool = False) -> str:
     return f"{value:.2f}"
 
 
+def _markdown_cell(value: Any) -> str:
+    return str(value).replace("\n", " ").replace("|", "\\|")
+
+
 def render_markdown(report: dict[str, Any]) -> str:
     """Render the scoreboard as a single Markdown table."""
 
@@ -569,7 +573,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         rows.append(
             "| {lane} | {cycles} | {external} | {pass_rate} | {rounds} | "
             "{cost} | {merged} | {alarm} | {insufficient} |".format(
-                lane=lane["lane"],
+                lane=_markdown_cell(lane["lane"]),
                 cycles=lane["cycles"],
                 external=_fmt_number(lane["external_progress_per_cycle"], percent=True),
                 pass_rate=_fmt_number(lane["first_round_gate_pass_rate"], percent=True),
@@ -577,7 +581,7 @@ def render_markdown(report: dict[str, Any]) -> str:
                 cost=_fmt_number(lane["token_cost_per_merged_pr"]),
                 merged=lane["merged_prs"],
                 alarm="yes" if lane["drift_check"]["alarm"] else "no",
-                insufficient=insufficient,
+                insufficient=_markdown_cell(insufficient),
             )
         )
     return "\n".join(rows) + "\n"
