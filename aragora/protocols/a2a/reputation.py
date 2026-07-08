@@ -98,9 +98,7 @@ def _decay_weight(delta: Any, now: datetime) -> float:
     if half_life is None:
         return 1.0
     try:
-        applied = datetime.fromisoformat(
-            delta.applied_at.replace("Z", "+00:00")
-        ).astimezone(UTC)
+        applied = datetime.fromisoformat(delta.applied_at.replace("Z", "+00:00")).astimezone(UTC)
     except (ValueError, TypeError):
         return 1.0
     age_days = max(0.0, (now - applied).total_seconds() / 86_400.0)
