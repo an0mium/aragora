@@ -293,8 +293,30 @@ def _f_string_expression_spans(text: str) -> list[tuple[int, int]]:
         depth = 1
         expr_start = index + 1
         index += 1
+        quote: str | None = None
+        triple_quote = False
         while index < len(text) and depth:
             char = text[index]
+            if quote is not None:
+                if char == "\\":
+                    index += 2
+                    continue
+                if triple_quote and text.startswith(quote * 3, index):
+                    index += 3
+                    quote = None
+                    triple_quote = False
+                    continue
+                if not triple_quote and char == quote:
+                    index += 1
+                    quote = None
+                    continue
+                index += 1
+                continue
+            if char in {"'", '"'}:
+                quote = char
+                triple_quote = text.startswith(char * 3, index)
+                index += 3 if triple_quote else 1
+                continue
             if char == "{":
                 if index + 1 < len(text) and text[index + 1] == "{":
                     index += 2
@@ -336,7 +358,7 @@ def _python_code_lines_from_blob(source: str) -> dict[int, str] | None:
                 _blank_string_token_span(masked_lines, tok)
             elif tok.type in _NON_CODE_TOKEN_TYPES:
                 _blank_token_span(masked_lines, tok.start, tok.end)
-    except (IndentationError, tokenize.TokenError, UnicodeDecodeError):
+    except (IndentationError, SyntaxError, tokenize.TokenError, UnicodeDecodeError, ValueError):
         return None
     return {line_no: "".join(chars).rstrip() for line_no, chars in enumerate(masked_lines, 1)}
 
@@ -470,7 +492,7 @@ def _paths_with_added_lines(diff_text: str) -> set[str]:
     return paths
 
 
-def _post_images_from_diff(diff_text: str) -> dict[str, str]:
+def _post_images_from_diff(diff_text: str) -> tuple[dict[str, str], set[str]]:
     line_maps: dict[str, dict[int, str]] = {}
     current_path: str | None = None
     current_line: int | None = None
@@ -494,12 +516,15 @@ def _post_images_from_diff(diff_text: str) -> dict[str, str]:
         elif raw_line.startswith("-"):
             continue
     images: dict[str, str] = {}
+    incomplete_paths: set[str] = set()
     for path, line_map in line_maps.items():
         if not line_map:
             continue
         max_line = max(line_map)
+        if any(line_no not in line_map for line_no in range(1, max_line + 1)):
+            incomplete_paths.add(path)
         images[path] = "\n".join(line_map.get(line_no, "") for line_no in range(1, max_line + 1))
-    return images
+    return images, incomplete_paths
 
 
 def _git_show_blob(repo_root: Path, head_ref: str, path: str) -> str | None:
@@ -515,6 +540,17 @@ def _git_show_blob(repo_root: Path, head_ref: str, path: str) -> str | None:
     return proc.stdout
 
 
+def _worktree_blob(repo_root: Path, path: str) -> str | None:
+    try:
+        candidate = (repo_root / path).resolve()
+        candidate.relative_to(repo_root.resolve())
+        if not candidate.is_file():
+            return None
+        return candidate.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+
+
 def _line_classifications_for_diff(
     diff_text: str,
     *,
@@ -523,17 +559,24 @@ def _line_classifications_for_diff(
     post_images: dict[str, str] | None,
 ) -> dict[str, dict[int, str] | None]:
     images = dict(post_images or {})
-    fallback_images = _post_images_from_diff(diff_text)
+    fallback_images, incomplete_fallback_paths = _post_images_from_diff(diff_text)
     classifications: dict[str, dict[int, str] | None] = {}
     for path in _paths_with_added_lines(diff_text):
         if not _is_python_path(path):
             continue
         image = images.get(path)
+        image_is_incomplete_fallback = False
         if image is None and head_ref is not None and repo_root is not None:
             image = _git_show_blob(repo_root, head_ref, path)
+        if image is None and head_ref is None and repo_root is not None:
+            image = _worktree_blob(repo_root, path)
         if image is None:
             image = fallback_images.get(path)
-        classifications[path] = None if image is None else _python_code_lines_from_blob(image)
+            image_is_incomplete_fallback = path in incomplete_fallback_paths
+        if image_is_incomplete_fallback:
+            classifications[path] = {}
+        else:
+            classifications[path] = None if image is None else _python_code_lines_from_blob(image)
     return classifications
 
 
@@ -744,12 +787,13 @@ def _read_diff(args: argparse.Namespace) -> str:
     return _git_diff(ref_range)
 
 
-def _head_ref(args: argparse.Namespace) -> str:
+def _head_ref(args: argparse.Namespace) -> str | None:
     if args.ref_range:
         if "..." in args.ref_range:
             return args.ref_range.rsplit("...", 1)[1]
         if ".." in args.ref_range:
             return args.ref_range.rsplit("..", 1)[1]
+        return None
     return args.head
 
 

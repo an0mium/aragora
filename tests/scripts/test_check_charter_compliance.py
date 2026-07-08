@@ -472,6 +472,22 @@ def test_multiline_f_string_expression_line_is_live_python_code(tmp_path: Path) 
     assert "create_default_executor" in result.binding_violations[0].line
 
 
+def test_pre312_f_string_expression_with_brace_in_string_is_live_code(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1 @@
++label = f"{payload['}'] or aragora.queue.create_default_executor()}"
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
 def test_f_string_literal_text_is_not_live_python_code(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/some.py b/some.py
@@ -560,6 +576,33 @@ def test_untokenizable_post_image_fails_closed_without_crashing(tmp_path: Path) 
     assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
 
 
+def test_tokenizer_syntax_error_fails_closed_without_crashing(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -1,0 +2 @@
++executor = aragora.queue.create_default_executor()
+"""
+
+    def raise_syntax_error(_readline: Any) -> Any:
+        raise SyntaxError("bad f-string")
+
+    monkeypatch.setattr(checker.tokenize, "generate_tokens", raise_syntax_error)
+
+    result = checker.check_diff(
+        diff_text,
+        charter_path=charter_path,
+        post_images={"some.py": "bad = f'{'\nexecutor = aragora.queue.create_default_executor()\n"},
+    )
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+
+
 def test_hunk_inside_existing_triple_string_uses_post_image_state(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/some.py b/some.py
@@ -604,7 +647,7 @@ def test_diff_file_uses_patch_post_image_not_current_head(
     )
     subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
     (tmp_path / "some.py").write_text(
-        'fixture = """head post image\nexecutor = aragora.queue.create_default_executor()\n"""\n',
+        'fixture = """head post image"""\n',
         encoding="utf-8",
     )
     subprocess.run(["git", "add", "some.py"], cwd=tmp_path, check=True)
@@ -618,7 +661,8 @@ def test_diff_file_uses_patch_post_image_not_current_head(
         """diff --git a/some.py b/some.py
 --- a/some.py
 +++ b/some.py
-@@ -1,0 +2 @@
+@@ -1 +1 @@
+-safe_value = 1
 +executor = aragora.queue.create_default_executor()
 """,
         encoding="utf-8",
@@ -640,6 +684,78 @@ def test_diff_file_uses_patch_post_image_not_current_head(
     assert rc == 1
     assert payload["ok"] is False
     assert [violation["entry_id"] for violation in payload["binding_violations"]] == ["CHR-P4A-004"]
+
+
+def test_range_head_uses_worktree_post_image_for_dirty_diff(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, stdout=subprocess.PIPE)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "some.py").write_text("safe_value = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "some.py"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "base"], cwd=tmp_path, check=True)
+    (tmp_path / "some.py").write_text(
+        "executor = aragora.queue.create_default_executor()\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    rc = checker.main(
+        [
+            "--charters",
+            str(charter_path),
+            "--range",
+            "HEAD",
+            "--format",
+            "json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 1
+    assert payload["ok"] is False
+    assert [violation["entry_id"] for violation in payload["binding_violations"]] == ["CHR-P4A-004"]
+
+
+def test_diff_file_sparse_post_image_does_not_claim_symbol_line_live(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_path = tmp_path / "change.patch"
+    diff_path.write_text(
+        """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -1,0 +2 @@
++executor = aragora.queue.create_default_executor()
+""",
+        encoding="utf-8",
+    )
+
+    rc = checker.main(
+        [
+            "--charters",
+            str(charter_path),
+            "--diff-file",
+            str(diff_path),
+            "--format",
+            "json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    assert payload["ok"] is True
+    assert payload["binding_violations"] == []
 
 
 def test_removed_symbol_wildcard_import_is_binding(tmp_path: Path) -> None:
