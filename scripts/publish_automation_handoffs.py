@@ -47,6 +47,7 @@ MAX_PROMPT_ARTIFACT_CHUNKS = 10
 MAX_PROMPT_ARTIFACT_BYTES = MAX_PROMPT_ARTIFACT_CHUNK_BYTES * MAX_PROMPT_ARTIFACT_CHUNKS
 PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
 INCOMPLETE_PROMPT_HANDOFF_MARKER = "Incomplete prompt handoff issue:"
+COMPLETE_PROMPT_HANDOFF_MARKER = "Completed prompt handoff issue:"
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_BASE_REF = "origin/main"
@@ -1226,19 +1227,32 @@ def _issue_label_names(issue: dict[str, Any]) -> set[str]:
     return names
 
 
-def _issue_contains_incomplete_prompt_marker(issue: dict[str, Any]) -> bool:
-    body = str(issue.get("body") or "")
-    if INCOMPLETE_PROMPT_HANDOFF_MARKER in body:
-        return True
+def _issue_comment_bodies(issue: dict[str, Any]) -> list[str]:
     comments = issue.get("comments")
     if not isinstance(comments, list):
-        return False
+        return []
+    bodies: list[str] = []
     for comment in comments:
         if not isinstance(comment, dict):
             continue
-        if INCOMPLETE_PROMPT_HANDOFF_MARKER in str(comment.get("body") or ""):
+        bodies.append(str(comment.get("body") or ""))
+    return bodies
+
+
+def _issue_contains_marker(issue: dict[str, Any], marker: str) -> bool:
+    body = str(issue.get("body") or "")
+    if marker in body:
+        return True
+    for comment_body in _issue_comment_bodies(issue):
+        if marker in comment_body:
             return True
     return False
+
+
+def _issue_contains_incomplete_prompt_marker(issue: dict[str, Any]) -> bool:
+    if _issue_contains_marker(issue, COMPLETE_PROMPT_HANDOFF_MARKER):
+        return False
+    return _issue_contains_marker(issue, INCOMPLETE_PROMPT_HANDOFF_MARKER)
 
 
 def _prompt_issue_is_usable(issue: dict[str, Any], labels: Sequence[str]) -> bool:
@@ -1250,17 +1264,36 @@ def _prompt_issue_is_usable(issue: dict[str, Any], labels: Sequence[str]) -> boo
     return required_labels.issubset(_issue_label_names(issue))
 
 
-def _existing_prompt_handoff_issue(
+def _prompt_identity_terms(handoff: Handoff) -> list[str]:
+    return list(
+        dict.fromkeys(
+            item
+            for item in (
+                str(handoff.idempotency_key or "").strip(),
+                str(handoff.prompt_sha256 or handoff.prompt_artifact_sha256 or "").strip(),
+            )
+            if item
+        )
+    )
+
+
+def _issue_contains_prompt_identity(issue: dict[str, Any], terms: Sequence[str]) -> bool:
+    haystack = "\n".join(
+        [str(issue.get(key) or "") for key in ("title", "body", "url")]
+        + _issue_comment_bodies(issue)
+    )
+    return any(term in haystack for term in terms)
+
+
+def _find_prompt_handoff_issue(
     repo_root: Path,
     repo: str,
     handoff: Handoff,
-    labels: Sequence[str],
+    *,
+    predicate: Callable[[dict[str, Any]], bool],
 ) -> dict[str, Any] | None:
-    terms = [
-        str(handoff.idempotency_key or "").strip(),
-        str(handoff.prompt_sha256 or handoff.prompt_artifact_sha256 or "").strip(),
-    ]
-    for term in dict.fromkeys(item for item in terms if item):
+    terms = _prompt_identity_terms(handoff)
+    for term in terms:
         proc = _run(
             [
                 "gh",
@@ -1318,12 +1351,38 @@ def _existing_prompt_handoff_issue(
                 continue
             if str(viewed.get("state") or "").strip().upper() != "OPEN":
                 continue
-            if not _prompt_issue_is_usable(viewed, labels):
+            if not _issue_contains_prompt_identity(viewed, terms):
                 continue
-            haystack = "\n".join(str(viewed.get(key) or "") for key in ("title", "body", "url"))
-            if term in haystack:
+            if predicate(viewed):
                 return viewed
     return None
+
+
+def _existing_prompt_handoff_issue(
+    repo_root: Path,
+    repo: str,
+    handoff: Handoff,
+    labels: Sequence[str],
+) -> dict[str, Any] | None:
+    return _find_prompt_handoff_issue(
+        repo_root,
+        repo,
+        handoff,
+        predicate=lambda issue: _prompt_issue_is_usable(issue, labels),
+    )
+
+
+def _existing_incomplete_prompt_handoff_issue(
+    repo_root: Path,
+    repo: str,
+    handoff: Handoff,
+) -> dict[str, Any] | None:
+    return _find_prompt_handoff_issue(
+        repo_root,
+        repo,
+        handoff,
+        predicate=_issue_contains_incomplete_prompt_marker,
+    )
 
 
 def _existing_pr(repo_root: Path, repo: str, title: str) -> dict[str, Any] | None:
@@ -1539,6 +1598,25 @@ def _create_issue(
     return url
 
 
+def _publish_prompt_handoff_issue(
+    repo_root: Path,
+    repo: str,
+    handoff: Handoff,
+    *,
+    labels: list[str],
+) -> str:
+    incomplete_issue = _existing_incomplete_prompt_handoff_issue(repo_root, repo, handoff)
+    if incomplete_issue:
+        return _complete_existing_prompt_handoff_issue(
+            repo_root,
+            repo,
+            handoff,
+            incomplete_issue,
+            labels=labels,
+        )
+    return _create_issue(repo_root, repo, handoff, labels=labels)
+
+
 def _prompt_artifact_comment_bodies(repo_root: Path, handoff: Handoff) -> list[str]:
     artifact = _validated_prompt_artifact_chunks(repo_root, handoff)
     if artifact is None:
@@ -1596,13 +1674,18 @@ def _add_prompt_artifact_comments(
     repo: str,
     issue_url: str,
     bodies: list[str],
+    *,
+    existing_comment_bodies: set[str] | None = None,
 ) -> None:
     number = _issue_number_from_url(issue_url)
     if not number:
         if bodies:
             raise RuntimeError("prompt_artifact_issue_url_unparseable")
         return
+    existing = existing_comment_bodies or set()
     for body in bodies:
+        if body in existing:
+            continue
         proc = _run(
             ["gh", "issue", "comment", number, "--repo", repo, "--body", body],
             cwd=repo_root,
@@ -1613,6 +1696,42 @@ def _add_prompt_artifact_comments(
                 or proc.stdout.strip()
                 or "gh issue comment failed for prompt artifact"
             )
+
+
+def _complete_existing_prompt_handoff_issue(
+    repo_root: Path,
+    repo: str,
+    handoff: Handoff,
+    issue: dict[str, Any],
+    *,
+    labels: list[str],
+) -> str:
+    issue_url = str(issue.get("url") or "").strip()
+    number = _issue_number_from_url(issue_url)
+    if not number:
+        raise RuntimeError("prompt_artifact_issue_url_unparseable")
+    existing_comment_bodies = set(_issue_comment_bodies(issue))
+    prompt_artifact_comment_bodies = _prompt_artifact_comment_bodies(repo_root, handoff)
+    try:
+        _add_prompt_artifact_comments(
+            repo_root,
+            repo,
+            issue_url,
+            prompt_artifact_comment_bodies,
+            existing_comment_bodies=existing_comment_bodies,
+        )
+        _add_issue_labels(repo_root, repo, issue_url, labels)
+        if _issue_contains_incomplete_prompt_marker(issue):
+            _mark_completed_prompt_issue(repo_root, repo, issue_url)
+    except RuntimeError as exc:
+        try:
+            _mark_incomplete_prompt_issue(repo_root, repo, issue_url, str(exc))
+        except RuntimeError as mark_exc:
+            raise RuntimeError(
+                f"{exc}; additionally failed to mark incomplete prompt issue: {mark_exc}"
+            ) from mark_exc
+        raise
+    return issue_url
 
 
 def _mark_incomplete_prompt_issue(repo_root: Path, repo: str, issue_url: str, error: str) -> None:
@@ -1631,6 +1750,24 @@ def _mark_incomplete_prompt_issue(repo_root: Path, repo: str, issue_url: str, er
             proc.stderr.strip()
             or proc.stdout.strip()
             or "gh issue comment failed for incomplete prompt handoff"
+        )
+
+
+def _mark_completed_prompt_issue(repo_root: Path, repo: str, issue_url: str) -> None:
+    number = _issue_number_from_url(issue_url)
+    if not number:
+        raise RuntimeError("prompt_artifact_issue_url_unparseable")
+    body = (
+        f"{COMPLETE_PROMPT_HANDOFF_MARKER} required prompt handoff publication "
+        "finished after a retry resumed this issue. Future publisher checks may "
+        "treat this issue as usable once required labels are present."
+    )
+    proc = _run(["gh", "issue", "comment", number, "--repo", repo, "--body", body], cwd=repo_root)
+    if proc.returncode != 0:
+        raise RuntimeError(
+            proc.stderr.strip()
+            or proc.stdout.strip()
+            or "gh issue comment failed for completed prompt handoff"
         )
 
 
@@ -1783,7 +1920,10 @@ def publish_handoffs(
                 )
             )
             continue
-        url = _create_issue(repo_root, repo, handoff, labels=labels)
+        if _is_prompt_handoff(handoff):
+            url = _publish_prompt_handoff_issue(repo_root, repo, handoff, labels=labels)
+        else:
+            url = _create_issue(repo_root, repo, handoff, labels=labels)
         count += 1
         published_decision = _decision_for_handoff(
             handoff,
