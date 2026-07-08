@@ -46,6 +46,7 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
     highest_blocking_severity as _highest_blocking_severity,
 )
+from aragora.cli.commands.review_queue_park_records import current_head_park_record
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
     _gh_error_kind,
@@ -393,6 +394,7 @@ class ReviewPacket:
     model_review_quorum: dict[str, Any] = field(default_factory=dict)
     labels: list[str] = field(default_factory=list)
     merge_state_status: str = ""
+    park_record: dict[str, Any] = field(default_factory=dict)
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
 
@@ -2951,6 +2953,10 @@ def _build_packet(
         ),
         labels=labels,
         merge_state_status=str(pr.get("mergeStateStatus") or "").strip().upper(),
+        park_record=current_head_park_record(
+            pr.get("comments") or [],
+            head_sha=str(pr.get("headRefOid", "") or "").strip(),
+        ),
     )
     packet.packet_sha = _packet_sha(packet)
     return packet
@@ -2969,6 +2975,9 @@ def _admin_squash_live_gate_blockers(packet: ReviewPacket) -> list[str]:
         blockers.append(
             f"mergeStateStatus={merge_state_status}; admin squash requires CLEAN or BLOCKED"
         )
+    park_record = packet.park_record if isinstance(packet.park_record, dict) else {}
+    if park_record.get("blocked"):
+        blockers.append(str(park_record.get("blocker") or "current-head park record present"))
     return blockers
 
 
@@ -3053,6 +3062,7 @@ def _build_merge_authorization_packet(
             ),
             "model_quorum_admin_squash_allowed": model_quorum_admin_squash_allowed,
             "admin_squash_gate_blockers": admin_squash_gate_blockers,
+            "park_record": packet.park_record,
             "merge_state_status": packet.merge_state_status,
             "operator_review_required": OPERATOR_REVIEW_REQUIRED_LABEL
             in {str(label).strip().lower() for label in packet.labels if str(label).strip()},
