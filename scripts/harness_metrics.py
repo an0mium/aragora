@@ -39,6 +39,7 @@ class HarnessEvent:
 
     source: str
     lane: str
+    counts_as_cycle: bool = True
     timestamp: datetime | None = None
     external_progress: bool | None = None
     first_round_gate_pass: bool | None = None
@@ -63,15 +64,16 @@ class LaneAccumulator:
     token_cost_observations: int = 0
 
     def add(self, event: HarnessEvent) -> None:
-        self.cycles += 1
-        if event.external_progress is not None:
-            self.external_progress_observations += 1
-            if event.external_progress:
-                self.external_progress_cycles += 1
-        if event.first_round_gate_pass is not None:
-            self.first_round_gate_observations += 1
-            if event.first_round_gate_pass:
-                self.first_round_gate_passes += 1
+        if event.counts_as_cycle:
+            self.cycles += 1
+            if event.external_progress is not None:
+                self.external_progress_observations += 1
+                if event.external_progress:
+                    self.external_progress_cycles += 1
+            if event.first_round_gate_pass is not None:
+                self.first_round_gate_observations += 1
+                if event.first_round_gate_pass:
+                    self.first_round_gate_passes += 1
         if event.merged_pr is not None:
             self.merged_prs.add(event.merged_pr)
         if event.merged_pr is not None and event.rounds_to_merge is not None:
@@ -355,6 +357,7 @@ def normalize_event(record: dict[str, Any], *, source: str, source_type: str) ->
     return HarnessEvent(
         source=source,
         lane=_lane_for(record, source_type),
+        counts_as_cycle=source_type == "ledger",
         timestamp=_timestamp_for(record),
         external_progress=_event_has_external_progress(record),
         first_round_gate_pass=_event_gate_pass(record),

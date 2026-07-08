@@ -151,6 +151,50 @@ def test_window_filtering_and_receipt_store_support(tmp_path: Path) -> None:
     assert lanes["receipt_store"]["token_cost_total"] == 4.0
 
 
+def test_receipts_do_not_count_as_lane_cycles(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "external_progress": False,
+            }
+        ],
+    )
+    (receipts / "merge.json").write_text(
+        json.dumps(
+            {
+                "created_at": "2026-07-08T11:00:00Z",
+                "lane": "conductor",
+                "action": "admin_squash_merge",
+                "direct_pr_merged": "#2002",
+                "token_usage": {"total_cost_usd": 4.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[receipts],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = {lane["lane"]: lane for lane in report["lanes"]}["conductor"]
+    assert lane["cycles"] == 1
+    assert lane["external_progress_per_cycle"] == 0.0
+    assert lane["merged_prs"] == 1
+    assert lane["token_cost_total"] == 4.0
+
+
 def test_window_filtering_excludes_future_events(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.jsonl"
     fixture = tmp_path / "eval.json"
