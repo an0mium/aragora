@@ -209,11 +209,16 @@ def _is_python_path(path: str) -> bool:
     return path.endswith((".py", ".pyi"))
 
 
-_NON_CODE_TOKEN_TYPES = {
-    token.STRING,
-    token.COMMENT,
-    *(getattr(token, name) for name in ("FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END")),
+_FSTRING_TOKEN_TYPES = {
+    token_type
+    for token_type in (
+        getattr(token, "FSTRING_START", None),
+        getattr(token, "FSTRING_MIDDLE", None),
+        getattr(token, "FSTRING_END", None),
+    )
+    if token_type is not None
 }
+_NON_CODE_TOKEN_TYPES = {token.COMMENT, *_FSTRING_TOKEN_TYPES}
 
 
 def _blank_token_span(
@@ -232,6 +237,90 @@ def _blank_token_span(
             line[column] = " "
 
 
+def _token_offset_positions(text: str, start: tuple[int, int]) -> list[tuple[int, int]]:
+    row, column = start
+    positions: list[tuple[int, int]] = []
+    for char in text:
+        positions.append((row, column))
+        if char == "\n":
+            row += 1
+            column = 0
+        else:
+            column += 1
+    return positions
+
+
+def _restore_token_span(
+    masked_lines: list[list[str]],
+    token_text: str,
+    token_start: tuple[int, int],
+    start_offset: int,
+    end_offset: int,
+) -> None:
+    positions = _token_offset_positions(token_text, token_start)
+    for offset in range(max(0, start_offset), min(len(token_text), end_offset)):
+        row, column = positions[offset]
+        line_index = row - 1
+        if line_index < 0 or line_index >= len(masked_lines):
+            continue
+        line = masked_lines[line_index]
+        if 0 <= column < len(line):
+            line[column] = token_text[offset]
+
+
+def _string_prefix(text: str) -> str:
+    index = 0
+    while index < len(text) and text[index] in "rRuUbBfF":
+        index += 1
+    return text[:index]
+
+
+def _is_f_string_token(text: str) -> bool:
+    return "f" in _string_prefix(text).lower()
+
+
+def _f_string_expression_spans(text: str) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char != "{":
+            index += 1
+            continue
+        if index + 1 < len(text) and text[index + 1] == "{":
+            index += 2
+            continue
+        depth = 1
+        expr_start = index + 1
+        index += 1
+        while index < len(text) and depth:
+            char = text[index]
+            if char == "{":
+                if index + 1 < len(text) and text[index + 1] == "{":
+                    index += 2
+                    continue
+                depth += 1
+            elif char == "}":
+                if index + 1 < len(text) and text[index + 1] == "}":
+                    index += 2
+                    continue
+                depth -= 1
+                if depth == 0:
+                    spans.append((expr_start, index))
+                    break
+            index += 1
+        index += 1
+    return spans
+
+
+def _blank_string_token_span(masked_lines: list[list[str]], tok: tokenize.TokenInfo) -> None:
+    _blank_token_span(masked_lines, tok.start, tok.end)
+    if not _is_f_string_token(tok.string):
+        return
+    for start_offset, end_offset in _f_string_expression_spans(tok.string):
+        _restore_token_span(masked_lines, tok.string, tok.start, start_offset, end_offset)
+
+
 def _python_code_lines_from_blob(source: str) -> dict[int, str] | None:
     """Return code-only text by physical line using Python's tokenizer.
 
@@ -243,7 +332,9 @@ def _python_code_lines_from_blob(source: str) -> dict[int, str] | None:
     try:
         tokens = tokenize.generate_tokens(io.StringIO(source).readline)
         for tok in tokens:
-            if tok.type in _NON_CODE_TOKEN_TYPES:
+            if tok.type == token.STRING:
+                _blank_string_token_span(masked_lines, tok)
+            elif tok.type in _NON_CODE_TOKEN_TYPES:
                 _blank_token_span(masked_lines, tok.start, tok.end)
     except (IndentationError, tokenize.TokenError, UnicodeDecodeError):
         return None
@@ -538,28 +629,32 @@ def _entry_matches_line(
     added_line: AddedLine,
     aliases_by_module: dict[str, set[str]],
 ) -> str | None:
+    line = _line_for_matching(added_line)
+    if _line_is_kept_only(added_line, entry):
+        return None
+    path_matches = any(_path_matches(path, added_line.path) for path in entry.paths)
+    if not entry.symbols:
+        if path_matches:
+            return f"adds code under chartered {entry.state.lower()} path"
+        if _is_python_path(added_line.path) and not line.strip():
+            return None
+        for path in entry.paths:
+            if _line_imports_path(line, path):
+                return f"imports chartered {entry.state.lower()} path {path}"
+        return None
     if added_line.in_string_literal and _is_python_path(added_line.path):
         return None
-    line = _line_for_matching(added_line)
     if _is_python_path(added_line.path) and not line.strip():
-        return None
-    if _line_is_kept_only(added_line, entry):
         return None
     if entry.symbols:
         if not _is_python_path(added_line.path):
             return None
         for symbol in entry.symbols:
             if _line_imports_symbol(line, symbol, aliases_by_module) or (
-                any(_path_matches(path, added_line.path) for path in entry.paths)
-                and _line_reexports_or_defines_symbol(line, symbol)
+                path_matches and _line_reexports_or_defines_symbol(line, symbol)
             ):
                 return f"re-adds chartered symbol {symbol}"
         return None
-    if any(_path_matches(path, added_line.path) for path in entry.paths):
-        return f"adds code under chartered {entry.state.lower()} path"
-    for path in entry.paths:
-        if _line_imports_path(line, path):
-            return f"imports chartered {entry.state.lower()} path {path}"
     return None
 
 
@@ -706,11 +801,13 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     diff_text = _read_diff(args)
+    head_ref = None if args.diff_file else _head_ref(args)
+    repo_root = None if args.diff_file else Path.cwd()
     result = check_diff(
         diff_text,
         charter_path=args.charters,
-        head_ref=_head_ref(args),
-        repo_root=Path.cwd(),
+        head_ref=head_ref,
+        repo_root=repo_root,
     )
     if args.format == "json":
         print(json.dumps(result.to_dict(), indent=2, sort_keys=True))

@@ -590,7 +590,7 @@ def test_hunk_inside_existing_triple_string_uses_post_image_state(tmp_path: Path
     assert result.binding_violations == []
 
 
-def test_diff_file_does_not_trust_mismatched_worktree_string_state(
+def test_diff_file_uses_patch_post_image_not_current_head(
     tmp_path: Path,
     monkeypatch: Any,
     capsys: Any,
@@ -637,9 +637,9 @@ def test_diff_file_does_not_trust_mismatched_worktree_string_state(
     )
     payload = json.loads(capsys.readouterr().out)
 
-    assert rc == 0
-    assert payload["ok"] is True
-    assert payload["binding_violations"] == []
+    assert rc == 1
+    assert payload["ok"] is False
+    assert [violation["entry_id"] for violation in payload["binding_violations"]] == ["CHR-P4A-004"]
 
 
 def test_removed_symbol_wildcard_import_is_binding(tmp_path: Path) -> None:
@@ -667,6 +667,38 @@ def test_exclusion_path_violation_reports_arch_context(tmp_path: Path) -> None:
 +def record_metric(name: str) -> None:
 +    pass
 """
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.proposed_violations] == ["CHR-E-004"]
+    assert result.proposed_violations[0].authority_ids == ["ARCH-029"]
+
+
+def test_path_only_entry_flags_comment_only_python_addition(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/aragora/server/metrics_pool.py b/aragora/server/metrics_pool.py
+--- /dev/null
++++ b/aragora/server/metrics_pool.py
+@@ -0,0 +1 @@
++# compatibility wrapper lives here
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.proposed_violations] == ["CHR-E-004"]
+    assert result.proposed_violations[0].authority_ids == ["ARCH-029"]
+
+
+def test_path_only_entry_flags_docstring_only_python_addition(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = '''diff --git a/aragora/server/metrics_pool.py b/aragora/server/metrics_pool.py
+--- /dev/null
++++ b/aragora/server/metrics_pool.py
+@@ -0,0 +1 @@
++"""server-local metrics shim"""
+'''
 
     result = checker.check_diff(diff_text, charter_path=charter_path)
 
