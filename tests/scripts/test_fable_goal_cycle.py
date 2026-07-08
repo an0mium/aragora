@@ -102,6 +102,43 @@ def test_build_packet_truncates_large_context_file(tmp_path: Path) -> None:
     assert "a" * (fable_goal_cycle.MAX_CONTEXT_FILE_BYTES + 1) not in packet
 
 
+def test_build_packet_accepts_conductor_cycles_context_file(tmp_path: Path) -> None:
+    context_dir = tmp_path / ".aragora" / "conductor_cycles"
+    context_dir.mkdir(parents=True)
+    context_file = context_dir / "cycle_report.md"
+    context_file.write_text("cycle 157: transport_blocked", encoding="utf-8")
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        "standing mission",
+        [context_file],
+        since_hours=24,
+        root=tmp_path,
+    )
+
+    assert "cycle 157: transport_blocked" in packet
+    assert "OPERATOR CONTEXT MISSING" not in packet
+
+
+def test_build_packet_truncates_large_conductor_cycles_context_file(tmp_path: Path) -> None:
+    context_dir = tmp_path / ".aragora" / "conductor_cycles"
+    context_dir.mkdir(parents=True)
+    context_file = context_dir / "cycle_report.md"
+    context_file.write_bytes(b"a" * (fable_goal_cycle.MAX_CONTEXT_FILE_BYTES + 50))
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        "standing mission",
+        [context_file],
+        since_hours=24,
+        root=tmp_path,
+    )
+
+    assert "context file truncated" in packet
+    assert "a" * fable_goal_cycle.MAX_CONTEXT_FILE_BYTES in packet
+    assert "a" * (fable_goal_cycle.MAX_CONTEXT_FILE_BYTES + 1) not in packet
+
+
 def test_build_packet_respects_aggregate_prompt_budget() -> None:
     oversized_body = "x" * (fable_goal_cycle.MAX_PACKET_SECTION_BYTES * 8)
 
@@ -156,7 +193,11 @@ def test_build_packet_refuses_sensitive_context_path(tmp_path: Path) -> None:
         root=tmp_path,
     )
 
-    assert "context file must be under .aragora/goal-cycle-context" in packet
+    assert "OPERATOR CONTEXT MISSING" in packet
+    assert (
+        "context file must be under .aragora/goal-cycle-context or .aragora/conductor_cycles"
+        in packet
+    )
     assert "TOKEN=secret" not in packet
 
 
@@ -181,7 +222,11 @@ def test_build_packet_refuses_symlink_to_sensitive_context_path(tmp_path: Path) 
         root=tmp_path,
     )
 
-    assert "context file must be under .aragora/goal-cycle-context" in packet
+    assert "OPERATOR CONTEXT MISSING" in packet
+    assert (
+        "context file must be under .aragora/goal-cycle-context or .aragora/conductor_cycles"
+        in packet
+    )
     assert "TOKEN=secret" not in packet
 
 

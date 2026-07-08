@@ -48,6 +48,10 @@ MAX_CONTEXT_FILE_BYTES = 64 * 1024
 MAX_PACKET_BYTES = 400 * 1024
 MAX_PACKET_SECTION_BYTES = 96 * 1024
 SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
+SAFE_CONTEXT_SUBDIRS = (
+    SAFE_CONTEXT_SUBDIR,
+    Path(".aragora") / "conductor_cycles",
+)
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
 MAX_ACTIVE_PROCESS_LINES = 40
@@ -337,15 +341,16 @@ def _packet_with_footer(parts: list[str]) -> str:
 
 def _read_context_file(path: Path, root: Path) -> tuple[str | None, str | None]:
     """Read a repo-local safe context file with a hard byte cap."""
-    safe_root = (root / SAFE_CONTEXT_SUBDIR).resolve(strict=False)
+    safe_roots = tuple((root / subdir).resolve(strict=False) for subdir in SAFE_CONTEXT_SUBDIRS)
     candidate = path if path.is_absolute() else root / path
     try:
         resolved = candidate.resolve(strict=True)
     except OSError as exc:
         return None, f"context file unreadable: {path}: {exc}"
 
-    if not _is_relative_to(resolved, safe_root):
-        return None, f"context file must be under {SAFE_CONTEXT_SUBDIR}: {path}"
+    if not any(_is_relative_to(resolved, safe_root) for safe_root in safe_roots):
+        allowed_roots = " or ".join(str(subdir) for subdir in SAFE_CONTEXT_SUBDIRS)
+        return None, f"context file must be under {allowed_roots}: {path}"
     try:
         if not resolved.is_file():
             return None, f"context file is not a regular file: {path}"
@@ -483,10 +488,16 @@ def build_packet(
         ]
     for path in extra_files:
         body, note = _read_context_file(path, root)
+        if body is None:
+            if note:
+                parts += [
+                    "",
+                    f"### Operator context {path} (unavailable)",
+                    f"OPERATOR CONTEXT MISSING: {note}",
+                ]
+            continue
         if note:
             parts += ["", f"### Operator context {path} ({note})"]
-        if body is None:
-            continue
         parts += [
             "",
             f"### Operator context: {path.name}",
