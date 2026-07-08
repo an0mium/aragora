@@ -46,6 +46,7 @@ MAX_PROMPT_ARTIFACT_CHUNK_BYTES = (
 MAX_PROMPT_ARTIFACT_CHUNKS = 10
 MAX_PROMPT_ARTIFACT_BYTES = MAX_PROMPT_ARTIFACT_CHUNK_BYTES * MAX_PROMPT_ARTIFACT_CHUNKS
 PROMPT_ARTIFACT_DIR = "_prompt-artifacts"
+INCOMPLETE_PROMPT_HANDOFF_MARKER = "Incomplete prompt handoff issue:"
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_BASE_REF = "origin/main"
@@ -843,21 +844,52 @@ def _prompt_artifact_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _prompt_artifact_blocker(repo_root: Path, handoff: Handoff) -> str | None:
+def _validated_prompt_artifact_chunks(
+    repo_root: Path,
+    handoff: Handoff,
+) -> tuple[str, list[str]] | None:
     path = _resolve_prompt_artifact_path(repo_root, handoff)
     if path is None:
         if handoff.prompt_artifact_path:
-            return "prompt_artifact_outside_outbox"
+            raise RuntimeError("prompt_artifact_outside_outbox")
         return None
     if not path.is_file():
-        return "prompt_artifact_missing"
+        raise RuntimeError("prompt_artifact_missing")
     expected_sha = str(handoff.prompt_artifact_sha256 or "").strip()
     if not expected_sha:
-        return "prompt_artifact_sha_missing"
+        raise RuntimeError("prompt_artifact_sha_missing")
     if not re.fullmatch(r"[0-9a-fA-F]{64}", expected_sha):
-        return "prompt_artifact_sha_invalid"
-    if _prompt_artifact_sha256(path) != expected_sha.lower():
-        return "prompt_artifact_sha_mismatch"
+        raise RuntimeError("prompt_artifact_sha_invalid")
+    try:
+        artifact_size = path.stat().st_size
+    except OSError as exc:
+        raise RuntimeError("prompt_artifact_unreadable") from exc
+    if artifact_size > MAX_PROMPT_ARTIFACT_BYTES:
+        raise RuntimeError("prompt_artifact_too_large")
+    try:
+        artifact_bytes = path.read_bytes()
+    except OSError as exc:
+        raise RuntimeError("prompt_artifact_unreadable") from exc
+    if len(artifact_bytes) > MAX_PROMPT_ARTIFACT_BYTES:
+        raise RuntimeError("prompt_artifact_too_large")
+    artifact_sha = hashlib.sha256(artifact_bytes).hexdigest()
+    if artifact_sha != expected_sha.lower():
+        raise RuntimeError("prompt_artifact_sha_mismatch")
+    try:
+        prompt = artifact_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("prompt_artifact_not_utf8") from exc
+    chunks = _split_text_by_utf8_bytes(prompt, MAX_PROMPT_ARTIFACT_CHUNK_BYTES)
+    if len(chunks) > MAX_PROMPT_ARTIFACT_CHUNKS:
+        raise RuntimeError("prompt_artifact_too_many_chunks")
+    return artifact_sha, chunks
+
+
+def _prompt_artifact_blocker(repo_root: Path, handoff: Handoff) -> str | None:
+    try:
+        _validated_prompt_artifact_chunks(repo_root, handoff)
+    except RuntimeError as exc:
+        return str(exc) or "prompt_artifact_invalid"
     return None
 
 
@@ -1179,10 +1211,50 @@ def _existing_issue(repo_root: Path, repo: str, title: str) -> dict[str, Any] | 
     return None
 
 
+def _issue_label_names(issue: dict[str, Any]) -> set[str]:
+    labels = issue.get("labels")
+    if not isinstance(labels, list):
+        return set()
+    names: set[str] = set()
+    for item in labels:
+        if isinstance(item, dict):
+            name = str(item.get("name") or "").strip()
+        else:
+            name = str(item or "").strip()
+        if name:
+            names.add(name)
+    return names
+
+
+def _issue_contains_incomplete_prompt_marker(issue: dict[str, Any]) -> bool:
+    body = str(issue.get("body") or "")
+    if INCOMPLETE_PROMPT_HANDOFF_MARKER in body:
+        return True
+    comments = issue.get("comments")
+    if not isinstance(comments, list):
+        return False
+    for comment in comments:
+        if not isinstance(comment, dict):
+            continue
+        if INCOMPLETE_PROMPT_HANDOFF_MARKER in str(comment.get("body") or ""):
+            return True
+    return False
+
+
+def _prompt_issue_is_usable(issue: dict[str, Any], labels: Sequence[str]) -> bool:
+    if _issue_contains_incomplete_prompt_marker(issue):
+        return False
+    required_labels = {label for label in (label.strip() for label in labels) if label}
+    if not required_labels:
+        return True
+    return required_labels.issubset(_issue_label_names(issue))
+
+
 def _existing_prompt_handoff_issue(
     repo_root: Path,
     repo: str,
     handoff: Handoff,
+    labels: Sequence[str],
 ) -> dict[str, Any] | None:
     terms = [
         str(handoff.idempotency_key or "").strip(),
@@ -1231,7 +1303,7 @@ def _existing_prompt_handoff_issue(
                     "--repo",
                     repo,
                     "--json",
-                    "number,title,url,state,body",
+                    "number,title,url,state,body,labels,comments",
                 ],
                 cwd=repo_root,
             )
@@ -1245,6 +1317,8 @@ def _existing_prompt_handoff_issue(
             if not isinstance(viewed, dict):
                 continue
             if str(viewed.get("state") or "").strip().upper() != "OPEN":
+                continue
+            if not _prompt_issue_is_usable(viewed, labels):
                 continue
             haystack = "\n".join(str(viewed.get(key) or "") for key in ("title", "body", "url"))
             if term in haystack:
@@ -1466,29 +1540,11 @@ def _create_issue(
 
 
 def _prompt_artifact_comment_bodies(repo_root: Path, handoff: Handoff) -> list[str]:
-    prompt_artifact_blocker = _prompt_artifact_blocker(repo_root, handoff)
-    if prompt_artifact_blocker is not None:
-        raise RuntimeError(prompt_artifact_blocker)
-    path = _resolve_prompt_artifact_path(repo_root, handoff)
-    if path is None:
+    artifact = _validated_prompt_artifact_chunks(repo_root, handoff)
+    if artifact is None:
         return []
-    try:
-        artifact_size = path.stat().st_size
-    except OSError as exc:
-        raise RuntimeError("prompt_artifact_unreadable") from exc
-    if artifact_size > MAX_PROMPT_ARTIFACT_BYTES:
-        raise RuntimeError("prompt_artifact_too_large")
-    artifact_bytes = path.read_bytes()
-    if len(artifact_bytes) > MAX_PROMPT_ARTIFACT_BYTES:
-        raise RuntimeError("prompt_artifact_too_large")
-    artifact_sha = hashlib.sha256(artifact_bytes).hexdigest()
-    try:
-        prompt = artifact_bytes.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise RuntimeError("prompt_artifact_not_utf8") from exc
-    chunks = _split_text_by_utf8_bytes(prompt, MAX_PROMPT_ARTIFACT_CHUNK_BYTES)
-    if len(chunks) > MAX_PROMPT_ARTIFACT_CHUNKS:
-        raise RuntimeError("prompt_artifact_too_many_chunks")
+    artifact_sha, chunks = artifact
+    prompt = "".join(chunks)
     bodies: list[str] = []
     total_chunks = len(chunks)
     cursor = 0
@@ -1564,10 +1620,10 @@ def _mark_incomplete_prompt_issue(repo_root: Path, repo: str, issue_url: str, er
     if not number:
         raise RuntimeError("prompt_artifact_issue_url_unparseable")
     body = (
-        "Incomplete prompt handoff issue: required prompt handoff publication "
+        f"{INCOMPLETE_PROMPT_HANDOFF_MARKER} required prompt handoff publication "
         "failed before the handoff became usable. Leaving this issue open so "
-        "prompt identity dedupe can find it and avoid repeated create/close "
-        f"churn.\n\nError: {error}"
+        "operators can inspect it while publisher retries avoid treating it as "
+        f"a terminal issue record.\n\nError: {error}"
     )
     proc = _run(["gh", "issue", "comment", number, "--repo", repo, "--body", body], cwd=repo_root)
     if proc.returncode != 0:
@@ -1636,7 +1692,7 @@ def decide_handoffs(
                 )
                 continue
         if _is_prompt_handoff(handoff):
-            existing_prompt_issue = _existing_prompt_handoff_issue(repo_root, repo, handoff)
+            existing_prompt_issue = _existing_prompt_handoff_issue(repo_root, repo, handoff, labels)
             if existing_prompt_issue:
                 decisions.append(
                     _decision_for_handoff(

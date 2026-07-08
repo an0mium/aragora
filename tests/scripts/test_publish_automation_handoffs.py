@@ -885,6 +885,84 @@ def test_prompt_artifact_blocker_requires_hash_for_outbox_artifact(
     assert blocker == "prompt_artifact_sha_missing"
 
 
+def test_prompt_artifact_blocker_rejects_non_utf8_before_publish(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
+    artifact.parent.mkdir()
+    artifact_bytes = b"\xff\xfe"
+    artifact.write_bytes(artifact_bytes)
+    prompt_sha = hashlib.sha256(artifact_bytes).hexdigest()
+
+    blocker = mod._prompt_artifact_blocker(
+        tmp_path,
+        Handoff(
+            source_file=str(tmp_path / "handoff.json"),
+            task_title="Binary prompt handoff",
+            priority="HIGH",
+            body="Prompt preview only",
+            labels={},
+            expires_at=None,
+            prompt_artifact_path=str(artifact),
+            prompt_artifact_sha256=prompt_sha,
+        ),
+    )
+
+    assert blocker == "prompt_artifact_not_utf8"
+
+
+def test_decide_handoffs_blocks_oversized_prompt_artifact_before_publish(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    outbox_file = tmp_path / ".aragora" / "automation-outbox" / "prompt.json"
+    artifact = outbox_file.parent / mod.PROMPT_ARTIFACT_DIR / "prompt.md"
+    artifact.parent.mkdir(parents=True)
+    prompt = "x" * (mod.MAX_PROMPT_ARTIFACT_BYTES + 1)
+    artifact.write_text(prompt, encoding="utf-8")
+    prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    handoff = Handoff(
+        source_file=str(outbox_file),
+        task_title="Oversized prompt handoff",
+        priority="HIGH",
+        body="Idempotency Key:\nprompt-handoff-too-large\n",
+        labels={},
+        expires_at=None,
+        idempotency_key="prompt-handoff-too-large",
+        source_kind="outbox",
+        requested_action="prompt_handoff",
+        branch="codex/active-repair",
+        desired_head="abc1234",
+        prompt_artifact_path=str(artifact),
+        prompt_artifact_sha256=prompt_sha,
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        raise AssertionError(f"oversized prompt artifact should not query dedupe: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="prompt_artifact_too_large",
+            branch="codex/active-repair",
+            desired_head="abc1234",
+        )
+    ]
+
+
 def test_decide_handoffs_keeps_prompt_handoff_actionable_for_open_branch_pr(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
@@ -1044,6 +1122,8 @@ def test_decide_handoffs_dedupes_prompt_handoff_by_idempotency_key(
                             "Local Evidence:\n"
                             f"{'c' * 64}\n"
                         ),
+                        "labels": [{"name": "boss-ready"}],
+                        "comments": [],
                     }
                 ),
                 "",
@@ -1069,6 +1149,84 @@ def test_decide_handoffs_dedupes_prompt_handoff_by_idempotency_key(
             branch="codex/active-repair",
             desired_head="abc1234",
             existing_issue_url="https://github.com/synaptent/aragora/issues/6006",
+        )
+    ]
+
+
+def test_decide_handoffs_ignores_unlabeled_prompt_handoff_identity_match(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / ".aragora" / "automation-outbox" / "prompt.json"),
+        task_title="Prompt handoff after label failure",
+        priority="HIGH",
+        body="Idempotency Key:\nprompt-handoff-label-failed\n",
+        labels={},
+        expires_at=None,
+        idempotency_key="prompt-handoff-label-failed",
+        source_kind="outbox",
+        requested_action="prompt_handoff",
+        branch="codex/active-repair",
+        desired_head="abc1234",
+        prompt_sha256="f" * 64,
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 6009,
+                            "title": "Prompt handoff after label failure",
+                            "url": "https://github.com/synaptent/aragora/issues/6009",
+                            "state": "OPEN",
+                        }
+                    ]
+                ),
+                "",
+            )
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "number": 6009,
+                        "title": "Prompt handoff after label failure",
+                        "url": "https://github.com/synaptent/aragora/issues/6009",
+                        "state": "OPEN",
+                        "body": "Idempotency Key:\nprompt-handoff-label-failed\n",
+                        "labels": [],
+                        "comments": [],
+                    }
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected prompt dedupe command: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=True,
+            reason="eligible",
+            branch="codex/active-repair",
+            desired_head="abc1234",
         )
     ]
 
@@ -2249,7 +2407,7 @@ def test_publish_handoffs_writes_outbox_receipt(monkeypatch: Any, tmp_path: Path
     assert receipt["created_issue_url"] == "https://github.com/synaptent/aragora/issues/7000"
 
 
-def test_publish_handoffs_leaves_failed_prompt_issue_discoverable(
+def test_publish_handoffs_does_not_treat_failed_prompt_issue_as_satisfied(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
     prompt_sha = hashlib.sha256(b"large prompt body").hexdigest()
@@ -2325,6 +2483,8 @@ def test_publish_handoffs_leaves_failed_prompt_issue_discoverable(
                             "Local Evidence:\n"
                             f"{prompt_sha}\n"
                         ),
+                        "labels": [{"name": "boss-ready"}],
+                        "comments": [{"body": marker_comments[0]}] if marker_comments else [],
                     }
                 ),
                 "",
@@ -2365,11 +2525,10 @@ def test_publish_handoffs_leaves_failed_prompt_issue_discoverable(
         PublishDecision(
             task_title=handoff.task_title,
             source_file=handoff.source_file,
-            eligible=False,
-            reason="existing_issue",
+            eligible=True,
+            reason="eligible",
             branch="codex/active-repair",
             desired_head="abc1234",
-            existing_issue_url="https://github.com/synaptent/aragora/issues/7001",
         )
     ]
 
