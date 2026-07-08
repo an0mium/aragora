@@ -19,10 +19,13 @@ Part of epic #9039 (issue #9040).
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from aragora.nomic.work_mix import (
     ClassifiedWork,
@@ -85,17 +88,28 @@ class ThroughputLedger:
             handle.write(record.to_json() + "\n")
 
     def records(self, since: datetime | None = None) -> list[LedgerRecord]:
+        """Read records, skipping corrupt lines (e.g. a write truncated by a
+        killed process) so one bad line never bricks the ledger."""
         if not self.path.exists():
             return []
         result: list[LedgerRecord] = []
+        skipped = 0
         with self.path.open(encoding="utf-8") as handle:
-            for line in handle:
+            for line_number, line in enumerate(handle, start=1):
                 line = line.strip()
                 if not line:
                     continue
-                record = LedgerRecord.from_json(line)
+                try:
+                    record = LedgerRecord.from_json(line)
+                    record.when  # noqa: B018 - validate timestamp eagerly
+                except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+                    skipped += 1
+                    logger.warning("skipping corrupt ledger line %d in %s", line_number, self.path)
+                    continue
                 if since is None or record.when >= since:
                     result.append(record)
+        if skipped:
+            logger.warning("ledger %s had %d corrupt line(s)", self.path, skipped)
         return result
 
     # -- convenience writers -------------------------------------------------
@@ -160,6 +174,9 @@ class ThroughputMetrics:
     parks: int
     reverts: int
     cross_check_disagreements: int
+    # Exempt merges (security/main-red/revert) are excluded from the mix but
+    # remain visible here and in the digest — exemption is a gaming surface.
+    exempt_merges: int = 0
 
 
 def _merge_to_classified(record: LedgerRecord) -> ClassifiedWork:
@@ -183,10 +200,15 @@ def compute_metrics(
     now: datetime | None = None,
     window_days: int = 7,
 ) -> ThroughputMetrics:
-    """Compute rolling metrics over the trailing window."""
+    """Compute rolling metrics over the window ``[now - window_days, now)``.
+
+    The window is bounded on BOTH ends so a caller computing a *previous*
+    period (``now=real_now - 7d``) does not silently absorb current-period
+    records — week-over-week deltas depend on this.
+    """
     now = now or _utcnow()
     cutoff = now - timedelta(days=window_days)
-    windowed = [r for r in records if r.when >= cutoff]
+    windowed = [r for r in records if cutoff <= r.when < now]
 
     merges = [r for r in windowed if r.kind == "merge"]
     classified = [_merge_to_classified(r) for r in merges]
@@ -213,6 +235,7 @@ def compute_metrics(
         parks=sum(1 for r in windowed if r.kind == "park"),
         reverts=sum(1 for r in windowed if r.kind == "revert"),
         cross_check_disagreements=sum(1 for work in classified if work.cross_check_disagreement),
+        exempt_merges=sum(1 for work in classified if work.exempt),
     )
 
 
@@ -226,7 +249,7 @@ def mix_from_records(
     now = now or _utcnow()
     cutoff = now - timedelta(days=window_days)
     classified = [
-        _merge_to_classified(r) for r in records if r.kind == "merge" and r.when >= cutoff
+        _merge_to_classified(r) for r in records if r.kind == "merge" and cutoff <= r.when < now
     ]
     return compute_mix(classified, window_days=window_days)
 
@@ -311,6 +334,7 @@ def render_digest(
         f"| External artifacts | {metrics.external_artifacts} |",
         f"| Parks / reverts | {metrics.parks} / {metrics.reverts} |",
         f"| Classifier disagreements | {metrics.cross_check_disagreements} |",
+        f"| Exempt merges (excluded from mix) | {metrics.exempt_merges} |",
         "",
         f"**Budget verdict:** {'OK' if verdict.ok else '; '.join(verdict.reasons)}",
         "",
@@ -324,8 +348,9 @@ def render_digest(
     if samples:
         lines += ["", "## Spot-audit sample", ""]
         for sample in samples:
+            exempt_tag = " [EXEMPT — not counted in mix]" if sample.get("exempt") else ""
             lines.append(
                 f"- {sample.get('identifier', '?')}: {sample.get('work_class', '?')}"
-                f" — {sample.get('title', '')}"
+                f"{exempt_tag} — {sample.get('title', '')}"
             )
     return "\n".join(lines) + "\n"

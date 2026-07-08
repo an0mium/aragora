@@ -20,9 +20,12 @@ from aragora.nomic.throughput import (
 from aragora.nomic.work_mix import WorkClass, classify_paths
 
 NOW = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
+# Windows are half-open [now - window, now): a record stamped exactly `now`
+# is excluded, so test merges use a realistic slightly-earlier timestamp.
+RECENT = NOW - timedelta(hours=1)
 
 
-def _merge(ledger: ThroughputLedger, paths, *, title="", labels=(), when=NOW, pr="1"):
+def _merge(ledger: ThroughputLedger, paths, *, title="", labels=(), when=RECENT, pr="1"):
     work = classify_paths(paths, identifier=pr, title=title, labels=labels)
     return ledger.record_merge(work, title=title, when=when)
 
@@ -57,6 +60,18 @@ class TestThroughputLedger:
     def test_missing_file_returns_empty(self, tmp_path):
         assert ThroughputLedger(tmp_path).records() == []
 
+    def test_corrupt_line_skipped_not_fatal(self, tmp_path):
+        # A write truncated by a killed process must not brick the ledger.
+        ledger = ThroughputLedger(tmp_path)
+        _merge(ledger, ["aragora/a.py"], pr="1")
+        with ledger.path.open("a", encoding="utf-8") as handle:
+            handle.write('{"kind": "merge", "timesta\n')  # truncated write
+            handle.write("not json at all\n")
+            handle.write('{"kind": "bogus-kind", "timestamp": "2026-07-08T00:00:00+00:00"}\n')
+        _merge(ledger, ["aragora/b.py"], pr="2")
+        records = ledger.records()
+        assert [r.data["identifier"] for r in records] == ["1", "2"]
+
 
 class TestComputeMetrics:
     def _build(self, tmp_path) -> ThroughputLedger:
@@ -65,8 +80,8 @@ class TestComputeMetrics:
         _merge(ledger, ["docs/artifacts/a.md"], title="docs: artifact", pr="2")
         _merge(ledger, ["scripts/gate.py"], title="fix: gate hang", pr="3")
         _merge(ledger, ["scripts/old.py"], title="feat: old", pr="4", when=NOW - timedelta(days=30))
-        ledger.record_artifact("verifier-release", when=NOW)
-        ledger.append(LedgerRecord(kind="park", timestamp=NOW.isoformat(), data={"pr": "5"}))
+        ledger.record_artifact("verifier-release", when=RECENT)
+        ledger.append(LedgerRecord(kind="park", timestamp=RECENT.isoformat(), data={"pr": "5"}))
         return ledger
 
     def test_window_and_shares(self, tmp_path):
@@ -93,6 +108,28 @@ class TestComputeMetrics:
         assert metrics.merges_total == 0
         assert metrics.product_share == 0.0
         assert metrics.self_repair_ratio == 0.0
+
+    def test_previous_window_excludes_current_records(self, tmp_path):
+        # WoW regression: computing metrics with now=NOW-7d must NOT absorb
+        # records from the current week (window is bounded on both ends).
+        ledger = ThroughputLedger(tmp_path)
+        _merge(ledger, ["scripts/old.py"], pr="prev1", when=NOW - timedelta(days=10))
+        _merge(ledger, ["aragora/new.py"], pr="cur1", when=NOW - timedelta(days=1))
+        previous = compute_metrics(ledger.records(), now=NOW - timedelta(days=7))
+        assert previous.merges_total == 1
+        assert previous.substrate_share == 1.0  # prior week was 100% substrate
+        current = compute_metrics(ledger.records(), now=NOW)
+        assert current.merges_total == 1
+        assert current.product_share == 1.0
+
+    def test_exempt_counted_in_metrics_not_mix(self, tmp_path):
+        ledger = ThroughputLedger(tmp_path)
+        _merge(ledger, ["scripts/x.py"], title="Revert broken gate", pr="1")
+        _merge(ledger, ["aragora/a.py"], pr="2")
+        metrics = compute_metrics(ledger.records(), now=NOW)
+        assert metrics.exempt_merges == 1
+        mix = mix_from_records(ledger.records(), now=NOW)
+        assert mix.total == 1  # exempt merge excluded from budget math
 
 
 class TestFreezeMarker:

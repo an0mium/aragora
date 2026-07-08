@@ -84,6 +84,30 @@ class TestClassifyPaths:
         assert classify_paths(["tests/a.py"], title="fix(main-red): shard").exempt
         assert not classify_paths(["scripts/x.py"], title="feat: new gate").exempt
 
+    def test_security_title_alone_does_not_exempt(self):
+        # Free-text titles must not confer security exemption — that requires
+        # a label (gaming vector: prefix a substrate PR with "security:").
+        assert not classify_paths(["scripts/x.py"], title="security: harden gate").exempt
+        assert not classify_paths(["scripts/x.py"], title="fix(security): races").exempt
+        assert classify_paths(["scripts/x.py"], labels=["security"]).exempt
+
+    def test_line_weights_defeat_trivial_padding(self):
+        # 4 substantive substrate files vs 5 one-line product edits: by file
+        # count product would win (5 > 4, substrate 44% < 50%); by line
+        # weight the substrate work dominates and the PR stays substrate.
+        paths = [f"scripts/gate_{i}.py" for i in range(4)] + [
+            f"aragora/debate/pad_{i}.py" for i in range(5)
+        ]
+        weights = dict.fromkeys(paths[:4], 200) | dict.fromkeys(paths[4:], 1)
+        assert classify_paths(paths, weights=weights).work_class is WorkClass.SUBSTRATE
+        # Without weights, the padding attack still flips it — documents why
+        # the snapshot feeder must pass line weights.
+        assert classify_paths(paths).work_class is WorkClass.PRODUCT_CORE
+
+    def test_zero_weight_paths_count_as_one(self):
+        work = classify_paths(["aragora/debate/a.py"], weights={"aragora/debate/a.py": 0})
+        assert work.work_class is WorkClass.PRODUCT_CORE
+
     def test_empty_paths_maintenance(self):
         work = classify_paths([])
         assert work.work_class is WorkClass.MAINTENANCE

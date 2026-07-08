@@ -20,7 +20,7 @@ changes gate or selection behavior.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -73,10 +73,15 @@ _PREFIX_CLASSES: tuple[tuple[str, WorkClass], ...] = (
 )
 
 # Markers that exempt a change from the budget entirely (always admissible):
-# main-red repair, security fixes, reverts. Checked against labels first
-# (mechanical policy signal), then conservative title prefixes.
+# main-red repair, security fixes, reverts. Exemption is a gaming surface
+# (an exempt merge is excluded from the mix), so it is deliberately narrow:
+# security/incident exemption requires a LABEL (applied via repo tooling and
+# auditable), never free-text title. Title prefixes are honored only for
+# reverts and main-red repair, whose truthfulness is externally checkable
+# (the reverted commit / the red run). Exempt merges stay in the ledger and
+# are surfaced in the digest spot-audit.
 _EXEMPT_LABELS = frozenset({"security", "main-red", "incident"})
-_EXEMPT_TITLE_PREFIXES = ("revert", "fix(main-red)", "security:", "fix(security)")
+_EXEMPT_TITLE_PREFIXES = ("revert", "fix(main-red)")
 
 
 def classify_path(path: str) -> WorkClass:
@@ -108,35 +113,45 @@ def classify_paths(
     identifier: str = "",
     title: str = "",
     labels: Iterable[str] = (),
+    weights: Mapping[str, int] | None = None,
     llm_classifier: Callable[[Sequence[str], str], WorkClass | None] | None = None,
 ) -> ClassifiedWork:
     """Classify a set of changed paths into a single dominant work class.
 
-    Ties and mixed changes resolve conservatively: if substrate paths are at
-    least half the change, the change is substrate — so padding a loop PR
-    with product files does not launder it.
+    ``weights`` maps each path to its lines changed (additions + deletions).
+    When provided, dominance is decided by lines rather than file count, so
+    trivial one-line edits to product files cannot launder a substantive
+    substrate change below the half guard. Without weights, each path counts
+    as 1 (the file-count fallback).
+
+    Ties and mixed changes resolve conservatively: if substrate weight is at
+    least half the change, the change is substrate.
 
     ``llm_classifier`` (Phase 2) becomes the classifier of record when it
     returns a class; the path baseline is kept as the cross-check and any
     disagreement is recorded on the result.
     """
     counts: dict[WorkClass, int] = {cls: 0 for cls in WorkClass}
+    weighted: dict[WorkClass, int] = {cls: 0 for cls in WorkClass}
     for path in paths:
-        counts[classify_path(path)] += 1
-    total = sum(counts.values())
+        cls = classify_path(path)
+        counts[cls] += 1
+        # A zero-line file (e.g. rename) still counts as weight 1.
+        weighted[cls] += max(1, (weights or {}).get(path, 1))
+    total = sum(weighted.values())
+    unit = "lines" if weights else "paths"
 
     label_set = {label.lower() for label in labels}
-    title_lower = title.lower()
-    exempt = bool(label_set & _EXEMPT_LABELS) or title_lower.startswith(_EXEMPT_TITLE_PREFIXES)
+    exempt = bool(label_set & _EXEMPT_LABELS) or title.lower().startswith(_EXEMPT_TITLE_PREFIXES)
 
     if total == 0:
         baseline = WorkClass.MAINTENANCE
         rationale = "no changed paths"
-    elif counts[WorkClass.SUBSTRATE] * 2 >= total:
+    elif weighted[WorkClass.SUBSTRATE] * 2 >= total:
         baseline = WorkClass.SUBSTRATE
-        rationale = f"substrate paths are {counts[WorkClass.SUBSTRATE]}/{total} of the change"
+        rationale = f"substrate {unit} are {weighted[WorkClass.SUBSTRATE]}/{total} of the change"
     else:
-        # Dominant class by file count; ties resolve toward substrate first
+        # Dominant class by weight; ties resolve toward substrate first
         # (conservative), then core, proof, maintenance.
         precedence = (
             WorkClass.SUBSTRATE,
@@ -144,8 +159,8 @@ def classify_paths(
             WorkClass.PRODUCT_PROOF,
             WorkClass.MAINTENANCE,
         )
-        baseline = max(precedence, key=lambda cls: (counts[cls], -precedence.index(cls)))
-        rationale = f"dominant class by path count ({counts[baseline]}/{total})"
+        baseline = max(precedence, key=lambda cls: (weighted[cls], -precedence.index(cls)))
+        rationale = f"dominant class by {unit} ({weighted[baseline]}/{total})"
 
     work_class = baseline
     disagreement = None
