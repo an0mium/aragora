@@ -168,7 +168,7 @@ Manually maintained:
 - **HTTP handlers**: 700+
 - **Agent types**: 43
 - **RBAC permissions**: 420+
-- **Version**: v2.8.0
+- **Version**: v2.9.0
 
 ---
 

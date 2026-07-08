@@ -1301,8 +1301,8 @@ deploy:
 # Stop current deployment
 docker compose down
 
-# Checkout previous version
-git checkout v2.9.0
+# Checkout previous stable version
+git checkout v2.8.0
 
 # Rebuild and start
 docker compose up -d --build
