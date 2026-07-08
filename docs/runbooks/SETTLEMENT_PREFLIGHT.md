@@ -49,14 +49,15 @@ Every verdict carries this recheck rule:
 
 ## READY Invariant
 
-`READY` is fail-closed. A PR with `mergeStateStatus=BLOCKED` is only
-settlement-stable when the live required-check surface proves the block is
-quorum-only: `lint`, `typecheck`, `sdk-parity`, `Generate & Validate`, and
-`TypeScript SDK Type Check` are successful, `aragora-merge-quorum` is the only
-non-success required context, `reviewDecision` is not `CHANGES_REQUESTED`, and
-policy metadata includes at least one changed file. Missing live metadata,
-missing or empty file scope, missing required-check metadata, unknown required
-contexts, or active-owner uncertainty parks the PR as `HEAD_BLOCKED`.
+`READY` is fail-closed. Both `CLEAN` and `BLOCKED` ready paths require live
+required-check metadata, a non-`CHANGES_REQUESTED` review decision, and at least
+one changed file in policy metadata. For `CLEAN`, all expected required contexts
+must be successful. For `BLOCKED`, `lint`, `typecheck`, `sdk-parity`,
+`Generate & Validate`, and `TypeScript SDK Type Check` must be successful, and
+`aragora-merge-quorum` must be the only non-success required context with a
+completed failure state. Missing live metadata, missing or empty file scope,
+missing required-check metadata, unknown required contexts, pending/cancelled
+quorum, or active-owner uncertainty parks the PR as `HEAD_BLOCKED`.
 
 ## Park vs. Wait
 

@@ -35,6 +35,7 @@ REQUIRED_GREEN_CONTEXTS = (
     "TypeScript SDK Type Check",
 )
 EXPECTED_REQUIRED_CONTEXTS = {*REQUIRED_GREEN_CONTEXTS, MERGE_QUORUM}
+QUORUM_BLOCKING_STATES = {"FAIL", "FAILED", "FAILURE"}
 TRANSPORT_FAILURE_PREFIXES = (
     POLICY_METADATA_REASON,
     LIVE_METADATA_REASON,
@@ -138,7 +139,9 @@ def _check_success(check: dict[str, Any]) -> bool:
     return _check_state(check) in {"SUCCESS", "SKIPPED", "NEUTRAL", "PASS"}
 
 
-def _blocked_ready_reasons(metadata: dict[str, Any]) -> tuple[str, ...]:
+def _ready_invariant_reasons(
+    metadata: dict[str, Any], *, allow_quorum_failure: bool
+) -> tuple[str, ...]:
     reasons: list[str] = []
     review_decision = str(metadata.get("reviewDecision") or "").upper()
     if review_decision == "CHANGES_REQUESTED":
@@ -178,17 +181,35 @@ def _blocked_ready_reasons(metadata: dict[str, Any]) -> tuple[str, ...]:
     quorum_check = by_name.get(MERGE_QUORUM)
     if quorum_check is None:
         reasons.append(f"required context {MERGE_QUORUM} missing")
-    elif _check_success(quorum_check):
-        reasons.append(f"{MERGE_QUORUM} is not the remaining BLOCKED gate")
+    elif allow_quorum_failure:
+        quorum_state = _check_state(quorum_check)
+        if _check_success(quorum_check):
+            reasons.append(f"{MERGE_QUORUM} is not the remaining BLOCKED gate")
+        elif quorum_state not in QUORUM_BLOCKING_STATES:
+            reasons.append(
+                f"{MERGE_QUORUM} is {quorum_state or 'unknown'}, not a completed quorum failure"
+            )
+    elif not _check_success(quorum_check):
+        reasons.append(
+            f"required context {MERGE_QUORUM} is {_check_state(quorum_check) or 'unknown'}"
+        )
 
     non_success = [
         name
         for name, check in by_name.items()
-        if not _check_success(check) and name != MERGE_QUORUM
+        if not _check_success(check) and (not allow_quorum_failure or name != MERGE_QUORUM)
     ]
     for name in sorted(non_success):
         reasons.append(f"non-quorum required context {name} is {_check_state(by_name[name])}")
     return tuple(dict.fromkeys(reasons))
+
+
+def _blocked_ready_reasons(metadata: dict[str, Any]) -> tuple[str, ...]:
+    return _ready_invariant_reasons(metadata, allow_quorum_failure=True)
+
+
+def _clean_ready_reasons(metadata: dict[str, Any]) -> tuple[str, ...]:
+    return _ready_invariant_reasons(metadata, allow_quorum_failure=False)
 
 
 def classify_pr(
@@ -358,6 +379,13 @@ def classify_pr(
         )
 
     if mergeable == "MERGEABLE" and merge_state == "CLEAN" and model_authorized:
+        clean_reasons = _clean_ready_reasons(metadata)
+        if clean_reasons:
+            return result(
+                HEAD_BLOCKED,
+                "park this head until CLEAN readiness invariants are satisfied",
+                clean_reasons,
+            )
         return result(
             READY,
             "run exact-head normal protected squash merge after one final live-state check",

@@ -55,6 +55,18 @@ def _required_checks(**overrides):
     return [_check(name, state) for name, state in states.items()]
 
 
+def _clean_required_checks(**overrides):
+    states = {"aragora-merge-quorum": "SUCCESS"}
+    states.update(overrides)
+    return _required_checks(**states)
+
+
+def _ready_metadata(**overrides):
+    base = {"required_checks": _clean_required_checks()}
+    base.update(overrides)
+    return _metadata(**base)
+
+
 def _blocked_metadata(**overrides):
     base = {"mergeStateStatus": "BLOCKED", "required_checks": _required_checks()}
     base.update(overrides)
@@ -111,7 +123,7 @@ def test_recorded_human_settlement_clears_human_risk_reason() -> None:
             requires_human_risk_settlement=True,
             human_preapproval_recorded=True,
         ),
-        metadata=_metadata(),
+        metadata=_ready_metadata(),
     )
 
     assert result.verdict == settle_preflight.READY
@@ -192,10 +204,39 @@ def test_github_unstable_for_unknown_merge_state() -> None:
 
 
 def test_ready_for_model_authorized_clean_state() -> None:
-    result = settle_preflight.classify_pr(entry=_entry(), metadata=_metadata())
+    result = settle_preflight.classify_pr(entry=_entry(), metadata=_ready_metadata())
 
     assert result.verdict == settle_preflight.READY
     assert "normal protected squash merge" in result.action
+
+
+def test_clean_required_checks_error_does_not_become_ready() -> None:
+    result = settle_preflight.classify_pr(
+        entry=_entry(),
+        metadata=_ready_metadata(required_checks_error="gh pr checks failed"),
+    )
+
+    assert result.verdict == settle_preflight.HEAD_BLOCKED
+    assert any(
+        settle_preflight.REQUIRED_CHECK_METADATA_REASON in reason for reason in result.reasons
+    )
+
+
+def test_clean_missing_required_checks_do_not_become_ready() -> None:
+    result = settle_preflight.classify_pr(entry=_entry(), metadata=_metadata())
+
+    assert result.verdict == settle_preflight.HEAD_BLOCKED
+    assert settle_preflight.REQUIRED_CHECK_METADATA_REASON in result.reasons
+
+
+def test_clean_review_changes_requested_does_not_become_ready() -> None:
+    result = settle_preflight.classify_pr(
+        entry=_entry(),
+        metadata=_ready_metadata(reviewDecision="CHANGES_REQUESTED"),
+    )
+
+    assert result.verdict == settle_preflight.HEAD_BLOCKED
+    assert "reviewDecision=CHANGES_REQUESTED" in result.reasons
 
 
 def test_ready_for_model_authorized_blocked_quorum_state() -> None:
@@ -206,6 +247,19 @@ def test_ready_for_model_authorized_blocked_quorum_state() -> None:
 
     assert result.verdict == settle_preflight.READY
     assert any("aragora-merge-quorum" in reason for reason in result.reasons)
+
+
+def test_blocked_in_flight_or_cancelled_quorum_does_not_become_ready() -> None:
+    for state in ("PENDING", "IN_PROGRESS", "CANCELLED", "ERROR"):
+        result = settle_preflight.classify_pr(
+            entry=_entry(),
+            metadata=_blocked_metadata(
+                required_checks=_required_checks(**{"aragora-merge-quorum": state})
+            ),
+        )
+
+        assert result.verdict == settle_preflight.HEAD_BLOCKED
+        assert any("aragora-merge-quorum" in reason for reason in result.reasons)
 
 
 def test_blocked_required_red_context_does_not_become_ready() -> None:
