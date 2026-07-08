@@ -383,6 +383,9 @@ def _event_merged_pr(record: dict[str, Any]) -> int | None:
         value = _first_present(record, (key,))
         if value is None:
             continue
+        pr_number = _coerce_pr_number(value)
+        if pr_number is not None:
+            return pr_number
         sentinel = _coerce_bool(value)
         if sentinel is not None:
             if not sentinel:
@@ -392,9 +395,6 @@ def _event_merged_pr(record: dict[str, Any]) -> int | None:
                 if pr_number is not None:
                     return pr_number
             continue
-        pr_number = _coerce_pr_number(value)
-        if pr_number is not None:
-            return pr_number
     return None
 
 
@@ -734,10 +734,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.json_out:
         json_out = Path(args.json_out)
+        if not json_out.is_absolute():
+            json_out = repo_root / json_out
         json_out.parent.mkdir(parents=True, exist_ok=True)
         json_out.write_text(json_text, encoding="utf-8")
     if args.markdown_out:
         markdown_out = Path(args.markdown_out)
+        if not markdown_out.is_absolute():
+            markdown_out = repo_root / markdown_out
         markdown_out.parent.mkdir(parents=True, exist_ok=True)
         markdown_out.write_text(markdown_text, encoding="utf-8")
 

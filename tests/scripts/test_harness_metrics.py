@@ -762,6 +762,43 @@ def test_merged_pr_detection_coerces_string_sentinels_before_pr_number(
     assert lane["token_cost_per_merged_pr"] == 12.5
 
 
+def test_merged_pr_detection_preserves_pr_one_values(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "numeric",
+                "direct_pr_merged": 1,
+                "rounds_to_merge": 2,
+            },
+            {
+                "timestamp": "2026-07-08T11:00:00Z",
+                "lane": "string",
+                "direct_pr_merged": "1",
+                "rounds_to_merge": 3,
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=30,
+    )
+
+    lanes = {lane["lane"]: lane for lane in report["lanes"]}
+    assert lanes["numeric"]["merged_prs"] == 1
+    assert lanes["numeric"]["rounds_to_merge_average"] == 2.0
+    assert lanes["string"]["merged_prs"] == 1
+    assert lanes["string"]["rounds_to_merge_average"] == 3.0
+
+
 def test_render_markdown_escapes_table_cells() -> None:
     report = {
         "lanes": [
@@ -859,3 +896,50 @@ def test_cli_writes_one_json_document_and_one_markdown_table(tmp_path: Path) -> 
     markdown = md_out.read_text(encoding="utf-8")
     assert markdown.startswith("| Lane |")
     assert markdown.count("| conductor |") == 1
+
+
+def test_cli_relative_outputs_resolve_against_repo_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    repo.mkdir()
+    outside.mkdir()
+    ledger = repo / "ledger.jsonl"
+    fixture = repo / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "external_progress": True,
+                "first_round_gate_pass": True,
+            }
+        ],
+    )
+    monkeypatch.chdir(outside)
+
+    exit_code = harness_metrics.main(
+        [
+            "--repo-root",
+            str(repo),
+            "--ledger",
+            "ledger.jsonl",
+            "--eval-fixture",
+            "eval.json",
+            "--as-of",
+            "2026-07-08T12:00:00Z",
+            "--json-out",
+            "nested/latest.json",
+            "--markdown-out",
+            "nested/latest.md",
+        ]
+    )
+
+    assert exit_code == 0
+    assert (repo / "nested" / "latest.json").exists()
+    assert (repo / "nested" / "latest.md").exists()
+    assert not (outside / "nested").exists()
