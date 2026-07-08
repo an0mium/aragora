@@ -72,10 +72,10 @@ class LaneAccumulator:
                 self.external_progress_observations += 1
                 if event.external_progress:
                     self.external_progress_cycles += 1
-            if event.first_round_gate_pass is not None:
-                self.first_round_gate_observations += 1
-                if event.first_round_gate_pass:
-                    self.first_round_gate_passes += 1
+        if event.first_round_gate_pass is not None:
+            self.first_round_gate_observations += 1
+            if event.first_round_gate_pass:
+                self.first_round_gate_passes += 1
         if event.merged_pr is not None:
             self.merged_prs.add(event.merged_pr)
         if (
@@ -87,12 +87,10 @@ class LaneAccumulator:
             self.rounds_to_merge_prs.add(event.merged_pr)
         if event.token_cost is not None:
             duplicate_merge_cost = (
-                event.merged_pr is not None
-                and event.rounds_to_merge is not None
-                and event.merged_pr in self.token_cost_prs
+                event.merged_pr is not None and event.merged_pr in self.token_cost_prs
             )
             if not duplicate_merge_cost:
-                if event.merged_pr is not None and event.rounds_to_merge is not None:
+                if event.merged_pr is not None:
                     self.token_cost_prs.add(event.merged_pr)
                 self.token_cost_total += event.token_cost
                 self.token_cost_observations += 1
@@ -106,7 +104,10 @@ def parse_timestamp(value: Any) -> datetime | None:
     if value in (None, ""):
         return None
     if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        try:
+            return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
     if not isinstance(value, str):
         return None
     candidate = value.strip()
@@ -187,9 +188,11 @@ def _coerce_pr_number(value: Any) -> int | None:
 def _read_json_records(path: Path) -> list[dict[str, Any]]:
     if not path.exists() or path.is_dir():
         return []
-    if path.suffix == ".jsonl":
+    text = path.read_text(encoding="utf-8")
+
+    def parse_jsonl_lines() -> list[dict[str, Any]]:
         records = []
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in text.splitlines():
             stripped = line.strip()
             if not stripped:
                 continue
@@ -201,10 +204,13 @@ def _read_json_records(path: Path) -> list[dict[str, Any]]:
                 records.append(parsed)
         return records
 
+    if path.suffix == ".jsonl":
+        return parse_jsonl_lines()
+
     try:
-        parsed = json.loads(path.read_text(encoding="utf-8"))
+        parsed = json.loads(text)
     except json.JSONDecodeError:
-        return []
+        return parse_jsonl_lines()
     if isinstance(parsed, list):
         return [item for item in parsed if isinstance(item, dict)]
     if isinstance(parsed, dict):
@@ -358,17 +364,19 @@ def _event_gate_pass(record: dict[str, Any]) -> bool | None:
 
 
 def _event_merged_pr(record: dict[str, Any]) -> int | None:
-    for key in (
-        "direct_pr_merged",
-        "merged_pr",
-        "pr_merged",
-        "pr_number",
-        "pr",
-        "target_pr",
-        "mutations.merged_pr",
-    ):
+    merge_keys = ("direct_pr_merged", "merged_pr", "pr_merged", "mutations.merged_pr")
+    pr_reference_keys = ("pr_number", "pr", "target_pr")
+    for key in merge_keys:
         value = _first_present(record, (key,))
         if value is None:
+            continue
+        if isinstance(value, bool):
+            if not value:
+                continue
+            for fallback_key in pr_reference_keys:
+                pr_number = _coerce_pr_number(_first_present(record, (fallback_key,)))
+                if pr_number is not None:
+                    return pr_number
             continue
         pr_number = _coerce_pr_number(value)
         if pr_number is not None:
@@ -426,7 +434,10 @@ def normalize_event(record: dict[str, Any], *, source: str, source_type: str) ->
 def _load_eval_cases(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
-    parsed = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        parsed = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
     if isinstance(parsed, dict) and isinstance(parsed.get("cases"), list):
         return [case for case in parsed["cases"] if isinstance(case, dict)]
     if isinstance(parsed, list):
@@ -498,7 +509,7 @@ def lane_summary(
     if not accumulator.first_round_gate_observations:
         insufficient.append("first_round_gate_pass_rate")
     if not accumulator.external_progress_observations:
-        insufficient.append("external_progress_observations")
+        insufficient.append("external_progress_per_cycle")
     if not merged_count:
         insufficient.append("rounds_to_merge_average:no_merged_prs")
         insufficient.append("token_cost_per_merged_pr:no_merged_prs")
@@ -708,9 +719,13 @@ def main(argv: list[str] | None = None) -> int:
     markdown_text = render_markdown(report)
 
     if args.json_out:
-        Path(args.json_out).write_text(json_text, encoding="utf-8")
+        json_out = Path(args.json_out)
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(json_text, encoding="utf-8")
     if args.markdown_out:
-        Path(args.markdown_out).write_text(markdown_text, encoding="utf-8")
+        markdown_out = Path(args.markdown_out)
+        markdown_out.parent.mkdir(parents=True, exist_ok=True)
+        markdown_out.write_text(markdown_text, encoding="utf-8")
 
     sys.stdout.write(markdown_text if args.print_markdown else json_text)
     return 0

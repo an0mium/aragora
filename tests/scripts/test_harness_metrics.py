@@ -147,8 +147,37 @@ def test_window_filtering_and_receipt_store_support(tmp_path: Path) -> None:
     lanes = {lane["lane"]: lane for lane in report["lanes"]}
     assert "old" not in lanes
     assert lanes["recent"]["first_round_gate_pass_rate"] == 1.0
+    assert lanes["receipt_store"]["first_round_gate_pass_rate"] is None
     assert lanes["receipt_store"]["merged_prs"] == 1
     assert lanes["receipt_store"]["token_cost_total"] == 4.0
+
+
+def test_receipt_gate_pass_observations_are_counted(tmp_path: Path) -> None:
+    fixture = tmp_path / "eval.json"
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    _write_eval_fixture(fixture)
+    (receipts / "gate.json").write_text(
+        json.dumps(
+            {
+                "created_at": "2026-07-08T01:00:00Z",
+                "first_round_gate_pass": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[],
+        receipt_dirs=[receipts],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 0
+    assert lane["first_round_gate_pass_rate"] == 1.0
 
 
 def test_receipts_use_reviewed_at_timestamp(tmp_path: Path) -> None:
@@ -263,6 +292,47 @@ def test_malformed_jsonl_records_are_skipped(tmp_path: Path) -> None:
     assert lanes["valid"]["cycles"] == 1
 
 
+def test_extensionless_jsonl_records_are_parsed(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "valid",
+                "external_progress": True,
+            }
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    assert report["lanes"][0]["lane"] == "valid"
+
+
+def test_numeric_timestamp_overflow_returns_none() -> None:
+    assert harness_metrics.parse_timestamp(999999999999999999999) is None
+
+
+def test_malformed_eval_fixture_degrades_to_no_cases(tmp_path: Path) -> None:
+    fixture = tmp_path / "eval.json"
+    fixture.write_text("{not-json", encoding="utf-8")
+
+    result = harness_metrics.fixture_performance(fixture)
+
+    assert result["available"] is True
+    assert result["case_count"] == 0
+    assert result["fixture_pass_rate"] is None
+
+
 def test_duplicate_merged_pr_records_do_not_double_count_merge_metrics(
     tmp_path: Path,
 ) -> None:
@@ -289,7 +359,6 @@ def test_duplicate_merged_pr_records_do_not_double_count_merge_metrics(
                 "reviewed_at": "2026-07-08T11:00:00Z",
                 "lane": "conductor",
                 "direct_pr_merged": "#1001",
-                "rounds_to_merge": 6,
                 "token_usage": {"total_cost_usd": 12.5},
             }
         ),
@@ -344,6 +413,7 @@ def test_repeated_non_merge_pr_cycles_keep_token_cost_observations(
 
     lane = report["lanes"][0]
     assert lane["cycles"] == 2
+    assert lane["merged_prs"] == 0
     assert lane["token_cost_total"] == 5.0
 
 
@@ -618,8 +688,8 @@ def test_cli_writes_one_json_document_and_one_markdown_table(tmp_path: Path) -> 
     repo = tmp_path
     ledger = repo / "ledger.jsonl"
     fixture = repo / "eval.json"
-    json_out = repo / "latest.json"
-    md_out = repo / "latest.md"
+    json_out = repo / "nested" / "latest.json"
+    md_out = repo / "nested" / "latest.md"
     _write_eval_fixture(fixture)
     _write_jsonl(
         ledger,
