@@ -285,6 +285,23 @@ class TestVerifyReceipt:
             in integrity_check["detail"]
         )
 
+    def test_legacy_checksum_rejects_added_epistemic_fields(self):
+        """Legacy 16-char checksums must fail closed on new epistemic fields."""
+        data = _make_receipt_data()
+        data["unverified"] = ["Load test not run."]
+        data["assumptions"] = ["Manual support can absorb rollout."]
+        data["falsification"] = {
+            "observation": "P95 latency exceeds 600ms.",
+            "check_by": "2026-07-15",
+        }
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is False
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is False
+        assert "legacy checksum cannot validate epistemic fields" in integrity_check["detail"]
+
     def test_missing_schema_version(self):
         data = _make_receipt_data()
         del data["schema_version"]

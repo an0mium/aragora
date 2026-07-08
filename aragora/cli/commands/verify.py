@@ -413,10 +413,16 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
             expected_checksum = _recompute_checksum(data)
             covered_fields.extend(_LEGACY_CHECKSUM_FIELDS)
             if stored_checksum == expected_checksum:
-                detail = f"checksum={stored_checksum}"
-                if verbose:
-                    detail += f" (recomputed={expected_checksum})"
-                proof_details.append(detail)
+                if _has_epistemic_hash_fields(data):
+                    proof_failures.append(
+                        "legacy checksum cannot validate epistemic fields "
+                        "(unverified, assumptions, falsification)"
+                    )
+                else:
+                    detail = f"checksum={stored_checksum}"
+                    if verbose:
+                        detail += f" (recomputed={expected_checksum})"
+                    proof_details.append(detail)
             else:
                 proof_failures.append(
                     f"checksum mismatch: stored={stored_checksum}, recomputed={expected_checksum}"
