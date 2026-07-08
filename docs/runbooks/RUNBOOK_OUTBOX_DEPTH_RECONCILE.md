@@ -5,7 +5,7 @@ This runbook records the bounded queue-health disposition for the live
 read-only: it does not authorize archive, receipt, owner-lane, PR, or worktree
 mutation.
 
-## Live Snapshot
+## Original Live Snapshot
 
 - Repository: checked-out Aragora repository root
 - Root head: `32e692ed2162cea7abf36ea83c1843d30d684007`
@@ -20,6 +20,28 @@ mutation.
   (`27/120`)
 - Disk free: healthy, about 337 GiB
 - Boss heartbeat: healthy, about 30h old
+
+## Current Validation Note
+
+Fresh validation on 2026-07-08 at `1622e8aa5f78f8d6a257309c0c7141e22e7b1c89`
+kept the no-archive conclusion, but the probe surface no longer exactly
+matches the original snapshot:
+
+- `publisher_freshness_check.py --json`: ready, outbox/cache `20/20`.
+- `fleet_sentinel.py --json --no-ledger`: two breaches, `gh_auth` and
+  `outbox_depth`; GitHub API health is transiently degraded rather than a
+  persisted breach.
+- `reconcile_automation_outbox.py --dry-run --json --summary-only`:
+  `archived=0`, `outbox_count=20`, `still_protecting_active_work=8`,
+  `blocked_missing_branch_open_pr_unknown=11`, `skipped_unparseable=1`.
+- `classify_handoff_state.py --json --summary-only`:
+  `blocked_by_owner=17`, `blocked_by_human=2`, `unknown=1`, with GitHub queue
+  state available through a degraded REST/cache fallback.
+
+Treat the counts in the original snapshot as a historical observation, not as
+current exact counts. The stable operational fact is that a dry-run still finds
+no archive-ready item, so this runbook remains read-only and does not authorize
+`--apply`.
 
 ## Commands
 
@@ -41,9 +63,17 @@ env GH_TOKEN="$(${PY:-python3} scripts/gh_app_env.py --print-token --quiet)" \
 
 ## Result
 
-The reconciler did not find any safe archive action:
+The original reconciler snapshot did not find any safe archive action:
 
 - `still_protecting_active_work`: 19
+- `skipped_unparseable`: 1
+- `archived`: 0
+
+The current dry-run also finds no safe archive action, but classifies the
+protected set differently under degraded GitHub/open-PR lookups:
+
+- `still_protecting_active_work`: 8
+- `blocked_missing_branch_open_pr_unknown`: 11
 - `skipped_unparseable`: 1
 - `archived`: 0
 
@@ -106,12 +136,13 @@ Start from live repo truth in the Aragora repository root. Operating
 contract: re-read docs/AGENT_OPERATING_CONTRACT.md §Conductor this cycle.
 
 Target: outbox_depth breach, oldest live active outbox item. Last: reconciler
-dry-run at 32e692ed2162cea7abf36ea83c1843d30d684007 found 19 protected items
-and one unparseable payload, with no safe archive action. Next: target exactly
-one bounded unit: inspect queue-drain-park-reconciliation-20260708T121926Z.json
-and determine whether it can be repaired into a branch-shaped handoff or needs
-explicit human retirement. Do not archive outbox, write receipts, release
-owners, merge, settle, close PRs, delete worktrees, or touch protected scripts.
+dry-run at 1622e8aa5f78f8d6a257309c0c7141e22e7b1c89 still found no safe
+archive action: 8 active-work protected items, 11 missing-branch/open-PR-unknown
+items, and one unparseable payload. Next: target exactly one bounded unit:
+inspect queue-drain-park-reconciliation-20260708T121926Z.json and determine
+whether it can be repaired into a branch-shaped handoff or needs explicit human
+retirement. Do not archive outbox, write receipts, release owners, merge,
+settle, close PRs, delete worktrees, or touch protected scripts.
 
 Run on Tier 0-2 rails per §Conductor; continue through progressing units
 autonomously. Approval-required items, Auto-halt triggers, and Tier 3/4
