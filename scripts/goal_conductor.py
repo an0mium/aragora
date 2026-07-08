@@ -30,6 +30,14 @@ DEFAULT_OUTPUT_DIR = Path(".aragora/goal-conductor")
 DEFAULT_QUEUE_CAP = 6
 DEFAULT_MAX_IMPLEMENTATION_LANES = 2
 DEFAULT_MAX_REVIEW_LANES = 1
+try:
+    from fable_goal_cycle import MAX_CONTEXT_FILE_BYTES, SAFE_CONTEXT_SUBDIRS
+except ImportError:  # pragma: no cover - fallback for partial script checkouts
+    MAX_CONTEXT_FILE_BYTES = 64 * 1024
+    SAFE_CONTEXT_SUBDIRS = (
+        Path(".aragora") / "goal-cycle-context",
+        Path(".aragora") / "conductor_cycles",
+    )
 ALLOWED_AGENTS = {"codex", "claude", "droid", "factory"}
 PANEL_MODE = "panel"
 IMPLEMENTATION_MODES = {"implementation", "implement", "write"}
@@ -44,6 +52,14 @@ def _utc_now() -> str:
 def _slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", value.strip()).strip("-")
     return slug[:80] or "goal"
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
 
 
 def _mute_stdout_after_broken_pipe() -> bool:
@@ -333,6 +349,10 @@ class LaneDecision:
     commands: list[list[str]] = field(default_factory=list)
 
 
+class ContextFileError(ValueError):
+    """Raised when a lane context file cannot be safely materialized."""
+
+
 @dataclass
 class ConductorResult:
     mission_name: str
@@ -525,6 +545,51 @@ class GoalConductor:
         path.write_text(lane.prompt + "\n", encoding="utf-8")
         return path
 
+    def _safe_context_roots(self) -> tuple[Path, ...]:
+        return tuple(
+            (self.repo_root / subdir).resolve(strict=False) for subdir in SAFE_CONTEXT_SUBDIRS
+        )
+
+    def _materialized_context_file_for(self, lane: LaneSpec) -> str:
+        if not lane.context_file:
+            return ""
+        original = Path(lane.context_file)
+        candidate = original if original.is_absolute() else self.repo_root / original
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError as exc:
+            raise ContextFileError(
+                f"context file unreadable for lane {lane.lane_id}: {lane.context_file}: {exc}"
+            ) from exc
+        if not resolved.is_file():
+            raise ContextFileError(
+                f"context file is not a regular file for lane {lane.lane_id}: {lane.context_file}"
+            )
+
+        if any(_is_relative_to(resolved, safe_root) for safe_root in self._safe_context_roots()):
+            return lane.context_file
+
+        try:
+            with resolved.open("rb") as handle:
+                data = handle.read(MAX_CONTEXT_FILE_BYTES + 1)
+        except OSError as exc:
+            raise ContextFileError(
+                f"context file unreadable for lane {lane.lane_id}: {lane.context_file}: {exc}"
+            ) from exc
+
+        truncated = len(data) > MAX_CONTEXT_FILE_BYTES
+        body = data[:MAX_CONTEXT_FILE_BYTES].decode("utf-8", errors="replace")
+        context_dir = self.repo_root / SAFE_CONTEXT_SUBDIRS[0]
+        context_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        materialized = context_dir / f"{stamp}-{_slug(lane.lane_id)}.md"
+        truncate_note = f"; truncated to {MAX_CONTEXT_FILE_BYTES} bytes" if truncated else ""
+        materialized.write_text(
+            f"<!-- Source context materialized from: {resolved}{truncate_note} -->\n{body}",
+            encoding="utf-8",
+        )
+        return materialized.relative_to(self.repo_root).as_posix()
+
     def _known_sessions(self) -> set[str]:
         data, _ = self._run_json(["python3", "scripts/agent_bridge.py", "--json", "sessions"])
         if not isinstance(data, list):
@@ -590,7 +655,7 @@ class GoalConductor:
             str(output_dir),
         ]
         if lane.context_file:
-            command.extend(["--context-file", lane.context_file])
+            command.extend(["--context-file", self._materialized_context_file_for(lane)])
         return [command]
 
     def plan_lanes(self, snapshot: dict[str, Any], run_dir: Path) -> list[LaneDecision]:
@@ -631,11 +696,21 @@ class GoalConductor:
                     )
                     continue
                 review_used += 1
-            commands = (
-                self._panel_commands(lane, run_dir)
-                if lane.mode == PANEL_MODE
-                else self._agent_commands(lane, run_dir, sessions)
-            )
+            try:
+                commands = (
+                    self._panel_commands(lane, run_dir)
+                    if lane.mode == PANEL_MODE
+                    else self._agent_commands(lane, run_dir, sessions)
+                )
+            except ContextFileError as exc:
+                decisions.append(
+                    LaneDecision(
+                        lane_id=lane.lane_id,
+                        action="blocked",
+                        reason=str(exc),
+                    )
+                )
+                continue
             decisions.append(
                 LaneDecision(
                     lane_id=lane.lane_id,

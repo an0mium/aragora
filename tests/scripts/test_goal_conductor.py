@@ -430,6 +430,106 @@ def test_run_once_blocks_mutating_lane_at_queue_cap_but_allows_panel(tmp_path: P
     )
 
 
+def test_panel_context_file_outside_safe_roots_is_materialized(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    external_context = tmp_path.parent / f"{tmp_path.name}-operator-context.md"
+    external_context.write_text("operator says: include this", encoding="utf-8")
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "panel",
+            "mode": "panel",
+            "goal": "Review with operator context.",
+            "prompt": "Review only.",
+            "context_file": str(external_context),
+        }
+    ]
+    mission = mod.Mission.from_dict(payload)
+    runner = FakeRunner(mod, open_prs=[])
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=False,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    command = result.decisions[0].commands[0]
+    context_arg = command[command.index("--context-file") + 1]
+    materialized = tmp_path / context_arg
+    assert context_arg.startswith(".aragora/goal-cycle-context/")
+    assert materialized.exists()
+    body = materialized.read_text(encoding="utf-8")
+    assert body.startswith(f"<!-- Source context materialized from: {external_context}")
+    assert "operator says: include this" in body
+
+
+def test_panel_context_file_under_safe_root_passes_through(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    context_path = tmp_path / ".aragora" / "goal-cycle-context" / "cycle.md"
+    context_path.parent.mkdir(parents=True)
+    context_path.write_text("safe context", encoding="utf-8")
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "panel",
+            "mode": "panel",
+            "goal": "Review with safe context.",
+            "prompt": "Review only.",
+            "context_file": ".aragora/goal-cycle-context/cycle.md",
+        }
+    ]
+    mission = mod.Mission.from_dict(payload)
+    runner = FakeRunner(mod, open_prs=[])
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=False,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    command = result.decisions[0].commands[0]
+    assert command[command.index("--context-file") + 1] == ".aragora/goal-cycle-context/cycle.md"
+    assert list((tmp_path / ".aragora" / "goal-cycle-context").iterdir()) == [context_path]
+
+
+def test_panel_context_file_unreadable_blocks_lane(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "panel",
+            "mode": "panel",
+            "goal": "Review with missing context.",
+            "prompt": "Review only.",
+            "context_file": str(tmp_path / "missing.md"),
+        }
+    ]
+    mission = mod.Mission.from_dict(payload)
+    runner = FakeRunner(mod, open_prs=[])
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "blocked"
+    assert "context file unreadable for lane panel" in result.decisions[0].reason
+    assert runner.executed == []
+
+
 def test_execute_reuses_existing_agent_lane_and_sends_prompt(tmp_path: Path) -> None:
     import goal_conductor as mod
 
