@@ -23,8 +23,12 @@ verifies it offline with the standalone verifier -- exit `0` end to end. Run
 ## 1. Install
 
 ```bash
-pip install aragora-debate
+pip install aragora aragora-debate
 ```
+
+The full `aragora` distribution provides the `aragora` CLI used by the
+fastest-path ODR commands above. The smaller `aragora-debate` package provides
+the Python module used by the demo and code examples below.
 
 ## 2. Zero-Key Demo
 
