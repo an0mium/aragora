@@ -35,16 +35,35 @@ release action.
 ```bash
 python3 scripts/agent_bridge.py owner --pr <number> --json
 python3 scripts/read_operator_steering.py --pr <number> --json
+git fetch origin --prune
 git worktree list --porcelain
 git -C <worktree-path> status --porcelain=v1 --untracked-files=all
 git -C <worktree-path> rev-parse HEAD
-git -C <worktree-path> merge-base --is-ancestor HEAD origin/main
+if git -C <worktree-path> merge-base --is-ancestor HEAD origin/main; then echo "ancestor"; else echo "not-ancestor"; fi
 python3 scripts/safe_worktree_cleanup.py --repo "$(git rev-parse --show-toplevel)" inspect <worktree-path>
 ```
 
-If the target is not a PR lane, replace `--pr <number>` with the most specific
-branch or lane selector available. If any command is unavailable or ambiguous,
-classify the lane as `PRESERVE` or `HUMAN-GATED`.
+If `read_operator_steering.py` returns messages, write an outcome receipt before
+any mutation:
+
+```bash
+python3 scripts/read_operator_steering.py --pr <number> --outcome held --outcome-note "<reason>" --json
+```
+
+Use the narrowest true outcome (`obeyed`, `held`, `stale`, `superseded`,
+`blocked`, or `completed`). A plain `read` receipt proves inspection only; it is
+not owner release and does not satisfy an unresolved restriction.
+
+If the target is not a PR lane, use only the selectors the helpers support:
+`agent_bridge.py owner --branch <branch>` or `--worktree <worktree-path>`, and
+`read_operator_steering.py --branch <branch>` or `--lane-id <lane-id>`. If the
+right selector is unclear, classify the lane as `PRESERVE` or `HUMAN-GATED`.
+
+The `merge-base` result is a preservation signal, not the whole decision. Exit
+`0` means the worktree head is reachable from `origin/main`. Exit `1` means it is
+not reachable; that can still be releasable only when the unique commits are
+mapped to a merged squash PR, an explicit fold/adopt receipt, or an explicit
+retirement record. Without that mapping, classify as `PRESERVE`.
 
 ## Release Steps
 
