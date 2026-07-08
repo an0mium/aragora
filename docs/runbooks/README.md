@@ -33,6 +33,7 @@ Operational runbooks for responding to Aragora alerts and incidents.
 | Multi-Region | [RUNBOOK_MULTI_REGION_SETUP.md](./RUNBOOK_MULTI_REGION_SETUP.md) | Multi-region deployment and failover |
 | Fleet Coordination | [RUNBOOK_FLEET_COORDINATION.md](./RUNBOOK_FLEET_COORDINATION.md) | Multi-agent worktree ownership and merge queue policy |
 | Proof-First tmux Operator | [RUNBOOK_PROOF_FIRST_TMUX_OPERATOR.md](./RUNBOOK_PROOF_FIRST_TMUX_OPERATOR.md) | Conductor-led tmux coordination for benchmark/docs/monitor lanes without replacing the unattended proof-first shift |
+| Outbox Depth Reconcile | [RUNBOOK_OUTBOX_DEPTH_RECONCILE.md](./RUNBOOK_OUTBOX_DEPTH_RECONCILE.md) | Queue-depth disposition rubric for protected, human-gated, and unparseable automation outbox items |
 
 ## Incident Severity Levels
 
