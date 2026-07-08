@@ -607,8 +607,7 @@ class DecisionReceipt:
         if not self.artifact_hash:
             self.artifact_hash = self._calculate_hash()
 
-    def _calculate_hash(self) -> str:
-        """Calculate content-addressable hash."""
+    def _hash_payload(self, *, include_epistemic: bool) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "receipt_id": self.receipt_id,
             "gauntlet_id": self.gauntlet_id,
@@ -617,14 +616,33 @@ class DecisionReceipt:
             "verdict": self.verdict,
             "confidence": self.confidence,
         }
-        if self.unverified:
-            payload["unverified"] = self.unverified
-        if self.assumptions:
-            payload["assumptions"] = self.assumptions
-        if self.falsification:
-            payload["falsification"] = self.falsification
+        if include_epistemic:
+            if self.unverified:
+                payload["unverified"] = self.unverified
+            if self.assumptions:
+                payload["assumptions"] = self.assumptions
+            if self.falsification:
+                payload["falsification"] = self.falsification
+        return payload
+
+    def _calculate_hash(self) -> str:
+        """Calculate the current content-addressable hash."""
         content = json.dumps(
-            payload,
+            self._hash_payload(include_epistemic=True),
+            sort_keys=True,
+        )
+        return hashlib.sha256(content.encode()).hexdigest()
+
+    def _calculate_legacy_hash(self) -> str:
+        """Calculate the pre-epistemic content-addressable hash.
+
+        Older unsigned receipts were issued before ``unverified``, ``assumptions``,
+        and ``falsification`` became part of the artifact hash. Accepting this
+        fallback keeps those receipts verifiable while new receipts continue to
+        generate and prefer the expanded hash.
+        """
+        content = json.dumps(
+            self._hash_payload(include_epistemic=False),
             sort_keys=True,
         )
         return hashlib.sha256(content.encode()).hexdigest()
@@ -632,7 +650,9 @@ class DecisionReceipt:
     def verify_integrity(self) -> bool:
         """Verify receipt has not been tampered with."""
         expected_hash = self._calculate_hash()
-        return expected_hash == self.artifact_hash
+        if expected_hash == self.artifact_hash:
+            return True
+        return self._calculate_legacy_hash() == self.artifact_hash
 
     def sign(self, signer: ReceiptSigner | None = None) -> DecisionReceipt:
         """

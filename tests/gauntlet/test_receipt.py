@@ -312,6 +312,38 @@ class TestDecisionReceiptCreation:
         receipt.falsification["observation"] = "Trial conversion drops below target."
         assert receipt.verify_integrity() is False
 
+    def test_legacy_hash_verifies_after_epistemic_fields_are_added(self):
+        """Existing unsigned receipts hashed before epistemic fields stay valid."""
+        receipt = DecisionReceipt(
+            receipt_id="test-receipt-legacy-epistemic-integrity",
+            gauntlet_id="gauntlet-epistemic",
+            timestamp="2024-01-15T10:30:00Z",
+            input_summary="Ship product bet",
+            input_hash="abc123def456",
+            risk_summary={"critical": 0},
+            attacks_attempted=1,
+            attacks_successful=0,
+            probes_run=1,
+            vulnerabilities_found=0,
+            verdict="PASS",
+            confidence=0.8,
+            robustness_score=0.7,
+            unverified=["Load test not run."],
+            assumptions=["Manual support can absorb rollout."],
+            falsification={
+                "observation": "P95 latency exceeds 600ms.",
+                "check_by": "2026-07-15",
+            },
+        )
+        data = receipt.to_dict()
+        data["artifact_hash"] = receipt._calculate_legacy_hash()
+
+        restored = DecisionReceipt.from_dict(data)
+
+        assert restored.verify_integrity() is True
+        restored.confidence = 0.1
+        assert restored.verify_integrity() is False
+
     def test_auto_hash_generation(self, basic_receipt):
         """Test automatic artifact hash generation."""
         assert basic_receipt.artifact_hash  # Should be non-empty

@@ -22,6 +22,7 @@ import pytest
 from aragora.cli.commands.verify import (
     _is_valid_iso_timestamp,
     _is_valid_verdict,
+    _recompute_legacy_artifact_hash,
     _recompute_artifact_hash,
     _recompute_checksum,
     _verify_receipt,
@@ -229,6 +230,35 @@ class TestVerifyReceipt:
         assert tampered["valid"] is False
         tampered_integrity = next(c for c in tampered["checks"] if c["name"] == "integrity")
         assert tampered_integrity["passed"] is False
+
+    def test_legacy_artifact_hash_accepts_epistemic_fields_with_limited_coverage(self):
+        """Receipts hashed before epistemic fields existed remain verifiable."""
+        data = _make_receipt_data(
+            include_checksum=False,
+            extra={
+                "unverified": ["Load test not run."],
+                "assumptions": ["Manual support can absorb rollout."],
+                "falsification": {
+                    "observation": "P95 latency exceeds 600ms.",
+                    "check_by": "2026-07-15",
+                },
+            },
+        )
+        data["artifact_hash"] = _recompute_legacy_artifact_hash(data)
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is True
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is True
+        assert "legacy artifact_hash" in integrity_check["detail"]
+        assert "unverified" not in integrity_check["covers"]
+        assert "assumptions" not in integrity_check["covers"]
+        assert "falsification" not in integrity_check["covers"]
+
+        data["confidence"] = 0.1
+        tampered = _verify_receipt(data)
+        assert tampered["valid"] is False
 
     def test_missing_schema_version(self):
         data = _make_receipt_data()
