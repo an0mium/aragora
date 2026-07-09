@@ -61,7 +61,8 @@ at 0%.
 - #9044 round 1: disposition the 4 ready stuck PRs (#8406 Tier-4→founder, #8519,
   #8809, #8823).
 - **Exit:** #8858 artifact w/ named human; prod receipts signed + one verified
-  offline; #8809/#9048/#9058 merged; ≥6/9 stuck PRs dispositioned; #8930 closed.
+  offline; #8809/#9048/#9058 merged; ≥4/9 stuck PRs dispositioned (round 1 —
+  the W2 round-2 tail takes the cumulative count to ≥8/9); #8930 closed.
 - **Founder:** recruit the outsider (Jul 9, the only human-ownable binding-date
   task); settle Tier-4 #8406; approve prod signing-key deployment; pentest vendor
   shortlist.

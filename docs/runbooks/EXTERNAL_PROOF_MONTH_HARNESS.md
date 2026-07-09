@@ -61,8 +61,9 @@ progress is measured by the throughput ledger the plan shipped.
     message was read, write an outcome receipt
     (--outcome obeyed|held|stale|superseded|blocked|completed) BEFORE
     mutating any lane state, per AGENTS.md.
-(1) SENSE — read the current week's exit criteria; run
-    scripts/throughput_ledger.py snapshot + work_mix_gate check; check
+(1) SENSE — read the current week's exit criteria; once #9048 has merged,
+    run scripts/throughput_ledger.py snapshot + work_mix_gate check (those
+    CLIs ship with #9048 — skip them while it is unmerged); check
     gh pr/issue state for the week's named items and any replan triggers.
 (2) SETTLE — drain anything settlement-stable using the proven recipe
     (3 settlement flags + collect --json → --prepared-json --apply →
@@ -148,7 +149,8 @@ Codex can finish. Never give Factory open-ended or review-loop work.
 
 - **claude reviewer** (shares the Claude Max sub with the conductor): reserve
   for product PRs and Tier 3-4 packets; never spend on docs/tooling PRs.
-  Weekly cap awareness: the wall resets Fridays 3am CT.
+  Weekly cap awareness: the wall resets ~3am CT on its weekly window
+  boundary (this window: Jul 11).
 - **openai reviewer** (Codex Max): the routine western-frontier signal.
 - **grok/deepseek via OpenRouter** (small metered): redundancy only, enabled by
   `ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK=1`.
@@ -179,8 +181,9 @@ message per cycle, and replan triggers stop the loop rather than improvising.
 - **Weekly digest** (Fri): the single authoritative artifact — product share
   WoW, external artifacts published, settlement latency, freeze state,
   spot-audit sample.
-- Ad hoc: `gh pr list`, `python3 scripts/work_mix_gate.py check`,
-  `python3 scripts/weekly_digest.py` — all read-only, any time.
+- Ad hoc: `gh pr list` any time; `python3 scripts/work_mix_gate.py check`
+  and `python3 scripts/weekly_digest.py` are read-only and available once
+  #9048 merges (they ship with it — see §3 arm dates).
 
 ## 7. Cost model
 
