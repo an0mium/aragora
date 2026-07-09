@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -181,8 +182,13 @@ class ThroughputMetrics:
 
 def _merge_to_classified(record: LedgerRecord) -> ClassifiedWork:
     data = record.data
+    file_counts = data.get("file_counts", {})
+    if not isinstance(file_counts, Mapping):
+        raise ValueError("merge record file_counts must be a mapping")
     counts = {cls: 0 for cls in WorkClass}
-    for value, count in data.get("file_counts", {}).items():
+    for value, count in file_counts.items():
+        if not isinstance(count, int):
+            raise ValueError(f"merge record file count must be int: {value!r}")
         counts[WorkClass(value)] = count
     return ClassifiedWork(
         identifier=str(data.get("identifier", "")),
@@ -192,6 +198,25 @@ def _merge_to_classified(record: LedgerRecord) -> ClassifiedWork:
         exempt=bool(data.get("exempt", False)),
         cross_check_disagreement=data.get("cross_check_disagreement"),
     )
+
+
+def _valid_classified_merges(
+    records: list[LedgerRecord],
+) -> list[tuple[LedgerRecord, ClassifiedWork]]:
+    classified: list[tuple[LedgerRecord, ClassifiedWork]] = []
+    skipped = 0
+    for record in records:
+        try:
+            classified.append((record, _merge_to_classified(record)))
+        except (KeyError, TypeError, ValueError):
+            skipped += 1
+            logger.warning(
+                "skipping semantically invalid merge ledger record %s",
+                record.data.get("identifier", "<unknown>"),
+            )
+    if skipped:
+        logger.warning("skipped %d semantically invalid merge ledger record(s)", skipped)
+    return classified
 
 
 def compute_metrics(
@@ -211,26 +236,28 @@ def compute_metrics(
     windowed = [r for r in records if cutoff <= r.when < now]
 
     merges = [r for r in windowed if r.kind == "merge"]
-    classified = [_merge_to_classified(r) for r in merges]
+    classified_merges = _valid_classified_merges(merges)
+    classified = [work for _, work in classified_merges]
     mix = compute_mix(classified, window_days=window_days)
+    valid_merges_total = len(classified_merges)
 
     # Self-repair: fixes whose target is the loop itself (substrate-class
     # merges with a fix-shaped title). High ratios trigger the
     # remove-the-fragile-abstraction review, not more patches.
     self_repair = sum(
         1
-        for record, work in zip(merges, classified)
+        for record, work in classified_merges
         if work.work_class is WorkClass.SUBSTRATE
         and str(record.data.get("title", "")).lower().startswith(("fix", "repair"))
     )
 
     return ThroughputMetrics(
         window_days=window_days,
-        merges_total=len(merges),
+        merges_total=valid_merges_total,
         merges_by_class=dict(mix.counts),
         product_share=mix.product_share,
         substrate_share=mix.substrate_share,
-        self_repair_ratio=self_repair / len(merges) if merges else 0.0,
+        self_repair_ratio=self_repair / valid_merges_total if valid_merges_total else 0.0,
         external_artifacts=sum(1 for r in windowed if r.kind == "artifact"),
         parks=sum(1 for r in windowed if r.kind == "park"),
         reverts=sum(1 for r in windowed if r.kind == "revert"),
@@ -248,9 +275,8 @@ def mix_from_records(
     """The windowed work-mix report used for budget evaluation."""
     now = now or _utcnow()
     cutoff = now - timedelta(days=window_days)
-    classified = [
-        _merge_to_classified(r) for r in records if r.kind == "merge" and cutoff <= r.when < now
-    ]
+    merges = [r for r in records if r.kind == "merge" and cutoff <= r.when < now]
+    classified = [work for _, work in _valid_classified_merges(merges)]
     return compute_mix(classified, window_days=window_days)
 
 
@@ -306,7 +332,7 @@ def render_digest(
     budget = budget or MixBudget()
     mix = MixReport(
         counts=metrics.merges_by_class,
-        total=metrics.merges_total,
+        total=sum(metrics.merges_by_class.values()),
         window_days=metrics.window_days,
     )
     verdict = evaluate_budget(mix, budget)

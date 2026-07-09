@@ -131,6 +131,52 @@ class TestComputeMetrics:
         mix = mix_from_records(ledger.records(), now=NOW)
         assert mix.total == 1  # exempt merge excluded from budget math
 
+    def test_semantically_invalid_merge_records_are_skipped(self, tmp_path, caplog):
+        ledger = ThroughputLedger(tmp_path)
+        _merge(ledger, ["aragora/a.py"], pr="good")
+        ledger.append(
+            LedgerRecord(
+                kind="merge",
+                timestamp=RECENT.isoformat(),
+                data={
+                    "identifier": "bad-class",
+                    "work_class": "not-a-work-class",
+                    "file_counts": {},
+                },
+            )
+        )
+        ledger.append(
+            LedgerRecord(
+                kind="merge",
+                timestamp=RECENT.isoformat(),
+                data={
+                    "identifier": "bad-file-counts",
+                    "work_class": "substrate",
+                    "file_counts": ["not", "a", "mapping"],
+                },
+            )
+        )
+        ledger.append(
+            LedgerRecord(
+                kind="merge",
+                timestamp=RECENT.isoformat(),
+                data={
+                    "identifier": "bad-count-value",
+                    "work_class": "substrate",
+                    "file_counts": {"substrate": "many"},
+                },
+            )
+        )
+
+        with caplog.at_level("WARNING", logger="aragora.nomic.throughput"):
+            metrics = compute_metrics(ledger.records(), now=NOW)
+            mix = mix_from_records(ledger.records(), now=NOW)
+
+        assert metrics.merges_total == 1
+        assert metrics.product_share == 1.0
+        assert mix.total == 1
+        assert "semantically invalid merge ledger record" in caplog.text
+
 
 class TestFreezeMarker:
     def test_lifecycle(self, tmp_path):
@@ -175,3 +221,24 @@ class TestRenderDigest:
         digest = render_digest(current, previous=previous)
         assert "inactive" in digest
         assert "WoW" in digest
+
+    def test_digest_budget_uses_countable_non_exempt_denominator(self, tmp_path):
+        ledger = ThroughputLedger(tmp_path)
+        _merge(ledger, ["aragora/debate/a.py"], pr="product")
+        for index in range(3):
+            _merge(
+                ledger,
+                [f"scripts/security_fix_{index}.py"],
+                labels=["security"],
+                pr=f"exempt-{index}",
+            )
+
+        metrics = compute_metrics(ledger.records(), now=NOW)
+        digest = render_digest(metrics)
+
+        assert metrics.merges_total == 4
+        assert metrics.exempt_merges == 3
+        assert metrics.product_share == 1.0
+        assert "Product share | 100%" in digest
+        assert "Exempt merges (excluded from mix) | 3" in digest
+        assert "**Budget verdict:** OK" in digest
