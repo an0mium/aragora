@@ -78,6 +78,11 @@ class TestThroughputLedger:
             handle.write("1\n")
             handle.write('{"kind": "artifact", "timestamp": "2026-07-08T00:00:00", "data": {}}\n')
             handle.write('{"kind": "bogus-kind", "timestamp": "2026-07-08T00:00:00+00:00"}\n')
+            # non-dict data payload passes timestamp validation but must be
+            # rejected as corrupt, not crash consumers (#9047 openai [P2])
+            handle.write(
+                '{"kind": "merge", "timestamp": "2026-07-08T00:00:00+00:00", "data": []}\n'
+            )
         _merge(ledger, ["aragora/b.py"], pr="2")
         records = ledger.records()
         assert [r.data["identifier"] for r in records] == ["1", "2"]

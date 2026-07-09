@@ -71,7 +71,13 @@ class LedgerRecord:
         raw = json.loads(line)
         if not isinstance(raw, Mapping):
             raise TypeError("ledger record must be a JSON object")
-        return cls(kind=raw["kind"], timestamp=raw["timestamp"], data=raw.get("data", {}))
+        data = raw.get("data", {})
+        # A non-dict data payload (e.g. "data": []) would pass records()'s
+        # timestamp validation and crash consumers downstream; reject it here
+        # so the corrupt-line skip in records() handles it (#9047 openai [P2]).
+        if not isinstance(data, dict):
+            raise TypeError("ledger record data must be a JSON object")
+        return cls(kind=raw["kind"], timestamp=raw["timestamp"], data=data)
 
     @property
     def when(self) -> datetime:
