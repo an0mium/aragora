@@ -24,8 +24,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from aragora.insights.receipt_followups import find_due_falsification_followups
-
 UTC = timezone.utc
 
 DEFAULT_REPO = "synaptent/aragora"
@@ -50,6 +48,26 @@ _FORBIDDEN_GH_TOKENS = frozenset({"close", "delete", "merge", "comment", "DELETE
 _SALVAGE_NAME_HINTS = ("feat/", "feat-", "feature/")
 
 _PR_JSON_FIELDS = "number,title,mergedAt,closedAt,additions,deletions,isDraft,headRefName,url"
+
+
+def _find_due_receipt_followups(
+    receipt_followups: list[Any] | None,
+    *,
+    now: datetime | None,
+) -> list[dict[str, Any]]:
+    """Return due receipt follow-ups without making cron startup import Aragora.
+
+    ``harvest_outcomes.py`` is intentionally stdlib-only for launchd/cron
+    startup. The receipt follow-up integration is optional and currently has no
+    CLI source, so normal scheduled runs must not import the full ``aragora``
+    package just to report an empty list.
+    """
+    if not receipt_followups:
+        return []
+
+    from aragora.insights.receipt_followups import find_due_falsification_followups
+
+    return find_due_falsification_followups(receipt_followups, now=now)
 
 
 def run_gh(args: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
@@ -527,10 +545,7 @@ def run_harvest(
         },
         "issues_filed": issues_filed,
         "signals_emitted": signals_emitted,
-        "receipt_followups": find_due_falsification_followups(
-            receipt_followups or [],
-            now=now,
-        ),
+        "receipt_followups": _find_due_receipt_followups(receipt_followups, now=now),
         "ledger_appended": apply,
         "ledger_path": str(ledger_path),
     }

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -415,6 +418,24 @@ class TestOriginFreshness:
 
 
 class TestMain:
+    def test_script_help_starts_without_repo_package_on_pythonpath(self, tmp_path: Path):
+        repo_root = Path(__file__).resolve().parents[2]
+        env = os.environ.copy()
+        env["PYTHONPATH"] = ""
+
+        proc = subprocess.run(
+            [sys.executable, str(repo_root / "scripts" / "harvest_outcomes.py"), "--help"],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        assert "Harvest engine" in proc.stdout
+
     def test_defaults(self):
         args = mod.build_parser().parse_args([])
         assert args.since_days == 7
