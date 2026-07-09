@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,14 @@ from . import ContextResult
 # Optional metrics recording (imported lazily to avoid circular imports)
 _metrics_recorder: Callable[[str, str, float], None] | None = None
 _agent_metrics_recorder: Callable[[str, str, float], None] | None = None
+
+
+def _default_log(*values: object, **_: object) -> None:
+    sys.stdout.write(" ".join(str(value) for value in values) + "\n")
+
+
+def _noop_stream_emit(*_: object, **__: object) -> None:
+    return None
 
 
 def set_metrics_recorder(
@@ -90,8 +99,8 @@ class ContextPhase:
         self.skip_kilocode = skip_kilocode
         self.kilocode_agent_factory = kilocode_agent_factory
         self.cycle_count = cycle_count
-        self._log = log_fn or print
-        self._stream_emit = stream_emit_fn or (lambda *args: None)
+        self._log: Callable[..., None] = log_fn or _default_log
+        self._stream_emit: Callable[..., None] = stream_emit_fn or _noop_stream_emit
         self._get_features = get_features_fn or (lambda: "No features available")
         self._context_builder = context_builder
 
