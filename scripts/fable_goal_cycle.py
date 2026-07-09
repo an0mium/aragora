@@ -51,6 +51,7 @@ SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
 SAFE_CONTEXT_SUBDIRS = (
     SAFE_CONTEXT_SUBDIR,
     Path(".aragora") / "conductor_cycles",
+    Path(".aragora") / "operator-context",
 )
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"

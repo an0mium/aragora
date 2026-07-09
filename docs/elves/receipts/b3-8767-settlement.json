@@ -1,0 +1,52 @@
+{
+  "receipt_id": "ctl-b3-8767-d6a1a1e0",
+  "gauntlet_id": "close-the-loop-20260701/B3",
+  "timestamp": "2026-07-01T23:35:46.318010+00:00",
+  "input_summary": "Batch B3 (#8759) merge executor PR #8767 @ d6a1a1e0; quorum 2-0 posted.",
+  "input_hash": "ee21fad791a09d5a9a3716a0af777b12a6015a2c9ffd7902b730849fa5601389",
+  "risk_summary": {
+    "tier": 2
+  },
+  "attacks_attempted": 2,
+  "attacks_successful": 1,
+  "probes_run": 2,
+  "vulnerabilities_found": 2,
+  "vulnerability_details": [
+    {
+      "round": 1,
+      "family": "openai",
+      "finding": "[P1] stale main-health reuse; [P2] commit-status contexts invisible",
+      "disposition": "repaired at d6a1a1e0, re-gate PASS 2-0"
+    }
+  ],
+  "verdict": "PASS",
+  "confidence": 0.9,
+  "robustness_score": 0.9,
+  "verdict_reasoning": "Tier-2 settlement: 2-0 heterogeneous quorum (claude+openai) at exact head after one repaired dissent round; dry-run demo fail-closed; arming remains a Tier-4 human step per operator authorization.",
+  "dissenting_views": [],
+  "consensus_proof": null,
+  "provenance_chain": [],
+  "agent_responses": [],
+  "cost_summary": null,
+  "settlement_metadata": {
+    "run": "close-the-loop-20260701",
+    "batch": "B3",
+    "quorum": {
+      "families": [
+        "claude",
+        "openai"
+      ],
+      "supportive": 2,
+      "dissenting": 0,
+      "head_sha": "d6a1a1e0160fee72a483955ad5e3478ebaf17858",
+      "evidence_posted": true
+    },
+    "operator_authorization": "https://github.com/synaptent/aragora/issues/8762#issuecomment-4860561852"
+  },
+  "settlement_status": "settled_tier2_autonomous",
+  "explainability": null,
+  "thinking_traces": null,
+  "schema_version": "1.1",
+  "artifact_hash": "feafb35f9f377ba866901e3e5942353c32b0526803b5a63643dbd91453f3aae7",
+  "config_used": {}
+}
