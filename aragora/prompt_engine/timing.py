@@ -128,15 +128,9 @@ class PipelineTiming:
 
     def top_operations(self, limit: int = 5) -> list[OperationTiming]:
         """Return the slowest measured operations."""
-        return sorted(
-            self.operation_timings,
-            key=lambda item: (
-                item.duration_ms if item.duration_ms >= 1.0 else 0.0,
-                item.category == "llm",
-                item.duration_ms,
-            ),
-            reverse=True,
-        )[:limit]
+        return sorted(self.operation_timings, key=lambda item: item.duration_ms, reverse=True)[
+            :limit
+        ]
 
     def bottlenecks(
         self,

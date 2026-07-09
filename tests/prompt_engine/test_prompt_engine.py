@@ -865,10 +865,17 @@ class TestPromptConductor:
             "research",
             "specify",
         }
-        assert result.timing.top_operations(limit=1)[0].operation.endswith(".agent_generate")
+        assert any(
+            item.operation.endswith(".agent_generate") for item in result.timing.operation_timings
+        )
+        top_durations = [item.duration_ms for item in result.timing.top_operations()]
+        assert top_durations == sorted(top_durations, reverse=True)
         serialized_timing = result.timing.to_dict()
         assert serialized_timing["slowest_stage"]["stage"] == result.timing.slowest_stage_name
-        assert serialized_timing["top_operations"][0]["operation"].endswith(".agent_generate")
+        assert (
+            serialized_timing["top_operations"][0]["operation"]
+            == result.timing.top_operations(limit=1)[0].operation
+        )
         assert "llm" in serialized_timing["category_durations_ms"]
 
     @pytest.mark.asyncio()
