@@ -19,7 +19,7 @@ import json
 import subprocess
 import sys
 from dataclasses import asdict
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 
 from pathlib import Path
 
@@ -30,26 +30,14 @@ from aragora.nomic.throughput import ThroughputLedger, compute_metrics
 from aragora.nomic.work_mix import classify_paths
 
 
-def _gh_merged_prs(limit: int, *, repo_root: str = ".") -> list[dict]:
-    # gh resolves the repo from cwd; pin it to --repo-root so the query and
-    # the ledger writes always target the same repository. Search sorting keeps
-    # the bounded result set focused on recent merge activity; the local sort
-    # below makes the processing order deterministic by the field we consume.
+def _today_utc() -> date:
+    return datetime.now(timezone.utc).date()
+
+
+def _gh_json(cmd: list[str], *, repo_root: str, failure: str) -> object:
     try:
         out = subprocess.run(
-            [
-                "gh",
-                "pr",
-                "list",
-                "--state",
-                "merged",
-                "--limit",
-                str(limit),
-                "--search",
-                "is:merged sort:updated-desc",
-                "--json",
-                "number,title,mergedAt,labels,files",
-            ],
+            cmd,
             capture_output=True,
             text=True,
             check=True,
@@ -59,14 +47,106 @@ def _gh_merged_prs(limit: int, *, repo_root: str = ".") -> list[dict]:
     except FileNotFoundError:
         sys.exit("gh CLI not found; snapshot requires gh (read-only)")
     except subprocess.TimeoutExpired:
-        sys.exit("gh timed out listing merged PRs")
+        sys.exit(f"gh timed out {failure}")
     except subprocess.CalledProcessError as exc:
-        sys.exit(f"gh failed listing merged PRs: {exc.stderr.strip()[:200]}")
-    return sorted(
-        json.loads(out),
-        key=lambda pr: datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00")),
-        reverse=True,
+        sys.exit(f"gh failed {failure}: {exc.stderr.strip()[:200]}")
+    return json.loads(out)
+
+
+def _gh_repo_name(*, repo_root: str) -> str:
+    payload = _gh_json(
+        ["gh", "repo", "view", "--json", "nameWithOwner"],
+        repo_root=repo_root,
+        failure="resolving repository",
     )
+    if not isinstance(payload, dict) or not payload.get("nameWithOwner"):
+        sys.exit("gh failed resolving repository: missing nameWithOwner")
+    return str(payload["nameWithOwner"])
+
+
+def _parse_merged_at(pr: dict) -> datetime:
+    return datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
+
+
+def _gh_merged_pr_details(number: int, *, repo: str, repo_root: str) -> dict:
+    payload = _gh_json(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(number),
+            "--repo",
+            repo,
+            "--json",
+            "number,title,mergedAt,labels,files",
+        ],
+        repo_root=repo_root,
+        failure=f"reading merged PR #{number}",
+    )
+    if not isinstance(payload, dict):
+        sys.exit(f"gh failed reading merged PR #{number}: unexpected JSON shape")
+    return payload
+
+
+def _pr_number_from_url(value: object) -> int | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return int(value.rstrip("/").rsplit("/", 1)[-1])
+    except ValueError:
+        return None
+
+
+def _gh_merged_prs(limit: int, *, repo_root: str = ".", lookback_days: int = 90) -> list[dict]:
+    if limit <= 0:
+        return []
+
+    # ``gh pr list --search 'sort:updated-desc'`` can omit recent merges when
+    # older merged PRs receive newer comments or label edits. Search by
+    # merge-date buckets instead, then fetch exact PR details for the newest
+    # mergedAt values we will actually record.
+    repo = _gh_repo_name(repo_root=repo_root)
+    merged_by_number: dict[int, dict] = {}
+    for offset in range(max(lookback_days, 1)):
+        day = _today_utc() - timedelta(days=offset)
+        search_payload = _gh_json(
+            [
+                "gh",
+                "search",
+                "prs",
+                "--repo",
+                repo,
+                "--merged",
+                "--merged-at",
+                day.isoformat(),
+                "--limit",
+                "1000",
+                "--json",
+                "url",
+            ],
+            repo_root=repo_root,
+            failure=f"searching merged PRs for {day.isoformat()}",
+        )
+        if not isinstance(search_payload, list):
+            sys.exit("gh failed searching merged PRs: unexpected JSON shape")
+        for item in search_payload:
+            if isinstance(item, dict):
+                number = _pr_number_from_url(item.get("url"))
+                if number is not None:
+                    if number not in merged_by_number:
+                        merged_by_number[number] = _gh_merged_pr_details(
+                            number, repo=repo, repo_root=repo_root
+                        )
+                elif item.get("url") is not None:
+                    sys.exit("gh failed searching merged PRs: unexpected PR URL")
+        if len(merged_by_number) >= limit:
+            break
+
+    return sorted(
+        merged_by_number.values(),
+        key=_parse_merged_at,
+        reverse=True,
+    )[:limit]
 
 
 @contextlib.contextmanager
@@ -92,7 +172,9 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
 def _snapshot_locked(args: argparse.Namespace, ledger: ThroughputLedger) -> int:
     seen = {record.data.get("identifier") for record in ledger.records() if record.kind == "merge"}
     added = 0
-    for pr in _gh_merged_prs(args.limit, repo_root=args.repo_root):
+    for pr in _gh_merged_prs(
+        args.limit, repo_root=args.repo_root, lookback_days=args.lookback_days
+    ):
         identifier = str(pr["number"])
         if identifier in seen:
             continue
@@ -144,6 +226,12 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     snapshot = sub.add_parser("snapshot", help="classify recent merges into the ledger")
     snapshot.add_argument("--limit", type=int, default=30, help="merged PRs to scan")
+    snapshot.add_argument(
+        "--lookback-days",
+        type=int,
+        default=90,
+        help="merge-date days to search when backfilling recent merged PRs",
+    )
     snapshot.set_defaults(func=cmd_snapshot)
     show = sub.add_parser("show", help="print rolling metrics as JSON")
     show.set_defaults(func=cmd_show)
