@@ -393,6 +393,71 @@ new file mode 100644
     ]
 
 
+def test_renamed_destination_under_unmapped_package_is_proposed(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/aragora/queue/old.py b/aragora/advocates/renamed.py
+similarity index 80%
+--- a/aragora/queue/old.py
++++ b/aragora/advocates/renamed.py
+@@ -1 +1 @@
+-OLD = True
++RENAMED = True
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.proposed_violations] == [
+        "APPENDIX-A:aragora/advocates"
+    ]
+
+
+def test_copied_destination_under_unknown_package_is_proposed(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/aragora/queue/source.py b/aragora/new_architecture/copied.py
+similarity index 100%
+copy from aragora/queue/source.py
+copy to aragora/new_architecture/copied.py
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.proposed_violations] == [
+        "APPENDIX-A:aragora/new_architecture"
+    ]
+
+
+def test_renamed_destination_under_mapped_package_is_allowed(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/aragora/advocates/old.py b/aragora/queue/renamed.py
+similarity index 100%
+rename from aragora/advocates/old.py
+rename to aragora/queue/renamed.py
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is True
+    assert result.violations == []
+
+
+def test_empty_renamed_file_under_unmapped_package_is_proposed(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/aragora/queue/empty.py b/aragora/advocates/empty.py
+similarity index 100%
+rename from aragora/queue/empty.py
+rename to aragora/advocates/empty.py
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.proposed_violations] == [
+        "APPENDIX-A:aragora/advocates"
+    ]
+
+
 def test_existing_file_edit_under_unmapped_package_is_maintenance(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/aragora/advocates/existing.py b/aragora/advocates/existing.py

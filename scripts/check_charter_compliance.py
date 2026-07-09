@@ -7,6 +7,7 @@ import argparse
 import fnmatch
 import json
 import re
+import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -348,20 +349,41 @@ def parse_diff(diff_text: str) -> list[AddedLine]:
 
 def parse_new_files(diff_text: str) -> list[str]:
     new_files: list[str] = []
-    old_path_is_null = False
+
+    def remember(path: str | None) -> None:
+        if path is not None and path not in new_files:
+            new_files.append(path)
+
+    old_path: str | None = None
+    saw_old_header = False
     for raw_line in diff_text.splitlines():
         if raw_line.startswith("diff --git "):
-            old_path_is_null = False
+            old_path = None
+            saw_old_header = False
+            try:
+                parts = shlex.split(raw_line)
+            except ValueError:
+                parts = []
+            if len(parts) >= 4:
+                diff_old_path = _normalize_diff_path(parts[2])
+                diff_new_path = _normalize_diff_path(parts[3])
+                if diff_new_path != diff_old_path:
+                    remember(diff_new_path)
             continue
         if raw_line.startswith("--- "):
             old_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
-            old_path_is_null = old_path is None
+            saw_old_header = True
             continue
-        if raw_line.startswith("+++ ") and old_path_is_null:
+        if raw_line.startswith("+++ ") and saw_old_header:
             new_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
-            if new_path is not None:
-                new_files.append(new_path)
-            old_path_is_null = False
+            if new_path != old_path:
+                remember(new_path)
+            saw_old_header = False
+            continue
+        for prefix in ("rename to ", "copy to "):
+            if raw_line.startswith(prefix):
+                remember(_normalize_diff_path(raw_line[len(prefix) :]))
+                break
     return new_files
 
 
