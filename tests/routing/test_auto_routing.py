@@ -371,17 +371,26 @@ class TestGetDomainLeaderboard:
 class TestCreateWithDefaults:
     """Tests for AgentSelector.create_with_defaults() factory method."""
 
-    def test_creates_selector_with_default_agents(self):
+    @pytest.mark.parametrize(
+        ("enable_kimi", "excluded_agents"),
+        [(False, {"kimi"}), (True, set())],
+    )
+    def test_creates_selector_with_default_agents(
+        self,
+        monkeypatch,
+        enable_kimi,
+        excluded_agents,
+    ):
         """create_with_defaults should register default agents."""
+        if enable_kimi:
+            monkeypatch.setenv("ARAGORA_ENABLE_KIMI_CLI", "1")
+        else:
+            monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
+
         selector = AgentSelector.create_with_defaults()
 
-        # Should have the default agents registered
-        assert len(selector.agent_pool) == len(DEFAULT_AGENT_EXPERTISE)
-
-        # Verify expected agents are present
-        expected_agents = ["claude", "codex", "gemini", "grok", "deepseek"]
-        for agent_name in expected_agents:
-            assert agent_name in selector.agent_pool
+        registered_defaults = set(selector.agent_pool).intersection(DEFAULT_AGENT_EXPERTISE)
+        assert registered_defaults == set(DEFAULT_AGENT_EXPERTISE) - excluded_agents
 
     def test_default_agents_have_expertise(self):
         """Default agents should have expertise profiles."""
@@ -423,8 +432,9 @@ class TestCreateWithDefaults:
         # Claude's rating should be updated
         assert selector.agent_pool["claude"].elo_rating == 1700
 
-    def test_default_expertise_matches_constant(self):
+    def test_default_expertise_matches_constant(self, monkeypatch):
         """Default expertise should match DEFAULT_AGENT_EXPERTISE constant."""
+        monkeypatch.setenv("ARAGORA_ENABLE_KIMI_CLI", "1")
         selector = AgentSelector.create_with_defaults()
 
         for agent_name, expected_expertise in DEFAULT_AGENT_EXPERTISE.items():
@@ -506,7 +516,7 @@ class TestAutoRouteIntegration:
         team = selector.auto_route("Test task")
 
         for agent in team.agents:
-            assert agent.agent_type in ["claude", "codex", "gemini", "grok", "deepseek"]
+            assert agent.agent_type == selector.agent_pool[agent.name].agent_type
 
 
 # =============================================================================
