@@ -39,6 +39,13 @@ class TestLedgerRecord:
         with pytest.raises(ValueError, match="unknown ledger record kind"):
             LedgerRecord(kind="bogus", timestamp=NOW.isoformat())
 
+    def test_from_json_rejects_non_object_payloads(self):
+        with pytest.raises(TypeError, match="ledger record must be a JSON object"):
+            LedgerRecord.from_json("[]")
+
+        with pytest.raises(TypeError, match="ledger record must be a JSON object"):
+            LedgerRecord.from_json("1")
+
 
 class TestThroughputLedger:
     def test_append_and_read(self, tmp_path):
@@ -67,6 +74,9 @@ class TestThroughputLedger:
         with ledger.path.open("a", encoding="utf-8") as handle:
             handle.write('{"kind": "merge", "timesta\n')  # truncated write
             handle.write("not json at all\n")
+            handle.write("[]\n")
+            handle.write("1\n")
+            handle.write('{"kind": "artifact", "timestamp": "2026-07-08T00:00:00", "data": {}}\n')
             handle.write('{"kind": "bogus-kind", "timestamp": "2026-07-08T00:00:00+00:00"}\n')
         _merge(ledger, ["aragora/b.py"], pr="2")
         records = ledger.records()
@@ -108,6 +118,40 @@ class TestComputeMetrics:
         assert metrics.merges_total == 0
         assert metrics.product_share == 0.0
         assert metrics.self_repair_ratio == 0.0
+
+    def test_naive_timestamp_records_are_ignored(self, tmp_path, caplog):
+        ledger = ThroughputLedger(tmp_path)
+        _merge(ledger, ["aragora/a.py"], pr="good")
+        ledger.append(
+            LedgerRecord(
+                kind="artifact",
+                timestamp="2026-07-08T11:00:00",
+                data={"name": "naive"},
+            )
+        )
+
+        with caplog.at_level("WARNING", logger="aragora.nomic.throughput"):
+            metrics = compute_metrics(ledger.records(), now=NOW)
+
+        assert metrics.merges_total == 1
+        assert metrics.external_artifacts == 0
+        assert "corrupt ledger line" in caplog.text
+
+    def test_compute_metrics_skips_direct_naive_timestamp_records(self, tmp_path, caplog):
+        ledger = ThroughputLedger(tmp_path)
+        good = _merge(ledger, ["aragora/a.py"], pr="good")
+        naive = LedgerRecord(
+            kind="artifact",
+            timestamp="2026-07-08T11:00:00",
+            data={"name": "naive"},
+        )
+
+        with caplog.at_level("WARNING", logger="aragora.nomic.throughput"):
+            metrics = compute_metrics([good, naive], now=NOW)
+
+        assert metrics.merges_total == 1
+        assert metrics.external_artifacts == 0
+        assert "invalid timestamp" in caplog.text
 
     def test_previous_window_excludes_current_records(self, tmp_path):
         # WoW regression: computing metrics with now=NOW-7d must NOT absorb

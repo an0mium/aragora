@@ -69,11 +69,16 @@ class LedgerRecord:
     @classmethod
     def from_json(cls, line: str) -> LedgerRecord:
         raw = json.loads(line)
+        if not isinstance(raw, Mapping):
+            raise TypeError("ledger record must be a JSON object")
         return cls(kind=raw["kind"], timestamp=raw["timestamp"], data=raw.get("data", {}))
 
     @property
     def when(self) -> datetime:
-        return datetime.fromisoformat(self.timestamp)
+        parsed = datetime.fromisoformat(self.timestamp)
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise ValueError("ledger timestamp must include timezone information")
+        return parsed
 
 
 class ThroughputLedger:
@@ -233,7 +238,7 @@ def compute_metrics(
     """
     now = now or _utcnow()
     cutoff = now - timedelta(days=window_days)
-    windowed = [r for r in records if cutoff <= r.when < now]
+    windowed = _records_in_window(records, cutoff=cutoff, now=now)
 
     merges = [r for r in windowed if r.kind == "merge"]
     classified_merges = _valid_classified_merges(merges)
@@ -275,9 +280,31 @@ def mix_from_records(
     """The windowed work-mix report used for budget evaluation."""
     now = now or _utcnow()
     cutoff = now - timedelta(days=window_days)
-    merges = [r for r in records if r.kind == "merge" and cutoff <= r.when < now]
+    merges = [r for r in _records_in_window(records, cutoff=cutoff, now=now) if r.kind == "merge"]
     classified = [work for _, work in _valid_classified_merges(merges)]
     return compute_mix(classified, window_days=window_days)
+
+
+def _records_in_window(
+    records: list[LedgerRecord], *, cutoff: datetime, now: datetime
+) -> list[LedgerRecord]:
+    windowed: list[LedgerRecord] = []
+    skipped = 0
+    for record in records:
+        try:
+            when = record.when
+        except (TypeError, ValueError):
+            skipped += 1
+            logger.warning(
+                "skipping ledger record with invalid timestamp %r",
+                record.timestamp,
+            )
+            continue
+        if cutoff <= when < now:
+            windowed.append(record)
+    if skipped:
+        logger.warning("skipped %d ledger record(s) with invalid timestamp", skipped)
+    return windowed
 
 
 # -- substrate-freeze marker -------------------------------------------------
