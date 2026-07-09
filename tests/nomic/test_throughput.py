@@ -39,6 +39,13 @@ class TestLedgerRecord:
         with pytest.raises(ValueError, match="unknown ledger record kind"):
             LedgerRecord(kind="bogus", timestamp=NOW.isoformat())
 
+    def test_from_json_rejects_non_object_payloads(self):
+        with pytest.raises(TypeError, match="ledger record must be a JSON object"):
+            LedgerRecord.from_json("[]")
+
+        with pytest.raises(TypeError, match="ledger record must be a JSON object"):
+            LedgerRecord.from_json("1")
+
 
 class TestThroughputLedger:
     def test_append_and_read(self, tmp_path):
@@ -67,7 +74,15 @@ class TestThroughputLedger:
         with ledger.path.open("a", encoding="utf-8") as handle:
             handle.write('{"kind": "merge", "timesta\n')  # truncated write
             handle.write("not json at all\n")
+            handle.write("[]\n")
+            handle.write("1\n")
+            handle.write('{"kind": "artifact", "timestamp": "2026-07-08T00:00:00", "data": {}}\n')
             handle.write('{"kind": "bogus-kind", "timestamp": "2026-07-08T00:00:00+00:00"}\n')
+            # non-dict data payload passes timestamp validation but must be
+            # rejected as corrupt, not crash consumers (#9047 openai [P2])
+            handle.write(
+                '{"kind": "merge", "timestamp": "2026-07-08T00:00:00+00:00", "data": []}\n'
+            )
         _merge(ledger, ["aragora/b.py"], pr="2")
         records = ledger.records()
         assert [r.data["identifier"] for r in records] == ["1", "2"]
@@ -109,6 +124,40 @@ class TestComputeMetrics:
         assert metrics.product_share == 0.0
         assert metrics.self_repair_ratio == 0.0
 
+    def test_naive_timestamp_records_are_ignored(self, tmp_path, caplog):
+        ledger = ThroughputLedger(tmp_path)
+        _merge(ledger, ["aragora/a.py"], pr="good")
+        ledger.append(
+            LedgerRecord(
+                kind="artifact",
+                timestamp="2026-07-08T11:00:00",
+                data={"name": "naive"},
+            )
+        )
+
+        with caplog.at_level("WARNING", logger="aragora.nomic.throughput"):
+            metrics = compute_metrics(ledger.records(), now=NOW)
+
+        assert metrics.merges_total == 1
+        assert metrics.external_artifacts == 0
+        assert "corrupt ledger line" in caplog.text
+
+    def test_compute_metrics_skips_direct_naive_timestamp_records(self, tmp_path, caplog):
+        ledger = ThroughputLedger(tmp_path)
+        good = _merge(ledger, ["aragora/a.py"], pr="good")
+        naive = LedgerRecord(
+            kind="artifact",
+            timestamp="2026-07-08T11:00:00",
+            data={"name": "naive"},
+        )
+
+        with caplog.at_level("WARNING", logger="aragora.nomic.throughput"):
+            metrics = compute_metrics([good, naive], now=NOW)
+
+        assert metrics.merges_total == 1
+        assert metrics.external_artifacts == 0
+        assert "invalid timestamp" in caplog.text
+
     def test_previous_window_excludes_current_records(self, tmp_path):
         # WoW regression: computing metrics with now=NOW-7d must NOT absorb
         # records from the current week (window is bounded on both ends).
@@ -130,6 +179,52 @@ class TestComputeMetrics:
         assert metrics.exempt_merges == 1
         mix = mix_from_records(ledger.records(), now=NOW)
         assert mix.total == 1  # exempt merge excluded from budget math
+
+    def test_semantically_invalid_merge_records_are_skipped(self, tmp_path, caplog):
+        ledger = ThroughputLedger(tmp_path)
+        _merge(ledger, ["aragora/a.py"], pr="good")
+        ledger.append(
+            LedgerRecord(
+                kind="merge",
+                timestamp=RECENT.isoformat(),
+                data={
+                    "identifier": "bad-class",
+                    "work_class": "not-a-work-class",
+                    "file_counts": {},
+                },
+            )
+        )
+        ledger.append(
+            LedgerRecord(
+                kind="merge",
+                timestamp=RECENT.isoformat(),
+                data={
+                    "identifier": "bad-file-counts",
+                    "work_class": "substrate",
+                    "file_counts": ["not", "a", "mapping"],
+                },
+            )
+        )
+        ledger.append(
+            LedgerRecord(
+                kind="merge",
+                timestamp=RECENT.isoformat(),
+                data={
+                    "identifier": "bad-count-value",
+                    "work_class": "substrate",
+                    "file_counts": {"substrate": "many"},
+                },
+            )
+        )
+
+        with caplog.at_level("WARNING", logger="aragora.nomic.throughput"):
+            metrics = compute_metrics(ledger.records(), now=NOW)
+            mix = mix_from_records(ledger.records(), now=NOW)
+
+        assert metrics.merges_total == 1
+        assert metrics.product_share == 1.0
+        assert mix.total == 1
+        assert "semantically invalid merge ledger record" in caplog.text
 
 
 class TestFreezeMarker:
@@ -175,3 +270,24 @@ class TestRenderDigest:
         digest = render_digest(current, previous=previous)
         assert "inactive" in digest
         assert "WoW" in digest
+
+    def test_digest_budget_uses_countable_non_exempt_denominator(self, tmp_path):
+        ledger = ThroughputLedger(tmp_path)
+        _merge(ledger, ["aragora/debate/a.py"], pr="product")
+        for index in range(3):
+            _merge(
+                ledger,
+                [f"scripts/security_fix_{index}.py"],
+                labels=["security"],
+                pr=f"exempt-{index}",
+            )
+
+        metrics = compute_metrics(ledger.records(), now=NOW)
+        digest = render_digest(metrics)
+
+        assert metrics.merges_total == 4
+        assert metrics.exempt_merges == 3
+        assert metrics.product_share == 1.0
+        assert "Product share | 100%" in digest
+        assert "Exempt merges (excluded from mix) | 3" in digest
+        assert "**Budget verdict:** OK" in digest

@@ -117,13 +117,20 @@ class QuorumRun:
 
 @dataclass(frozen=True)
 class RerunDecision:
-    """Whether A1 should re-run the gate for a PR."""
+    """Whether A1 should re-run the gate for a PR.
+
+    ``needs_adjudication`` is set when the per-PR round budget is exhausted:
+    the correct next step is a net-value adjudication decision (merge-as-is /
+    one bounded round / close / restructure), not another rerun. Callers use
+    this structured flag instead of sniffing the reason string.
+    """
 
     pr_number: int
     should_rerun: bool
     reason: str
     run_id: int | None = None
     next_prompt: str = ""
+    needs_adjudication: bool = False
 
 
 @dataclass(frozen=True)
@@ -235,10 +242,15 @@ def plan_rerun(
         return decide(False, "quorum run already postdates the newest countable evidence")
 
     if pr_round_budget and pr_rounds_consumed >= pr_round_budget:
-        return decide(
-            False,
-            f"PR round budget exhausted ({pr_rounds_consumed}/{pr_round_budget} repair "
-            "rounds across head drift); net-value adjudication required, not another rerun",
+        return RerunDecision(
+            pr_number=pr_number,
+            should_rerun=False,
+            reason=(
+                f"PR round budget exhausted ({pr_rounds_consumed}/{pr_round_budget} repair "
+                "rounds across head drift); net-value adjudication required, not another rerun"
+            ),
+            run_id=run.run_id if run else None,
+            needs_adjudication=True,
         )
     if reruns_this_head >= max_reruns_per_head:
         return decide(False, f"max reruns reached for this head ({max_reruns_per_head})")

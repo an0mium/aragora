@@ -27,6 +27,10 @@ class TestClassifyPath:
         assert classify_path("docs/plans/2026-07-08-plan.md") is WorkClass.SUBSTRATE
         assert classify_path("docs/runbooks/main-red.md") is WorkClass.SUBSTRATE
 
+    def test_docs_site_is_product_proof(self):
+        # published user-facing docs are product output (#9047 openai [P2])
+        assert classify_path("docs-site/docs/api/reference.md") is WorkClass.PRODUCT_PROOF
+
     def test_product_proof_artifacts(self):
         assert classify_path("docs/artifacts/dogfood.md") is WorkClass.PRODUCT_PROOF
         assert classify_path("docs/specs/OPEN_DECISION_RECEIPT.md") is WorkClass.PRODUCT_PROOF
