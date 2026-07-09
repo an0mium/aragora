@@ -66,7 +66,14 @@ def refresh_pristine_worktree(repo: Path, pristine: Path) -> str:
     Returns the checked-out commit SHA. This directory is owned by this
     script; it is never a session worktree and holds no uncommitted work.
     """
-    fetch = _run(["git", "fetch", "origin", "main"], cwd=repo, timeout=300)
+    # Explicit refspec: plain "fetch origin main" only guarantees FETCH_HEAD,
+    # so the later origin/main checkout could test a stale ref and miss a
+    # newly red main (#9058 openai [P1]).
+    fetch = _run(
+        ["git", "fetch", "origin", "+refs/heads/main:refs/remotes/origin/main"],
+        cwd=repo,
+        timeout=300,
+    )
     if fetch.returncode != 0:
         sys.exit(f"git fetch failed: {fetch.stderr.strip()[:300]}")
     if not (pristine / ".git").exists():
