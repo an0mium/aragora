@@ -32,6 +32,7 @@ These tests pin the materialization contract:
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -318,6 +319,43 @@ def test_git_failure_returns_child_to_awaiting_claim_with_note(tmp_path):
         select_for(MissionState.load(state_path), Ledger(ledger_path), "w2")
         == "mission-intake-tests"
     )
+
+
+@pytest.mark.parametrize(
+    "runner_error",
+    [
+        OSError("git executable unavailable"),
+        subprocess.CalledProcessError(1, ["git", "rev-parse"]),
+    ],
+    ids=["os-error", "called-process-error"],
+)
+def test_runner_process_failure_returns_child_to_awaiting_claim(tmp_path, runner_error):
+    state_path, ledger_path = _child_state(tmp_path)
+
+    def failing_runner(cmd: list[str], cwd: Path) -> str:
+        raise runner_error
+
+    def refusing(feature: Feature) -> Handoff:
+        raise AssertionError("dispatch must not run when materialization failed")
+
+    res = run_worker(
+        state_path,
+        ledger_path,
+        "w1",
+        refusing,
+        materialize=BranchMaterializer(tmp_path, runner=failing_runner),
+        park_threshold=5,
+        max_units=1,
+    )
+
+    assert res.blocked == ["mission-intake-tests"]
+    assert res.done == []
+    assert res.parked == []
+
+    reconcile_from_ledger(state_path, ledger_path)
+    child = MissionState.load(state_path).get("mission-intake-tests")
+    assert child.status == Status.AWAITING_CLAIM
+    assert "branch materialization for mission-intake-tests failed" in child.notes
 
 
 def test_repeated_git_failure_is_bounded_by_existing_park_accounting(tmp_path):

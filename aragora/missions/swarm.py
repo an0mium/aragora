@@ -83,7 +83,9 @@ class BranchMaterializer:
             return self._materialize(feature, ledger)
         except BranchMaterializationError:
             raise
-        except RuntimeError as exc:  # git/subprocess failure — diagnosable, non-terminal
+        except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+            # Normalize runner/process failures so the worker's existing
+            # BranchMaterializationError path returns the unit to AWAITING_CLAIM.
             raise BranchMaterializationError(str(exc)) from exc
 
     def _materialize(self, feature: Feature, ledger: Ledger) -> str:
