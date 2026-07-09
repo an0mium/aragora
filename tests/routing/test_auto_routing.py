@@ -390,6 +390,7 @@ class TestCreateWithDefaults:
 
         selector = AgentSelector.create_with_defaults()
 
+        assert "fusion" not in DEFAULT_AGENT_EXPERTISE
         assert set(selector.agent_pool) == set(DEFAULT_AGENT_EXPERTISE) - excluded_agents
 
     def test_default_agents_have_expertise(self):
@@ -435,8 +436,10 @@ class TestCreateWithDefaults:
     def test_default_expertise_matches_constant(self, monkeypatch):
         """Default expertise should match DEFAULT_AGENT_EXPERTISE constant."""
         monkeypatch.setenv("ARAGORA_ENABLE_KIMI_CLI", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_FUSION", "0")
         selector = AgentSelector.create_with_defaults()
 
+        assert set(selector.agent_pool) == set(DEFAULT_AGENT_EXPERTISE)
         for agent_name, expected_expertise in DEFAULT_AGENT_EXPERTISE.items():
             actual_expertise = selector.agent_pool[agent_name].expertise
             assert actual_expertise == expected_expertise
