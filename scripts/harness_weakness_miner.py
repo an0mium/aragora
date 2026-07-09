@@ -166,11 +166,13 @@ def _target_value(mapping: dict[str, Any]) -> Any:
 
 
 def _within_window(created_at: str, *, since_days: int, now: datetime) -> bool:
+    if not created_at.strip():
+        return False
     try:
         parsed = parse_timestamp(created_at)
     except ValueError:
-        return True
-    return parsed >= now - timedelta(days=since_days)
+        return False
+    return now - timedelta(days=since_days) <= parsed <= now
 
 
 def _ledger_text(record: dict[str, Any]) -> str:
@@ -202,7 +204,12 @@ def _comment_is_relevant(body: str) -> bool:
     return any(marker.upper() in upper_body for marker in markers)
 
 
-def _load_input_examples(path: Path) -> list[WeaknessExample]:
+def _load_input_examples(
+    path: Path,
+    *,
+    since_days: int,
+    now: datetime,
+) -> list[WeaknessExample]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, list):
         raise ValueError(f"{path} must contain a JSON list of examples")
@@ -213,12 +220,15 @@ def _load_input_examples(path: Path) -> list[WeaknessExample]:
         text = _redact(str(item.get("text") or item.get("body") or ""))
         if not text.strip():
             continue
+        created_at = str(item.get("created_at") or item.get("timestamp") or "")
+        if not _within_window(created_at, since_days=since_days, now=now):
+            continue
         examples.append(
             WeaknessExample(
                 id=str(item.get("id") or f"input:{index}"),
                 source=str(item.get("source") or "input"),
                 target=_target_label(_target_value(item)),
-                created_at=str(item.get("created_at") or item.get("timestamp") or ""),
+                created_at=created_at,
                 severity=_severity_from_text(text, str(item.get("severity") or "")),
                 text=text,
                 url=str(item["url"]) if item.get("url") else None,
@@ -239,7 +249,7 @@ def _load_ledger_examples(path: Path, *, since_days: int, now: datetime) -> list
         if not isinstance(record, dict):
             continue
         created_at = str(record.get("timestamp") or record.get("generated_at") or "")
-        if created_at and not _within_window(created_at, since_days=since_days, now=now):
+        if not _within_window(created_at, since_days=since_days, now=now):
             continue
         text = _redact(_ledger_text(record))
         if not text:
@@ -274,7 +284,7 @@ def _load_comment_examples(path: Path, *, since_days: int, now: datetime) -> lis
         if not _comment_is_relevant(body):
             continue
         created_at = str(item.get("created_at") or item.get("createdAt") or "")
-        if created_at and not _within_window(created_at, since_days=since_days, now=now):
+        if not _within_window(created_at, since_days=since_days, now=now):
             continue
         text = _redact(body)
         examples.append(
@@ -302,7 +312,7 @@ def collect_examples(
     now = now or datetime.now(UTC)
     examples: list[WeaknessExample] = []
     if input_json is not None:
-        examples.extend(_load_input_examples(input_json))
+        examples.extend(_load_input_examples(input_json, since_days=since_days, now=now))
     for path in ledger_paths:
         if path.exists():
             examples.extend(_load_ledger_examples(path, since_days=since_days, now=now))

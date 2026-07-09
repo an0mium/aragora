@@ -200,6 +200,59 @@ def test_reads_ledger_and_comment_fixtures_with_redaction(tmp_path: Path) -> Non
     assert examples[1].url == "https://example.invalid/comment"
 
 
+def test_since_days_filters_every_source_and_rejects_untrusted_timestamps(
+    tmp_path: Path,
+) -> None:
+    input_path = _write_json(
+        tmp_path / "examples.json",
+        [
+            {"id": "input-recent", "created_at": "2026-07-01T00:00:00Z", "text": "recent"},
+            {"id": "input-stale", "created_at": "2026-05-01T00:00:00Z", "text": "stale"},
+            {"id": "input-future", "created_at": "2026-07-09T00:00:00Z", "text": "future"},
+            {"id": "input-invalid", "created_at": "not-a-date", "text": "invalid"},
+            {"id": "input-missing", "text": "missing"},
+        ],
+    )
+    ledger_path = tmp_path / "ledger.jsonl"
+    ledger_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "timestamp": "2026-07-02T00:00:00Z",
+                        "blocker_class": "recent-ledger",
+                    }
+                ),
+                json.dumps({"timestamp": "invalid", "blocker_class": "invalid-ledger"}),
+                json.dumps({"blocker_class": "missing-ledger"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    comments_path = _write_json(
+        tmp_path / "comments.json",
+        [
+            {"id": "comment-recent", "created_at": "2026-07-03T00:00:00Z", "body": "[P2] recent"},
+            {"id": "comment-missing", "body": "[P2] missing"},
+        ],
+    )
+
+    examples = miner.collect_examples(
+        input_json=input_path,
+        ledger_paths=[ledger_path],
+        comment_json_paths=[comments_path],
+        since_days=30,
+        now=miner.parse_timestamp("2026-07-08T00:00:00Z"),
+    )
+
+    assert [example.id for example in examples] == [
+        "input-recent",
+        "ledger:ledger.jsonl:1",
+        "comment-recent",
+    ]
+
+
 def test_classifier_uses_prompt_file_instead_of_argv(
     tmp_path: Path,
     monkeypatch: Any,

@@ -23,6 +23,10 @@ by causal mechanism and harness surface. The classifier output feeds two passes:
   emergent cluster keys or, when those are absent, a local density-style
   similarity pass over the summaries.
 
+The `--since-days` window applies to every input source. Examples with missing,
+malformed, stale, or future timestamps are excluded so untrusted metadata cannot
+inflate recent weakness counts.
+
 Tests and offline repros should avoid live model calls by supplying fixture
 classifications:
 
