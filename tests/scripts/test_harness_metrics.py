@@ -396,6 +396,40 @@ def test_external_progress_mutation_fields_use_or_semantics(
     assert lane["external_progress_per_cycle"] == 2 / 3
 
 
+def test_merged_pr_references_count_as_external_progress(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T08:00:00Z",
+                "lane": "a",
+                "direct_pr_merged": 1001,
+            },
+            {
+                "timestamp": "2026-07-08T09:00:00Z",
+                "lane": "a",
+                "direct_pr_merged": "#1002",
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["merged_prs"] == 2
+    assert lane["external_progress_cycles"] == 2
+    assert lane["external_progress_per_cycle"] == 1.0
+
+
 def test_external_progress_positive_outcome_overrides_false_mutation_sentinel(
     tmp_path: Path,
 ) -> None:

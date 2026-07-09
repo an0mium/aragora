@@ -325,6 +325,9 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
     if coerced is not None:
         return coerced
 
+    if _event_merged_pr(record) is not None:
+        return True
+
     mutation_keys = (
         "mutations.push",
         "mutations.merge",
