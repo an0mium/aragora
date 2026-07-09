@@ -32,7 +32,9 @@ from aragora.nomic.work_mix import classify_paths
 
 def _gh_merged_prs(limit: int, *, repo_root: str = ".") -> list[dict]:
     # gh resolves the repo from cwd; pin it to --repo-root so the query and
-    # the ledger writes always target the same repository (#9048 openai [P2]).
+    # the ledger writes always target the same repository. Search sorting keeps
+    # the bounded result set focused on recent merge activity; the local sort
+    # below makes the processing order deterministic by the field we consume.
     try:
         out = subprocess.run(
             [
@@ -43,6 +45,8 @@ def _gh_merged_prs(limit: int, *, repo_root: str = ".") -> list[dict]:
                 "merged",
                 "--limit",
                 str(limit),
+                "--search",
+                "is:merged sort:updated-desc",
                 "--json",
                 "number,title,mergedAt,labels,files",
             ],
@@ -58,7 +62,11 @@ def _gh_merged_prs(limit: int, *, repo_root: str = ".") -> list[dict]:
         sys.exit("gh timed out listing merged PRs")
     except subprocess.CalledProcessError as exc:
         sys.exit(f"gh failed listing merged PRs: {exc.stderr.strip()[:200]}")
-    return json.loads(out)
+    return sorted(
+        json.loads(out),
+        key=lambda pr: datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00")),
+        reverse=True,
+    )
 
 
 @contextlib.contextmanager

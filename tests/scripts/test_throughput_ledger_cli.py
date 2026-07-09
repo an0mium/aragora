@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -48,3 +50,41 @@ def test_snapshot_dedupes_across_runs_and_takes_lock(mod, monkeypatch, tmp_path)
     merges = [r for r in ledger.records() if r.kind == "merge"]
     assert len(merges) == 1  # second run deduped under the lock
     assert ledger.path.with_suffix(ledger.path.suffix + ".lock").exists()
+
+
+def test_gh_merged_prs_requests_recent_search_and_sorts_by_merged_at(mod, monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        return SimpleNamespace(
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 1,
+                        "title": "older",
+                        "mergedAt": "2026-07-08T00:00:00Z",
+                        "labels": [],
+                        "files": [],
+                    },
+                    {
+                        "number": 2,
+                        "title": "newer",
+                        "mergedAt": "2026-07-09T00:00:00Z",
+                        "labels": [],
+                        "files": [],
+                    },
+                ]
+            )
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    prs = mod._gh_merged_prs(5, repo_root=str(tmp_path))
+
+    assert [pr["number"] for pr in prs] == [2, 1]
+    cmd, kwargs = calls[0]
+    assert cmd[:4] == ["gh", "pr", "list", "--state"]
+    assert "--search" in cmd
+    assert "is:merged sort:updated-desc" in cmd
+    assert kwargs["cwd"] == str(tmp_path)

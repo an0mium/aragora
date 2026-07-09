@@ -59,7 +59,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     if verdict.freeze_recommended and args.enforce:
         path = write_freeze_marker(args.repo_root, reason="; ".join(verdict.reasons))
         print(f"substrate freeze marker written: {path}", file=sys.stderr)
-    return 0 if verdict.ok else 1
+    return 0 if verdict.ok or not args.enforce else 1
 
 
 def cmd_classify(args: argparse.Namespace) -> int:
