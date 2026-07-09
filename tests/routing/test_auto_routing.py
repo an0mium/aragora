@@ -386,9 +386,9 @@ class TestCreateWithDefaults:
             monkeypatch.setenv("ARAGORA_ENABLE_KIMI_CLI", "1")
         else:
             monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
+        monkeypatch.setenv("ARAGORA_ENABLE_FUSION", "0")
 
-        with patch("aragora.config.feature_flags.is_enabled", return_value=False):
-            selector = AgentSelector.create_with_defaults()
+        selector = AgentSelector.create_with_defaults()
 
         assert set(selector.agent_pool) == set(DEFAULT_AGENT_EXPERTISE) - excluded_agents
 
