@@ -62,6 +62,7 @@ class LaneAccumulator:
     rounds_to_merge_prs: set[int] = field(default_factory=set)
     rounds_to_merge_values: list[float] = field(default_factory=list)
     token_cost_prs: set[int] = field(default_factory=set)
+    token_cost_event_keys: set[tuple[str, float]] = field(default_factory=set)
     token_cost_total: float = 0.0
     token_cost_observations: int = 0
 
@@ -86,14 +87,18 @@ class LaneAccumulator:
             self.rounds_to_merge_values.append(event.rounds_to_merge)
             self.rounds_to_merge_prs.add(event.merged_pr)
         if event.token_cost is not None:
-            duplicate_merge_cost = (
-                event.merged_pr is not None and event.merged_pr in self.token_cost_prs
-            )
-            if not duplicate_merge_cost:
-                if event.merged_pr is not None:
-                    self.token_cost_prs.add(event.merged_pr)
-                self.token_cost_total += event.token_cost
-                self.token_cost_observations += 1
+            if event.merged_pr is not None:
+                if event.merged_pr in self.token_cost_prs:
+                    return
+                self.token_cost_prs.add(event.merged_pr)
+            else:
+                event_time = _iso(event.timestamp) if event.timestamp is not None else ""
+                event_key = (event_time, event.token_cost)
+                if event_key in self.token_cost_event_keys:
+                    return
+                self.token_cost_event_keys.add(event_key)
+            self.token_cost_total += event.token_cost
+            self.token_cost_observations += 1
 
 
 def _utc_now() -> datetime:
@@ -513,9 +518,7 @@ def lane_summary(
         else None
     )
     external_rate = (
-        accumulator.external_progress_cycles / accumulator.external_progress_observations
-        if accumulator.external_progress_observations
-        else None
+        accumulator.external_progress_cycles / accumulator.cycles if accumulator.cycles else None
     )
     rounds_average = (
         sum(accumulator.rounds_to_merge_values) / len(accumulator.rounds_to_merge_values)

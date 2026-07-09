@@ -587,6 +587,49 @@ def test_repeated_non_merge_pr_cycles_keep_token_cost_observations(
     assert lane["token_cost_total"] == 5.0
 
 
+def test_duplicate_non_merge_token_cost_records_are_not_double_counted(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "token_cost": 2.0,
+            }
+        ],
+    )
+    (receipts / "cost.json").write_text(
+        json.dumps(
+            {
+                "created_at": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "token_cost": 2.0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[receipts],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 1
+    assert lane["merged_prs"] == 0
+    assert lane["token_cost_total"] == 2.0
+
+
 def test_receipts_do_not_count_as_lane_cycles(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.jsonl"
     fixture = tmp_path / "eval.json"
@@ -631,7 +674,7 @@ def test_receipts_do_not_count_as_lane_cycles(tmp_path: Path) -> None:
     assert lane["token_cost_total"] == 4.0
 
 
-def test_external_progress_rate_uses_explicit_observations(tmp_path: Path) -> None:
+def test_external_progress_rate_uses_all_lane_cycles(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.jsonl"
     fixture = tmp_path / "eval.json"
     _write_eval_fixture(fixture)
@@ -660,7 +703,7 @@ def test_external_progress_rate_uses_explicit_observations(tmp_path: Path) -> No
 
     lane = report["lanes"][0]
     assert lane["cycles"] == 2
-    assert lane["external_progress_per_cycle"] == 1.0
+    assert lane["external_progress_per_cycle"] == 0.5
 
 
 def test_window_filtering_excludes_future_events(tmp_path: Path) -> None:
