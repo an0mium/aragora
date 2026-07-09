@@ -25,7 +25,7 @@ def _fake_prs(mod, monkeypatch):
     monkeypatch.setattr(
         mod,
         "_gh_merged_prs",
-        lambda limit: [
+        lambda limit, *, repo_root=".": [
             {
                 "number": 42,
                 "title": "feat: x",
