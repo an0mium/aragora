@@ -13,6 +13,8 @@ Advisory Phase 1: nothing here changes gate or goal-selection behavior.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import json
 import subprocess
 import sys
@@ -56,8 +58,27 @@ def _gh_merged_prs(limit: int) -> list[dict]:
     return json.loads(out)
 
 
+@contextlib.contextmanager
+def _snapshot_lock(ledger: ThroughputLedger):
+    """Exclusive flock across read-seen + append so concurrent snapshot runs
+    cannot double-record the same merged PR (#9048 openai [P2])."""
+    lock_path = ledger.path.with_suffix(ledger.path.suffix + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("w") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 def cmd_snapshot(args: argparse.Namespace) -> int:
     ledger = ThroughputLedger(args.repo_root)
+    with _snapshot_lock(ledger):
+        return _snapshot_locked(args, ledger)
+
+
+def _snapshot_locked(args: argparse.Namespace, ledger: ThroughputLedger) -> int:
     seen = {record.data.get("identifier") for record in ledger.records() if record.kind == "merge"}
     added = 0
     for pr in _gh_merged_prs(args.limit):
