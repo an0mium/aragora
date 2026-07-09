@@ -142,20 +142,29 @@ def main(argv: list[str] | None = None) -> int:
             failures.append(f"exit {proc.returncode}: {' '.join(cmd)}\n{tail}")
 
     green = not failures
-    ledger = ThroughputLedger(args.repo_root)
-    ledger.append(
-        LedgerRecord(
-            kind="note",
-            timestamp=_now_iso(),
-            data={
-                "event": "pristine_main_health",
-                "sha": sha,
-                "suite": args.suite,
-                "green": green,
-                "failures": [f.splitlines()[0] for f in failures],
-            },
+
+    # SAFETY ORDER: on red, write the halt marker BEFORE any bookkeeping so an
+    # unwritable ledger can never fail open (#9058 openai [P2] round 2).
+    if not green and not args.no_halt_file:
+        write_halt_marker(args.halt_file, sha=sha, failures=failures)
+
+    try:
+        ledger = ThroughputLedger(args.repo_root)
+        ledger.append(
+            LedgerRecord(
+                kind="note",
+                timestamp=_now_iso(),
+                data={
+                    "event": "pristine_main_health",
+                    "sha": sha,
+                    "suite": args.suite,
+                    "green": green,
+                    "failures": [f.splitlines()[0] for f in failures],
+                },
+            )
         )
-    )
+    except OSError as exc:
+        print(f"warning: ledger append failed: {exc}", file=sys.stderr)
 
     if green:
         print(f"GREEN: pristine main {sha[:12]} passed suite '{args.suite}'")
@@ -167,7 +176,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_halt_file:
         print("halt marker NOT written (--no-halt-file)", file=sys.stderr)
     else:
-        write_halt_marker(args.halt_file, sha=sha, failures=failures)
         print(f"halt marker written: {args.halt_file}", file=sys.stderr)
     return 1
 
