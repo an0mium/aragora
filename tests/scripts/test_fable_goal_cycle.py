@@ -395,3 +395,31 @@ def test_run_consult_rejects_success_without_text(monkeypatch, tmp_path: Path) -
 
     assert result["ok"] is False
     assert "without text" in result["error"]
+
+
+def test_run_consult_can_enable_openrouter_fallback(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(command, timeout, cwd=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        captured["cwd"] = cwd
+        return True, json.dumps({"ok": True, "text": "advice"})
+
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        "claude-fable-5",
+        timeout=12.5,
+        openrouter_fallback=True,
+        openrouter_model="anthropic/claude-test",
+    )
+
+    command = captured["command"]
+    assert result["ok"] is True
+    assert "--openrouter-fallback" in command
+    assert command[command.index("--openrouter-model") + 1] == "anthropic/claude-test"
+    assert command[command.index("--overall-timeout") + 1] == "37.5"
+    assert captured["timeout"] == 97.5
