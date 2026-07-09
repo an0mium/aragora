@@ -314,6 +314,31 @@ def test_external_progress_positive_outcome_tokens_are_counted(
     assert lane["external_progress_per_cycle"] == 1.0
 
 
+def test_external_progress_false_and_zero_outcomes_are_observed(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {"timestamp": "2026-07-08T08:00:00Z", "lane": "a", "outcome": False},
+            {"timestamp": "2026-07-08T09:00:00Z", "lane": "a", "status": 0},
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["external_progress_cycles"] == 0
+    assert lane["external_progress_per_cycle"] == 0.0
+
+
 def test_external_progress_mutation_fields_coerce_string_false(
     tmp_path: Path,
 ) -> None:
@@ -718,6 +743,74 @@ def test_duplicate_merged_pr_records_do_not_double_count_merge_metrics(
     assert lane["merged_prs"] == 1
     assert lane["rounds_to_merge_average"] == 2.0
     assert lane["token_cost_total"] == 12.5
+
+
+def test_distinct_cost_events_for_same_merged_pr_are_preserved(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "cycle_id": "cycle-a",
+                "direct_pr_merged": 1001,
+                "token_cost": 2.0,
+            },
+            {
+                "timestamp": "2026-07-08T11:00:00Z",
+                "lane": "conductor",
+                "cycle_id": "cycle-b",
+                "direct_pr_merged": 1001,
+                "token_cost": 2.0,
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["merged_prs"] == 1
+    assert lane["token_cost_total"] == 4.0
+    assert lane["token_cost_per_merged_pr"] == 4.0
+
+
+def test_decision_receipt_cost_summary_is_counted(tmp_path: Path) -> None:
+    fixture = tmp_path / "eval.json"
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    _write_eval_fixture(fixture)
+    (receipts / "decision.json").write_text(
+        json.dumps(
+            {
+                "created_at": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "direct_pr_merged": 1001,
+                "cost_summary": {"total_cost_usd": "4.25"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[],
+        receipt_dirs=[receipts],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["token_cost_total"] == 4.25
+    assert lane["token_cost_per_merged_pr"] == 4.25
 
 
 def test_repeated_non_merge_pr_cycles_keep_token_cost_observations(

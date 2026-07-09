@@ -62,8 +62,7 @@ class LaneAccumulator:
     merged_prs: set[int] = field(default_factory=set)
     rounds_to_merge_prs: set[int] = field(default_factory=set)
     rounds_to_merge_values: list[float] = field(default_factory=list)
-    token_cost_prs: set[int] = field(default_factory=set)
-    token_cost_event_keys: set[tuple[str, float]] = field(default_factory=set)
+    token_cost_event_keys: set[str] = field(default_factory=set)
     token_cost_total: float = 0.0
     token_cost_observations: int = 0
 
@@ -88,22 +87,15 @@ class LaneAccumulator:
             self.rounds_to_merge_values.append(event.rounds_to_merge)
             self.rounds_to_merge_prs.add(event.merged_pr)
         if event.token_cost is not None:
-            count_token_cost = True
-            if event.merged_pr is not None:
-                if event.merged_pr in self.token_cost_prs:
-                    count_token_cost = False
-                else:
-                    self.token_cost_prs.add(event.merged_pr)
+            if event.token_cost_key is not None:
+                event_key = f"id:{event.token_cost_key}"
+            elif event.merged_pr is not None:
+                event_key = f"pr:{event.merged_pr}:cost:{event.token_cost}"
             else:
-                event_time = event.token_cost_key or (
-                    _iso(event.timestamp) if event.timestamp is not None else ""
-                )
-                event_key = (event_time, event.token_cost)
-                if event_key in self.token_cost_event_keys:
-                    count_token_cost = False
-                else:
-                    self.token_cost_event_keys.add(event_key)
-            if count_token_cost:
+                event_time = _iso(event.timestamp) if event.timestamp is not None else ""
+                event_key = f"time:{event_time}:cost:{event.token_cost}"
+            if event_key not in self.token_cost_event_keys:
+                self.token_cost_event_keys.add(event_key)
                 self.token_cost_total += event.token_cost
                 self.token_cost_observations += 1
 
@@ -348,7 +340,8 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
             mutation_false_seen = True
             continue
 
-    outcome = str(_first_present(record, ("outcome", "result", "status", "decision")) or "")
+    outcome_value = _first_present(record, ("outcome", "result", "status", "decision"))
+    outcome = "" if outcome_value is None else str(outcome_value)
     if outcome:
         normalized = outcome.strip().lower()
         tokens = set(re.findall(r"[a-z0-9]+", normalized))
@@ -360,6 +353,7 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
             "failed",
             "failure",
             "false",
+            "0",
             "no",
             "not",
             "unmerged",
@@ -375,6 +369,7 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
             "success",
             "succeeded",
             "true",
+            "1",
             "yes",
             "y",
         }
@@ -477,6 +472,7 @@ def _event_token_cost(record: dict[str, Any]) -> float | None:
                 "usage.cost_usd",
                 "token_usage.cost_usd",
                 "token_usage.total_cost_usd",
+                "cost_summary.total_cost_usd",
             ),
         )
     )
