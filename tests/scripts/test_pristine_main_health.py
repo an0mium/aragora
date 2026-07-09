@@ -34,6 +34,64 @@ class _Proc:
         self.stderr = ""
 
 
+def test_existing_pristine_without_owner_marker_refuses_destructive_refresh(
+    mod, monkeypatch, tmp_path
+):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    pristine = tmp_path / "other-checkout"
+    pristine.mkdir()
+    (pristine / ".git").mkdir()
+    commands: list[list[str]] = []
+
+    def fake_run(cmd, *, cwd, timeout):
+        commands.append(cmd)
+        if cmd[:3] == ["git", "fetch", "origin"]:
+            return _Proc(0)
+        raise AssertionError(f"unexpected command after missing marker: {cmd}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    with pytest.raises(SystemExit) as exc:
+        mod.refresh_pristine_worktree(repo, pristine)
+
+    assert "unmarked --pristine-dir" in str(exc.value)
+    assert not any(cmd[:3] == ["git", "reset", "--hard"] for cmd in commands)
+    assert not any(cmd[:2] == ["git", "clean"] for cmd in commands)
+
+
+def test_existing_marked_registered_pristine_refreshes(mod, monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    pristine = tmp_path / "pristine"
+    pristine.mkdir()
+    (pristine / ".git").mkdir()
+    mod._write_owner_marker(repo, pristine)
+    commands: list[list[str]] = []
+
+    def fake_run(cmd, *, cwd, timeout):
+        commands.append(cmd)
+        if cmd[:3] == ["git", "fetch", "origin"]:
+            return _Proc(0)
+        if cmd == ["git", "worktree", "list", "--porcelain"]:
+            return _Proc(0, f"worktree {pristine}\nHEAD cafebabe\n")
+        if cmd[0:3] == ["git", "checkout", "--detach"]:
+            return _Proc(0)
+        if cmd[:3] == ["git", "reset", "--hard"]:
+            return _Proc(0)
+        if cmd[:3] == ["git", "clean", "-fdx"]:
+            return _Proc(0)
+        if cmd == ["git", "rev-parse", "HEAD"]:
+            return _Proc(0, "cafebabe\n")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    assert mod.refresh_pristine_worktree(repo, pristine) == "cafebabe"
+    assert ["git", "reset", "--hard", "origin/main"] in commands
+    assert ["git", "clean", "-fdx", "--quiet"] in commands
+
+
 def test_green_run_writes_ledger_and_no_halt(mod, monkeypatch, tmp_path):
     _install_fake_worktree(mod, monkeypatch)
     monkeypatch.setattr(mod, "_run", lambda cmd, *, cwd, timeout: _Proc(0, "ok"))

@@ -31,6 +31,7 @@ from aragora.nomic.throughput import LedgerRecord, ThroughputLedger  # noqa: E40
 
 DEFAULT_PRISTINE_DIR = Path.home() / ".aragora" / "pristine-main"
 DEFAULT_HALT_FILE = _REPO_ROOT / ".aragora" / "merge_executor.halt"
+OWNER_MARKER_PURPOSE = "aragora.pristine_main_health"
 
 # Suite commands run INSIDE the pristine worktree. "required" mirrors the
 # required-check lane; "full" runs the whole suite including path-gated shards
@@ -60,6 +61,59 @@ def _run(cmd: list[str], *, cwd: Path, timeout: int) -> subprocess.CompletedProc
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
 
 
+def _canon(path: Path) -> str:
+    return str(path.expanduser().resolve(strict=False))
+
+
+def _owner_marker_path(pristine: Path) -> Path:
+    return pristine.with_name(f"{pristine.name}.owner.json")
+
+
+def _write_owner_marker(repo: Path, pristine: Path) -> None:
+    marker = {
+        "purpose": OWNER_MARKER_PURPOSE,
+        "repo_root": _canon(repo),
+        "pristine_dir": _canon(pristine),
+        "written_at": _now_iso(),
+        "written_by": "scripts/pristine_main_health.py",
+    }
+    _owner_marker_path(pristine).write_text(json.dumps(marker, indent=2) + "\n", encoding="utf-8")
+
+
+def _registered_worktree_paths(repo: Path) -> set[str]:
+    listed = _run(["git", "worktree", "list", "--porcelain"], cwd=repo, timeout=60)
+    if listed.returncode != 0:
+        sys.exit(f"git worktree list failed: {listed.stderr.strip()[:300]}")
+    paths: set[str] = set()
+    for line in listed.stdout.splitlines():
+        if line.startswith("worktree "):
+            paths.add(_canon(Path(line.removeprefix("worktree "))))
+    return paths
+
+
+def _verify_script_owned_pristine(repo: Path, pristine: Path) -> None:
+    marker_path = _owner_marker_path(pristine)
+    if not marker_path.exists():
+        sys.exit(
+            "refusing to destructively refresh unmarked --pristine-dir "
+            f"{pristine}; remove it or recreate it with this script"
+        )
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        sys.exit(f"refusing to refresh {pristine}: invalid owner marker {marker_path}: {exc}")
+
+    if (
+        marker.get("purpose") != OWNER_MARKER_PURPOSE
+        or marker.get("repo_root") != _canon(repo)
+        or marker.get("pristine_dir") != _canon(pristine)
+    ):
+        sys.exit(f"refusing to refresh {pristine}: owner marker {marker_path} does not match")
+
+    if _canon(pristine) not in _registered_worktree_paths(repo):
+        sys.exit(f"refusing to refresh {pristine}: not a registered worktree for {repo}")
+
+
 def refresh_pristine_worktree(repo: Path, pristine: Path) -> str:
     """Create or hard-refresh a detached pristine worktree at origin/main.
 
@@ -85,7 +139,9 @@ def refresh_pristine_worktree(repo: Path, pristine: Path) -> str:
         )
         if add.returncode != 0:
             sys.exit(f"git worktree add failed: {add.stderr.strip()[:300]}")
+        _write_owner_marker(repo, pristine)
     else:
+        _verify_script_owned_pristine(repo, pristine)
         for cmd in (
             ["git", "checkout", "--detach", "origin/main"],
             ["git", "reset", "--hard", "origin/main"],
