@@ -299,6 +299,32 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
     if coerced is not None:
         return coerced
 
+    mutation_keys = (
+        "mutations.push",
+        "mutations.merge",
+        "mutations.evidence_posted",
+        "mutations.issue_comment",
+        "mutations.github_status",
+        "direct_pr_merged",
+    )
+    mutation_false_seen = False
+    mutation_unknown_seen = False
+    for key in mutation_keys:
+        value = _first_present(record, (key,))
+        if value is None:
+            continue
+        coerced_mutation = _coerce_bool(value)
+        if coerced_mutation is True:
+            return True
+        if coerced_mutation is False:
+            mutation_false_seen = True
+            continue
+        mutation_unknown_seen = True
+    if mutation_unknown_seen:
+        return True
+    if mutation_false_seen:
+        return False
+
     outcome = str(_first_present(record, ("outcome", "result", "status", "decision")) or "")
     if outcome:
         normalized = outcome.strip().lower()
@@ -331,24 +357,7 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
         if tokens & positive_tokens:
             return True
 
-    mutation_keys = (
-        "mutations.push",
-        "mutations.merge",
-        "mutations.evidence_posted",
-        "mutations.issue_comment",
-        "mutations.github_status",
-        "direct_pr_merged",
-    )
-    mutation_seen = False
-    for key in mutation_keys:
-        value = _first_present(record, (key,))
-        if value is None:
-            continue
-        coerced_mutation = _coerce_bool(value)
-        if coerced_mutation is not None:
-            return coerced_mutation
-        mutation_seen = True
-    return True if mutation_seen else None
+    return None
 
 
 def _event_gate_pass(record: dict[str, Any]) -> bool | None:

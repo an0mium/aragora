@@ -292,6 +292,84 @@ def test_external_progress_mutation_fields_coerce_string_false(
     assert lane["external_progress_per_cycle"] == 2 / 3
 
 
+def test_external_progress_mutation_fields_use_or_semantics(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T08:00:00Z",
+                "lane": "a",
+                "mutations": {"push": "false", "merge": "true"},
+            },
+            {
+                "timestamp": "2026-07-08T09:00:00Z",
+                "lane": "a",
+                "mutations": {"push": False, "issue_comment": "posted"},
+            },
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "a",
+                "mutations": {"push": "false", "merge": "no"},
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 3
+    assert lane["external_progress_cycles"] == 2
+    assert lane["external_progress_per_cycle"] == 2 / 3
+
+
+def test_external_progress_mutations_override_failed_outcome(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T08:00:00Z",
+                "lane": "a",
+                "outcome": "failed",
+                "mutations": {"issue_comment": "posted"},
+            },
+            {
+                "timestamp": "2026-07-08T09:00:00Z",
+                "lane": "a",
+                "status": "failed",
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 2
+    assert lane["external_progress_cycles"] == 1
+    assert lane["external_progress_per_cycle"] == 0.5
+
+
 def test_pr_number_parsing_requires_whole_pr_token() -> None:
     assert harness_metrics._coerce_pr_number("#1234") == 1234
     assert harness_metrics._coerce_pr_number("PR #1234") == 1234
