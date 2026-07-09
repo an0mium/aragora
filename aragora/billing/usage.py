@@ -105,6 +105,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("8.00"),
         "openai/gpt-5.5": Decimal("2.50"),
         "openai/gpt-5.5-output": Decimal("10.00"),
+        "x-ai/grok-4.5": Decimal("2.00"),
+        "x-ai/grok-4.5-output": Decimal("6.00"),
         "google/gemini-3.5-flash": Decimal("1.50"),
         "google/gemini-3.5-flash-output": Decimal("9.00"),
         "anthropic/claude-opus-4-8": Decimal("5.00"),
