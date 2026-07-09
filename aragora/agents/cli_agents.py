@@ -775,7 +775,7 @@ Be constructive but thorough. Identify both technical and conceptual issues."""
 
 @AgentRegistry.register(
     "claude",
-    default_model="claude-opus-4-8",
+    default_model="claude-fable-5",
     agent_type="CLI",
     requires="claude CLI (npm install -g @anthropic-ai/claude-code)",
 )

@@ -50,6 +50,50 @@ class ProviderPricing:
 # Current pricing as of March 2026, per 1K tokens.
 # Source: provider pricing pages. Prices in USD.
 PROVIDER_PRICING: dict[str, ProviderPricing] = {
+    # Frontier pins (Jul 2026) — added so get_estimated_cost stops returning
+    # 0.0 for the models the platform actually runs (see #9069).
+    "claude-fable-5": ProviderPricing(
+        provider_name="anthropic",
+        model_name="claude-fable-5",
+        input_cost_per_1k=0.01,
+        output_cost_per_1k=0.05,
+        context_window=1_000_000,
+    ),
+    "claude-opus-4.8": ProviderPricing(
+        provider_name="anthropic",
+        model_name="claude-opus-4-8",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.025,
+        context_window=1_000_000,
+    ),
+    "gpt-5.6-sol": ProviderPricing(
+        provider_name="openai",
+        model_name="gpt-5.6-sol",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.03,
+        context_window=1_050_000,
+    ),
+    "gpt-5.5": ProviderPricing(
+        provider_name="openai",
+        model_name="gpt-5.5",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.03,
+        context_window=1_050_000,
+    ),
+    "gemini-3.1-pro": ProviderPricing(
+        provider_name="google",
+        model_name="gemini-3.1-pro",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.012,
+        context_window=1_048_576,
+    ),
+    "grok-4.5": ProviderPricing(
+        provider_name="xai",
+        model_name="grok-4.5",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.006,
+        context_window=500_000,
+    ),
     "claude-opus-4": ProviderPricing(
         provider_name="anthropic",
         model_name="claude-opus-4",
