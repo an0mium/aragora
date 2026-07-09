@@ -103,6 +103,72 @@ def test_gh_merged_prs_searches_by_merged_day_and_sorts_by_merged_at(mod, monkey
     assert search_kwargs["cwd"] == str(tmp_path)
 
 
+def test_gh_merged_pr_details_paginates_when_files_truncated(mod, monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        if cmd[:3] == ["gh", "pr", "view"]:
+            return SimpleNamespace(
+                stdout=json.dumps(
+                    {
+                        "number": 7,
+                        "title": "big",
+                        "mergedAt": "2026-07-09T00:00:00Z",
+                        "labels": [],
+                        "files": [{"path": "a.py", "additions": 1, "deletions": 0}],
+                        "changedFiles": 3,
+                    }
+                )
+            )
+        if cmd[:2] == ["gh", "api"]:
+            assert "--paginate" in cmd
+            return SimpleNamespace(
+                stdout=json.dumps(
+                    [
+                        [
+                            {"filename": "a.py", "additions": 1, "deletions": 0},
+                            {"filename": "b.py", "additions": 2, "deletions": 1},
+                        ],
+                        [{"filename": "c.py", "additions": 0, "deletions": 5}],
+                    ]
+                )
+            )
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    pr = mod._gh_merged_pr_details(7, repo="synaptent/aragora", repo_root=str(tmp_path))
+
+    assert [f["path"] for f in pr["files"]] == ["a.py", "b.py", "c.py"]
+    assert pr["files"][2]["deletions"] == 5
+    assert any(cmd[:2] == ["gh", "api"] for cmd in calls)
+
+
+def test_gh_merged_pr_details_trusts_complete_file_list(mod, monkeypatch, tmp_path):
+    def fake_run(cmd, **kwargs):
+        if cmd[:3] == ["gh", "pr", "view"]:
+            return SimpleNamespace(
+                stdout=json.dumps(
+                    {
+                        "number": 8,
+                        "title": "small",
+                        "mergedAt": "2026-07-09T00:00:00Z",
+                        "labels": [],
+                        "files": [{"path": "a.py", "additions": 1, "deletions": 0}],
+                        "changedFiles": 1,
+                    }
+                )
+            )
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    pr = mod._gh_merged_pr_details(8, repo="synaptent/aragora", repo_root=str(tmp_path))
+
+    assert [f["path"] for f in pr["files"]] == ["a.py"]
+
+
 def test_gh_merged_prs_does_not_let_updated_order_truncate_newer_merges(mod, monkeypatch, tmp_path):
     calls = []
 

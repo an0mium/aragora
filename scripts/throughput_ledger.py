@@ -68,6 +68,39 @@ def _parse_merged_at(pr: dict) -> datetime:
     return datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
 
 
+def _gh_pr_files_paginated(number: int, *, repo: str, repo_root: str) -> list[dict]:
+    payload = _gh_json(
+        [
+            "gh",
+            "api",
+            f"repos/{repo}/pulls/{number}/files",
+            "--paginate",
+            "--slurp",
+        ],
+        repo_root=repo_root,
+        failure=f"paginating files for merged PR #{number}",
+    )
+    if not isinstance(payload, list):
+        sys.exit(f"gh failed paginating files for merged PR #{number}: unexpected JSON shape")
+    files: list[dict] = []
+    for page in payload:
+        if not isinstance(page, list):
+            sys.exit(f"gh failed paginating files for merged PR #{number}: unexpected JSON shape")
+        for item in page:
+            if not isinstance(item, dict) or not isinstance(item.get("filename"), str):
+                sys.exit(
+                    f"gh failed paginating files for merged PR #{number}: unexpected file entry"
+                )
+            files.append(
+                {
+                    "path": item["filename"],
+                    "additions": item.get("additions", 0),
+                    "deletions": item.get("deletions", 0),
+                }
+            )
+    return files
+
+
 def _gh_merged_pr_details(number: int, *, repo: str, repo_root: str) -> dict:
     payload = _gh_json(
         [
@@ -78,13 +111,20 @@ def _gh_merged_pr_details(number: int, *, repo: str, repo_root: str) -> dict:
             "--repo",
             repo,
             "--json",
-            "number,title,mergedAt,labels,files",
+            "number,title,mergedAt,labels,files,changedFiles",
         ],
         repo_root=repo_root,
         failure=f"reading merged PR #{number}",
     )
     if not isinstance(payload, dict):
         sys.exit(f"gh failed reading merged PR #{number}: unexpected JSON shape")
+    # ``gh pr view --json files`` truncates the file list for large PRs
+    # (#9048 openai [P2]); re-fetch via the paginated REST endpoint whenever
+    # the reported changedFiles count disagrees with what we received.
+    files = payload.get("files")
+    changed = payload.get("changedFiles")
+    if not isinstance(files, list) or (isinstance(changed, int) and changed != len(files)):
+        payload["files"] = _gh_pr_files_paginated(number, repo=repo, repo_root=repo_root)
     return payload
 
 
