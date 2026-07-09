@@ -30,7 +30,9 @@ from aragora.nomic.throughput import ThroughputLedger, compute_metrics
 from aragora.nomic.work_mix import classify_paths
 
 
-def _gh_merged_prs(limit: int) -> list[dict]:
+def _gh_merged_prs(limit: int, *, repo_root: str = ".") -> list[dict]:
+    # gh resolves the repo from cwd; pin it to --repo-root so the query and
+    # the ledger writes always target the same repository (#9048 openai [P2]).
     try:
         out = subprocess.run(
             [
@@ -48,6 +50,7 @@ def _gh_merged_prs(limit: int) -> list[dict]:
             text=True,
             check=True,
             timeout=120,
+            cwd=repo_root,
         ).stdout
     except FileNotFoundError:
         sys.exit("gh CLI not found; snapshot requires gh (read-only)")
@@ -81,7 +84,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
 def _snapshot_locked(args: argparse.Namespace, ledger: ThroughputLedger) -> int:
     seen = {record.data.get("identifier") for record in ledger.records() if record.kind == "merge"}
     added = 0
-    for pr in _gh_merged_prs(args.limit):
+    for pr in _gh_merged_prs(args.limit, repo_root=args.repo_root):
         identifier = str(pr["number"])
         if identifier in seen:
             continue
