@@ -55,9 +55,12 @@ GPT54_VIA_OPENROUTER: Final = GPT55_VIA_OPENROUTER
 GEMINI_31_PRO_DIRECT: Final = "gemini-3.1-pro"
 GEMINI_31_PRO_VIA_OPENROUTER: Final = "google/gemini-3.1-pro"
 
-# xAI Grok 4 (latest) - contrarian / contrarian-by-design agent
-GROK_4_DIRECT: Final = "grok-4-latest"
-GROK_4_VIA_OPENROUTER: Final = "x-ai/grok-4"
+# xAI Grok 4.5 - contrarian / contrarian-by-design agent
+GROK_45_DIRECT: Final = "grok-4.5"
+GROK_45_VIA_OPENROUTER: Final = "x-ai/grok-4.5"
+# Backwards-compatible constant names for callers that have not migrated yet.
+GROK_4_DIRECT: Final = GROK_45_DIRECT
+GROK_4_VIA_OPENROUTER: Final = GROK_45_VIA_OPENROUTER
 
 # Mistral Large (latest) - European provider diversity
 MISTRAL_LARGE_DIRECT: Final = "mistral-large-2512"
@@ -262,6 +265,8 @@ __all__ = [
     "GPT54_VIA_OPENROUTER",
     "GEMINI_31_PRO_DIRECT",
     "GEMINI_31_PRO_VIA_OPENROUTER",
+    "GROK_45_DIRECT",
+    "GROK_45_VIA_OPENROUTER",
     "GROK_4_DIRECT",
     "GROK_4_VIA_OPENROUTER",
     "MISTRAL_LARGE_DIRECT",

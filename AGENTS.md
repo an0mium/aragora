@@ -100,7 +100,7 @@ Aragora currently registers 46 agent types across CLI, direct API, OpenRouter, l
 | `codex` | `codex` | gpt-4.1-codex | GPT-4.1 Codex, 1M context |
 | `openai` | `openai` | gpt-4.1 | GPT-4.1, 1M context |
 | `gemini-cli` | `gemini` | gemini-3.1-pro-preview | Gemini 3.1 Pro, 1M context |
-| `grok-cli` | `grok` | grok-4-latest | Grok 4, 256K context |
+| `grok-cli` | `grok` | grok-4.5 | Grok 4.5, 500K context |
 | `grok-build` | `grok` (Grok Build CLI) | grok-build | Opt-in subscription CLI; resolves `~/.grok/bin/grok` or `ARAGORA_GROK_BUILD_BIN` |
 | `antigravity` | `agy` | gemini-3.5-flash | Opt-in subscription CLI; resolves `~/.antigravity/bin/agy` or `ARAGORA_ANTIGRAVITY_BIN` |
 | `qwen-cli` | `qwen` | qwen3-coder | |
@@ -114,7 +114,7 @@ Aragora currently registers 46 agent types across CLI, direct API, OpenRouter, l
 | `anthropic-api` | Anthropic | claude-opus-4-8 | `ANTHROPIC_API_KEY` | allowlisted |
 | `openai-api` | OpenAI | gpt-4.1 | `OPENAI_API_KEY` | allowlisted |
 | `gemini` | Google | gemini-3.1-pro-preview | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | allowlisted |
-| `grok` | xAI | grok-4-latest | `XAI_API_KEY` or `GROK_API_KEY` | allowlisted |
+| `grok` | xAI | grok-4.5 | `XAI_API_KEY` or `GROK_API_KEY` | allowlisted |
 | `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` | allowlisted |
 | `codestral` | Mistral | codestral-latest | `MISTRAL_API_KEY` | opt-in |
 

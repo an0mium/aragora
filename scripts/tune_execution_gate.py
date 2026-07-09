@@ -127,7 +127,7 @@ def _build_scenarios() -> list[Scenario]:
                 ("claude", "claude-opus-4-1", "anthropic-api"),
                 ("gpt", "gpt-4.1", "openai-api"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
-                ("grok", "grok-4-latest", "grok"),
+                ("grok", "grok-4.5", "grok"),
             ),
         ),
         Scenario(

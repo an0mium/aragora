@@ -27,7 +27,7 @@ jest.mock('@/config', () => ({
   DEFAULT_ROUNDS: 9,  // 9-round format default
   DEFAULT_CONSENSUS: 'judge',
   AGENT_DISPLAY_NAMES: {
-    grok: 'Grok 4',
+    grok: 'Grok 4.5',
     'anthropic-api': 'Claude Opus 4.5',
     'openai-api': 'GPT 5.2',
   },

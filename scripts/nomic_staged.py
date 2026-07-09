@@ -129,7 +129,7 @@ Recent changes:
 
     # API-based agents: reliable HTTP calls, no CLI dependencies.
     # Uses Claude Opus 4.8 and OpenAI GPT-5.2 via API (with OpenRouter fallback).
-    # When OPENROUTER_API_KEY is configured, Gemini 3.1 Pro and Grok 4 also participate.
+    # When OPENROUTER_API_KEY is configured, Gemini 3.1 Pro and Grok 4.5 also participate.
     from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
     from aragora.agents.api_agents.openai import OpenAIAPIAgent
 

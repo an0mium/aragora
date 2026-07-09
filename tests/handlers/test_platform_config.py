@@ -217,7 +217,7 @@ class TestAgentDisplayNames:
         data = _get_data(result)
         names = data["agent_display_names"]
         # Spot check known display names
-        assert names.get("grok") == "Grok 4"
+        assert names.get("grok") == "Grok 4.5"
         assert names.get("anthropic-api") == "Opus 4.6"
         assert names.get("openai-api") == "GPT 5.2"
 

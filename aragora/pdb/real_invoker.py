@@ -160,7 +160,7 @@ OPENROUTER_BACKED_FAMILIES: frozenset[str] = frozenset({FAMILY_DEEPSEEK, FAMILY_
 # - Anthropic pricing page (Claude Opus / Sonnet / Haiku tiers)
 # - OpenAI pricing page (GPT-5 / GPT-4.1 family)
 # - Google Gemini API pricing (Gemini 3.1 Pro / 3 Flash)
-# - xAI docs (Grok 4 / 4.2 pricing)
+# - xAI docs (Grok 4.5 / 4 pricing)
 # - OpenRouter model catalog (DeepSeek chat, Moonshot Kimi K2.6,
 #   Qwen3-235B-A22B and Qwen3 Max variants)
 # - Mistral La Plateforme pricing (Mistral Large 2411 / 2512)
@@ -204,10 +204,11 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "gemini-1.5-pro": (1.25, 5.00),
     "gemini-1.5-flash": (0.075, 0.30),
     # xAI Grok. Prices verified against https://docs.x.ai/developers/models
-    # (April 2026). Grok 4.20 tier is $2.00/$6.00 per 1M tokens; the
+    # (July 2026). Grok 4.5 tier is $2.00/$6.00 per 1M tokens; the
     # fast-reasoning tier is $0.20/$0.50. ``grok-4.2`` is NOT a valid
     # model id — it is retained only as a legacy alias for callers that
     # still reference the old default.
+    "grok-4.5": (2.00, 6.00),
     "grok-4.20-0309-reasoning": (2.00, 6.00),
     "grok-4.20-0309-non-reasoning": (2.00, 6.00),
     "grok-4.20-multi-agent-0309": (2.00, 6.00),

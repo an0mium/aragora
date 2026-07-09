@@ -144,19 +144,19 @@ async def run_direct_debate():
     except Exception as e:
         print(f"  Gemini not available: {e}", flush=True)
 
-    # Grok 4
+    # Grok 4.5
     try:
         grok = AgentRegistry.create(
             "grok",
             name="cfo-advisor",
-            model="grok-4",
+            model="grok-4.5",
             role="critic",
             use_cache=False,
             timeout=300,
         )
         grok.system_prompt = "You are a CFO with expertise in distressed company operations. Prioritize cash flow preservation and realistic revenue projections. Challenge assumptions and identify risks."
         agents.append(grok)
-        print("  Added: Grok 4 (cfo-advisor)", flush=True)
+        print("  Added: Grok 4.5 (cfo-advisor)", flush=True)
     except Exception as e:
         print(f"  Grok not available: {e}", flush=True)
 

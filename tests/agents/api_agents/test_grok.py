@@ -34,7 +34,7 @@ class TestGrokAgentInitialization:
         spec = AgentRegistry.get_spec("grok")
 
         assert agent.name == "grok"
-        assert agent.model == "grok-4-latest"
+        assert agent.model == "grok-4.5"
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "grok"
@@ -110,7 +110,7 @@ class TestGrokAgentInitialization:
         spec = AgentRegistry.get_spec("grok")
 
         assert spec is not None
-        assert spec.default_model == "grok-4-latest"
+        assert spec.default_model == "grok-4.5"
         assert spec.agent_type == "API"
 
     def test_base_url_is_xai_endpoint(self, mock_env_with_api_keys):
@@ -462,6 +462,7 @@ class TestGrokAgentModelMapping:
         """Should have mappings for Grok models."""
         from aragora.agents.api_agents.grok import GrokAgent
 
+        assert "grok-4.5" in GrokAgent.OPENROUTER_MODEL_MAP
         assert "grok-4-latest" in GrokAgent.OPENROUTER_MODEL_MAP
         assert "grok-4" in GrokAgent.OPENROUTER_MODEL_MAP
         assert "grok-3" in GrokAgent.OPENROUTER_MODEL_MAP

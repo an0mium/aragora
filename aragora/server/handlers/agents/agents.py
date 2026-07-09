@@ -86,7 +86,7 @@ _OPENROUTER_FALLBACK_MODELS = {
     "anthropic-api": "anthropic/claude-opus-4.8",
     "openai-api": "openai/gpt-4.1-mini",
     "gemini": "google/gemini-3-flash-preview",
-    "grok": "x-ai/grok-4",
+    "grok": "x-ai/grok-4.5",
     "mistral-api": "mistralai/mistral-large-2512",
 }
 

@@ -44,7 +44,7 @@ def _resolve_openrouter_key() -> str:
 
 
 async def call_openrouter(prompt: str, system: str = "", model: str = "openai/gpt-5.3") -> str:
-    """OpenRouter API call — supports GPT-5.2, Gemini 3.1, Grok 4."""
+    """OpenRouter API call — supports GPT-5.2, Gemini 3.1, Grok 4.5."""
     import aiohttp
 
     api_key = _resolve_openrouter_key()

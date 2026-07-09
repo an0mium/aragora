@@ -625,7 +625,7 @@ See [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) for complete enterprise cap
 ANTHROPIC_API_KEY=sk-ant-xxx    # For Claude (Opus 4.5, Sonnet 4)
 OPENAI_API_KEY=sk-xxx           # For GPT models
 GEMINI_API_KEY=AIzaSy...        # For Gemini 2.5
-XAI_API_KEY=xai-xxx             # For Grok 4
+XAI_API_KEY=xai-xxx             # For Grok 4.5
 MISTRAL_API_KEY=xxx             # For Mistral Large, Codestral
 OPENROUTER_API_KEY=sk-or-xxx    # For DeepSeek, Qwen, Yi (multi-model access)
 KIMI_API_KEY=xxx                # For Kimi (Moonshot, China perspective)

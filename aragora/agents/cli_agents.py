@@ -235,11 +235,12 @@ class CLIAgent(CritiqueMixin, Agent):
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",
         # Grok models
+        "grok-4.5": "x-ai/grok-4.5",
         "grok-4-1-fast": "x-ai/grok-4.1-fast",
-        "grok-4-latest": "x-ai/grok-4",
+        "grok-4-latest": "x-ai/grok-4.5",
         "grok-4": "x-ai/grok-4",
-        "grok-3": "x-ai/grok-4",
-        "grok-2": "x-ai/grok-4",
+        "grok-3": "x-ai/grok-4.5",
+        "grok-2": "x-ai/grok-4.5",
         # Deepseek models
         "deepseek-coder": "deepseek/deepseek-v4-pro",
         "deepseek-v3": "deepseek/deepseek-v4-pro",
@@ -986,7 +987,7 @@ class KiloCodeAgent(CLIAgent):
 
 @AgentRegistry.register(
     "grok-cli",
-    default_model="grok-4-latest",
+    default_model="grok-4.5",
     agent_type="CLI",
     requires="grok CLI (npm install -g grok-cli)",
 )

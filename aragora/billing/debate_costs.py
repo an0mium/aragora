@@ -59,6 +59,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "codestral": (Decimal("0.30"), Decimal("0.90")),
     },
     "xai": {
+        "grok-4.5": (Decimal("2.00"), Decimal("6.00")),
         "grok-4": (Decimal("3.00"), Decimal("15.00")),
         "grok-3": (Decimal("3.00"), Decimal("15.00")),
         "grok-2": (Decimal("2.00"), Decimal("10.00")),

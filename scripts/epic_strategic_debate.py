@@ -61,7 +61,7 @@ FALLBACK_MODELS = {
     "anthropic-api": "anthropic/claude-sonnet-4",
     "openai-api": "openai/gpt-4o",
     "gemini": "google/gemini-3.1-pro-preview",
-    "grok": "x-ai/grok-2-1212",
+    "grok": "x-ai/grok-4.5",
     "mistral-api": "mistralai/mistral-large-2411",
     "kimi": "moonshot/moonshot-v1-8k",
 }

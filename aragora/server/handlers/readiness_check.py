@@ -44,7 +44,7 @@ _PROVIDER_CONFIG: dict[str, tuple[tuple[str, ...], str]] = {
     "openrouter": (("OPENROUTER_API_KEY",), "deepseek/deepseek-v4-pro"),
     "mistral": (("MISTRAL_API_KEY",), "mistral-large-2512"),
     "gemini": (("GEMINI_API_KEY", "GOOGLE_API_KEY"), "gemini-3.1-pro-preview"),
-    "xai": (("XAI_API_KEY", "GROK_API_KEY"), "grok-4-latest"),
+    "xai": (("XAI_API_KEY", "GROK_API_KEY"), "grok-4.5"),
 }
 
 # A debate requires at least one of these core providers. OpenRouter counts as

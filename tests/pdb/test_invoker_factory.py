@@ -701,6 +701,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
             "grok-4.20-0309-reasoning",
             "grok-4.20-0309-non-reasoning",
             "grok-4.20-multi-agent-0309",
+            "grok-4.5",
             "grok-4-1-fast-reasoning",
             "grok-4-1-fast-non-reasoning",
             "grok-4-fast-reasoning",

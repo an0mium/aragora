@@ -229,20 +229,20 @@ async def run_debate():
         print(f"Gemini 3 Pro not available: {e}")
 
     try:
-        # Grok 4 - xAI's best
+        # Grok 4.5 - xAI's best
         grok_agent = AgentRegistry.create(
             "grok",
             name="risk-analyst",
-            model="grok-4",
+            model="grok-4.5",
             role="critic",
             use_cache=False,
             timeout=300,
         )
         grok_agent.system_prompt = "You are a risk analyst specializing in small business turnarounds. Identify risks, failure modes, and contingency plans."
         agents.append(grok_agent)
-        print("Added Grok 4")
+        print("Added Grok 4.5")
     except (ImportError, ValueError) as e:
-        print(f"Grok 4 not available: {e}")
+        print(f"Grok 4.5 not available: {e}")
 
     try:
         # DeepSeek R1 - via OpenRouter
@@ -267,7 +267,7 @@ async def run_debate():
         print("  - ANTHROPIC_API_KEY (Claude Opus 4.5)")
         print("  - OPENAI_API_KEY (GPT 5.2)")
         print("  - GEMINI_API_KEY (Gemini 3 Pro)")
-        print("  - XAI_API_KEY / GROK_API_KEY (Grok 4)")
+        print("  - XAI_API_KEY / GROK_API_KEY (Grok 4.5)")
         print("  - OPENROUTER_API_KEY (DeepSeek R1)")
         return None
 
@@ -461,7 +461,7 @@ What's the probability of success for each option?
             agent2 = AgentRegistry.create(
                 "grok",
                 name="analyst-2",
-                model="grok-4",
+                model="grok-4.5",
                 role="critic",
                 use_cache=False,
                 timeout=300,

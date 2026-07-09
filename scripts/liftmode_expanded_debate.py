@@ -329,12 +329,12 @@ Consider both short-term survival and long-term growth opportunities."""
     except Exception as e:
         print(f"  Gemini not available: {e}", flush=True)
 
-    # Agent 2: Grok 4 - CFO Advisor
+    # Agent 2: Grok 4.5 - CFO Advisor
     try:
         grok = AgentRegistry.create(
             "grok",
             name="cfo-advisor",
-            model="grok-4",
+            model="grok-4.5",
             role="critic",
             use_cache=False,
             timeout=300,
@@ -343,7 +343,7 @@ Consider both short-term survival and long-term growth opportunities."""
 Prioritize cash preservation and realistic revenue projections. Challenge optimistic assumptions.
 Focus on unit economics and break-even analysis."""
         agents.append(grok)
-        print("  Added: Grok 4 (cfo-advisor)", flush=True)
+        print("  Added: Grok 4.5 (cfo-advisor)", flush=True)
     except Exception as e:
         print(f"  Grok not available: {e}", flush=True)
 

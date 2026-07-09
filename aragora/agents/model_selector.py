@@ -371,8 +371,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # Grok
     "grok": ModelProfile(
-        model_id="grok-4-latest",
-        display_name="Grok 4",
+        model_id="grok-4.5",
+        display_name="Grok 4.5",
         provider="xai",
         capabilities={
             ModelCapability.REASONING: 0.94,

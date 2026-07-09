@@ -103,7 +103,7 @@ H2_PANEL_SLOTS: tuple[H2PanelSlot, ...] = (
     ),
     H2PanelSlot(
         "xai-direct",
-        (H2ProviderAttempt("xai", "grok-4-latest", "xai", "grok-4-latest", "XAI_API_KEY"),),
+        (H2ProviderAttempt("xai", "grok-4.5", "xai", "grok-4.5", "XAI_API_KEY"),),
     ),
     H2PanelSlot(
         "mistral-direct",

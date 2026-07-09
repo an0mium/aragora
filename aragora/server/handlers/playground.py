@@ -881,10 +881,10 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     },
     {
         "provider": "xai",
-        "model": "grok-3-fast",
+        "model": "grok-4.5",
         "name": "grok",
         "env": "XAI_API_KEY",
-        "openrouter_model": "x-ai/grok-3-fast",
+        "openrouter_model": "x-ai/grok-4.5",
     },
     {
         "provider": "google",

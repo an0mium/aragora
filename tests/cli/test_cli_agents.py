@@ -754,9 +754,9 @@ class TestGrokCLIAgent:
 
     def test_initialization(self):
         """Should initialize correctly."""
-        agent = GrokCLIAgent(name="grok", model="grok-4-latest")
+        agent = GrokCLIAgent(name="grok", model="grok-4.5")
         assert agent.name == "grok"
-        assert agent.model == "grok-4-latest"
+        assert agent.model == "grok-4.5"
 
     @pytest.mark.asyncio
     async def test_generate_command_format(self):
@@ -1440,7 +1440,7 @@ class TestCLIAgentModelMapping:
     def test_grok_model_mapping(self):
         """Should map Grok models correctly."""
         agent = GrokCLIAgent(name="test", model="grok-3")
-        assert agent.OPENROUTER_MODEL_MAP.get("grok-3") == "x-ai/grok-4"
+        assert agent.OPENROUTER_MODEL_MAP.get("grok-3") == "x-ai/grok-4.5"
 
     def test_deepseek_model_mapping(self):
         """Should map Deepseek models correctly."""

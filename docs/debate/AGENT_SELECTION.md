@@ -14,7 +14,7 @@ Perspective coverage note: Mistral adds an EU lens, and Chinese models like Deep
 | `openai-api` | OpenAI | gpt-5.3 | General tasks, creativity | $$ |
 | `gemini` | Google | gemini-3-pro-preview | Long context, analysis | $ |
 | `mistral-api` | Mistral | mistral-large-2512 | European compliance, multilingual | $$ |
-| `grok` | xAI | grok-4-latest | Real-time knowledge | $$ |
+| `grok` | xAI | grok-4.5 | Real-time knowledge | $$ |
 
 ### OpenRouter Providers (Fallback/Alternative)
 

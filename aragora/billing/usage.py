@@ -91,6 +91,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "deepseek-r1-output": Decimal("0.42"),
     },
     "xai": {
+        "grok-4.5": Decimal("2.00"),
+        "grok-4.5-output": Decimal("6.00"),
         "grok-4": Decimal("3.00"),
         "grok-4-output": Decimal("15.00"),
     },

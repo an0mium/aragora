@@ -2323,7 +2323,7 @@ All stabilization items addressed:
 ### Active Agents (default config, 8 total)
 | Agent | Model | API |
 |-------|-------|-----|
-| `grok` | grok-4-latest | xAI |
+| `grok` | grok-4.5 | xAI |
 | `anthropic-api` | claude-opus-4-5-20251101 | Anthropic |
 | `openai-api` | gpt-5.3 | OpenAI |
 | `deepseek` | deepseek/deepseek-v4-pro | OpenRouter |

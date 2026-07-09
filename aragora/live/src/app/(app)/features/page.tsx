@@ -74,7 +74,7 @@ const CATEGORIES: FeatureCategory[] = [
       { name: 'Anthropic (Opus 4.5)', description: 'Claude API agent with structured output support', status: 'active', href: '/agents' },
       { name: 'OpenAI (GPT 5.2)', description: 'GPT API agent with function calling', status: 'active', href: '/agents' },
       { name: 'Gemini (3.1 Pro)', description: 'Google Gemini with multimodal capabilities', status: 'active', href: '/agents' },
-      { name: 'Grok (4)', description: 'xAI Grok agent with real-time knowledge', status: 'active', href: '/agents' },
+      { name: 'Grok (4.5)', description: 'xAI Grok agent with real-time knowledge', status: 'active', href: '/agents' },
       { name: 'DeepSeek / R1', description: 'Reasoning-optimized models via OpenRouter', status: 'active', href: '/agents' },
       { name: 'Qwen / Kimi / Llama / Mistral', description: 'Broad model coverage via OpenRouter fallback', status: 'active', href: '/agents' },
       { name: 'Agent Performance', description: 'Deep-dive ELO trends, model comparison, and domain analytics', status: 'active', href: '/agents/performance' },

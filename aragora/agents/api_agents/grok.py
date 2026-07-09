@@ -11,7 +11,7 @@ from aragora.agents.registry import AgentRegistry
 
 @AgentRegistry.register(
     "grok",
-    default_model="grok-4-latest",
+    default_model="grok-4.5",
     agent_type="API",
     env_vars="XAI_API_KEY or GROK_API_KEY",
     accepts_api_key=True,
@@ -19,7 +19,7 @@ from aragora.agents.registry import AgentRegistry
 class GrokAgent(OpenAICompatibleMixin, APIAgent):
     """Agent that uses xAI's Grok API (OpenAI-compatible).
 
-    Uses the xAI API at https://api.x.ai/v1 with models like grok-4-latest.
+    Uses the xAI API at https://api.x.ai/v1 with models like grok-4.5.
 
     Supports automatic fallback to OpenRouter when xAI API returns
     rate limit/quota errors.
@@ -30,9 +30,10 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
     OPENROUTER_MODEL_MAP = {
         "grok-4.2": "x-ai/grok-4",  # grok-4.2 not yet on OpenRouter; use grok-4
         "grok-4-2": "x-ai/grok-4",
+        "grok-4.5": "x-ai/grok-4.5",
         "grok-4-1-fast": "x-ai/grok-4.1-fast",
         "grok-4-1-fast-reasoning": "x-ai/grok-4.1-fast",
-        "grok-4-latest": "x-ai/grok-4",
+        "grok-4-latest": "x-ai/grok-4.5",
         "grok-4": "x-ai/grok-4",
         "grok-4-fast": "x-ai/grok-4-fast",
         "grok-3": "x-ai/grok-3",
@@ -40,12 +41,12 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
         "grok-2-1212": "x-ai/grok-2-1212",
         "grok-beta": "x-ai/grok-beta",
     }
-    DEFAULT_FALLBACK_MODEL = "x-ai/grok-4"
+    DEFAULT_FALLBACK_MODEL = "x-ai/grok-4.5"
 
     def __init__(
         self,
         name: str = "grok",
-        model: str = "grok-4-latest",
+        model: str = "grok-4.5",
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

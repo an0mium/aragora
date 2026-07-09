@@ -789,12 +789,12 @@ class TestNewFamilyCostTracking:
             model="grok-4", tokens_in=1_000_000, tokens_out=1_000_000
         ) == pytest.approx(18.0)
 
-    def test_grok_4_20_reasoning_cost_matches_published_rate(self) -> None:
-        # grok-4.20-0309-reasoning (the new panel default): (2.00, 6.00)
+    def test_grok_4_5_cost_matches_published_rate(self) -> None:
+        # grok-4.5 (the new panel default): (2.00, 6.00)
         # → $8.00 at 1M/1M. Verified against
-        # https://docs.x.ai/developers/models (April 2026).
+        # https://docs.x.ai/developers/models (July 2026).
         assert estimate_cost_usd(
-            model="grok-4.20-0309-reasoning",
+            model="grok-4.5",
             tokens_in=1_000_000,
             tokens_out=1_000_000,
         ) == pytest.approx(8.0)

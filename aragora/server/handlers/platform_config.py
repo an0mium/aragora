@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Agent display names mapping (canonical source of truth for the frontend).
 # Kept in sync with the frontend's AGENT_DISPLAY_NAMES in config.ts.
 AGENT_DISPLAY_NAMES: dict[str, str] = {
-    "grok": "Grok 4",
+    "grok": "Grok 4.5",
     "anthropic-api": "Opus 4.6",
     "openai-api": "GPT 5.2",
     "deepseek": "DeepSeek V3",

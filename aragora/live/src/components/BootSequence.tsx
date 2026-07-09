@@ -38,7 +38,7 @@ const BOOT_LINES = [
   { text: '  └──────────────────────────────────────────┘', delay: 1800, style: 'provider' },
   { text: '', delay: 1850, style: 'normal' },
   { text: '  ┌─ XAI ────────────────────────────────────┐', delay: 1900, style: 'provider' },
-  { text: '  │  Grok 4......................... READY   │', delay: 1950, style: 'agent' },
+  { text: '  │  Grok 4.5....................... READY   │', delay: 1950, style: 'agent' },
   { text: '  │  Grok 3......................... READY   │', delay: 2000, style: 'agent' },
   { text: '  └──────────────────────────────────────────┘', delay: 2050, style: 'provider' },
   { text: '', delay: 2100, style: 'normal' },
