@@ -22,7 +22,7 @@ from aragora.canvas.stages import (
     StageTransition,
     content_hash,
 )
-from aragora.goals.extractor import GoalExtractor, GoalExtractionConfig, GoalGraph
+from aragora.pipeline.goal_extractor import GoalExtractor, GoalExtractionConfig, GoalGraph
 
 
 # ---------------------------------------------------------------------------

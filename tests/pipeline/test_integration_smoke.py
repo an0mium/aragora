@@ -100,7 +100,7 @@ class TestGoalExtractionFromDebate:
 
     def test_extract_from_debate_analysis_basic(self):
         """GoalExtractor.extract_from_debate_analysis() produces a GoalGraph."""
-        from aragora.goals.extractor import GoalExtractor, GoalExtractionConfig
+        from aragora.pipeline.goal_extractor import GoalExtractor, GoalExtractionConfig
 
         extractor = GoalExtractor()
         config = GoalExtractionConfig(
@@ -120,7 +120,7 @@ class TestGoalExtractionFromDebate:
 
     def test_extract_with_consensus_nodes(self):
         """extract_from_debate_analysis picks up consensus/vote node types."""
-        from aragora.goals.extractor import GoalExtractor, GoalExtractionConfig
+        from aragora.pipeline.goal_extractor import GoalExtractor, GoalExtractionConfig
 
         extractor = GoalExtractor()
         config = GoalExtractionConfig(

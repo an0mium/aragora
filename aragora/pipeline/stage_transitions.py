@@ -2001,7 +2001,7 @@ async def ai_promote_ideas_to_goals(
     extractor = None
     if agent is not None:
         try:
-            from aragora.goals.extractor import GoalExtractor
+            from aragora.pipeline.goal_extractor import GoalExtractor
 
             extractor = GoalExtractor(agent=agent)
         except (ImportError, RuntimeError, TypeError) as exc:

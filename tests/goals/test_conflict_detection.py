@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from aragora.canvas.stages import GoalNodeType
-from aragora.goals.extractor import (
+from aragora.pipeline.goal_extractor import (
     GoalExtractor,
     GoalGraph,
     GoalNode,

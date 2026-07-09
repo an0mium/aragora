@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from aragora.goals.extractor import (
+from aragora.pipeline.goal_extractor import (
     GoalExtractionConfig,
     GoalExtractor,
     GoalNode,

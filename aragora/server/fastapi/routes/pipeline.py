@@ -635,7 +635,7 @@ async def execute_workflow_from_pipeline(
         # Restore the goal graph if available
         goal_graph_data = stored_result.get("goals")
         if goal_graph_data:
-            from aragora.goals.extractor import GoalGraph, GoalNode
+            from aragora.pipeline.goal_extractor import GoalGraph, GoalNode
             from aragora.canvas.stages import GoalNodeType
 
             goal_nodes = []

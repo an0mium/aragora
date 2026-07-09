@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from aragora.goals.extractor import GoalExtractionConfig, GoalExtractor
+from aragora.pipeline.goal_extractor import GoalExtractionConfig, GoalExtractor
 
 
 @pytest.fixture

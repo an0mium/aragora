@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.canvas.stages import GoalNodeType, PipelineStage
-from aragora.goals.extractor import GoalExtractionConfig, GoalGraph, GoalNode
+from aragora.pipeline.goal_extractor import GoalExtractionConfig, GoalGraph, GoalNode
 from aragora.pipeline.idea_to_execution import (
     IdeaToExecutionPipeline,
     PipelineConfig,

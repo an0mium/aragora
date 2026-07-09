@@ -110,7 +110,7 @@ class TestExtractGoalsTool:
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self):
-        with patch.dict("sys.modules", {"aragora.goals.extractor": None}):
+        with patch.dict("sys.modules", {"aragora.pipeline.goal_extractor": None}):
             result = await extract_goals_tool(ideas_json=json.dumps(["test"]))
         assert "error" in result
 

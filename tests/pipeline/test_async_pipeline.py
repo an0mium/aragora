@@ -13,7 +13,7 @@ from aragora.pipeline.idea_to_execution import (
     PipelineResult,
     StageResult,
 )
-from aragora.goals.extractor import GoalExtractionConfig, GoalExtractor, GoalGraph, GoalNode
+from aragora.pipeline.goal_extractor import GoalExtractionConfig, GoalExtractor, GoalGraph, GoalNode
 from aragora.canvas.stages import GoalNodeType
 
 

@@ -11,7 +11,7 @@ Validates that:
 import pytest
 
 from aragora.canvas.stages import GoalNodeType
-from aragora.goals.extractor import GoalGraph, GoalNode
+from aragora.pipeline.goal_extractor import GoalGraph, GoalNode
 from aragora.pipeline.idea_to_execution import PipelineResult, canvas_to_workflow
 from aragora.workflow.types import WorkflowDefinition
 

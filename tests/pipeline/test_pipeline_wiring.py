@@ -107,7 +107,7 @@ class TestBeliefNetworkWiring:
     @pytest.mark.asyncio
     async def test_belief_result_boosts_centrality_scoring(self, pipeline):
         """Nodes with high centrality from BeliefNetwork get higher goal scores."""
-        from aragora.goals.extractor import GoalExtractionConfig
+        from aragora.pipeline.goal_extractor import GoalExtractionConfig
 
         debate_output = {
             "nodes": [

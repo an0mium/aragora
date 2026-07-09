@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from aragora.canvas.stages import GoalNodeType, PipelineStage
-from aragora.goals.extractor import GoalExtractor, GoalGraph, GoalNode, _STOP_WORDS
+from aragora.pipeline.goal_extractor import GoalExtractor, GoalGraph, GoalNode, _STOP_WORDS
 
 
 # ---------------------------------------------------------------------------

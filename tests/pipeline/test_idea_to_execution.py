@@ -486,7 +486,7 @@ class TestAIGoalSynthesis:
             ]
         )
 
-        from aragora.goals.extractor import GoalExtractor
+        from aragora.pipeline.goal_extractor import GoalExtractor
 
         extractor = GoalExtractor(agent=mock_agent)
         canvas_data = {
@@ -517,7 +517,7 @@ class TestAIGoalSynthesis:
         mock_agent = MagicMock()
         mock_agent.generate.side_effect = RuntimeError("API error")
 
-        from aragora.goals.extractor import GoalExtractor
+        from aragora.pipeline.goal_extractor import GoalExtractor
 
         extractor = GoalExtractor(agent=mock_agent)
         canvas_data = {
@@ -538,7 +538,7 @@ class TestAIGoalSynthesis:
         mock_agent = MagicMock()
         mock_agent.generate.return_value = "This is not JSON at all"
 
-        from aragora.goals.extractor import GoalExtractor
+        from aragora.pipeline.goal_extractor import GoalExtractor
 
         extractor = GoalExtractor(agent=mock_agent)
         canvas_data = {
@@ -556,7 +556,7 @@ class TestAIGoalSynthesis:
 
     def test_no_agent_uses_structural(self):
         """Test that no agent means structural extraction only."""
-        from aragora.goals.extractor import GoalExtractor
+        from aragora.pipeline.goal_extractor import GoalExtractor
 
         extractor = GoalExtractor(agent=None)
         canvas_data = {

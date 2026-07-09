@@ -506,7 +506,7 @@ PAST FAILURES TO AVOID (learn from these mistakes):
 
     # Inject GoalExtractor decomposition for structured goal hints
     try:
-        from aragora.goals.extractor import GoalExtractor
+        from aragora.pipeline.goal_extractor import GoalExtractor
 
         extractor = GoalExtractor()
         goal_graph = extractor.extract_from_raw_ideas([objective])

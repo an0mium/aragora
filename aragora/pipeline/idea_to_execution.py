@@ -54,7 +54,7 @@ from aragora.canvas.stages import (
     StageTransition,
     content_hash,
 )
-from aragora.goals.extractor import GoalExtractionConfig, GoalExtractor, GoalGraph
+from aragora.pipeline.goal_extractor import GoalExtractionConfig, GoalExtractor, GoalGraph
 
 logger = logging.getLogger(__name__)
 

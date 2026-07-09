@@ -121,7 +121,7 @@ async def extract_goals_tool(
         Dict with extracted goal graph
     """
     try:
-        from aragora.goals.extractor import GoalExtractor
+        from aragora.pipeline.goal_extractor import GoalExtractor
 
         if not ideas_json:
             return {"error": "ideas_json is required"}

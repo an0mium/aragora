@@ -26,7 +26,7 @@ from aragora.canvas.stages import (
     StageEdgeType,
     content_hash,
 )
-from aragora.goals.extractor import GoalNode
+from aragora.pipeline.goal_extractor import GoalNode
 from aragora.pipeline.universal_node import (
     UniversalEdge,
     UniversalGraph,

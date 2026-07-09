@@ -233,7 +233,7 @@ class GoalCanvasHandler(SecureHandler):
     def _goal_canvas_to_goal_graph(self, canvas):
         from aragora.canvas import EdgeType
         from aragora.canvas.stages import GoalNodeType
-        from aragora.goals.extractor import GoalGraph, GoalNode
+        from aragora.pipeline.goal_extractor import GoalGraph, GoalNode
 
         goal_ids = set(canvas.nodes)
         dependencies_by_target: dict[str, list[str]] = {}

@@ -481,7 +481,7 @@ class TestExtractGoals:
 
     @pytest.mark.asyncio
     async def test_import_error_returns_error(self, handler):
-        with patch.dict("sys.modules", {"aragora.goals.extractor": None}):
+        with patch.dict("sys.modules", {"aragora.pipeline.goal_extractor": None}):
             result = await handler.handle_extract_goals(
                 {
                     "ideas_canvas_data": {"nodes": [{"id": "1"}]},

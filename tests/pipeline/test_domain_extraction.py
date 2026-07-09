@@ -6,7 +6,7 @@ goals for healthcare, financial, and legal domains.
 
 import pytest
 
-from aragora.goals.extractor import (
+from aragora.pipeline.goal_extractor import (
     GoalExtractor,
     GoalGraph,
     GoalNode,

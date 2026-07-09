@@ -1652,7 +1652,7 @@ class CanvasPipelineHandler:
             config: dict (optional) — GoalExtractionConfig overrides
         """
         try:
-            from aragora.goals.extractor import GoalExtractor, GoalExtractionConfig
+            from aragora.pipeline.goal_extractor import GoalExtractor, GoalExtractionConfig
 
             canvas_data = request_data.get("ideas_canvas_data")
             canvas_id = request_data.get("ideas_canvas_id", "")
