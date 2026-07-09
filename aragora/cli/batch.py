@@ -262,7 +262,7 @@ def _poll_batch_status(server_url: str, batch_id: str, token: str | None = None)
 
 def _batch_local(items: list[dict[str, Any]], args: argparse.Namespace) -> None:
     """Process batch locally (sequential)."""
-    from aragora.cli.main import run_debate
+    from aragora.cli.commands.debate import run_debate
 
     results: list[dict[str, Any]] = []
     total = len(items)

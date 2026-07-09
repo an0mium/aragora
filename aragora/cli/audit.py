@@ -533,10 +533,13 @@ async def create_audit(args: Any, use_api: bool, server_url: str, api_key: str |
 
     try:
         auditor = get_document_auditor(persist_sessions=True)
+        session_name = (
+            str(args.name) if args.name else f"Audit-{preset_name}" if preset_name else ""
+        )
         session = await auditor.create_session(
             document_ids=document_ids,
             audit_types=audit_types,
-            name=args.name or (f"Audit-{preset_name}" if preset_name else None),
+            name=session_name,
             model=args.model,
         )
         print(f"Session created: {session.id}")

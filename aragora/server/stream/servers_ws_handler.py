@@ -111,6 +111,8 @@ class WebSocketHandlerMixin:
         update_loop_state: Any
         _voice_handler: Any
 
+        def get_debate_state(self, loop_id: str) -> dict[str, Any] | None: ...
+
     def _validate_audience_payload(self, data: dict) -> tuple[dict | None, str | None]:
         """Validate audience message payload.
 

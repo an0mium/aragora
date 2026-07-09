@@ -457,6 +457,7 @@ class TestCreateAudit:
                 result = await create_audit(create_args, use_api=False, server_url="", api_key=None)
 
         assert result == 0
+        assert mock_auditor.create_session.await_args.kwargs["name"] == ""
         captured = capsys.readouterr()
         assert "Session created" in captured.out
         assert "session-123" in captured.out

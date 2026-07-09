@@ -404,12 +404,23 @@ class TestBatchLocal:
         mock_result.confidence = 0.85
         mock_result.final_answer = "Test answer"
 
-        with patch("asyncio.run", return_value=mock_result):
-            _batch_local(items, args)
+        mock_run_debate = MagicMock(return_value=object())
+        with patch("aragora.cli.commands.debate.run_debate", new=mock_run_debate):
+            with patch("asyncio.run", return_value=mock_result):
+                _batch_local(items, args)
 
         captured = capsys.readouterr()
         assert "BATCH COMPLETE" in captured.out
         assert "Total: 2" in captured.out
+        assert mock_run_debate.call_count == 2
+        assert mock_run_debate.call_args.kwargs == {
+            "task": "Test 2",
+            "agents_str": "anthropic-api",
+            "rounds": 3,
+            "consensus": "majority",
+            "learn": False,
+            "enable_audience": False,
+        }
 
     def test_handles_debate_error(self, capsys):
         """Test handling debate error."""

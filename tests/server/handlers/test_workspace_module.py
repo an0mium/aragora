@@ -1719,6 +1719,13 @@ class TestCircuitBreaker:
 class TestValidation:
     """Tests for validation functions."""
 
+    def test_validation_error_message_fails_safe(self):
+        """A broken validator must still produce a string response message."""
+        from aragora.server.handlers.workspace_module import _validation_error_message
+
+        assert _validation_error_message("workspace_id is required") == "workspace_id is required"
+        assert _validation_error_message(None) == "Invalid identifier"
+
     def test_validate_workspace_id(self):
         """Test workspace ID validation."""
         from aragora.server.handlers.workspace.workspace_utils import _validate_workspace_id

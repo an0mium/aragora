@@ -171,6 +171,12 @@ logger = logging.getLogger(__name__)
 # TypeVar for generic coroutine return type
 T = TypeVar("T")
 
+
+def _validation_error_message(error: str | None) -> str:
+    """Return the validator error while failing safely on an invalid empty result."""
+    return error or "Invalid identifier"
+
+
 # =============================================================================
 # Caching Infrastructure
 # =============================================================================
@@ -523,7 +529,7 @@ class WorkspaceHandler(
             workspace_id = parts[2]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_get_workspace(handler, workspace_id)
 
         # DELETE /api/workspaces/{id}
@@ -531,7 +537,7 @@ class WorkspaceHandler(
             workspace_id = parts[2]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_delete_workspace(handler, workspace_id)
 
         # POST /api/workspaces/{id}/members - Add member
@@ -539,7 +545,7 @@ class WorkspaceHandler(
             workspace_id = parts[2]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_add_member(handler, workspace_id)
 
         # DELETE /api/workspaces/{id}/members/{user_id} - Remove member
@@ -548,10 +554,10 @@ class WorkspaceHandler(
             user_id = parts[4]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             valid, err = _validate_user_id(user_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_remove_member(handler, workspace_id, user_id)
 
         # GET /api/workspaces/{id}/roles - Get available roles for workspace
@@ -559,7 +565,7 @@ class WorkspaceHandler(
             workspace_id = parts[2]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_get_workspace_roles(handler, workspace_id)
 
         # PUT /api/workspaces/{id}/members/{user_id}/role - Update member role
@@ -568,10 +574,10 @@ class WorkspaceHandler(
             user_id = parts[4]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             valid, err = _validate_user_id(user_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_update_member_role(handler, workspace_id, user_id)
 
         # POST /api/workspaces/{id}/invites - Create invite
@@ -579,7 +585,7 @@ class WorkspaceHandler(
             workspace_id = parts[2]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_create_invite(handler, workspace_id)
 
         # GET /api/workspaces/{id}/invites - List invites
@@ -587,7 +593,7 @@ class WorkspaceHandler(
             workspace_id = parts[2]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_list_invites(handler, workspace_id)
 
         # DELETE /api/workspaces/{id}/invites/{invite_id} - Cancel invite
@@ -596,7 +602,7 @@ class WorkspaceHandler(
             invite_id = parts[4]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_cancel_invite(handler, workspace_id, invite_id)
 
         # POST /api/workspaces/{id}/invites/{invite_id}/resend - Resend invite
@@ -605,7 +611,7 @@ class WorkspaceHandler(
             invite_id = parts[4]
             valid, err = _validate_workspace_id(workspace_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_resend_invite(handler, workspace_id, invite_id)
 
         return error_response("Not found", 404)
@@ -658,7 +664,7 @@ class WorkspaceHandler(
             policy_id = parts[3]
             valid, err = _validate_policy_id(policy_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_get_policy(handler, policy_id)
 
         # PUT /api/retention/policies/{id}
@@ -666,7 +672,7 @@ class WorkspaceHandler(
             policy_id = parts[3]
             valid, err = _validate_policy_id(policy_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_update_policy(handler, policy_id)
 
         # DELETE /api/retention/policies/{id}
@@ -674,7 +680,7 @@ class WorkspaceHandler(
             policy_id = parts[3]
             valid, err = _validate_policy_id(policy_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_delete_policy(handler, policy_id)
 
         # POST /api/retention/policies/{id}/execute
@@ -682,7 +688,7 @@ class WorkspaceHandler(
             policy_id = parts[3]
             valid, err = _validate_policy_id(policy_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_execute_policy(handler, policy_id, query_params)
 
         # GET /api/retention/expiring
@@ -744,7 +750,7 @@ class WorkspaceHandler(
             actor_id = parts[3]
             valid, err = _validate_user_id(actor_id)
             if not valid:
-                return error_response(err, 400)
+                return error_response(_validation_error_message(err), 400)
             return self._handle_actor_history(handler, actor_id, query_params)
 
         # GET /api/audit/resource/{id}/history
