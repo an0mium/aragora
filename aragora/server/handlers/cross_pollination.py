@@ -153,7 +153,7 @@ class CrossPollinationBridgeHandler(BaseHandler):
     async def get(self) -> HandlerResult:
         """Get bridge status."""
         try:
-            from aragora.events.arena_bridge import EVENT_TYPE_MAP
+            from aragora.debate.arena_bridge import EVENT_TYPE_MAP
 
             # Get event type mappings
             mappings = {

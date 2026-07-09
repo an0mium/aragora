@@ -30,17 +30,44 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from urllib import error, parse, request
 
 
 PR_EVENTS = {"pull_request", "pull_request_target"}
+APP_TOKEN_RERUN_PERMISSION_MESSAGE = "Resource not accessible by integration"
+APP_TOKEN_RERUN_PERMISSION_RESULT = (
+    "app-token-rerun-permission-denied: Resource not accessible by integration"
+)
+OPERATOR_ACTION_EXIT = 2
 
 
 class GitHubApiError(RuntimeError):
     """Raised when GitHub API calls fail."""
+
+
+def _resolve_github_token() -> str:
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if token:
+        return token
+    try:
+        completed = subprocess.run(
+            ["gh", "auth", "token"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
 
 
 class GitHubClient:
@@ -138,10 +165,27 @@ class GitHubClient:
         )
         return [p for p in pulls if isinstance(p, dict)]
 
-    def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
+    def get_pull(self, pr_number: int) -> dict[str, Any]:
+        pull = self.get(f"/repos/{self.repo}/pulls/{pr_number}")
+        if not isinstance(pull, dict):
+            raise GitHubApiError(f"Expected PR object for #{pr_number}, got {type(pull)}")
+        return pull
+
+    def list_recent_workflow_runs(
+        self,
+        max_runs: int,
+        *,
+        branch: str | None = None,
+        event: str | None = None,
+    ) -> list[dict[str, Any]]:
+        query: dict[str, Any] = {"per_page": 100}
+        if branch:
+            query["branch"] = branch
+        if event:
+            query["event"] = event
         runs = self.paginate(
             f"/repos/{self.repo}/actions/runs",
-            query={"per_page": 100},
+            query=query,
             max_pages=max(1, (max_runs + 99) // 100),
         )
         normalized = [r for r in runs if isinstance(r, dict)]
@@ -153,6 +197,8 @@ class GitHubClient:
             return True, "rerun_requested"
         except GitHubApiError as exc:
             message = str(exc)
+            if _is_app_token_rerun_permission_failure(message):
+                return False, APP_TOKEN_RERUN_PERMISSION_RESULT
             if "403" in message:
                 return False, "forbidden"
             return False, message
@@ -165,6 +211,10 @@ def _field(run: dict[str, Any], *names: str, default: str = "") -> Any:
         if value not in (None, ""):
             return value
     return default
+
+
+def _is_app_token_rerun_permission_failure(message: str) -> bool:
+    return "403" in message and APP_TOKEN_RERUN_PERMISSION_MESSAGE in message
 
 
 def _parse_iso(ts: str) -> datetime | None:
@@ -196,6 +246,22 @@ def _run_branch(run: dict[str, Any]) -> str:
 
 def _run_workflow_key(run: dict[str, Any]) -> Any:
     return _field(run, "workflow_id", "workflowId") or _field(run, "name", default="")
+
+
+def _run_matches_pr(run: dict[str, Any], pr_number: int) -> bool:
+    pulls = run.get("pull_requests") or run.get("pullRequests") or []
+    if not isinstance(pulls, list):
+        return False
+    for pull in pulls:
+        if not isinstance(pull, dict):
+            continue
+        try:
+            number = int(pull.get("number", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if number == pr_number:
+            return True
+    return False
 
 
 def _has_newer_sibling(
@@ -309,6 +375,7 @@ def compute_retriggerable_runs(
                 "sha": sha,
                 "run_attempt": run_attempt,
                 "rerun_command": f"gh run rerun {run_id}",
+                "human_rerun_command": f"gh run rerun {run_id}",
             }
         )
 
@@ -352,6 +419,178 @@ def save_marker(path: str, data: dict[str, str]) -> None:
         json.dump(data, handle, indent=2, sort_keys=True)
 
 
+def _safe_filename_fragment(value: str) -> str:
+    fragment = re.sub(r"[^A-Za-z0-9_.-]+", "-", value.strip())
+    return fragment.strip("-") or "all"
+
+
+def _prune_receipts(path: Path, *, now: datetime, retention_hours: int) -> None:
+    if retention_hours <= 0 or not path.exists():
+        return
+    cutoff = now.timestamp() - (retention_hours * 3600)
+    for child in path.glob("RETRIGGER_CANCELLED_RECEIPT_*.json"):
+        try:
+            if child.stat().st_mtime < cutoff:
+                child.unlink()
+        except OSError:
+            continue
+
+
+def _write_receipt(
+    *,
+    receipt_dir: str,
+    now: datetime,
+    repo: str,
+    scope: str,
+    summary: dict[str, Any],
+    retention_hours: int,
+) -> str:
+    path = Path(receipt_dir)
+    path.mkdir(parents=True, exist_ok=True)
+    _prune_receipts(path, now=now, retention_hours=retention_hours)
+    timestamp = now.strftime("%Y%m%dT%H%M%S%fZ")
+    filename = (
+        f"RETRIGGER_CANCELLED_RECEIPT_{timestamp}_pid{os.getpid()}_"
+        f"{_safe_filename_fragment(scope)}.json"
+    )
+    receipt_path = path / filename
+    receipt = {
+        "schema": "retrigger-cancelled-pr-runs-receipt/v1",
+        "generated_at": now.isoformat(),
+        "repo": repo,
+        "scope": scope,
+        "dry_run": bool(summary.get("dry_run", True)),
+        "scanned": int(summary.get("scanned", 0) or 0),
+        "candidates": int(summary.get("candidates", 0) or 0),
+        "eligible": int(summary.get("eligible", 0) or 0),
+        "eligible_run_ids": [int(item["run_id"]) for item in summary.get("eligible_runs", [])],
+        "applied": int(summary.get("applied", 0) or 0),
+        "apply_failed": int(summary.get("apply_failed", 0) or 0),
+        "rerun_run_ids": [
+            int(item["run_id"]) for item in summary.get("rerun_results", []) if item.get("ok")
+        ],
+        "operator_action_required": bool(summary.get("operator_action_required", False)),
+        "permission_denied_run_ids": [
+            int(item["run_id"]) for item in summary.get("permission_denied_reruns", [])
+        ],
+        "human_rerun_commands": list(summary.get("human_rerun_commands", [])),
+        "operator_packet": str(summary.get("operator_packet", "") or ""),
+        "head_shas": sorted(
+            {
+                str(item.get("sha", "")).strip()
+                for item in summary.get("eligible_runs", [])
+                if str(item.get("sha", "")).strip()
+            }
+        ),
+        "summary": summary,
+    }
+    with receipt_path.open("w", encoding="utf-8") as handle:
+        json.dump(receipt, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    return str(receipt_path)
+
+
+def _human_rerun_items(
+    eligible_runs: list[dict[str, Any]],
+    rerun_results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    eligible_by_id = {int(item["run_id"]): item for item in eligible_runs}
+    items: list[dict[str, Any]] = []
+    for result in rerun_results:
+        if result.get("ok"):
+            continue
+        message = str(result.get("message", ""))
+        if APP_TOKEN_RERUN_PERMISSION_RESULT not in message:
+            continue
+        run_id = int(result["run_id"])
+        run = eligible_by_id.get(run_id, {"run_id": run_id})
+        item = dict(run)
+        item["run_id"] = run_id
+        item["failure"] = APP_TOKEN_RERUN_PERMISSION_MESSAGE
+        item["human_rerun_command"] = str(
+            item.get("human_rerun_command") or f"gh run rerun {run_id} --failed"
+        )
+        items.append(item)
+    return items
+
+
+def _github_run_url(repo: str, run_id: int) -> str:
+    return f"https://github.com/{repo}/actions/runs/{run_id}"
+
+
+def _write_operator_rerun_packet(
+    *,
+    packet_dir: str,
+    now: datetime,
+    repo: str,
+    scope: str,
+    human_reruns: list[dict[str, Any]],
+    receipt_path: str = "",
+) -> str:
+    path = Path(packet_dir)
+    path.mkdir(parents=True, exist_ok=True)
+    timestamp = now.strftime("%Y%m%dT%H%M%S%fZ")
+    packet_path = path / (
+        f"HUMAN_RERUN_PACKET_{timestamp}_pid{os.getpid()}_{_safe_filename_fragment(scope)}.md"
+    )
+
+    lines = [
+        "# Cancelled Run Human Rerun Packet",
+        "",
+        f"Generated: {now.isoformat()}",
+        "",
+        "Purpose: surface exact human/operator reruns after the GitHub App token "
+        f"failed with `{APP_TOKEN_RERUN_PERMISSION_MESSAGE}`.",
+        "",
+        "This packet does not edit workflow files, mutate PR state, merge, settle, "
+        "post evidence, or rerun checks by itself.",
+        "",
+        "## Pending Reruns",
+        "",
+        "| Priority | Link | Requested Action | Operator Command |",
+        "| --- | --- | --- | --- |",
+    ]
+    for item in human_reruns:
+        run_id = int(item["run_id"])
+        command = str(item.get("human_rerun_command") or f"gh run rerun {run_id} --failed")
+        workflow = str(item.get("workflow", "") or "workflow run")
+        branch = str(item.get("branch", "") or "unknown-branch")
+        sha = str(item.get("sha", "") or "unknown-sha")
+        requested = (
+            f"Run exactly `{command}` with human/operator credentials. "
+            f"Proof: `{workflow}` on `{branch}` at `{sha}` was selected as a current "
+            f"cancelled run, but the App-token rerun attempt failed with "
+            f"`{APP_TOKEN_RERUN_PERMISSION_MESSAGE}`."
+        )
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    "P1",
+                    _github_run_url(repo, run_id),
+                    requested,
+                    f"`{command}`",
+                ]
+            )
+            + " |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Source",
+            "",
+            f"- Repository: `{repo}`",
+            f"- Scope: `{scope}`",
+        ]
+    )
+    if receipt_path:
+        lines.append(f"- JSON receipt: `{receipt_path}`")
+    lines.append("")
+    packet_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return str(packet_path)
+
+
 def compute_active_head_map(
     open_pulls: list[dict[str, Any]],
     *,
@@ -376,6 +615,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--repo",
         default=os.environ.get("GITHUB_REPOSITORY", ""),
         help="GitHub repository in OWNER/REPO format",
+    )
+    parser.add_argument(
+        "--pr",
+        type=int,
+        default=None,
+        help="Scope scanning to one pull request's branch/head",
     )
     parser.add_argument(
         "--max-runs",
@@ -417,6 +662,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Prune marker entries older than this many hours",
     )
     parser.add_argument(
+        "--receipt-dir",
+        default=os.environ.get("RETRIGGER_RECEIPT_DIR", ".aragora/retrigger_cancelled/receipts"),
+        help="Directory for per-invocation JSON receipts",
+    )
+    parser.add_argument(
+        "--receipt-retention-hours",
+        type=int,
+        default=168,
+        help="Prune retrigger receipts older than this many hours (<=0 disables pruning)",
+    )
+    parser.add_argument(
+        "--operator-packet-dir",
+        default=os.environ.get(
+            "RETRIGGER_OPERATOR_PACKET_DIR", ".aragora/retrigger_cancelled/operator_packets"
+        ),
+        help="Directory for human rerun packets when App-token reruns are permission-denied",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Actually re-run eligible runs (default: dry run)",
@@ -429,9 +692,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.repo:
         print("--repo is required (or set GITHUB_REPOSITORY)", file=sys.stderr)
         return 1
-    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    token = _resolve_github_token()
     if not token:
-        print("GITHUB_TOKEN is required", file=sys.stderr)
+        print(
+            "GITHUB_TOKEN is required, or authenticate gh so `gh auth token` works", file=sys.stderr
+        )
         return 1
     if args.max_runs < 1:
         print("--max-runs must be >= 1", file=sys.stderr)
@@ -449,11 +714,38 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         client = GitHubClient(repo=args.repo, token=token)
-        open_pulls = client.list_open_pulls()
+        scoped_pr: dict[str, Any] | None = None
+        if args.pr is not None:
+            if args.pr <= 0:
+                print("--pr must be a positive integer", file=sys.stderr)
+                return 1
+            scoped_pr = client.get_pull(int(args.pr))
+            open_pulls = [scoped_pr] if str(scoped_pr.get("state")) == "open" else []
+        else:
+            open_pulls = client.list_open_pulls()
         active_heads = compute_active_head_map(
             open_pulls, keep_draft_runs=bool(args.keep_draft_runs)
         )
-        runs = client.list_recent_workflow_runs(max_runs=args.max_runs)
+        runs: list[dict[str, Any]]
+        scoped_branch = ""
+        scoped_sha = ""
+        if scoped_pr is not None:
+            head = scoped_pr.get("head", {})
+            scoped_branch = str(head.get("ref", "")).strip()
+            scoped_sha = str(head.get("sha", "")).strip()
+            runs_by_id: dict[int, dict[str, Any]] = {}
+            for event_name in sorted(cancel_events):
+                for run in client.list_recent_workflow_runs(
+                    max_runs=args.max_runs,
+                    branch=scoped_branch,
+                    event=event_name,
+                ):
+                    run_id = int(_field(run, "id", "databaseId", default=0) or 0)
+                    if run_id > 0 and _run_matches_pr(run, int(args.pr)):
+                        runs_by_id[run_id] = run
+            runs = sorted(runs_by_id.values(), key=_run_sort_key, reverse=True)
+        else:
+            runs = client.list_recent_workflow_runs(max_runs=args.max_runs)
         eligible, reasons, candidates = compute_retriggerable_runs(
             runs,
             active_heads=active_heads,
@@ -466,9 +758,12 @@ def main(argv: list[str] | None = None) -> int:
 
         applied = 0
         apply_failed = 0
+        rerun_results: list[dict[str, Any]] = []
         if args.apply:
             for item in eligible:
-                ok, _msg = client.rerun_workflow_run(int(item["run_id"]))
+                run_id = int(item["run_id"])
+                ok, msg = client.rerun_workflow_run(run_id)
+                rerun_results.append({"run_id": run_id, "ok": ok, "message": msg})
                 if ok:
                     applied += 1
                     marker_data[str(item["run_id"])] = now.isoformat()
@@ -476,6 +771,8 @@ def main(argv: list[str] | None = None) -> int:
                     apply_failed += 1
             if args.marker_file:
                 save_marker(args.marker_file, marker_data)
+
+        human_reruns = _human_rerun_items(eligible, rerun_results)
 
         summary = {
             "open_prs_total": len(open_pulls),
@@ -488,10 +785,54 @@ def main(argv: list[str] | None = None) -> int:
             "dry_run": not args.apply,
             "applied": applied,
             "apply_failed": apply_failed,
+            "rerun_results": rerun_results,
             "ttl_minutes": args.ttl_minutes,
             "max_attempts": args.max_attempts,
+            "pr": int(args.pr) if args.pr is not None else None,
+            "scope": f"pr-{args.pr}" if args.pr is not None else "all-open-prs",
+            "scoped_branch": scoped_branch,
+            "scoped_sha": scoped_sha,
+            "operator_action_required": bool(human_reruns),
+            "permission_denied_reruns": human_reruns,
+            "human_rerun_commands": [
+                str(item.get("human_rerun_command", "")) for item in human_reruns
+            ],
+            "operator_packet": "",
+            "operator_packet_error": "",
         }
+        operator_packet_error = ""
+        if human_reruns:
+            try:
+                packet_path = _write_operator_rerun_packet(
+                    packet_dir=args.operator_packet_dir,
+                    now=now,
+                    repo=args.repo,
+                    scope=str(summary["scope"]),
+                    human_reruns=human_reruns,
+                )
+                summary["operator_packet"] = packet_path
+            except OSError as exc:
+                operator_packet_error = str(exc)
+                summary["operator_packet_error"] = operator_packet_error
+        try:
+            receipt_path = _write_receipt(
+                receipt_dir=args.receipt_dir,
+                now=now,
+                repo=args.repo,
+                scope=str(summary["scope"]),
+                summary=summary,
+                retention_hours=int(args.receipt_retention_hours),
+            )
+            summary["receipt"] = receipt_path
+            summary["receipt_error"] = ""
+        except OSError as exc:
+            summary["receipt"] = ""
+            summary["receipt_error"] = str(exc)
         print(json.dumps(summary))
+        if human_reruns:
+            if operator_packet_error or summary.get("receipt_error"):
+                return 1
+            return OPERATOR_ACTION_EXIT
         return 0
     except (GitHubApiError, ValueError) as exc:
         print(f"Re-trigger error: {exc}", file=sys.stderr)

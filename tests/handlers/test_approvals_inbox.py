@@ -461,6 +461,27 @@ class TestSuccessResponse:
                 "inbox_wedge",
             ]
 
+    def test_response_sources_include_flagged_settlement_default(
+        self, handler, http_handler, monkeypatch
+    ):
+        """When settlement source is flag-enabled by default, response reports it."""
+        monkeypatch.setenv("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", "1")
+        with patch(
+            "aragora.approvals.inbox.collect_pending_approvals",
+            return_value=[],
+            create=True,
+        ):
+            result = handler.handle("/api/v1/approvals", {}, http_handler)
+            body = _body(result)
+            assert body["sources"] == [
+                "workflow",
+                "decision_plan",
+                "computer_use",
+                "gateway",
+                "inbox_wedge",
+                "settlement",
+            ]
+
     def test_response_custom_sources_when_filtered(self, handler, http_handler):
         """When source filter is applied, response reflects filtered sources."""
         with patch(

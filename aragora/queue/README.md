@@ -59,7 +59,7 @@ PENDING --> PROCESSING --> COMPLETED
 | `tracing.py` | Distributed trace context propagation |
 | `batch_worker.py` | Batch explainability job processing |
 | `webhook_worker.py` | Reliable webhook delivery with circuit breakers |
-| `workers/` | Specialized workers (gauntlet, transcription, routing, consensus healing) |
+| `workers/` | Specialized workers (transcription) |
 
 ## Quick Start
 
@@ -94,8 +94,8 @@ print(f"Status: {status.status.value}")
 from aragora.queue import (
     create_redis_queue,
     DebateWorker,
-    create_default_executor,
 )
+from aragora.debate.queue_executor import create_default_executor
 
 # Create queue and executor
 queue = await create_redis_queue(consumer_name="worker-1")
@@ -133,7 +133,8 @@ python -m scripts.queue_worker --worker-id worker-2 &
 The core worker for processing debate jobs with full Arena integration.
 
 ```python
-from aragora.queue import DebateWorker, create_redis_queue, create_default_executor
+from aragora.queue import DebateWorker, create_redis_queue
+from aragora.debate.queue_executor import create_default_executor
 
 queue = await create_redis_queue(consumer_name="debate-worker-1")
 executor = await create_default_executor()
@@ -224,10 +225,14 @@ Located in `aragora/queue/workers/`:
 
 | Worker | Purpose |
 |--------|---------|
-| `GauntletWorker` | Stress-testing and validation jobs |
 | `TranscriptionWorker` | Audio/video transcription (Whisper integration) |
-| `RoutingWorker` | Debate result delivery to originating channels |
-| `ConsensusHealingWorker` | Monitors and heals failed consensus attempts |
+
+`GauntletWorker` (`aragora.server.workers.gauntlet_worker`) and `RoutingWorker`
+(`aragora.server.workers.routing_worker`) import interface-layer packages;
+`ConsensusHealingWorker` (`aragora.memory.consensus_healing_worker`) imports a
+domain-layer package; `TestFixerWorker` (`aragora.nomic.testfixer.queue_worker`)
+imports an application-layer package. None of the four live in this package
+(docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §10 Q3/Q4).
 
 ## Job Definitions
 
@@ -535,8 +540,16 @@ class DebateWorker:
     async def start() -> None
     async def stop(timeout=30.0) -> None
     def get_stats() -> dict[str, Any]
+```
 
-# Factory function
+#### create_default_executor
+
+Default `DebateExecutor` factory, defined in `aragora.debate.queue_executor` (not
+`aragora.queue`) since it imports the Arena and agent factory:
+
+```python
+from aragora.debate.queue_executor import create_default_executor
+
 async def create_default_executor() -> DebateExecutor
 ```
 

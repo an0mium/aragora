@@ -52,6 +52,7 @@ PENDING_CHECK_STATES = {
     "REQUESTED",
     "WAITING",
 }
+MERGE_READY_PROMPT_MERGE_STATE_STATUSES = {"CLEAN"}
 POST_MERGE_LANE_KEYWORDS = ("evidence", "review", "quorum", "settle", "settlement")
 UNRESOLVED_OPERATOR_CHOICE_MARKERS = (
     "1|2|3",
@@ -1018,6 +1019,55 @@ def _select_merge_ready_entry(merge_packet: Any, *, pr: int | None = None) -> di
     return _merge_packet_entry(merge_packet, target_pr)
 
 
+def _selected_merge_ready_pr_number(merge_packet: Any, *, pr: int | None = None) -> int | None:
+    entry = _select_merge_ready_entry(merge_packet, pr=pr)
+    try:
+        return int(entry.get("pr_number"))
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _live_pr_metadata_blocker(
+    live_pr: Any,
+    *,
+    pr_number: int,
+    expected_head: str,
+) -> str:
+    if live_pr is None:
+        return f"live PR metadata for PR #{pr_number} is missing"
+    if not isinstance(live_pr, dict) or not live_pr:
+        return f"live PR metadata for PR #{pr_number} is missing or malformed"
+    if live_pr.get("error"):
+        return f"live PR metadata for PR #{pr_number} is unavailable: {live_pr.get('error')}"
+    try:
+        live_number = int(live_pr.get("number"))
+    except (TypeError, ValueError):
+        return f"live PR metadata for PR #{pr_number} is missing a parseable number"
+    if live_number != pr_number:
+        return f"live PR metadata number {live_number} does not match requested PR #{pr_number}"
+    state = str(live_pr.get("state") or "").upper()
+    if state != "OPEN":
+        return f"PR #{pr_number} is not open in live metadata: state={state or 'unknown'}"
+    if bool(live_pr.get("isDraft")):
+        return f"PR #{pr_number} is draft in live metadata"
+    live_head = str(live_pr.get("headRefOid") or "")
+    if not live_head:
+        return f"live PR metadata for PR #{pr_number} is missing an exact head"
+    if live_head != expected_head:
+        return (
+            f"live PR head {live_head} does not match merge-packet head {expected_head} "
+            f"for PR #{pr_number}"
+        )
+    mergeable = str(live_pr.get("mergeable") or "").upper()
+    merge_state = str(live_pr.get("mergeStateStatus") or "").upper()
+    if mergeable != "MERGEABLE" or merge_state not in MERGE_READY_PROMPT_MERGE_STATE_STATUSES:
+        return (
+            f"PR #{pr_number} is not settlement-stable in live metadata: "
+            f"mergeable={mergeable or 'unknown'}, mergeStateStatus={merge_state or 'unknown'}"
+        )
+    return ""
+
+
 def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> str:
     if not isinstance(merge_packet, dict) or not merge_packet:
         return "merge-packet is missing or malformed"
@@ -1043,6 +1093,13 @@ def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> 
         return f"merge-packet ready entry for PR #{pr_number} is missing a parseable tier"
     if tier >= 3:
         return f"PR #{pr_number} is Tier {tier}, not an autonomous merge-ready prompt target"
+    live_blocker = _live_pr_metadata_blocker(
+        merge_packet.get("live_pr"),
+        pr_number=pr_number,
+        expected_head=str(entry.get("head_sha") or entry.get("headRefOid") or ""),
+    )
+    if live_blocker:
+        return live_blocker
     return ""
 
 
@@ -1294,9 +1351,23 @@ def build_merge_ready_packet(
         command.extend(["--limit", str(limit)])
     command.append("--json")
     packet = _run_json(command, runner)
-    return (
-        packet if isinstance(packet, dict) else {"error": "merge-packet did not return an object"}
-    )
+    if not isinstance(packet, dict):
+        return {"error": "merge-packet did not return an object"}
+    pr_number = _selected_merge_ready_pr_number(packet, pr=pr)
+    if pr_number is not None:
+        packet = dict(packet)
+        packet["live_pr"] = _run_json(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr_number),
+                "--json",
+                "number,state,isDraft,headRefOid,mergeable,mergeStateStatus,url",
+            ],
+            runner,
+        )
+    return packet
 
 
 def build_merge_ready_prompt(
@@ -1568,6 +1639,49 @@ def _mailbox_command(lane: dict[str, Any] | None, *, pr: int | None, branch: str
     return "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only || true"
 
 
+def _prompt_work_id(
+    lane: dict[str, Any] | None, *, pr: int | None, branch: str | None
+) -> str | None:
+    if lane:
+        raw = str(lane.get("work_id") or "").strip()
+        if raw:
+            return raw
+        raw_pr = lane.get("pr_number")
+        if raw_pr is not None:
+            try:
+                return f"pr:{int(raw_pr)}"
+            except (TypeError, ValueError):
+                pass
+    if pr is not None:
+        return f"pr:{pr}"
+    if branch:
+        return f"branch:{branch}"
+    return None
+
+
+def _branch_write_lease_preflight_lines(
+    lane: dict[str, Any] | None, *, pr: int | None, branch: str | None
+) -> list[str]:
+    if not lane or str(lane.get("status") or "") not in ACTIVE_STATUSES:
+        return []
+    lease_branch = str(lane.get("branch") or branch or "").strip()
+    owner_session = str(lane.get("owner_session") or "").strip()
+    work_id = _prompt_work_id(lane, pr=pr, branch=lease_branch or branch)
+    if not lease_branch or not work_id:
+        return []
+    session_arg = f" --session-id {shlex.quote(owner_session)}" if owner_session else ""
+    command = (
+        "python3 scripts/check_work_lease.py "
+        f"{shlex.quote(lease_branch)} --verify-only --work-id {shlex.quote(work_id)} "
+        f"--strict{session_arg} --json"
+    )
+    return [
+        "",
+        "Before any branch push when ARAGORA_REQUIRE_BRANCH_WRITE_LEASE=1, verify the dev_coordination branch-write lease:",
+        command,
+    ]
+
+
 def build_prompt(
     *,
     registry_path: Path,
@@ -1642,6 +1756,7 @@ def build_prompt(
                 f"python3 -m aragora.cli.main review-queue merge-packet --pr {pr} --json || true",
             ]
         )
+    lines.extend(_branch_write_lease_preflight_lines(lane, pr=pr, branch=branch))
 
     lines.append("")
     if lane:

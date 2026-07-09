@@ -273,6 +273,7 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     "scripts/merge_codex_automation_prs.py",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
+OPERATOR_REVIEW_REQUIRED_LABEL = "operator-review-required"
 MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
 MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
 MERGE_QUORUM_JOB_ID = "merge-quorum"
@@ -390,6 +391,8 @@ class ReviewPacket:
     check_surfaces: dict[str, Any] = field(default_factory=dict)
     protocol: dict[str, Any] = field(default_factory=dict)
     model_review_quorum: dict[str, Any] = field(default_factory=dict)
+    labels: list[str] = field(default_factory=list)
+    merge_state_status: str = ""
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
 
@@ -504,6 +507,11 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
 
     build_p = sub.add_parser("build", help="Build prioritized review queue from open PRs")
     build_p.add_argument("--limit", type=int, default=100, help="Max PRs to fetch (default: 100)")
+    build_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
     build_p.add_argument(
         "--ready-only",
         action="store_true",
@@ -732,6 +740,20 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     collect_evidence_arg(
         "--apply", action="store_true", help="Post Tier 0-2 evidence; Tier 3-4 prepare only."
+    )
+    collect_evidence_arg(
+        "--reviewer-timeout",
+        dest="reviewer_timeout",
+        type=float,
+        default=None,
+        help="Per-reviewer timeout in seconds for this invocation.",
+    )
+    collect_evidence_arg(
+        "--overall-timeout",
+        dest="overall_timeout",
+        type=float,
+        default=None,
+        help="Overall reviewer orchestration timeout in seconds for this invocation.",
     )
     collect_evidence_arg("--json", dest="json_output", action="store_true", help="Output as JSON")
 
@@ -992,7 +1014,7 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
 def _cmd_build(args: argparse.Namespace) -> int:
     json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
     try:
-        items = _build_queue(limit=args.limit)
+        items = _build_queue(limit=args.limit, repo_override=getattr(args, "repo", None))
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -1066,7 +1088,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     repo_root = resolve_repo_root(Path.cwd())
     try:
         _require_clean_worktree(repo_root)
-        items = _build_queue(limit=args.limit)
+        items = _build_queue(limit=args.limit, repo_override=getattr(args, "repo", None))
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -1368,6 +1390,8 @@ def _cmd_collect_evidence(args: argparse.Namespace) -> int:
         author=getattr(args, "author", None),
         apply=bool(getattr(args, "apply", False)),
         json_output=json_output,
+        reviewer_timeout_seconds=getattr(args, "reviewer_timeout", None),
+        overall_timeout_seconds=getattr(args, "overall_timeout", None),
     )
 
 
@@ -1645,7 +1669,7 @@ def _post_human_settlement_status(
     }
 
 
-def _build_queue(*, limit: int) -> list[QueueItem]:
+def _build_queue(*, limit: int, repo_override: str | None = None) -> list[QueueItem]:
     fields = ",".join(
         [
             "number",
@@ -1664,18 +1688,19 @@ def _build_queue(*, limit: int) -> list[QueueItem]:
             "statusCheckRollup",
         ]
     )
-    raw = _gh_json(
-        [
-            "pr",
-            "list",
-            "--state",
-            "open",
-            "--limit",
-            str(limit),
-            "--json",
-            fields,
-        ]
-    )
+    args = [
+        "pr",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        str(limit),
+        "--json",
+        fields,
+    ]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    raw = _gh_json(args)
     items: list[QueueItem] = []
     for pr in raw or []:
         if not isinstance(pr, dict):
@@ -2433,6 +2458,7 @@ def _build_packet(
         "baseRefName",
         "isDraft",
         "mergeable",
+        "mergeStateStatus",
         "reviewDecision",
         "labels",
         "author",
@@ -2923,9 +2949,27 @@ def _build_packet(
             check_surfaces=check_surfaces,
             repo_slug=rest_fallback._repo_slug_from_pr_payload(pr, repo_override),
         ),
+        labels=labels,
+        merge_state_status=str(pr.get("mergeStateStatus") or "").strip().upper(),
     )
     packet.packet_sha = _packet_sha(packet)
     return packet
+
+
+def _admin_squash_live_gate_blockers(packet: ReviewPacket) -> list[str]:
+    blockers: list[str] = []
+    labels = {str(label).strip().lower() for label in packet.labels if str(label).strip()}
+    if OPERATOR_REVIEW_REQUIRED_LABEL in labels:
+        blockers.append("operator-review-required label present")
+
+    merge_state_status = str(packet.merge_state_status or "").strip().upper()
+    if not merge_state_status:
+        blockers.append("mergeStateStatus unavailable; admin squash requires CLEAN or BLOCKED")
+    elif merge_state_status not in {"CLEAN", "BLOCKED"}:
+        blockers.append(
+            f"mergeStateStatus={merge_state_status}; admin squash requires CLEAN or BLOCKED"
+        )
+    return blockers
 
 
 def _build_merge_authorization_packet(
@@ -2943,7 +2987,7 @@ def _build_merge_authorization_packet(
         queue_size = len(refs)
         scoped_pr_refs = True
     else:
-        queue = _build_queue(limit=limit)
+        queue = _build_queue(limit=limit, repo_override=repo_override)
         refs = [str(item.number) for item in queue]
         queue_size = len(queue)
 
@@ -2970,6 +3014,8 @@ def _build_merge_authorization_packet(
     queue_pressure_active = queue_size > MODEL_REVIEW_QUEUE_CAP
     for packet in packets:
         quorum = dict(packet.model_review_quorum)
+        admin_squash_gate_blockers = _admin_squash_live_gate_blockers(packet)
+        model_quorum_admin_squash_allowed = bool(quorum["admin_squash_allowed"])
         quorum["queue_pressure"] = {
             "current_open_prs": queue_size,
             "cap": MODEL_REVIEW_QUEUE_CAP,
@@ -2983,6 +3029,14 @@ def _build_merge_authorization_packet(
                 "merge_authorization_packet",
             ],
         }
+        entry_status = quorum["status"]
+        entry_verdict = quorum["verdict"]
+        if model_quorum_admin_squash_allowed and admin_squash_gate_blockers:
+            # The live gate flipped admin_squash_allowed to false; the quorum
+            # status/verdict ("satisfied"/"admin_squash_allowed") would be
+            # misleading in human-readable output (#8965 openai [P3]).
+            entry_status = "blocked_by_live_gate"
+            entry_verdict = "admin_squash_blocked_by_live_gate"
         entry = {
             "pr_number": packet.pr_number,
             "title": packet.title,
@@ -2992,9 +3046,16 @@ def _build_merge_authorization_packet(
             "machine_recommendation": packet.machine_recommendation,
             "tier": quorum["tier"],
             "tier_name": quorum["tier_name"],
-            "status": quorum["status"],
-            "verdict": quorum["verdict"],
-            "admin_squash_allowed": quorum["admin_squash_allowed"],
+            "status": entry_status,
+            "verdict": entry_verdict,
+            "admin_squash_allowed": (
+                model_quorum_admin_squash_allowed and not admin_squash_gate_blockers
+            ),
+            "model_quorum_admin_squash_allowed": model_quorum_admin_squash_allowed,
+            "admin_squash_gate_blockers": admin_squash_gate_blockers,
+            "merge_state_status": packet.merge_state_status,
+            "operator_review_required": OPERATOR_REVIEW_REQUIRED_LABEL
+            in {str(label).strip().lower() for label in packet.labels if str(label).strip()},
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
             "requires_human_preapproval": quorum.get("requires_human_preapproval", False),
             "human_preapproval_recorded": quorum.get("human_preapproval_recorded", False),
@@ -5588,6 +5649,11 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
             f"{len(entry.get('dogfood_evidence') or [])} dogfood note(s), "
             f"{len(entry.get('counted_reviewer_ids') or [])} counted reviewer(s)"
         )
+        gate_blockers = entry.get("admin_squash_gate_blockers") or []
+        if gate_blockers:
+            print("  admin squash live-gate blockers:")
+            for blocker in gate_blockers:
+                print(f"    - {blocker}")
         for reason in entry.get("reasons") or []:
             print(f"  - {reason}")
         print()

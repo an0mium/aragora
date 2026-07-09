@@ -367,31 +367,43 @@ class TestBeliefHandler:
         assert handler.can_handle("/api/v1/consensus/stats") is False
         assert handler.can_handle("/api/v1/debates") is False
 
-    def test_emergent_traits_not_handled(self, handler):
+    @pytest.fixture
+    def mock_http(self):
+        """Mock HTTP handler with headers the RBAC permission check reads.
+
+        BeliefHandler._check_belief_permission derives roles from the
+        X-User-Roles header; only the owner role grants belief:read.
+        """
+        http = MagicMock()
+        http.headers = {"X-User-Roles": "owner"}
+        http.org_id = None
+        return http
+
+    def test_emergent_traits_not_handled(self, handler, mock_http):
         """Test BeliefHandler does not handle emergent-traits (moved to LaboratoryHandler)."""
-        result = handler.handle("/api/laboratory/emergent-traits", {}, Mock())
+        result = handler.handle("/api/laboratory/emergent-traits", {}, mock_http)
         assert result is None  # Route handled by LaboratoryHandler now
 
     @patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False)
-    def test_cruxes_503_when_unavailable(self, handler):
+    def test_cruxes_503_when_unavailable(self, handler, mock_http):
         """Test returns 503 when belief network unavailable."""
-        result = handler.handle("/api/belief-network/debate-123/cruxes", {}, Mock())
+        result = handler.handle("/api/belief-network/debate-123/cruxes", {}, mock_http)
         assert result.status_code == 503
 
-    def test_cruxes_validates_debate_id(self, handler):
+    def test_cruxes_validates_debate_id(self, handler, mock_http):
         """Test cruxes validates debate_id format."""
         # Invalid characters in debate_id
-        result = handler.handle("/api/belief-network/../etc/passwd/cruxes", {}, Mock())
+        result = handler.handle("/api/belief-network/../etc/passwd/cruxes", {}, mock_http)
         assert result is None or result.status_code == 400
 
-    def test_claim_support_parses_path(self, handler):
+    def test_claim_support_parses_path(self, handler, mock_http):
         """Test claim support endpoint parses path correctly."""
         with patch("aragora.server.handlers.belief.PROVENANCE_AVAILABLE", True):
             with patch("aragora.server.handlers.belief.ProvenanceTracker") as mock_pt:
                 mock_pt.load.return_value = Mock(get_claim_support=Mock(return_value=None))
                 # Should parse debate-123 and claim-456 from path
                 result = handler.handle(
-                    "/api/provenance/debate-123/claims/claim-456/support", {}, Mock()
+                    "/api/provenance/debate-123/claims/claim-456/support", {}, mock_http
                 )
                 # Will fail due to nomic_dir not existing, but validates parsing
                 assert result is not None
@@ -424,12 +436,21 @@ class TestHandlerRouting:
         assert BeliefHandler is not None
 
     def test_unified_server_registers_handlers(self):
-        """Test unified server registers all handlers."""
-        from aragora.server.unified_server import UnifiedHandler
+        """Test unified server registers all handlers.
 
-        # Check handler class variables exist
-        assert hasattr(UnifiedHandler, "_consensus_handler")
-        assert hasattr(UnifiedHandler, "_belief_handler")
+        Handler instances are created lazily on first request
+        (HandlerRegistryMixin._init_handlers), so assert against the
+        actual handler registry before checking tier metadata.
+        """
+        from aragora.server.handler_registry import HANDLER_REGISTRY
+        from aragora.server.handler_registry.core import HANDLER_TIERS
+
+        registry_names = {name for name, _handler in HANDLER_REGISTRY}
+
+        assert "_consensus_handler" in registry_names
+        assert "_belief_handler" in registry_names
+        assert "_consensus_handler" in HANDLER_TIERS
+        assert "_belief_handler" in HANDLER_TIERS
 
     def test_handler_result_structure(self):
         """Test HandlerResult has required fields."""
@@ -461,7 +482,10 @@ class TestHandlerSecurity:
         # Attempt path traversal in debate_id
         assert belief_handler.can_handle("/api/v1/belief-network/../etc/passwd/cruxes") is True
         # But the handler should reject invalid IDs
-        result = belief_handler.handle("/api/belief-network/../etc/passwd/cruxes", {}, Mock())
+        mock_http = MagicMock()
+        mock_http.headers = {"X-User-Roles": "owner"}
+        mock_http.org_id = None
+        result = belief_handler.handle("/api/belief-network/../etc/passwd/cruxes", {}, mock_http)
         # Should either return None (not handling) or 400 (bad request)
         assert result is None or result.status_code in (400, 503)
 
@@ -572,7 +596,8 @@ class TestAgentsHandler:
         assert handler.can_handle("/api/v1/consensus/stats") is False
         assert handler.can_handle("/api/v1/debates") is False
 
-    def test_leaderboard_returns_503_when_no_elo(self):
+    @pytest.mark.asyncio
+    async def test_leaderboard_returns_503_when_no_elo(self):
         """Test returns 503 when ELO system unavailable."""
         from aragora.server.handlers import AgentsHandler
         from aragora.server.handlers.base import clear_cache
@@ -580,12 +605,13 @@ class TestAgentsHandler:
         clear_cache()
         ctx = {"storage": None, "elo_system": None, "nomic_dir": None}
         handler = AgentsHandler(ctx)
-        result = handler.handle("/api/leaderboard", {}, Mock())
+        result = await handler.handle("/api/leaderboard", {}, Mock())
         assert result.status_code == 503
 
-    def test_compare_requires_two_agents(self, handler):
+    @pytest.mark.asyncio
+    async def test_compare_requires_two_agents(self, handler):
         """Test compare requires at least 2 agents."""
-        result = handler.handle("/api/agent/compare", {"agents": ["claude"]}, Mock())
+        result = await handler.handle("/api/agent/compare", {"agents": ["claude"]}, Mock())
         assert result.status_code == 400
 
 
@@ -700,16 +726,25 @@ class TestSystemHandler:
         return SystemHandler(ctx)
 
     def test_can_handle_health(self, handler):
-        """Test can_handle for health endpoint."""
-        assert handler.can_handle("/api/v1/health") is True
+        """Test health endpoint ownership (moved to HealthHandler)."""
+        from aragora.server.handlers import HealthHandler
+
+        assert handler.can_handle("/api/v1/health") is False
+        assert HealthHandler({}).can_handle("/api/v1/health") is True
 
     def test_can_handle_nomic_state(self, handler):
-        """Test can_handle for nomic state endpoint."""
-        assert handler.can_handle("/api/v1/nomic/state") is True
+        """Test nomic state endpoint ownership (moved to NomicHandler)."""
+        from aragora.server.handlers import NomicHandler
+
+        assert handler.can_handle("/api/v1/nomic/state") is False
+        assert NomicHandler({}).can_handle("/api/v1/nomic/state") is True
 
     def test_can_handle_modes(self, handler):
-        """Test can_handle for modes endpoint."""
-        assert handler.can_handle("/api/v1/modes") is True
+        """Test modes endpoint ownership (moved to NomicHandler)."""
+        from aragora.server.handlers import NomicHandler
+
+        assert handler.can_handle("/api/v1/modes") is False
+        assert NomicHandler({}).can_handle("/api/v1/modes") is True
 
     def test_can_handle_history(self, handler):
         """Test can_handle for history endpoints."""

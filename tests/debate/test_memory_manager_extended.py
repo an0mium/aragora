@@ -8,10 +8,13 @@ Tests cover:
 - Event emission (spectator events, WebSocket events, notification failures)
 """
 
+import logging
+import sqlite3
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import aragora.debate.memory_manager as memory_manager_module
 from aragora.debate.memory_manager import MemoryManager
 
 
@@ -277,7 +280,7 @@ class TestOutcomeUpdates:
         # Make second update fail
         mock_continuum_memory.update_outcome.side_effect = [
             None,  # First succeeds
-            Exception("Database error"),  # Second fails
+            RuntimeError("Database error"),  # Second fails
             None,  # Third succeeds
         ]
 
@@ -286,6 +289,256 @@ class TestOutcomeUpdates:
 
         # All three should have been attempted
         assert mock_continuum_memory.update_outcome.call_count == 3
+        assert manager._retrieved_ids == []
+        assert [update.memory_id for update in manager._pending_outcome_updates] == ["mem_2"]
+
+    def test_sqlite_outcome_failure_is_retried_without_reapplying_successes(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
+        """SQLite write failures are transient and do not replay already-applied updates."""
+        manager._retrieved_ids = ["mem_ok", "mem_locked"]
+        mock_continuum_memory.update_outcome.side_effect = [
+            None,
+            sqlite3.OperationalError("database is locked"),
+        ]
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert [update.memory_id for update in manager._pending_outcome_updates] == ["mem_locked"]
+        assert [
+            call.kwargs["id"] for call in mock_continuum_memory.update_outcome.call_args_list
+        ] == ["mem_ok", "mem_locked"]
+
+        mock_continuum_memory.update_outcome.reset_mock()
+        mock_continuum_memory.update_outcome.side_effect = None
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        mock_continuum_memory.update_outcome.assert_called_once()
+        assert mock_continuum_memory.update_outcome.call_args.kwargs["id"] == "mem_locked"
+        assert manager._pending_outcome_updates == []
+
+    def test_failed_outcome_updates_keep_tier_state_for_retry(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
+        """A failed outcome write must not discard retry state for that memory."""
+        manager._retrieved_ids = ["mem_1", "mem_2", "mem_3"]
+        manager._retrieved_tiers = {
+            "mem_1": "fast",
+            "mem_2": "slow",
+            "mem_3": "fast",
+        }
+        mock_continuum_memory.update_outcome.side_effect = [
+            None,
+            RuntimeError("transient write failure"),
+            None,
+        ]
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+        assert len(manager._pending_outcome_updates) == 1
+        pending = manager._pending_outcome_updates[0]
+        assert pending.memory_id == "mem_2"
+        assert pending.tier == "slow"
+        assert pending.success is True
+        assert pending.confidence == pytest.approx(0.8)
+
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            AttributeError("missing update method"),
+            TypeError("bad adapter signature"),
+            ValueError("bad memory payload"),
+            KeyError("missing memory row"),
+        ],
+    )
+    def test_permanent_outcome_update_failures_are_not_queued(
+        self, manager, mock_debate_result, mock_continuum_memory, exception
+    ):
+        """Permanent adapter/data errors are logged and dropped, not retried forever."""
+        manager._retrieved_ids = ["mem_1"]
+        mock_continuum_memory.update_outcome.side_effect = exception
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+        assert manager._pending_outcome_updates == []
+
+    def test_outcome_retry_uses_original_debate_payload(self, manager, mock_continuum_memory):
+        """Pending outcome retries use their source debate payload, not the next debate's."""
+        debate_a = MagicMock()
+        debate_a.id = "debate-a"
+        debate_a.consensus_reached = True
+        debate_a.confidence = 0.9
+
+        debate_b = MagicMock()
+        debate_b.id = "debate-b"
+        debate_b.consensus_reached = False
+        debate_b.confidence = 0.2
+
+        manager.track_retrieved_ids(["mem_a"], tiers={"mem_a": "fast"})
+        mock_continuum_memory.update_outcome.side_effect = [RuntimeError("transient")]
+
+        manager.update_memory_outcomes(debate_a)
+
+        assert manager._retrieved_ids == []
+        assert [update.memory_id for update in manager._pending_outcome_updates] == ["mem_a"]
+
+        manager.track_retrieved_ids(["mem_b"], tiers={"mem_b": "slow"})
+        mock_continuum_memory.update_outcome.side_effect = [None, None]
+
+        manager.update_memory_outcomes(debate_b)
+
+        assert mock_continuum_memory.update_outcome.call_count == 3
+        retry_call = mock_continuum_memory.update_outcome.call_args_list[1]
+        current_call = mock_continuum_memory.update_outcome.call_args_list[2]
+        assert retry_call.kwargs["id"] == "mem_a"
+        assert retry_call.kwargs["success"] is True
+        assert retry_call.kwargs["agent_prediction_error"] == pytest.approx(0.1)
+        assert current_call.kwargs["id"] == "mem_b"
+        assert current_call.kwargs["success"] is False
+        assert current_call.kwargs["agent_prediction_error"] == pytest.approx(0.2)
+        assert manager._pending_outcome_updates == []
+        assert manager._retrieved_ids == []
+
+    def test_pending_outcome_retries_are_coalesced_and_capped(
+        self, manager, mock_continuum_memory, monkeypatch
+    ):
+        """Repeated transient failures keep the bounded latest pending outcome per memory."""
+        monkeypatch.setattr(memory_manager_module, "_MAX_PENDING_OUTCOME_UPDATES", 2)
+        mock_continuum_memory.update_outcome.side_effect = RuntimeError("transient")
+
+        for debate_id, confidence, memory_id in [
+            ("debate-a", 0.7, "mem_a"),
+            ("debate-b", 0.8, "mem_a"),
+            ("debate-c", 0.9, "mem_b"),
+            ("debate-d", 0.6, "mem_c"),
+        ]:
+            result = MagicMock()
+            result.id = debate_id
+            result.consensus_reached = True
+            result.confidence = confidence
+            manager.track_retrieved_ids([memory_id])
+            manager.update_memory_outcomes(result)
+
+        pending = manager._pending_outcome_updates
+        assert [update.memory_id for update in pending] == ["mem_b", "mem_c"]
+        assert [update.debate_id for update in pending] == ["debate-c", "debate-d"]
+        assert len(pending) == 2
+
+    def test_pending_outcome_cap_logs_dropped_memory_ids(
+        self, manager, mock_continuum_memory, monkeypatch, caplog
+    ):
+        """Overflow policy keeps latest unique IDs and logs the dropped memory IDs."""
+        monkeypatch.setattr(memory_manager_module, "_MAX_PENDING_OUTCOME_UPDATES", 2)
+        mock_continuum_memory.update_outcome.side_effect = RuntimeError("transient")
+        manager.track_retrieved_ids(["mem_a", "mem_b", "mem_c"])
+
+        with caplog.at_level(logging.WARNING):
+            manager.update_memory_outcomes(
+                MagicMock(id="debate", consensus_reached=True, confidence=0.8)
+            )
+
+        assert [update.memory_id for update in manager._pending_outcome_updates] == [
+            "mem_b",
+            "mem_c",
+        ]
+        assert "policy=latest_per_memory_id" in caplog.text
+        assert "dropped_memory_ids=mem_a" in caplog.text
+
+    def test_tier_analytics_failures_do_not_abort_batch_or_leave_tracked_ids(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
+        """Tier analytics failures stay per-memory and tracking state is cleared."""
+        manager._retrieved_ids = ["mem_1", "mem_2", "mem_3"]
+        manager._retrieved_tiers = {
+            "mem_1": "fast",
+            "mem_2": "slow",
+            "mem_3": "fast",
+        }
+        tracker = MagicMock()
+        tracker.record_usage.side_effect = [
+            StopIteration("missing tier row"),
+            ImportError("analytics unavailable"),
+            None,
+        ]
+        manager.tier_analytics_tracker = tracker
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert mock_continuum_memory.update_outcome.call_count == 3
+        assert tracker.record_usage.call_count == 3
+        assert [call.kwargs["memory_id"] for call in tracker.record_usage.call_args_list] == [
+            "mem_1",
+            "mem_2",
+            "mem_3",
+        ]
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+
+    def test_sqlite_tier_analytics_failure_does_not_abort_outcome_drain(
+        self, manager, mock_debate_result, mock_continuum_memory, caplog
+    ):
+        """SQLite analytics failures should not skip later updates or cleanup."""
+        manager._retrieved_ids = ["mem_1", "mem_2"]
+        manager._retrieved_tiers = {
+            "mem_1": "fast",
+            "mem_2": "slow",
+        }
+        tracker = MagicMock()
+        tracker.record_usage.side_effect = [
+            sqlite3.OperationalError("database is locked"),
+            None,
+        ]
+        manager.tier_analytics_tracker = tracker
+
+        with caplog.at_level(logging.WARNING):
+            manager.update_memory_outcomes(mock_debate_result)
+
+        assert mock_continuum_memory.update_outcome.call_count == 2
+        assert tracker.record_usage.call_count == 2
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+        assert manager._pending_outcome_updates == []
+        assert "Unexpected error recording usage for mem_1" in caplog.text
+
+    def test_current_success_clears_stale_pending_retry_for_same_memory(
+        self, manager, mock_debate_result, mock_continuum_memory
+    ):
+        """A newer successful current update must retire stale same-memory retries."""
+        manager._pending_outcome_updates = [
+            memory_manager_module._PendingMemoryOutcomeUpdate(
+                memory_id="mem_same",
+                success=True,
+                confidence=0.9,
+                debate_id="old-debate",
+                tier="fast",
+            )
+        ]
+        manager.track_retrieved_ids(["mem_same"], tiers={"mem_same": "slow"})
+        mock_continuum_memory.update_outcome.side_effect = [
+            RuntimeError("transient retry failure"),
+            None,
+        ]
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        assert [
+            call.kwargs["id"] for call in mock_continuum_memory.update_outcome.call_args_list
+        ] == ["mem_same", "mem_same"]
+        assert manager._pending_outcome_updates == []
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+
+        mock_continuum_memory.update_outcome.reset_mock()
+        mock_continuum_memory.update_outcome.side_effect = None
+
+        manager.update_memory_outcomes(mock_debate_result)
+
+        mock_continuum_memory.update_outcome.assert_not_called()
 
 
 # =============================================================================
@@ -343,13 +596,25 @@ class TestEventEmission:
         mock_debate_embeddings.find_similar_debates.return_value = [
             ("debate_1", "Topic 1", 0.85),
         ]
-        mock_spectator.emit.side_effect = Exception("Notification failed")
+        mock_spectator.emit.side_effect = RuntimeError("Notification failed")
 
         # Should not raise
         result = await manager.fetch_historical_context("test task")
 
         # Should still return context
         assert "HISTORICAL CONTEXT" in result
+
+    def test_expected_spectator_adapter_failures_log_at_debug(
+        self, manager, mock_spectator, caplog
+    ):
+        """Expected adapter-shape failures stay quiet while still being contained."""
+        mock_spectator.emit.side_effect = AttributeError("missing emit shape")
+
+        with caplog.at_level(logging.DEBUG, logger="aragora.debate.memory_manager"):
+            manager._notify_spectator("memory_recall", "details", metric=0.5)
+
+        assert "Spectator notification error" in caplog.text
+        assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 
 # =============================================================================
@@ -384,6 +649,24 @@ class TestMemoryManagerIntegration:
         manager.clear_retrieved_ids()
 
         assert manager._retrieved_ids == []
+
+    def test_clear_retrieved_ids_preserves_pending_outcome_retries(self, manager):
+        """Clearing per-debate retrieval state must not abandon pending writes."""
+        manager._pending_outcome_updates = [
+            memory_manager_module._PendingMemoryOutcomeUpdate(
+                memory_id="mem_1",
+                success=True,
+                confidence=0.8,
+                debate_id="debate-1",
+            )
+        ]
+        manager.track_retrieved_ids(["id1"], tiers={"id1": "fast"})
+
+        manager.clear_retrieved_ids()
+
+        assert manager._retrieved_ids == []
+        assert manager._retrieved_tiers == {}
+        assert [update.memory_id for update in manager._pending_outcome_updates] == ["mem_1"]
 
     def test_track_retrieved_ids_filters_empty(self, manager):
         """Test that empty IDs are filtered out."""

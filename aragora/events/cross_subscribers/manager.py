@@ -7,15 +7,16 @@ and subscriber lifecycle management.
 The heavy lifting is delegated to specialized mixins:
 - DispatchMixin: Event dispatch, batching, retry, circuit breaker, metrics
 - AdminMixin: Stats reporting, enable/disable, sampling, filtering, retry config
-- BasicHandlersMixin: Core subsystem event handlers
-- CultureHandlersMixin: Culture pattern handlers
-- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis, alerts)
+
+The remaining built-in handlers (RLM feedback, gauntlet/cost/explainability
+notifications, culture patterns, risk/genesis feedback loops) are domain-free
+and defined directly below rather than via mixin.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 from collections.abc import Callable
 
 from aragora.events.subscribers.config import (
@@ -28,9 +29,6 @@ from aragora.resilience import CircuitBreaker
 
 from .admin import AdminMixin
 from .dispatch import DispatchMixin
-from .handlers.basic import BasicHandlersMixin
-from .handlers.culture import CultureHandlersMixin
-from .handlers.strategic import StrategicHandlersMixin
 from .registry import get_registered_subscribers
 
 if TYPE_CHECKING:
@@ -57,12 +55,22 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+class CompressorProtocol(Protocol):
+    """Protocol for RLM compressor with access pattern recording."""
+
+    def record_access_pattern(
+        self,
+        tier: str,
+        cache_hit: bool,
+        importance: float,
+    ) -> None:
+        """Record a memory access pattern for compression optimization."""
+        ...
+
+
 class CrossSubscriberManager(
     DispatchMixin,
     AdminMixin,
-    BasicHandlersMixin,
-    CultureHandlersMixin,
-    StrategicHandlersMixin,
 ):
     """
     Manages cross-subsystem event subscribers.
@@ -137,7 +145,7 @@ class CrossSubscriberManager(
         # Direct construction stays infrastructure-only, so relocated domain
         # reactions cannot appear or disappear based on prior import order.
 
-    def apply_registered_subscribers(self) -> int:
+    def apply_registered_subscribers(self, *, include_names: set[str] | None = None) -> int:
         """Wire registry subscribers not yet applied into this manager.
 
         Home modules (domain/application/interface) self-register their
@@ -146,12 +154,27 @@ class CrossSubscriberManager(
         reusing the existing per-event dispatch/stats/retry machinery. Idempotent:
         each subscriber is applied at most once per manager instance.
 
+        Args:
+            include_names: When given, only registers subscribers whose home
+                name is in this set on THIS call; every other registered home
+                is left un-applied here (a later call - with a wider or no
+                filter - can still apply it). ``None`` (default) applies every
+                currently-registered home, the pre-existing behavior. This is
+                what lets a subset bootstrap (e.g. domain-only) stay narrow
+                even when an unrelated import has already populated the
+                process-wide registry with a wider-tier home's subscriber -
+                the registry itself has no tier concept, so without this the
+                subset would silently inherit whatever happened to be
+                registered first.
+
         Returns:
             The number of subscribers newly applied by this call.
         """
         applied = 0
         for name, subscriber in get_registered_subscribers().items():
             if name in self._applied_subscribers:
+                continue
+            if include_names is not None and name not in include_names:
                 continue
             subscriber.register(self)
             self._applied_subscribers.add(name)
@@ -194,6 +217,284 @@ class CrossSubscriberManager(
         except (AttributeError, TypeError):
             return True  # Default to enabled on error
 
+    def _handle_memory_to_rlm(self, event: StreamEvent) -> None:
+        """
+        Memory retrieval → RLM feedback.
+
+        When memory is retrieved, inform RLM about retrieval patterns
+        to optimize compression strategies. Tracks access patterns
+        for adaptive compression.
+        """
+        data = event.data
+        tier = data.get("tier", "unknown")
+        hit = data.get("cache_hit", False)
+        importance = data.get("importance", 0.5)
+
+        # Track access pattern for RLM optimization
+        logger.debug("Memory retrieval: tier=%s, cache_hit=%s", tier, hit)
+
+        # Update RLM compression hints based on access patterns
+        try:
+            import aragora.rlm.compressor as compressor_module
+
+            # get_compressor may not exist yet (planned feature)
+            get_compressor = getattr(compressor_module, "get_compressor", None)
+            if get_compressor is None:
+                return
+
+            compressor: CompressorProtocol | None = get_compressor()
+            if compressor and hasattr(compressor, "record_access_pattern"):
+                compressor.record_access_pattern(
+                    tier=tier,
+                    cache_hit=hit,
+                    importance=importance,
+                )
+        except ImportError:
+            pass  # RLM module not available
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("RLM pattern recording failed: %s", e)
+
+    def _handle_gauntlet_complete_to_notification(self, event: StreamEvent) -> None:
+        """Gauntlet complete → Notification dispatch.
+
+        When a gauntlet stress-test finishes, notify stakeholders with
+        the verdict and finding counts.
+        """
+        data = event.data
+        gauntlet_id = data.get("gauntlet_id", "")
+        verdict = data.get("verdict", "unknown")
+        confidence = data.get("confidence", 0.0)
+        total_findings = data.get("total_findings", 0)
+        critical_count = data.get("critical_count", 0)
+
+        logger.debug("Gauntlet complete: %s verdict=%s", gauntlet_id, verdict)
+
+        try:
+            import asyncio
+
+            from aragora.notifications.service import notify_gauntlet_completed
+
+            coro = notify_gauntlet_completed(
+                gauntlet_id=gauntlet_id,
+                verdict=verdict,
+                confidence=confidence,
+                total_findings=total_findings,
+                critical_count=critical_count,
+            )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(coro)
+            except RuntimeError:
+                asyncio.run(coro)
+        except ImportError:
+            pass  # Notification service not available
+        except (RuntimeError, TypeError, ValueError, OSError) as e:
+            logger.debug("Gauntlet notification failed: %s", e)
+
+    def _handle_debate_end_to_cost_tracking(self, event: StreamEvent) -> None:
+        """Debate end → Cost tracking record.
+
+        When a debate ends, record the total cost for billing
+        and usage analytics.
+        """
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        total_cost = data.get("total_cost", 0.0)
+        total_tokens = data.get("total_tokens", 0)
+
+        if not total_cost:
+            return
+
+        logger.debug(f"Recording debate cost: {debate_id} ${total_cost:.4f}")
+
+        try:
+            from aragora.billing.cost_tracker import get_cost_tracker
+
+            tracker = get_cost_tracker()
+            if tracker and hasattr(tracker, "record_debate_total"):
+                tracker.record_debate_total(
+                    debate_id=debate_id,
+                    total_cost=total_cost,
+                    total_tokens=total_tokens,
+                )
+        except ImportError:
+            pass  # CostTracker not available
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("Cost tracking record failed: %s", e)
+
+    def _handle_debate_end_to_explainability(self, event: StreamEvent) -> None:
+        """Debate end → Explainability auto-trigger.
+
+        When a debate ends, log the event for downstream explainability
+        processing. The actual explanation generation happens in
+        ArenaExtensions._auto_generate_explanation.
+        """
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        consensus = data.get("consensus_reached", False)
+        confidence = data.get("confidence", 0.0)
+
+        logger.debug(
+            f"Debate ended for explainability: {debate_id} "
+            f"consensus={consensus} confidence={confidence:.2f}"
+        )
+
+    def _handle_culture_to_debate(self, event: StreamEvent) -> None:
+        """
+        Culture patterns updated → Debate protocol.
+
+        When culture patterns emerge, inform debate protocol selection.
+        Only handles MOUND_UPDATED events with type=culture_patterns.
+        """
+        if not self._is_km_handler_enabled("culture_to_debate"):
+            return
+
+        data = event.data
+        update_type = data.get("update_type", "")
+
+        if update_type != "culture_patterns":
+            return
+
+        patterns_count = data.get("patterns_count", 0)
+        workspace_id = data.get("workspace_id", "")
+
+        logger.debug(
+            f"Culture patterns available: {patterns_count} patterns in workspace {workspace_id}"
+        )
+
+        # Culture patterns are used passively during debate initialization
+        # by querying the CultureAccumulator
+
+    def _handle_risk_warning_to_health(self, event: StreamEvent) -> None:
+        """Risk warning → Health registry degradation.
+
+        When a security anomaly or domain risk is detected, record it
+        in the health registry so that affected components are marked
+        as degraded. This prevents compromised agents from being
+        selected for future debates.
+        """
+        data = event.data
+        risk_type = data.get("risk_type", "unknown")
+        severity = data.get("severity", "low")
+        component = data.get("component", data.get("agent", ""))
+        description = data.get("description", "")[:200]
+
+        if not component:
+            return
+
+        # Only degrade health for medium+ severity
+        if severity in ("info", "low"):
+            return
+
+        logger.info(
+            "Risk warning → health degradation: component=%s severity=%s type=%s",
+            component,
+            severity,
+            risk_type,
+        )
+
+        try:
+            from aragora.resilience.health import get_global_health_registry
+
+            registry = get_global_health_registry()
+
+            # get_or_create ensures the checker exists
+            checker = registry.get_or_create(component)
+            checker.record_failure(
+                error=f"[{risk_type}] {description}",
+            )
+            logger.debug(
+                "Recorded health degradation for %s from risk warning",
+                component,
+            )
+        except ImportError:
+            pass  # Health registry not available
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("Health degradation from risk warning failed: %s", e)
+
+    def _handle_genesis_to_control_plane(self, event: StreamEvent) -> None:
+        """Agent birth/death/evolution → Control plane registry sync.
+
+        When the genesis system creates, retires, or mutates an agent,
+        update the control plane's agent registry so it reflects the
+        current population. This ensures the control plane doesn't
+        route tasks to dead agents or miss newly born ones.
+        """
+        data = event.data
+        event_subtype = data.get("event_type", data.get("type", ""))
+        agent_id = data.get("agent_id", data.get("genome_id", ""))
+
+        if not agent_id:
+            return
+
+        logger.debug(
+            "Genesis → control plane: event=%s agent=%s",
+            event_subtype,
+            agent_id,
+        )
+
+        try:
+            from aragora.control_plane.registry import AgentRegistry
+
+            import asyncio
+
+            registry = AgentRegistry()
+
+            if event_subtype in ("birth", "agent_birth"):
+                capabilities = data.get("capabilities", [])
+                agent_type = data.get("agent_type", "evolved")
+                metadata = {"source": "genesis", "generation": data.get("generation", 0)}
+
+                async def _register():
+                    await registry.register(
+                        agent_id=agent_id,
+                        capabilities=capabilities,
+                        model=agent_type,
+                        metadata=metadata,
+                    )
+
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(_register())
+                except RuntimeError:
+                    pass  # No event loop; skip async registration
+                logger.info("Scheduled born agent %s for control plane registration", agent_id)
+
+            elif event_subtype in ("death", "agent_death"):
+
+                async def _unregister():
+                    await registry.unregister(agent_id)
+
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(_unregister())
+                except RuntimeError:
+                    pass
+                logger.info("Scheduled dead agent %s for control plane removal", agent_id)
+
+            elif event_subtype in ("mutation", "evolution", "agent_evolution"):
+                new_capabilities = data.get("capabilities", data.get("new_traits", []))
+
+                async def _update():
+                    await registry.register(
+                        agent_id=agent_id,
+                        capabilities=new_capabilities,
+                        model=data.get("agent_type", "evolved"),
+                        metadata={"evolved": True},
+                    )
+
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(_update())
+                except RuntimeError:
+                    pass
+                logger.debug("Scheduled evolved agent %s for control plane update", agent_id)
+
+        except ImportError:
+            pass  # Control plane not available
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("Genesis → control plane sync failed: %s", e)
+
     def _register_builtin_subscribers(self) -> None:
         """Register built-in cross-subsystem event handlers."""
         # Memory → RLM feedback
@@ -235,12 +536,11 @@ class CrossSubscriberManager(
         # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
         # via apply_registered_subscribers, not registered here.
 
-        # Phase 7: Staleness → Debate
-        self.register(
-            "staleness_to_debate",
-            StreamEventType.KNOWLEDGE_STALE,
-            self._handle_staleness_to_debate,
-        )
+        # Phase 7: Staleness → Debate relocated to
+        # aragora.server.event_subscribers (P4a Batch E6 relocate-UP; interface-tier
+        # home); wired at bootstrap via apply_registered_subscribers
+        # (interface-superset only - a pure-domain manager has no WebSocket state
+        # manager to react through), not registered here.
 
         # Explainability: Debate End → Explanation auto-trigger
         self.register(
@@ -288,24 +588,11 @@ class CrossSubscriberManager(
         # aragora.knowledge.event_subscribers (P4a Batch E2c); wired at bootstrap
         # via apply_registered_subscribers, not registered here.
 
-        # Register webhook delivery for all cross-pollination events
-        webhook_event_types = [
-            StreamEventType.MEMORY_STORED,
-            StreamEventType.MEMORY_RETRIEVED,
-            StreamEventType.AGENT_ELO_UPDATED,
-            StreamEventType.KNOWLEDGE_INDEXED,
-            StreamEventType.KNOWLEDGE_QUERIED,
-            StreamEventType.MOUND_UPDATED,
-            StreamEventType.CALIBRATION_UPDATE,
-            StreamEventType.EVIDENCE_FOUND,
-        ]
-
-        for event_type in webhook_event_types:
-            self.register(
-                f"webhook_{event_type.value.lower()}",
-                event_type,
-                self._handle_webhook_delivery,
-            )
+        # Webhook delivery for all cross-pollination events (8 webhook_* names)
+        # relocated to aragora.server.event_subscribers (P4a Batch E6
+        # relocate-UP; interface-tier home); wired at bootstrap via
+        # apply_registered_subscribers (interface-superset only - a pure-domain
+        # manager has no webhook store to react through), not registered here.
 
         # =====================================================================
         # Strategic Feedback Loops (Tier 5)
@@ -347,12 +634,11 @@ class CrossSubscriberManager(
         # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at
         # bootstrap via apply_registered_subscribers, not registered here.
 
-        # Alert Escalated → Workflow Emergency Brake
-        self.register(
-            "alert_escalated_to_workflow_brake",
-            StreamEventType.ALERT_ESCALATED,
-            self._handle_alert_escalated_to_workflow_brake,
-        )
+        # Alert Escalated → Workflow Emergency Brake relocated to
+        # aragora.workflow.event_subscribers (P4a Batch E5 relocate-UP;
+        # application-tier home); wired at bootstrap via
+        # apply_registered_subscribers (interface-superset only - a pure-domain
+        # manager has no workflow engine to react through), not registered here.
 
         # Meta-Learning Adjusted → Team Selection Recalibration relocated to
         # aragora.debate.event_subscribers (P4a Batch E4 relocate-UP); wired at

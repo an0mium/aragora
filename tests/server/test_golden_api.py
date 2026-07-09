@@ -28,11 +28,13 @@ async def test_debate_with_int_agents():
     """debate(task, agents=3) auto-creates DemoAgents and returns DebateResult."""
     result = await debate("Should we adopt microservices?", agents=3, rounds=1)
 
-    from aragora.core_types import DebateResult
+    from aragora.core_types import DebateResult, DebateStatus, normalize_debate_status
 
     assert isinstance(result, DebateResult)
     assert result.task == "Should we adopt microservices?"
-    assert result.status == "completed"
+    # Legacy status is "consensus_reached" or "completed" depending on whether
+    # the demo agents converge; both project to the canonical COMPLETED state.
+    assert normalize_debate_status(result.status) == DebateStatus.COMPLETED
     assert len(result.participants) == 3
 
 
@@ -265,28 +267,106 @@ def test_receipt_rejects_unknown_type():
 
 
 def test_golden_imports_from_package():
-    """Golden API functions are accessible from the aragora package.
+    """All six golden API names are usable from the aragora package."""
+    import asyncio
 
-    Note: ``aragora.debate`` may resolve to the ``aragora.debate`` subpackage
-    module if it was imported before the lazy ``_EXPORT_MAP`` lookup fires.
-    We verify the *other* five names that have no subpackage collision, plus
-    verify ``debate`` is directly importable from ``aragora.golden``.
-    """
     import aragora
-    from aragora.golden import debate as golden_debate
+    from aragora.golden import WorkflowHandle
     from aragora.golden import recall as golden_recall
     from aragora.golden import receipt as golden_receipt
     from aragora.golden import remember as golden_remember
-    from aragora.golden import review as golden_review
-    from aragora.golden import workflow as golden_workflow
 
-    # These names don't collide with subpackage names
+    # These names don't collide with subpackage names.
     assert aragora.remember is golden_remember
     assert aragora.recall is golden_recall
-    assert aragora.review is golden_review
-    assert aragora.workflow is golden_workflow
     assert aragora.receipt is golden_receipt
 
-    # debate() is directly usable from aragora.golden even if
-    # aragora.debate resolves to the subpackage in some import orders
-    assert callable(golden_debate)
+    # ``debate``, ``review``, and ``workflow`` collide with same-named subpackages.
+    # Whichever object is bound (golden callable, or the callable subpackage
+    # module once it has been imported), calling it must delegate to the
+    # golden implementation (#8780).
+    assert callable(aragora.debate)
+    assert callable(aragora.review)
+    assert callable(aragora.workflow)
+
+    wf = aragora.workflow("golden-package-check")
+    assert isinstance(wf, WorkflowHandle)
+
+    coro = aragora.debate("golden-package-check")
+    assert asyncio.iscoroutine(coro)
+    coro.close()
+
+    review_coro = aragora.review("golden-package-check")
+    assert asyncio.iscoroutine(review_coro)
+    review_coro.close()
+
+
+# ---------------------------------------------------------------------------
+# import-order determinism (#8780)
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+_IMPORT_ORDER_CHECK = """
+import asyncio
+
+{imports}
+
+from aragora.golden import WorkflowHandle
+
+wf = aragora.workflow("golden-order-check")
+assert isinstance(wf, WorkflowHandle), type(wf)
+
+coro = aragora.debate("golden-order-check")
+assert asyncio.iscoroutine(coro), type(coro)
+coro.close()
+
+review_coro = aragora.review("golden-order-check")
+assert asyncio.iscoroutine(review_coro), type(review_coro)
+review_coro.close()
+
+# Submodule resolution via sys.modules must be unaffected by the guard.
+import aragora.workflow.engine
+import aragora.debate.orchestrator
+import aragora.review.protocol
+
+print("GOLDEN_ORDER_OK")
+"""
+
+
+@pytest.mark.parametrize(
+    "imports",
+    [
+        pytest.param(
+            "import aragora.workflow\nimport aragora.debate\nimport aragora.review\nimport aragora",
+            id="submodules-first",
+        ),
+        pytest.param(
+            "import aragora\nimport aragora.workflow\nimport aragora.debate\nimport aragora.review",
+            id="package-first",
+        ),
+        pytest.param(
+            # Touch the lazy golden exports before the submodules load, so the
+            # import system rebinds the package attributes to module objects.
+            "import aragora\n"
+            "assert callable(aragora.workflow) and callable(aragora.debate) and callable(aragora.review)\n"
+            "import aragora.workflow\nimport aragora.debate\nimport aragora.review",
+            id="package-first-lazy-attr-touched",
+        ),
+    ],
+)
+def test_golden_callables_survive_import_order(imports: str) -> None:
+    """Colliding Golden API names are callable in every import order (#8780)."""
+    import subprocess
+    import sys
+
+    code = _IMPORT_ORDER_CHECK.format(imports=imports)
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+        timeout=300,
+    )
+    assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+    assert "GOLDEN_ORDER_OK" in proc.stdout

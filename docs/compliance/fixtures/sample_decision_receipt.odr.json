@@ -1,0 +1,100 @@
+{
+  "attestation": {
+    "disposition": "autonomous"
+  },
+  "claim": {
+    "statement": "Proposal: enable automated invoice approval for amounts under EUR 5,000 when the supplier is on the approved-vendor list",
+    "verdict": "CONDITIONAL"
+  },
+  "confidence": {
+    "calibration": {
+      "reason": "source receipt records raw consensus confidence with no calibration provenance (settlement_metadata not populated)",
+      "status": "absent"
+    },
+    "scale": "unit_interval",
+    "status": "present",
+    "value": 0.82
+  },
+  "cruxes": {
+    "reason": "no crux set recorded for this decision (DecisionReceipt does not carry one; supply crux_set= from a CruxReceipt)",
+    "status": "absent"
+  },
+  "issued_at": "2026-07-02T12:00:00+00:00",
+  "odr_version": "0.1",
+  "profile": "https://aragora.ai/specs/open-decision-receipt/v0.1",
+  "quorum": {
+    "dissent": {
+      "dissenting_agents": [
+        "gemini"
+      ],
+      "present": true,
+      "views": [
+        "gemini: duplicate-invoice detection is not yet in place; automated approval should wait until it ships."
+      ]
+    },
+    "independence": {
+      "disclosed": true,
+      "distinct_model_families": 3,
+      "model_families": [
+        "anthropic",
+        "google",
+        "openai"
+      ]
+    },
+    "method": "majority",
+    "participants": [
+      {
+        "agent": "claude",
+        "model_family": "anthropic",
+        "model_id": "claude-opus-4"
+      },
+      {
+        "agent": "gemini",
+        "model_family": "google",
+        "model_id": "gemini-2.5-pro"
+      },
+      {
+        "agent": "gpt5",
+        "model_family": "openai",
+        "model_id": "gpt-5"
+      }
+    ],
+    "reached": true,
+    "status": "present",
+    "supporting_agents": [
+      "claude",
+      "gpt5"
+    ]
+  },
+  "reasoning": {
+    "status": "present",
+    "summary": "Majority (2 of 3) support automated approval under EUR 5,000 with quarterly vendor-list revalidation and 5% retrospective sampling. Conditional rather than pass: the split-invoice finding must be mitigated, and gemini's dissent on duplicate-invoice detection is preserved as an open risk."
+  },
+  "receipt_id": "receipt-walkthrough-0001",
+  "routing": {
+    "status": "reserved"
+  },
+  "signatures": [
+    {
+      "alg": "Ed25519",
+      "key_id": "ed25519-d0df676e9115d738",
+      "signature": "WL+VBpcc7dqK0M5EOY3jZKbx/fzYTpjI0ulM+c1nUsrczpNgk28ujGHm4RDTPOFGfKy/24j2Zjceih+0ydVDCw=="
+    }
+  ],
+  "source": {
+    "artifact_hash": "f51bcdfd799bb5fdfabaefad7b8164c80c86e53a1c74c767d28f3c396f2bf6c8",
+    "receipt_id": "receipt-walkthrough-0001",
+    "schema": "aragora.gauntlet.DecisionReceipt",
+    "schema_version": "1.1",
+    "system": "aragora"
+  },
+  "subject": {
+    "digest": {
+      "alg": "sha-256",
+      "status": "present",
+      "value": "8c32664b4177a39eb9c29e8613144392884db1682e8a49368c4a8f58fbbd5219"
+    },
+    "identifier": "gauntlet-walkthrough-0001",
+    "summary": "Proposal: enable automated invoice approval for amounts under EUR 5,000 when the supplier is on the approved-vendor list"
+  }
+}

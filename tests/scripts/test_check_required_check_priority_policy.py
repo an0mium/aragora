@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts.check_required_check_priority_policy import (
+    REQUIRED_CONTEXT_TO_WORKFLOW_PATH,
     check_repo,
     find_required_check_priority_violations,
 )
@@ -64,6 +65,41 @@ jobs:
               'OpenAPI Spec',
             ]);
 """
+
+
+def _write_policy_repo(tmp_path: Path) -> Path:
+    repo_root = tmp_path / "repo"
+    workflow_dir = repo_root / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+
+    workflow_paths = {
+        line.split("'")[1]
+        for line in _valid_workflow_text().splitlines()
+        if ".github/workflows/" in line
+    }
+    for rel in workflow_paths:
+        (repo_root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo_root / rel).write_text(
+            f"name: {Path(rel).stem}\njobs:\n  placeholder:\n    runs-on: ubuntu-latest\n",
+            encoding="utf-8",
+        )
+
+    for context, rel in REQUIRED_CONTEXT_TO_WORKFLOW_PATH.items():
+        (repo_root / rel).write_text(
+            f"""
+name: {Path(rel).stem}
+on:
+  push:
+    branches: [main]
+jobs:
+  required-context:
+    name: {context}
+    runs-on: ubuntu-latest
+""",
+            encoding="utf-8",
+        )
+
+    return repo_root
 
 
 def test_policy_accepts_required_keep_entries() -> None:
@@ -264,6 +300,195 @@ jobs:
         == v
         for v in violations
     )
+
+
+def test_policy_allows_unfiltered_main_push_required_workflows(tmp_path: Path) -> None:
+    repo_root = _write_policy_repo(tmp_path)
+
+    violations = find_required_check_priority_violations(
+        _valid_workflow_text(),
+        repo_root=repo_root,
+    )
+
+    assert violations == []
+
+
+def test_policy_rejects_path_filtered_main_push_required_workflow(
+    tmp_path: Path,
+) -> None:
+    repo_root = _write_policy_repo(tmp_path)
+    (repo_root / ".github/workflows/lint.yml").write_text(
+        """
+name: Lint
+on:
+  push:
+    branches: [main]
+    paths:
+      - "aragora/**"
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+""",
+        encoding="utf-8",
+    )
+
+    violations = find_required_check_priority_violations(
+        _valid_workflow_text(),
+        repo_root=repo_root,
+    )
+
+    assert (
+        "required context `lint` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+    assert (
+        "required context `typecheck` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+
+
+def test_policy_rejects_flow_style_path_filtered_main_push_required_workflow(
+    tmp_path: Path,
+) -> None:
+    repo_root = _write_policy_repo(tmp_path)
+    (repo_root / ".github/workflows/lint.yml").write_text(
+        """
+name: Lint
+on:
+  push: {branches: [main], paths: ["aragora/**"]}
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+""",
+        encoding="utf-8",
+    )
+
+    violations = find_required_check_priority_violations(
+        _valid_workflow_text(),
+        repo_root=repo_root,
+    )
+
+    assert (
+        "required context `lint` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+    assert (
+        "required context `typecheck` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+
+
+def test_policy_rejects_top_level_flow_style_path_filtered_main_push_required_workflow(
+    tmp_path: Path,
+) -> None:
+    repo_root = _write_policy_repo(tmp_path)
+    (repo_root / ".github/workflows/lint.yml").write_text(
+        """
+name: Lint
+on: {push: {branches: [main], paths: ["aragora/**"]}}
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+""",
+        encoding="utf-8",
+    )
+
+    violations = find_required_check_priority_violations(
+        _valid_workflow_text(),
+        repo_root=repo_root,
+    )
+
+    assert (
+        "required context `lint` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+    assert (
+        "required context `typecheck` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+
+
+def test_policy_rejects_multiline_flow_style_path_filtered_main_push_required_workflow(
+    tmp_path: Path,
+) -> None:
+    repo_root = _write_policy_repo(tmp_path)
+    (repo_root / ".github/workflows/lint.yml").write_text(
+        """
+name: Lint
+on:
+  push: {
+    branches: [main],
+    paths: ["aragora/**"],
+  }
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+""",
+        encoding="utf-8",
+    )
+
+    violations = find_required_check_priority_violations(
+        _valid_workflow_text(),
+        repo_root=repo_root,
+    )
+
+    assert (
+        "required context `lint` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+    assert (
+        "required context `typecheck` maps to path-filtered main push workflow: .github/workflows/lint.yml"
+        in violations
+    )
+
+
+def test_policy_ignores_comments_when_matching_main_push_branches(
+    tmp_path: Path,
+) -> None:
+    repo_root = _write_policy_repo(tmp_path)
+    (repo_root / ".github/workflows/lint.yml").write_text(
+        """
+name: Lint
+on:
+  push:
+    branches:
+      # main is intentionally handled by another workflow.
+      - release
+    paths:
+      - "aragora/**"
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+""",
+        encoding="utf-8",
+    )
+
+    violations = find_required_check_priority_violations(
+        _valid_workflow_text(),
+        repo_root=repo_root,
+    )
+
+    assert violations == []
 
 
 def test_repo_required_check_priority_policy_passes_for_current_tree() -> None:

@@ -1,6 +1,11 @@
 # Release Worktree Hygiene
 
 Use this flow for release operations and CI reconciliation to avoid branch drift and mixed-session state.
+For fleet-wide side-worktree audit, harvest, and cleanup classification, use
+[`RUNBOOK_WORKTREE_FLEET_AUDIT.md`](RUNBOOK_WORKTREE_FLEET_AUDIT.md). This
+release runbook is scoped to release worktrees; the fleet runbook covers
+`.worktrees/`, `.claude/worktrees/`, `.codex/worktrees/`, and
+`/private/tmp/aragora-*`.
 
 ## 1. Validate your current worktree
 

@@ -31,6 +31,8 @@ from aragora.events.cross_subscribers import get_registered_subscribers, registe
 from aragora.events.types import StreamEventType
 
 if TYPE_CHECKING:
+    import asyncio
+
     from aragora.config.settings import Settings
     from aragora.events.cross_subscribers import CrossSubscriberManager
     from aragora.events.types import StreamEvent
@@ -113,6 +115,12 @@ class KnowledgeEventSubscriber:
         # and read back via get_debate_culture_hints (relocated from
         # CrossSubscriberManager._debate_cultures, P4a Batch E2c).
         self._debate_cultures: dict[str, dict[str, Any]] = {}
+        # In-flight KM culture-profile retrieval task per debate, scheduled by
+        # _handle_mound_to_culture and consumed (popped) via
+        # get_pending_culture_task so a caller can await it before reading
+        # _debate_cultures back - otherwise the fire-and-forget task never
+        # gets a turn before the read (P4a E8 Problem #2).
+        self._pending_culture_tasks: dict[str, asyncio.Task[Any]] = {}
 
     def _is_km_handler_enabled(self, handler_name: str) -> bool:
         """Check whether a KM handler is enabled via feature flags (default on)."""
@@ -1312,6 +1320,7 @@ class KnowledgeEventSubscriber:
                 return None
 
             def _on_culture_retrieved(task: "asyncio.Task[Any]") -> None:
+                self._pending_culture_tasks.pop(debate_id, None)
                 if task.cancelled():
                     return
                 exc = task.exception()
@@ -1326,6 +1335,10 @@ class KnowledgeEventSubscriber:
             try:
                 asyncio.get_running_loop()
                 task = asyncio.create_task(retrieve_culture())
+                # Stashed so a caller (ArenaKnowledgeManager.init_context) can
+                # await this specific task before reading culture hints back;
+                # see get_pending_culture_task.
+                self._pending_culture_tasks[debate_id] = task
                 task.add_done_callback(_on_culture_retrieved)
             except RuntimeError:
                 profile = asyncio.run(retrieve_culture())
@@ -1409,6 +1422,27 @@ class KnowledgeEventSubscriber:
         """
         culture_ctx = self._debate_cultures.get(debate_id, {})
         return culture_ctx.get("protocol_hints", {})
+
+    def get_pending_culture_task(self, debate_id: str) -> "asyncio.Task[Any] | None":
+        """Return and clear the in-flight culture-profile retrieval task for ``debate_id``.
+
+        ``_handle_mound_to_culture`` schedules retrieval as a fire-and-forget
+        task (it runs inside a synchronous event-dispatch call, so it cannot
+        be awaited there). A caller that needs fresh hints - rather than
+        whatever ``get_debate_culture_hints`` happens to already have stored -
+        should await the returned task first. Pops rather than peeks so a
+        retried debate-context init sees ``None`` instead of re-awaiting an
+        already-consumed task.
+
+        Args:
+            debate_id: Debate identifier
+
+        Returns:
+            The pending retrieval task, or ``None`` if none was scheduled
+            (no Knowledge Mound, culture handler disabled, or already
+            consumed/completed).
+        """
+        return self._pending_culture_tasks.pop(debate_id, None)
 
     def _handle_debate_outcome_to_knowledge(self, event: "StreamEvent") -> None:
         """Debate end → Knowledge Mound outcome persistence.
