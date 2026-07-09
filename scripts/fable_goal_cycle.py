@@ -57,6 +57,9 @@ SAFE_CONTEXT_SUBDIRS = (
     Path(".aragora") / "conductor_cycles",
     Path(".aragora") / "operator-context",
 )
+EXTRA_CONTEXT_ROOT_NAME_RE = re.compile(
+    r"(^|[-_.])(aragora|conductor|cycle|cycles|goal|goals|operator-context)([-_.]|$)"
+)
 DEFAULT_MODEL = "claude-fable-5"
 MAX_ACTIVE_PROCESS_LINES = 40
 ACTIVE_PROCESS_SCRIPT_NAMES = frozenset(
@@ -351,17 +354,38 @@ def _packet_with_footer(parts: list[str]) -> str:
     return "\n".join(kept) + "\n" + footer
 
 
-def _context_safe_roots(root: Path, extra_roots: Iterable[Path] = ()) -> tuple[Path, ...]:
-    safe_roots = [(root / subdir).resolve(strict=False) for subdir in SAFE_CONTEXT_SUBDIRS]
+def _is_dedicated_extra_context_root(root: Path, path: Path) -> bool:
+    root_resolved = root.resolve(strict=False)
+    resolved = path.resolve(strict=False)
+    if resolved == root_resolved or resolved in root_resolved.parents:
+        return False
+    if resolved == resolved.parent or resolved == Path.home().resolve(strict=False):
+        return False
+    return bool(EXTRA_CONTEXT_ROOT_NAME_RE.search(resolved.name.lower()))
+
+
+def _accepted_extra_context_roots(root: Path, extra_roots: Iterable[Path]) -> tuple[Path, ...]:
+    accepted: list[Path] = []
     for extra_root in extra_roots:
         candidate = extra_root if extra_root.is_absolute() else root / extra_root
-        safe_roots.append(candidate.resolve(strict=False))
+        resolved = candidate.resolve(strict=False)
+        if _is_dedicated_extra_context_root(root, resolved):
+            accepted.append(resolved)
+    return tuple(dict.fromkeys(accepted))
+
+
+def _context_safe_roots(root: Path, extra_roots: Iterable[Path] = ()) -> tuple[Path, ...]:
+    safe_roots = [(root / subdir).resolve(strict=False) for subdir in SAFE_CONTEXT_SUBDIRS]
+    safe_roots.extend(_accepted_extra_context_roots(root, extra_roots))
     return tuple(dict.fromkeys(safe_roots))
 
 
-def _context_safe_root_labels(extra_roots: Iterable[Path] = ()) -> tuple[str, ...]:
+def _context_safe_root_labels(
+    root: Path,
+    extra_roots: Iterable[Path] = (),
+) -> tuple[str, ...]:
     labels = [str(subdir) for subdir in SAFE_CONTEXT_SUBDIRS]
-    labels.extend(str(root) for root in extra_roots)
+    labels.extend(str(root) for root in _accepted_extra_context_roots(root, extra_roots))
     return tuple(dict.fromkeys(labels))
 
 
@@ -379,7 +403,7 @@ def _read_context_file(
         return None, f"context file unreadable: {path}: {exc}"
 
     if not any(_is_relative_to(resolved, safe_root) for safe_root in safe_roots):
-        allowed_roots = " or ".join(_context_safe_root_labels(extra_safe_roots))
+        allowed_roots = " or ".join(_context_safe_root_labels(root, extra_safe_roots))
         return None, f"context file must be under {allowed_roots}: {path}"
     try:
         if not resolved.is_file():
