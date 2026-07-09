@@ -251,7 +251,12 @@ def fetch_pr_tier(repo: str, pr: int) -> int | None:
 
 
 def fetch_merge_packet_entry(
-    repo: str, pr: int, *, require_tier: bool = False
+    repo: str,
+    pr: int,
+    *,
+    require_tier: bool = False,
+    required_fields: tuple[str, ...] = (),
+    fail_on_ambiguous: bool = False,
 ) -> dict[str, Any] | None:
     """Return the requested PR's current local merge-packet entry."""
     try:
@@ -300,17 +305,26 @@ def fetch_merge_packet_entry(
     # single-PR --json shape always discloses pr_number, so a multi-PR envelope
     # can never resolve the wrong PR (which would mis-gate posting).
     def _eligible(entry: Any) -> bool:
-        return isinstance(entry, dict) and (not require_tier or entry.get("tier") is not None)
+        return (
+            isinstance(entry, dict)
+            and (not require_tier or entry.get("tier") is not None)
+            and all(field in entry and entry.get(field) is not None for field in required_fields)
+        )
 
-    for entry in entries:
-        if _eligible(entry) and _coerce(entry.get("pr_number")) == pr:
-            return entry
+    def _select(candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+        if fail_on_ambiguous and len(candidates) != 1:
+            return None
+        return candidates[0] if candidates else None
+
+    matching = [
+        entry for entry in entries if _eligible(entry) and _coerce(entry.get("pr_number")) == pr
+    ]
+    if matching:
+        return _select(matching)
     # Fall back to the first entry only when NO row carries a pr_number
     # (forward-compat shapes such as a bare list or single entry).
     if not any(isinstance(e, dict) and e.get("pr_number") is not None for e in entries):
-        for entry in entries:
-            if _eligible(entry):
-                return entry
+        return _select([entry for entry in entries if _eligible(entry)])
     return None
 
 
@@ -396,7 +410,12 @@ def fetch_live_evidence_state(
     fail closed if comments and packet do not describe the same PR head.
     """
     comments = fetch_evidence_comments(repo, pr, head_sha, head_committed_at)
-    entry = fetch_merge_packet_entry(repo, pr)
+    entry = fetch_merge_packet_entry(
+        repo,
+        pr,
+        required_fields=("head_sha", "unresolved_dissent"),
+        fail_on_ambiguous=True,
+    )
     if entry is None:
         raise RuntimeError(f"merge packet unavailable for {repo}#{pr}")
     packet_head = str(entry.get("head_sha") or "").strip()

@@ -124,7 +124,7 @@ def test_fetch_live_evidence_state_combines_linted_comments_and_packet(monkeypat
     monkeypatch.setattr(
         m,
         "fetch_merge_packet_entry",
-        lambda repo, pr: {
+        lambda repo, pr, **kwargs: {
             "pr_number": pr,
             "head_sha": "abc123",
             "unresolved_dissent": False,
@@ -145,7 +145,7 @@ def test_fetch_live_evidence_state_fails_when_packet_has_no_head(monkeypatch) ->
     monkeypatch.setattr(
         m,
         "fetch_merge_packet_entry",
-        lambda repo, pr: {"pr_number": pr, "unresolved_dissent": False},
+        lambda repo, pr, **kwargs: {"pr_number": pr, "unresolved_dissent": False},
     )
 
     with pytest.raises(RuntimeError, match="missing head SHA"):
@@ -157,12 +157,46 @@ def test_fetch_live_evidence_state_preserves_unknown_dissent(monkeypatch) -> Non
     monkeypatch.setattr(
         m,
         "fetch_merge_packet_entry",
-        lambda repo, pr: {"pr_number": pr, "head_sha": "abc123"},
+        lambda repo, pr, **kwargs: {"pr_number": pr, "head_sha": "abc123"},
     )
 
     state = m.fetch_live_evidence_state("o/r", 7754, "abc123", "2026-07-09T11:00:00Z")
 
     assert state["unresolved_dissent"] is None
+
+
+def test_fetch_live_evidence_state_skips_partial_duplicate_row(monkeypatch) -> None:
+    payload = {
+        "entries": [
+            {"pr_number": 7754, "head_sha": "stale-partial"},
+            {
+                "pr_number": 7754,
+                "head_sha": "abc123",
+                "unresolved_dissent": False,
+            },
+        ]
+    }
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(payload)))
+    monkeypatch.setattr(m, "fetch_evidence_comments", lambda *args: [])
+
+    state = m.fetch_live_evidence_state("o/r", 7754, "abc123", "2026-07-09T11:00:00Z")
+
+    assert state["head_sha"] == "abc123"
+    assert state["unresolved_dissent"] is False
+
+
+def test_fetch_live_evidence_state_fails_on_ambiguous_complete_rows(monkeypatch) -> None:
+    payload = {
+        "entries": [
+            {"pr_number": 7754, "head_sha": "abc123", "unresolved_dissent": False},
+            {"pr_number": 7754, "head_sha": "abc123", "unresolved_dissent": False},
+        ]
+    }
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(payload)))
+    monkeypatch.setattr(m, "fetch_evidence_comments", lambda *args: [])
+
+    with pytest.raises(RuntimeError, match="merge packet unavailable"):
+        m.fetch_live_evidence_state("o/r", 7754, "abc123", "2026-07-09T11:00:00Z")
 
 
 def test_fetch_quorum_run_packet_classification_parses_log(monkeypatch) -> None:
