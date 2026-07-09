@@ -736,6 +736,7 @@ def _export_odr(data: dict[str, Any]) -> str:
         calibration_provenance_for_receipt,
         decision_receipt_to_odr,
         jcs_canonicalize,
+        sign_odr_if_configured,
     )
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
@@ -747,6 +748,7 @@ def _export_odr(data: dict[str, Any]) -> str:
         receipt,
         calibration_provenance=calibration_provenance_for_receipt(receipt),
     )
+    odr = sign_odr_if_configured(odr)
     return jcs_canonicalize(odr).decode("utf-8")
 
 

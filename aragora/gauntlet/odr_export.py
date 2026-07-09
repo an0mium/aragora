@@ -31,15 +31,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 from importlib import resources
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
 ODR_VERSION = "0.1"
 ODR_PROFILE_URI = "https://aragora.ai/specs/open-decision-receipt/v0.1"
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "ODR_VERSION",
@@ -50,6 +53,7 @@ __all__ = [
     "jcs_canonicalize",
     "load_odr_schema",
     "odr_content_digest",
+    "sign_odr_if_configured",
 ]
 
 
@@ -427,6 +431,29 @@ def decision_receipt_to_odr(
             "artifact_hash": receipt.artifact_hash,
         },
     }
+
+
+def sign_odr_if_configured(
+    odr: dict[str, Any],
+    *,
+    key_loader: Callable[[], Any] | None = None,
+) -> dict[str, Any]:
+    """Sign an ODR export when the production key is available.
+
+    Missing key configuration is an expected deployment state, so export stays
+    available and explicitly unsigned. Once a key is loaded, signing errors are
+    allowed to propagate rather than silently publishing a receipt that was
+    expected to be signed.
+    """
+    from aragora.gauntlet import odr_signing
+
+    loader = key_loader or odr_signing.load_signing_key_from_secrets
+    try:
+        private_key = loader()
+    except odr_signing.OdrSigningError as exc:
+        logger.warning("ODR signing key unavailable; exporting unsigned ODR receipt: %s", exc)
+        return odr
+    return odr_signing.sign_odr_receipt(odr, private_key)
 
 
 def load_odr_schema() -> dict[str, Any]:
