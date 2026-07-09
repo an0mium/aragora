@@ -195,7 +195,7 @@ def test_fetch_live_evidence_state_fails_on_ambiguous_complete_rows(monkeypatch)
     monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(payload)))
     monkeypatch.setattr(m, "fetch_evidence_comments", lambda *args: [])
 
-    with pytest.raises(RuntimeError, match="merge packet unavailable"):
+    with pytest.raises(RuntimeError, match="no unique complete head/dissent entry"):
         m.fetch_live_evidence_state("o/r", 7754, "abc123", "2026-07-09T11:00:00Z")
 
 

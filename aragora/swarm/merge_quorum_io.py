@@ -417,15 +417,17 @@ def fetch_live_evidence_state(
         fail_on_ambiguous=True,
     )
     if entry is None:
-        raise RuntimeError(f"merge packet unavailable for {repo}#{pr}")
+        raise RuntimeError(
+            f"merge packet has no unique complete head/dissent entry for {repo}#{pr}"
+        )
     packet_head = str(entry.get("head_sha") or "").strip()
     if not packet_head:
         raise RuntimeError(f"merge packet missing head SHA for {repo}#{pr}")
     return {
         "head_sha": packet_head,
         "counting_families": counted_reviewer_ids(comments),
-        # Preserve the packet's tri-state value. Callers require literal False,
-        # so an omitted/unknown field cannot be laundered into "no dissent."
+        # Keep the explicit packet value. The selector rejects missing/unknown
+        # values, and callers still require literal False before posting.
         "unresolved_dissent": entry.get("unresolved_dissent"),
     }
 
