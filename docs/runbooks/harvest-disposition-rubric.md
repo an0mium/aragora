@@ -35,9 +35,17 @@ is:
 2. Post one claim comment naming the item id, path, head, lane, a unique
    `claim_id`, `claimed_at`, and `expires_at`. Claims expire after 60 minutes;
    use UTC RFC 3339 timestamps.
-3. Re-read all comments for the same item.
-4. Reduce comments for each `claim_id` to its latest transition. `CLAIM` and
-   `RENEW` are active only before `expires_at`; `YIELD`, `RELEASE`, and a
+3. Use the returned comment id to confirm the claim is readable, then wait at
+   least five seconds and re-read all comments for the same item. Require the
+   same comment-id set on two reads at least five seconds apart before
+   proceeding. Bound convergence at 30 seconds; on timeout, post `RELEASE` if
+   the claim is visible and stop. Never inspect or disposition while claim
+   visibility is uncertain.
+4. Process each `claim_id`'s transitions chronologically by GitHub `createdAt`,
+   then comment database id. A `RENEW` is valid only if its preceding state was
+   active and unexpired when the renewal comment was created. Invalid or late
+   transitions do not change claim state. After replay, `CLAIM` and valid
+   `RENEW` states are active only before `expires_at`; `YIELD`, `RELEASE`, and a
    disposition receipt are terminal. Ignore expired and terminal claims.
 5. If an earlier active claim exists, post `YIELD` for this lane's `claim_id`
    and do not inspect, mutate, clean up, or disposition that item. Order
@@ -61,6 +69,9 @@ expires_at: 2026-07-08T18:12:00Z
 
 S44 YIELD harvest-S44-20260708T1627Z
 winner: harvest-S44-20260708T1626Z
+
+S44 YIELD harvest-S44-20260708T1627Z
+winner_comment_id: 4916644479
 ```
 
 Post `RENEW` before expiry if inspection will exceed the current window. A
@@ -102,10 +113,18 @@ Use a disposition-first first line:
 
 ```text
 S43 FOLD receipt (2026-07-08T16:17Z)
+claim_id: harvest-S43-20260708T1617Z
 S36 PARK receipt (2026-07-08T16:00Z)
+claim_id: harvest-S36-20260708T1600Z
 S40 RETIRE/PRESERVE receipt (2026-07-08T16:11Z)
+claim_id: harvest-S40-20260708T1611Z
 S44 ADOPT receipt (2026-07-08T16:27Z)
+claim_id: harvest-S44-20260708T1627Z
 ```
+
+For a legacy winner without a `claim_id`, identify it in `YIELD` with
+`winner_comment_id`, using the GitHub comment database id. New disposition
+receipts always include this lane's `claim_id` immediately after the first line.
 
 Avoid local guard logic that searches for the word `receipt` anywhere in the
 claim body. Cycle 81 hit false duplicate detection because the S36 claim said it
