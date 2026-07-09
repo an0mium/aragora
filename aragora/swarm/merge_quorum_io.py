@@ -400,7 +400,9 @@ def fetch_live_evidence_state(
     return {
         "head_sha": packet_head,
         "counting_families": counted_reviewer_ids(comments),
-        "unresolved_dissent": bool(entry.get("unresolved_dissent")),
+        # Preserve the packet's tri-state value. Callers require literal False,
+        # so an omitted/unknown field cannot be laundered into "no dissent."
+        "unresolved_dissent": entry.get("unresolved_dissent"),
     }
 
 

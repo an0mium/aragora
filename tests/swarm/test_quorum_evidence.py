@@ -2400,6 +2400,124 @@ def test_apply_prepared_evidence_refuses_stale_live_family_state(
     assert posted == []
 
 
+def test_apply_prepared_evidence_refuses_unavailable_live_family_state(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tier=2,
+        tiered_gate=False,
+    )
+    posted: list[str] = []
+
+    def unavailable(repo: str, pr: int, head_sha: str, committed_at: str) -> dict:
+        raise RuntimeError("packet unavailable")
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        context_fetcher=lambda repo, pr: {
+            "head_sha": HEAD,
+            "head_committed_at": COMMITTED,
+        },
+        tier_fetcher=lambda repo, pr: 2,
+        linter=lambda *args, **kwargs: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        live_evidence_fetcher=unavailable,
+        poster=lambda repo, pr, body: posted.append(body),
+    )
+
+    assert outcome.action == "prepare"
+    assert "could not be verified" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
+
+
+def test_apply_prepared_evidence_refuses_unknown_live_dissent(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tier=2,
+        tiered_gate=False,
+    )
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        context_fetcher=lambda repo, pr: {
+            "head_sha": HEAD,
+            "head_committed_at": COMMITTED,
+        },
+        tier_fetcher=lambda repo, pr: 2,
+        linter=lambda *args, **kwargs: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        live_evidence_fetcher=lambda repo, pr, head_sha, committed_at: {
+            "head_sha": HEAD,
+            "counting_families": ["openai"],
+        },
+    )
+
+    assert outcome.action == "prepare"
+    assert "blocking dissent" in outcome.action_reason
+    assert outcome.posted == []
+
+
+def test_apply_prepared_evidence_refuses_unsupported_live_family(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tier=2,
+        tiered_gate=False,
+    )
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        context_fetcher=lambda repo, pr: {
+            "head_sha": HEAD,
+            "head_committed_at": COMMITTED,
+        },
+        tier_fetcher=lambda repo, pr: 2,
+        linter=lambda *args, **kwargs: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        live_evidence_fetcher=lambda repo, pr, head_sha, committed_at: {
+            "head_sha": HEAD,
+            "counting_families": ["openai", "fusion"],
+            "unresolved_dissent": False,
+        },
+    )
+
+    assert outcome.action == "prepare"
+    assert "unsupported reviewer family fusion" in outcome.action_reason
+    assert outcome.posted == []
+
+
 def test_apply_prepared_evidence_rechecks_head_after_live_family_lookup(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

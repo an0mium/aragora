@@ -136,6 +136,19 @@ def test_fetch_live_evidence_state_fails_when_packet_has_no_head(monkeypatch) ->
         m.fetch_live_evidence_state("o/r", 7754, "abc123", "2026-07-09T11:00:00Z")
 
 
+def test_fetch_live_evidence_state_preserves_unknown_dissent(monkeypatch) -> None:
+    monkeypatch.setattr(m, "fetch_evidence_comments", lambda *args: [])
+    monkeypatch.setattr(
+        m,
+        "fetch_merge_packet_entry",
+        lambda repo, pr: {"pr_number": pr, "head_sha": "abc123"},
+    )
+
+    state = m.fetch_live_evidence_state("o/r", 7754, "abc123", "2026-07-09T11:00:00Z")
+
+    assert state["unresolved_dissent"] is None
+
+
 def test_fetch_quorum_run_packet_classification_parses_log(monkeypatch) -> None:
     log = (
         "PR #7754 | Tier 4 | status=human_preapproval_required | "
