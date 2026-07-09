@@ -3,13 +3,17 @@
 Contains static pricing data for supported AI model providers
 and utility functions for estimating debate costs.
 
-Pricing is per 1M tokens (consistent with aragora.billing.usage).
+Provider source prices are normalized to USD per 1K tokens for estimates.
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -47,9 +51,25 @@ class ProviderPricing:
         )
 
 
-# Current pricing as of March 2026, per 1K tokens.
+# Current pricing as of July 2026, per 1K tokens.
 # Source: provider pricing pages. Prices in USD.
 PROVIDER_PRICING: dict[str, ProviderPricing] = {
+    # https://www.anthropic.com/news/claude-opus-4-8 (2026-07-09)
+    "claude-opus-4-8": ProviderPricing(
+        provider_name="anthropic",
+        model_name="claude-opus-4-8",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.025,
+        context_window=1_000_000,
+    ),
+    # https://openrouter.ai/anthropic/claude-opus-4.8 (2026-07-09)
+    "anthropic/claude-opus-4.8": ProviderPricing(
+        provider_name="openrouter",
+        model_name="anthropic/claude-opus-4.8",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.025,
+        context_window=1_000_000,
+    ),
     "claude-opus-4": ProviderPricing(
         provider_name="anthropic",
         model_name="claude-opus-4",
@@ -77,6 +97,22 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
         input_cost_per_1k=0.00015,
         output_cost_per_1k=0.0006,
         context_window=128_000,
+    ),
+    # https://developers.openai.com/api/docs/models/gpt-5.5 (2026-07-09)
+    "gpt-5.5": ProviderPricing(
+        provider_name="openai",
+        model_name="gpt-5.5",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.030,
+        context_window=1_050_000,
+    ),
+    # https://openrouter.ai/openai/gpt-5.5 (2026-07-09)
+    "openai/gpt-5.5": ProviderPricing(
+        provider_name="openrouter",
+        model_name="openai/gpt-5.5",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.030,
+        context_window=1_050_000,
     ),
     "deepseek-v4-pro": ProviderPricing(
         provider_name="deepseek",
@@ -106,6 +142,30 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
         output_cost_per_1k=0.006,
         context_window=128_000,
     ),
+    # https://docs.mistral.ai/models/model-cards/mistral-large-3-25-12 (2026-07-09)
+    "mistral-large-2512": ProviderPricing(
+        provider_name="mistral",
+        model_name="mistral-large-2512",
+        input_cost_per_1k=0.0005,
+        output_cost_per_1k=0.0015,
+        context_window=262_144,
+    ),
+    # https://openrouter.ai/mistralai/mistral-large-2512 (2026-07-09)
+    "mistralai/mistral-large-2512": ProviderPricing(
+        provider_name="openrouter",
+        model_name="mistralai/mistral-large-2512",
+        input_cost_per_1k=0.0005,
+        output_cost_per_1k=0.0015,
+        context_window=262_144,
+    ),
+    # https://openrouter.ai/mistralai/mistral-large (2026-07-09)
+    "mistralai/mistral-large": ProviderPricing(
+        provider_name="openrouter",
+        model_name="mistralai/mistral-large",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.006,
+        context_window=128_000,
+    ),
     "gemini-2.0-flash": ProviderPricing(
         provider_name="google",
         model_name="gemini-2.0-flash",
@@ -114,6 +174,54 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
         context_window=1_000_000,
         supports_streaming=True,
     ),
+    # https://ai.google.dev/gemini-api/docs/pricing (2026-07-09, <=200K input)
+    "gemini-3.1-pro-preview": ProviderPricing(
+        provider_name="google",
+        model_name="gemini-3.1-pro-preview",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.012,
+        context_window=1_048_576,
+    ),
+    # https://openrouter.ai/google/gemini-3.1-pro-preview (2026-07-09)
+    "google/gemini-3.1-pro-preview": ProviderPricing(
+        provider_name="openrouter",
+        model_name="google/gemini-3.1-pro-preview",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.012,
+        context_window=1_048_576,
+    ),
+    # https://docs.x.ai/developers/models/grok-4.3 (2026-07-09; current alias rate)
+    "grok-4-latest": ProviderPricing(
+        provider_name="xai",
+        model_name="grok-4-latest",
+        input_cost_per_1k=0.00125,
+        output_cost_per_1k=0.0025,
+        context_window=1_000_000,
+    ),
+    # https://docs.x.ai/developers/grok-4-5 (2026-07-09)
+    "grok-4.5": ProviderPricing(
+        provider_name="xai",
+        model_name="grok-4.5",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.006,
+        context_window=500_000,
+    ),
+    # https://openrouter.ai/x-ai/grok-4.5 (2026-07-09)
+    "x-ai/grok-4.5": ProviderPricing(
+        provider_name="openrouter",
+        model_name="x-ai/grok-4.5",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.006,
+        context_window=500_000,
+    ),
+}
+
+# Temporary spelling compatibility for canonical pins being corrected by #9073.
+# Aliases are lookup-only so invalid legacy IDs are not advertised as available models.
+_PRICING_ALIASES = {
+    "gemini-3.1-pro": "gemini-3.1-pro-preview",
+    "google/gemini-3.1-pro": "google/gemini-3.1-pro-preview",
+    "x-ai/grok-4": "grok-4-latest",
 }
 
 
@@ -132,8 +240,10 @@ def get_estimated_cost(
     Returns:
         Estimated cost in USD. Returns 0.0 if provider is unknown.
     """
-    pricing = PROVIDER_PRICING.get(provider)
+    pricing_key = _PRICING_ALIASES.get(provider, provider)
+    pricing = PROVIDER_PRICING.get(pricing_key)
     if pricing is None:
+        logger.warning("No pricing metadata for model %r; returning a zero cost estimate", provider)
         return 0.0
 
     input_cost = (input_tokens / 1000.0) * pricing.input_cost_per_1k
