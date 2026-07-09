@@ -48,8 +48,11 @@ workflow into separate jobs with strictly separated authority:
    - `needs: test`.
    - Keeps the existing default-branch and `confirm == PUBLISH` guard.
    - Uses PyPI trusted publishing.
-   - Grants `id-token: write` only for the PyPI publish step.
-   - Must not run code from the package after upload.
+   - Declares job-level `permissions: {contents: read, id-token: write}`. GitHub
+     Actions permissions are job-scoped; this specification does not imply that
+     OIDC authority can be narrowed to only the PyPI upload step.
+   - Must not install or execute the published package, or any package fetched
+     from a public index, after upload while the job retains OIDC authority.
    - Must not create the GitHub Release.
    - Emits the requested version as a job output for later jobs.
 
@@ -127,6 +130,9 @@ following are true:
 
 - `.github/workflows/publish-aragora-verify.yml` has separate publish,
   public-install verification, and release jobs.
+- The `publish` job's `id-token: write` authority is explicitly job-scoped, and
+  no public-index package installation or execution occurs after upload in that
+  job.
 - The public package install/probe does not run in any job with release or OIDC
   write authority.
 - Release creation is gated on successful public install verification.
