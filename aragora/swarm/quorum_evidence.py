@@ -2170,7 +2170,7 @@ def collect_evidence(
         try:
             recheck_head = str((context_fetcher(repo, pr) or {}).get("head_sha") or "").strip()
             recheck_tier = tier_fetcher(repo, pr)
-        except Exception as exc:
+        except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as exc:
             outcome.action = "prepare"
             outcome.action_reason = (
                 f"could not re-verify head/tier before posting ({str(exc)[:120]}); prepared only"
