@@ -396,6 +396,44 @@ def test_external_progress_mutation_fields_use_or_semantics(
     assert lane["external_progress_per_cycle"] == 2 / 3
 
 
+def test_external_progress_positive_outcome_overrides_false_mutation_sentinel(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T08:00:00Z",
+                "lane": "a",
+                "direct_pr_merged": False,
+                "outcome": "success",
+            },
+            {
+                "timestamp": "2026-07-08T09:00:00Z",
+                "lane": "a",
+                "mutations": {"push": False},
+                "status": "complete",
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 2
+    assert lane["external_progress_cycles"] == 2
+    assert lane["external_progress_per_cycle"] == 1.0
+
+
 def test_external_progress_mutations_override_failed_outcome(
     tmp_path: Path,
 ) -> None:
@@ -686,6 +724,44 @@ def test_repeated_non_merge_pr_cycles_keep_token_cost_observations(
     assert lane["token_cost_total"] == 5.0
 
 
+def test_repeated_non_merge_pr_cycles_with_same_cost_are_not_pr_deduped(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "pr_number": 1001,
+                "token_cost": 2.0,
+            },
+            {
+                "timestamp": "2026-07-08T11:00:00Z",
+                "lane": "conductor",
+                "pr_number": "#1001",
+                "token_cost": 2.0,
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 2
+    assert lane["merged_prs"] == 0
+    assert lane["token_cost_total"] == 4.0
+
+
 def test_duplicate_non_merge_token_cost_records_are_not_double_counted(
     tmp_path: Path,
 ) -> None:
@@ -821,7 +897,54 @@ def test_receipts_do_not_count_as_lane_cycles(tmp_path: Path) -> None:
     assert lane["token_cost_total"] == 4.0
 
 
-def test_external_progress_rate_uses_all_lane_cycles(tmp_path: Path) -> None:
+def test_receipt_packet_entries_are_flattened(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "receipt_store",
+            }
+        ],
+    )
+    (receipts / "packet.json").write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-07-08T11:00:00Z",
+                "entries": [
+                    {
+                        "action": "admin_squash_merge",
+                        "pr_number": 2002,
+                        "rounds_to_merge": 3,
+                        "token_usage": {"total_cost_usd": 4.0},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[receipts],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = {lane["lane"]: lane for lane in report["lanes"]}["receipt_store"]
+    assert lane["cycles"] == 1
+    assert lane["merged_prs"] == 1
+    assert lane["rounds_to_merge_average"] == 3.0
+    assert lane["token_cost_total"] == 4.0
+
+
+def test_external_progress_rate_uses_observed_lane_cycles(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.jsonl"
     fixture = tmp_path / "eval.json"
     _write_eval_fixture(fixture)
@@ -850,7 +973,7 @@ def test_external_progress_rate_uses_all_lane_cycles(tmp_path: Path) -> None:
 
     lane = report["lanes"][0]
     assert lane["cycles"] == 2
-    assert lane["external_progress_per_cycle"] == 0.5
+    assert lane["external_progress_per_cycle"] == 1.0
 
 
 def test_external_progress_rate_is_insufficient_without_observations(

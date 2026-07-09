@@ -6,9 +6,9 @@ Definitions:
   first-round gate result whose value is pass/true.
 - ``rounds_to_merge_average`` is the mean explicit round count for merged PR
   records; missing round data is reported as insufficient data.
-- ``external_progress_per_cycle`` is the share of cycles that explicitly record
-  externally-visible progress such as a push, merge, evidence post, or issue
-  comment.
+- ``external_progress_per_cycle`` is the share of cycles with explicit
+  external-progress observations that record externally-visible progress such
+  as a push, merge, evidence post, or issue comment.
 - ``token_cost_per_merged_pr`` divides explicit token/cost observations by the
   number of merged PRs for the lane.
 
@@ -241,6 +241,9 @@ def _read_json_records(path: Path) -> list[dict[str, Any]]:
     if isinstance(parsed, list):
         return [item for item in parsed if isinstance(item, dict)]
     if isinstance(parsed, dict):
+        if isinstance(parsed.get("entries"), list):
+            wrapper = {key: value for key, value in parsed.items() if key != "entries"}
+            return [{**wrapper, **item} for item in parsed["entries"] if isinstance(item, dict)]
         if isinstance(parsed.get("records"), list):
             return [item for item in parsed["records"] if isinstance(item, dict)]
         if isinstance(parsed.get("cycles"), list):
@@ -341,8 +344,6 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
         if coerced_mutation is False:
             mutation_false_seen = True
             continue
-    if mutation_false_seen:
-        return False
 
     outcome = str(_first_present(record, ("outcome", "result", "status", "decision")) or "")
     if outcome:
@@ -378,6 +379,9 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
             return False
         if tokens & positive_tokens:
             return True
+
+    if mutation_false_seen:
+        return False
 
     return None
 
@@ -486,9 +490,6 @@ def _event_token_cost_key(record: dict[str, Any]) -> str | None:
             "receipt_id",
             "check_run_id",
             "job_id",
-            "pr_number",
-            "pr",
-            "target_pr",
         ),
     )
     if value in (None, "") or isinstance(value, bool):
@@ -570,8 +571,8 @@ def lane_summary(
         else None
     )
     external_rate = (
-        accumulator.external_progress_cycles / accumulator.cycles
-        if accumulator.cycles and accumulator.external_progress_observations
+        accumulator.external_progress_cycles / accumulator.external_progress_observations
+        if accumulator.external_progress_observations
         else None
     )
     rounds_average = (
