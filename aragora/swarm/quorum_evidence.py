@@ -74,6 +74,8 @@ FAMILY_PROVIDERS: dict[str, str] = {
     "yi": "yi",
     "glm": "zhipu",
     "minimax": "minimax",
+    "tencent": "tencent",
+    "bytedance": "bytedance",
     "hermes": "nous",
 }
 
@@ -293,6 +295,8 @@ FAMILY_DISPLAY: dict[str, str] = {
     "yi": "Yi",
     "glm": "GLM",
     "minimax": "MiniMax",
+    "tencent": "Tencent Hy3",
+    "bytedance": "ByteDance Seed",
     "hermes": "Hermes",
 }
 
@@ -308,6 +312,13 @@ _FAMILY_ALIASES: dict[str, str] = {
     "gpt-5": "openai",
     "gpt5": "openai",
     "chatgpt": "openai",
+    "zhipu": "glm",
+    "z-ai": "glm",
+    "hy3": "tencent",
+    "hunyuan": "tencent",
+    "seed": "bytedance",
+    "doubao": "bytedance",
+    "bytedance-seed": "bytedance",
 }
 
 
@@ -1431,13 +1442,19 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     "deepseek": "deepseek/deepseek-v4-pro",
     "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
     "kimi": "moonshotai/kimi-k2.6",
+    "glm": "z-ai/glm-5.2",
+    "minimax": "minimax/minimax-m3",
+    "tencent": "tencent/hy3",
+    "bytedance": "bytedance-seed/seed-2.0-lite",
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter
 # as their PRIMARY transport (still gated on the opt-in egress flag + key). This
 # lets cheap, distinct families (e.g. claude + deepseek/qwen/kimi) form a 2-family
 # quorum when the premium subscription CLIs are quota-/auth-blocked.
-_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset({"deepseek", "qwen", "kimi"})
+_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset(
+    {"deepseek", "qwen", "kimi", "glm", "minimax", "tencent", "bytedance"}
+)
 
 
 def _openrouter_reviewer_model(family: str) -> str | None:

@@ -133,6 +133,8 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "yi",
     "glm",
     "minimax",
+    "tencent",
+    "bytedance",
     "hermes",
 )
 # Western-frontier families (Tier 1-2 single-signal bar must be one of these).
@@ -161,6 +163,8 @@ DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "yi": ("yi", "yi-large"),
     "glm": ("glm", "zhipu", "z-ai"),
     "minimax": ("minimax",),
+    "tencent": ("tencent", "hy3", "hunyuan"),
+    "bytedance": ("bytedance", "bytedance-seed", "doubao", "seed-2.0"),
     "hermes": ("hermes", "nous hermes"),
 }
 ROUTER_SURFACE_REVIEWERS: frozenset[str] = frozenset(("factory", "codex", "tesla", "harvey"))
@@ -4125,6 +4129,8 @@ def _normalize_model_reviewer_id(value: str) -> str:
         ("yi", ("yi",)),
         ("glm", ("glm", "zhipu", "z-ai")),
         ("minimax", ("minimax",)),
+        ("tencent", ("tencent", "hy3", "hunyuan")),
+        ("bytedance", ("bytedance", "bytedance-seed", "doubao", "seed-2.0")),
         ("hermes", ("hermes", "nous hermes")),
     )
     for normalized, markers in known_markers:
@@ -4145,6 +4151,11 @@ def _normalize_model_family(value: str) -> str:
         "moonshot": "kimi",
         "zhipu": "glm",
         "z-ai": "glm",
+        "hy3": "tencent",
+        "hunyuan": "tencent",
+        "seed": "bytedance",
+        "doubao": "bytedance",
+        "bytedance-seed": "bytedance",
         "nous-hermes": "hermes",
         "nous hermes": "hermes",
         # OpenAI-family CLI/product names so a disclosed "Model family: codex"

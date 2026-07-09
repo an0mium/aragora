@@ -2048,6 +2048,13 @@ def test_collect_dedupes_families() -> None:
         (" Grok ", "grok"),
         ("Claude", "claude"),
         ("gemini", "gemini"),
+        ("zhipu", "glm"),
+        ("z-ai", "glm"),
+        ("hy3", "tencent"),
+        ("hunyuan", "tencent"),
+        ("seed", "bytedance"),
+        ("doubao", "bytedance"),
+        ("bytedance-seed", "bytedance"),
     ],
 )
 def test_canonical_family_collapses_aliases(name: str, expected: str) -> None:
@@ -2225,6 +2232,49 @@ def test_deepseek_is_openrouter_direct_with_mapped_model() -> None:
     assert "deepseek" in q._OPENROUTER_DIRECT_FAMILIES
     assert q._openrouter_reviewer_model("deepseek")  # a slug is mapped
     assert "deepseek" in q.FAMILY_PROVIDERS  # already a recognized counting family
+
+
+@pytest.mark.parametrize(
+    "family,provider,display,model",
+    [
+        ("glm", "zhipu", "GLM", "z-ai/glm-5.2"),
+        ("minimax", "minimax", "MiniMax", "minimax/minimax-m3"),
+        ("tencent", "tencent", "Tencent Hy3", "tencent/hy3"),
+        ("bytedance", "bytedance", "ByteDance Seed", "bytedance-seed/seed-2.0-lite"),
+    ],
+)
+def test_chinese_reviewer_family_has_openrouter_dispatch(
+    family: str, provider: str, display: str, model: str
+) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    assert q.FAMILY_PROVIDERS[family] == provider
+    assert q.FAMILY_DISPLAY[family] == display
+    assert q._openrouter_reviewer_model(family) == model
+    assert family in q._OPENROUTER_DIRECT_FAMILIES
+
+
+@pytest.mark.parametrize("family", ["glm", "minimax", "tencent", "bytedance"])
+def test_chinese_reviewer_family_routes_openrouter_direct(monkeypatch, family: str) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    called: list[str] = []
+    monkeypatch.setattr(
+        q,
+        "_run_openrouter_reviewer",
+        lambda fam, _prompt: called.append(fam) or q.ReviewerResult(fam, "PASS", True),
+    )
+    monkeypatch.setattr(
+        q,
+        "_run_api_agent",
+        lambda *_args, **_kwargs: pytest.fail("direct family must not use native API routing"),
+    )
+
+    result = q.default_reviewer_runner(family, "prompt")
+
+    assert result.ok is True
+    assert result.family == family
+    assert called == [family]
 
 
 def test_collect_missing_head_raises() -> None:
