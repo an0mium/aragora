@@ -387,10 +387,10 @@ class TestCreateWithDefaults:
         else:
             monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
 
-        selector = AgentSelector.create_with_defaults()
+        with patch("aragora.config.feature_flags.is_enabled", return_value=False):
+            selector = AgentSelector.create_with_defaults()
 
-        registered_defaults = set(selector.agent_pool).intersection(DEFAULT_AGENT_EXPERTISE)
-        assert registered_defaults == set(DEFAULT_AGENT_EXPERTISE) - excluded_agents
+        assert set(selector.agent_pool) == set(DEFAULT_AGENT_EXPERTISE) - excluded_agents
 
     def test_default_agents_have_expertise(self):
         """Default agents should have expertise profiles."""
