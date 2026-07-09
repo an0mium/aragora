@@ -2734,11 +2734,17 @@ def apply_prepared_evidence(
             )
             _record_review_adjudication_if_applicable(outcome)
             return outcome
-        if live_state.get("unresolved_dissent") is not False:
+        dissent_state = live_state.get("unresolved_dissent")
+        if dissent_state is not False:
             outcome.action = "prepare"
-            outcome.action_reason = (
-                "live current-head blocking dissent present; prepared evidence only"
-            )
+            if dissent_state is True:
+                outcome.action_reason = (
+                    "live current-head blocking dissent present; prepared evidence only"
+                )
+            else:
+                outcome.action_reason = (
+                    "live current-head dissent state could not be verified; prepared evidence only"
+                )
             _record_review_adjudication_if_applicable(outcome)
             return outcome
 

@@ -95,6 +95,22 @@ def test_fetch_merge_packet_classification_reads_semantic_fields(monkeypatch) ->
     assert packet.requires_human_risk_settlement is False
 
 
+def test_fetch_merge_packet_classification_skips_partial_duplicate_row(monkeypatch) -> None:
+    payload = {
+        "entries": [
+            {"pr_number": 7754, "head_sha": "stale-partial"},
+            {"pr_number": 7754, "head_sha": "abc123", "tier": 2},
+        ]
+    }
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(payload)))
+
+    packet = m.fetch_merge_packet_classification("o/r", 7754)
+
+    assert packet is not None
+    assert packet.head_sha == "abc123"
+    assert packet.tier == 2
+
+
 def test_fetch_live_evidence_state_combines_linted_comments_and_packet(monkeypatch) -> None:
     comments = [
         m.EvidenceComment(

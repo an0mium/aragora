@@ -2475,7 +2475,7 @@ def test_apply_prepared_evidence_refuses_unknown_live_dissent(
     )
 
     assert outcome.action == "prepare"
-    assert "blocking dissent" in outcome.action_reason
+    assert "dissent state could not be verified" in outcome.action_reason
     assert outcome.posted == []
 
 

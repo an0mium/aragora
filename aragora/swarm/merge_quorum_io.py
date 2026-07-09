@@ -250,7 +250,9 @@ def fetch_pr_tier(repo: str, pr: int) -> int | None:
     return packet.tier if packet is not None else None
 
 
-def fetch_merge_packet_entry(repo: str, pr: int) -> dict[str, Any] | None:
+def fetch_merge_packet_entry(
+    repo: str, pr: int, *, require_tier: bool = False
+) -> dict[str, Any] | None:
     """Return the requested PR's current local merge-packet entry."""
     try:
         proc = run(
@@ -297,21 +299,24 @@ def fetch_merge_packet_entry(repo: str, pr: int) -> dict[str, Any] | None:
     # Prefer the row whose pr_number matches the requested PR. The normal
     # single-PR --json shape always discloses pr_number, so a multi-PR envelope
     # can never resolve the wrong PR (which would mis-gate posting).
+    def _eligible(entry: Any) -> bool:
+        return isinstance(entry, dict) and (not require_tier or entry.get("tier") is not None)
+
     for entry in entries:
-        if isinstance(entry, dict) and _coerce(entry.get("pr_number")) == pr:
+        if _eligible(entry) and _coerce(entry.get("pr_number")) == pr:
             return entry
     # Fall back to the first entry only when NO row carries a pr_number
     # (forward-compat shapes such as a bare list or single entry).
     if not any(isinstance(e, dict) and e.get("pr_number") is not None for e in entries):
         for entry in entries:
-            if isinstance(entry, dict):
+            if _eligible(entry):
                 return entry
     return None
 
 
 def fetch_merge_packet_classification(repo: str, pr: int) -> PacketClassification | None:
     """Best-effort current local merge-packet classification for one PR."""
-    entry = fetch_merge_packet_entry(repo, pr)
+    entry = fetch_merge_packet_entry(repo, pr, require_tier=True)
     if entry is None:
         return None
     raw_tier = entry.get("tier")
