@@ -242,6 +242,8 @@ def _looks_like_non_handoff_report(payload: Mapping[str, Any]) -> bool:
         "constraints",
         "desired_head",
         "desired_head_sha",
+        "commit",
+        "head",
         "head_sha",
         "local_evidence",
         "requested_action",

@@ -306,6 +306,34 @@ def test_branchless_preservation_payload_with_report_keys_stays_protected(
     assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
 
 
+@pytest.mark.parametrize("head_key", ["head", "commit"])
+def test_branchless_top_level_head_preservation_payload_stays_protected(
+    tmp_path: Path, capsys: Any, head_key: str
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    outbox_dir.mkdir(parents=True)
+    (outbox_dir / f"open-pr-preservation-with-{head_key}.json").write_text(
+        json.dumps(
+            {
+                head_key: "abc123",
+                "idempotency_key": f"open-pr-preservation-with-{head_key}",
+                "required_contexts": ["lint", "typecheck"],
+                "rows": [{"name": "lint", "state": "success"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = mod.main(["--repo", str(tmp_path), "--dry-run", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["counts"]["non_handoff_report"] == 0
+    assert payload["counts"]["skipped_unparseable"] == 1
+    assert payload["actions"] == []
+    assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
+
+
 def test_github_open_pr_state_fails_closed_when_open_pr_fetch_returns_none(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
