@@ -141,6 +141,32 @@ def test_build_packet_accepts_default_output_dir_context_file(tmp_path: Path) ->
     assert "OPERATOR CONTEXT MISSING" not in packet
 
 
+def test_build_packet_accepts_runtime_output_dir_context_file(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    output_root = tmp_path / "custom-goal-cycles"
+    context_dir = output_root / "20260709T040000Z"
+    context_dir.mkdir(parents=True)
+    context_file = context_dir / "cycle-summary.md"
+    context_file.write_text("cycle 206: runtime output dir context", encoding="utf-8")
+    outside_file = tmp_path / "outside.md"
+    outside_file.write_text("TOKEN=secret", encoding="utf-8")
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        "standing mission",
+        [context_file, outside_file],
+        since_hours=24,
+        root=repo_root,
+        context_safe_roots=[output_root],
+    )
+
+    assert "cycle 206: runtime output dir context" in packet
+    assert "TOKEN=secret" not in packet
+    assert "context file must be under" in packet
+    assert str(output_root) in packet
+
+
 def test_build_packet_accepts_operator_context_file(tmp_path: Path) -> None:
     context_dir = tmp_path / ".aragora" / "operator-context"
     context_dir.mkdir(parents=True)

@@ -31,6 +31,7 @@ Examples::
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 import datetime as _dt
 import json
 import os
@@ -264,14 +265,17 @@ def _active_process_label(command: str) -> str | None:
             return f"{executable} {basename}"
 
     lowered = [word.lower() for word in words]
-    for pattern in ACTIVE_PROCESS_COMMAND_PATTERNS:
-        if len(lowered) >= len(pattern) and tuple(lowered[: len(pattern)]) == pattern:
-            return " ".join(pattern)
+    for command_pattern in ACTIVE_PROCESS_COMMAND_PATTERNS:
+        if (
+            len(lowered) >= len(command_pattern)
+            and tuple(lowered[: len(command_pattern)]) == command_pattern
+        ):
+            return " ".join(command_pattern)
 
     command_lower = " ".join(lowered)
-    for pattern in ACTIVE_PROCESS_TOKEN_PATTERNS:
-        if pattern in command_lower:
-            return pattern
+    for token_pattern in ACTIVE_PROCESS_TOKEN_PATTERNS:
+        if token_pattern in command_lower:
+            return token_pattern
 
     return None
 
@@ -347,9 +351,27 @@ def _packet_with_footer(parts: list[str]) -> str:
     return "\n".join(kept) + "\n" + footer
 
 
-def _read_context_file(path: Path, root: Path) -> tuple[str | None, str | None]:
+def _context_safe_roots(root: Path, extra_roots: Iterable[Path] = ()) -> tuple[Path, ...]:
+    safe_roots = [(root / subdir).resolve(strict=False) for subdir in SAFE_CONTEXT_SUBDIRS]
+    for extra_root in extra_roots:
+        candidate = extra_root if extra_root.is_absolute() else root / extra_root
+        safe_roots.append(candidate.resolve(strict=False))
+    return tuple(dict.fromkeys(safe_roots))
+
+
+def _context_safe_root_labels(extra_roots: Iterable[Path] = ()) -> tuple[str, ...]:
+    labels = [str(subdir) for subdir in SAFE_CONTEXT_SUBDIRS]
+    labels.extend(str(root) for root in extra_roots)
+    return tuple(dict.fromkeys(labels))
+
+
+def _read_context_file(
+    path: Path,
+    root: Path,
+    extra_safe_roots: Iterable[Path] = (),
+) -> tuple[str | None, str | None]:
     """Read a repo-local safe context file with a hard byte cap."""
-    safe_roots = tuple((root / subdir).resolve(strict=False) for subdir in SAFE_CONTEXT_SUBDIRS)
+    safe_roots = _context_safe_roots(root, extra_safe_roots)
     candidate = path if path.is_absolute() else root / path
     try:
         resolved = candidate.resolve(strict=True)
@@ -357,7 +379,7 @@ def _read_context_file(path: Path, root: Path) -> tuple[str | None, str | None]:
         return None, f"context file unreadable: {path}: {exc}"
 
     if not any(_is_relative_to(resolved, safe_root) for safe_root in safe_roots):
-        allowed_roots = " or ".join(str(subdir) for subdir in SAFE_CONTEXT_SUBDIRS)
+        allowed_roots = " or ".join(_context_safe_root_labels(extra_safe_roots))
         return None, f"context file must be under {allowed_roots}: {path}"
     try:
         if not resolved.is_file():
@@ -466,6 +488,7 @@ def build_packet(
     extra_files: list[Path],
     since_hours: float,
     root: Path | None = None,
+    context_safe_roots: Iterable[Path] = (),
 ) -> str:
     root = Path.cwd() if root is None else root
     now = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -495,7 +518,7 @@ def build_packet(
             _markdown_code_block(_bounded_code_block(gap_body)),
         ]
     for path in extra_files:
-        body, note = _read_context_file(path, root)
+        body, note = _read_context_file(path, root, context_safe_roots)
         if body is None:
             if note:
                 parts += [
@@ -611,6 +634,7 @@ def main(argv: list[str] | None = None) -> int:
         [Path(p) for p in args.context_file],
         args.since_hours,
         root=root,
+        context_safe_roots=[cycle_root],
     )
     packet_path = cycle_dir / "packet.md"
     packet_path.write_text(packet, encoding="utf-8")
