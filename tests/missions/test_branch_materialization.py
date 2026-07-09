@@ -211,6 +211,51 @@ def test_materialize_recreates_recorded_branch_if_ref_was_deleted(tmp_path):
     assert git.created_branches() == [branch]
 
 
+def test_materialize_reuses_preexisting_valid_metadata_branch(tmp_path):
+    """Crash-recovery reuse (#8766 Gemini P2): a feature that already carries a
+    valid metadata.branch (e.g. the ledger was pruned/cleared after a prior
+    materialization) adopts that branch — never shadowed by a fresh branch
+    derived from the hint."""
+    git = FakeGit(branches={"mission/prior": "bbbb2222"})
+    ledger = Ledger(tmp_path / "ledger.json")  # pruned: no branch record
+    child = _child(branch="mission/prior")
+
+    branch = _materializer(git)(child, ledger)
+
+    assert branch == "mission/prior"
+    assert git.created_branches() == []  # adopted, not re-created
+    # Re-recorded so later crash-retries adopt the same branch.
+    assert ledger.materialized_branch(child.id) == "mission/prior"
+
+
+def test_materialize_dead_metadata_branch_falls_through_to_hint(tmp_path):
+    """A pre-existing metadata.branch whose ref no longer exists is NOT reused
+    blindly: materialization falls through to the hint, exactly as before."""
+    git = FakeGit()
+    ledger = Ledger(tmp_path / "ledger.json")
+    child = _child(branch="mission/vanished")  # ref does not exist
+
+    branch = _materializer(git)(child, ledger)
+
+    assert branch == "mission/mission-intake-tests"
+    assert git.created_branches() == ["mission/mission-intake-tests"]
+    assert ledger.materialized_branch(child.id) == branch
+
+
+def test_materialize_ledger_record_wins_over_metadata_branch(tmp_path):
+    """The ledger record stays the durable claim-time truth: when both exist,
+    the recorded branch is adopted over a hand-attached metadata.branch."""
+    git = FakeGit(branches={"mission/recorded": BASE_HEAD, "mission/hand-attached": "cccc3333"})
+    ledger = Ledger(tmp_path / "ledger.json")
+    ledger.record_branch("mission-intake-tests", "mission/recorded")
+    child = _child(branch="mission/hand-attached")
+
+    branch = _materializer(git)(child, ledger)
+
+    assert branch == "mission/recorded"
+    assert git.created_branches() == []
+
+
 def test_materialize_git_failure_raises_and_records_nothing(tmp_path):
     git = FakeGit(fail_creates=True)
     ledger = Ledger(tmp_path / "ledger.json")

@@ -19,6 +19,7 @@ unparks the round-2 "parked children unclaimable forever" finding:
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
@@ -174,6 +175,54 @@ def test_reconciler_releases_missing_branch_park_when_branch_appears(tmp_path):
     assert gate.merge_calls == [("mission/f1", "deadbeef")]
 
 
+def test_dead_recorded_branch_reaches_blocked_instead_of_spinning(tmp_path):
+    """#8766 Gemini P1: metadata.branch is set but the ref does not exist in
+    git — the reconciler releases the park on every tick (the branch string is
+    non-empty) and dispatch immediately re-parks it. Without retry burn that is
+    a tight unpark/repark CPU spin; with it, the feature reaches a stable
+    BLOCKED end state after max_retries bounded attempts."""
+
+    class DeadRefGate(RecordingGate):
+        def head_of(self, branch: str) -> str:
+            raise RuntimeError(f"fatal: unknown revision or path {branch}")
+
+    state_path = _branchless_state(tmp_path)
+    state = MissionState.load(state_path)
+    state.get("f1").metadata["branch"] = "mission/f1"  # recorded, but the ref is dead
+    state.save(state_path)
+    gate = DeadRefGate()
+    inner = BossLoopDispatch(gate)
+    calls = {"n": 0}
+
+    def counting(feature: Feature) -> Handoff:
+        calls["n"] += 1
+        return inner(feature)
+
+    MissionOrchestrator(state_path).run(counting, max_ticks=50)  # must drain, not spin
+
+    feat = MissionState.load(state_path).get("f1")
+    assert feat.status == Status.BLOCKED  # stable end state, not PARKED/PENDING
+    assert feat.retry_count == 3
+    assert "no live git ref" in feat.notes
+    assert calls["n"] == 3  # bounded: one dispatch per burned retry, then BLOCKED
+    assert gate.merge_calls == []
+
+
+def test_missing_branch_park_without_branch_still_burns_no_retries(tmp_path):
+    """The dead-ref bound must not regress the waiting flavor: a park with NO
+    metadata.branch recorded keeps burning zero retry budget while it waits."""
+    state_path = _branchless_state(tmp_path)
+    gate = RecordingGate()
+    orch = MissionOrchestrator(state_path)
+
+    orch.run(BossLoopDispatch(gate), max_ticks=10)
+    orch.run(BossLoopDispatch(gate), max_ticks=10)
+
+    feat = MissionState.load(state_path).get("f1")
+    assert feat.status == Status.PARKED
+    assert feat.retry_count == 0
+
+
 def test_reconciler_tick_with_working_decomposer_makes_children_claimable(tmp_path):
     """The acceptance path from the design decision: intake parks on a failing
     decomposer; when TaskDecomposer succeeds on a later reconciler tick the
@@ -189,7 +238,8 @@ def test_reconciler_tick_with_working_decomposer_makes_children_claimable(tmp_pa
 
     state_path = _seeded_intake_state(tmp_path)
     bridge = IntakeBridgeDispatch(_refusing_inner, decompose=recovering)
-    orch = MissionOrchestrator(state_path)
+    # Zero backoff: this test pins the release semantics, not the retry pacing.
+    orch = MissionOrchestrator(state_path, decomposition_retry_backoff=0.0)
 
     orch.tick(bridge)  # decomposer raises → PARKED (retryable)
     parked = MissionState.load(state_path).get("mission-intake")
@@ -238,7 +288,8 @@ def test_three_failed_decomposition_attempts_are_terminal(tmp_path):
 
     state_path = _seeded_intake_state(tmp_path)
     bridge = IntakeBridgeDispatch(_refusing_inner, decompose=boom)
-    orch = MissionOrchestrator(state_path)
+    # Zero backoff: this test pins the retry-exhaustion cap, not the pacing.
+    orch = MissionOrchestrator(state_path, decomposition_retry_backoff=0.0)
 
     orch.run(bridge, max_ticks=50)  # must drain, not spin
 
@@ -254,6 +305,57 @@ def test_three_failed_decomposition_attempts_are_terminal(tmp_path):
     final = MissionState.load(state_path)
     assert final.get("mission-intake").status == Status.TERMINAL
     assert len(final.features) == 1  # no children were ever inserted
+
+
+def test_decomposition_retry_is_paced_not_burned_in_consecutive_ticks(tmp_path):
+    """#8766 Gemini P2: a transient decomposer outage must not exhaust the
+    whole retry budget in consecutive (millisecond) ticks. With the pacing
+    backoff, the first failure parks the intake and an immediate drain leaves
+    it PARKED with only one attempt burned — never TERMINAL."""
+
+    def boom(goal: str, paths: list[str]) -> list[SubTask]:
+        raise RuntimeError("provider outage")
+
+    state_path = _seeded_intake_state(tmp_path)
+    bridge = IntakeBridgeDispatch(_refusing_inner, decompose=boom)
+    orch = MissionOrchestrator(state_path, decomposition_retry_backoff=3600.0)
+
+    orch.run(bridge, max_ticks=50)  # drains immediately: the retry is not due yet
+
+    intake = MissionState.load(state_path).get("mission-intake")
+    assert intake.status == Status.PARKED  # not TERMINAL
+    assert intake.retry_count == 1  # only the first attempt burned
+
+
+def test_decomposition_retry_releases_after_backoff_elapses(tmp_path):
+    """The paced park is still retryable: once the backoff window has elapsed
+    (parked_at backdated), the reconciler releases it for the next bounded
+    attempt — and a recovered decomposer completes the intake."""
+    calls = {"n": 0}
+
+    def recovering(goal: str, paths: list[str]) -> list[SubTask]:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("provider hiccup")
+        return _subtasks(goal, paths)
+
+    state_path = _seeded_intake_state(tmp_path)
+    bridge = IntakeBridgeDispatch(_refusing_inner, decompose=recovering)
+    orch = MissionOrchestrator(state_path, decomposition_retry_backoff=3600.0)
+
+    orch.tick(bridge)  # first attempt fails → PARKED, retry not yet due
+    orch.tick(bridge)  # backoff not elapsed: stays PARKED, no attempt burned
+    parked = MissionState.load(state_path).get("mission-intake")
+    assert parked.status == Status.PARKED
+    assert calls["n"] == 1
+
+    state = MissionState.load(state_path)
+    state.get("mission-intake").metadata["parked_at"] = time.time() - 7200.0
+    state.save(state_path)
+
+    orch.tick(bridge)  # backoff elapsed → released for the bounded retry
+
+    assert MissionState.load(state_path).get("mission-intake").status == Status.COMPLETED
 
 
 def test_explicit_cancel_is_terminal(tmp_path):

@@ -455,7 +455,8 @@ def test_transient_decomposer_failure_recovers_on_next_tick(tmp_path):
 
     state_path = _seeded_state(tmp_path)
     bridge = IntakeBridgeDispatch(_refusing_inner, decompose=flaky)
-    orch = MissionOrchestrator(state_path)
+    # Zero backoff: this test pins the recovery semantics, not the retry pacing.
+    orch = MissionOrchestrator(state_path, decomposition_retry_backoff=0.0)
 
     orch.tick(bridge)  # tick 1: decomposer raises → PARKED (retryable)
     orch.tick(bridge)  # tick 2: reconciler releases the park → decomposes
@@ -474,7 +475,9 @@ def test_persistently_raising_decomposer_is_bounded_not_infinite(tmp_path):
     state_path = _seeded_state(tmp_path)
     bridge = IntakeBridgeDispatch(_refusing_inner, decompose=boom)
 
-    MissionOrchestrator(state_path).run(bridge, max_ticks=50)  # must drain
+    # Zero backoff: this test pins the retry-exhaustion cap, not the pacing.
+    orch = MissionOrchestrator(state_path, decomposition_retry_backoff=0.0)
+    orch.run(bridge, max_ticks=50)  # must drain
 
     state = MissionState.load(state_path)
     intake = state.get("mission-intake")

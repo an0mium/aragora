@@ -97,6 +97,17 @@ class BranchMaterializer:
                 self._create_branch(recorded)
             return recorded
 
+        existing = str(feature.metadata.get("branch") or "").strip()
+        if existing and self._ref_exists(existing):
+            # Crash-recovery reuse (#8766 Gemini P2): a feature that already
+            # carries a valid metadata.branch (e.g. the ledger was pruned or
+            # cleared after a prior materialization) adopts that branch instead
+            # of shadowing it with a fresh one from the hint. Re-record it so
+            # later crash-retries adopt the same branch; a dead value falls
+            # through to hint materialization as before.
+            ledger.record_branch(feature.id, existing)
+            return existing
+
         hint = str(feature.metadata.get("branch_hint") or "").strip()
         candidate = self._resolve_name(hint or f"mission/{feature.id}")
         if not self._ref_exists(candidate):

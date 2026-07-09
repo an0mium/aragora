@@ -14,6 +14,7 @@ as the ``dispatch`` callable (see the spec, Phase A2).
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -98,10 +99,16 @@ class MissionOrchestrator:
         *,
         max_retries: int = 3,
         ledger_path: str | Path | None = None,
+        decomposition_retry_backoff: float = 60.0,
     ) -> None:
         self.state_path = Path(state_path)
         self.max_retries = max_retries
         self.ledger_path = Path(ledger_path) if ledger_path is not None else None
+        # Seconds before a PARK_KIND_DECOMPOSITION park is released for its next
+        # bounded retry, doubling per failed attempt (#8766 Gemini P2): without
+        # pacing, consecutive ticks would burn the whole retry budget in
+        # milliseconds during a transient decomposer outage → premature TERMINAL.
+        self.decomposition_retry_backoff = decomposition_retry_backoff
 
     # ---- single tick ---------------------------------------------------------
 
@@ -219,10 +226,13 @@ class MissionOrchestrator:
           branch at claim time (``BossLoopDispatch`` re-checks
           ``metadata.branch`` before touching git), so a stale or lying state
           file re-parks instead of dispatching without a branch.
-        * ``PARK_KIND_DECOMPOSITION`` releases unconditionally for one bounded
-          retry; triage counts each failed attempt in ``retry_count`` and marks
-          the feature TERMINAL at ``max_retries`` (default 3), so the
-          park/release cycle can never ping-pong forever.
+        * ``PARK_KIND_DECOMPOSITION`` releases for one bounded retry once the
+          pacing backoff has elapsed (``decomposition_retry_backoff``, doubling
+          per failed attempt — #8766 Gemini P2: consecutive ticks must not burn
+          the whole retry budget in milliseconds during a transient outage);
+          triage counts each failed attempt in ``retry_count`` and marks the
+          feature TERMINAL at ``max_retries`` (default 3), so the park/release
+          cycle can never ping-pong forever.
         * Unknown park kinds stay parked — fail-closed, for the operator.
 
         TERMINAL features are never re-evaluated: nothing auto-transitions out.
@@ -240,12 +250,27 @@ class MissionOrchestrator:
                     logger.info("reconciler released parked feature %s: branch appeared", feat.id)
                     changed = True
             elif kind == PARK_KIND_DECOMPOSITION:
+                if not self._decomposition_retry_due(feat):
+                    continue
                 state.unpark(feat.id, "retrying decomposition (bounded by the retry cap)")
                 logger.info(
                     "reconciler released parked feature %s for a decomposition retry", feat.id
                 )
                 changed = True
         return changed
+
+    def _decomposition_retry_due(self, feat: Feature) -> bool:
+        """Pace decomposition retries (#8766 Gemini P2): a park is released only
+        after ``decomposition_retry_backoff`` seconds, doubling per failed
+        attempt, so a transient decomposer outage is retried across real time
+        instead of exhausting ``max_retries`` in consecutive ticks. A park
+        without a numeric ``parked_at`` (pre-pacing state file) is due
+        immediately, exactly as before."""
+        parked_at = feat.metadata.get("parked_at")
+        if not isinstance(parked_at, (int, float)):
+            return True
+        delay = self.decomposition_retry_backoff * (2 ** max(feat.retry_count - 1, 0))
+        return (time.time() - parked_at) >= delay
 
     # ---- handoff triage ------------------------------------------------------
 
@@ -298,6 +323,24 @@ class MissionOrchestrator:
                     state.mark_terminal(
                         feature_id,
                         f"decomposition failed after {feat.retry_count} attempts: {reason}",
+                    )
+                    return
+            elif handoff.parked_kind == PARK_KIND_MISSING_BRANCH and _has_recorded_branch(feat):
+                # Dead recorded ref (#8766 Gemini P1): metadata.branch is set but
+                # dispatch could not resolve a live git ref for it, so the
+                # reconciler would release this park on every tick (the branch
+                # string is non-empty) and dispatch would immediately re-park it —
+                # a tight unpark/repark CPU spin with no retry burn. Burn retry
+                # budget on this flavor so a persistently dead ref reaches a
+                # stable BLOCKED end state instead of spinning forever. A park
+                # with NO branch recorded still burns nothing: it waits for the
+                # branch to appear, exactly as before.
+                feat.retry_count += 1
+                if feat.retry_count >= self.max_retries:
+                    state.mark_blocked(
+                        feature_id,
+                        f"metadata.branch has no live git ref after "
+                        f"{feat.retry_count} attempts: {reason}",
                     )
                     return
             state.mark_parked(feature_id, reason, kind=handoff.parked_kind or "")
@@ -437,3 +480,9 @@ class MissionOrchestrator:
             return self.ledger_path
         default_path = self.state_path.with_name("ledger.json")
         return default_path if default_path.exists() else None
+
+
+def _has_recorded_branch(feat: Feature) -> bool:
+    """True iff the feature carries a non-empty ``metadata.branch`` value."""
+    branch = feat.metadata.get("branch")
+    return isinstance(branch, str) and bool(branch.strip())
