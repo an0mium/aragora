@@ -22,6 +22,7 @@ import pytest
 from aragora.cli.commands.verify import (
     _is_valid_iso_timestamp,
     _is_valid_verdict,
+    _has_epistemic_hash_fields,
     _recompute_legacy_artifact_hash,
     _recompute_artifact_hash,
     _recompute_checksum,
@@ -165,6 +166,24 @@ class TestHelpers:
         assert c1 == c2
         assert len(c1) == 16  # SHA-256 truncated to 16 hex chars
 
+    def test_has_epistemic_hash_fields_ignores_empty_defaults(self):
+        data = {
+            "unverified": [],
+            "assumptions": [],
+            "falsification": None,
+        }
+
+        assert _has_epistemic_hash_fields(data) is False
+
+        data["unverified"] = ["Load test not run."]
+        assert _has_epistemic_hash_fields(data) is True
+
+    def test_has_epistemic_hash_fields_treats_malformed_fields_as_epistemic(self):
+        assert _has_epistemic_hash_fields({"unverified": [" "]}) is True
+        assert _has_epistemic_hash_fields(
+            {"falsification": {"observation": "Latency rose above threshold."}}
+        )
+
 
 # ---------------------------------------------------------------------------
 # Integration tests for _verify_receipt
@@ -304,6 +323,20 @@ class TestVerifyReceipt:
         assert integrity_check["passed"] is False
         assert "legacy artifact_hash cannot validate epistemic fields" in integrity_check["detail"]
 
+    def test_legacy_checksum_allows_empty_default_epistemic_fields(self):
+        """Legacy checksums should not reject default fields with no epistemic content."""
+        data = _make_receipt_data()
+        data["unverified"] = []
+        data["assumptions"] = []
+        data["falsification"] = None
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is True
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is True
+        assert "checksum=" in integrity_check["detail"]
+
     def test_legacy_checksum_alias_rejects_added_epistemic_fields(self):
         """Legacy checksum artifact-hash aliases must fail closed on new epistemic fields."""
         data = _make_receipt_data(include_checksum=False)
@@ -334,6 +367,18 @@ class TestVerifyReceipt:
             "observation": "P95 latency exceeds 600ms.",
             "check_by": "2026-07-15",
         }
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is False
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is False
+        assert "legacy checksum cannot validate epistemic fields" in integrity_check["detail"]
+
+    def test_legacy_checksum_rejects_malformed_epistemic_fields(self):
+        """Malformed epistemic fields still fail closed even if they normalize empty."""
+        data = _make_receipt_data()
+        data["unverified"] = [" "]
 
         result = _verify_receipt(data)
 

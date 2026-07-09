@@ -251,7 +251,13 @@ def _hash_artifact_payload(payload: dict[str, Any]) -> str:
 
 
 def _has_epistemic_hash_fields(data: dict[str, Any]) -> bool:
-    return any(field in data for field in _EPISTEMIC_HASH_FIELDS)
+    if _malformed_epistemic_hash_field_reasons(data):
+        return True
+    return bool(
+        _normalize_epistemic_string_list(data.get("unverified"))
+        or _normalize_epistemic_string_list(data.get("assumptions"))
+        or _normalize_falsification(data.get("falsification"))
+    )
 
 
 def _recompute_legacy_artifact_hash(data: dict[str, Any]) -> str:
