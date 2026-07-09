@@ -1517,7 +1517,7 @@ API (direct):
 | `anthropic-api` | claude-opus-4-5-20251101 | Anthropic API, streaming |
 | `openai-api` | gpt-5.3 | OpenAI API, streaming |
 | `gemini` | gemini-3-pro-preview | Google API, streaming |
-| `grok` | grok-4-latest | xAI API, streaming |
+| `grok` | grok-4.5 | xAI API, streaming |
 | `mistral-api` | mistral-large-2512 | Mistral API |
 | `codestral` | codestral-latest | Mistral code model |
 | `ollama` | llama3.2 | Local Ollama |
@@ -1544,7 +1544,7 @@ CLI:
 | `codex` | gpt-5.3-codex | Codex CLI |
 | `openai` | gpt-5.3 | OpenAI CLI |
 | `gemini-cli` | gemini-3-pro-preview | Gemini CLI |
-| `grok-cli` | grok-4-latest | Grok CLI |
+| `grok-cli` | grok-4.5 | Grok CLI |
 | `qwen-cli` | qwen3-coder | Qwen CLI |
 | `deepseek-cli` | deepseek-v4-pro | DeepSeek CLI |
 | `kilocode` | gemini-explorer | Codebase explorer |
