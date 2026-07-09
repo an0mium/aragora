@@ -53,7 +53,7 @@ GPT54_VIA_OPENROUTER: Final = GPT55_VIA_OPENROUTER
 
 # Google Gemini 3.1 Pro - top-tier long-context + multimodal
 GEMINI_31_PRO_DIRECT: Final = "gemini-3.1-pro"
-GEMINI_31_PRO_VIA_OPENROUTER: Final = "google/gemini-3.1-pro"
+GEMINI_31_PRO_VIA_OPENROUTER: Final = "google/gemini-3.1-pro-preview"
 
 # xAI Grok 4 (latest) - contrarian / contrarian-by-design agent
 GROK_4_DIRECT: Final = "grok-4-latest"
@@ -61,7 +61,7 @@ GROK_4_VIA_OPENROUTER: Final = "x-ai/grok-4"
 
 # Mistral Large (latest) - European provider diversity
 MISTRAL_LARGE_DIRECT: Final = "mistral-large-2512"
-MISTRAL_LARGE_VIA_OPENROUTER: Final = "mistralai/mistral-large"
+MISTRAL_LARGE_VIA_OPENROUTER: Final = "mistralai/mistral-large-2512"
 
 
 # -----------------------------------------------------------------------------

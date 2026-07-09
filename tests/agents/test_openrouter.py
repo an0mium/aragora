@@ -52,8 +52,10 @@ class TestFallbackModelChain:
         """Test Kimi models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-        assert "moonshotai/kimi-k2.6" in OPENROUTER_FALLBACK_MODELS
-        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.6"] == "anthropic/claude-opus-4.8"
+        assert "moonshotai/kimi-k2.7-code" in OPENROUTER_FALLBACK_MODELS
+        assert (
+            OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.7-code"] == "anthropic/claude-opus-4.8"
+        )
 
     def test_llama_has_fallback(self):
         """Test Llama models have fallbacks."""
