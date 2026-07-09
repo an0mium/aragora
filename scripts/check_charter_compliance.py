@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Advisory checker for chartered architecture removals and exclusions."""
+"""Advisory checker for chartered removals, exclusions, and UNMAPPED growth."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ DRAFT_BINDING_IDS = {
     "CHR-X-007",
 }
 ENFORCED_STATES = {"REMOVED", "EXCLUSION", "PENDING", "EXPIRING", "PARKED"}
+PACKAGE_STATES = {"MAPPED", "UNMAPPED"}
 FROM_IMPORT_RE = re.compile(r"^\s*from\s+([A-Za-z_][\w.]*)\s+import\s+(.+)$")
 PLAIN_IMPORT_RE = re.compile(r"^\s*import\s+(.+)$")
 HUNK_RE = re.compile(r"@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@")
@@ -320,6 +321,10 @@ def parse_diff(diff_text: str) -> list[AddedLine]:
     current_path: str | None = None
     current_line: int | None = None
     for raw_line in diff_text.splitlines():
+        if raw_line.startswith("diff --git "):
+            current_path = None
+            current_line = None
+            continue
         if raw_line.startswith("+++ "):
             current_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
             current_line = None
@@ -339,6 +344,25 @@ def parse_diff(diff_text: str) -> list[AddedLine]:
         elif current_line is not None:
             current_line += 1
     return added
+
+
+def parse_new_files(diff_text: str) -> list[str]:
+    new_files: list[str] = []
+    old_path_is_null = False
+    for raw_line in diff_text.splitlines():
+        if raw_line.startswith("diff --git "):
+            old_path_is_null = False
+            continue
+        if raw_line.startswith("--- "):
+            old_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
+            old_path_is_null = old_path is None
+            continue
+        if raw_line.startswith("+++ ") and old_path_is_null:
+            new_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
+            if new_path is not None:
+                new_files.append(new_path)
+            old_path_is_null = False
+    return new_files
 
 
 def load_charter_entries(
@@ -379,6 +403,33 @@ def load_charter_entries(
     return entries, authority_by_ref, status
 
 
+def load_package_states(charter_path: Path) -> tuple[dict[str, str], str]:
+    data = yaml.safe_load(charter_path.read_text(encoding="utf-8")) or {}
+    meta = data.get("meta") or {}
+    status = str(meta.get("status") or "DRAFT").upper()
+    raw_package_states = data.get("package_states")
+    if not isinstance(raw_package_states, dict) or not raw_package_states:
+        raise ValueError("charters.yaml must define a non-empty package_states mapping")
+
+    package_states: dict[str, str] = {}
+    for raw_path, raw_state in raw_package_states.items():
+        path = str(raw_path)
+        state = str(raw_state).upper()
+        if not re.fullmatch(r"aragora/[A-Za-z0-9_]+", path):
+            raise ValueError(f"invalid package state path: {path!r}")
+        if state not in PACKAGE_STATES:
+            raise ValueError(f"invalid package state for {path}: {state!r}")
+        package_states[path] = state
+    return package_states, status
+
+
+def _top_level_package(path: str) -> str | None:
+    parts = path.split("/")
+    if len(parts) < 3 or parts[0] != "aragora":
+        return None
+    return "/".join(parts[:2])
+
+
 def _entry_matches_line(
     entry: CharterEntry,
     added_line: AddedLine,
@@ -405,7 +456,9 @@ def _entry_matches_line(
 
 
 def check_diff(diff_text: str, *, charter_path: Path | str) -> CheckResult:
-    entries, authority_by_ref, _status = load_charter_entries(Path(charter_path))
+    charter_path = Path(charter_path)
+    entries, authority_by_ref, _status = load_charter_entries(charter_path)
+    package_states, charter_status = load_package_states(charter_path)
     added_lines = parse_diff(diff_text)
     aliases_by_path: dict[str, dict[str, set[str]]] = {}
     for added_line in added_lines:
@@ -446,6 +499,36 @@ def check_diff(diff_text: str, *, charter_path: Path | str) -> CheckResult:
                     authority_ids=authority_by_ref.get(entry.entry_id, []),
                 )
             )
+    for new_path in parse_new_files(diff_text):
+        if not _is_python_path(new_path):
+            continue
+        package = _top_level_package(new_path)
+        if package is None:
+            continue
+        package_state = package_states.get(package, "UNMAPPED")
+        if package_state != "UNMAPPED":
+            continue
+        entry_id = f"APPENDIX-A:{package}"
+        key = (entry_id, new_path, None, "")
+        if key in seen:
+            continue
+        seen.add(key)
+        if package in package_states:
+            reason = "adds a new Python module under an UNMAPPED package"
+        else:
+            reason = "adds a new Python module under a package absent from Appendix A"
+        violations.append(
+            Violation(
+                binding="BINDING" if charter_status == "RATIFIED" else "PROPOSED",
+                entry_id=entry_id,
+                state="UNMAPPED",
+                path=new_path,
+                line_no=None,
+                line="",
+                reason=reason,
+                authority_ids=[],
+            )
+        )
     binding = [violation for violation in violations if violation.binding == "BINDING"]
     proposed = [violation for violation in violations if violation.binding == "PROPOSED"]
     return CheckResult(
