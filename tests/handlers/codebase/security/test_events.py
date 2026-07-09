@@ -15,6 +15,7 @@ handling, SAST severity filtering, and edge cases.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -668,23 +669,35 @@ class TestEmitScanEvents:
 
 
 class TestEmitScanEventsColdRunnerRegistration:
-    """Regression test for P4a E8 SCOPE #5.
+    """Regression test for P4a E8 SCOPE #5, updated by P4a
+    security-debate-unification (incident #5 fix-forward).
 
-    This module never explicitly imports aragora.debate.security_response
-    (that import was deliberately reverted to avoid a Tier-3 reclassification
-    for this interface-tier handler - see aragora/debate/security_response.py's
-    module docstring for the two composition roots that DO import it
-    explicitly: aragora.debate.orchestrator and
-    aragora.analysis.codebase.sast.scanner). This proves the handler's
-    auto-debate path is robust to that import-order drift anyway, because
-    SecurityEventEmitter._trigger_security_debate self-heals the runner
-    registry on first real use
+    This handler module never explicitly imports
+    aragora.debate.security_response (that import was deliberately reverted
+    during E8 to avoid a Tier-3 reclassification for this interface-tier
+    handler). E7a-as-merged (and E8) compensated for that with an
+    events-side self-heal
     (aragora.events.security_events._ensure_default_security_debate_runner_registered)
-    regardless of whether either composition root ran first - a stronger,
-    more realistic guarantee than a cold-import subprocess check (which only
-    proves an import side effect, not this runtime self-heal). See also
-    tests/debate/test_security_response.py::TestConsumerRegistrationSideEffect
-    for the equivalent proof from the SAST scanner composition root's side.
+    that lazily imported aragora.debate.security_response on first use --
+    but that was itself a charter-forbidden events->debate import edge
+    (incident #5) and has been removed.
+
+    The equivalent robustness now lives entirely domain-side: composition
+    roots register the runner before any request-handling code runs
+    (aragora.debate.orchestrator, aragora.debate.event_subscribers.
+    bootstrap_debate_event_subscribers, aragora.analysis.codebase.sast.
+    scanner -- see aragora/debate/security_response.py's module docstring).
+    A real server process always imports at least one of these during
+    startup, so this handler's auto-debate path keeps working in
+    production. This class pins both halves of the new contract:
+      - test_critical_finding_triggers_debate_when_composition_root_registered:
+        production bootstrap already wired the runner (the realistic case).
+      - test_critical_finding_fails_soft_when_truly_cold: no composition
+        root ever ran (e.g. a misconfigured deployment) -- auto-debate now
+        fails soft with a loud warning log instead of self-healing.
+    See also tests/debate/test_security_response.py::
+    TestConsumerRegistrationSideEffect for the equivalent proof from the
+    SAST scanner composition root's side.
     """
 
     @pytest.fixture(autouse=True)
@@ -697,12 +710,16 @@ class TestEmitScanEventsColdRunnerRegistration:
         security_events_mod._security_debate_runner = original
 
     @pytest.mark.asyncio
-    async def test_critical_finding_self_heals_runner_and_triggers_debate(self):
-        """A critical finding through the real handler+emitter path triggers a
-        debate even though no composition root ever registered the runner."""
+    async def test_critical_finding_triggers_debate_when_composition_root_registered(self):
+        """A critical finding through the real handler+emitter path triggers
+        a debate once a composition root has registered the runner
+        (simulating production startup, e.g. aragora.debate.orchestrator
+        having been imported before any request is handled)."""
+        from aragora.debate import security_response
         from aragora.events.security_events import get_security_debate_runner
 
-        assert get_security_debate_runner() is None
+        security_response.ensure_registered()
+        assert get_security_debate_runner() is not None
 
         vuln = _make_vuln(severity=VulnerabilitySeverity.CRITICAL, cvss_score=9.8)
         dep = _make_dep(vulnerabilities=[vuln])
@@ -748,6 +765,40 @@ class TestEmitScanEventsColdRunnerRegistration:
         assert scan_event.event_type == SecurityEventType.CRITICAL_VULNERABILITY
         assert scan_event.debate_requested is True
         assert scan_event.debate_id == "cold-start-debate-1"
+
+    @pytest.mark.asyncio
+    async def test_critical_finding_fails_soft_when_truly_cold(self, caplog):
+        """A critical finding through the real handler+emitter path fails
+        soft with a loud log -- no debate, no exception -- when no
+        composition root has ever registered a runner (a genuinely cold
+        process, e.g. a misconfigured deployment that skips startup
+        wiring)."""
+        from aragora.events.security_events import get_security_debate_runner
+
+        assert get_security_debate_runner() is None
+
+        vuln = _make_vuln(severity=VulnerabilitySeverity.CRITICAL, cvss_score=9.8)
+        dep = _make_dep(vulnerabilities=[vuln])
+        result = _make_scan_result(dependencies=[dep])
+
+        real_emitter = SecurityEventEmitter(enable_auto_debate=True)
+
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.events.get_security_emitter",
+                return_value=real_emitter,
+            ),
+            caplog.at_level(logging.WARNING, logger="aragora.events.security_events"),
+        ):
+            await emit_scan_events(result, "repo-1", "scan-1")
+
+        assert get_security_debate_runner() is None
+        assert "No security debate runner registered" in caplog.text
+
+        scan_event = real_emitter.get_recent_events()[-1]
+        assert scan_event.event_type == SecurityEventType.CRITICAL_VULNERABILITY
+        assert scan_event.debate_requested is False
+        assert scan_event.debate_id is None
 
 
 # ============================================================================
