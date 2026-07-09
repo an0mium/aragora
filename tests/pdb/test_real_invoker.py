@@ -171,6 +171,14 @@ class TestEstimateCostUsd:
         # (2.50, 10.00) → 12.50
         assert cost == pytest.approx(12.5)
 
+    def test_qwen37_max_priced_not_free(self) -> None:
+        # (1.25, 3.75) → 5.00; the quorum-reviewer default must never hit the
+        # $0.00 unknown-model path (#9073 P2).
+        cost = estimate_cost_usd(
+            model="qwen/qwen3.7-max", tokens_in=1_000_000, tokens_out=1_000_000
+        )
+        assert cost == pytest.approx(5.0)
+
     def test_unknown_model_returns_zero(self) -> None:
         cost = estimate_cost_usd(model="unknown-model", tokens_in=1000, tokens_out=500)
         assert cost == 0.0

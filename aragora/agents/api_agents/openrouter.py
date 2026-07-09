@@ -62,6 +62,7 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     # Qwen models -> DeepSeek
     "qwen/qwen-2.5-72b-instruct": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3-235b-a22b": DEEPSEEK_V4_PRO_MODEL,
+    "qwen/qwen3-max": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3.7-max": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3.5-plus-02-15": DEEPSEEK_V4_PRO_MODEL,
     # DeepSeek -> GPT-5.5 (fast, reliable). Keep legacy keys so
@@ -76,6 +77,7 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "deepseek/deepseek-reasoner": "openai/gpt-5.5",
     # Kimi -> Claude Opus 4.8
     "moonshotai/kimi-k2.7-code": "anthropic/claude-opus-4.8",
+    "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.8",
     "moonshotai/kimi-k2.5": "anthropic/claude-opus-4.8",
     "moonshotai/kimi-k2-0905": "anthropic/claude-opus-4.8",
     "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-4.8",
@@ -114,7 +116,7 @@ class OpenRouterAgent(APIAgent):
     - qwen/qwen3.7-max (Qwen3.7 Max)
     - qwen/qwen3.5-plus-02-15 (Qwen3.5 Plus)
     - moonshotai/kimi-k2.7-code (Kimi K2.7 Code)
-    - google/gemini-3.1-pro (Gemini 3.1 Pro)
+    - google/gemini-3.1-pro-preview (Gemini 3.1 Pro)
     - anthropic/claude-opus-4.8
     - openai/gpt-5.5
     """
@@ -701,10 +703,10 @@ class MistralAgent(OpenRouterAgent):
     default_model="qwen/qwen3.7-max",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Qwen3 Max - Alibaba's frontier model, 256K context, trillion params",
+    description="Qwen3.7 Max - Alibaba's frontier model, 256K context, trillion params",
 )
 class QwenAgent(OpenRouterAgent):
-    """Alibaba Qwen3 Max via OpenRouter - frontier model with 256K context."""
+    """Alibaba Qwen3.7 Max via OpenRouter - frontier model with 256K context."""
 
     def __init__(
         self,
@@ -727,10 +729,10 @@ class QwenAgent(OpenRouterAgent):
     default_model="qwen/qwen3.7-max",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Qwen3 Max - Alibaba's frontier model, 256K context, trilion params",
+    description="Qwen3.7 Max - Alibaba's frontier model, 256K context, trillion params",
 )
 class QwenMaxAgent(OpenRouterAgent):
-    """Alibaba Qwen3 Max via OpenRouter - trillion-parameter frontier model."""
+    """Alibaba Qwen3.7 Max via OpenRouter - trillion-parameter frontier model."""
 
     def __init__(
         self,
@@ -805,10 +807,10 @@ class YiAgent(OpenRouterAgent):
     default_model="moonshotai/kimi-k2.7-code",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Kimi K2.6 - Moonshot AI's latest frontier Kimi model on OpenRouter",
+    description="Kimi K2.7 Code - Moonshot AI's latest frontier Kimi model on OpenRouter",
 )
 class KimiK2Agent(OpenRouterAgent):
-    """Moonshot AI Kimi K2.6 via OpenRouter - latest frontier Kimi model."""
+    """Moonshot AI Kimi K2.7 Code via OpenRouter - latest frontier Kimi model."""
 
     def __init__(
         self,
