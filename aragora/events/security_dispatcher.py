@@ -43,7 +43,6 @@ from aragora.events.security_events import (
     SecurityEventEmitter,
     SecurityEventType,
     SecuritySeverity,
-    _ensure_default_security_debate_runner_registered,
     _accepted_security_debate_runner_kwargs,
     get_security_debate_runner,
     get_security_emitter,
@@ -373,9 +372,11 @@ class SecurityDispatcher:
             else:
                 runner = get_security_debate_runner()
                 if runner is None:
-                    runner = _ensure_default_security_debate_runner_registered()
-                if runner is None:
-                    raise ImportError("No security debate runner registered")
+                    raise ImportError(
+                        "No security debate runner registered; a composition root "
+                        "must call register_security_debate_runner() (importing "
+                        "aragora.debate.security_response registers the default)"
+                    )
 
                 runner_kwargs = _accepted_security_debate_runner_kwargs(
                     runner,

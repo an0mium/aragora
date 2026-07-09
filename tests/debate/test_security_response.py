@@ -49,24 +49,6 @@ class TestBuildSecurityDebateQuestion:
         q = build_security_debate_question(event)
         assert "the codebase" in q
 
-    def test_legacy_events_package_import_delegates_to_relocated_builder(self):
-        """Historical aragora.events import path should keep working."""
-        from aragora.events import build_security_debate_question as legacy_builder
-
-        event = SecurityEvent(repository="org/repo")
-
-        assert legacy_builder(event) == build_security_debate_question(event)
-
-    def test_legacy_security_events_import_delegates_to_relocated_builder(self):
-        """Historical security_events import path should keep working."""
-        from aragora.events.security_events import (
-            build_security_debate_question as legacy_builder,
-        )
-
-        event = SecurityEvent(repository="org/repo")
-
-        assert legacy_builder(event) == build_security_debate_question(event)
-
     def test_question_with_vulnerability_findings(self):
         """Should include vulnerability details in the question."""
         finding = SecurityFinding(
@@ -372,52 +354,6 @@ class TestBuildSecurityDebateQuestion:
 
 class TestTriggerSecurityDebate:
     """Tests for the trigger_security_debate function."""
-
-    @pytest.mark.asyncio
-    async def test_legacy_security_events_trigger_delegates_to_relocated_runner(self):
-        """Historical trigger import path should call the relocated runner."""
-        from aragora.events.security_events import trigger_security_debate as legacy_trigger
-
-        event = SecurityEvent(repository="org/app")
-
-        with (
-            patch(
-                "aragora.debate.security_response.build_security_debate_question",
-                return_value="Question?",
-            ),
-            patch(
-                "aragora.debate.security_debate.get_security_debate_agents",
-                new_callable=AsyncMock,
-                return_value=[],
-            ),
-        ):
-            result = await legacy_trigger(event)
-
-        assert result is None
-        assert event.debate_question == "Question?"
-
-    @pytest.mark.asyncio
-    async def test_legacy_events_package_trigger_import_delegates_to_relocated_runner(self):
-        """Historical package-level trigger import should keep working."""
-        from aragora.events import trigger_security_debate as legacy_trigger
-
-        event = SecurityEvent(repository="org/app")
-
-        with (
-            patch(
-                "aragora.debate.security_response.build_security_debate_question",
-                return_value="Question?",
-            ),
-            patch(
-                "aragora.debate.security_debate.get_security_debate_agents",
-                new_callable=AsyncMock,
-                return_value=[],
-            ),
-        ):
-            result = await legacy_trigger(event)
-
-        assert result is None
-        assert event.debate_question == "Question?"
 
     @pytest.mark.asyncio
     async def test_trigger_debate_returns_none_on_import_error(self):

@@ -13,11 +13,20 @@ auto-debate path (see register_security_debate_runner), so the domain-free
 events module never imports aragora.debate or aragora.agents directly.
 Registration is a plain module-level side effect, so any composition root
 that imports this module first makes the runner available process-wide.
-Two composition roots import it explicitly rather than relying solely on
-incidental transitive imports: aragora.debate.orchestrator (Arena, for any
-Arena-backed process) and aragora.analysis.codebase.sast.scanner (SAST
-auto-scan findings, which can run in isolation from the Arena-backed server
-stack).
+
+Three domain-side composition roots import this module explicitly rather
+than relying solely on incidental transitive imports:
+  - aragora.debate.orchestrator (Arena, for any Arena-backed process)
+  - aragora.debate.event_subscribers.bootstrap_debate_event_subscribers
+    (non-Arena consumers of the shared event-subscriber bootstrap, e.g.
+    server startup, memory/knowledge extensions)
+  - aragora.analysis.codebase.sast.scanner (SAST auto-scan findings, which
+    can run in isolation from both of the above)
+
+The latter two also call ensure_registered() explicitly rather than relying
+on the bare-import side effect alone, since a plain import is a no-op once
+this module is already cached in sys.modules -- see ensure_registered's
+docstring.
 """
 
 from __future__ import annotations
@@ -27,6 +36,7 @@ import uuid
 from typing import Any
 
 from aragora.events.security_events import (
+    SecurityDebateRunner,
     SecurityEvent,
     _register_default_security_debate_runner,
     _store_security_debate_result,
@@ -197,10 +207,29 @@ async def _get_security_debate_agents() -> list[Any]:
     return await get_security_debate_agents()
 
 
-_register_default_security_debate_runner(trigger_security_debate)
+def ensure_registered() -> SecurityDebateRunner | None:
+    """Idempotently (re-)register trigger_security_debate as the default runner.
+
+    The bare module-level self-registration below only fires the first time
+    this module is imported into a process: a plain `import
+    aragora.debate.security_response` is a no-op if the module is already in
+    sys.modules, so it will NOT re-run the registration side effect. A
+    composition root that must guarantee registration even when this module
+    may already be cached elsewhere (e.g. after an explicit
+    register_security_debate_runner(None) clear, or a cold-start test that
+    resets the registry to simulate a fresh process) should call this
+    explicitly instead. Like the module-level self-registration, this never
+    clobbers an explicit runner hook or an explicit None-clear (see
+    _register_default_security_debate_runner).
+    """
+    return _register_default_security_debate_runner(trigger_security_debate)
+
+
+ensure_registered()
 
 
 __all__ = [
     "trigger_security_debate",
     "build_security_debate_question",
+    "ensure_registered",
 ]
