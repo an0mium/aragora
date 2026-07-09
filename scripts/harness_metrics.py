@@ -408,6 +408,19 @@ def _event_gate_pass(record: dict[str, Any]) -> bool | None:
 
 
 def _event_merged_pr(record: dict[str, Any]) -> int | None:
+    action = str(_first_present(record, ("action", "event", "mutation")) or "").strip().lower()
+    if action in {
+        "admin_squash_merge",
+        "squash_merge",
+        "merge",
+        "merged",
+        "pr_merged",
+    }:
+        for fallback_key in ("pr_number", "pr", "target_pr"):
+            pr_number = _coerce_pr_number(_first_present(record, (fallback_key,)))
+            if pr_number is not None:
+                return pr_number
+
     merge_keys = ("direct_pr_merged", "merged_pr", "pr_merged", "mutations.merged_pr")
     pr_reference_keys = ("pr_number", "pr", "target_pr")
     for key in merge_keys:

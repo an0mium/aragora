@@ -210,6 +210,40 @@ def test_receipts_use_reviewed_at_timestamp(tmp_path: Path) -> None:
     assert lanes["receipt_store"]["token_cost_total"] == 4.0
 
 
+def test_receipt_admin_squash_merge_action_counts_pr_number(
+    tmp_path: Path,
+) -> None:
+    fixture = tmp_path / "eval.json"
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    _write_eval_fixture(fixture)
+    (receipts / "merge.json").write_text(
+        json.dumps(
+            {
+                "reviewed_at": "2026-07-08T01:00:00Z",
+                "action": "admin_squash_merge",
+                "pr_number": 2002,
+                "rounds_to_merge": 3,
+                "token_usage": {"total_cost_usd": 4.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[],
+        receipt_dirs=[receipts],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["merged_prs"] == 1
+    assert lane["rounds_to_merge_average"] == 3.0
+    assert lane["token_cost_per_merged_pr"] == 4.0
+
+
 def test_external_progress_negative_outcomes_are_not_positive_substrings(
     tmp_path: Path,
 ) -> None:
