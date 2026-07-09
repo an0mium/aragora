@@ -399,6 +399,42 @@ def test_external_progress_mutations_override_failed_outcome(
     assert lane["external_progress_per_cycle"] == 0.5
 
 
+def test_external_progress_unknown_mutation_values_are_insufficient(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T08:00:00Z",
+                "lane": "a",
+                "mutations": {"push": "pending"},
+            },
+            {
+                "timestamp": "2026-07-08T09:00:00Z",
+                "lane": "a",
+                "mutations": {"merge": []},
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 2
+    assert lane["external_progress_cycles"] == 0
+    assert lane["external_progress_per_cycle"] is None
+
+
 def test_pr_number_parsing_requires_whole_pr_token() -> None:
     assert harness_metrics._coerce_pr_number("#1234") == 1234
     assert harness_metrics._coerce_pr_number("PR #1234") == 1234
@@ -630,6 +666,7 @@ def test_duplicate_non_merge_token_cost_records_are_not_double_counted(
             {
                 "timestamp": "2026-07-08T10:00:00Z",
                 "lane": "conductor",
+                "cycle_id": "cycle-1",
                 "token_cost": 2.0,
             }
         ],
@@ -637,8 +674,9 @@ def test_duplicate_non_merge_token_cost_records_are_not_double_counted(
     (receipts / "cost.json").write_text(
         json.dumps(
             {
-                "created_at": "2026-07-08T10:00:00Z",
+                "created_at": "2026-07-08T11:00:00Z",
                 "lane": "conductor",
+                "cycle_id": "cycle-1",
                 "token_cost": 2.0,
             }
         ),
@@ -655,6 +693,52 @@ def test_duplicate_non_merge_token_cost_records_are_not_double_counted(
 
     lane = report["lanes"][0]
     assert lane["cycles"] == 1
+    assert lane["merged_prs"] == 0
+    assert lane["token_cost_total"] == 2.0
+
+
+def test_merge_sentinel_token_cost_uses_stable_non_merge_identity(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+                "cycle_id": "cycle-1",
+                "direct_pr_merged": True,
+                "token_cost": 2.0,
+            }
+        ],
+    )
+    (receipts / "cost.json").write_text(
+        json.dumps(
+            {
+                "created_at": "2026-07-08T11:00:00Z",
+                "lane": "conductor",
+                "cycle_id": "cycle-1",
+                "direct_pr_merged": True,
+                "token_cost": 2.0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[receipts],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
     assert lane["merged_prs"] == 0
     assert lane["token_cost_total"] == 2.0
 

@@ -46,6 +46,7 @@ class HarnessEvent:
     merged_pr: int | None = None
     rounds_to_merge: float | None = None
     token_cost: float | None = None
+    token_cost_key: str | None = None
 
 
 @dataclass
@@ -94,7 +95,9 @@ class LaneAccumulator:
                 else:
                     self.token_cost_prs.add(event.merged_pr)
             else:
-                event_time = _iso(event.timestamp) if event.timestamp is not None else ""
+                event_time = event.token_cost_key or (
+                    _iso(event.timestamp) if event.timestamp is not None else ""
+                )
                 event_key = (event_time, event.token_cost)
                 if event_key in self.token_cost_event_keys:
                     count_token_cost = False
@@ -165,7 +168,18 @@ def _coerce_bool(value: Any) -> bool | None:
         return bool(value)
     if isinstance(value, str):
         normalized = value.strip().lower()
-        if normalized in {"true", "yes", "y", "1", "pass", "passed", "success"}:
+        if normalized in {
+            "true",
+            "yes",
+            "y",
+            "1",
+            "pass",
+            "passed",
+            "success",
+            "posted",
+            "pushed",
+            "merged",
+        }:
             return True
         if normalized in {"false", "no", "n", "0", "fail", "failed", "blocked"}:
             return False
@@ -317,7 +331,6 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
         "direct_pr_merged",
     )
     mutation_false_seen = False
-    mutation_unknown_seen = False
     for key in mutation_keys:
         value = _first_present(record, (key,))
         if value is None:
@@ -328,9 +341,6 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
         if coerced_mutation is False:
             mutation_false_seen = True
             continue
-        mutation_unknown_seen = True
-    if mutation_unknown_seen:
-        return True
     if mutation_false_seen:
         return False
 
@@ -452,6 +462,27 @@ def _event_token_cost(record: dict[str, Any]) -> float | None:
     )
 
 
+def _event_token_cost_key(record: dict[str, Any]) -> str | None:
+    value = _first_present(
+        record,
+        (
+            "event_id",
+            "cycle_id",
+            "run_id",
+            "review_id",
+            "receipt_id",
+            "check_run_id",
+            "job_id",
+            "pr_number",
+            "pr",
+            "target_pr",
+        ),
+    )
+    if value in (None, "") or isinstance(value, bool):
+        return None
+    return str(value)
+
+
 def normalize_event(record: dict[str, Any], *, source: str, source_type: str) -> HarnessEvent:
     return HarnessEvent(
         source=source,
@@ -463,6 +494,7 @@ def normalize_event(record: dict[str, Any], *, source: str, source_type: str) ->
         merged_pr=_event_merged_pr(record),
         rounds_to_merge=_event_rounds_to_merge(record),
         token_cost=_event_token_cost(record),
+        token_cost_key=_event_token_cost_key(record),
     )
 
 
