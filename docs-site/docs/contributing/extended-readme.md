@@ -902,7 +902,7 @@ See implementations in:
 - `aragora/debate/session.py` -- Session lifecycle (claude-squad patterns)
 - `aragora/debate/cancellation.py` -- Cancellation tokens (claude-code-by-agents)
 
-See the full attribution table in [CREDITS.md](./reference/CREDITS.md).
+See the full attribution table in [CREDITS.md](../reference/credits).
 
 ---
 
