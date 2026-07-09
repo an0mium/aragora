@@ -14,6 +14,12 @@ import type {
 // Re-export types from ../types for convenience
 export type { DecisionReceipt, GauntletReceiptExport } from '../types';
 
+export interface SigningKeyResponse {
+  algorithm: string;
+  key_id: string;
+  public_key_pem: string;
+}
+
 /**
  * Interface for the internal client methods used by ReceiptsAPI.
  */
@@ -110,8 +116,8 @@ export class ReceiptsAPI {
    *
    * @returns Object with `algorithm`, `key_id`, and `public_key_pem`
    */
-  async signingKey(): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v2/receipts/signing-key');
+  async signingKey(): Promise<SigningKeyResponse> {
+    return this.client.request<SigningKeyResponse>('GET', '/api/v2/receipts/signing-key');
   }
 
   /**
@@ -119,8 +125,9 @@ export class ReceiptsAPI {
    *
    * @returns PEM-encoded Ed25519 public key
    */
-  async signingKeyPem(): Promise<unknown> {
-    return this.client.request('GET', '/.well-known/aragora-odr-signing-key');
+  async signingKeyPem(): Promise<string> {
+    const signingKey = await this.signingKey();
+    return signingKey.public_key_pem;
   }
 
   /**

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import httpx
 import pytest
+from httpx import Client as HTTPXClient
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
@@ -244,14 +246,41 @@ class TestReceiptsSigningKey:
             client.close()
 
     def test_get_signing_key_pem(self) -> None:
-        """Fetch the raw PEM from the well-known path."""
+        """Extract the PEM from the JSON signing-key envelope."""
         with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = "-----BEGIN PUBLIC KEY-----\n..."
+            mock_request.return_value = {
+                "algorithm": "Ed25519",
+                "key_id": "ed25519-abc",
+                "public_key_pem": "-----BEGIN PUBLIC KEY-----\n...",
+            }
 
             client = AragoraClient(base_url="https://api.aragora.ai")
-            client.receipts.get_signing_key_pem()
+            assert client.receipts.get_signing_key_pem() == "-----BEGIN PUBLIC KEY-----\n..."
 
-            mock_request.assert_called_once_with("GET", "/.well-known/aragora-odr-signing-key")
+            mock_request.assert_called_once_with("GET", "/api/v2/receipts/signing-key")
+            client.close()
+
+    def test_get_signing_key_pem_with_real_json_transport(self) -> None:
+        """Exercise the real client JSON parser used by the PEM helper."""
+        pem = "-----BEGIN PUBLIC KEY-----\nreal-key\n-----END PUBLIC KEY-----\n"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/api/v2/receipts/signing-key"
+            return httpx.Response(
+                200,
+                json={
+                    "algorithm": "Ed25519",
+                    "key_id": "ed25519-real",
+                    "public_key_pem": pem,
+                },
+            )
+
+        client = AragoraClient(base_url="https://api.aragora.ai", max_retries=1)
+        client._client.close()
+        client._client = HTTPXClient(transport=httpx.MockTransport(handler))
+        try:
+            assert client.receipts.get_signing_key_pem() == pem
+        finally:
             client.close()
 
     @pytest.mark.asyncio
@@ -268,12 +297,16 @@ class TestReceiptsSigningKey:
 
     @pytest.mark.asyncio
     async def test_async_get_signing_key_pem(self) -> None:
-        """Fetch the raw PEM from the well-known path (async)."""
+        """Extract the PEM from the JSON signing-key envelope (async)."""
         with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = "-----BEGIN PUBLIC KEY-----\n..."
+            mock_request.return_value = {
+                "algorithm": "Ed25519",
+                "key_id": "ed25519-abc",
+                "public_key_pem": "-----BEGIN PUBLIC KEY-----\n...",
+            }
 
             client = AragoraAsyncClient(base_url="https://api.aragora.ai")
-            await client.receipts.get_signing_key_pem()
+            assert await client.receipts.get_signing_key_pem() == "-----BEGIN PUBLIC KEY-----\n..."
 
-            mock_request.assert_called_once_with("GET", "/.well-known/aragora-odr-signing-key")
+            mock_request.assert_called_once_with("GET", "/api/v2/receipts/signing-key")
             await client.close()

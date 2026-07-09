@@ -573,14 +573,9 @@ class ReceiptsAPI:
         """
         return self._client.request("GET", "/api/v2/receipts/signing-key")
 
-    def get_signing_key_pem(self) -> Any:
-        """
-        Get the ODR signing public key as raw PEM from the well-known path.
-
-        Returns:
-            PEM-encoded Ed25519 public key.
-        """
-        return self._client.request("GET", "/.well-known/aragora-odr-signing-key")
+    def get_signing_key_pem(self) -> str:
+        """Get the ODR signing public key as a PEM string."""
+        return self.get_signing_key()["public_key_pem"]
 
     # =========================================================================
     # Helper Methods
@@ -935,9 +930,10 @@ class AsyncReceiptsAPI:
         """Get the deployment's ODR signing public key (trust anchor)."""
         return await self._client.request("GET", "/api/v2/receipts/signing-key")
 
-    async def get_signing_key_pem(self) -> Any:
-        """Get the ODR signing public key as raw PEM from the well-known path."""
-        return await self._client.request("GET", "/.well-known/aragora-odr-signing-key")
+    async def get_signing_key_pem(self) -> str:
+        """Get the ODR signing public key as a PEM string."""
+        signing_key = await self.get_signing_key()
+        return signing_key["public_key_pem"]
 
     async def export_gauntlet(
         self,
