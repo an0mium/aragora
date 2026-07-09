@@ -100,8 +100,8 @@ regenerating (drift gate computes on the merge commit). Consult Fable
 ### 2c. Factory — one mission per fortnight, budget-capped
 
 Launch (founder, ~2 min, after reviewing the brief the Claude conductor
-drafts): `droid exec -m claude-opus-4-7 -r high --auto low` with a brief of
-this shape:
+drafts): `python3 scripts/agent_bridge.py launch --name external-proof-month-build --agent factory --autonomous --file <brief.md>`
+with a brief of this shape:
 
 ```
 MISSION: <W2: implement #8230 Art.14 human-oversight attestation end-to-end |
