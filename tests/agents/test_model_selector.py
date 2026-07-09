@@ -51,6 +51,14 @@ class TestModelProfiles:
         assert claude.max_context_tokens == 200000
         assert claude.supports_vision is True
 
+    def test_grok_profile_matches_grok45_pricing(self):
+        """Grok profile costs must track the grok-4.5 $2/$6 rate used by
+        billing (debate_costs.py/usage.py), not grok-4's $3/$15 (#9064 P2)."""
+        grok = MODEL_PROFILES["grok"]
+        assert grok.model_id == "grok-4.5"
+        assert grok.cost_input_per_1k == 0.002
+        assert grok.cost_output_per_1k == 0.006
+
     def test_all_profiles_have_required_fields(self):
         """Verify all profiles have required fields populated."""
         for name, profile in MODEL_PROFILES.items():
