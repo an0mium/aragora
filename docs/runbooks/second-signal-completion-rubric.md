@@ -43,14 +43,22 @@ Prefer the missing independent family, not a broad reviewer sweep.
 
 - For a missing non-OpenAI signal, use `claude` first with explicit
   `--reviewer-timeout 600 --overall-timeout 900`.
-- If Claude returns no usable body, retry once with `grok` and the documented
-  OpenRouter fallback environment when required.
+- If Claude returns no usable body, retry once with `grok`, the same explicit
+  `--reviewer-timeout 600 --overall-timeout 900`, and the documented OpenRouter
+  fallback environment when required.
 - Never use an interactive Claude CLI path for this conductor cycle.
 - Do not retry the same family on the same head after concrete dissent.
 
 ## Dry-run gates
 
-Always start with a dry run and save the JSON artifact under `/tmp`.
+Always start with a dry run and save the JSON artifact in a unique private
+temporary directory. Do not use a predictable shared `/tmp` filename:
+
+```bash
+umask 077
+artifact_dir="$(mktemp -d "${TMPDIR:-/tmp}/aragora-quorum-pr${PR}.XXXXXX")"
+artifact="${artifact_dir}/ev_${PR}_${HEAD}_${FAMILY}_dry.json"
+```
 
 The dry-run body must satisfy all of these checks before any apply attempt:
 
@@ -62,6 +70,24 @@ The dry-run body must satisfy all of these checks before any apply attempt:
 
 Run explicit body lint against the exact prepared body before applying.
 
+If any blocking marker or dissent is present, stop the evidence lane and never
+pass that artifact to `--apply`. This does not discard the review:
+
+1. Keep the exact JSON artifact read-only and record its SHA-256 digest.
+2. Before repairing, post one deduplicated PR comment headed
+   `## Non-counting reviewer repair packet` with the exact head, reviewer
+   family, artifact digest, and complete findings. Deduplicate by head and
+   family.
+3. Do not use a canonical model-evidence heading, claim that the packet counts,
+   or edit the reviewer output. The packet preserves dissent and must continue
+   to block that head; it does not satisfy quorum.
+4. Make the findings the repair acceptance criteria. Any new head requires a
+   fresh dry-run.
+
+If live steering or lane policy forbids comments, preserve the artifact, report
+the exact restriction, and stop. Never turn a dissenting artifact into positive
+evidence merely because the non-counting packet could not be posted.
+
 ## Apply rule
 
 Use only the prepared-json apply path for auto-posted evidence.
@@ -70,6 +96,11 @@ The apply path is allowed only after a fresh re-check confirms the same head,
 same Tier 0-2 status, unchanged owner/steering state, and unchanged required
 check shape. If the tool returns prepare-only, do not hand-post the body and do
 not edit the artifact to make it pass.
+
+The non-counting repair packet above is not a hand-posted substitute for
+evidence: it uses a distinct heading, preserves blocking findings, and cannot
+satisfy quorum. The prohibition here applies to posting a prepared evidence
+body outside the validated apply path.
 
 Important trap: a single-family artifact can lint as countable while still not
 posting through `--prepared-json --apply` because the apply path also requires
