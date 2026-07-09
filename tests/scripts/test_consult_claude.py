@@ -178,18 +178,21 @@ def test_consult_api_fallback_skips_cli_only_model(monkeypatch) -> None:
 def test_consult_openrouter_fallback_is_explicit(monkeypatch) -> None:
     cli_models: list[str] = []
     openrouter_models: list[str] = []
+    openrouter_prompts: list[str] = []
+    openrouter_systems: list[str | None] = []
 
     def fake_cli(_prompt: str, model: str, _timeout: float) -> dict:
         cli_models.append(model)
         return {"ok": False, "backend": "cli", "error": f"{model} unavailable"}
 
     def fake_openrouter(
-        _prompt: str,
+        prompt: str,
         model: str,
         _timeout: float,
         system: str | None,
     ) -> dict:
-        del system
+        openrouter_prompts.append(prompt)
+        openrouter_systems.append(system)
         openrouter_models.append(model)
         return {
             "ok": True,
@@ -203,6 +206,7 @@ def test_consult_openrouter_fallback_is_explicit(monkeypatch) -> None:
 
     result = consult_claude.consult(
         "question",
+        system="system instructions",
         openrouter_fallback=True,
         openrouter_model="anthropic/claude-test",
     )
@@ -212,6 +216,8 @@ def test_consult_openrouter_fallback_is_explicit(monkeypatch) -> None:
     assert result["backend"] == "openrouter"
     assert cli_models == [consult_claude.DEFAULT_MODEL, consult_claude.FALLBACK_MODEL]
     assert openrouter_models == ["anthropic/claude-test"]
+    assert openrouter_prompts == ["question"]
+    assert openrouter_systems == ["system instructions"]
 
 
 def test_run_openrouter_api_redacts_http_error_body(monkeypatch) -> None:

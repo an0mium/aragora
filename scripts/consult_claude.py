@@ -536,7 +536,7 @@ def consult(
     _validate_timeout(timeout, "timeout")
     if overall_timeout is not None:
         _validate_timeout(overall_timeout, "overall_timeout")
-    prompt = _compose_prompt(prompt, system)
+    cli_prompt = _compose_prompt(prompt, system)
     attempts: list[dict] = []
     started = time.monotonic()
     if overall_timeout is None:
@@ -551,7 +551,7 @@ def consult(
     if attempt_timeout <= 0:
         _append_budget_exhausted(attempts, model=model, backend="cli")
     else:
-        result = _run_cli(prompt, model, attempt_timeout)
+        result = _run_cli(cli_prompt, model, attempt_timeout)
         attempts.append({"model": model, **result})
         if result.get("ok"):
             return {**result, "model": model, "attempts": attempts}
@@ -560,7 +560,7 @@ def consult(
         if attempt_timeout <= 0:
             _append_budget_exhausted(attempts, model=fallback_model, backend="cli")
         else:
-            result = _run_cli(prompt, fallback_model, attempt_timeout)
+            result = _run_cli(cli_prompt, fallback_model, attempt_timeout)
             attempts.append({"model": fallback_model, **result})
             if result.get("ok"):
                 return {**result, "model": fallback_model, "attempts": attempts}
@@ -575,7 +575,7 @@ def consult(
             if attempt_timeout <= 0:
                 _append_budget_exhausted(attempts, model=api_model, backend="api")
                 continue
-            result = _run_api(prompt, api_model, attempt_timeout, system=None)
+            result = _run_api(prompt, api_model, attempt_timeout, system=system)
             attempts.append({"model": api_model, **result})
             if result.get("ok"):
                 return {**result, "model": api_model, "attempts": attempts}
@@ -584,7 +584,7 @@ def consult(
         if attempt_timeout <= 0:
             _append_budget_exhausted(attempts, model=openrouter_model, backend="openrouter")
         else:
-            result = _run_openrouter_api(prompt, openrouter_model, attempt_timeout, system=None)
+            result = _run_openrouter_api(prompt, openrouter_model, attempt_timeout, system=system)
             attempts.append({"model": openrouter_model, **result})
             if result.get("ok"):
                 return {**result, "model": openrouter_model, "attempts": attempts}
