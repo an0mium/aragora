@@ -60,6 +60,9 @@ _PREFIX_CLASSES: tuple[tuple[str, WorkClass], ...] = (
     ("docs/verticals/", WorkClass.PRODUCT_PROOF),
     ("benchmarks/", WorkClass.PRODUCT_PROOF),
     ("aragora-verify/", WorkClass.PRODUCT_PROOF),
+    # Published user-facing docs (Docusaurus site) are product output, not
+    # repo maintenance (#9047 openai [P2] round 7).
+    ("docs-site/", WorkClass.PRODUCT_PROOF),
     # -- maintenance: keeps the lights on, neither product nor loop
     ("tests/", WorkClass.MAINTENANCE),
     ("requirements", WorkClass.MAINTENANCE),
