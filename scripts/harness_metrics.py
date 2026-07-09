@@ -87,18 +87,22 @@ class LaneAccumulator:
             self.rounds_to_merge_values.append(event.rounds_to_merge)
             self.rounds_to_merge_prs.add(event.merged_pr)
         if event.token_cost is not None:
+            count_token_cost = True
             if event.merged_pr is not None:
                 if event.merged_pr in self.token_cost_prs:
-                    return
-                self.token_cost_prs.add(event.merged_pr)
+                    count_token_cost = False
+                else:
+                    self.token_cost_prs.add(event.merged_pr)
             else:
                 event_time = _iso(event.timestamp) if event.timestamp is not None else ""
                 event_key = (event_time, event.token_cost)
                 if event_key in self.token_cost_event_keys:
-                    return
-                self.token_cost_event_keys.add(event_key)
-            self.token_cost_total += event.token_cost
-            self.token_cost_observations += 1
+                    count_token_cost = False
+                else:
+                    self.token_cost_event_keys.add(event_key)
+            if count_token_cost:
+                self.token_cost_total += event.token_cost
+                self.token_cost_observations += 1
 
 
 def _utc_now() -> datetime:
@@ -356,6 +360,9 @@ def _event_has_external_progress(record: dict[str, Any]) -> bool | None:
             "repaired",
             "success",
             "succeeded",
+            "true",
+            "yes",
+            "y",
         }
         if tokens & negative_tokens:
             return False
@@ -518,7 +525,9 @@ def lane_summary(
         else None
     )
     external_rate = (
-        accumulator.external_progress_cycles / accumulator.cycles if accumulator.cycles else None
+        accumulator.external_progress_cycles / accumulator.cycles
+        if accumulator.cycles and accumulator.external_progress_observations
+        else None
     )
     rounds_average = (
         sum(accumulator.rounds_to_merge_values) / len(accumulator.rounds_to_merge_values)

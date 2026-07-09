@@ -251,6 +251,35 @@ def test_external_progress_negative_outcomes_are_not_positive_substrings(
     assert lane["external_progress_per_cycle"] == 0.0
 
 
+def test_external_progress_positive_outcome_tokens_are_counted(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {"timestamp": "2026-07-08T08:00:00Z", "lane": "a", "outcome": "true"},
+            {"timestamp": "2026-07-08T09:00:00Z", "lane": "a", "status": "yes"},
+            {"timestamp": "2026-07-08T10:00:00Z", "lane": "a", "result": "y"},
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 3
+    assert lane["external_progress_cycles"] == 3
+    assert lane["external_progress_per_cycle"] == 1.0
+
+
 def test_external_progress_mutation_fields_coerce_string_false(
     tmp_path: Path,
 ) -> None:
@@ -704,6 +733,36 @@ def test_external_progress_rate_uses_all_lane_cycles(tmp_path: Path) -> None:
     lane = report["lanes"][0]
     assert lane["cycles"] == 2
     assert lane["external_progress_per_cycle"] == 0.5
+
+
+def test_external_progress_rate_is_insufficient_without_observations(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    fixture = tmp_path / "eval.json"
+    _write_eval_fixture(fixture)
+    _write_jsonl(
+        ledger,
+        [
+            {
+                "timestamp": "2026-07-08T10:00:00Z",
+                "lane": "conductor",
+            },
+        ],
+    )
+
+    report = harness_metrics.build_report(
+        ledger_paths=[ledger],
+        receipt_dirs=[],
+        eval_fixture=fixture,
+        as_of=AS_OF,
+        window_days=7,
+    )
+
+    lane = report["lanes"][0]
+    assert lane["cycles"] == 1
+    assert lane["external_progress_per_cycle"] is None
+    assert "external_progress_per_cycle" in lane["insufficient_data"]
 
 
 def test_window_filtering_excludes_future_events(tmp_path: Path) -> None:
