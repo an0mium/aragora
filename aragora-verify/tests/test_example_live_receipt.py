@@ -2,6 +2,7 @@
 external proof: aragora-verify (zero Aragora dependency) confirms a receipt
 that aragora/gauntlet/odr_export.py produced. The example JSON is the only
 artifact crossing the package boundary."""
+
 from __future__ import annotations
 
 import json
