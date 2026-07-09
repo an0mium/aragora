@@ -32,16 +32,51 @@ Collect these facts before claiming an item:
 is:
 
 1. Re-read the issue body and comments immediately before claiming.
-2. Post one claim comment naming the item id, path, head, lane, and UTC
-   timestamp.
+2. Post one claim comment naming the item id, path, head, lane, a unique
+   `claim_id`, `claimed_at`, and `expires_at`. Claims expire after 60 minutes;
+   use UTC RFC 3339 timestamps.
 3. Re-read all comments for the same item.
-4. If an earlier claim exists, post a yield comment and do not inspect, mutate,
-   clean up, or disposition that item.
-5. If this lane holds the earliest claim, continue with read-only inspection and
-   post exactly one receipt.
+4. Reduce comments for each `claim_id` to its latest transition. `CLAIM` and
+   `RENEW` are active only before `expires_at`; `YIELD`, `RELEASE`, and a
+   disposition receipt are terminal. Ignore expired and terminal claims.
+5. If an earlier active claim exists, post `YIELD` for this lane's `claim_id`
+   and do not inspect, mutate, clean up, or disposition that item. Order
+   simultaneous claims by GitHub `createdAt`, then comment database id.
+6. If this lane holds the earliest active claim, continue with read-only
+   inspection and post exactly one disposition receipt before expiry. Include
+   the `claim_id` in the receipt so it terminally closes the claim.
+
+Use append-only state comments rather than editing the original claim:
+
+```text
+S44 CLAIM harvest-S44-20260708T1627Z
+claimed_at: 2026-07-08T16:27:00Z
+expires_at: 2026-07-08T17:27:00Z
+lane: codex-example
+path: /path/to/worktree
+head: abc1234
+
+S44 RENEW harvest-S44-20260708T1627Z
+expires_at: 2026-07-08T18:12:00Z
+
+S44 YIELD harvest-S44-20260708T1627Z
+winner: harvest-S44-20260708T1626Z
+```
+
+Post `RENEW` before expiry if inspection will exceed the current window. A
+renewal extends the deadline by at most another 60 minutes; it cannot revive an
+already expired or terminal claim. If a lane stops without a disposition,
+post `RELEASE`. A crashed lane needs no manual unlock: after `expires_at`, a new
+claim may proceed and should cite the expired `claim_id` in its receipt.
+
+For legacy claim comments without `claim_id` or `expires_at`, treat the comment
+as active for 60 minutes after its GitHub `createdAt`. A later yield comment or
+disposition receipt for the same item ends that legacy claim. This compatibility
+rule prevents old issue history from becoming a permanent lock while preserving
+recent in-flight claims.
 
 The lock is per item, not global. Another conductor process is not a collision
-unless it holds an earlier claim for the same item.
+unless it holds an earlier active claim for the same item.
 
 ## Dispositions
 
