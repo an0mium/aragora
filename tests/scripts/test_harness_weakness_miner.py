@@ -6,6 +6,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 
@@ -103,7 +104,7 @@ def test_two_pass_clustering_uses_seeded_and_emergent_identities(tmp_path: Path)
                 "finding_class": "Diff-blind grounding",
                 "causal_mechanism": "Reviewer prompt lacked head-tree context",
                 "harness_surface": "reviewer grounding prompt",
-                "emergent_cluster": "review_context_not_tree_complete",
+                "emergent_cluster": "review context not tree complete",
                 "evidence_summary": "Reviewer treated unchanged artifact as absent.",
             },
             "pr3-openai": {
@@ -142,8 +143,8 @@ def test_two_pass_clustering_uses_seeded_and_emergent_identities(tmp_path: Path)
     assert {cluster.cluster_key for cluster in result.clusters} == {
         "taxonomy:1:reviewer-prompt-lacked-head-tree-context",
         "taxonomy:2:external-fetch-freshness-is-not-timestamped",
-        "emergent:freshness_proof_missing",
-        "emergent:review_context_not_tree_complete",
+        "emergent:freshness-proof-missing",
+        "emergent:review-context-not-tree-complete",
     }
     first = result.clusters[0]
     assert first.example_count == 2
@@ -173,7 +174,10 @@ def test_reads_ledger_and_comment_fixtures_with_redaction(tmp_path: Path) -> Non
                 "pr": 11,
                 "author": "openai",
                 "created_at": "2026-07-02T00:00:00Z",
-                "body": "CHANGES-REQUESTED [P1] The reviewer missed the base tree.",
+                "body": (
+                    "CHANGES-REQUESTED [P1] The reviewer missed the base tree. "
+                    'Payload included "api_key": "json-secret-value".'
+                ),
                 "url": "https://example.invalid/comment",
             }
         ],
@@ -190,7 +194,107 @@ def test_reads_ledger_and_comment_fixtures_with_redaction(tmp_path: Path) -> Non
     assert examples[0].target == "PR #10"
     assert "sk-test-" not in examples[0].text
     assert "[REDACTED_SECRET]" in examples[0].text
+    assert examples[1].target == "PR #11"
+    assert "json-secret-value" not in examples[1].text
+    assert "[REDACTED_SECRET]" in examples[1].text
     assert examples[1].url == "https://example.invalid/comment"
+
+
+def test_classifier_uses_prompt_file_instead_of_argv(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    consult = scripts_dir / "consult_claude.py"
+    consult.write_text("# test stub\n", encoding="utf-8")
+    captured: dict[str, Any] = {}
+
+    def fake_run(command: list[str], **kwargs: Any) -> SimpleNamespace:
+        assert "--prompt-file" in command
+        prompt_path = Path(command[command.index("--prompt-file") + 1])
+        captured["command"] = command
+        captured["prompt"] = json.loads(prompt_path.read_text(encoding="utf-8"))
+        response = {
+            "example-1": {
+                "taxonomy_id": "1",
+                "finding_class": "Diff-blind grounding",
+                "causal_mechanism": "Prompt lacked tree context",
+                "harness_surface": "reviewer grounding prompt",
+                "emergent_cluster": "tree context",
+            }
+        }
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({"response": json.dumps(response)}),
+            stderr="",
+        )
+
+    monkeypatch.setattr(miner, "_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(miner.subprocess, "run", fake_run)
+    classifications = miner._consult_classifier(
+        [
+            miner.WeaknessExample(
+                id="example-1",
+                source="gate",
+                target="PR #1",
+                created_at="2026-07-01T00:00:00Z",
+                severity="P2",
+                text="A" * 10_000,
+            )
+        ],
+        {"1": "Diff-blind grounding"},
+        timeout=10,
+    )
+
+    assert classifications["example-1"]["taxonomy_id"] == "1"
+    assert len(captured["command"]) == 5
+    assert captured["prompt"]["examples"][0]["text"] == "A" * 1200
+
+
+def test_render_markdown_escapes_untrusted_table_content() -> None:
+    example = miner.WeaknessExample(
+        id="example-1",
+        source="gate|spoof",
+        target="PR #1 | forged",
+        created_at="2026-07-01T00:00:00Z",
+        severity="P2",
+        text="finding",
+        url="https://example.invalid/a)b",
+    )
+    classified = miner.ClassifiedExample(
+        example=example,
+        taxonomy_id="1",
+        finding_class="Diff-blind grounding",
+        causal_mechanism="Prompt lacked tree context",
+        harness_surface="reviewer grounding prompt",
+        emergent_cluster="tree-context",
+        evidence_summary="Evidence | with [misleading](https://evil.invalid)",
+    )
+    cluster = miner.WeaknessCluster(
+        pass_name="emergent_bottom_up",
+        cluster_key="emergent:tree-context",
+        title="Diff-blind grounding",
+        finding_class="Diff-blind grounding",
+        causal_mechanism="Prompt lacked tree context",
+        harness_surfaces=["reviewer grounding prompt"],
+        rank_score=5,
+        examples=[classified],
+    )
+    report = miner.render_markdown(
+        miner.MiningResult(
+            ok=True,
+            generated_at="2026-07-01T00:00:00Z",
+            input_count=1,
+            classified_count=1,
+            clusters=[cluster],
+        )
+    )
+
+    assert r"PR #1 \| forged" in report
+    assert "a%29b" in report
+    assert r"gate\|spoof" in report
+    assert r"Evidence \| with \[misleading\]" in report
 
 
 def test_cli_writes_markdown_and_json_reports(tmp_path: Path, capsys: Any) -> None:

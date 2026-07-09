@@ -8,19 +8,25 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
+from urllib.parse import quote
 
 
+UTC = timezone.utc
 SEVERITY_WEIGHTS = {"P0": 13, "P1": 8, "P2": 5, "P3": 2, "INFO": 1}
 SECRET_PATTERNS = [
     re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b"),
     re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{8,}\b"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
-    re.compile(r"(?i)\b([A-Z0-9_]*(?:API_KEY|TOKEN|SECRET))\s*[:=]\s*\S+"),
+    re.compile(
+        r"""(?ix)(?P<quote>["']?)\b[A-Z0-9_]*(?:API_KEY|TOKEN|SECRET)\b"""
+        r"""(?P=quote)\s*[:=]\s*(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,}]+)"""
+    ),
 ]
 SEVERITY_RE = re.compile(r"\[(P[0-3])\]|\b(P[0-3])\b")
 TAXONOMY_HEADING_RE = re.compile(r"^#{2,4}\s+(\d+)\.\s+(.+?)\s*$")
@@ -149,6 +155,16 @@ def _target_label(value: Any) -> str:
     return str(value)
 
 
+def _target_value(mapping: dict[str, Any]) -> Any:
+    if mapping.get("target") not in (None, ""):
+        return mapping["target"]
+    if mapping.get("pr") is not None:
+        return {"pr": mapping["pr"]}
+    if mapping.get("issue") is not None:
+        return {"issue": mapping["issue"]}
+    return None
+
+
 def _within_window(created_at: str, *, since_days: int, now: datetime) -> bool:
     try:
         parsed = parse_timestamp(created_at)
@@ -201,7 +217,7 @@ def _load_input_examples(path: Path) -> list[WeaknessExample]:
             WeaknessExample(
                 id=str(item.get("id") or f"input:{index}"),
                 source=str(item.get("source") or "input"),
-                target=_target_label(item.get("target") or item.get("pr") or item.get("issue")),
+                target=_target_label(_target_value(item)),
                 created_at=str(item.get("created_at") or item.get("timestamp") or ""),
                 severity=_severity_from_text(text, str(item.get("severity") or "")),
                 text=text,
@@ -232,7 +248,7 @@ def _load_ledger_examples(path: Path, *, since_days: int, now: datetime) -> list
             WeaknessExample(
                 id=f"ledger:{path.name}:{line_no}",
                 source="ledger",
-                target=_target_label(record.get("target") or record.get("pr")),
+                target=_target_label(_target_value(record)),
                 created_at=created_at,
                 severity=_severity_from_text(text, str(record.get("severity") or "")),
                 text=text,
@@ -265,7 +281,7 @@ def _load_comment_examples(path: Path, *, since_days: int, now: datetime) -> lis
             WeaknessExample(
                 id=str(item.get("id") or f"comment:{item.get('pr') or 'unknown'}:{index}"),
                 source="github_comment",
-                target=_target_label(item.get("target") or item.get("pr") or item.get("issue")),
+                target=_target_label(_target_value(item)),
                 created_at=created_at,
                 severity=_severity_from_text(text, str(item.get("severity") or "")),
                 text=text,
@@ -371,13 +387,16 @@ def _consult_classifier(
         "taxonomy": taxonomy,
         "examples": compact_examples,
     }
-    proc = subprocess.run(
-        [sys.executable, str(consult), "--json", json.dumps(prompt, sort_keys=True)],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+    with tempfile.TemporaryDirectory(prefix="aragora-harness-weakness-") as temp_dir:
+        prompt_path = Path(temp_dir) / "classifier-prompt.json"
+        prompt_path.write_text(json.dumps(prompt, sort_keys=True), encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(consult), "--json", "--prompt-file", str(prompt_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
     if proc.returncode != 0:
         raise RuntimeError(f"LLM classifier failed: {proc.stderr.strip() or proc.stdout.strip()}")
     envelope = json.loads(proc.stdout)
@@ -535,20 +554,19 @@ def _emergent_clusters(
     min_cluster_size: int,
     similarity_threshold: float,
 ) -> list[WeaknessCluster]:
-    explicit_groups: dict[str, list[ClassifiedExample]] = defaultdict(list)
+    groups: dict[str, list[ClassifiedExample]] = defaultdict(list)
     unlabelled: list[ClassifiedExample] = []
     for item in classified:
         if item.emergent_cluster:
-            explicit_groups[item.emergent_cluster].append(item)
+            groups[_normalize_key(item.emergent_cluster)].append(item)
         else:
             unlabelled.append(item)
-    groups = list(explicit_groups.items())
     for component in _density_components(unlabelled, threshold=similarity_threshold):
         if not component:
             continue
-        groups.append((_normalize_key(component[0].causal_mechanism), component))
+        groups[_normalize_key(component[0].causal_mechanism)].extend(component)
     clusters: list[WeaknessCluster] = []
-    for label, examples in groups:
+    for label, examples in groups.items():
         if len({item.id for item in examples}) < min_cluster_size:
             continue
         mechanism = _summarize_mechanisms(examples)
@@ -670,15 +688,32 @@ def render_markdown(result: MiningResult) -> str:
             ]
         )
         for item in cluster.examples:
-            evidence = item.evidence_summary.replace("\n", " ").strip()
+            evidence = _markdown_cell(item.evidence_summary)
             if len(evidence) > 180:
                 evidence = f"{evidence[:177]}..."
-            target = item.target
+            target = _markdown_cell(item.target)
             if item.url:
-                target = f"[{target}]({item.url})"
-            lines.append(f"| {target} | `{item.severity}` | `{item.example.source}` | {evidence} |")
+                safe_url = quote(item.url, safe=":/?#@!$&'*+,;=%-._~")
+                target = f"[{target}]({safe_url})"
+            severity = _markdown_cell(item.severity)
+            source = _markdown_cell(item.example.source)
+            lines.append(f"| {target} | `{severity}` | `{source}` | {evidence} |")
         lines.append("")
     return "\n".join(lines)
+
+
+def _markdown_cell(value: Any) -> str:
+    return (
+        str(value)
+        .replace("\\", "\\\\")
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .replace("|", "\\|")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+        .replace("`", "\\`")
+        .strip()
+    )
 
 
 def _default_ledger_paths(root: Path) -> list[Path]:
