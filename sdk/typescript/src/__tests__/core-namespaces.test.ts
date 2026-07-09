@@ -215,23 +215,22 @@ describe('Core Namespace APIs', () => {
       expect(result.integrity.integrity_valid).toBe(true);
     });
 
-    it('should return the signing key PEM from the JSON envelope', async () => {
+    it('should return the signing key PEM from the well-known text endpoint', async () => {
       const client = createClient({ baseUrl: 'https://api.example.com' });
       const pem = '-----BEGIN PUBLIC KEY-----\nreal-key\n-----END PUBLIC KEY-----\n';
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: () => Promise.resolve(JSON.stringify({
-          algorithm: 'Ed25519',
-          key_id: 'ed25519-real',
-          public_key_pem: pem,
-        })),
+        text: () => Promise.resolve(pem),
       });
 
       await expect(client.receipts.signingKeyPem()).resolves.toBe(pem);
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/api/v2/receipts/signing-key',
-        expect.objectContaining({ method: 'GET' })
+        'https://api.example.com/.well-known/aragora-odr-signing-key',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({ Accept: 'application/x-pem-file' }),
+        })
       );
     });
   });

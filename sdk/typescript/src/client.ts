@@ -320,6 +320,7 @@ interface RequestOptions {
   params?: Record<string, unknown>;
   headers?: Record<string, string>;
   timeout?: number;
+  responseType?: 'json' | 'text';
 }
 
 /**
@@ -1297,6 +1298,10 @@ export class AragoraClient {
         const text = await response.text();
         if (!text) {
           return {} as T;
+        }
+
+        if (options.responseType === 'text') {
+          return text as T;
         }
 
         return JSON.parse(text) as T;

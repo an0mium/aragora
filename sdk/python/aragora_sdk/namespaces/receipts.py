@@ -574,8 +574,13 @@ class ReceiptsAPI:
         return self._client.request("GET", "/api/v2/receipts/signing-key")
 
     def get_signing_key_pem(self) -> str:
-        """Get the ODR signing public key as a PEM string."""
-        return self.get_signing_key()["public_key_pem"]
+        """Get the ODR signing public key from the well-known PEM endpoint."""
+        return self._client.request(
+            "GET",
+            "/.well-known/aragora-odr-signing-key",
+            headers={"Accept": "application/x-pem-file"},
+            response_format="text",
+        )
 
     # =========================================================================
     # Helper Methods
@@ -931,9 +936,13 @@ class AsyncReceiptsAPI:
         return await self._client.request("GET", "/api/v2/receipts/signing-key")
 
     async def get_signing_key_pem(self) -> str:
-        """Get the ODR signing public key as a PEM string."""
-        signing_key = await self.get_signing_key()
-        return signing_key["public_key_pem"]
+        """Get the ODR signing public key from the well-known PEM endpoint."""
+        return await self._client.request(
+            "GET",
+            "/.well-known/aragora-odr-signing-key",
+            headers={"Accept": "application/x-pem-file"},
+            response_format="text",
+        )
 
     async def export_gauntlet(
         self,
