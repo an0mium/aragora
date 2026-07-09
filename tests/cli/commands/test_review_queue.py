@@ -39,6 +39,7 @@ from aragora.cli.commands.review_queue import (
     _is_merge_quorum_check,
     _parse_pr_number,
     _record_external_settlement,
+    _render_merge_authorization_packet,
     _render_packet,
     _requested_action,
     _settle_packet,
@@ -82,6 +83,7 @@ def _make_pr(
     files: list[str] | None = None,
     author: str = "an0mium",
     body: str = "",
+    merge_state_status: str = "CLEAN",
 ) -> dict[str, Any]:
     """Build a synthetic gh-pr-list-style payload."""
     return {
@@ -96,6 +98,7 @@ def _make_pr(
         "baseRefOid": "basesha0001",
         "isDraft": is_draft,
         "mergeable": mergeable,
+        "mergeStateStatus": merge_state_status,
         "reviewDecision": review_decision,
         "labels": [{"name": lab} for lab in (labels or [])],
         "author": {"login": author},
@@ -3555,6 +3558,7 @@ class TestBuildQueueAndPacket:
                 machine_recommendation_reason="bounded test packet",
                 packet_sha="sha256:test",
                 generated_at="2026-05-30T00:00:00+00:00",
+                merge_state_status="CLEAN",
                 model_review_quorum={
                     "tier": 0,
                     "tier_name": "Tier 0",
@@ -3599,6 +3603,280 @@ class TestBuildQueueAndPacket:
         }
         assert preflighted_refs == [("7528", None)]
         assert packet["admin_squash_order"] == [7528]
+
+    @pytest.mark.parametrize(
+        ("merge_state_status", "labels", "expected_blocker"),
+        [
+            (
+                "UNSTABLE",
+                [],
+                "mergeStateStatus=UNSTABLE; admin squash requires CLEAN or BLOCKED",
+            ),
+            (
+                "CLEAN",
+                ["operator-review-required"],
+                "operator-review-required label present",
+            ),
+            (
+                "",
+                [],
+                "mergeStateStatus unavailable; admin squash requires CLEAN or BLOCKED",
+            ),
+        ],
+    )
+    def test_merge_packet_live_state_blocks_admin_squash_order(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        merge_state_status: str,
+        labels: list[str],
+        expected_blocker: str,
+    ) -> None:
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="4/4 green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-05-30T00:00:00+00:00",
+                labels=labels,
+                merge_state_status=merge_state_status,
+                model_review_quorum={
+                    "tier": 0,
+                    "tier_name": "Tier 0",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["codex"],
+                    "reasons": ["docs/tests/status-only change"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["8958"],
+            limit=30,
+            repo_override=None,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["model_quorum_admin_squash_allowed"] is True
+        assert entry["admin_squash_allowed"] is False
+        assert expected_blocker in entry["admin_squash_gate_blockers"]
+        assert packet["admin_squash_order"] == []
+        # The live-gate flip must be visible in the human-readable fields, not
+        # just via omission from admin_squash_order (#8965 openai [P3]).
+        assert entry["status"] == "blocked_by_live_gate"
+        assert entry["verdict"] == "admin_squash_blocked_by_live_gate"
+        assert 8958 in packet["not_ready"]
+
+    def test_merge_packet_text_renderer_prints_live_gate_blockers(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="4/4 green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-05-30T00:00:00+00:00",
+                labels=["operator-review-required"],
+                merge_state_status="CLEAN",
+                model_review_quorum={
+                    "tier": 0,
+                    "tier_name": "Tier 0",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["codex"],
+                    "reasons": ["docs/tests/status-only change"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["8958"],
+            limit=30,
+            repo_override=None,
+        )
+        _render_merge_authorization_packet(packet)
+
+        out = capsys.readouterr().out
+        assert "blocked_by_live_gate | admin_squash_blocked_by_live_gate" in out
+        assert "admin squash live-gate blockers:" in out
+        assert "operator-review-required label present" in out
+        assert "satisfied | admin_squash_allowed" not in out
+        assert "admin squash order: (none)" in out
+        assert "not ready: #8958" in out
+
+    def test_merge_packet_clean_live_state_allows_admin_squash_order(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="4/4 green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-05-30T00:00:00+00:00",
+                labels=[],
+                merge_state_status="CLEAN",
+                model_review_quorum={
+                    "tier": 0,
+                    "tier_name": "Tier 0",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["codex"],
+                    "reasons": ["docs/tests/status-only change"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["8958"],
+            limit=30,
+            repo_override=None,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["model_quorum_admin_squash_allowed"] is True
+        assert entry["admin_squash_allowed"] is True
+        assert entry["admin_squash_gate_blockers"] == []
+        assert packet["admin_squash_order"] == [8958]
+
+    def test_merge_packet_blocked_live_state_allows_satisfied_admin_squash_order(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="4/4 green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-05-30T00:00:00+00:00",
+                labels=[],
+                merge_state_status="BLOCKED",
+                model_review_quorum={
+                    "tier": 0,
+                    "tier_name": "Tier 0",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["codex"],
+                    "reasons": ["docs/tests/status-only change"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["8958"],
+            limit=30,
+            repo_override=None,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["model_quorum_admin_squash_allowed"] is True
+        assert entry["admin_squash_allowed"] is True
+        assert entry["admin_squash_gate_blockers"] == []
+        assert packet["admin_squash_order"] == [8958]
 
     def test_build_queue_classifies_and_sorts(self, monkeypatch: pytest.MonkeyPatch) -> None:
         prs = [
@@ -7266,6 +7544,7 @@ class TestSettlementHelpers:
                 machine_recommendation_reason="clean",
                 packet_sha="sha256:test",
                 generated_at="2026-04-28T00:00:00+00:00",
+                merge_state_status="CLEAN",
                 model_review_quorum={
                     "tier": 0,
                     "tier_name": "tier_0_docs_tests_status",

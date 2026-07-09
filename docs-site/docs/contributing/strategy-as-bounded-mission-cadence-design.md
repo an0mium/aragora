@@ -99,8 +99,8 @@ founder decision — not new subsystems.
    Add a `## Strategy Mission Queue` section to
    `docs/status/ROADMAP_INTAKE_REGISTER.md` (NOT a parallel file — single-register
    rule). One row per sub-mission: `id | title | tier | status | external-proof
-   gate | tracking`. `status ∈ {queued, active, blocked-on-proof,
-   blocked-on-human, done}`. This is the durable cross-session state; any agent or
+   gate | tracking`. `status ∈ \{queued, active, blocked-on-proof,
+   blocked-on-human, done\}`. This is the durable cross-session state; any agent or
    human resumes by reading this one file. Backed by a GitHub epic.
 
 2. **Mission Gate (extend `aragora/swarm/mission.py`).** A function that, given a

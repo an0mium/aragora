@@ -166,6 +166,28 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                 self._security_emitter = get_security_emitter()
             except ImportError:
                 logger.debug("SecurityEventEmitter not available")
+            else:
+                try:
+                    # Best-effort auto-debate wiring for SAST-only processes that
+                    # never otherwise import aragora.debate (e.g. no Arena is
+                    # constructed). This scanner module is unlayered
+                    # (aragora.analysis), so importing aragora.debate here is
+                    # legal, and aragora.events still never imports
+                    # aragora.debate itself.
+                    #
+                    # ensure_registered() is called explicitly (rather than
+                    # relying on the bare-import side effect alone) because a
+                    # plain import is a no-op once the module is cached in
+                    # sys.modules: if some earlier consumer already imported
+                    # aragora.debate.security_response and the registry was
+                    # since reset (e.g. an explicit clear followed by a
+                    # request to restore the default), a second bare import
+                    # would silently fail to re-register.
+                    from aragora.debate import security_response
+
+                    security_response.ensure_registered()
+                except ImportError as exc:
+                    logger.debug("Security debate runner not available: %s", exc)
 
     async def _check_semgrep(self) -> tuple[bool, str | None]:
         """Check if Semgrep is installed and accessible."""

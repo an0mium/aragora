@@ -105,11 +105,14 @@ function resolveSourcePath(srcRelPath) {
 
 // Document mapping: source -> destination with category organization
 const DOC_MAP = {
+  // `docs-site/docs/enterprise/positioning.md` is intentionally hand-maintained
+  // as a redirect-style stub after archiving `docs/status/COMMERCIAL_POSITIONING.md`.
+
   // =========================================================================
   // Getting Started
   // =========================================================================
-  'GETTING_STARTED.md': 'getting-started/overview.md',
-  'QUICKSTART_DEVELOPER.md': 'getting-started/quickstart.md',
+  'guides/GETTING_STARTED.md': 'getting-started/overview.md',
+  'quickstart.md': 'getting-started/quickstart.md',
   'CONFIGURATION.md': 'getting-started/configuration.md',
   'ENVIRONMENT.md': 'getting-started/environment.md',
 
@@ -178,6 +181,8 @@ const DOC_MAP = {
   'SDK_CONSOLIDATION.md': 'guides/sdk-consolidation.md',
   'LIBRARY_USAGE.md': 'guides/library-usage.md',
   'PLUGIN_GUIDE.md': 'guides/plugin-guide.md',
+  'GITHUB_ACTION_SETUP.md': 'guides/github-action-setup.md',
+  'guides/github-actions-review.md': 'guides/github-actions-review.md',
 
   // =========================================================================
   // API Reference
@@ -189,6 +194,7 @@ const DOC_MAP = {
   'API_RATE_LIMITS.md': 'api/rate-limits.md',
   'API_STABILITY.md': 'api/stability.md',
   'API_DISCOVERY.md': 'api/discovery.md',
+  'api/SUPPORTED_SURFACE.md': 'api/supported-surface.md',
   'reference/CLI_REFERENCE.md': 'api/cli.md',
   'GITHUB_PR_REVIEW.md': 'api/github-pr-review.md',
   'api/WEBHOOKS.md': 'api/webhooks.md',
@@ -259,7 +265,6 @@ const DOC_MAP = {
   'COMMERCIAL_OVERVIEW.md': 'enterprise/commercial-overview.md',
   'WHY_ARAGORA.md': 'enterprise/why-aragora.md',
   'PRICING.md': 'enterprise/pricing.md',
-  'COMMERCIAL_POSITIONING.md': 'enterprise/positioning.md',
   'BILLING.md': 'enterprise/billing.md',
   'BILLING_UNITS.md': 'enterprise/billing-units.md',
   'SSO_SETUP.md': 'enterprise/sso.md',
@@ -348,6 +353,7 @@ const DOC_MAP = {
   'NEXT_STEPS.md': 'contributing/next-steps.md',
   'FIRST_CONTRIBUTION.md': 'contributing/first-contribution.md',
   'INDEX.md': 'contributing/documentation-index.md',
+  'COLD_REVIEWER_GUIDE.md': 'contributing/cold-reviewer-guide.md',
   'INBOX_GUIDE.md': 'contributing/INBOX_GUIDE.md',
   'DEPRECATION_POLICY.md': 'contributing/deprecation.md',
   'STATUS.md': 'contributing/status.md',
@@ -390,6 +396,33 @@ const DOC_MAP = {
   'plans/2026-03-07-conductor-control-plane.md':
     'contributing/conductor-control-plane-implementation-spec.md',
   'workflow/MARKETPLACE.md': 'guides/marketplace.md',
+
+  // =========================================================================
+  // Specifications
+  //
+  // docs/specs/** design/governance specs. Intra-directory links between these
+  // files (e.g. 'TAMPER_EVIDENT_TRAIL.md' from OPEN_DECISION_RECEIPT.md) resolve
+  // via the source-relative lookup below, not through this table directly.
+  // =========================================================================
+  'specs/ADVISORY_REVIEW_RECOGNIZABLE_HEADER.md':
+    'specs/advisory-review-recognizable-header.md',
+  'specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md':
+    'specs/aragora-roadmap-revision-advocates.md',
+  'specs/ESSAY_REFINEMENT_PIPELINE.md': 'specs/essay-refinement-pipeline.md',
+  'specs/FINDING_SEVERITY_GATE.md': 'specs/finding-severity-gate.md',
+  'specs/INDEPENDENT_VERIFIER_GUIDE.md': 'specs/independent-verifier-guide.md',
+  'specs/LOCAL_ADVOCATE_TRAINING_PIPELINE.md': 'specs/local-advocate-training-pipeline.md',
+  'specs/MODEL_DISSENT_SEVERITY_GATE.md': 'specs/model-dissent-severity-gate.md',
+  'specs/MODEL_LINEAGE_DISCLOSURE.md': 'specs/model-lineage-disclosure.md',
+  'specs/MODEL_QUORUM_FAMILY_EXPANSION.md': 'specs/model-quorum-family-expansion.md',
+  'specs/OPEN_DECISION_RECEIPT.md': 'specs/open-decision-receipt.md',
+  'specs/QUORUM_EVIDENCE_RETRIGGER.md': 'specs/quorum-evidence-retrigger.md',
+  'specs/RECEIPT_LINEAGE_RECONCILIATION.md': 'specs/receipt-lineage-reconciliation.md',
+  'specs/TAMPER_EVIDENT_TRAIL.md': 'specs/tamper-evident-trail.md',
+  'specs/TIER4_SETTLEMENT_PROBE_TIMEOUT_REPORTING.md':
+    'specs/tier4-settlement-probe-timeout-reporting.md',
+  'specs/TIERED_MERGE_GATE_QUORUM_POLICY.md': 'specs/tiered-merge-gate-quorum-policy.md',
+  'specs/odr-native-mapping.md': 'specs/odr-native-mapping.md',
 
   // =========================================================================
   // Additional Missing Files (commonly referenced)
@@ -467,18 +500,67 @@ function extractTitle(content) {
 }
 
 function escapeUrlParamBracesOutsideCodeFences(content) {
-  let inFence = false;
+  let fenceDepth = 0;
+  let inBraceList = false;
   return content
     .split('\n')
     .map(line => {
       if (/^\s*```/.test(line)) {
-        inFence = !inFence;
+        if (fenceDepth === 0) {
+          fenceDepth = 1;
+        } else if (/^\s*```\S+/.test(line)) {
+          fenceDepth += 1;
+        } else {
+          fenceDepth = Math.max(0, fenceDepth - 1);
+        }
         return line;
       }
-      if (inFence) {
+      if (fenceDepth > 0) {
         return line;
       }
-      return line.replace(/\{([\w-]+)\}/g, '\\{$1\\}');
+
+      let escaped = '';
+      let inInlineCode = false;
+      for (let index = 0; index < line.length; index += 1) {
+        const char = line[index];
+        if (char === '`') {
+          inInlineCode = !inInlineCode;
+          escaped += char;
+          continue;
+        }
+        const rest = line.slice(index + 1);
+        const urlParam = rest.match(/^([\w-]+)\}/);
+        if (char === '{' && urlParam) {
+          escaped += `\\{${urlParam[1]}\\}`;
+          index += urlParam[1].length + 1;
+          continue;
+        }
+        if (inInlineCode) {
+          escaped += char;
+          continue;
+        }
+        if (inBraceList) {
+          if (char === '}') {
+            escaped += '\\}';
+            inBraceList = false;
+          } else {
+            escaped += char;
+          }
+          continue;
+        }
+        if (char !== '{') {
+          escaped += char;
+          continue;
+        }
+
+        if (rest.includes(',')) {
+          escaped += '\\{';
+          inBraceList = true;
+          continue;
+        }
+        escaped += char;
+      }
+      return escaped;
     })
     .join('\n');
 }
@@ -509,6 +591,15 @@ const REPO_MARKDOWN_LINKS = {
   'algorithms/README.md': `${REPO_BLOB_BASE}/docs/algorithms/README.md`,
   '../deploy/README.md': `${REPO_BLOB_BASE}/deploy/README.md`,
   '../aragora/gauntlet/README.md': 'guides/gauntlet.md',
+  '../aragora-verify/README.md': `${REPO_BLOB_BASE}/aragora-verify/README.md`,
+  // RECEIPT_CONTRACT.md is operator-gated (canonical receipt-lineage statement) --
+  // point off-site rather than adding a DOC_MAP mirror entry for it.
+  'RECEIPT_CONTRACT.md': `${REPO_BLOB_BASE}/docs/RECEIPT_CONTRACT.md`,
+  // Neither is in DOC_MAP (charters.yaml isn't even markdown), so ARCHITECTURE.md's
+  // bare links to its siblings would otherwise survive unrewritten and 404.
+  'architecture/INTENDED_ARCHITECTURE.md':
+    `${REPO_BLOB_BASE}/docs/architecture/INTENDED_ARCHITECTURE.md`,
+  'architecture/charters.yaml': `${REPO_BLOB_BASE}/docs/architecture/charters.yaml`,
 };
 const SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS = {
   'guides/SDK_CONSOLIDATION.md|README.md': `${REPO_BLOB_BASE}/sdk/typescript/README.md`,
@@ -831,6 +922,21 @@ Explore the documentation in this section to learn more.${itemsList}
   console.log(`  ✓ Created index: ${category}/index.md`);
 }
 
+function docsSpecsItems() {
+  return Object.entries(DOC_MAP)
+    .filter(([src, dest]) => src.startsWith('specs/') && dest.startsWith('specs/'))
+    .map(([src, dest]) => {
+      const resolved = resolveSourcePath(src);
+      const content = resolved ? fs.readFileSync(resolved.srcPath, 'utf8') : '';
+      const title = content ? extractTitle(content) : path.basename(dest, '.md');
+      return {
+        title,
+        path: `./${path.basename(dest, '.md')}`,
+      };
+    })
+    .sort((left, right) => left.title.localeCompare(right.title));
+}
+
 // Main sync function
 function syncDocs() {
   console.log('\\n📚 Syncing documentation...\\n');
@@ -869,10 +975,16 @@ function syncDocs() {
     { path: 'advanced', title: 'Advanced Topics', desc: 'Advanced features and internals' },
     { path: 'analysis', title: 'Analysis & Metrics', desc: 'Performance analysis and benchmarks' },
     { path: 'contributing', title: 'Contributing', desc: 'How to contribute to Aragora' },
+    {
+      path: 'specs',
+      title: 'Specifications',
+      desc: 'Design and governance specifications for receipts, quorum policy, and related protocols',
+    },
   ];
 
   for (const cat of categories) {
-    createIndexFile(cat.path, cat.title, cat.desc);
+    const items = cat.path === 'specs' ? docsSpecsItems() : [];
+    createIndexFile(cat.path, cat.title, cat.desc, items);
   }
 
   console.log(`\\n✅ Done! Synced ${synced} files, skipped ${skipped} (not found)\\n`);

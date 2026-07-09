@@ -40,6 +40,9 @@
   },
   "dependencies": {
     "@aragora/sdk": "file:../../sdk/typescript",
+    "@fontsource/dm-serif-display": "^5.2.8",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@supabase/supabase-js": "^2.108.2",
     "@types/d3-drag": "^3.0.7",
     "@types/d3-force": "^3.0.10",
@@ -57,7 +60,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-markdown": "^10.1.0",
-    "recharts": "^3.8.1",
+    "recharts": "^3.9.2",
     "swr": "^2.4.2",
     "tailwind-merge": "^3.6.0",
     "zustand": "^5.0.14"
@@ -69,6 +72,7 @@
     "@next/bundle-analyzer": "^16.2.9",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.1",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.5.0",

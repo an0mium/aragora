@@ -1271,7 +1271,7 @@ curl http://localhost:8080/api/health
 ```bash
 # Update image
 kubectl -n aragora set image deployment/aragora \
-  aragora=aragora/server:v2.8.0
+  aragora=ghcr.io/synaptent/aragora/backend:2.9.0
 
 # Watch rollout
 kubectl -n aragora rollout status deployment/aragora
@@ -1301,7 +1301,7 @@ deploy:
 # Stop current deployment
 docker compose down
 
-# Checkout previous version
+# Checkout previous stable version
 git checkout v2.8.0
 
 # Rebuild and start

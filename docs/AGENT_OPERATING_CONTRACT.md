@@ -245,7 +245,24 @@ a worker implementation lane.
 Dependabot/Tier-3 merge the operator authorized at an exact head) is reported as "merged
 under explicit operator override", never as "the helper said it was safe".
 
+#### Per-object locks (single-conductor rule scope)
+
+The single-conductor rule prevents two lanes mutating the **same object**; it is not a
+global mutex on running processes. Locks are scoped by object type:
+
+- **Branch work** — a `scripts/check_work_lease.py` claim on the branch.
+- **PR settlement** — a conductor ownership declaration on the PR/issue.
+- **Harvest items** (issue #8993 protocol) — a claim comment on the issue: claim first,
+  then execute; on a race, the later claim timestamp yields.
+
+A sighted goal-cycle/consult process elsewhere is **not** a collision absent a conflicting
+claim or lease on the same object; standing down on process sightings alone is the
+false-collision failure mode (observed 2026-07-08 as a three-cycle false breaker).
+
 #### Thin recursive-prompt template (carry this shape forward, not the rules)
+
+Goal preambles handed to lanes should include the wrong-hill disclosure clause, so lanes
+surface mis-specified metrics before cycling instead of grinding them.
 
 ```text
 Start from live repo truth in <repo>. Do not trust prior transcript state.
@@ -663,6 +680,17 @@ Per Codex's recommendation:
 4. **Wave-completion checkpoint cadence:** Pause-after-each-wave (default) or pause-only-at-critical-checkpoints (1, 3, 8)?
 5. **Concurrency cap:** 1 active PR per wave (sequential, default) or up to 2-3 in parallel for unrelated waves?
 6. **Should the next agent proceed with Wave 3.5 (read-only mapping audit) before #6577 resolves**, since it's read-only and unblocks Waves 4-6?
+
+## Operator touchpoints (the four human gates)
+
+Beyond the checkpoint list above, four classes of decision are always operator acts — fleets propose, humans decide:
+
+1. **Hypothesis selection** — which problem deserves the fleet's budget: the operator picks the bet, not the loop that generated the candidate list.
+2. **Implementation architecture** — whether a fix should smooth the path, change behavior, or redesign the surface: the shape of the intervention is a human call.
+3. **Eval curation** — the scorecard/rubrics ARE the hill the fleet climbs; if the eval rewards the wrong behavior the loop faithfully optimizes toward the wrong thing, so curating P7/scoreboard rubrics is an operator act.
+4. **Launch approval** — reading the evidence, understanding blast radius, and owning the rollout (Tier 3/4 settlement) stays with the human who accepts the risk.
+
+(adopted 2026-07-07 from Replit's continual-learning practice; see epic #8972)
 
 ---
 

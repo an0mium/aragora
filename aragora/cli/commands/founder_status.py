@@ -211,15 +211,6 @@ def _queue_next_action(
             "detail": "Use the normal merge gate only; this report is not settlement authority.",
         }
 
-    human_required = queue.get("human_risk_settlement_required") or []
-    if human_required:
-        first = human_required[0]
-        return {
-            "kind": "human_settlement",
-            "summary": f"Record or reject human risk settlement for PR #{first}.",
-            "detail": "Human judgment remains explicit; automate only the receipt/status tail.",
-        }
-
     not_ready = queue.get("not_ready") or []
     not_ready_entries = queue.get("not_ready_entries") or []
     top_entries = queue.get("top_entries") or []
@@ -246,6 +237,15 @@ def _queue_next_action(
                 "summary": f"Work one bounded blocker on PR #{pr} ({status}).",
                 "detail": detail,
             }
+
+    human_required = queue.get("human_risk_settlement_required") or []
+    if human_required:
+        first = human_required[0]
+        return {
+            "kind": "human_settlement",
+            "summary": f"Record or reject human risk settlement for PR #{first}.",
+            "detail": "Human judgment remains explicit; automate only the receipt/status tail.",
+        }
 
     if proof_loop.get("overall_status") in {"stale", "missing"}:
         return {

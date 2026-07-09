@@ -8,6 +8,7 @@ management.
 
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,13 +21,15 @@ from aragora.events.security_events import (
     SecurityEventType,
     SecurityFinding,
     SecuritySeverity,
-    build_security_debate_question,
     create_scan_completed_event,
     create_secret_event,
     create_vulnerability_event,
     get_security_debate_result,
+    get_security_debate_runner,
     get_security_emitter,
+    is_secret_finding,
     list_security_debates,
+    register_security_debate_runner,
     set_security_emitter,
     _security_debate_results,
     _store_security_debate_result,
@@ -233,6 +236,25 @@ class TestSecurityFinding:
         deserialized = json.loads(serialized)
         assert deserialized["id"] == "finding-001"
         assert deserialized["metadata"]["nested"]["deep"] is True
+
+    def test_to_dict_redacts_secret_findings(self):
+        """Direct finding serialization should not leak secret material."""
+        finding = self._make_finding(
+            finding_type="secret",
+            severity=SecuritySeverity.CRITICAL,
+            title="Token literal-secret",
+            description="literal-secret",
+            metadata={"secret_type": "api_token", "raw_secret": "literal-secret"},
+        )
+
+        d = finding.to_dict()
+        serialized = json.dumps(d)
+
+        assert d["finding_type"] == "secret"
+        assert d["title"] == "Secret finding"
+        assert d["description"] == "[redacted secret finding description]"
+        assert d["metadata"] == {"secret_type": "api_token"}
+        assert "literal-secret" not in serialized
 
 
 # =============================================================================
@@ -823,6 +845,299 @@ class TestSecurityEventEmitter:
         )
         assert emitter._should_trigger_debate(event) is False
 
+    def test_event_to_dict_redacts_secret_findings(self):
+        """Event serialization should not expose raw secret finding material."""
+        finding = SecurityFinding(
+            id="secret-1",
+            finding_type="Credential",
+            severity=SecuritySeverity.CRITICAL,
+            title="Token literal-secret",
+            description="literal-secret",
+            file_path="src/config.py",
+            line_number=42,
+            metadata={"secret_type": "api_token", "raw_secret": "literal-secret"},
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert data["findings"][0]["file_path"] == "src/config.py"
+        assert data["findings"][0]["line_number"] == 42
+        assert data["findings"][0]["metadata"] == {"secret_type": "api_token"}
+        assert "literal-secret" not in serialized
+
+    def test_event_to_dict_redacts_sast_secret_findings(self):
+        """SAST secret rules should be redacted even when finding_type is generic."""
+        finding = SecurityFinding(
+            id="sast-secret-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Hardcoded credential",
+            description="Matched code: AWS_SECRET_ACCESS_KEY = 'literal-secret'",
+            file_path="src/config.py",
+            line_number=42,
+            metadata={
+                "scanner": "semgrep",
+                "rule_id": "python.lang.security.audit.hardcoded-credential",
+                "snippet": "api_key = 'literal-secret'",
+            },
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert data["findings"][0]["file_path"] == "src/config.py"
+        assert data["findings"][0]["line_number"] == 42
+        assert data["findings"][0]["metadata"] == {"secret_type": "unknown"}
+        assert "literal-secret" not in serialized
+        assert "AWS_SECRET_ACCESS_KEY" not in serialized
+        assert "api_key" not in serialized
+
+    def test_event_to_dict_redacts_sast_scanner_bridge_secret_text(self):
+        """Scanner-emitted generic vulnerabilities should redact hardcoded secrets."""
+        finding = SecurityFinding(
+            id="sast-secret-bridge-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="hardcoded-password",
+            description="Matched code: password = 'literal-secret'",
+            file_path="src/settings.py",
+            line_number=12,
+            metadata={
+                "scanner": "semgrep",
+                "snippet": "password = 'literal-secret'",
+                "rule_source": "semgrep",
+                "vulnerability_class": "hardcoded-password",
+                "confidence": 0.95,
+            },
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert data["findings"][0]["file_path"] == "src/settings.py"
+        assert data["findings"][0]["line_number"] == 12
+        assert "literal-secret" not in serialized
+        assert "hardcoded-password" not in serialized
+        assert "password =" not in serialized
+
+    def test_event_to_dict_uses_event_rule_metadata_for_sast_secret_redaction(self):
+        """Single-finding SAST events may carry the secret rule signal on the event."""
+        finding = SecurityFinding(
+            id="sast-event-rule-secret-1",
+            finding_type="sast",
+            severity=SecuritySeverity.CRITICAL,
+            title="Scanner finding",
+            description="Matched code: literal-secret",
+            file_path="src/settings.py",
+            line_number=12,
+            metadata={
+                "scanner": "semgrep",
+                "snippet": "literal-secret",
+            },
+        )
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[finding],
+            metadata={
+                "rule_id": "python.lang.security.audit.hardcoded-credential",
+                "snippet": "api_key = 'literal-secret'",
+                "raw_secret": "literal-secret",
+            },
+        )
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is False
+        assert is_secret_finding(finding, event_metadata=event.metadata) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert data["metadata"] == {"secret_type": "unknown"}
+        assert "literal-secret" not in serialized
+        assert "api_key" not in serialized
+
+    def test_event_to_dict_redacts_secret_metadata_keys(self):
+        """Secret-bearing metadata key names should redact generic findings."""
+        finding = SecurityFinding(
+            id="metadata-secret-key-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Config metadata finding",
+            description="Scanner reported sensitive metadata.",
+            metadata={"secret_key": "literal-secret"},
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert "literal-secret" not in serialized
+        assert "secret_key" not in serialized
+
+    def test_event_to_dict_sanitizes_secret_type_metadata(self):
+        """Redacted metadata should not echo scanner-controlled secret_type values."""
+        finding = SecurityFinding(
+            id="metadata-secret-type-1",
+            finding_type="secret",
+            severity=SecuritySeverity.CRITICAL,
+            title="Token literal-secret",
+            description="literal-secret",
+            metadata={"secret_type": "literal-secret", "raw_secret": "literal-secret"},
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert data["findings"][0]["metadata"] == {"secret_type": "unknown"}
+        assert "literal-secret" not in serialized
+
+    def test_event_to_dict_redacts_nested_secret_metadata_keys(self):
+        """Nested secret-bearing metadata key names should fail closed."""
+        finding = SecurityFinding(
+            id="metadata-client-secret-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Config metadata finding",
+            description="Scanner reported sensitive nested metadata.",
+            metadata={"config": {"client_secret": "literal-secret"}},
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is True
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert "literal-secret" not in serialized
+        assert "client_secret" not in serialized
+
+    def test_event_to_dict_keeps_mixed_event_vulnerability_context(self):
+        """Event-level secret metadata should not redact unrelated findings."""
+        secret_finding = SecurityFinding(
+            id="metadata-secret-key-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Config metadata finding",
+            description="Scanner reported sensitive metadata.",
+            metadata={"secret_key": "literal-secret"},
+        )
+        cve_finding = SecurityFinding(
+            id="cve-credential-redirect-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Credential redirect vulnerability",
+            description="Leaking Authorization credentials on cross-host redirect.",
+            cve_id="CVE-2024-9999",
+            package_name="requests",
+        )
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[secret_finding, cve_finding],
+            metadata={
+                "rule_id": "python.lang.security.audit.hardcoded-credential",
+                "raw_secret": "literal-secret",
+            },
+        )
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert data["metadata"] == {"secret_type": "unknown"}
+        assert data["findings"][0]["title"] == "Secret finding"
+        assert data["findings"][1]["finding_type"] == "vulnerability"
+        assert data["findings"][1]["title"] == "Credential redirect vulnerability"
+        assert data["findings"][1]["cve_id"] == "CVE-2024-9999"
+        assert data["findings"][1]["package_name"] == "requests"
+        assert "literal-secret" not in serialized
+        assert "Authorization credentials" in serialized
+
+    def test_event_to_dict_keeps_sast_token_vulnerability_context(self):
+        """SAST vulnerability text mentioning tokens should not be redacted as a secret."""
+        finding = SecurityFinding(
+            id="sast-csrf-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Missing CSRF token validation",
+            description="POST handler accepts requests without verifying the CSRF token.",
+            file_path="src/views.py",
+            line_number=27,
+            metadata={
+                "scanner": "semgrep",
+                "rule_id": "python.django.security.csrf-token-missing",
+                "message": "Missing CSRF token validation",
+                "snippet": "csrf_token = request.headers.get('X-CSRF-Token')",
+            },
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is False
+        assert data["findings"][0]["title"] == "Missing CSRF token validation"
+        assert data["findings"][0]["description"] == (
+            "POST handler accepts requests without verifying the CSRF token."
+        )
+        assert "Secret finding" not in serialized
+        assert "csrf_token" in serialized
+
+        password_finding = SecurityFinding(
+            id="sast-password-check-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Improper password check bypass",
+            description="Password comparison can be bypassed through alternate auth flow.",
+            metadata={
+                "scanner": "semgrep",
+                "rule_id": "python.auth.security.password-check-bypass",
+                "message": "Improper password check bypass",
+                "snippet": "if password_ok or oauth_bypass: return user",
+            },
+        )
+        assert is_secret_finding(password_finding) is False
+
+    def test_event_to_dict_keeps_credential_vulnerability_context(self):
+        """Credential-mentioning vulnerabilities are not automatically secrets."""
+        finding = SecurityFinding(
+            id="vuln-credential-redirect-1",
+            finding_type="vulnerability",
+            severity=SecuritySeverity.CRITICAL,
+            title="Credential redirect vulnerability",
+            description="Leaking Authorization credentials on cross-host redirect.",
+            cve_id="CVE-2024-9999",
+            package_name="requests",
+            package_version="2.31.0",
+            metadata={
+                "scanner": "dependency-audit",
+                "message": "Leaking Authorization credentials on cross-host redirect.",
+            },
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL, findings=[finding])
+
+        data = event.to_dict()
+        serialized = json.dumps(data)
+
+        assert is_secret_finding(finding) is False
+        assert data["findings"][0]["finding_type"] == "vulnerability"
+        assert data["findings"][0]["title"] == "Credential redirect vulnerability"
+        assert data["findings"][0]["description"] == (
+            "Leaking Authorization credentials on cross-host redirect."
+        )
+        assert data["findings"][0]["cve_id"] == "CVE-2024-9999"
+        assert data["findings"][0]["package_name"] == "requests"
+        assert "Secret finding" not in serialized
+
     def test_should_not_trigger_debate_for_low_severity(self):
         """LOW severity events should not trigger debates."""
         emitter = SecurityEventEmitter(enable_auto_debate=True)
@@ -832,18 +1147,252 @@ class TestSecurityEventEmitter:
     @pytest.mark.asyncio
     async def test_emit_triggers_debate_for_critical(self):
         """Emitting a critical event with auto-debate enabled should trigger debate."""
+        emitter = SecurityEventEmitter(
+            enable_auto_debate=True,
+            debate_confidence_threshold=0.8,
+            debate_timeout_seconds=123,
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL)
+
+        mock_trigger = AsyncMock(return_value="debate-auto-123")
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=mock_trigger,
+        ):
+            await emitter.emit(event)
+            mock_trigger.assert_awaited_once_with(
+                event,
+                confidence_threshold=0.8,
+                timeout_seconds=123,
+            )
+            assert event.debate_requested is True
+            assert event.debate_id == "debate-auto-123"
+
+    @pytest.mark.asyncio
+    async def test_emit_passes_event_positionally_to_modern_runner(self):
+        """Runner kwargs should not force a literal ``event=`` parameter name."""
+        emitter = SecurityEventEmitter(
+            enable_auto_debate=True,
+            debate_confidence_threshold=0.8,
+            debate_timeout_seconds=123,
+        )
+        event = self._make_event(severity=SecuritySeverity.CRITICAL)
+        calls: list[tuple[SecurityEvent, float, int]] = []
+
+        async def modern_runner(
+            security_event: SecurityEvent,
+            *,
+            confidence_threshold: float,
+            timeout_seconds: int,
+        ) -> str:
+            calls.append((security_event, confidence_threshold, timeout_seconds))
+            return "debate-modern-123"
+
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=modern_runner,
+        ):
+            await emitter.emit(event)
+
+        assert calls == [(event, 0.8, 123)]
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-modern-123"
+
+    @pytest.mark.asyncio
+    async def test_emit_triggers_legacy_one_arg_debate_runner(self):
+        """Custom pre-options runners should remain valid auto-debate hooks."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        event = self._make_event(severity=SecuritySeverity.CRITICAL)
+        calls: list[SecurityEvent] = []
+
+        async def legacy_runner(event: SecurityEvent) -> str:
+            calls.append(event)
+            return "debate-legacy-123"
+
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=legacy_runner,
+        ):
+            await emitter.emit(event)
+
+        assert calls == [event]
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-legacy-123"
+
+    @pytest.mark.asyncio
+    async def test_emit_isolates_runner_type_error(self, caplog):
+        """Runner signature failures should not escape critical event delivery."""
         emitter = SecurityEventEmitter(enable_auto_debate=True)
         event = self._make_event(severity=SecuritySeverity.CRITICAL)
 
-        with patch(
-            "aragora.events.security_events.trigger_security_debate",
-            new_callable=AsyncMock,
-            return_value="debate-auto-123",
-        ) as mock_trigger:
+        async def broken_runner(event: SecurityEvent, *, confidence_threshold: float) -> str:
+            raise TypeError("runner implementation failed")
+
+        with (
+            patch(
+                "aragora.events.security_events.get_security_debate_runner",
+                return_value=broken_runner,
+            ),
+            caplog.at_level(logging.ERROR, logger="aragora.events.security_events"),
+        ):
             await emitter.emit(event)
-            mock_trigger.assert_awaited_once()
-            assert event.debate_requested is True
-            assert event.debate_id == "debate-auto-123"
+
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        assert "Failed to trigger security debate" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_emit_with_no_runner_is_graceful(self, caplog):
+        """emit() must never await a missing runner (`await None(...)`).
+
+        With no registered runner (e.g. a process where no composition root
+        has imported aragora.debate.security_response yet -- this module
+        never imports aragora.debate itself), the auto-debate path logs a
+        warning and skips -- no exception escapes emit(), matching the
+        dispatcher's log-and-skip semantics.
+        """
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        event = self._make_event(severity=SecuritySeverity.CRITICAL)
+
+        with (
+            patch(
+                "aragora.events.security_events.get_security_debate_runner",
+                return_value=None,
+            ),
+            caplog.at_level(logging.WARNING, logger="aragora.events.security_events"),
+        ):
+            await emitter.emit(event)
+
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        assert "No security debate runner registered" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_debate_started_event_redacts_secret_findings(self):
+        """Follow-on debate events should not carry raw secret findings."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        started_events: list[SecurityEvent] = []
+
+        async def on_started(event: SecurityEvent) -> None:
+            started_events.append(event)
+
+        emitter.subscribe(SecurityEventType.SECURITY_DEBATE_STARTED, on_started)
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[
+                SecurityFinding(
+                    id="secret-1",
+                    finding_type="Credential",
+                    severity=SecuritySeverity.CRITICAL,
+                    title="Token literal-secret",
+                    description="literal-secret",
+                    file_path="src/config.py",
+                    line_number=42,
+                    metadata={"secret_type": "api_token", "raw_secret": "literal-secret"},
+                )
+            ],
+        )
+
+        mock_trigger = AsyncMock(return_value="debate-auto-123")
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=mock_trigger,
+        ):
+            await emitter.emit(event)
+
+        assert len(started_events) == 1
+        started = started_events[0]
+        assert started.findings[0].title == "Secret finding"
+        assert started.findings[0].file_path == "src/config.py"
+        assert started.findings[0].line_number == 42
+        assert started.findings[0].metadata == {"secret_type": "api_token"}
+        assert "literal-secret" not in json.dumps(started.to_dict())
+
+    @pytest.mark.asyncio
+    async def test_auto_debate_context_redacts_sast_secret_findings(self):
+        """Serialized debate context should not expose generic SAST secret findings."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        captured_payloads: list[str] = []
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[
+                SecurityFinding(
+                    id="sast-secret-1",
+                    finding_type="vulnerability",
+                    severity=SecuritySeverity.CRITICAL,
+                    title="Hardcoded credential",
+                    description="Matched code: AWS_SECRET_ACCESS_KEY = 'literal-secret'",
+                    file_path="src/config.py",
+                    line_number=42,
+                    metadata={
+                        "scanner": "semgrep",
+                        "rule_id": "python.lang.security.audit.hardcoded-credential",
+                        "snippet": "api_key = 'literal-secret'",
+                    },
+                )
+            ],
+        )
+
+        async def runner(security_event: SecurityEvent, **_: object) -> str:
+            captured_payloads.append(json.dumps(security_event.to_dict()))
+            return "debate-sast-secret-123"
+
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await emitter.emit(event)
+
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-sast-secret-123"
+        assert len(captured_payloads) == 1
+        assert "literal-secret" not in captured_payloads[0]
+        assert "AWS_SECRET_ACCESS_KEY" not in captured_payloads[0]
+        assert "api_key" not in captured_payloads[0]
+
+    @pytest.mark.asyncio
+    async def test_auto_debate_context_redacts_sast_scanner_bridge_secret_text(self):
+        """Auto-debate payloads should scrub scanner-shaped hardcoded secrets."""
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
+        captured_payloads: list[str] = []
+        event = self._make_event(
+            severity=SecuritySeverity.CRITICAL,
+            findings=[
+                SecurityFinding(
+                    id="sast-secret-bridge-1",
+                    finding_type="vulnerability",
+                    severity=SecuritySeverity.CRITICAL,
+                    title="hardcoded-password",
+                    description="Matched code: password = 'literal-secret'",
+                    file_path="src/settings.py",
+                    line_number=12,
+                    metadata={
+                        "scanner": "semgrep",
+                        "snippet": "password = 'literal-secret'",
+                        "rule_source": "semgrep",
+                        "vulnerability_class": "hardcoded-password",
+                        "confidence": 0.95,
+                    },
+                )
+            ],
+        )
+
+        async def runner(security_event: SecurityEvent, **_: object) -> str:
+            captured_payloads.append(json.dumps(security_event.to_dict()))
+            return "debate-sast-secret-bridge-123"
+
+        with patch(
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=runner,
+        ):
+            await emitter.emit(event)
+
+        assert event.debate_requested is True
+        assert event.debate_id == "debate-sast-secret-bridge-123"
+        assert len(captured_payloads) == 1
+        assert "literal-secret" not in captured_payloads[0]
+        assert "hardcoded-password" not in captured_payloads[0]
+        assert "password =" not in captured_payloads[0]
 
     @pytest.mark.asyncio
     async def test_emit_does_not_trigger_debate_for_low(self):
@@ -851,10 +1400,11 @@ class TestSecurityEventEmitter:
         emitter = SecurityEventEmitter(enable_auto_debate=True)
         event = self._make_event(severity=SecuritySeverity.LOW)
 
+        mock_trigger = AsyncMock()
         with patch(
-            "aragora.events.security_events.trigger_security_debate",
-            new_callable=AsyncMock,
-        ) as mock_trigger:
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=mock_trigger,
+        ):
             await emitter.emit(event)
             mock_trigger.assert_not_awaited()
 
@@ -1206,132 +1756,14 @@ class TestRateLimitDetection:
             findings=findings,
         )
 
+        mock_trigger = AsyncMock(return_value="debate-rate-001")
         with patch(
-            "aragora.events.security_events.trigger_security_debate",
-            new_callable=AsyncMock,
-            return_value="debate-rate-001",
-        ) as mock_trigger:
+            "aragora.events.security_events.get_security_debate_runner",
+            return_value=mock_trigger,
+        ):
             await emitter.emit(event)
             # Should trigger because high_count >= 3
             mock_trigger.assert_awaited_once()
-
-
-# =============================================================================
-# build_security_debate_question
-# =============================================================================
-
-
-class TestBuildSecurityDebateQuestion:
-    """Tests for debate question construction from events."""
-
-    def test_question_with_no_findings(self):
-        """Should produce a fallback question when no findings exist."""
-        event = SecurityEvent(repository="org/repo")
-        q = build_security_debate_question(event)
-        assert "org/repo" in q
-        assert "remediation" in q.lower()
-
-    def test_question_with_no_findings_no_repo(self):
-        """Should use 'the codebase' when no repository is set."""
-        event = SecurityEvent()
-        q = build_security_debate_question(event)
-        assert "the codebase" in q
-
-    def test_question_with_vulnerability_findings(self):
-        """Should include vulnerability details in the question."""
-        finding = SecurityFinding(
-            id="f-1",
-            finding_type="vulnerability",
-            severity=SecuritySeverity.CRITICAL,
-            title="Remote Code Execution",
-            description="RCE via unsafe deserialization in pickle module",
-            cve_id="CVE-2024-12345",
-            package_name="pickle-lib",
-        )
-        event = SecurityEvent(
-            repository="org/app",
-            findings=[finding],
-        )
-        q = build_security_debate_question(event)
-        assert "CVE-2024-12345" in q
-        assert "pickle-lib" in q
-        assert "org/app" in q
-        assert "remediation" in q.lower()
-
-    def test_question_with_secret_findings(self):
-        """Should include secret type information in the question."""
-        finding = SecurityFinding(
-            id="f-2",
-            finding_type="secret",
-            severity=SecuritySeverity.HIGH,
-            title="Exposed API key",
-            description="AWS access key found in source code",
-            metadata={"secret_type": "aws_access_key"},
-        )
-        event = SecurityEvent(findings=[finding])
-        q = build_security_debate_question(event)
-        assert "aws_access_key" in q
-        assert "secrets" in q.lower()
-
-    def test_question_with_mixed_findings(self):
-        """Should include both vulnerability and secret details."""
-        vuln = SecurityFinding(
-            id="f-v",
-            finding_type="vulnerability",
-            severity=SecuritySeverity.HIGH,
-            title="SQL Injection",
-            description="User input concatenated in SQL query",
-            cve_id="CVE-2024-99999",
-            package_name="sqlalchemy",
-        )
-        secret = SecurityFinding(
-            id="f-s",
-            finding_type="secret",
-            severity=SecuritySeverity.HIGH,
-            title="Exposed token",
-            description="GitHub token in config file",
-            metadata={"secret_type": "github_token"},
-        )
-        event = SecurityEvent(findings=[vuln, secret])
-        q = build_security_debate_question(event)
-        assert "vulnerabilities" in q.lower()
-        assert "secrets" in q.lower()
-
-    def test_question_limits_to_five_findings(self):
-        """Should limit to at most 5 findings in the question."""
-        findings = [
-            SecurityFinding(
-                id=f"f-{i}",
-                finding_type="vulnerability",
-                severity=SecuritySeverity.HIGH,
-                title=f"Vuln {i}",
-                description=f"Description {i}",
-                cve_id=f"CVE-2024-{i:05d}",
-                package_name=f"pkg-{i}",
-            )
-            for i in range(10)
-        ]
-        event = SecurityEvent(findings=findings)
-        q = build_security_debate_question(event)
-        # The details section should list at most 5 findings (limited at the top)
-        detail_lines = [line for line in q.split("\n") if line.strip().startswith("- ")]
-        assert len(detail_lines) <= 5
-
-    def test_question_includes_remediation_structure(self):
-        """Question should ask about mitigations, root cause, prevention."""
-        finding = SecurityFinding(
-            id="f-struct",
-            finding_type="vulnerability",
-            severity=SecuritySeverity.CRITICAL,
-            title="Critical vuln",
-            description="Description",
-        )
-        event = SecurityEvent(findings=[finding])
-        q = build_security_debate_question(event)
-        assert "Immediate mitigations" in q
-        assert "Root cause" in q
-        assert "Preventive measures" in q
-        assert "Impact" in q
 
 
 # =============================================================================
@@ -1773,102 +2205,119 @@ class TestSingletonEmitter:
 
 
 # =============================================================================
-# trigger_security_debate integration
+# Security debate runner registry hook
 # =============================================================================
 
 
-class TestTriggerSecurityDebate:
-    """Tests for the trigger_security_debate function."""
+class TestSecurityDebateRunnerRegistry:
+    """Tests for register_security_debate_runner / get_security_debate_runner."""
+
+    @pytest.fixture(autouse=True)
+    def reset_runner(self):
+        """Snapshot and restore the module-level runner around each test."""
+        import aragora.events.security_events as mod
+
+        original = mod._security_debate_runner
+        yield
+        mod._security_debate_runner = original
+
+    def test_register_sets_the_runner(self):
+        """Registering a runner should make it retrievable via the getter."""
+
+        async def fake_runner(event, **kwargs):
+            return "debate-fake"
+
+        register_security_debate_runner(fake_runner)
+        assert get_security_debate_runner() is fake_runner
+
+    def test_register_replaces_previous_runner(self):
+        """Registering a new runner should replace any previously registered one."""
+
+        async def first_runner(event, **kwargs):
+            return "first"
+
+        async def second_runner(event, **kwargs):
+            return "second"
+
+        register_security_debate_runner(first_runner)
+        register_security_debate_runner(second_runner)
+        assert get_security_debate_runner() is second_runner
+
+    def test_register_none_clears_the_runner(self):
+        """Registering None should clear any previously registered runner."""
+
+        async def fake_runner(event, **kwargs):
+            return "debate-fake"
+
+        register_security_debate_runner(fake_runner)
+        register_security_debate_runner(None)
+        assert get_security_debate_runner() is None
+
+    def test_registry_stays_unset_without_composition_root(self):
+        """Cold consumers (never-set registry) get NO default runner.
+
+        This module never imports aragora.debate itself (P4a
+        security-debate-unification removed the lazy-import self-heal
+        fallback). Only a composition root that imports
+        aragora.debate.security_response (aragora.debate.orchestrator,
+        aragora.debate.event_subscribers.bootstrap_debate_event_subscribers,
+        or aragora.analysis.codebase.sast.scanner) makes the default runner
+        available -- see test_explicit_clear_sticks_against_default_register
+        for that registration path.
+        """
+        import aragora.events.security_events as mod
+
+        mod._security_debate_runner = mod._UNSET_RUNNER
+
+        assert get_security_debate_runner() is None
+
+    def test_explicit_clear_sticks_against_default_register(self):
+        """Import-time default registration must not clobber an explicit clear."""
+        import aragora.events.security_events as mod
+
+        async def default_runner(event, **kwargs):
+            return "debate-default"
+
+        register_security_debate_runner(None)
+        mod._register_default_security_debate_runner(default_runner)
+
+        assert get_security_debate_runner() is None
+        assert mod._security_debate_runner is None
+
+    def test_reregister_after_clear_restores_runner(self):
+        """Registering a runner after an explicit clear re-enables auto-debate."""
+
+        async def fake_runner(event, **kwargs):
+            return "debate-after-clear"
+
+        register_security_debate_runner(None)
+        register_security_debate_runner(fake_runner)
+
+        assert get_security_debate_runner() is fake_runner
 
     @pytest.mark.asyncio
-    async def test_trigger_debate_returns_none_on_import_error(self):
-        """Should return None gracefully when Arena is not importable."""
-        from aragora.events.security_events import trigger_security_debate
+    async def test_emit_after_explicit_clear_does_not_fire_auto_debate(self):
+        """End to end: after register_security_debate_runner(None), a critical
+        emit neither runs a debate nor re-registers the default runner."""
+        register_security_debate_runner(None)
 
+        emitter = SecurityEventEmitter(enable_auto_debate=True)
         event = SecurityEvent(
+            event_type=SecurityEventType.CRITICAL_VULNERABILITY,
             severity=SecuritySeverity.CRITICAL,
             findings=[
                 SecurityFinding(
-                    id="f-1",
+                    id="f-clear-1",
                     finding_type="vulnerability",
                     severity=SecuritySeverity.CRITICAL,
-                    title="Test",
-                    description="Test desc",
+                    title="Critical CVE",
+                    description="test finding",
                 )
             ],
         )
 
-        with patch(
-            "aragora.events.security_events.build_security_debate_question",
-            return_value="test question",
-        ):
-            # Simulate ImportError when trying to import Arena dependencies
-            with patch.dict("sys.modules", {"aragora.core": None}):
-                result = await trigger_security_debate(event)
-                # Should gracefully return None (either ImportError or other exception)
-                # The function catches ImportError and general Exception
-                assert result is None
+        await emitter.emit(event)
 
-    @pytest.mark.asyncio
-    async def test_trigger_debate_sets_debate_question(self):
-        """Should set the debate_question on the event."""
-        from aragora.events.security_events import trigger_security_debate
-
-        event = SecurityEvent(
-            severity=SecuritySeverity.CRITICAL,
-            repository="org/repo",
-            findings=[
-                SecurityFinding(
-                    id="f-q",
-                    finding_type="vulnerability",
-                    severity=SecuritySeverity.CRITICAL,
-                    title="RCE",
-                    description="Remote code execution",
-                    cve_id="CVE-2024-99999",
-                    package_name="vuln-pkg",
-                )
-            ],
-        )
-
-        # Mock the entire chain: imports, Arena, result
-        mock_arena_instance = MagicMock()
-        mock_result = MagicMock()
-        mock_result.consensus_reached = True
-        mock_result.confidence = 0.9
-        mock_result.final_answer = "Fix it"
-        mock_arena_instance.run = AsyncMock(return_value=mock_result)
-
-        with (
-            patch(
-                "aragora.events.security_events.build_security_debate_question",
-                return_value="Generated question",
-            ),
-            patch(
-                "aragora.events.security_events._get_security_debate_agents",
-                new_callable=AsyncMock,
-                return_value=[MagicMock(), MagicMock()],
-            ),
-            patch(
-                "aragora.events.security_events._store_security_debate_result",
-                new_callable=AsyncMock,
-            ),
-        ):
-            # We need to mock the imports inside the function
-            mock_env = MagicMock()
-            mock_protocol = MagicMock()
-
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.core": MagicMock(Environment=mock_env, DebateResult=MagicMock()),
-                    "aragora.debate.protocol": MagicMock(DebateProtocol=mock_protocol),
-                    "aragora.debate.orchestrator": MagicMock(
-                        Arena=MagicMock(return_value=mock_arena_instance)
-                    ),
-                },
-            ):
-                result = await trigger_security_debate(event)
-
-                assert event.debate_question == "Generated question"
-                assert result is not None
-                assert result.startswith("security_debate_")
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        assert get_security_debate_runner() is None

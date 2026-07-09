@@ -4,6 +4,9 @@
 # Use this for repositories where you want AI review to be a required check.
 #
 # Add this file to your repository at: .github/workflows/aragora-review.yml
+#
+# NOTE: this example predates emit-receipt (#8669); see receipt.yml for the
+# receipt-emitting variant.
 
 name: Aragora AI Code Review (Strict)
 

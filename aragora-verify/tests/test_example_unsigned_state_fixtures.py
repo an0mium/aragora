@@ -103,9 +103,7 @@ def test_abstained_fixture_json_warnings_name_expected_categories(capsys) -> Non
     assert "reasoning: absent" in joined
 
 
-def test_quorum_consistency_tamper_cli_exits_one_with_failing_check(
-    tmp_path: Path, capsys
-) -> None:
+def test_quorum_consistency_tamper_cli_exits_one_with_failing_check(tmp_path: Path, capsys) -> None:
     doc = _load("example-blocked.odr.json")
     doc["quorum"]["dissent"]["dissenting_agents"] = ["ghost-agent"]
     doc["quorum"]["dissent"]["present"] = True
