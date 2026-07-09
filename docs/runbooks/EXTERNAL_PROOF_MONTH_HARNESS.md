@@ -55,6 +55,12 @@ progress is measured by the throughput ledger the plan shipped.
 ```
 /loop Run one conductor cycle for the External-Proof Month
 (docs/plans/2026-07-09-thirty-day-external-proof-month.md). Each cycle:
+(0) STEER — check the operator-steering mailbox first
+    (python3 scripts/read_operator_steering.py --lane-id <LANE_ID> --json;
+    use --pr/--branch when that is the only selector you know). If a
+    message was read, write an outcome receipt
+    (--outcome obeyed|held|stale|superseded|blocked|completed) BEFORE
+    mutating any lane state, per AGENTS.md.
 (1) SENSE — read the current week's exit criteria; run
     scripts/throughput_ledger.py snapshot + work_mix_gate check; check
     gh pr/issue state for the week's named items and any replan triggers.
@@ -87,9 +93,12 @@ replacing its operator-context mission statement with:
 MISSION (Jul 9 – Aug 9): execute the CURRENT WEEK of
 docs/plans/2026-07-09-thirty-day-external-proof-month.md. Work ONLY items
 from the week's supporting list or work orders dropped by the Claude
-conductor. One bounded item per cycle: implement in an isolated worktree,
-tests first, draft PR, hand to settlement (never merge yourself; the
-merge-quorum gate is the sole settlement authority). Standing constraints:
+conductor. One bounded item per cycle: check the operator-steering mailbox
+first (python3 scripts/read_operator_steering.py --lane-id <LANE_ID> --json,
+or --pr/--branch) and write an outcome receipt for any message read BEFORE
+mutating lane state (AGENTS.md protocol); then implement in an isolated
+worktree, tests first, draft PR, hand to settlement (never merge yourself;
+the merge-quorum gate is the sole settlement authority). Standing constraints:
 work-mix budget applies (product-class work preferred; substrate only from
 explicit work orders); ≤800 LOC per PR; regenerate METRICS.md + doc_stats in
 the SAME commit as any test-count change; merge origin/main before
@@ -109,7 +118,10 @@ W4: build the Crucible-hole enterprise decision-brief demo>.
 FILES: <named modules from the plan>.
 ACCEPTANCE: <the week's exit criteria verbatim, incl. tests + draft PR(s)
 ≤800 LOC each + docs regenerated per drift-gate rule>.
-CONSTRAINTS: never merge or mark ready; never touch merge-authority code,
+CONSTRAINTS: check the operator-steering mailbox before mutating lane state
+and write an outcome receipt for any message read
+(python3 scripts/read_operator_steering.py --lane-id <LANE_ID> --json);
+never merge or mark ready; never touch merge-authority code,
 workflows, or protected files; park-with-receipt on any blocker; stop at
 <N> hours or <token budget> — partial work committed to branch is fine,
 the harvest daemon collects strands.
