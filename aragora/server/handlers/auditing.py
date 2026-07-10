@@ -103,6 +103,8 @@ class AuditRequestParser:
         data, err = AuditRequestParser._read_json(handler, read_json_fn)
         if err:
             return None, err
+        if data is None:
+            return None, error_response("Invalid JSON body", 400)
 
         agent_name, err = AuditRequestParser._require_field(data, "agent_name", validate_agent_name)
         if err:
@@ -129,6 +131,8 @@ class AuditRequestParser:
         data, err = AuditRequestParser._read_json(handler, read_json_fn)
         if err:
             return None, err
+        if data is None:
+            return None, error_response("Invalid JSON body", 400)
 
         task, err = AuditRequestParser._require_field(data, "task")
         if err:
@@ -475,6 +479,9 @@ class AuditingHandler(SecureHandler):
             if err:
                 logger.info("Capability probe request validation failed")
                 return err
+            if parsed is None:
+                logger.warning("Capability probe parser returned no request data")
+                return error_response("Invalid capability probe request", 400)
 
             agent_name = parsed["agent_name"]
             model_type = parsed["model_type"]
@@ -654,6 +661,9 @@ class AuditingHandler(SecureHandler):
             if err:
                 logger.info("Deep audit request validation failed")
                 return err
+            if parsed is None:
+                logger.warning("Deep audit parser returned no request data")
+                return error_response("Invalid deep audit request", 400)
 
             task = parsed["task"]
             context = parsed["context"]
