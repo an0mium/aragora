@@ -32,7 +32,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aragora.audit.unified import audit_data
 from aragora.rbac.decorators import require_permission
@@ -175,7 +175,9 @@ class ExternalIntegrationsHandler(SecureHandler):
         self._make: MakeIntegration | None = None
         self._n8n: N8nIntegration | None = None
 
-    def _read_json_object_body(self, handler: Any) -> tuple[dict[str, Any] | None, HandlerResult]:
+    def _read_json_object_body(
+        self, handler: Any
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Read and validate a JSON request body."""
         body, err = self.read_json_body_validated(handler)
         if err or body is None:
@@ -188,7 +190,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def _require_string_field(
         self, body: dict[str, Any], field_name: str, missing_code: str, invalid_code: str
-    ) -> tuple[str | None, HandlerResult]:
+    ) -> tuple[str | None, HandlerResult | None]:
         """Validate that a required field is a non-empty string."""
         value = body.get(field_name)
         if value is None:
@@ -209,7 +211,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         invalid_code: str,
         *,
         allow_empty_string: bool = False,
-    ) -> tuple[str | None, HandlerResult]:
+    ) -> tuple[str | None, HandlerResult | None]:
         """Validate that an optional field is a non-empty string when provided."""
         value = body.get(field_name)
         if value is None:
@@ -227,7 +229,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def _require_string_list_field(
         self, body: dict[str, Any], field_name: str, missing_code: str, invalid_code: str
-    ) -> tuple[list[str] | None, HandlerResult]:
+    ) -> tuple[list[str] | None, HandlerResult | None]:
         """Validate that a required field is a non-empty list of non-empty strings."""
         value = body.get(field_name)
         if value is None:
@@ -256,7 +258,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def _optional_string_list_field(
         self, body: dict[str, Any], field_name: str, invalid_code: str
-    ) -> tuple[list[str] | None, HandlerResult]:
+    ) -> tuple[list[str] | None, HandlerResult | None]:
         """Validate that an optional field is a non-empty list of non-empty strings."""
         value = body.get(field_name)
         if value is None:
@@ -291,7 +293,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         *,
         minimum: float | None = None,
         maximum: float | None = None,
-    ) -> tuple[float | int | None, HandlerResult]:
+    ) -> tuple[float | int | None, HandlerResult | None]:
         """Validate that an optional field is a number within an optional range."""
         value = body.get(field_name)
         if value is None:
@@ -314,7 +316,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def _optional_object_field(
         self, body: dict[str, Any], field_name: str, invalid_code: str
-    ) -> tuple[dict[str, Any] | None, HandlerResult]:
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Validate that an optional field is a JSON object when provided."""
         value = body.get(field_name)
         if value is None:
@@ -325,7 +327,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def _optional_query_string_param(
         self, query_params: dict[str, Any], param_name: str, invalid_code: str
-    ) -> tuple[str | None, HandlerResult]:
+    ) -> tuple[str | None, HandlerResult | None]:
         """Validate that an optional query parameter is a non-empty string when provided."""
         value = query_params.get(param_name)
         if value is None:
@@ -353,7 +355,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         param_name: str,
         missing_code: str,
         invalid_code: str,
-    ) -> tuple[str | None, HandlerResult]:
+    ) -> tuple[str | None, HandlerResult | None]:
         """Validate that a required query parameter is a non-empty string."""
         value, err = self._optional_query_string_param(query_params, param_name, invalid_code)
         if err:
@@ -730,6 +732,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         )
         if field_error:
             return field_error
+        workspace_id = cast(str, workspace_id)
 
         zapier = self._get_zapier()
         app = zapier.create_app(workspace_id)
@@ -806,16 +809,19 @@ class ExternalIntegrationsHandler(SecureHandler):
         )
         if field_error:
             return field_error
+        app_id = cast(str, app_id)
         trigger_type, field_error = self._require_string_field(
             body, "trigger_type", "MISSING_TRIGGER_TYPE", "INVALID_TRIGGER_TYPE"
         )
         if field_error:
             return field_error
+        trigger_type = cast(str, trigger_type)
         webhook_url, field_error = self._require_string_field(
             body, "webhook_url", "MISSING_WEBHOOK_URL", "INVALID_WEBHOOK_URL"
         )
         if field_error:
             return field_error
+        webhook_url = cast(str, webhook_url)
         workspace_id, field_error = self._optional_string_field(
             body, "workspace_id", "INVALID_WORKSPACE_ID"
         )
@@ -976,6 +982,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         )
         if field_error:
             return field_error
+        workspace_id = cast(str, workspace_id)
 
         make = self._get_make()
         connection = make.create_connection(workspace_id)
@@ -1051,16 +1058,19 @@ class ExternalIntegrationsHandler(SecureHandler):
         )
         if field_error:
             return field_error
+        conn_id = cast(str, conn_id)
         module_type, field_error = self._require_string_field(
             body, "module_type", "MISSING_MODULE_TYPE", "INVALID_MODULE_TYPE"
         )
         if field_error:
             return field_error
+        module_type = cast(str, module_type)
         webhook_url, field_error = self._require_string_field(
             body, "webhook_url", "MISSING_WEBHOOK_URL", "INVALID_WEBHOOK_URL"
         )
         if field_error:
             return field_error
+        webhook_url = cast(str, webhook_url)
         workspace_id, field_error = self._optional_string_field(
             body, "workspace_id", "INVALID_WORKSPACE_ID"
         )
@@ -1215,6 +1225,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         )
         if field_error:
             return field_error
+        workspace_id = cast(str, workspace_id)
 
         api_url, field_error = self._optional_string_field(
             body,
@@ -1307,11 +1318,13 @@ class ExternalIntegrationsHandler(SecureHandler):
         )
         if field_error:
             return field_error
+        cred_id = cast(str, cred_id)
         events, field_error = self._require_string_list_field(
             body, "events", "MISSING_EVENTS", "INVALID_EVENTS"
         )
         if field_error:
             return field_error
+        events = cast(list[str], events)
         workflow_id, field_error = self._optional_string_field(
             body, "workflow_id", "INVALID_WORKFLOW_ID"
         )
