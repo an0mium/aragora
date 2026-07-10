@@ -93,7 +93,7 @@
   },
   "signatures": [],
   "source": {
-    "artifact_hash": "f867986c6dd8d1fe78c7da7fd3f92d7e6e6f4ffd8e227ec987f1c23dfe931a2b",
+    "artifact_hash": "421cdf3f8e701426df83231364dba79efc5d34b3c1711de5228dde823a601030",
     "receipt_id": "r-123",
     "schema": "aragora.gauntlet.DecisionReceipt",
     "schema_version": "1.1",

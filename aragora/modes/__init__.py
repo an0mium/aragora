@@ -96,8 +96,7 @@ def load_builtins() -> None:
     This is safe to call multiple times (idempotent). Import of the
     builtin subpackage triggers registration via ``register_all_builtins()``.
     Call this explicitly before looking up modes by name to guarantee
-    all five built-in modes (architect, coder, reviewer, debugger,
-    orchestrator) are available.
+    all built-in operational and epistemic-question modes are available.
     """
     register_all_builtins()
 
