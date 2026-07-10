@@ -41,6 +41,21 @@ from aragora.server.validation.query_params import safe_query_int
 logger = logging.getLogger(__name__)
 
 
+def _authenticated_user_id(
+    auth_context: AuthorizationContext | dict[str, Any] | None,
+) -> str | None:
+    """Return a usable authenticated user ID, or None for anonymous contexts."""
+    if auth_context is None:
+        return None
+    if isinstance(auth_context, dict):
+        user_id = auth_context.get("user_id")
+    else:
+        user_id = auth_context.user_id
+    if not isinstance(user_id, str) or not user_id or user_id == "anonymous":
+        return None
+    return user_id
+
+
 class SkillMarketplaceHandler(SecureHandler):
     """Handler for skill marketplace endpoints."""
 
@@ -90,15 +105,6 @@ class SkillMarketplaceHandler(SecureHandler):
         except (UnauthorizedError, ForbiddenError):
             auth_context = None
 
-        def _is_authenticated(context: AuthorizationContext | dict[str, Any] | None) -> bool:
-            if context is None:
-                return False
-            if isinstance(context, dict):
-                user_id = context.get("user_id")
-            else:
-                user_id = getattr(context, "user_id", None)
-            return bool(user_id) and user_id != "anonymous"
-
         path = strip_version_prefix(path)
 
         # Search skills (public)
@@ -111,7 +117,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
         # List installed skills (requires auth)
         if path == "/api/skills/marketplace/installed":
-            if not _is_authenticated(auth_context):
+            if auth_context is None or _authenticated_user_id(auth_context) is None:
                 return error_response("Authentication required", 401)
             try:
                 self.check_permission(auth_context, "skills:read")
@@ -121,7 +127,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
         # Publish skill (requires auth)
         if path == "/api/skills/marketplace/publish" and method == "POST":
-            if not _is_authenticated(auth_context):
+            if auth_context is None or _authenticated_user_id(auth_context) is None:
                 return error_response("Authentication required", 401)
             try:
                 self.check_permission(auth_context, "skills:publish")
@@ -149,7 +155,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
                 # Install skill
                 if len(parts) == 6 and parts[5] == "install" and method == "POST":
-                    if not _is_authenticated(auth_context):
+                    if auth_context is None or _authenticated_user_id(auth_context) is None:
                         return error_response("Authentication required", 401)
                     try:
                         self.check_permission(auth_context, "skills:install")
@@ -159,7 +165,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
                 # Uninstall skill
                 if len(parts) == 6 and parts[5] == "install" and method == "DELETE":
-                    if not _is_authenticated(auth_context):
+                    if auth_context is None or _authenticated_user_id(auth_context) is None:
                         return error_response("Authentication required", 401)
                     try:
                         self.check_permission(auth_context, "skills:install")
@@ -169,7 +175,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
                 # Rate skill
                 if len(parts) == 6 and parts[5] == "rate" and method == "POST":
-                    if not _is_authenticated(auth_context):
+                    if auth_context is None or _authenticated_user_id(auth_context) is None:
                         return error_response("Authentication required", 401)
                     try:
                         self.check_permission(auth_context, "skills:rate")
@@ -179,7 +185,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
                 # Verify skill (admin)
                 if len(parts) == 6 and parts[5] == "verify" and method == "PUT":
-                    if not _is_authenticated(auth_context):
+                    if auth_context is None or _authenticated_user_id(auth_context) is None:
                         return error_response("Authentication required", 401)
                     try:
                         self.check_permission(auth_context, "skills:admin")
@@ -189,7 +195,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
                 # Revoke verification (admin)
                 if len(parts) == 6 and parts[5] == "verify" and method == "DELETE":
-                    if not _is_authenticated(auth_context):
+                    if auth_context is None or _authenticated_user_id(auth_context) is None:
                         return error_response("Authentication required", 401)
                     try:
                         self.check_permission(auth_context, "skills:admin")
@@ -354,13 +360,14 @@ class SkillMarketplaceHandler(SecureHandler):
 
             # Publish
             publisher = SkillPublisher()
-            user_id = getattr(auth_context, "user_id", None) or (
-                auth_context.get("user_id") if isinstance(auth_context, dict) else None
-            )
+            user_id = _authenticated_user_id(auth_context)
+            if user_id is None:
+                return error_response("Authentication required", 401)
             display_name = getattr(auth_context, "display_name", None)
             if display_name is None and isinstance(auth_context, dict):
                 display_name = auth_context.get("display_name")
-            display_name = display_name or user_id
+            if not isinstance(display_name, str) or not display_name:
+                display_name = user_id
             success, listing, issues = await publisher.publish(
                 skill=skill,
                 author_id=user_id,
@@ -414,9 +421,9 @@ class SkillMarketplaceHandler(SecureHandler):
                 or (auth_context.get("tenant_id") if isinstance(auth_context, dict) else None)
                 or "default"
             )
-            user_id = getattr(auth_context, "user_id", None) or (
-                auth_context.get("user_id") if isinstance(auth_context, dict) else None
-            )
+            user_id = _authenticated_user_id(auth_context)
+            if user_id is None:
+                return error_response("Authentication required", 401)
             version = body.get("version")
             permissions = getattr(auth_context, "permissions", None)
             if permissions is None and isinstance(auth_context, dict):
@@ -465,9 +472,9 @@ class SkillMarketplaceHandler(SecureHandler):
                 or (auth_context.get("tenant_id") if isinstance(auth_context, dict) else None)
                 or "default"
             )
-            user_id = getattr(auth_context, "user_id", None) or (
-                auth_context.get("user_id") if isinstance(auth_context, dict) else None
-            )
+            user_id = _authenticated_user_id(auth_context)
+            if user_id is None:
+                return error_response("Authentication required", 401)
             permissions = getattr(auth_context, "permissions", None)
             if permissions is None and isinstance(auth_context, dict):
                 permissions = auth_context.get("permissions", set())
@@ -513,9 +520,9 @@ class SkillMarketplaceHandler(SecureHandler):
                 return error_response("rating must be an integer between 1 and 5", 400)
 
             review = body.get("review")
-            user_id = getattr(auth_context, "user_id", None) or (
-                auth_context.get("user_id") if isinstance(auth_context, dict) else None
-            )
+            user_id = _authenticated_user_id(auth_context)
+            if user_id is None:
+                return error_response("Authentication required", 401)
 
             marketplace = get_marketplace()
             skill_rating = await marketplace.rate(
