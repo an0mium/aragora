@@ -227,7 +227,7 @@ of this boundary is **fence-and-disclosure, not promotion**: a module in this bo
 
 | Proposed slot | Current path(s) | Notes |
 |---|---|---|
-| experimental modules | `aragora/<pkg>` for the 29 `tier: experimental` rows in `aragora/module_tiers.yaml` (advocates, approvals, brief_engine, codex, embeddings, factory, fixtures, maintenance, moderation, monitoring, onboarding, performance, playbooks, prediction, prompts, receipts, reports, shared, sync, tasks, telemetry, tools, tournaments, trail, transcription, types, uncertainty, webhooks, work) | most have ≤7 importers and ≤4 test files; no current charter pressure to graduate |
+| experimental modules | `aragora/<pkg>` for the 29 `tier: experimental` rows in `aragora/module_tiers.yaml` (advocates, approvals, brief_engine, codex, embeddings, factory, fixtures, maintenance, moderation, monitoring, onboarding, performance, playbooks, prediction, prompts, receipts (except `aragora/receipts/__init__.py` — Boundary 2 receipts+verifier re-export surface), reports, shared, sync, tasks, telemetry, tools, tournaments, trail, transcription, types, uncertainty, webhooks, work) | most have ≤7 importers and ≤4 test files; no current charter pressure to graduate. `aragora/receipts/` is tier:experimental as a package, but its `__init__.py` is the DecisionReceipt re-export claimed by Boundary 2; only `aragora/receipts/lane.py` and `aragora/receipts/provenance.py` (operational lane/provenance helpers) remain in this boundary |
 | standalone contrib wedge | `aragora-debate/` (a sibling package, `pip install aragora-debate` for the legacy receipt story; cf. `docs/architecture/PACKAGING_AND_DISTRIBUTION.md` §1, §7) | the only currently-shipped contrib slice |
 | dep-installed extras (DO NOT IMPORT ARAGORA-MAIN) | the `[blockchain]`, `[gateway]`, `[experimental]`, `[connectors]`, `[enterprise]` optional-dependency slices — each adds an opt-in dependency set | base install omits these by design |
 | deprecated modules | the 3 `tier: deprecated` rows in `aragora/module_tiers.yaml` (`aragora/metrics/`, `aragora/operations/`, `aragora/schedulers/`); plus past movers under `docs/archive/` and `docs/deprecated/` | removal-candidate zone; `aragora/metrics` has a soft-shim `DeprecationWarning` per CHR-X-007 (the only entry binding while INTENDED_ARCHITECTURE is DRAFT) |
@@ -438,3 +438,12 @@ For the cross-feature contract pair:
 - **2026-07-10** — Initial PROPOSE-ONLY draft authored by docs-worker (M7
   legibility). No `aragora/**`, `scripts/**`, or operator-gated doc touched. Diff
   contract: single `A` on this file only.
+- **2026-07-10 (round 4)** — Fixed the last boundary-ownership conflict surfaced by
+  scrutiny round 3: Boundary 6's templated `aragora/<pkg>` enumerated row claimed the
+  parent `aragora/receipts/` wholesale (it is one of the 29 `tier: experimental`
+  packages), while Boundary 2 claims the child `aragora/receipts/__init__.py` (the
+  DecisionReceipt re-export). Added an explicit `(except aragora/receipts/__init__.py)`
+  exclusion to the Boundary 6 `receipts` member so the child resolves to exactly one
+  owner (Boundary 2, per its receipts+verifier charter); `aragora/receipts/lane.py` and
+  `aragora/receipts/provenance.py` (operational helpers) remain in Boundary 6. No other
+  boundary, matrix cell, or section restructured.
