@@ -14,7 +14,7 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from aragora.agents.base import create_agent
 from aragora.essay.pipeline import EssayRefinementPipeline
@@ -84,7 +84,7 @@ def _cmd_refine(args: Any) -> None:
     dry_run = getattr(args, "dry_run", False)
     resume = getattr(args, "resume", False)
 
-    raw_ideas = _read_input(input_path)
+    raw_ideas = _read_input(cast(str, input_path))
 
     models = None
     if models_str:
@@ -171,7 +171,7 @@ def _cmd_score(args: Any) -> None:
     rubric_path = getattr(args, "rubric", None)
     models_str = getattr(args, "models", None)
 
-    draft = _read_input(input_path)
+    draft = _read_input(cast(str, input_path))
 
     model = "anthropic-api"
     if models_str:
@@ -191,7 +191,7 @@ def _cmd_score(args: Any) -> None:
 
     try:
         rubric = load_rubric(rubric_path)
-        judge = create_agent(model, name="scorer", role="critic")
+        judge = create_agent(cast(Any, model), name="scorer", role="critic")
         score = asyncio.run(evaluate_essay(draft, judge, rubric=rubric))
     except (RuntimeError, ValueError, TypeError, ImportError) as e:
         print(f"\n[!] Essay scoring failed: {e}")

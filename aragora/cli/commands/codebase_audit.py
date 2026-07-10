@@ -18,7 +18,7 @@ from dataclasses import replace
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 IGNORED_DIRS = {
     ".git",
@@ -325,7 +325,7 @@ def identify_threat_surface(
         if not text.strip():
             continue
         scores = _score_boundary(rel_path, text)
-        dominant_boundary = max(scores, key=scores.get)
+        dominant_boundary = max(scores, key=lambda boundary: scores[boundary])
         dominant_score = scores[dominant_boundary]
         if dominant_score <= 0:
             continue
@@ -522,7 +522,7 @@ def _build_agents(agents_str: str) -> tuple[list[Any], list[str]]:
         try:
             created.append(
                 create_agent(
-                    spec,
+                    cast(Any, spec),
                     name=f"{spec}-{role}",
                     role=role,
                 )

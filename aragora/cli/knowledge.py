@@ -299,32 +299,34 @@ def cmd_facts(args: Namespace) -> int:
             print("Error: fact_id required for 'show' action")
             return 1
 
-        fact = store.get_fact(args.fact_id)
-        if not fact:
+        selected_fact = store.get_fact(args.fact_id)
+        if not selected_fact:
             print(f"Fact not found: {args.fact_id}")
             return 1
 
         if args.json:
             show_output = {
-                "id": fact.id,
-                "statement": fact.statement,
-                "confidence": fact.confidence,
-                "status": fact.validation_status.value,
-                "topics": fact.topics,
-                "evidence_ids": fact.evidence_ids,
-                "source_documents": fact.source_documents,
-                "created_at": fact.created_at.isoformat() if fact.created_at else None,
+                "id": selected_fact.id,
+                "statement": selected_fact.statement,
+                "confidence": selected_fact.confidence,
+                "status": selected_fact.validation_status.value,
+                "topics": selected_fact.topics,
+                "evidence_ids": selected_fact.evidence_ids,
+                "source_documents": selected_fact.source_documents,
+                "created_at": (
+                    selected_fact.created_at.isoformat() if selected_fact.created_at else None
+                ),
             }
             print(json.dumps(show_output, indent=2))
         else:
-            print(f"\nFact: {fact.id}")
+            print(f"\nFact: {selected_fact.id}")
             print("=" * 60)
-            print(f"Statement: {fact.statement}")
-            print(f"Confidence: {fact.confidence:.1%}")
-            print(f"Status: {fact.validation_status.value}")
-            print(f"Topics: {', '.join(fact.topics) if fact.topics else 'None'}")
-            print(f"Evidence: {len(fact.evidence_ids)} items")
-            print(f"Sources: {len(fact.source_documents)} documents")
+            print(f"Statement: {selected_fact.statement}")
+            print(f"Confidence: {selected_fact.confidence:.1%}")
+            print(f"Status: {selected_fact.validation_status.value}")
+            print(f"Topics: {', '.join(selected_fact.topics) if selected_fact.topics else 'None'}")
+            print(f"Evidence: {len(selected_fact.evidence_ids)} items")
+            print(f"Sources: {len(selected_fact.source_documents)} documents")
 
     elif args.action == "verify":
         if not args.fact_id:
@@ -332,12 +334,12 @@ def cmd_facts(args: Namespace) -> int:
             return 1
 
         # Verify the fact exists first
-        fact = store.get_fact(args.fact_id)
-        if not fact:
+        fact_to_verify = store.get_fact(args.fact_id)
+        if not fact_to_verify:
             print(f"Fact not found: {args.fact_id}")
             return 1
 
-        print(f"\nVerifying fact: {fact.statement}")
+        print(f"\nVerifying fact: {fact_to_verify.statement}")
         print("=" * 60)
 
         try:
@@ -494,27 +496,27 @@ def cmd_jobs(args: Namespace) -> int:
             print("Error: job_id required for 'show' action")
             return 1
 
-        job = get_job_status(args.job_id)
-        if not job:
+        selected_job = get_job_status(args.job_id)
+        if not selected_job:
             print(f"Job not found: {args.job_id}")
             return 1
 
         if args.json:
-            print(json.dumps(job, indent=2))
+            print(json.dumps(selected_job, indent=2))
         else:
-            print(f"\nJob: {job.get('job_id')}")
+            print(f"\nJob: {selected_job.get('job_id')}")
             print("=" * 60)
-            print(f"Filename: {job.get('filename')}")
-            print(f"Workspace: {job.get('workspace_id')}")
-            print(f"Status: {job.get('status')}")
-            print(f"Created: {job.get('created_at')}")
-            print(f"Completed: {job.get('completed_at') or 'N/A'}")
+            print(f"Filename: {selected_job.get('filename')}")
+            print(f"Workspace: {selected_job.get('workspace_id')}")
+            print(f"Status: {selected_job.get('status')}")
+            print(f"Created: {selected_job.get('created_at')}")
+            print(f"Completed: {selected_job.get('completed_at') or 'N/A'}")
 
-            if job.get("error"):
-                print(f"Error: {job.get('error')}")
+            if selected_job.get("error"):
+                print(f"Error: {selected_job.get('error')}")
 
-            if job.get("result"):
-                result = job["result"]
+            if selected_job.get("result"):
+                result = selected_job["result"]
                 print("\nResults:")
                 print(f"  Chunks: {result.get('chunk_count', 0)}")
                 print(f"  Facts: {result.get('fact_count', 0)}")

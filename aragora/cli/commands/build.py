@@ -708,7 +708,7 @@ def _preflight_boss_routing(*, repo: str, worker_model: str) -> dict[str, Any]:
         owner_context=owner_context,
         requested_runner_type=worker_model,
     ).to_dict()
-    probe_summary = {
+    probe_summary: dict[str, Any] = {
         "auto_probe_triggered": False,
         "attempted": 0,
         "passed": 0,

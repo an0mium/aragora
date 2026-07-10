@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 
 def cmd_ralph(args) -> None:
@@ -118,8 +119,9 @@ def _cmd_status(state_path: Path, json_output: bool) -> None:
         print(f"  Budget spent: ${d['budget_spent_usd']:.2f}")
         if d.get("active_blocker"):
             print(f"  Active blocker: {d['active_blocker']}")
+        raw_merge_target = d.get("active_merge_target")
         merge_target = (
-            d.get("active_merge_target") if isinstance(d.get("active_merge_target"), dict) else {}
+            cast(dict[str, Any], raw_merge_target) if isinstance(raw_merge_target, dict) else {}
         )
         if merge_target:
             print(f"  Merge target: {merge_target.get('kind', 'unknown')}")
@@ -129,16 +131,14 @@ def _cmd_status(state_path: Path, json_output: bool) -> None:
                 print(f"  Branch: {merge_target['branch']}")
             if merge_target.get("pr_url"):
                 print(f"  PR: {merge_target['pr_url']}")
-            gate = (
-                merge_target.get("last_gate_snapshot")
-                if isinstance(merge_target.get("last_gate_snapshot"), dict)
-                else {}
-            )
+            raw_gate = merge_target.get("last_gate_snapshot")
+            gate = cast(dict[str, Any], raw_gate) if isinstance(raw_gate, dict) else {}
             if gate.get("disposition"):
                 print(f"  Gate disposition: {gate['disposition']}")
             if gate.get("required_checks_green") is not None:
                 print(f"  Required checks green: {gate['required_checks_green']}")
-        task = d.get("active_repair_task") if isinstance(d.get("active_repair_task"), dict) else {}
+        raw_task = d.get("active_repair_task")
+        task = cast(dict[str, Any], raw_task) if isinstance(raw_task, dict) else {}
         if task.get("run_id"):
             print(f"  Repair run: {task['run_id']}")
         if d.get("active_repair_branch"):
