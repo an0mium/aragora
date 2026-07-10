@@ -189,6 +189,33 @@ class TestDebateTracing:
 class TestDecisionTracing:
     """Tests for decision routing tracing."""
 
+    def test_trace_decision_does_not_eagerly_stringify_enum_like_values(self):
+        """Values with a ``value`` attribute must not evaluate ``__str__``."""
+        import asyncio
+
+        from aragora.observability.tracing import trace_decision
+
+        class EnumLike:
+            def __init__(self, value: str) -> None:
+                self.value = value
+
+            def __str__(self) -> str:
+                raise AssertionError("enum-like values must use .value")
+
+        class Request:
+            request_id = "req-lazy-value"
+            decision_type = EnumLike("debate")
+            source = EnumLike("api")
+            priority = EnumLike("high")
+            content = "test"
+
+        @trace_decision
+        async def route(_self, request):
+            return request
+
+        request = Request()
+        assert asyncio.run(route(object(), request)) is request
+
     def test_trace_decision_routing(self):
         """Test trace_decision_routing context manager."""
         from aragora.observability.tracing import trace_decision_routing

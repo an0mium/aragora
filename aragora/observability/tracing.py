@@ -744,11 +744,15 @@ def trace_decision(func: F) -> F:
         # Extract attributes from request
         request_id = getattr(request, "request_id", "unknown")
         decision_type = getattr(request, "decision_type", None)
-        decision_type_str = getattr(decision_type, "value", str(decision_type))
+        decision_type_str = (
+            getattr(decision_type, "value")
+            if hasattr(decision_type, "value")
+            else str(decision_type)
+        )
         source = getattr(request, "source", None)
-        source_str = getattr(source, "value", str(source))
+        source_str = getattr(source, "value") if hasattr(source, "value") else str(source)
         priority = getattr(request, "priority", None)
-        priority_str = getattr(priority, "value", str(priority))
+        priority_str = getattr(priority, "value") if hasattr(priority, "value") else str(priority)
 
         with tracer.start_as_current_span("decision.route") as span:
             span.set_attribute("decision.request_id", request_id)
