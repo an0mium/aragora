@@ -89,7 +89,8 @@ except ImportError:
     # of the real library types.
     _LCBaseTool = _BaseToolStub  # type: ignore[misc,assignment]
     BaseTool = _LCBaseTool
-    BaseModel = _BaseModelStub  # type: ignore[misc,assignment]
+    _PydanticBaseModel = _BaseModelStub  # type: ignore[misc,assignment]
+    BaseModel = _PydanticBaseModel  # type: ignore[misc]
     Field = _FieldStub
     AsyncCallbackManagerForToolRun = None  # type: ignore[misc,assignment]
     CallbackManagerForToolRun = None  # type: ignore[misc,assignment]
@@ -105,7 +106,7 @@ def get_langchain_version() -> str | None:
         return None
 
 
-class AragoraToolInput(BaseModel):
+class AragoraToolInput(_PydanticBaseModel):
     """Input schema for Aragora debate tool (compatible API)."""
 
     question: str = Field(description="The question or task to debate")
@@ -127,7 +128,7 @@ class AragoraToolInput(BaseModel):
     )
 
 
-class AragoraDebateInput(BaseModel):
+class AragoraDebateInput(_PydanticBaseModel):
     """Input schema for Aragora debate tool."""
 
     task: str = Field(description="The question or task to debate")
@@ -160,7 +161,7 @@ class AragoraDebateTool(_LCBaseTool):
         "Use this when you need multiple perspectives on a complex question. "
         "The debate reaches consensus through structured argumentation."
     )
-    args_schema: type[BaseModel] = AragoraDebateInput
+    args_schema: type[_PydanticBaseModel] = AragoraDebateInput
 
     # Configuration
     aragora_url: str = "http://localhost:8080"
@@ -250,7 +251,7 @@ class AragoraDebateTool(_LCBaseTool):
             return f"Error running debate: {e}"
 
 
-class AragoraKnowledgeInput(BaseModel):
+class AragoraKnowledgeInput(_PydanticBaseModel):
     """Input schema for Aragora knowledge tool."""
 
     query: str = Field(description="Search query for the knowledge base")
@@ -278,7 +279,7 @@ class AragoraKnowledgeTool(_LCBaseTool):
         "Use this to find documents, past decisions, and institutional knowledge. "
         "Returns the most relevant results with confidence scores."
     )
-    args_schema: type[BaseModel] = AragoraKnowledgeInput
+    args_schema: type[_PydanticBaseModel] = AragoraKnowledgeInput
 
     # Configuration
     aragora_url: str = "http://localhost:8080"
@@ -351,7 +352,7 @@ class AragoraKnowledgeTool(_LCBaseTool):
             return f"Error querying knowledge: {e}"
 
 
-class AragoraDecisionInput(BaseModel):
+class AragoraDecisionInput(_PydanticBaseModel):
     """Input schema for Aragora decision tool."""
 
     question: str = Field(description="The decision question")
@@ -379,7 +380,7 @@ class AragoraDecisionTool(_LCBaseTool):
         "Use this for important decisions that need audit trails. "
         "Returns a decision with rationale and confidence."
     )
-    args_schema: type[BaseModel] = AragoraDecisionInput
+    args_schema: type[_PydanticBaseModel] = AragoraDecisionInput
 
     # Configuration
     aragora_url: str = "http://localhost:8080"
