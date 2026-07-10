@@ -229,6 +229,8 @@ def register_checkpoint_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         manager = _get_manager(request)
         return await handle_checkpoint_pause(debate_id, context, checkpoint_manager=manager)
 
@@ -239,6 +241,8 @@ def register_checkpoint_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         manager = _get_manager(request)
         return await handle_checkpoint_resume(
             debate_id,
@@ -253,6 +257,8 @@ def register_checkpoint_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         manager = _get_manager(request)
         return await handle_list_checkpoints(
             debate_id, context, limit=limit, checkpoint_manager=manager

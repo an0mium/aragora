@@ -133,6 +133,8 @@ class SearchOperationsMixin:
                 return error_response(validation_result.error or "Invalid search query", 400)
 
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         try:
             # Use efficient SQL search if query provided
             if query:

@@ -468,6 +468,8 @@ def register_intervention_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         return await handle_pause_debate(debate_id, context)
 
     async def resume_debate(request: Any) -> HandlerResult:
@@ -475,6 +477,8 @@ def register_intervention_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         return await handle_resume_debate(debate_id, context)
 
     async def inject_argument(request: Any) -> HandlerResult:
@@ -484,6 +488,8 @@ def register_intervention_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         return await handle_inject_argument(
             debate_id,
             context,
@@ -500,6 +506,8 @@ def register_intervention_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         try:
             weight = float(data.get("weight", 1.0))
         except (ValueError, TypeError):
@@ -519,6 +527,8 @@ def register_intervention_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         try:
             threshold = float(data.get("threshold", 0.75))
         except (ValueError, TypeError):
@@ -535,6 +545,8 @@ def register_intervention_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         return await handle_get_intervention_state(debate_id, context)
 
     async def get_log(request: Any) -> HandlerResult:
@@ -543,6 +555,8 @@ def register_intervention_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        if context is None:
+            return error_response("Authentication required", 401)
         return await handle_get_intervention_log(debate_id, context, limit)
 
     # Register legacy and versioned API routes for compatibility.

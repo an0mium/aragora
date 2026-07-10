@@ -231,7 +231,7 @@ class DebatesHandler(
                 # Validate debate ID for export
                 is_valid, err = validate_debate_id(debate_id)
                 if not is_valid:
-                    return error_response(err, 400)
+                    return error_response(err or "Invalid debate id", 400)
                 export_format = parts[5]  # Index 5 for unversioned paths
                 # Validate export format
                 if export_format not in self.ALLOWED_EXPORT_FORMATS:

@@ -541,6 +541,8 @@ class ExportOperationsMixin:
             return error_response(f"Invalid format: {format}. Valid: {valid_formats}", 400)
 
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         try:
             debate = storage.get_debate(debate_id)
             if not debate:

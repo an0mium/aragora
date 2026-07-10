@@ -174,6 +174,8 @@ class DebateInterventionsHandler(BaseHandler):
         debate_id, err = _extract_debate_id_from_path(path)
         if err:
             return error_response(err, 400)
+        if debate_id is None:
+            return error_response("Invalid debate id", 400)
 
         manager = self._get_or_create_manager(debate_id, handler)
         if manager is None:
@@ -213,6 +215,8 @@ class DebateInterventionsHandler(BaseHandler):
         debate_id, err = _extract_debate_id_from_path(path)
         if err:
             return error_response(err, 400)
+        if debate_id is None:
+            return error_response("Invalid debate id", 400)
 
         manager = self._get_or_create_manager(debate_id, handler)
         if manager is None:
@@ -252,6 +256,8 @@ class DebateInterventionsHandler(BaseHandler):
         debate_id, err = _extract_debate_id_from_path(path)
         if err:
             return error_response(err, 400)
+        if debate_id is None:
+            return error_response("Invalid debate id", 400)
 
         body = self.read_json_body(handler)
         if body is None:
@@ -303,6 +309,8 @@ class DebateInterventionsHandler(BaseHandler):
         debate_id, err = _extract_debate_id_from_path(path)
         if err:
             return error_response(err, 400)
+        if debate_id is None:
+            return error_response("Invalid debate id", 400)
 
         body = self.read_json_body(handler)
         if body is None:
@@ -352,6 +360,8 @@ class DebateInterventionsHandler(BaseHandler):
         debate_id, err = _extract_debate_id_from_path(path)
         if err:
             return error_response(err, 400)
+        if debate_id is None:
+            return error_response("Invalid debate id", 400)
 
         body = self.read_json_body(handler)
         if body is None:
@@ -402,6 +412,8 @@ class DebateInterventionsHandler(BaseHandler):
         debate_id, err = _extract_debate_id_from_path(path)
         if err:
             return error_response(err, 400)
+        if debate_id is None:
+            return error_response("Invalid debate id", 400)
 
         from aragora.debate.intervention import get_intervention_manager
 

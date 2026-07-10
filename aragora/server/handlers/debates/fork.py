@@ -115,13 +115,15 @@ class ForkOperationsMixin:
 
         validation = validate_against_schema(body, FORK_REQUEST_SCHEMA)
         if not validation.is_valid:
-            return error_response(validation.error, 400)
+            return error_response(validation.error or "Invalid fork request", 400)
 
         branch_point = body.get("branch_point", 0)
         modified_context = body.get("modified_context")
 
         # Get the original debate
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         try:
             debate = storage.get_debate(debate_id)
             if not debate:
@@ -320,6 +322,8 @@ class ForkOperationsMixin:
             List of follow-up suggestions with priority and suggested task
         """
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
 
         try:
             debate = storage.get_debate(debate_id)
@@ -458,6 +462,8 @@ class ForkOperationsMixin:
             return error_response("Either crux_id or task is required", 400)
 
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
 
         try:
             # Get parent debate

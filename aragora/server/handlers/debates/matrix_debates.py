@@ -205,9 +205,12 @@ class MatrixDebatesHandler(SecureHandler):
             if isinstance(args[0], str):
                 path = args[0]
                 handler = args[2]
-                data, error = self.read_json_body_validated(handler)
+                parsed_data, error = self.read_json_body_validated(handler)
                 if error:
                     return error
+                if parsed_data is None:
+                    return error_response("Invalid request body", 400)
+                data = parsed_data
             else:
                 handler = args[0]
                 path = args[1]
@@ -219,9 +222,12 @@ class MatrixDebatesHandler(SecureHandler):
             if handler is None:
                 return error_response("Invalid request", 400)
             if not data:
-                data, error = self.read_json_body_validated(handler)
+                parsed_data, error = self.read_json_body_validated(handler)
                 if error:
                     return error
+                if parsed_data is None:
+                    return error_response("Invalid request body", 400)
+                data = parsed_data
 
         normalized = strip_version_prefix(path)
         if normalized.startswith("/api/matrix-debates"):

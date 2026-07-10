@@ -114,7 +114,7 @@ class BatchOperationsMixin:
         # Schema validation for input sanitization
         validation_result = validate_against_schema(body, BATCH_SUBMIT_SCHEMA)
         if not validation_result.is_valid:
-            return error_response(validation_result.error, 400)
+            return error_response(validation_result.error or "Invalid batch request", 400)
 
         items_data = body.get("items", [])
         if not items_data:
@@ -366,7 +366,7 @@ class BatchOperationsMixin:
         """
         is_valid, err = validate_path_segment(batch_id, "batch id", SAFE_ID_PATTERN)
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid batch id", 400)
 
         from aragora.server.debate_queue import get_debate_queue_sync
 

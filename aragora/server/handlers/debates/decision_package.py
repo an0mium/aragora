@@ -739,6 +739,8 @@ class DecisionPackageHandler(BaseHandler):
         package, err = self._assemble_package(debate_id)
         if err:
             return err
+        if package is None:
+            return error_response("Decision package unavailable", 500)
         md = _build_markdown(package)
         return HandlerResult(
             status_code=200,

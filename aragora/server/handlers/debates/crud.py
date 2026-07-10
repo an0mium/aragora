@@ -138,6 +138,8 @@ class CrudOperationsMixin:
         Cached for 30 seconds. Cache key includes org_id for per-org isolation.
         """
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         debates = storage.list_recent(limit=limit, org_id=org_id, offset=offset)
         # Convert DebateMetadata objects to dicts and normalize for SDK compatibility
         debates_list = [
@@ -291,6 +293,8 @@ class CrudOperationsMixin:
         """
         # First check persistent storage
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         debate = storage.get_debate(slug)
         if debate:
             # Public playground debates are accessible without authentication
@@ -460,6 +464,8 @@ class CrudOperationsMixin:
             Paginated list of messages with metadata
         """
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         # Clamp limit
         limit = min(max(1, limit), 200)
         offset = max(0, offset)
@@ -581,10 +587,12 @@ class CrudOperationsMixin:
         # Schema validation for input sanitization
         validation_result = validate_against_schema(body, DEBATE_UPDATE_SCHEMA)
         if not validation_result.is_valid:
-            return error_response(validation_result.error, 400)
+            return error_response(validation_result.error or "Invalid debate update", 400)
 
         # Get storage and find debate
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         try:
             debate = storage.get_debate(debate_id)
             if not debate:
@@ -593,6 +601,8 @@ class CrudOperationsMixin:
             # ABAC: Check if user has write access to this debate
             user = self.get_current_user(handler)
             if user:
+                if not user.user_id:
+                    return error_response("Authenticated user ID required", 401)
                 debate_owner_id = debate.get("user_id") or debate.get("owner_id")
                 debate_workspace_id = debate.get("workspace_id") or debate.get("org_id")
 
@@ -833,6 +843,8 @@ class CrudOperationsMixin:
             JSON confirmation with deleted debate ID.
         """
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         try:
             debate = storage.get_debate(debate_id)
             if not debate:
@@ -841,6 +853,8 @@ class CrudOperationsMixin:
             # ABAC: Check if user has delete access to this debate
             user = self.get_current_user(handler)
             if user:
+                if not user.user_id:
+                    return error_response("Authenticated user ID required", 401)
                 debate_owner_id = debate.get("user_id") or debate.get("owner_id")
                 debate_workspace_id = debate.get("workspace_id") or debate.get("org_id")
 

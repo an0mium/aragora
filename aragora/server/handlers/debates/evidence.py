@@ -102,6 +102,8 @@ class EvidenceOperationsMixin:
     def _get_impasse(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Detect impasse in a debate."""
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         debate = storage.get_debate(debate_id)
         if not debate:
             return error_response(f"Debate not found: {debate_id}", 404)
@@ -163,6 +165,8 @@ class EvidenceOperationsMixin:
     ) -> HandlerResult:
         """Get convergence status for a debate."""
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         debate = storage.get_debate(debate_id)
         if not debate:
             return error_response(f"Debate not found: {debate_id}", 404)
@@ -222,6 +226,8 @@ class EvidenceOperationsMixin:
         useful for analyzing claim quality and feedback loop effectiveness.
         """
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         debate = storage.get_debate(debate_id)
         if not debate:
             return error_response(f"Debate not found: {debate_id}", 404)
@@ -295,6 +301,8 @@ class EvidenceOperationsMixin:
         from aragora.debate.summarizer import summarize_debate
 
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         debate = storage.get_debate(debate_id)
         if not debate:
             return error_response(f"Debate not found: {debate_id}", 404)
@@ -360,6 +368,8 @@ class EvidenceOperationsMixin:
         """
 
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         try:
             debate = storage.get_debate(debate_id)
             if not debate:
@@ -462,6 +472,8 @@ class EvidenceOperationsMixin:
         """
 
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
 
         try:
             debate = storage.get_debate(debate_id)
