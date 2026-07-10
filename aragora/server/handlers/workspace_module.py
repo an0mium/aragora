@@ -62,14 +62,15 @@ from aragora.billing.jwt_auth import extract_user_from_request
 from aragora.protocols import HTTPRequestHandler
 
 # RBAC imports - graceful fallback if not available
-AuthorizationContext: Any = None
-check_permission: Any = None
-try:
-    from aragora.rbac import AuthorizationContext, check_permission  # type: ignore[no-redef]
-
-    RBAC_AVAILABLE = True
-except ImportError:
-    RBAC_AVAILABLE = False
+if TYPE_CHECKING:
+    from aragora.rbac import AuthorizationContext, check_permission
+else:
+    try:
+        from aragora.rbac import AuthorizationContext, check_permission
+    except ImportError:
+        AuthorizationContext = None
+        check_permission = None
+RBAC_AVAILABLE = AuthorizationContext is not None
 from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
 from aragora.privacy import (
     AccessDeniedException,  # noqa: F401 - used by mixin modules via _mod()
@@ -89,19 +90,26 @@ from aragora.privacy.audit_log import Actor, Resource  # noqa: F401 - used by mi
 from aragora.server.validation.query_params import safe_query_int  # noqa: F401 - used by mixin modules via _mod()
 
 # RBAC profile imports for workspace role management
-RBACProfile: Any = None
-try:
-    from aragora.rbac.profiles import (  # type: ignore[no-redef]
+if TYPE_CHECKING:
+    from aragora.rbac.profiles import (
         RBACProfile,  # noqa: F401
         get_profile_config,  # noqa: F401
         get_profile_roles,  # noqa: F401
         get_lite_role_summary,  # noqa: F401
         get_available_roles_for_assignment,  # noqa: F401
     )
-
-    PROFILES_AVAILABLE = True
-except ImportError:
-    PROFILES_AVAILABLE = False
+else:
+    try:
+        from aragora.rbac.profiles import (
+            RBACProfile,  # noqa: F401
+            get_profile_config,  # noqa: F401
+            get_profile_roles,  # noqa: F401
+            get_lite_role_summary,  # noqa: F401
+            get_available_roles_for_assignment,  # noqa: F401
+        )
+    except ImportError:
+        RBACProfile = None
+PROFILES_AVAILABLE = RBACProfile is not None
 
 from aragora.rbac.decorators import require_permission
 

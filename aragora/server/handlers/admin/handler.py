@@ -15,11 +15,8 @@ import functools
 import logging
 import os
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
-
-# Pre-declare RBAC names for optional import fallback (avoids type: ignore on fallback definitions)
-require_permission: Any
 
 from aragora.audit.unified import audit_admin  # noqa: F401
 from aragora.auth.lockout import get_lockout_tracker  # noqa: F401
@@ -63,36 +60,46 @@ ADMIN_ROLES = {
 _admin_limiter = RateLimiter(requests_per_minute=10)
 
 # RBAC imports (optional - graceful degradation if not available)
-try:
+if TYPE_CHECKING:
     from aragora.rbac import (
         AuthorizationContext,
         check_permission,
         PermissionDeniedError,
     )
-    from aragora.rbac.decorators import require_permission  # type: ignore[no-redef]
+    from aragora.rbac.decorators import require_permission
 
     RBAC_AVAILABLE = True
-except ImportError:
-    RBAC_AVAILABLE = False
+else:
+    try:
+        from aragora.rbac import (
+            AuthorizationContext,
+            check_permission,
+            PermissionDeniedError,
+        )
+        from aragora.rbac.decorators import require_permission
+
+        RBAC_AVAILABLE = True
+    except ImportError:
+        RBAC_AVAILABLE = False
+
+        # Provide a no-op decorator fallback when RBAC is unavailable
+        def require_permission(
+            permission_key: str,
+            resource_id_param: str | None = None,
+            context_param: str = "context",
+            checker: Any = None,
+            on_denied: Any = None,
+            auto_audit: bool = True,
+        ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+            """No-op decorator when RBAC module is not available."""
+
+            def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+                return func
+
+            return decorator
+
 
 from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
-
-
-if not RBAC_AVAILABLE:
-    # Provide a no-op decorator fallback when RBAC is unavailable
-    def require_permission(
-        permission_key: str,
-        resource_id_param: str | None = None,
-        context_param: str = "context",
-        checker: Any = None,
-        on_denied: Any = None,
-    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        """No-op decorator when RBAC module is not available."""
-
-        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-            return func
-
-        return decorator
 
 
 # Metrics imports (optional)
