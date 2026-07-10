@@ -225,11 +225,10 @@ class TestSlackSlashCommands:
         # Patch async task creation to capture the debate
         created_tasks = []
 
-        def capture_task(coro, **kwargs):
+        def capture_task(task_factory, **kwargs):
             # Don't actually create the task, just track it
             created_tasks.append(kwargs.get("name", "unknown"))
-            # Cancel the coroutine to prevent warnings
-            coro.close()
+            assert callable(task_factory)
             return MagicMock()
 
         with patch(
