@@ -95,6 +95,7 @@ async def test_process_next_blocks_on_reconciler_conflicts(tmp_path: Path) -> No
     assert outcome.action == "blocked"
     assert outcome.queue_status == "blocked"
     assert outcome.queue_item_id == queued["item"]["id"]
+    assert outcome.conflicts == ["aragora/x.py"]
     branch_coordinator.safe_merge.assert_not_called()
     assert store.list_merge_queue()[0]["status"] == "blocked"
 

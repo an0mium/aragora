@@ -182,7 +182,7 @@ class FleetIntegrationWorker:
                 queue_status=str(updated.get("status", "blocked")),
                 action="blocked",
                 dry_run_success=False,
-                conflicts=[detail["file_path"] for detail in conflict_details],
+                conflicts=[info.file_path for info in conflict_infos],
                 conflict_details=conflict_details,
                 error="merge conflicts detected",
                 metadata=dict(updated.get("metadata") or {}),
