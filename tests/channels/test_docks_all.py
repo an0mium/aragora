@@ -867,6 +867,27 @@ class TestTelegramDock:
             result = await dock.send_message("12345", msg)
             assert result.success is True
 
+    @pytest.mark.asyncio
+    async def test_send_voice_message_normalizes_reply_id(self):
+        """Test voice reply IDs are serialized for multipart form data."""
+        dock = self._make_dock({"token": "123456:ABC"})
+        await dock.initialize()
+
+        msg = _make_message(content="Voice caption")
+        msg.with_attachment("audio", data=b"voice-audio-data")
+
+        mock_resp = _make_httpx_response(200, {"ok": True, "result": {"message_id": 55}})
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await dock.send_message("12345", msg, reply_to_message_id=999)
+
+        assert result.success is True
+        assert mock_client.post.await_args.kwargs["data"]["reply_to_message_id"] == "999"
+
     def test_repr(self):
         """Test string representation."""
         dock = self._make_dock()

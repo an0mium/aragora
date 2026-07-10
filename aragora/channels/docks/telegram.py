@@ -163,10 +163,9 @@ class TelegramDock(ChannelDock):
                 if message.content:
                     data["caption"] = message.content[:1024]
 
-                if message.reply_to or kwargs.get("reply_to_message_id"):
-                    data["reply_to_message_id"] = message.reply_to or kwargs.get(
-                        "reply_to_message_id"
-                    )
+                reply_to_message_id = message.reply_to or kwargs.get("reply_to_message_id")
+                if reply_to_message_id:
+                    data["reply_to_message_id"] = str(reply_to_message_id)
 
                 response = await client.post(url, data=data, files=files, timeout=60.0)
 
