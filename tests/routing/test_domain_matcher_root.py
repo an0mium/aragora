@@ -4,9 +4,8 @@ Tests for the domain_matcher module.
 Tests domain detection via keywords and caching behavior.
 """
 
-import sys
 import time
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -27,12 +26,6 @@ except ModuleNotFoundError:
         def __init__(self, *, type: str, text: str) -> None:
             self.type = type
             self.text = text
-
-    _anthropic_module = sys.modules.setdefault("anthropic", ModuleType("anthropic"))
-    _anthropic_types_module = ModuleType("anthropic.types")
-    _anthropic_types_module.TextBlock = TextBlock
-    _anthropic_module.types = _anthropic_types_module
-    sys.modules.setdefault("anthropic.types", _anthropic_types_module)
 
 
 def text_block(text: str) -> SimpleNamespace:
@@ -358,6 +351,21 @@ class TestDomainDetectorLLM:
         mock_response.content = [
             MagicMock(text='{"domains": [{"name": "invalid_domain", "confidence": 0.9}]}')
         ]
+        mock_client.messages.create.return_value = mock_response
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test_key"}):
+            detector = DomainDetector(use_llm=True, client=mock_client, use_cache=False)
+            result = detector.detect("Fix SQL injection vulnerability authentication")
+
+        # Should fall back to keywords
+        domains = [d for d, _ in result]
+        assert "security" in domains
+
+    def test_llm_detection_empty_response_fallback(self):
+        """Test that empty LLM responses fall back to keywords."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = []
         mock_client.messages.create.return_value = mock_response
 
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test_key"}):
