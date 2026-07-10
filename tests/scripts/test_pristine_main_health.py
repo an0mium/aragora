@@ -24,6 +24,7 @@ def mod():
 
 def _install_fake_worktree(mod, monkeypatch, sha="deadbeef" * 5):
     monkeypatch.setattr(mod, "refresh_pristine_worktree", lambda repo, pristine: sha)
+    monkeypatch.setattr(mod, "_check_required_toolchain", lambda pristine: None)
     return sha
 
 
@@ -36,6 +37,27 @@ class _Proc:
 
 def _is_runtime_probe(cmd: list[str]) -> bool:
     return cmd == [sys.executable, "-c", "import pytest"]
+
+
+def _write_required_pyproject(pristine: Path, specifier: str = ">=2.1.0,<3.0") -> None:
+    pristine.mkdir(parents=True, exist_ok=True)
+    (pristine / "pyproject.toml").write_text(
+        f"""[project.optional-dependencies]
+dev = [
+    "mypy{specifier}",
+    "mypy-baseline>=0.7.4,<0.8",
+]
+""",
+        encoding="utf-8",
+    )
+
+
+def _write_fake_mypy(bin_dir: Path, version: str) -> Path:
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    executable = bin_dir / "mypy"
+    executable.write_text(f"#!/bin/sh\necho 'mypy {version} (compiled: yes)'\n", encoding="utf-8")
+    executable.chmod(0o755)
+    return executable
 
 
 def test_existing_pristine_without_owner_marker_refuses_destructive_refresh(
@@ -240,6 +262,95 @@ def test_missing_pytest_records_infra_error_without_touching_halt(
     assert record.data["failures"] == []
     assert "probe stdout" in record.data["infra_errors"][0]
     assert "No module named pytest" in record.data["infra_errors"][0]
+
+
+def test_below_floor_path_mypy_is_infra_error_without_touching_halt(
+    mod, monkeypatch, tmp_path, capsys
+):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    pristine = tmp_path / "pristine"
+    _write_required_pyproject(pristine)
+    mypy_path = _write_fake_mypy(tmp_path / "bin", "1.19.1")
+    monkeypatch.setenv("PATH", str(mypy_path.parent))
+    monkeypatch.setattr(mod, "_check_test_runtime", lambda repo: None)
+    monkeypatch.setattr(mod, "refresh_pristine_worktree", lambda repo, pristine: "deadbeef" * 5)
+
+    halt = tmp_path / "halt.json"
+    original_halt = b'{"reason": "existing-main-red"}\n'
+    halt.write_bytes(original_halt)
+
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(repo),
+            "--pristine-dir",
+            str(pristine),
+            "--halt-file",
+            str(halt),
+            "--suite",
+            "required",
+        ]
+    )
+
+    assert rc == mod.INFRA_ERROR_EXIT
+    assert halt.read_bytes() == original_halt
+    stderr = capsys.readouterr().err
+    assert "INFRA_ERROR" in stderr
+    assert "found 1.19.1" in stderr
+    assert "required mypy>=2.1.0,<3.0" in stderr
+    assert str(mypy_path) in stderr
+
+    from aragora.nomic.throughput import ThroughputLedger
+
+    (record,) = ThroughputLedger(repo).records()
+    assert record.data["status"] == "infra_error"
+    assert "found 1.19.1" in record.data["infra_errors"][0]
+
+
+def test_missing_path_mypy_is_infra_error_without_touching_halt(mod, monkeypatch, tmp_path, capsys):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    pristine = tmp_path / "pristine"
+    _write_required_pyproject(pristine)
+    empty_bin = tmp_path / "bin"
+    empty_bin.mkdir()
+    monkeypatch.setenv("PATH", str(empty_bin))
+    monkeypatch.setattr(mod, "_check_test_runtime", lambda repo: None)
+    monkeypatch.setattr(mod, "refresh_pristine_worktree", lambda repo, pristine: "deadbeef" * 5)
+
+    halt = tmp_path / "halt.json"
+    original_halt = b'{"reason": "existing-main-red"}\n'
+    halt.write_bytes(original_halt)
+
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(repo),
+            "--pristine-dir",
+            str(pristine),
+            "--halt-file",
+            str(halt),
+            "--suite",
+            "required",
+        ]
+    )
+
+    assert rc == mod.INFRA_ERROR_EXIT
+    assert halt.read_bytes() == original_halt
+    stderr = capsys.readouterr().err
+    assert "INFRA_ERROR" in stderr
+    assert "required-suite mypy missing from PATH" in stderr
+    assert "required mypy>=2.1.0,<3.0" in stderr
+
+
+def test_path_mypy_satisfying_declared_floor_has_no_toolchain_error(mod, monkeypatch, tmp_path):
+    pristine = tmp_path / "pristine"
+    _write_required_pyproject(pristine)
+    mypy_path = _write_fake_mypy(tmp_path / "bin", "2.2.0")
+    monkeypatch.setenv("PATH", str(mypy_path.parent))
+
+    assert mod._check_required_toolchain(pristine) is None
 
 
 def test_suite_launch_error_is_infra_error_and_never_writes_halt(

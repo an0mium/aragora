@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -113,6 +115,67 @@ def _check_test_runtime(repo: Path) -> str | None:
         return f"runtime launch failed: {' '.join(cmd)}\n{type(exc).__name__}: {exc}"
     if proc.returncode != 0:
         return _format_process_failure(cmd, proc)
+    return None
+
+
+def _version_tuple(value: str) -> tuple[int, int, int]:
+    parts = [int(part) for part in value.split(".")]
+    padded = (parts + [0, 0])[:3]
+    return padded[0], padded[1], padded[2]
+
+
+def _required_mypy_requirement(pristine: Path) -> tuple[str, tuple[int, int, int]]:
+    """Read the declared mypy spec and floor from the dev dependency group."""
+    pyproject = pristine / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+    dev_match = re.search(r"(?ms)^\s*dev\s*=\s*\[(?P<body>.*?)^\s*\]", text)
+    if dev_match is None:
+        raise ValueError(f"dev dependency group missing from {pyproject}")
+
+    dependency_match = re.search(
+        r"(?m)^\s*[\"']mypy(?P<specifier>\s*[<>=!~][^\"']*)[\"']\s*,?\s*(?:#.*)?$",
+        dev_match.group("body"),
+    )
+    if dependency_match is None:
+        raise ValueError(f"mypy dependency missing from {pyproject}")
+
+    specifier = dependency_match.group("specifier").strip()
+    floor_match = re.search(r"(?:^|,)\s*>=\s*(?P<floor>\d+(?:\.\d+){1,2})(?:\s*,|$)", specifier)
+    if floor_match is None:
+        raise ValueError(f"mypy dependency has no >= floor in {pyproject}: {specifier}")
+    return specifier, _version_tuple(floor_match.group("floor"))
+
+
+def _check_required_toolchain(pristine: Path) -> str | None:
+    """Return bounded evidence when PATH mypy cannot satisfy the declared floor."""
+    specifier, floor = _required_mypy_requirement(pristine)
+    mypy_path = shutil.which("mypy")
+    if mypy_path is None:
+        return f"required-suite mypy missing from PATH; required mypy{specifier}"
+
+    cmd = [mypy_path, "--version"]
+    try:
+        proc = _run(cmd, cwd=pristine, timeout=60)
+    except subprocess.TimeoutExpired as exc:
+        evidence = _format_stream_evidence(stdout=exc.stdout, stderr=exc.stderr)
+        return f"TIMEOUT after 60s: {' '.join(cmd)}\n{evidence}"
+    except OSError as exc:
+        return f"toolchain launch failed: {' '.join(cmd)}\n{type(exc).__name__}: {exc}"
+    if proc.returncode != 0:
+        return _format_process_failure(cmd, proc)
+
+    output = f"{_stream_text(proc.stdout)}\n{_stream_text(proc.stderr)}"
+    version_match = re.search(r"\bmypy\s+(?P<version>\d+(?:\.\d+){1,2})\b", output, re.IGNORECASE)
+    if version_match is None:
+        evidence = _format_stream_evidence(stdout=proc.stdout, stderr=proc.stderr)
+        return f"could not parse PATH mypy version at {mypy_path}; required mypy{specifier}\n{evidence}"
+
+    found_text = version_match.group("version")
+    if _version_tuple(found_text) < floor:
+        return (
+            f"PATH mypy below required floor: found {found_text} at {mypy_path}; "
+            f"required mypy{specifier} from {pristine / 'pyproject.toml'}"
+        )
     return None
 
 
@@ -287,7 +350,17 @@ def main(argv: list[str] | None = None) -> int:
 
     failures: list[str] = []
     infra_errors: list[str] = []
-    for cmd in SUITES[args.suite]:
+    if args.suite == "required":
+        try:
+            toolchain_error = _check_required_toolchain(args.pristine_dir)
+        except (OSError, UnicodeError, ValueError) as exc:
+            failures.append(f"required-suite toolchain contract invalid: {exc}")
+        else:
+            if toolchain_error:
+                infra_errors.append(toolchain_error)
+
+    commands = [] if failures or infra_errors else SUITES[args.suite]
+    for cmd in commands:
         print(f"running: {' '.join(cmd)}")
         try:
             proc = _run(cmd, cwd=args.pristine_dir, timeout=args.timeout_minutes * 60)
