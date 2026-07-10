@@ -269,7 +269,7 @@ const DOC_MAP = {
   'BILLING_UNITS.md': 'enterprise/billing-units.md',
   'SSO_SETUP.md': 'enterprise/sso.md',
   'STRIPE_SETUP.md': 'enterprise/stripe-setup.md',
-  'SLA.md': 'enterprise/sla.md',
+  'enterprise/SLA.md': 'enterprise/sla.md',
 
   // =========================================================================
   // Security & Compliance
@@ -455,16 +455,7 @@ const DOC_MAP = {
   'reference/INSTALL_MATRIX.md': 'reference/install-matrix.md',
   'reference/PRICING_TIERS.md': 'reference/pricing-tiers.md',
   'reference/ROOT_ALLOWLIST.md': 'reference/root-allowlist.md',
-  // reference/SLA.md deliberately has NO entry here. A bare 'SLA.md' key
-  // already exists above (-> enterprise/sla.md) and its basename fallback is
-  // ambiguous between docs/enterprise/SLA.md and docs/reference/SLA.md
-  // (currently resolving to the latter). Adding an explicit reference/SLA.md
-  // entry would give 'SLA.md' two DOC_MAP entries sharing that basename,
-  // which disqualifies it from BASENAME_LOOKUP entirely (see the ambiguity
-  // comment above REVERSE_LOOKUP/BASENAME_LOOKUP) and breaks every other
-  // bare "SLA.md" link that currently resolves through that fallback (e.g.
-  // operations/incident-communication.md). Leaving this file without its own
-  // entry keeps the existing (if imprecise) behavior working.
+  'reference/SLA.md': 'reference/sla.md',
   'reference/TYPE_CHECKING.md': 'reference/type-checking.md',
 
   // =========================================================================
@@ -1067,7 +1058,7 @@ function syncDocs() {
     {
       path: 'reference',
       title: 'Reference',
-      desc: 'Technical reference material: configuration, environment variables, error codes, and other detailed references',
+      desc: 'Technical reference material covering configuration, environment variables, error codes, and other detailed references',
     },
   ];
 

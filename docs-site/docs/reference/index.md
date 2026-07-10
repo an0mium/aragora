@@ -1,12 +1,12 @@
 ---
 title: Reference
-description: Technical reference material: configuration, environment variables, error codes, and other detailed references
+description: Technical reference material covering configuration, environment variables, error codes, and other detailed references
 sidebar_position: 1
 ---
 
 # Reference
 
-Technical reference material: configuration, environment variables, error codes, and other detailed references
+Technical reference material covering configuration, environment variables, error codes, and other detailed references
 
 Explore the documentation in this section to learn more.
 
@@ -14,6 +14,7 @@ Explore the documentation in this section to learn more.
 
 - [Aragora Configuration Reference](./configuration)
 - [Aragora Pricing Tiers](./pricing-tiers)
+- [Aragora Service Level Agreement (SLA)](./sla)
 - [Breaking Changes](./breaking-changes)
 - [Canonical Stores](./canonical-stores)
 - [Complete Environment Variable Reference](./environment-complete)

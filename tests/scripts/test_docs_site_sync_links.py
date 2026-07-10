@@ -543,9 +543,8 @@ def test_architecture_charter_links_resolve_to_absolute_repo_urls() -> None:
 
 # docs/reference/*.md files that are already mirrored into the docs-site
 # through a pre-existing DOC_MAP entry whose destination is not under
-# `reference/` -- either resolveSourcePath()'s basename fallback (all but
-# CLI_REFERENCE.md below) or an explicit non-reference/-prefixed key
-# (CLI_REFERENCE.md, under API Reference). Left as-is rather than duplicated
+# `reference/` through an unambiguous basename fallback or an explicit
+# non-reference/-prefixed key (CLI_REFERENCE.md, under API Reference). Left as-is rather than duplicated
 # under `reference/` to avoid publishing the same content at two docs-site
 # URLs. test_docs_reference_directory_is_mirrored treats these as
 # already-covered and separately asserts their claimed destination still
@@ -566,13 +565,6 @@ DOCS_REFERENCE_PRE_EXISTING_MIRROR: dict[str, str] = {
     "ENVIRONMENT.md": "getting-started/environment.md",
     "HANDLERS.md": "contributing/handlers.md",
     "LIBRARY_USAGE.md": "guides/library-usage.md",
-    # SLA.md's basename fallback is ambiguous with docs/enterprise/SLA.md
-    # (both are named SLA.md); it currently wins the fallback, but giving
-    # reference/SLA.md its own DOC_MAP entry would make the "SLA.md" basename
-    # ambiguous and disable the fallback entirely, breaking every other bare
-    # "SLA.md" link (e.g. operations/incident-communication.md). See the
-    # comment above the Reference section of DOC_MAP in sync-docs.js.
-    "SLA.md": "enterprise/sla.md",
 }
 
 # docs/reference/*.md files that are deliberately excluded from the
@@ -659,6 +651,28 @@ def test_docs_reference_directory_is_mirrored() -> None:
         )
 
     assert (DOCS_SITE_ROOT / "reference" / "index.md").exists()
+
+
+def test_sla_sources_are_mirrored_from_explicit_paths() -> None:
+    sync_script = SYNC_SCRIPT.read_text(encoding="utf-8")
+    assert re.search(
+        r"^\s*'enterprise/SLA\.md':\s*'enterprise/sla\.md',\s*$",
+        sync_script,
+        re.MULTILINE,
+    )
+    assert re.search(
+        r"^\s*'reference/SLA\.md':\s*'reference/sla\.md',\s*$",
+        sync_script,
+        re.MULTILINE,
+    )
+    assert not re.search(r"^\s*'SLA\.md':", sync_script, re.MULTILINE)
+
+    enterprise_sla = _read_docs_site("enterprise/sla.md")
+    reference_sla = _read_docs_site("reference/sla.md")
+    assert "**Effective Date:** January 2026" in enterprise_sla
+    assert "**Effective Date:** January 2026" not in reference_sla
+    assert "support terms for Aragora platform services" in reference_sla
+    assert "support terms for Aragora platform services" not in enterprise_sla
 
 
 def test_docs_reference_pages_have_no_dead_relative_md_links() -> None:
