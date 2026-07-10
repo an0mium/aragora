@@ -8,7 +8,7 @@ and their associated async execution flows.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ...base import HandlerResult, json_response
 from ..chat_events import (
@@ -41,6 +41,13 @@ def _tg():
 
 class TelegramCommandsMixin:
     """Mixin providing command handling for the Telegram bot."""
+
+    if TYPE_CHECKING:
+        # Supplied by sibling mixins in TelegramHandler's runtime composition.
+        _check_telegram_user_permission: Any
+        _deny_telegram_permission: Any
+        _send_message_async: Any
+        _send_voice_summary: Any
 
     def _handle_command(
         self,
@@ -445,7 +452,7 @@ class TelegramCommandsMixin:
                     )
 
                     if resolution.binding_type == BindingType.SPECIFIC_AGENT:
-                        agent_names = [resolution.agent_binding]
+                        agent_names = [resolution.binding.agent_binding]
                     elif resolution.binding_type == BindingType.AGENT_POOL:
                         pool_name = resolution.agent_binding
                         if pool_name == "full-team":
