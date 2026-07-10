@@ -93,6 +93,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
     "xai": {
         "grok-4.5": Decimal("2.00"),
         "grok-4.5-output": Decimal("6.00"),
+        "grok-4.3": Decimal("1.25"),
+        "grok-4.3-output": Decimal("2.50"),
         "grok-4": Decimal("3.00"),
         "grok-4-output": Decimal("15.00"),
     },
@@ -107,6 +109,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "openai/gpt-5.5-output": Decimal("10.00"),
         "x-ai/grok-4.5": Decimal("2.00"),
         "x-ai/grok-4.5-output": Decimal("6.00"),
+        "x-ai/grok-4.3": Decimal("1.25"),
+        "x-ai/grok-4.3-output": Decimal("2.50"),
         "google/gemini-3.5-flash": Decimal("1.50"),
         "google/gemini-3.5-flash-output": Decimal("9.00"),
         "anthropic/claude-opus-4-8": Decimal("5.00"),

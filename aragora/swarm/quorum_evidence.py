@@ -1389,7 +1389,10 @@ def _run_grok_reviewer(prompt: str) -> ReviewerResult:
         )
         if result.ok or not _env_key_present("XAI_API_KEY", "GROK_API_KEY"):
             return result
-    return _run_api_agent("grok", prompt)
+    # Soak holdout (matches the OpenRouter fallback pin below): the API path
+    # would otherwise use the day-2 grok-4.5 agent default for merge-authority
+    # evidence; pin the evaluated grok-4.3 until the 14-day soak passes.
+    return _run_api_agent("grok", prompt, model="grok-4.3")
 
 
 def _run_gemini_reviewer(prompt: str) -> ReviewerResult:

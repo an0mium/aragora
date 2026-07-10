@@ -60,6 +60,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     },
     "xai": {
         "grok-4.5": (Decimal("2.00"), Decimal("6.00")),
+        "grok-4.3": (Decimal("1.25"), Decimal("2.50")),
         "grok-4": (Decimal("3.00"), Decimal("15.00")),
         "grok-3": (Decimal("3.00"), Decimal("15.00")),
         "grok-2": (Decimal("2.00"), Decimal("10.00")),

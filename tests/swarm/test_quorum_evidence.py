@@ -3168,9 +3168,18 @@ def test_grok_build_bin_override(monkeypatch) -> None:
 
 def test_grok_reviewer_falls_back_to_api_without_cli(monkeypatch) -> None:
     _force_grok_bin(monkeypatch, False)
-    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: qe.ReviewerResult(f, "api", True))
+    seen: dict = {}
+
+    def fake_api(f, p, model=None):
+        seen["model"] = model
+        return qe.ReviewerResult(f, "api", True)
+
+    monkeypatch.setattr(qe, "_run_api_agent", fake_api)
     res = qe._run_grok_reviewer("x")
     assert res.family == "grok" and res.text == "api"
+    # Soak holdout: the API path must pin the evaluated slug, not the
+    # day-2 grok-4.5 agent default.
+    assert seen["model"] == "grok-4.3"
 
 
 def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeypatch) -> None:
@@ -3181,7 +3190,9 @@ def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeyp
         "_run_argv_cli_reviewer",
         lambda *a, **k: qe.ReviewerResult("grok", "", False, "grok CLI exit 1: capped"),
     )
-    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: qe.ReviewerResult(f, "api", True))
+    monkeypatch.setattr(
+        qe, "_run_api_agent", lambda f, p, model=None: qe.ReviewerResult(f, "api", True)
+    )
     res = qe._run_grok_reviewer("x")
     assert res.text == "api"  # wedged CLI + key present -> API fallback, quorum not blocked
 

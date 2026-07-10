@@ -209,6 +209,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # model id — it is retained only as a legacy alias for callers that
     # still reference the old default.
     "grok-4.5": (2.00, 6.00),
+    "grok-4.3": (1.25, 2.50),
     "grok-4.20-0309-reasoning": (2.00, 6.00),
     "grok-4.20-0309-non-reasoning": (2.00, 6.00),
     "grok-4.20-multi-agent-0309": (2.00, 6.00),
