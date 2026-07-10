@@ -22,6 +22,7 @@ ARCHIVE_REFERENCE_WHITELIST = {
     "docs/OMNIVOROUS_ROADMAP.md": "redirect stub to the archived roadmap snapshot",
     "docs/STRATEGY_INDEX.md": "canonical map from retired docs to live replacements",
     "docs/archive/README.md": "archive policy and inventory",
+    "docs/reference/ROOT_ALLOWLIST.md": "root-clutter inventory documents archived former-root files",
 }
 # Files/patterns where metric numbers are intentionally historical, local-suite scoped,
 # generated from live measurements, or not repo-wide canonical marketing/product claims.
