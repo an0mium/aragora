@@ -1,0 +1,7173 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-10T04:11:00.268855+00:00",
+  "source": {
+    "origin_main_sha": "3fe2e5cf561fc094221008d064040ac84625bd4e",
+    "worktree": "fresh worktree with isolated caches",
+    "command": [
+      "python",
+      "-m",
+      "mypy",
+      "aragora/",
+      "--ignore-missing-imports",
+      "--show-error-codes",
+      "--no-color-output",
+      "--no-pretty",
+      "--no-error-summary"
+    ],
+    "environment_status": "PROVISIONAL_PENDING_#9096",
+    "python": "3.12.12",
+    "packages": {
+      "mypy": "2.2.0",
+      "mypy-baseline": "0.7.4",
+      "PyJWT": "2.13.0",
+      "types-jsonschema": "4.26.0.20260518",
+      "types-python-dateutil": "2.9.0.20260518",
+      "types-PyYAML": "6.0.12.20260518",
+      "types-redis": "4.6.0.20241004",
+      "types-requests": "2.33.0.20260518",
+      "types-setuptools": "83.0.0.20260706"
+    },
+    "error_identity_sha256": "a74630d72378df4854a1bc596b5072feb267eb8e11f9c437b4f7cafa39853609"
+  },
+  "environment_comparison": {
+    "without_pyjwt": {
+      "error_count": 2636,
+      "file_count": 649,
+      "error_identity_sha256": "51121b5090677397c0210fd63ca0aaa906b3cc0b994bb179832f2ebe112eed00"
+    },
+    "with_pyjwt_2_13_0": {
+      "error_count": 2634,
+      "file_count": 649,
+      "error_identity_sha256": "a74630d72378df4854a1bc596b5072feb267eb8e11f9c437b4f7cafa39853609"
+    },
+    "net_error_delta": -2,
+    "removed_error_count": 3,
+    "added_error_count": 1,
+    "removed_errors": [
+      "aragora/connectors/chat/jwt_verify.py:42: error: Name \"jwt\" already defined on line 35  [no-redef]",
+      "aragora/connectors/chat/jwt_verify.py:43: error: Name \"PyJWKClient\" already defined on line 36  [no-redef]",
+      "aragora/connectors/chat/jwt_verify.py:44: error: Name \"PyJWTError\" already defined on line 37  [no-redef]"
+    ],
+    "added_errors": [
+      "aragora/connectors/devices/push.py:462: error: Argument 2 has incompatible type \"str | None\"; expected \"RSAPrivateKey | EllipticCurvePrivateKey | Ed25519PrivateKey | Ed448PrivateKey | PyJWK | str | bytes\"  [arg-type]"
+    ],
+    "tracking_issue": "#9096"
+  },
+  "summary": {
+    "error_count": 2634,
+    "file_count": 649,
+    "partition_count": 72,
+    "claimed_error_count": 85,
+    "claimed_file_count": 5,
+    "unclaimed_error_count": 2549,
+    "unclaimed_file_count": 644
+  },
+  "claims": [
+    {
+      "pr": "#9083",
+      "head_sha": "09cd7dfc1e0575c13732ea6b17fd9dfa038e0878",
+      "source_files": [
+        "aragora/cli/audit.py",
+        "aragora/cli/batch.py",
+        "aragora/server/handlers/workspace_module.py",
+        "aragora/server/stream/servers_ws_handler.py"
+      ],
+      "support_files": [
+        "tests/cli/test_audit.py",
+        "tests/cli/test_batch.py",
+        "tests/server/handlers/test_workspace_module.py"
+      ]
+    },
+    {
+      "pr": "#9088",
+      "head_sha": "8104566b718b15b9663feb2816eb0096c88a19a4",
+      "source_files": [
+        "aragora/server/handlers/social/notifications.py"
+      ],
+      "support_files": [
+        "tests/server/handlers/social/test_notifications_handler.py"
+      ]
+    }
+  ],
+  "partitions": [
+    {
+      "module": "aragora/server",
+      "error_count": 1299,
+      "file_count": 268,
+      "claimed_error_count": 83,
+      "unclaimed_error_count": 1216,
+      "error_codes": {
+        "arg-type": 466,
+        "assignment": 75,
+        "attr-defined": 100,
+        "call-arg": 5,
+        "dict-item": 13,
+        "empty-body": 1,
+        "index": 31,
+        "list-item": 2,
+        "misc": 42,
+        "no-redef": 3,
+        "operator": 15,
+        "override": 14,
+        "return-value": 39,
+        "union-attr": 483,
+        "valid-type": 2,
+        "var-annotated": 8
+      },
+      "files": [
+        {
+          "path": "aragora/server/auth_checks.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "valid-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/commands/handlers.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/commands/models.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/server/config_validator.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/server/debate_factory.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/debate_origin/router.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/debate_utils.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "override": 2
+          }
+        },
+        {
+          "path": "aragora/server/extensions.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/factory.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/agents.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/backups.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/compliance.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/costs.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/debates.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/dr.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/gauntlet.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/knowledge.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/memory.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/receipts.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "no-redef": 1,
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/security.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/fastapi/routes/workflows.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4
+          }
+        },
+        {
+          "path": "aragora/server/fork_handler.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 4
+          }
+        },
+        {
+          "path": "aragora/server/graphql/dataloaders.py",
+          "error_count": 13,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "union-attr": 11,
+            "var-annotated": 1
+          }
+        },
+        {
+          "path": "aragora/server/graphql/resolvers_tasks.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/_analytics_metrics_debates.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/_oauth/account.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/_oauth/apple.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/a2a.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/billing.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/cache.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/credits.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/handler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/health/agent_health.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/health/diagnostics.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/metrics_dashboard.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/nomic_admin.py",
+          "error_count": 13,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 13
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/system.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/admin/users.py",
+          "error_count": 27,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4,
+            "union-attr": 23
+          }
+        },
+        {
+          "path": "aragora/server/handlers/agents/agent_profiles.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/agents/agent_rankings.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "dict-item": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/agents/agents.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/agents/config.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/agents/feedback.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/agents/leaderboard.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/agents/probes.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "misc": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/agents/recommendations.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/agents/relationships.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/analytics_dashboard/_shared.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/analytics_performance.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/audit_export.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 4,
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/auditing.py",
+          "error_count": 22,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4,
+            "index": 12,
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/auth/api_keys.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/auth/handler.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4,
+            "assignment": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/auth/login.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/auth/mfa.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/auth/password.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/auth/sessions.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/auth/sso_handlers.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/autonomous/alerts.py",
+          "error_count": 12,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "union-attr": 10
+          }
+        },
+        {
+          "path": "aragora/server/handlers/autonomous/approvals.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "union-attr": 3,
+            "var-annotated": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/autonomous/improve.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/autonomous/learning.py",
+          "error_count": 13,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 12
+          }
+        },
+        {
+          "path": "aragora/server/handlers/autonomous/monitoring.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 6,
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/autonomous/triggers.py",
+          "error_count": 11,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4,
+            "union-attr": 7
+          }
+        },
+        {
+          "path": "aragora/server/handlers/autonomous_learning.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/backup_handler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/billing/core.py",
+          "error_count": 12,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 11
+          }
+        },
+        {
+          "path": "aragora/server/handlers/billing/core_reporting.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "union-attr": 5
+          }
+        },
+        {
+          "path": "aragora/server/handlers/billing/core_webhooks.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/bindings.py",
+          "error_count": 24,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 9,
+            "operator": 2,
+            "union-attr": 13
+          }
+        },
+        {
+          "path": "aragora/server/handlers/bots/google_chat.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4,
+            "assignment": 1,
+            "misc": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/bots/slack/commands.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2,
+            "dict-item": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/bots/slack/events.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2,
+            "dict-item": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/bots/teams_cards.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "dict-item": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/bots/teams_utils.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 2,
+            "misc": 5
+          }
+        },
+        {
+          "path": "aragora/server/handlers/bots/telegram.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/budgets.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/chat/router.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/cloud_storage.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "dict-item": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/codebase/quick_scan.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/codebase/security/handler.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/compliance/hipaa.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/composite.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/computer_use_handler.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "misc": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/connectors/legacy.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/control_plane/__init__.py",
+          "error_count": 9,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 7,
+            "override": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/control_plane/agents.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/control_plane/health.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 5
+          }
+        },
+        {
+          "path": "aragora/server/handlers/control_plane/tasks.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/coordination.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "override": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/costs/handler.py",
+          "error_count": 30,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4,
+            "union-attr": 26
+          }
+        },
+        {
+          "path": "aragora/server/handlers/critique.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debate_intervention.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/batch.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/checkpoints.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/crud.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "union-attr": 7
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/decision_package.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/evidence.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/export.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/fork.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/graph_debates.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/handler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/intervention.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 7
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/interventions.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/matrix_debates.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/debates/search.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/decision.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/decisions/explain.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/dependency_analysis.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/devices.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/differentiation.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/dr_handler.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/email/config.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/email/handler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/email_debate.py",
+          "error_count": 26,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 3,
+            "union-attr": 23
+          }
+        },
+        {
+          "path": "aragora/server/handlers/evolution/ab_testing.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/evolution/handler.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/examples/typed_example.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/expenses.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/explainability.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 7,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/external_agents.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/external_integrations.py",
+          "error_count": 30,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 13,
+            "return-value": 17
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/audio.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/audit_sessions.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/broadcast.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/cloud_storage.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "dict-item": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/connectors.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "misc": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/control_plane.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/devops/__init__.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/devops/handler.py",
+          "error_count": 15,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 15
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/documents.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/email_webhooks.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 5
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/evidence.py",
+          "error_count": 9,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 9
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/folder_upload.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1,
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/gmail_ingest.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 10
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/integrations.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/marketplace/handler.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/plugins.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/provenance.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/pulse.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/support.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/features/unified_inbox/triage.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/feedback.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/gauntlet/handler.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 8
+          }
+        },
+        {
+          "path": "aragora/server/handlers/gauntlet/receipts.py",
+          "error_count": 17,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 15,
+            "var-annotated": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/gauntlet/runner.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/gauntlet_v1.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/genesis.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/github/audit_bridge.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/github/pr_review.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1,
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/harnesses.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/inbox/trust_wedge_handler.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "call-arg": 1,
+            "misc": 1,
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/inbox_command.py",
+          "error_count": 13,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 13
+          }
+        },
+        {
+          "path": "aragora/server/handlers/introspection.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/knowledge/checkpoints.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/knowledge_base/mound/global_knowledge.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/knowledge_base/mound/relationships.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/knowledge_base/mound/sharing.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 5
+          }
+        },
+        {
+          "path": "aragora/server/handlers/knowledge_base/mound/staleness.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/knowledge_base/mound/visibility.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/knowledge_base/search.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "misc": 1,
+            "return-value": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/knowledge_chat.py",
+          "error_count": 19,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 19
+          }
+        },
+        {
+          "path": "aragora/server/handlers/marketplace.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/marketplace_browse.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/memory/memory_continuum.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/memory_unified.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/ml.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/nomic.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/notifications/preferences.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/notifications/templates.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/onboarding.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3,
+            "operator": 2,
+            "override": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/openclaw/credentials.py",
+          "error_count": 11,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 8,
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/openclaw/orchestrator.py",
+          "error_count": 9,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 9
+          }
+        },
+        {
+          "path": "aragora/server/handlers/openclaw/runtime.py",
+          "error_count": 12,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 4,
+            "union-attr": 7
+          }
+        },
+        {
+          "path": "aragora/server/handlers/operator_intervention.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/organizations.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/payments/billing.py",
+          "error_count": 18,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 1,
+            "union-attr": 17
+          }
+        },
+        {
+          "path": "aragora/server/handlers/payments/stripe.py",
+          "error_count": 21,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 21
+          }
+        },
+        {
+          "path": "aragora/server/handlers/persona.py",
+          "error_count": 9,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 9
+          }
+        },
+        {
+          "path": "aragora/server/handlers/pipeline/decomposition.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 5,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/pipeline/plans.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/pipeline/provenance_explorer.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/pipeline/receipts.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "assignment": 1,
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/pipeline/transitions.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/pipeline/universal_graph.py",
+          "error_count": 11,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 11
+          }
+        },
+        {
+          "path": "aragora/server/handlers/pipeline_graph.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/playground.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1,
+            "call-arg": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/policy.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 7
+          }
+        },
+        {
+          "path": "aragora/server/handlers/prompt_engine/handler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "override": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/queue.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/receipts.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/runs.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "no-redef": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/sandbox.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/secure.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/security_debate.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/shared_inbox/handler.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "override": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/shared_inbox/inbox_handlers.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/shared_inbox/rule_handlers.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/shared_inbox/validators.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/skill_marketplace.py",
+          "error_count": 19,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 19
+          }
+        },
+        {
+          "path": "aragora/server/handlers/skills.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/sme/receipt_delivery.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/sme/slack_workspace.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/sme/teams_workspace.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/sme_success_dashboard.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/sme_usage_dashboard.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "return-value": 1,
+            "union-attr": 7
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/_slack_impl/commands.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/collaboration.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/notifications.py",
+          "error_count": 65,
+          "status": "CLAIMED",
+          "claim": "#9088",
+          "error_codes": {
+            "arg-type": 6,
+            "union-attr": 59
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/relationship.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "index": 1,
+            "misc": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/sharing.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/social_media.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/teams.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/telegram/_common.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1,
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/telegram/callbacks.py",
+          "error_count": 20,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "attr-defined": 18
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/telegram/commands.py",
+          "error_count": 41,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 40,
+            "list-item": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/telegram/webhooks.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/whatsapp/commands.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "list-item": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/social/whatsapp/handler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/spend_analytics.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/system_health.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "operator": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/system_intelligence.py",
+          "error_count": 9,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/server/handlers/template_marketplace.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "operator": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/threat_intel.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "empty-body": 1,
+            "union-attr": 9
+          }
+        },
+        {
+          "path": "aragora/server/handlers/transcription.py",
+          "error_count": 12,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 7,
+            "union-attr": 5
+          }
+        },
+        {
+          "path": "aragora/server/handlers/uncertainty.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "call-arg": 2,
+            "misc": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/utils/auth.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/utils/tenant_validation.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "var-annotated": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/verification/verification.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "misc": 3
+          }
+        },
+        {
+          "path": "aragora/server/handlers/verticals.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 9,
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/workflow_templates.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/workflows/__init__.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 4
+          }
+        },
+        {
+          "path": "aragora/server/handlers/workflows/builder.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 5
+          }
+        },
+        {
+          "path": "aragora/server/handlers/workflows/handler.py",
+          "error_count": 9,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 7,
+            "override": 1,
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/workflows/registry.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 5
+          }
+        },
+        {
+          "path": "aragora/server/handlers/workflows/templates.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 2
+          }
+        },
+        {
+          "path": "aragora/server/handlers/workspace/crud.py",
+          "error_count": 22,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 22
+          }
+        },
+        {
+          "path": "aragora/server/handlers/workspace/invites.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/handlers/workspace_module.py",
+          "error_count": 17,
+          "status": "CLAIMED",
+          "claim": "#9083",
+          "error_codes": {
+            "arg-type": 17
+          }
+        },
+        {
+          "path": "aragora/server/initialization.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/server/leak_detector.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/server/middleware/csrf.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/middleware/decision_routing.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 4,
+            "call-arg": 1
+          }
+        },
+        {
+          "path": "aragora/server/middleware/impersonation.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/server/middleware/rate_limit/distributed.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 5
+          }
+        },
+        {
+          "path": "aragora/server/middleware/rate_limit/redis_limiter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/middleware/tier_enforcement.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/middleware/user_auth.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/middleware/validation.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "dict-item": 7
+          }
+        },
+        {
+          "path": "aragora/server/oauth_state_store.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/server/persistent_origin_store.py",
+          "error_count": 11,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 5,
+            "assignment": 2,
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/server/question_classifier.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "no-redef": 1
+          }
+        },
+        {
+          "path": "aragora/server/redis_cluster.py",
+          "error_count": 17,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1,
+            "union-attr": 16
+          }
+        },
+        {
+          "path": "aragora/server/redis_state.py",
+          "error_count": 13,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "union-attr": 12
+          }
+        },
+        {
+          "path": "aragora/server/router.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "return-value": 4
+          }
+        },
+        {
+          "path": "aragora/server/startup/background.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/server/startup/security.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/server/stream/control_plane_stream.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/server/stream/debate_stream_server.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/stream/nomic_loop_stream.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/stream/persistent_voice.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/stream/redis_bridge.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/stream/servers_ws_handler.py",
+          "error_count": 1,
+          "status": "CLAIMED",
+          "claim": "#9083",
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/server/stream/voice_stream.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/server/tokens.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/server/unified_server.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "valid-type": 1
+          }
+        },
+        {
+          "path": "aragora/server/validation/security.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/server/webhook_delivery.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/nomic",
+      "error_count": 320,
+      "file_count": 23,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 320,
+      "error_codes": {
+        "arg-type": 10,
+        "assignment": 8,
+        "attr-defined": 22,
+        "call-arg": 3,
+        "call-overload": 14,
+        "misc": 237,
+        "name-defined": 1,
+        "operator": 1,
+        "union-attr": 20,
+        "valid-type": 2,
+        "var-annotated": 2
+      },
+      "files": [
+        {
+          "path": "aragora/nomic/assessment_engine.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/canonical_assessment.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "attr-defined": 2,
+            "var-annotated": 2
+          }
+        },
+        {
+          "path": "aragora/nomic/convoy_coordinator.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/convoy_executor.py",
+          "error_count": 14,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "union-attr": 13
+          }
+        },
+        {
+          "path": "aragora/nomic/convoys.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/dev_coordination/core.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/dev_receipts.py",
+          "error_count": 239,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 11,
+            "misc": 225,
+            "name-defined": 1,
+            "valid-type": 2
+          }
+        },
+        {
+          "path": "aragora/nomic/dev_salvage.py",
+          "error_count": 9,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 8,
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/escalation_store.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/feedback_analyzer.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/goal_proposer.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/handlers.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/integration.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/meta_planner_utils.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/phases/__init__.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/phases/commit.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/nomic/phases/context.py",
+          "error_count": 17,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "call-arg": 3,
+            "call-overload": 14
+          }
+        },
+        {
+          "path": "aragora/nomic/phases/debate.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 3
+          }
+        },
+        {
+          "path": "aragora/nomic/phases/design.py",
+          "error_count": 11,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2,
+            "misc": 8,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/phases/verify.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/nomic/self_improve.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/nomic/stuck_detector.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/nomic/task_decomposer.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/debate",
+      "error_count": 216,
+      "file_count": 54,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 216,
+      "error_codes": {
+        "arg-type": 28,
+        "assignment": 17,
+        "attr-defined": 7,
+        "index": 4,
+        "misc": 21,
+        "operator": 3,
+        "return-value": 15,
+        "type-var": 1,
+        "union-attr": 120
+      },
+      "files": [
+        {
+          "path": "aragora/debate/analytics_selection_bridge.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/debate/arena_initializer.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/debate/arena_phases.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/debate/autonomic_executor.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/checkpoint_ops.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/debate/complexity_governor.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1,
+            "return-value": 1,
+            "type-var": 1
+          }
+        },
+        {
+          "path": "aragora/debate/context/processors.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/debate/context/rankers.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/context/sources.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/context_delegation.py",
+          "error_count": 12,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "union-attr": 10
+          }
+        },
+        {
+          "path": "aragora/debate/context_gatherer/memory.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/debate/context_gatherer/sources.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/convergence/analyzer.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/debate/counterfactual.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 2,
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/debate/debate_hooks.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/debate/debate_state.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/debate/forking.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/debate/hook_handlers.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/debate/hooks/receipt_delivery_hook.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/debate/judge_selector.py",
+          "error_count": 12,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2,
+            "index": 1,
+            "return-value": 9
+          }
+        },
+        {
+          "path": "aragora/debate/lazy_subsystems.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/debate/memory_manager.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/debate/meta.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/orchestrator_init.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 4
+          }
+        },
+        {
+          "path": "aragora/debate/orchestrator_setup.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/debate/outcome_complexity_bridge.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/phases/analytics_phase.py",
+          "error_count": 28,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "union-attr": 26
+          }
+        },
+        {
+          "path": "aragora/debate/phases/batch_utils.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 2
+          }
+        },
+        {
+          "path": "aragora/debate/phases/consensus_phase.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "attr-defined": 1,
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/debate/phases/consensus_storage.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/debate/phases/consensus_verification.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 5
+          }
+        },
+        {
+          "path": "aragora/debate/phases/convergence_tracker.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/debate/phases/critique_generator.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 4
+          }
+        },
+        {
+          "path": "aragora/debate/phases/debate_rounds_helpers.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/phases/feedback_calibration.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/debate/phases/feedback_memory.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/phases/feedback_phase.py",
+          "error_count": 24,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 5,
+            "union-attr": 19
+          }
+        },
+        {
+          "path": "aragora/debate/phases/proposal_phase.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/debate/phases/revision_phase.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 2,
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/debate/phases/sandbox_verifier.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/debate/phases/synthesis_generator.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/debate/phases/synthesis_phase.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/debate/phases/training_emitter.py",
+          "error_count": 18,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 17
+          }
+        },
+        {
+          "path": "aragora/debate/phases/vote_collector.py",
+          "error_count": 9,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "misc": 7,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/phases/vote_processor.py",
+          "error_count": 12,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2,
+            "misc": 5,
+            "union-attr": 5
+          }
+        },
+        {
+          "path": "aragora/debate/phases/voting.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1,
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/debate/recovery_coordinator.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3,
+            "index": 1
+          }
+        },
+        {
+          "path": "aragora/debate/role_matcher.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "return-value": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/settlement_event_listener.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/debate/subsystem_coordinator.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "assignment": 1,
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/debate/traces.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/debate/tracing.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/debate/voting_engine.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/debate/witness.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/connectors",
+      "error_count": 131,
+      "file_count": 48,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 131,
+      "error_codes": {
+        "arg-type": 24,
+        "assignment": 58,
+        "empty-body": 4,
+        "list-item": 6,
+        "misc": 14,
+        "override": 4,
+        "return-value": 3,
+        "union-attr": 18
+      },
+      "files": [
+        {
+          "path": "aragora/connectors/accounting/gusto.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/accounting/plaid.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/accounting/qbo.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "misc": 3
+          }
+        },
+        {
+          "path": "aragora/connectors/advertising/microsoft_ads.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/blockchain/connector.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/connectors/calendar/google_calendar.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/calendar/outlook_calendar.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "list-item": 6,
+            "return-value": 1,
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/base/_channel_user.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/base/_messaging.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 6
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/base/_session.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/google_chat.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "override": 4
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/imessage.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 5
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/registry.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/signal.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 5
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/slack/messages.py",
+          "error_count": 11,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 7,
+            "empty-body": 4
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/slack/queue.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/slack/threads.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/teams/_events.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/telegram/media.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/telegram/messages.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/telegram/webhooks.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/tool_bridge.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/chat/tts_bridge.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/conversation_ingestor.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/devices/push.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/ecommerce/woocommerce/client.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1,
+            "union-attr": 5
+          }
+        },
+        {
+          "path": "aragora/connectors/email/gmail_sync.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/email/outlook_sync.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 3
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/collaboration/slack.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/collaboration/teams.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/communication/outlook.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/crm/salesforce.py",
+          "error_count": 9,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 7,
+            "assignment": 1,
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/documents/gdrive.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/documents/gsheets.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/documents/onedrive.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 4
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/healthcare/ehr/base.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/healthcare/ehr/epic.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/healthcare/fhir.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/itsm/servicenow.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/streaming/idempotency.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/streaming/kafka.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/streaming/rabbitmq.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/enterprise/streaming/snssqs.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/connectors/github.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/knowledge/obsidian_sync.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/knowledge/obsidian_watcher.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/payments/square.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/connectors/recovery.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/knowledge",
+      "error_count": 55,
+      "file_count": 25,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 55,
+      "error_codes": {
+        "arg-type": 7,
+        "assignment": 14,
+        "attr-defined": 1,
+        "call-arg": 3,
+        "index": 1,
+        "misc": 2,
+        "no-redef": 1,
+        "return-value": 1,
+        "union-attr": 24,
+        "unused-coroutine": 1
+      },
+      "files": [
+        {
+          "path": "aragora/knowledge/bridges.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/gap_detector.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/knowledge/integration.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/belief_adapter.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/consensus_adapter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/continuum_adapter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/cost_adapter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/erc8004_adapter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/evidence_adapter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/extraction_adapter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/insights_adapter.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/obsidian_adapter.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "call-arg": 3,
+            "unused-coroutine": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/pulse_adapter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/adapters/supermemory_adapter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/api/crud.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "no-redef": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/culture/accumulator.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/ops/dedup.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/ops/sharing.py",
+          "error_count": 12,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 12
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/retrieval.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/revalidation_scheduler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/staleness.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/vector_abstraction/memory.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound/vector_abstraction/weaviate.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/knowledge/mound_core.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/knowledge/vector_store.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 9
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/cli",
+      "error_count": 52,
+      "file_count": 13,
+      "claimed_error_count": 2,
+      "unclaimed_error_count": 50,
+      "error_codes": {
+        "arg-type": 9,
+        "assignment": 3,
+        "attr-defined": 25,
+        "call-arg": 1,
+        "index": 5,
+        "operator": 5,
+        "union-attr": 4
+      },
+      "files": [
+        {
+          "path": "aragora/cli/audit.py",
+          "error_count": 1,
+          "status": "CLAIMED",
+          "claim": "#9083",
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/cli/batch.py",
+          "error_count": 1,
+          "status": "CLAIMED",
+          "claim": "#9083",
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/cli/commands/build.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1,
+            "operator": 3
+          }
+        },
+        {
+          "path": "aragora/cli/commands/codebase_audit.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/cli/commands/compliance_export.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/cli/commands/essay.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/cli/commands/pipeline.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/cli/commands/quickstart.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/cli/commands/ralph.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 3,
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/cli/commands/tasks.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/cli/commands/worktree.py",
+          "error_count": 25,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 23,
+            "index": 2
+          }
+        },
+        {
+          "path": "aragora/cli/knowledge.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/cli/openclaw.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "call-arg": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/ml",
+      "error_count": 34,
+      "file_count": 6,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 34,
+      "error_codes": {
+        "index": 1,
+        "list-item": 1,
+        "misc": 1,
+        "no-redef": 2,
+        "union-attr": 29
+      },
+      "files": [
+        {
+          "path": "aragora/ml/consensus_predictor.py",
+          "error_count": 10,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 1,
+            "no-redef": 1,
+            "union-attr": 8
+          }
+        },
+        {
+          "path": "aragora/ml/degradation.py",
+          "error_count": 11,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 11
+          }
+        },
+        {
+          "path": "aragora/ml/embeddings.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "no-redef": 1
+          }
+        },
+        {
+          "path": "aragora/ml/local_finetuning.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1,
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/ml/performance_router_bridge.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/ml/quality_scorer.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "list-item": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/services",
+      "error_count": 33,
+      "file_count": 6,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 33,
+      "error_codes": {
+        "arg-type": 3,
+        "assignment": 1,
+        "misc": 1,
+        "union-attr": 28
+      },
+      "files": [
+        {
+          "path": "aragora/services/accounting/reconciliation.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/services/cross_channel_context.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/services/invoice_processor.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/services/multi_inbox_manager.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/services/sender_history.py",
+          "error_count": 15,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 15
+          }
+        },
+        {
+          "path": "aragora/services/usage_metering.py",
+          "error_count": 13,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 13
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/agents",
+      "error_count": 31,
+      "file_count": 17,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 31,
+      "error_codes": {
+        "arg-type": 5,
+        "assignment": 14,
+        "attr-defined": 2,
+        "misc": 1,
+        "return-value": 2,
+        "union-attr": 7
+      },
+      "files": [
+        {
+          "path": "aragora/agents/__init__.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/agents/api_agents/base.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/agents/api_agents/common.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/agents/api_agents/openrouter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/agents/api_agents/tinker.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/agents/cli_agents.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/agents/config_loader.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1,
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/agents/cv.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 5
+          }
+        },
+        {
+          "path": "aragora/agents/cv_store.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/agents/errors/decorators.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/agents/errors/handlers.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/agents/fallback.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3,
+            "attr-defined": 2
+          }
+        },
+        {
+          "path": "aragora/agents/learning/sdpo.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/agents/local_llm_detector.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/agents/relationships.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/agents/scheduler_protocol.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/agents/test_generator.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/storage",
+      "error_count": 26,
+      "file_count": 12,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 26,
+      "error_codes": {
+        "arg-type": 8,
+        "assignment": 5,
+        "attr-defined": 1,
+        "call-overload": 1,
+        "index": 5,
+        "operator": 2,
+        "union-attr": 2,
+        "var-annotated": 2
+      },
+      "files": [
+        {
+          "path": "aragora/storage/approval_request_store.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/storage/email_store.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 5
+          }
+        },
+        {
+          "path": "aragora/storage/finding_workflow_store.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/storage/impersonation_store.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/storage/organization_store.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/storage/pipeline_store.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/storage/production_guards.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/storage/receipt_store.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/storage/redis_ha.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "attr-defined": 1,
+            "var-annotated": 2
+          }
+        },
+        {
+          "path": "aragora/storage/redis_utils.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "call-overload": 1
+          }
+        },
+        {
+          "path": "aragora/storage/unified_inbox/memory.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/storage/webhook_config_store.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/bots",
+      "error_count": 25,
+      "file_count": 3,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 25,
+      "error_codes": {
+        "attr-defined": 7,
+        "misc": 5,
+        "union-attr": 12,
+        "valid-type": 1
+      },
+      "files": [
+        {
+          "path": "aragora/bots/commands.py",
+          "error_count": 13,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 7,
+            "misc": 5,
+            "valid-type": 1
+          }
+        },
+        {
+          "path": "aragora/bots/discord_bot.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/bots/slack_bot.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 6
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/swarm",
+      "error_count": 22,
+      "file_count": 9,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 22,
+      "error_codes": {
+        "arg-type": 13,
+        "attr-defined": 1,
+        "call-overload": 1,
+        "no-redef": 1,
+        "operator": 3,
+        "union-attr": 3
+      },
+      "files": [
+        {
+          "path": "aragora/swarm/boss_freshness.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1,
+            "operator": 3
+          }
+        },
+        {
+          "path": "aragora/swarm/boss_loop_selection.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 8
+          }
+        },
+        {
+          "path": "aragora/swarm/campaign.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/swarm/debate_gate.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/swarm/outcome_signals.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "no-redef": 1
+          }
+        },
+        {
+          "path": "aragora/swarm/session_coordinator.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "call-overload": 1
+          }
+        },
+        {
+          "path": "aragora/swarm/tranche_review.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/swarm/tranche_submit.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/swarm/tranche_watch.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 3
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/billing",
+      "error_count": 21,
+      "file_count": 7,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 21,
+      "error_codes": {
+        "arg-type": 2,
+        "assignment": 1,
+        "misc": 1,
+        "operator": 3,
+        "union-attr": 14
+      },
+      "files": [
+        {
+          "path": "aragora/billing/budget_alert_notifier.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/billing/budget_guard.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/billing/enterprise_metering.py",
+          "error_count": 13,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 13
+          }
+        },
+        {
+          "path": "aragora/billing/forecaster.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/billing/payment_recovery.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 2,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/billing/stripe_client.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/billing/usage_metering_integration.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/audit",
+      "error_count": 20,
+      "file_count": 8,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 20,
+      "error_codes": {
+        "arg-type": 7,
+        "assignment": 6,
+        "index": 1,
+        "operator": 6
+      },
+      "files": [
+        {
+          "path": "aragora/audit/audit_types/academic.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "operator": 6
+          }
+        },
+        {
+          "path": "aragora/audit/codebase_auditor.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/audit/dependency_analyzer.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/audit/exploration/agents.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/audit/exploration/memory.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 1
+          }
+        },
+        {
+          "path": "aragora/audit/exploration/query_gen.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/audit/findings/assignment.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/audit/findings/workflow.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/memory",
+      "error_count": 19,
+      "file_count": 8,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 19,
+      "error_codes": {
+        "arg-type": 1,
+        "assignment": 4,
+        "misc": 4,
+        "union-attr": 8,
+        "var-annotated": 2
+      },
+      "files": [
+        {
+          "path": "aragora/memory/__init__.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 4
+          }
+        },
+        {
+          "path": "aragora/memory/access.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "var-annotated": 2
+          }
+        },
+        {
+          "path": "aragora/memory/backends/vector_index.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/memory/continuum/core.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/memory/continuum/retrieval.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/memory/coordinator.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2,
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/memory/fabric.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/memory/surprise.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/compat",
+      "error_count": 17,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 17,
+      "error_codes": {
+        "arg-type": 8,
+        "index": 1,
+        "union-attr": 8
+      },
+      "files": [
+        {
+          "path": "aragora/compat/openclaw/action_dispatcher.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/compat/openclaw/pr_review_runner.py",
+          "error_count": 13,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 8,
+            "index": 1,
+            "union-attr": 4
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/gateway",
+      "error_count": 16,
+      "file_count": 4,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 16,
+      "error_codes": {
+        "arg-type": 3,
+        "assignment": 6,
+        "union-attr": 7
+      },
+      "files": [
+        {
+          "path": "aragora/gateway/enterprise/audit_interceptor/interceptor.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 7
+          }
+        },
+        {
+          "path": "aragora/gateway/persistence.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 3
+          }
+        },
+        {
+          "path": "aragora/gateway/protocol.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 5
+          }
+        },
+        {
+          "path": "aragora/gateway/server.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/workflow",
+      "error_count": 16,
+      "file_count": 7,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 16,
+      "error_codes": {
+        "arg-type": 2,
+        "assignment": 1,
+        "misc": 1,
+        "union-attr": 12
+      },
+      "files": [
+        {
+          "path": "aragora/workflow/nodes/human_checkpoint.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/workflow/nodes/implementation.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        },
+        {
+          "path": "aragora/workflow/nodes/knowledge_pipeline.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/workflow/nodes/nomic.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/workflow/queue/queue.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/workflow/queue/scheduler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/workflow/step.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/workspace",
+      "error_count": 16,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 16,
+      "error_codes": {
+        "union-attr": 16
+      },
+      "files": [
+        {
+          "path": "aragora/workspace/bead.py",
+          "error_count": 16,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 16
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/control_plane",
+      "error_count": 15,
+      "file_count": 8,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 15,
+      "error_codes": {
+        "arg-type": 7,
+        "assignment": 1,
+        "index": 1,
+        "union-attr": 6
+      },
+      "files": [
+        {
+          "path": "aragora/control_plane/agent_federation.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "index": 1
+          }
+        },
+        {
+          "path": "aragora/control_plane/auto_scaling.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/control_plane/channels.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/control_plane/coordinator/scheduler_bridge.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/control_plane/multi_tenancy.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/control_plane/policy/cache.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/control_plane/policy/sync.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/control_plane/scheduler.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 5
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/extensions",
+      "error_count": 15,
+      "file_count": 6,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 15,
+      "error_codes": {
+        "arg-type": 7,
+        "union-attr": 8
+      },
+      "files": [
+        {
+          "path": "aragora/extensions/moltbot/gateway.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/extensions/moltbot/handlers/canvas.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/extensions/moltbot/handlers/gateway.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/extensions/moltbot/handlers/inbox.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/extensions/moltbot/handlers/onboarding.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/extensions/moltbot/handlers/voice.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/pipeline",
+      "error_count": 15,
+      "file_count": 11,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 15,
+      "error_codes": {
+        "arg-type": 3,
+        "assignment": 5,
+        "misc": 4,
+        "union-attr": 2,
+        "var-annotated": 1
+      },
+      "files": [
+        {
+          "path": "aragora/pipeline/canonical_execution.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "var-annotated": 1
+          }
+        },
+        {
+          "path": "aragora/pipeline/dag_operations.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 3
+          }
+        },
+        {
+          "path": "aragora/pipeline/decision_integrity_utils.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/pipeline/decision_plan/factory.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/pipeline/executor.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/pipeline/idea_clusterer.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/pipeline/idea_to_execution.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/pipeline/risk_register.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/pipeline/stage_transitions.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/pipeline/unified_orchestrator.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/pipeline/workspace_bridge.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/integrations",
+      "error_count": 14,
+      "file_count": 7,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 14,
+      "error_codes": {
+        "arg-type": 1,
+        "misc": 5,
+        "return-value": 1,
+        "union-attr": 3,
+        "valid-type": 4
+      },
+      "files": [
+        {
+          "path": "aragora/integrations/email_rate_limiter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/integrations/email_reply_loop.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 2
+          }
+        },
+        {
+          "path": "aragora/integrations/exporters/exporter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/integrations/langchain/tools.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 3,
+            "valid-type": 4
+          }
+        },
+        {
+          "path": "aragora/integrations/platform_resilience.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/integrations/receipt_webhooks.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/integrations/teams_debate.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/observability",
+      "error_count": 14,
+      "file_count": 4,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 14,
+      "error_codes": {
+        "assignment": 1,
+        "return-value": 7,
+        "union-attr": 6
+      },
+      "files": [
+        {
+          "path": "aragora/observability/handler_instrumentation.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/observability/memory_profiler.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 7
+          }
+        },
+        {
+          "path": "aragora/observability/security_audit.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/observability/tracing.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 3
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/persistence",
+      "error_count": 14,
+      "file_count": 4,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 14,
+      "error_codes": {
+        "arg-type": 1,
+        "assignment": 1,
+        "attr-defined": 2,
+        "index": 5,
+        "return-value": 1,
+        "union-attr": 4
+      },
+      "files": [
+        {
+          "path": "aragora/persistence/migrations/consolidate.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1,
+            "union-attr": 4
+          }
+        },
+        {
+          "path": "aragora/persistence/repositories/elo.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/persistence/repositories/memory.py",
+          "error_count": 5,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "index": 5
+          }
+        },
+        {
+          "path": "aragora/persistence/supabase_client.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/skills",
+      "error_count": 14,
+      "file_count": 4,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 14,
+      "error_codes": {
+        "arg-type": 6,
+        "misc": 3,
+        "union-attr": 5
+      },
+      "files": [
+        {
+          "path": "aragora/skills/builtin/evidence_fetch.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/skills/builtin/file_analysis.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 4,
+            "union-attr": 3
+          }
+        },
+        {
+          "path": "aragora/skills/builtin/pr_reviewer.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/skills/registry.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 3,
+            "union-attr": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/approvals",
+      "error_count": 13,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 13,
+      "error_codes": {
+        "arg-type": 2,
+        "assignment": 2,
+        "union-attr": 9
+      },
+      "files": [
+        {
+          "path": "aragora/approvals/chat.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/approvals/inbox.py",
+          "error_count": 11,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2,
+            "union-attr": 9
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/events",
+      "error_count": 12,
+      "file_count": 4,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 12,
+      "error_codes": {
+        "assignment": 6,
+        "union-attr": 6
+      },
+      "files": [
+        {
+          "path": "aragora/events/async_dispatcher.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/events/batch_dispatcher.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/events/cross_subscribers/dispatch.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 6
+          }
+        },
+        {
+          "path": "aragora/events/dispatcher.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/notifications",
+      "error_count": 10,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 10,
+      "error_codes": {
+        "arg-type": 8,
+        "assignment": 1,
+        "attr-defined": 1
+      },
+      "files": [
+        {
+          "path": "aragora/notifications/providers.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/notifications/service.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 6,
+            "assignment": 1,
+            "attr-defined": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/documents",
+      "error_count": 9,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 9,
+      "error_codes": {
+        "arg-type": 1,
+        "union-attr": 8
+      },
+      "files": [
+        {
+          "path": "aragora/documents/indexing/weaviate_store.py",
+          "error_count": 8,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 8
+          }
+        },
+        {
+          "path": "aragora/documents/models.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/client",
+      "error_count": 8,
+      "file_count": 5,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 8,
+      "error_codes": {
+        "assignment": 7,
+        "union-attr": 1
+      },
+      "files": [
+        {
+          "path": "aragora/client/client.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/client/resources/debates.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/client/resources/pulse.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 3
+          }
+        },
+        {
+          "path": "aragora/client/resources/tournaments.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/client/websocket.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/essay",
+      "error_count": 7,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 7,
+      "error_codes": {
+        "arg-type": 7
+      },
+      "files": [
+        {
+          "path": "aragora/essay/pipeline.py",
+          "error_count": 7,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 7
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/ralph",
+      "error_count": 6,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 6,
+      "error_codes": {
+        "arg-type": 6
+      },
+      "files": [
+        {
+          "path": "aragora/ralph/llm_classifier.py",
+          "error_count": 6,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 6
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/rlm",
+      "error_count": 6,
+      "file_count": 4,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 6,
+      "error_codes": {
+        "arg-type": 4,
+        "assignment": 1,
+        "misc": 1
+      },
+      "files": [
+        {
+          "path": "aragora/rlm/compressor.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/rlm/debate_integration.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/rlm/knowledge_helpers.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/rlm/memory_helpers.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/verification",
+      "error_count": 6,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 6,
+      "error_codes": {
+        "misc": 4,
+        "union-attr": 2
+      },
+      "files": [
+        {
+          "path": "aragora/verification/deepseek_prover.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 2
+          }
+        },
+        {
+          "path": "aragora/verification/proofs.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 2,
+            "union-attr": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/prompt_engine",
+      "error_count": 5,
+      "file_count": 3,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 5,
+      "error_codes": {
+        "attr-defined": 3,
+        "call-arg": 2
+      },
+      "files": [
+        {
+          "path": "aragora/prompt_engine/interrogator.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/prompt_engine/researcher.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/prompt_engine/spec_builder.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1,
+            "call-arg": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/(root)",
+      "error_count": 4,
+      "file_count": 3,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 4,
+      "error_codes": {
+        "arg-type": 1,
+        "assignment": 1,
+        "attr-defined": 2
+      },
+      "files": [
+        {
+          "path": "aragora/exceptions.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 2
+          }
+        },
+        {
+          "path": "aragora/golden.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/logging_config.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/auth",
+      "error_count": 4,
+      "file_count": 4,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 4,
+      "error_codes": {
+        "arg-type": 1,
+        "assignment": 2,
+        "call-overload": 1
+      },
+      "files": [
+        {
+          "path": "aragora/auth/lockout.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "call-overload": 1
+          }
+        },
+        {
+          "path": "aragora/auth/oidc.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/auth/scim/filters.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/auth/teams_sso.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/core",
+      "error_count": 4,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 4,
+      "error_codes": {
+        "arg-type": 2,
+        "assignment": 1,
+        "misc": 1
+      },
+      "files": [
+        {
+          "path": "aragora/core/decision_router.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "misc": 1
+          }
+        },
+        {
+          "path": "aragora/core/embeddings/service.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "assignment": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/gauntlet",
+      "error_count": 4,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 4,
+      "error_codes": {
+        "arg-type": 2,
+        "return-value": 1,
+        "union-attr": 1
+      },
+      "files": [
+        {
+          "path": "aragora/gauntlet/improvement_bridge.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/gauntlet/storage.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "return-value": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/harnesses",
+      "error_count": 4,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 4,
+      "error_codes": {
+        "arg-type": 2,
+        "assignment": 1,
+        "attr-defined": 1
+      },
+      "files": [
+        {
+          "path": "aragora/harnesses/adapter.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/harnesses/codex.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/inbox",
+      "error_count": 4,
+      "file_count": 3,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 4,
+      "error_codes": {
+        "arg-type": 2,
+        "attr-defined": 1,
+        "call-arg": 1
+      },
+      "files": [
+        {
+          "path": "aragora/inbox/debate_router.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/inbox/triage_instrumentation.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/inbox/triage_runner.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "call-arg": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/reasoning",
+      "error_count": 4,
+      "file_count": 3,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 4,
+      "error_codes": {
+        "arg-type": 1,
+        "assignment": 2,
+        "union-attr": 1
+      },
+      "files": [
+        {
+          "path": "aragora/reasoning/cruxset.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        },
+        {
+          "path": "aragora/reasoning/epistemic_graph.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1,
+            "union-attr": 1
+          }
+        },
+        {
+          "path": "aragora/reasoning/epistemic_scorer.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/security",
+      "error_count": 4,
+      "file_count": 3,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 4,
+      "error_codes": {
+        "arg-type": 1,
+        "assignment": 2,
+        "return-value": 1
+      },
+      "files": [
+        {
+          "path": "aragora/security/anomaly_detection.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        },
+        {
+          "path": "aragora/security/api_key_proxy.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        },
+        {
+          "path": "aragora/security/migration.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/tenancy",
+      "error_count": 4,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 4,
+      "error_codes": {
+        "arg-type": 2,
+        "assignment": 2
+      },
+      "files": [
+        {
+          "path": "aragora/tenancy/context.py",
+          "error_count": 4,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2,
+            "assignment": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/analysis",
+      "error_count": 3,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 3,
+      "error_codes": {
+        "misc": 3
+      },
+      "files": [
+        {
+          "path": "aragora/analysis/nl_query.py",
+          "error_count": 3,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 3
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/insights",
+      "error_count": 3,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 3,
+      "error_codes": {
+        "assignment": 1,
+        "attr-defined": 1,
+        "return-value": 1
+      },
+      "files": [
+        {
+          "path": "aragora/insights/flip_detector.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/insights/store.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/pulse",
+      "error_count": 3,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 3,
+      "error_codes": {
+        "assignment": 1,
+        "attr-defined": 1,
+        "misc": 1
+      },
+      "files": [
+        {
+          "path": "aragora/pulse/consensus.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/pulse/scheduler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/scheduler",
+      "error_count": 3,
+      "file_count": 3,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 3,
+      "error_codes": {
+        "arg-type": 1,
+        "operator": 2
+      },
+      "files": [
+        {
+          "path": "aragora/scheduler/dr_drill_scheduler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        },
+        {
+          "path": "aragora/scheduler/receipt_retention.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/scheduler/secrets_rotation_scheduler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "operator": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/training",
+      "error_count": 3,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 3,
+      "error_codes": {
+        "arg-type": 3
+      },
+      "files": [
+        {
+          "path": "aragora/training/exporters/dpo_exporter.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        },
+        {
+          "path": "aragora/training/training_scheduler.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/broadcast",
+      "error_count": 2,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 2,
+      "error_codes": {
+        "dict-item": 1,
+        "override": 1
+      },
+      "files": [
+        {
+          "path": "aragora/broadcast/tts_backends.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "dict-item": 1,
+            "override": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/evidence",
+      "error_count": 2,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 2,
+      "error_codes": {
+        "assignment": 2
+      },
+      "files": [
+        {
+          "path": "aragora/evidence/collector.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/export",
+      "error_count": 2,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 2,
+      "error_codes": {
+        "arg-type": 1,
+        "attr-defined": 1
+      },
+      "files": [
+        {
+          "path": "aragora/export/audit_trail.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/export/decision_receipt.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/goals",
+      "error_count": 2,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 2,
+      "error_codes": {
+        "union-attr": 2
+      },
+      "files": [
+        {
+          "path": "aragora/goals/extractor.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/ideacloud",
+      "error_count": 2,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 2,
+      "error_codes": {
+        "attr-defined": 1,
+        "misc": 1
+      },
+      "files": [
+        {
+          "path": "aragora/ideacloud/adapters/km_adapter.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "attr-defined": 1
+          }
+        },
+        {
+          "path": "aragora/ideacloud/storage/index.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/mcp",
+      "error_count": 2,
+      "file_count": 2,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 2,
+      "error_codes": {
+        "arg-type": 2
+      },
+      "files": [
+        {
+          "path": "aragora/mcp/server.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        },
+        {
+          "path": "aragora/mcp/tools_module/evidence.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/ranking",
+      "error_count": 2,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 2,
+      "error_codes": {
+        "assignment": 1,
+        "union-attr": 1
+      },
+      "files": [
+        {
+          "path": "aragora/ranking/pattern_matcher.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1,
+            "union-attr": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/rbac",
+      "error_count": 2,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 2,
+      "error_codes": {
+        "arg-type": 2
+      },
+      "files": [
+        {
+          "path": "aragora/rbac/emergency.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/streaming",
+      "error_count": 2,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 2,
+      "error_codes": {
+        "union-attr": 2
+      },
+      "files": [
+        {
+          "path": "aragora/streaming/reliability.py",
+          "error_count": 2,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 2
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/blockchain",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "arg-type": 1
+      },
+      "files": [
+        {
+          "path": "aragora/blockchain/receipt_anchor.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/channels",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "assignment": 1
+      },
+      "files": [
+        {
+          "path": "aragora/channels/docks/telegram.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/evolution",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "assignment": 1
+      },
+      "files": [
+        {
+          "path": "aragora/evolution/evolver.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/genesis",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "arg-type": 1
+      },
+      "files": [
+        {
+          "path": "aragora/genesis/breeding.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/migrations",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "union-attr": 1
+      },
+      "files": [
+        {
+          "path": "aragora/migrations/sqlite_to_postgres.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/onboarding",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "arg-type": 1
+      },
+      "files": [
+        {
+          "path": "aragora/onboarding/wizard.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/plugins",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "assignment": 1
+      },
+      "files": [
+        {
+          "path": "aragora/plugins/selection/strategies.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/protocols",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "misc": 1
+      },
+      "files": [
+        {
+          "path": "aragora/protocols/a2a/__init__.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/reputation",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "union-attr": 1
+      },
+      "files": [
+        {
+          "path": "aragora/reputation/anchor.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "union-attr": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/stores",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "return-value": 1
+      },
+      "files": [
+        {
+          "path": "aragora/stores/canonical.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "return-value": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/templates",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "arg-type": 1
+      },
+      "files": [
+        {
+          "path": "aragora/templates/__init__.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "arg-type": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/tournaments",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "assignment": 1
+      },
+      "files": [
+        {
+          "path": "aragora/tournaments/tournament.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "assignment": 1
+          }
+        }
+      ]
+    },
+    {
+      "module": "aragora/worktree",
+      "error_count": 1,
+      "file_count": 1,
+      "claimed_error_count": 0,
+      "unclaimed_error_count": 1,
+      "error_codes": {
+        "misc": 1
+      },
+      "files": [
+        {
+          "path": "aragora/worktree/integration_worker.py",
+          "error_count": 1,
+          "status": "UNCLAIMED",
+          "claim": null,
+          "error_codes": {
+            "misc": 1
+          }
+        }
+      ]
+    }
+  ]
+}
