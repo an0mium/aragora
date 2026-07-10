@@ -30,7 +30,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 from collections.abc import AsyncGenerator, Callable
 import time
 
@@ -472,8 +472,9 @@ class DebateStream:
 
     async def _receive_loop(self) -> None:
         """Receive messages from WebSocket."""
+        websocket = cast(Any, self._ws)
         try:
-            async for message in self._ws:
+            async for message in websocket:
                 try:
                     data = json.loads(message)
                     event = DebateEvent.from_dict(data)
