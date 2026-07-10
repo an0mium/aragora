@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aiohttp import web
 
@@ -403,6 +403,7 @@ class BindingsHandler(BaseHandler):
             if isinstance(err, web.Response):
                 return _web_response_to_handler_result(err)
             return err
+        body = cast(dict[str, Any], body)
 
         # Validate required fields
         required = ["provider", "account_id", "peer_pattern", "agent_binding"]
@@ -470,6 +471,7 @@ class BindingsHandler(BaseHandler):
             if isinstance(err, web.Response):
                 return _web_response_to_handler_result(err)
             return err
+        body = cast(dict[str, Any], body)
 
         # Validate required fields
         required = ["provider", "account_id", "peer_id"]
