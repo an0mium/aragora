@@ -493,6 +493,8 @@ class KnowledgeChatHandler(BaseHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Invalid JSON body", 400)
 
         if path == "/api/v1/chat/knowledge/search":
             query = body.get("query")
