@@ -406,6 +406,32 @@ def _evidence_lint_args(
     return args
 
 
+def _lint_infra_failure(reason: str) -> dict[str, Any]:
+    """Explicit fail-closed lint result for an evidence-lint INFRA failure.
+
+    A broken lint subprocess must stay non-counting (fail-closed), but it must
+    be distinguishable from a substantive rejection: an empty ``{}`` renders as
+    ``DOES NOT count ()`` and silently zeroes evidence that may have counted
+    (observed live 2026-07-09: claude items recorded ``would_count=False,
+    problems=[]`` while the same body relinted offline with three real
+    problems). The ``evidence_lint_infra_failure:`` prefix tells operators and
+    reconcile tooling to re-lint rather than treat the family as rejected.
+    """
+    return {
+        "would_count": False,
+        "counted_reviewer_ids": [],
+        "problems": [f"evidence_lint_infra_failure: {reason}"],
+    }
+
+
+# Retry the evidence-lint subprocess ONLY on infra failure (timeout / nonzero
+# exit / empty stdout / undecodable JSON), mirroring the reviewer-side
+# ``_run_reviewer_with_infra_retry`` semantics: a lint that returned a parsed
+# result — counting or not — is never retried, so a substantive rejection can
+# never be "retried away".
+_EVIDENCE_LINT_INFRA_RETRIES = 1
+
+
 def lint_comment(
     pr: int,
     head_sha: str,
@@ -421,16 +447,27 @@ def lint_comment(
             body_file = fh.name
             fh.write(body)
         args = _evidence_lint_args(pr, head_sha, head_committed_at, author, body_file)
-        try:
-            proc = run(args, env=env, timeout=_EVIDENCE_LINT_TIMEOUT)
-        except subprocess.TimeoutExpired:
-            return {}
-        if proc.returncode != 0 or not proc.stdout.strip():
-            return {}
-        try:
-            return json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            return {}
+        failure: dict[str, Any] = _lint_infra_failure("lint subprocess never ran")
+        for _ in range(1 + _EVIDENCE_LINT_INFRA_RETRIES):
+            try:
+                proc = run(args, env=env, timeout=_EVIDENCE_LINT_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                failure = _lint_infra_failure(
+                    f"evidence-lint timed out after {_EVIDENCE_LINT_TIMEOUT}s"
+                )
+                continue
+            if proc.returncode != 0 or not proc.stdout.strip():
+                stderr = (proc.stderr or "").strip()[:120]
+                failure = _lint_infra_failure(
+                    f"evidence-lint exit {proc.returncode}" + (f": {stderr}" if stderr else "")
+                )
+                continue
+            try:
+                return json.loads(proc.stdout)
+            except json.JSONDecodeError:
+                failure = _lint_infra_failure("evidence-lint emitted undecodable JSON")
+                continue
+        return failure
     finally:
         if body_file:
             try:
