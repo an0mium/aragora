@@ -519,6 +519,7 @@ class FHIRConnector(EnterpriseConnector):
         self.audit_reason = audit_reason
 
         # Circuit breaker for API resilience
+        self._circuit_breaker: CircuitBreaker | None
         if circuit_breaker is not None:
             self._circuit_breaker = circuit_breaker
         elif enable_circuit_breaker:
@@ -528,7 +529,7 @@ class FHIRConnector(EnterpriseConnector):
                 cooldown_seconds=60.0,
             )
         else:
-            self._circuit_breaker: CircuitBreaker | None = None
+            self._circuit_breaker = None
 
         # Initialize components
         self._redactor = PHIRedactor(
