@@ -413,7 +413,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
             if dry_run:
                 print("Merge would succeed (no conflicts).")
             else:
-                print(f"Merged: {merge_result.commit_sha[:12]}")
+                print(f"Merged: {_short_sha(merge_result.commit_sha)}")
         else:
             print(f"Merge failed: {merge_result.error}")
             if merge_result.conflicts:
@@ -448,7 +448,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
 
             merge_result = asyncio.run(coordinator.safe_merge(branch))
             if merge_result.success:
-                print(f"  Merged: {merge_result.commit_sha[:12]}")
+                print(f"  Merged: {_short_sha(merge_result.commit_sha)}")
                 merged += 1
             else:
                 print(f"  FAILED: {merge_result.error}")
@@ -488,10 +488,20 @@ def _short_sha(value: object) -> str:
     return text[:12] if text else ""
 
 
+def _dict_value(payload: dict[str, object], key: str) -> dict[str, object]:
+    value = payload.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def _dict_list_value(payload: dict[str, object], key: str) -> list[dict[str, object]]:
+    value = payload.get(key)
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
 def _render_lane_receipt_evidence(lane: dict[str, object], *, indent: str = "    ") -> None:
-    receipt_summary = (
-        lane.get("receipt_summary", {}) if isinstance(lane.get("receipt_summary"), dict) else {}
-    )
+    receipt_summary = _dict_value(lane, "receipt_summary")
     if not receipt_summary and not lane.get("missing_receipt"):
         return
 
@@ -557,8 +567,8 @@ def _render_lane_receipt_evidence(lane: dict[str, object], *, indent: str = "   
 
 
 def _render_integrator_lane_section(view: dict[str, object]) -> None:
-    summary = view.get("summary", {}) if isinstance(view.get("summary"), dict) else {}
-    lanes = [item for item in view.get("lanes", []) if isinstance(item, dict)]
+    summary = _dict_value(view, "summary")
+    lanes = _dict_list_value(view, "lanes")
     print(f"Integrator lanes ({summary.get('total_lanes', len(lanes))})")
     print(
         "  ready={ready} review={review} blocked={blocked} in_progress={in_progress} "
@@ -650,7 +660,7 @@ def _render_integrator_lane_section(view: dict[str, object]) -> None:
         if queue_parts:
             print("    " + " ".join(queue_parts))
 
-        pr = lane.get("pr", {}) if isinstance(lane.get("pr"), dict) else {}
+        pr = _dict_value(lane, "pr")
         pr_parts: list[str] = []
         if pr.get("number") is not None:
             pr_parts.append(f"pr=#{pr['number']}")
