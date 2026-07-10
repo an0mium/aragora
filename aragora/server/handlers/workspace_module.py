@@ -297,6 +297,7 @@ class WorkspaceHandler(
         "/api/v1/audit/verify",
         "/api/v1/audit/actor",
         "/api/v1/audit/resource",
+        "/api/v1/audit/resource/*/history",
         "/api/v1/audit/denied",
     ]
 

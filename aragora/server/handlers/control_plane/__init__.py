@@ -91,6 +91,18 @@ class ControlPlaneHandler(
     # Class-level coordinator (set during server initialization)
     coordinator: Any | None = None
 
+    # Static ROUTES for SDK audit visibility (actual matching uses the
+    # can_handle() prefix check and path dispatch in handle()/handle_post()).
+    ROUTES = [
+        "/api/control-plane/audit",
+        "/api/control-plane/audit/stats",
+        "/api/control-plane/audit/verify",
+        "/api/control-plane/breakers",
+        "/api/control-plane/notifications",
+        "/api/control-plane/notifications/stats",
+        "/api/control-plane/queue/metrics",
+    ]
+
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)

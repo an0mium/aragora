@@ -77,8 +77,11 @@ class PaymentRoutesHandler:
         "/api/v1/payments/capture",
         "/api/v1/payments/charge",
         "/api/v1/payments/customer",
+        "/api/v1/payments/customer/{customer_id}",
         "/api/v1/payments/refund",
         "/api/v1/payments/subscription",
+        "/api/v1/payments/subscription/{subscription_id}",
+        "/api/v1/payments/transaction/{transaction_id}",
         "/api/v1/payments/void",
     ]
 

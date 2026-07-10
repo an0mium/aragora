@@ -256,6 +256,9 @@ class AdminHandler(
     ROUTES = [
         "/api/v1/admin/organizations",
         "/api/v1/admin/users",
+        "/api/v1/admin/users/*/activate",
+        "/api/v1/admin/users/*/deactivate",
+        "/api/v1/admin/users/*/unlock",
         "/api/v1/admin/stats",
         "/api/v1/admin/system/metrics",
         "/api/v1/admin/impersonate",

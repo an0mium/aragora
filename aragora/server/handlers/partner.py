@@ -44,6 +44,7 @@ class PartnerHandler(BaseHandler):
         "/api/v1/partners/register",
         "/api/v1/partners/me",
         "/api/v1/partners/keys",
+        "/api/v1/partners/keys/{key_id}",
         "/api/v1/partners/usage",
         "/api/v1/partners/webhooks",
         "/api/v1/partners/limits",
