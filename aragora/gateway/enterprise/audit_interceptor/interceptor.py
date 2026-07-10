@@ -74,7 +74,6 @@ class AuditInterceptor:
             storage: Storage backend. If None, creates based on config.
         """
         self._config = config or AuditConfig()
-        self._storage = storage
         self._event_handlers: list[Callable[[AuditEventType, dict[str, Any]], None]] = []
         self._metrics_enabled = self._config.enable_metrics
 
@@ -86,11 +85,12 @@ class AuditInterceptor:
         self._chain_errors_total = 0
 
         # Initialize storage
-        if self._storage is None:
+        if storage is None:
             if self._config.storage_backend == "postgres":
-                self._storage = PostgresAuditStorage()
+                storage = PostgresAuditStorage()
             else:
-                self._storage = InMemoryAuditStorage()
+                storage = InMemoryAuditStorage()
+        self._storage: AuditStorage = storage
 
         logger.info(
             "AuditInterceptor initialized with %s storage, retention=%d days",

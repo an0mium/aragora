@@ -456,13 +456,16 @@ class GatewayWebSocketProtocol:
                     "session.open requires user_id and device_id",
                     request_id,
                 )
-            session = await self._adapter.open_session(
+            opened_session = await self._adapter.open_session(
                 user_id=user_id,
                 device_id=device_id,
                 metadata=payload.get("metadata"),
             )
             return self._wrap_response(
-                {"type": "session.opened", "session": self._serialize_session(session)},
+                {
+                    "type": "session.opened",
+                    "session": self._serialize_session(opened_session),
+                },
                 request_id,
             )
 
@@ -474,14 +477,17 @@ class GatewayWebSocketProtocol:
                     "session.close requires session_id",
                     request_id,
                 )
-            session = await self._adapter.close_session(
+            closed_session = await self._adapter.close_session(
                 session_id,
                 reason=payload.get("reason", "ended"),
             )
-            if session is None:
+            if closed_session is None:
                 return self._error("not_found", "session not found", request_id)
             return self._wrap_response(
-                {"type": "session.closed", "session": self._serialize_session(session)},
+                {
+                    "type": "session.closed",
+                    "session": self._serialize_session(closed_session),
+                },
                 request_id,
             )
 
@@ -493,11 +499,11 @@ class GatewayWebSocketProtocol:
                     "session.get requires session_id",
                     request_id,
                 )
-            session = await self._adapter.get_session(session_id)
-            if session is None:
+            requested_session = await self._adapter.get_session(session_id)
+            if requested_session is None:
                 return self._error("not_found", "session not found", request_id)
             return self._wrap_response(
-                {"type": "session", "session": self._serialize_session(session)},
+                {"type": "session", "session": self._serialize_session(requested_session)},
                 request_id,
             )
 
@@ -524,11 +530,14 @@ class GatewayWebSocketProtocol:
                     "presence.update requires session_id",
                     request_id,
                 )
-            session = await self._adapter.update_presence(session_id, status=status)
-            if session is None:
+            updated_session = await self._adapter.update_presence(session_id, status=status)
+            if updated_session is None:
                 return self._error("not_found", "session not found", request_id)
             return self._wrap_response(
-                {"type": "presence.updated", "session": self._serialize_session(session)},
+                {
+                    "type": "presence.updated",
+                    "session": self._serialize_session(updated_session),
+                },
                 request_id,
             )
 
@@ -541,11 +550,14 @@ class GatewayWebSocketProtocol:
                     "session.resume requires session_id and device_id",
                     request_id,
                 )
-            session = await self._adapter.resume_session(session_id, device_id=device_id)
-            if session is None:
+            resumed_session = await self._adapter.resume_session(session_id, device_id=device_id)
+            if resumed_session is None:
                 return self._error("not_found", "session not resumable", request_id)
             return self._wrap_response(
-                {"type": "session.resumed", "session": self._serialize_session(session)},
+                {
+                    "type": "session.resumed",
+                    "session": self._serialize_session(resumed_session),
+                },
                 request_id,
             )
 
@@ -561,9 +573,9 @@ class GatewayWebSocketProtocol:
             ok = await self._adapter.bind_device_to_session(session_id, device_id=device_id)
             if not ok:
                 return self._error("not_found", "session not bindable", request_id)
-            session = await self._adapter.get_session(session_id)
+            bound_session = await self._adapter.get_session(session_id)
             return self._wrap_response(
-                {"type": "session.bound", "session": self._serialize_session(session)},
+                {"type": "session.bound", "session": self._serialize_session(bound_session)},
                 request_id,
             )
 

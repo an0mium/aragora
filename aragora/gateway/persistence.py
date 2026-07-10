@@ -25,7 +25,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 from aragora.gateway.inbox import InboxMessage, MessagePriority
 from aragora.gateway.device_registry import DeviceNode, DeviceStatus
@@ -170,7 +170,7 @@ def _dict_to_device(d: dict[str, Any]) -> DeviceNode:
         status = DeviceStatus(status)
 
     return DeviceNode(
-        device_id=d.get("device_id"),
+        device_id=cast(str, d.get("device_id")),
         name=d["name"],
         device_type=d.get("device_type", "unknown"),
         status=status,
@@ -198,8 +198,8 @@ def _dict_to_rule(d: dict[str, Any]) -> RoutingRule:
     return RoutingRule(
         rule_id=d["rule_id"],
         agent_id=d["agent_id"],
-        channel_pattern=d.get("channel_pattern"),
-        sender_pattern=d.get("sender_pattern"),
+        channel_pattern=cast(str, d.get("channel_pattern")),
+        sender_pattern=cast(str, d.get("sender_pattern")),
         content_pattern=d.get("content_pattern"),
         priority=d.get("priority", 0),
         enabled=d.get("enabled", True),

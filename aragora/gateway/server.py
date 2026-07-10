@@ -210,6 +210,7 @@ class LocalGateway:
         self._running = False
         self._shutting_down = False
         self._started_at: float | None = None
+        self._runner: web.AppRunner | None = None
         self._messages_routed = 0
         self._messages_failed = 0
         self._active_connections = 0
@@ -940,7 +941,7 @@ class LocalGateway:
 
     async def stop_http(self) -> None:
         """Stop the HTTP server."""
-        if hasattr(self, "_runner") and self._runner:
+        if self._runner:
             await self._runner.cleanup()
             self._runner = None
 
