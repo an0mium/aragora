@@ -313,7 +313,7 @@ class TestBatchViaServer:
 class TestBatchLocal:
     """Tests for _batch_local function."""
 
-    @patch("aragora.cli.main.run_debate", new_callable=AsyncMock)
+    @patch("aragora.cli.commands.debate.run_debate", new_callable=AsyncMock)
     def test_processes_items(self, mock_run_debate, sample_items, mock_args, capsys):
         """Process items locally."""
         mock_result = MagicMock()
@@ -329,7 +329,7 @@ class TestBatchLocal:
         assert "BATCH COMPLETE" in captured.out
         assert "Succeeded: 3" in captured.out
 
-    @patch("aragora.cli.main.run_debate", new_callable=AsyncMock)
+    @patch("aragora.cli.commands.debate.run_debate", new_callable=AsyncMock)
     def test_handles_failures(self, mock_run_debate, sample_items, mock_args, capsys):
         """Handle failed debates."""
         mock_run_debate.side_effect = RuntimeError("API error")
@@ -340,7 +340,7 @@ class TestBatchLocal:
         assert "Failed: 3" in captured.out
         assert "ERROR" in captured.out
 
-    @patch("aragora.cli.main.run_debate", new_callable=AsyncMock)
+    @patch("aragora.cli.commands.debate.run_debate", new_callable=AsyncMock)
     def test_saves_results(self, mock_run_debate, sample_items, mock_args, tmp_path, capsys):
         """Save results to output file."""
         mock_result = MagicMock()
@@ -360,7 +360,7 @@ class TestBatchLocal:
         captured = capsys.readouterr()
         assert "Results saved" in captured.out
 
-    @patch("aragora.cli.main.run_debate", new_callable=AsyncMock)
+    @patch("aragora.cli.commands.debate.run_debate", new_callable=AsyncMock)
     def test_uses_item_agents(self, mock_run_debate, mock_args, capsys):
         """Use agents from item when specified."""
         mock_result = MagicMock()
@@ -375,7 +375,7 @@ class TestBatchLocal:
         call_kwargs = mock_run_debate.call_args[1]
         assert call_kwargs["agents_str"] == "custom-agent"
 
-    @patch("aragora.cli.main.run_debate", new_callable=AsyncMock)
+    @patch("aragora.cli.commands.debate.run_debate", new_callable=AsyncMock)
     def test_uses_item_rounds(self, mock_run_debate, mock_args, capsys):
         """Use rounds from item when specified."""
         mock_result = MagicMock()
