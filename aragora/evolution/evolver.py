@@ -125,7 +125,7 @@ class PromptEvolver(SQLiteStore):
     def __init__(
         self,
         db_path: str = "aragora_evolution.db",
-        critique_store: CritiqueStore = None,
+        critique_store: CritiqueStore | None = None,
         strategy: EvolutionStrategy = EvolutionStrategy.APPEND,
         mutation_rate: float = 0.1,
     ):
