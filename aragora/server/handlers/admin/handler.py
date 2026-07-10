@@ -69,7 +69,7 @@ try:
         check_permission,
         PermissionDeniedError,
     )
-    from aragora.rbac.decorators import require_permission
+    from aragora.rbac.decorators import require_permission  # type: ignore[no-redef]
 
     RBAC_AVAILABLE = True
 except ImportError:
@@ -194,7 +194,11 @@ def admin_secure_endpoint(
                 # 6. Audit if requested
                 if audit:
                     action_name = audit_action or func.__name__.lstrip("_")
-                    resource_id = str(kwargs.get(resource_id_param, "system"))
+                    resource_id = (
+                        str(kwargs.get(resource_id_param, "system"))
+                        if resource_id_param
+                        else "system"
+                    )
                     await get_audit_log().append(
                         event_type=f"admin.{action_name}",
                         actor=auth_context.user_id,

@@ -65,7 +65,7 @@ from aragora.protocols import HTTPRequestHandler
 AuthorizationContext: Any = None
 check_permission: Any = None
 try:
-    from aragora.rbac import AuthorizationContext, check_permission
+    from aragora.rbac import AuthorizationContext, check_permission  # type: ignore[no-redef]
 
     RBAC_AVAILABLE = True
 except ImportError:
@@ -91,7 +91,7 @@ from aragora.server.validation.query_params import safe_query_int  # noqa: F401 
 # RBAC profile imports for workspace role management
 RBACProfile: Any = None
 try:
-    from aragora.rbac.profiles import (
+    from aragora.rbac.profiles import (  # type: ignore[no-redef]
         RBACProfile,  # noqa: F401
         get_profile_config,  # noqa: F401
         get_profile_roles,  # noqa: F401
