@@ -8,7 +8,7 @@ flags, and running subsystem initialization sequences.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.container import try_resolve, BudgetCoordinatorProtocol
 from aragora.debate.budget_coordinator import BudgetCoordinator
@@ -196,12 +196,13 @@ def store_post_tracker_config(
         evidence_store: Optional evidence store for context injection.
     """
     # RLM / Staking feature flags
-    arena.enable_rlm = getattr(cfg, "enable_rlm", False)
-    arena.rlm_mode = getattr(cfg, "rlm_mode", "auto")
-    arena.enable_staking = getattr(cfg, "enable_staking", False)
+    runtime_arena = cast(Any, arena)
+    runtime_arena.enable_rlm = getattr(cfg, "enable_rlm", False)
+    runtime_arena.rlm_mode = getattr(cfg, "rlm_mode", "auto")
+    runtime_arena.enable_staking = getattr(cfg, "enable_staking", False)
     # Propagate staking flag to TeamSelector if available
     if (
-        arena.enable_staking
+        runtime_arena.enable_staking
         and hasattr(arena, "agent_selector")
         and arena.agent_selector is not None
     ):

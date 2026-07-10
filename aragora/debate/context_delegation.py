@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from collections.abc import Callable
 
 if TYPE_CHECKING:
+    from aragora.evidence.collector import EvidencePack
     from aragora.debate.context_gatherer import ContextGatherer
     from aragora.debate.memory_manager import MemoryManager
     from aragora.debate.state_cache import DebateStateCache
@@ -95,7 +96,8 @@ class ContextDelegator:
             )
         except (ImportError, AttributeError):
             context_envelope = {}
-        context, retrieved_ids, retrieved_tiers = self.context_gatherer.get_continuum_context(
+        gatherer = cast("ContextGatherer", self.context_gatherer)
+        context, retrieved_ids, retrieved_tiers = gatherer.get_continuum_context(
             continuum_memory=self.continuum_memory,
             domain=domain,
             task=task,
@@ -115,31 +117,37 @@ class ContextDelegator:
 
     async def perform_research(self, task: str) -> str:
         """Perform multi-source research for the debate topic."""
-        result = await self.context_gatherer.gather_all(task)
+        gatherer = cast("ContextGatherer", self.context_gatherer)
+        result = await gatherer.gather_all(task)
+        evidence_pack = cast("EvidencePack", gatherer.evidence_pack)
         # Update cache and evidence grounder
         if self._cache:
-            self._cache.evidence_pack = self.context_gatherer.evidence_pack
+            self._cache.evidence_pack = evidence_pack
         if self.evidence_grounder:
-            self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
+            self.evidence_grounder.set_evidence_pack(evidence_pack)
         return result
 
     async def gather_aragora_context(self, task: str) -> str | None:
         """Gather Aragora-specific documentation context if relevant."""
-        return await self.context_gatherer.gather_aragora_context(task)
+        gatherer = cast("ContextGatherer", self.context_gatherer)
+        return await gatherer.gather_aragora_context(task)
 
     async def gather_evidence_context(self, task: str) -> str | None:
         """Gather evidence from web, GitHub, and local docs connectors."""
-        result = await self.context_gatherer.gather_evidence_context(task)
+        gatherer = cast("ContextGatherer", self.context_gatherer)
+        result = await gatherer.gather_evidence_context(task)
+        evidence_pack = cast("EvidencePack", gatherer.evidence_pack)
         # Update cache and evidence grounder
         if self._cache:
-            self._cache.evidence_pack = self.context_gatherer.evidence_pack
+            self._cache.evidence_pack = evidence_pack
         if self.evidence_grounder:
-            self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
+            self.evidence_grounder.set_evidence_pack(evidence_pack)
         return result
 
     async def gather_trending_context(self) -> str | None:
         """Gather pulse/trending context from social platforms."""
-        return await self.context_gatherer.gather_trending_context()
+        gatherer = cast("ContextGatherer", self.context_gatherer)
+        return await gatherer.gather_trending_context()
 
     async def refresh_evidence_for_round(
         self,
@@ -161,7 +169,8 @@ class ContextDelegator:
         Returns:
             Number of new evidence snippets added
         """
-        count, updated_pack = await self.context_gatherer.refresh_evidence_for_round(
+        gatherer = cast("ContextGatherer", self.context_gatherer)
+        count, updated_pack = await gatherer.refresh_evidence_for_round(
             combined_text=combined_text,
             evidence_collector=evidence_collector,
             task=task,

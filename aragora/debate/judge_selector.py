@@ -40,7 +40,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, cast
 from collections.abc import Awaitable, Callable, Sequence
 
 if TYPE_CHECKING:
@@ -187,7 +187,7 @@ class JudgeSelectionStrategy(ABC):
         agents: Sequence[Agent],
         proposals: dict[str, str],
         context: list[Message],
-    ) -> Agent:
+    ) -> Agent | None:
         """Select a judge from available agents.
 
         Args:
@@ -209,7 +209,7 @@ class LastAgentStrategy(JudgeSelectionStrategy):
         agents: Sequence[Agent],
         proposals: dict[str, str],
         context: list[Message],
-    ) -> Agent:
+    ) -> Agent | None:
         """Select synthesizer if available, else last agent."""
         synthesizers = [a for a in agents if getattr(a, "role", None) == "synthesizer"]
         if synthesizers:
@@ -225,7 +225,7 @@ class RandomStrategy(JudgeSelectionStrategy):
         agents: Sequence[Agent],
         proposals: dict[str, str],
         context: list[Message],
-    ) -> Agent:
+    ) -> Agent | None:
         """Select a random agent as judge."""
         return random.choice(list(agents)) if agents else None  # noqa: S311 -- non-security agent selection
 
@@ -241,7 +241,7 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         agents: Sequence[Agent],
         proposals: dict[str, str],
         context: list[Message],
-    ) -> Agent:
+    ) -> Agent | None:
         """Select agent with highest ELO rating."""
         if not self._elo_system or not agents:
             return random.choice(list(agents)) if agents else None  # noqa: S311 -- non-security agent selection
@@ -276,7 +276,7 @@ class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         agents: Sequence[Agent],
         proposals: dict[str, str],
         context: list[Message],
-    ) -> Agent:
+    ) -> Agent | None:
         """Select agent with best composite score."""
         if not self._elo_system or not agents:
             return random.choice(list(agents)) if agents else None  # noqa: S311 -- non-security agent selection
@@ -318,7 +318,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         proposals: dict[str, str],
         context: list[Message],
         cruxes: list[dict] | None = None,
-    ) -> Agent:
+    ) -> Agent | None:
         """Select agent who historically dissented on similar cruxes.
 
         Args:
@@ -462,7 +462,7 @@ class VotedStrategy(JudgeSelectionStrategy):
         agents: Sequence[Agent],
         proposals: dict[str, str],
         context: list[Message],
-    ) -> Agent:
+    ) -> Agent | None:
         """Have agents vote on who should judge."""
         if not agents:
             return None
@@ -645,7 +645,7 @@ class JudgeSelector(JudgeScoringMixin):
             logger.warning("Judge selection returned None, falling back to random")
             judge = random.choice(available_agents)  # noqa: S311 -- non-security random selection
 
-        return judge
+        return cast("Agent", judge)
 
     async def get_judge_candidates(
         self,
@@ -1139,8 +1139,10 @@ class JudgePanel:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for result in results:
-            if isinstance(result, tuple) and result[1] is not None:
+            if isinstance(result, tuple):
                 name, assessment = result
+                if assessment is None:
+                    continue
                 assessments[name] = assessment
                 logger.debug(
                     "judge_initial_assessment judge=%s recommendation=%s",
@@ -1236,8 +1238,10 @@ class JudgePanel:
 
         updated: dict[str, dict] = {}
         for result in results:
-            if isinstance(result, tuple) and result[1] is not None:
+            if isinstance(result, tuple):
                 name, assessment = result
+                if assessment is None:
+                    continue
                 updated[name] = assessment
 
         return updated
