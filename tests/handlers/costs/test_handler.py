@@ -1850,6 +1850,65 @@ class TestEstimateCost:
 
 
 # ===========================================================================
+# Request Contract Narrowing
+# ===========================================================================
+
+
+class TestRequestContractNarrowing:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("method_name", "match_info"),
+        [
+            ("handle_set_budget", None),
+            ("handle_apply_recommendation", {"recommendation_id": "r-1"}),
+            ("handle_simulate_forecast", None),
+            ("handle_create_budget", None),
+            ("handle_check_constraints", None),
+            ("handle_estimate_cost", None),
+            ("handle_create_alert", None),
+        ],
+    )
+    async def test_missing_body_without_parser_error_fails_closed(
+        self,
+        handler,
+        method_name,
+        match_info,
+    ):
+        request = _req("POST", match_info=match_info)
+        with _patch_parse_body(None):
+            response = await getattr(handler, method_name)(request)
+
+        assert _status(response) == 400
+
+    @pytest.mark.asyncio
+    async def test_get_recommendation_requires_route_id(self, handler):
+        optimizer = MagicMock()
+        with _patch_optimizer(optimizer):
+            response = await handler.handle_get_recommendation(_req())
+
+        assert _status(response) == 400
+        optimizer.get_recommendation.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_apply_recommendation_requires_route_id(self, handler):
+        optimizer = MagicMock()
+        with _patch_optimizer(optimizer), _patch_parse_body({}):
+            response = await handler.handle_apply_recommendation(_req("POST"))
+
+        assert _status(response) == 400
+        optimizer.apply_recommendation.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_dismiss_recommendation_requires_route_id(self, handler):
+        optimizer = MagicMock()
+        with _patch_optimizer(optimizer):
+            response = await handler.handle_dismiss_recommendation(_req("POST"))
+
+        assert _status(response) == 400
+        optimizer.dismiss_recommendation.assert_not_called()
+
+
+# ===========================================================================
 # Cross-Endpoint Error Categories
 # ===========================================================================
 

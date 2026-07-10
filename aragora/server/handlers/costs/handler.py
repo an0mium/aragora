@@ -646,6 +646,8 @@ class CostHandler:
             body, err = await parse_json_body(request, context="set_budget")
             if err:
                 return err
+            if body is None:
+                return web_error_response("Invalid request body", 400)
             budget_amount = body.get("budget")
             workspace_id = body.get("workspace_id", "default")
             daily_limit = body.get("daily_limit")
@@ -814,6 +816,8 @@ class CostHandler:
         """
         try:
             recommendation_id = request.match_info.get("recommendation_id")
+            if not recommendation_id:
+                return web_error_response("Recommendation ID is required", 400)
 
             from aragora.billing.optimizer import get_cost_optimizer
 
@@ -853,9 +857,13 @@ class CostHandler:
         """
         try:
             recommendation_id = request.match_info.get("recommendation_id")
+            if not recommendation_id:
+                return web_error_response("Recommendation ID is required", 400)
             body, err = await parse_json_body(request, context="apply_recommendation")
             if err:
                 return err
+            if body is None:
+                return web_error_response("Invalid request body", 400)
             user_id = body.get("user_id", "unknown")
 
             from aragora.billing.optimizer import get_cost_optimizer
@@ -903,6 +911,8 @@ class CostHandler:
         """
         try:
             recommendation_id = request.match_info.get("recommendation_id")
+            if not recommendation_id:
+                return web_error_response("Recommendation ID is required", 400)
 
             from aragora.billing.optimizer import get_cost_optimizer
 
@@ -1086,6 +1096,8 @@ class CostHandler:
             body, err = await parse_json_body(request, context="simulate_forecast")
             if err:
                 return err
+            if body is None:
+                return web_error_response("Invalid request body", 400)
             workspace_id = body.get("workspace_id", "default")
             scenario_data = body.get("scenario", {})
             days = body.get("days", 30)
@@ -1387,6 +1399,8 @@ class CostHandler:
             body, err = await parse_json_body(request, context="create_budget")
             if err:
                 return err
+            if body is None:
+                return web_error_response("Invalid request body", 400)
 
             workspace_id = body.get("workspace_id", "default")
             name = body.get("name", f"Budget for {workspace_id}")
@@ -1463,6 +1477,8 @@ class CostHandler:
             body, err = await parse_json_body(request, context="check_constraints")
             if err:
                 return err
+            if body is None:
+                return web_error_response("Invalid request body", 400)
 
             workspace_id = body.get("workspace_id", "default")
             estimated_cost = body.get("estimated_cost_usd", 0)
@@ -1551,6 +1567,8 @@ class CostHandler:
             body, err = await parse_json_body(request, context="estimate_cost")
             if err:
                 return err
+            if body is None:
+                return web_error_response("Invalid request body", 400)
 
             operation = body.get("operation", "unknown")
             tokens_input = body.get("tokens_input", 0)
@@ -1788,6 +1806,8 @@ class CostHandler:
             body, err = await parse_json_body(request, context="create_alert")
             if err:
                 return err
+            if body is None:
+                return web_error_response("Invalid request body", 400)
 
             workspace_id = body.get("workspace_id", "default")
             name = body.get("name")
