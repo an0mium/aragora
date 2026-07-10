@@ -470,11 +470,26 @@ jobs:
     steps:
       - name: Evaluate typecheck result
         run: |
-          if [[ "${{ needs.typecheck-run.result }}" == "failure" ]]; then
-            echo "::error::Type check failed"
-            exit 1
+          changes_result="${{ needs.changes.result }}"
+          python_changed="${{ needs.changes.outputs.python }}"
+          typecheck_result="${{ needs.typecheck-run.result }}"
+
+          if [[ "$changes_result" == "success" \
+                && "$python_changed" == "true" \
+                && "$typecheck_result" == "success" ]]; then
+            echo "Type check passed"
+            exit 0
           fi
-          echo "Type check passed (or skipped — no Python-relevant changes)"
+
+          if [[ "$changes_result" == "success" \
+                && "$python_changed" == "false" \
+                && "$typecheck_result" == "skipped" ]]; then
+            echo "Type check skipped — no Python-relevant changes"
+            exit 0
+          fi
+
+          echo "::error::Type check gate failed: changes=${changes_result}, python=${python_changed}, worker=${typecheck_result}"
+          exit 1
 
   typecheck-core:
     runs-on: ubuntu-latest
