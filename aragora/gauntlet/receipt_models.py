@@ -1341,6 +1341,7 @@ class DecisionReceipt:
             agent_responses=cls._build_agent_responses(result, cost_summary=cost_summary),
             cost_summary=cost_summary,
             config_used=config_used,
+            unverified=list(getattr(result, "unverified_claims", []) or []),
         )
 
     @classmethod

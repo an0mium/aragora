@@ -16,6 +16,7 @@ import json
 
 import pytest
 
+from aragora.gauntlet import InputType, OrchestratorResult, Verdict
 from aragora.gauntlet.odr_export import (
     ODR_PROFILE_URI,
     ODR_VERSION,
@@ -250,6 +251,28 @@ class TestMappingLossless:
                 "source": "latency dashboard",
                 "check_by": "2026-07-15",
             },
+        }
+
+    def test_mode_result_unverified_claims_export_to_epistemic_block(self) -> None:
+        result = OrchestratorResult(
+            gauntlet_id="g-mode-unverified",
+            input_type=InputType.ARCHITECTURE,
+            input_summary="Architecture summary",
+            verdict=Verdict.APPROVED_WITH_CONDITIONS,
+            confidence=0.82,
+            risk_score=0.4,
+            robustness_score=0.7,
+            coverage_score=0.6,
+            unverified_claims=["Production load behavior was not verified."],
+        )
+
+        receipt = DecisionReceipt.from_mode_result(result)
+        odr = decision_receipt_to_odr(receipt)
+
+        assert receipt.unverified == ["Production load behavior was not verified."]
+        assert odr["epistemic"] == {
+            "status": "present",
+            "unverified": ["Production load behavior was not verified."],
         }
 
     def test_epistemic_blocks_absent_when_empty(self) -> None:
