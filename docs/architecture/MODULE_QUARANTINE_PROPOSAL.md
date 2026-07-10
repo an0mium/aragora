@@ -72,9 +72,9 @@ sees it.
 
 | Proposed slot | Current path(s) | Notes |
 |---|---|---|
-| type hierarchy | `aragora/core/`, `aragora/core_types.py`, `aragora/errors.py`, `aragora/exceptions.py` | root type bundle; the "load bearing" override_reason row in `module_tiers.yaml` |
-| agent factory | `aragora/agents/` (cli_agents, api_agents/, fallback, airlock, personas, calibration, laboratory) | the registry of 46+ agent types |
-| persistent state | `aragora/memory/` (CritiqueStore, continuum/, coordinator, consensus) | the persistent substrate for debates |
+| type hierarchy | `aragora/core/`, `aragora/core_types.py`, `aragora/errors.py`, `aragora/exceptions.py` | root type bundle; the "load bearing" override_reason row in `aragora/module_tiers.yaml` |
+| agent factory | `aragora/agents/` (cli_agents, api_agents/, fallback, airlock, personas, laboratory; (except `aragora/agents/calibration.py`)) | the registry of 46+ agent types; `calibration.py` is Boundary 4 (debate calibration) |
+| persistent state | `aragora/memory/` (CritiqueStore, continuum/; (except `aragora/memory/consensus.py`, `aragora/memory/coordinator.py`)) | the persistent substrate for debates; `consensus.py` and `coordinator.py` are Boundary 4 (post-debate consensus bookkeeping) |
 | knowledge substrate | `aragora/knowledge/` (bridges, mound/, adapters/) | the unified knowledge management plane |
 | settings/allowlist | `aragora/config/` | Pydantic settings + agent-type allowlist — load-bearing |
 | store layer | `aragora/storage/`, `aragora/db/`, `aragora/persistence/` | persistence layer |
@@ -103,7 +103,7 @@ standalone verifier's hand-rolled schema mirror.
 | ODR schema (canonical) | `aragora/gauntlet/odr_schema.json` | byte-identical mirror at `aragora-verify/src/aragora_verify/odr_schema.json`; `diff` empty drift-check |
 | standalone verifier (offline) | `aragora-verify/` (separate top-level package; sibling to `aragora/`) | stdlib + `cryptography` only; 0.1.1 live on PyPI since 2026-07-04T03:28Z; console script `aragora-verify` |
 | lineaged docs | `docs/specs/OPEN_DECISION_RECEIPT.md`, `docs/specs/odr-native-mapping.md`, `docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md` | `docs/specs/**` IS mirrored by `docs-site/scripts/sync-docs.js` (PR #8953), with deliberate exclusions such as `docs/RECEIPT_CONTRACT.md` and allowlisted operator-only packets |
-| example fixtures | `docs/specs/examples/` (committed `example-decision-receipt.odr.json`, `example-merge-quorum-receipt.odr.json`, plus the unsigned-state fixtures from #8822) | the "weak-bar/warning" surface; `signatures: []` is the current shipping default |
+| example fixtures | `docs/specs/examples/` (committed `docs/specs/examples/example-decision-receipt.odr.json`, `docs/specs/examples/example-merge-quorum-receipt.odr.json`, plus the unsigned-state fixtures from #8822) | the "weak-bar/warning" surface; `signatures: []` is the current shipping default |
 
 **Owed contract:**
 - `aragora-verify` exit codes 0/1/2/3 stated verbatim across every doc that mentions them
@@ -199,7 +199,6 @@ calls** — Boundary 4 produces results that *this* boundary exposes.
 | REST/WS API | `aragora/server/` (handlers/, unified_server.py, stream/), `aragora/server/handlers/social/` (chat platform handlers) | ~3K API operations; FastAPI + uvicorn (`[gateway]` extra) |
 | CLI | `aragora/cli/` (main.py, parser.py, repl.py, commands/) | console entry point `aragora` (`[project.scripts]`); verbs include `ask`, `serve`, `quickstart`, `gauntlet`, `receipt`, `verify`, `demo`, `review`, `triage` |
 | WebSocket event types | `aragora/server/stream/` (190+ event types: `debate_start`, `round_start`, `agent_message`, `critique`, `vote`, `consensus`, `debate_end`) | the live debate observation interface |
-| legacy/adapter paths (NOT canonical) | `aragora-debate/` (separate distribution `pip install aragora-debate`); `aragora-debate/.../receipt.py` + types | HMAC-SHA256, not JCS/Ed25519 — NOT verifiable by `aragora-verify`; legacy |
 
 **Owed contract:**
 - The CLI exposes the **disambiguated** verb set: `aragora-verify` (Boundary 2 ↔ ODR),
@@ -228,12 +227,12 @@ of this boundary is **fence-and-disclosure, not promotion**: a module in this bo
 
 | Proposed slot | Current path(s) | Notes |
 |---|---|---|
-| experimental modules | `aragora/<pkg>` for the 29 `tier: experimental` rows in `module_tiers.yaml` (advocates, approvals, brief_engine, codex, embeddings, factory, fixtures, maintenance, moderation, monitoring, onboarding, performance, playbooks, prediction, prompts, receipts, reports, shared, sync, tasks, telemetry, tools, tournaments, trail, transcription, types, uncertainty, webhooks, work) | most have ≤7 importers and ≤4 test files; no current charter pressure to graduate |
+| experimental modules | `aragora/<pkg>` for the 29 `tier: experimental` rows in `aragora/module_tiers.yaml` (advocates, approvals, brief_engine, codex, embeddings, factory, fixtures, maintenance, moderation, monitoring, onboarding, performance, playbooks, prediction, prompts, receipts, reports, shared, sync, tasks, telemetry, tools, tournaments, trail, transcription, types, uncertainty, webhooks, work) | most have ≤7 importers and ≤4 test files; no current charter pressure to graduate |
 | standalone contrib wedge | `aragora-debate/` (a sibling package, `pip install aragora-debate` for the legacy receipt story; cf. `docs/architecture/PACKAGING_AND_DISTRIBUTION.md` §1, §7) | the only currently-shipped contrib slice |
 | dep-installed extras (DO NOT IMPORT ARAGORA-MAIN) | the `[blockchain]`, `[gateway]`, `[experimental]`, `[connectors]`, `[enterprise]` optional-dependency slices — each adds an opt-in dependency set | base install omits these by design |
-| deprecated modules | the 3 `tier: deprecated` rows in `module_tiers.yaml` (`aragora/metrics/`, `aragora/operations/`, `aragora/schedulers/`); plus past movers under `docs/archive/` and `docs/deprecated/` | removal-candidate zone; `aragora/metrics` has a soft-shim `DeprecationWarning` per CHR-X-007 (the only entry binding while INTENDED_ARCHITECTURE is DRAFT) |
+| deprecated modules | the 3 `tier: deprecated` rows in `aragora/module_tiers.yaml` (`aragora/metrics/`, `aragora/operations/`, `aragora/schedulers/`); plus past movers under `docs/archive/` and `docs/deprecated/` | removal-candidate zone; `aragora/metrics` has a soft-shim `DeprecationWarning` per CHR-X-007 (the only entry binding while INTENDED_ARCHITECTURE is DRAFT) |
 | archived docs | `docs/archive/`, `docs/status/` (status snapshots), `docs/internal/`, `docs/deprecated/`, `docs/migration/` (where applicable) | the docs-side analog; archived columns carry the `(Amended YYYY-MM-DD)` lineage |
-| contrib patterns | `scripts/`, `examples/`, `demos/`, `templates/`, `tutorials/` | adopter-facing but not module-promotion paths; no importer-count-based tier pressure |
+| contrib patterns | `scripts/` (except `scripts/emit_pr_receipt.py`, `scripts/extract_review_counts.py`, `scripts/collect_quorum_evidence.py`), `examples/`, `demos/`, `templates/`, `tutorials/` | adopter-facing but not module-promotion paths; no importer-count-based tier pressure; the three excepted scripts are Boundary 3 (Action receipt/quorum plumbing) |
 | harness plugins | `aragora/harnesses/` (Claude Code / Codex CLI integration), `aragora/extensions/` (gastown, moltbot), `aragora/plugins/` (manifest-based) | human/external-agent wiring; opt-in |
 
 **Owed contract:**
@@ -261,17 +260,20 @@ boundaries 1-5 by definition).
 
 Each boundary in §2 lists what it owes its adopters. The minimum coupling rule is **no
 backwards imports** — a module in a *lower-numbered* boundary never imports from a
-*higher-numbered* one. This keeps the public utility surface (`1→6`, "core to archive")
-*importable without opt-in extras* and prevents accidental coupling to experimental/deprecated
-paths.
+*higher-numbered* one. The table below is read as **"row MAY import column"** (the row
+boundary is the importer, the column boundary is the importee). A cell is marked **yes** for
+always-allowed self/lower-boundary imports, **✓** for an important allowed cross-boundary
+edge that the prose calls out, and **—** for edges that the no-backwards-import rule forbids.
+This keeps the public utility surface (`1→6`, "core to archive") *importable without opt-in
+extras* and prevents accidental coupling to experimental/deprecated paths.
 
 | from ↓ / to → | 1 `core` | 2 `receipts+verifier` | 3 `action+CI-gate` | 4 `debate+quorum` | 5 `SDK+API` | 6 `experimental+contrib+archive` |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
-| 1 `core` | yes | ✓ (receipts core imports) | — | — | — | only via explicit `__init__`-level opt-in flag |
-| 2 `receipts+verifier` | yes (down-imports ok) | yes | ✓ (Action imports ODR machinery) | ✓ (gathers `quorum.*` fields) | ✓ (server exposes receipts) | only via `aragora-verify` external entrypoint |
-| 3 `action+CI-gate` | yes | ✓ (calls `emit_pr_receipt.py`) | yes | ✓ (calls `collect_quorum_evidence`) | — | — |
-| 4 `debate+quorum` | yes | yes (writes receipts after verdict) | — | yes | ✓ (CLI/API surface) | — |
-| 5 `SDK+API` | yes | yes (verifier callable from CLI) | yes (Action exposed via SDK façade) | yes | yes | only via extras (e.g. `pip install ".[gateway]"`) |
+| 1 `core` | yes | — | — | — | — | — |
+| 2 `receipts+verifier` | ✓ (receipts import core) | yes | — | — | — | — |
+| 3 `action+CI-gate` | ✓ (Action uses core types) | ✓ (Action imports ODR machinery) | yes | — | — | — |
+| 4 `debate+quorum` | ✓ (debate uses core types) | ✓ (writes receipts after verdict) | — | yes | — | — |
+| 5 `SDK+API` | ✓ (SDK/CLI uses core types) | ✓ (verifier callable from CLI) | ✓ (Action exposed via SDK façade) | ✓ (CLI/API surface) | yes | — |
 | 6 `experimental+contrib+archive` | limited (the legacy bridge) | limited (only for external `aragora-debate` HMAC) | — | — | — | yes (opt-in) |
 
 **What this table does NOT do:**
@@ -360,12 +362,12 @@ Until those answers arrive, this proposal stays inert.
 
 ---
 
-## 6. The `git diff --name-status origin/main` contract
+## 6. The `git diff --name-status origin/main...HEAD` contract
 
 The proposal doc itself is the only file this PR creates. Validator can verify:
 
 ```text
-# Expected diff status (origin/main vs HEAD on factory/pum-m7-module-quarantine-proposal):
+# Expected diff status (origin/main...HEAD on factory/pum-m7-quarantine-proposal-fixes):
 A  docs/architecture/MODULE_QUARANTINE_PROPOSAL.md
 
 # NOT expected (any of):
