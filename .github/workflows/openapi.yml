@@ -370,6 +370,7 @@ jobs:
 
       - name: Validate handler route coverage
         run: |
+          set -o pipefail
           python scripts/validate_openapi_routes.py \
             --spec docs/api/openapi.json \
             --fail-on-missing \
