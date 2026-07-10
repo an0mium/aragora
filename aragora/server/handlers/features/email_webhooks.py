@@ -782,6 +782,8 @@ class EmailWebhooksHandler(BaseHandler):
         """
         try:
             body = await self._get_json_body(request)
+            if body is None:
+                return error_response("Invalid request body", 400)
 
             provider_str = body.get("provider", "").lower()
             if provider_str not in ["gmail", "outlook"]:
@@ -886,6 +888,8 @@ class EmailWebhooksHandler(BaseHandler):
         """
         try:
             body = await self._get_json_body(request)
+            if body is None:
+                return error_response("Invalid request body", 400)
             subscription_id = body.get("subscription_id", "")
 
             if not subscription_id:

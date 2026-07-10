@@ -80,7 +80,7 @@ MAX_REDIRECT_URI_LENGTH = 2048
 _PATH_TRAVERSAL_SEQUENCES = ("..", "~", "\x00")
 
 # In-memory token storage (use Redis/DB in production)
-_tokens: dict[str, dict[str, str]] = {}
+_tokens: dict[str, dict[str, str | None]] = {}
 
 
 def _validate_path(path: str) -> str | None:

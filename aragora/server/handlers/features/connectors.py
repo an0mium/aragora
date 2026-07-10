@@ -367,6 +367,7 @@ class ConnectorsHandler(SecureHandler):
     async def _get_connector(self, request: Any, connector_id: str) -> dict[str, Any]:
         """Get details for a specific connector."""
         store = await _get_store()
+        connector: dict[str, Any]
 
         if store:
             config = await store.get_connector(connector_id)
@@ -401,9 +402,10 @@ class ConnectorsHandler(SecureHandler):
                 for j in history
             ]
         else:
-            connector = _connectors.get(connector_id)
-            if not connector:
+            cached_connector = _connectors.get(connector_id)
+            if not cached_connector:
                 return self._error_response(404, f"Connector {connector_id} not found")
+            connector = cached_connector
 
             # Add recent sync history
             connector["recent_syncs"] = [
@@ -852,11 +854,15 @@ class ConnectorsHandler(SecureHandler):
                 from datetime import timedelta
 
                 one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
-                syncs_24h = sum(1 for h in history if h.started_at and h.started_at >= one_day_ago)
+                syncs_24h = sum(
+                    1 for h in history if h.started_at is not None and h.started_at >= one_day_ago
+                )
                 failures_24h = sum(
                     1
                     for h in history
-                    if h.started_at and h.started_at >= one_day_ago and h.status == "failed"
+                    if h.started_at is not None
+                    and h.started_at >= one_day_ago
+                    and h.status == "failed"
                 )
 
                 connectors_health.append(

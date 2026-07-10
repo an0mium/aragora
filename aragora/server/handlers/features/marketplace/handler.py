@@ -186,7 +186,7 @@ class MarketplaceHandler:
                     # Validate template ID
                     valid, err = _validate_template_id(template_id)
                     if not valid:
-                        return error_response(err, 400)
+                        return error_response(err or "Invalid template ID", 400)
 
                     if len(parts) == 6:
                         if method == "GET":
@@ -210,7 +210,7 @@ class MarketplaceHandler:
 
                     valid, err = _validate_deployment_id(deployment_id)
                     if not valid:
-                        return error_response(err, 400)
+                        return error_response(err or "Invalid deployment ID", 400)
 
                     if len(parts) == 6:
                         if method == "GET":

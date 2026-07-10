@@ -681,8 +681,8 @@ class AuditSessionsHandler(SecureHandler):
                         document_id=f.get("document_id", ""),
                         chunk_id=f.get("chunk_id"),
                         evidence_text=f.get("evidence_text", ""),
-                        evidence_location=f.get("evidence_location"),
-                        recommendation=f.get("recommendation"),
+                        evidence_location=f.get("evidence_location") or "",
+                        recommendation=f.get("recommendation") or "",
                         status=FindingStatus(f.get("status", "open")),
                     )
                     finding_objects.append(finding_obj)

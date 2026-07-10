@@ -47,7 +47,10 @@ def get_provenance_store() -> ProvenanceStore:
     """Get or create the global ProvenanceStore instance."""
     if _provenance_store is not None:
         return _provenance_store
-    return _provenance_store_lazy.get()
+    store = _provenance_store_lazy.get()
+    if store is None:
+        raise RuntimeError("Provenance store is unavailable")
+    return store
 
 
 def get_provenance_manager(debate_id: str) -> ProvenanceManager:

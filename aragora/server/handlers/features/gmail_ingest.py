@@ -178,6 +178,8 @@ class GmailIngestHandler(SecureHandler):
         user_id, org_id, auth_error = self._get_authenticated_user(handler)
         if auth_error:
             return auth_error
+        if user_id is None:
+            return error_response("Authentication required", 401)
 
         if path == "/api/v1/gmail/status":
             return await self._get_status(user_id)
@@ -233,6 +235,8 @@ class GmailIngestHandler(SecureHandler):
         user_id, org_id, auth_error = self._get_authenticated_user(handler)
         if auth_error:
             return auth_error
+        if user_id is None:
+            return error_response("Authentication required", 401)
 
         if path == "/api/v1/gmail/connect":
             return self._start_connect(body, user_id)

@@ -355,8 +355,12 @@ class DevOpsHandler(BaseHandler):
         )
         if err:
             return error_response(err, 400)
+        if title is None:
+            return error_response("title is required", 400)
 
         service_id = body.get("service_id")
+        if not isinstance(service_id, str):
+            return error_response("service_id must be a string", 400)
         ok, err = _validate_pagerduty_id(service_id, "service_id")
         if not ok:
             return error_response(err or "Invalid service_id", 400)

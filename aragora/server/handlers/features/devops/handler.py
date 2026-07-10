@@ -399,12 +399,16 @@ class DevOpsHandler(SecureHandler):
         )
         if err:
             return error_response(err, 400)
+        if title is None:
+            return error_response("title is required", 400)
 
         # Validate service_id
-        is_valid, err = validate_pagerduty_id(body.get("service_id", ""), "service_id")
+        service_id = body.get("service_id")
+        if not isinstance(service_id, str):
+            return error_response("service_id must be a string", 400)
+        is_valid, err = validate_pagerduty_id(service_id, "service_id")
         if not is_valid:
-            return error_response(err, 400)
-        service_id = body["service_id"]
+            return error_response(err or "Invalid service_id", 400)
 
         # Validate urgency
         urgency_str = validate_urgency(body.get("urgency"))
@@ -421,14 +425,14 @@ class DevOpsHandler(SecureHandler):
         if escalation_policy_id:
             is_valid, err = validate_pagerduty_id(escalation_policy_id, "escalation_policy_id")
             if not is_valid:
-                return error_response(err, 400)
+                return error_response(err or "Invalid escalation_policy_id", 400)
 
         # Validate priority_id (optional)
         priority_id = body.get("priority_id")
         if priority_id:
             is_valid, err = validate_pagerduty_id(priority_id, "priority_id")
             if not is_valid:
-                return error_response(err, 400)
+                return error_response(err or "Invalid priority_id", 400)
 
         try:
             from aragora.connectors.devops.pagerduty import (
@@ -488,7 +492,7 @@ class DevOpsHandler(SecureHandler):
         # Validate incident_id
         is_valid, err = validate_pagerduty_id(incident_id, "incident_id")
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid incident_id", 400)
 
         # Check circuit breaker
         circuit_breaker = get_devops_circuit_breaker()
@@ -538,7 +542,7 @@ class DevOpsHandler(SecureHandler):
         # Validate incident_id
         is_valid, err = validate_pagerduty_id(incident_id, "incident_id")
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid incident_id", 400)
 
         # Check circuit breaker
         circuit_breaker = get_devops_circuit_breaker()
@@ -584,7 +588,7 @@ class DevOpsHandler(SecureHandler):
         # Validate incident_id
         is_valid, err = validate_pagerduty_id(incident_id, "incident_id")
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid incident_id", 400)
 
         # Check circuit breaker
         circuit_breaker = get_devops_circuit_breaker()
@@ -640,7 +644,7 @@ class DevOpsHandler(SecureHandler):
         # Validate incident_id
         is_valid, err = validate_pagerduty_id(incident_id, "incident_id")
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid incident_id", 400)
 
         # Check circuit breaker
         circuit_breaker = get_devops_circuit_breaker()
@@ -669,7 +673,7 @@ class DevOpsHandler(SecureHandler):
         if escalation_policy_id:
             is_valid, err = validate_pagerduty_id(escalation_policy_id, "escalation_policy_id")
             if not is_valid:
-                return error_response(err, 400)
+                return error_response(err or "Invalid escalation_policy_id", 400)
 
         try:
             incident = await connector.reassign_incident(
@@ -710,7 +714,7 @@ class DevOpsHandler(SecureHandler):
         # Validate incident_id
         is_valid, err = validate_pagerduty_id(incident_id, "incident_id")
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid incident_id", 400)
 
         # Check circuit breaker
         circuit_breaker = get_devops_circuit_breaker()
@@ -733,6 +737,8 @@ class DevOpsHandler(SecureHandler):
         )
         if err:
             return error_response(err, 400)
+        if validated_source_ids is None:
+            return error_response("source_incident_ids is required", 400)
 
         try:
             incident = await connector.merge_incidents(incident_id, validated_source_ids)
@@ -769,7 +775,7 @@ class DevOpsHandler(SecureHandler):
         # Validate incident_id
         is_valid, err = validate_pagerduty_id(incident_id, "incident_id")
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid incident_id", 400)
 
         # Check circuit breaker
         circuit_breaker = get_devops_circuit_breaker()
@@ -823,7 +829,7 @@ class DevOpsHandler(SecureHandler):
         # Validate incident_id
         is_valid, err = validate_pagerduty_id(incident_id, "incident_id")
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid incident_id", 400)
 
         # Check circuit breaker
         circuit_breaker = get_devops_circuit_breaker()
@@ -842,6 +848,8 @@ class DevOpsHandler(SecureHandler):
         )
         if err:
             return error_response(err, 400)
+        if content is None:
+            return error_response("content is required", 400)
 
         try:
             note = await connector.add_note(incident_id, content)
@@ -892,7 +900,7 @@ class DevOpsHandler(SecureHandler):
             for sid in schedule_ids[:20]:  # Limit to 20 schedule IDs
                 is_valid, err = validate_pagerduty_id(sid, "schedule_id")
                 if not is_valid:
-                    return error_response(err, 400)
+                    return error_response(err or "Invalid schedule_id", 400)
             schedule_ids = schedule_ids[:20]
 
         try:

@@ -819,6 +819,8 @@ class SupportHandler(SecureHandler):
         else:
             tickets_to_triage = []
             for tid in ticket_ids:
+                if not isinstance(platform, str):
+                    continue
                 connector = await self._get_connector(platform)
                 if connector:
                     try:

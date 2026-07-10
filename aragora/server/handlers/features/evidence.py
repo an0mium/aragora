@@ -38,7 +38,6 @@ from aragora.server.handlers.base import (
     PaginatedHandlerMixin,
     error_response,
     get_float_param,
-    get_int_param,
     get_string_param,
     json_response,
     safe_error_message,
@@ -255,6 +254,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             debate_id, err = self.extract_path_param(normalized, 4, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
+            if debate_id is None:
+                return error_response("Missing debate_id in path", 400)
             return self._handle_get_debate_evidence(debate_id, query_params)
 
         # GET /api/evidence/:id
@@ -271,6 +272,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             )
             if err:
                 return err
+            if evidence_id is None:
+                return error_response("Missing evidence_id in path", 400)
             return self._handle_get_evidence(evidence_id)
 
         # GET /api/evidence - list all
@@ -302,6 +305,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             body, err = self._read_json_body_lenient(handler)
             if err:
                 return err
+            if body is None:
+                return error_response("Invalid JSON body", 400)
             return self._handle_search(body)
 
         # POST /api/evidence/collect
@@ -309,6 +314,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             body, err = self._read_json_body_lenient(handler)
             if err:
                 return err
+            if body is None:
+                return error_response("Invalid JSON body", 400)
             return await self._handle_collect(body)
 
         # POST /api/evidence/debate/:debate_id
@@ -318,9 +325,13 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             debate_id, err = self.extract_path_param(normalized, 4, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
+            if debate_id is None:
+                return error_response("Missing debate_id in path", 400)
             body, err = self._read_json_body_lenient(handler)
             if err:
                 return err
+            if body is None:
+                return error_response("Invalid JSON body", 400)
             return self._handle_associate_evidence(debate_id, body)
 
         return None
@@ -355,6 +366,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             )
             if err:
                 return err
+            if evidence_id is None:
+                return error_response("Missing evidence_id in path", 400)
             return self._handle_delete_evidence(evidence_id)
 
         return None
@@ -452,7 +465,15 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         if not is_valid:
             return error_response(err or "Invalid debate ID", 400)
 
-        round_number = get_int_param(query_params, "round", None)
+        round_number: int | None = None
+        raw_round = query_params.get("round")
+        if isinstance(raw_round, list):
+            raw_round = raw_round[0] if raw_round else None
+        if raw_round is not None:
+            try:
+                round_number = int(raw_round)
+            except (TypeError, ValueError):
+                pass
 
         store = self._get_evidence_store()
         evidence_list = store.get_debate_evidence(debate_id, round_number)
@@ -525,14 +546,24 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         if not task:
             return error_response("Task/topic is required", 400)
 
-        enabled_connectors = body.get("connectors")  # Optional list
+        raw_connectors = body.get("connectors")
+        enabled_connectors: list[str] | None = None
+        if raw_connectors is not None:
+            if not isinstance(raw_connectors, list) or not all(
+                isinstance(connector, str) for connector in raw_connectors
+            ):
+                return error_response("connectors must be a list of strings", 400)
+            enabled_connectors = list(raw_connectors)
         debate_id = body.get("debate_id")  # Optional association
         round_number = body.get("round")
 
         collector = self._get_evidence_collector()
 
         try:
-            evidence_pack = await collector.collect_evidence(task, enabled_connectors)
+            if enabled_connectors is None:
+                evidence_pack = await collector.collect_evidence(task)
+            else:
+                evidence_pack = await collector.collect_evidence(task, enabled_connectors)
         except (ValueError, TypeError) as e:
             logger.warning("Evidence collection failed (invalid params): %s", e)
             return error_response(safe_error_message(e, "Evidence collection"), 400)

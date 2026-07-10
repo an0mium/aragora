@@ -54,7 +54,8 @@ async def triage_single_message(
 ) -> TriageResult:
     """Triage a single message using multi-agent debate."""
     try:
-        from aragora.debate import Arena, Environment, DebateProtocol  # noqa: F401
+        from aragora.core import Environment
+        from aragora.debate import Arena, DebateProtocol  # noqa: F401
 
         # Build debate environment
         Environment(

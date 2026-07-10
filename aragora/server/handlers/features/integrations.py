@@ -223,6 +223,8 @@ class IntegrationsHandler(SecureHandler):
             integration_type, err = self._extract_integration_type(normalized)
             if err:
                 return err
+            if integration_type is None:
+                return error_response("Integration type is required", status=400)
             return await self.get_integration(integration_type, user_id=user_id or "default")
 
         return error_response("Not found", status=404)
@@ -268,6 +270,8 @@ class IntegrationsHandler(SecureHandler):
             integration_type, err = self._extract_integration_type(normalized.rsplit("/test", 1)[0])
             if err:
                 return err
+            if integration_type is None:
+                return error_response("Integration type is required", status=400)
             return await self.test_integration(integration_type, user_id=user_id or "default")
 
         if normalized.endswith("/sync"):
@@ -280,6 +284,8 @@ class IntegrationsHandler(SecureHandler):
             integration_type, err = self._extract_integration_type(normalized.rsplit("/sync", 1)[0])
             if err:
                 return err
+            if integration_type is None:
+                return error_response("Integration type is required", status=400)
             return await self.sync_integration(integration_type, user_id=user_id or "default")
 
         return error_response("Not found", status=404)
@@ -311,6 +317,8 @@ class IntegrationsHandler(SecureHandler):
             integration_type, err = self._extract_integration_type(normalized)
             if err:
                 return err
+            if integration_type is None:
+                return error_response("Integration type is required", status=400)
             return await self.configure_integration(
                 integration_type, data, user_id=user_id or "default"
             )
@@ -343,6 +351,8 @@ class IntegrationsHandler(SecureHandler):
             integration_type, err = self._extract_integration_type(normalized)
             if err:
                 return err
+            if integration_type is None:
+                return error_response("Integration type is required", status=400)
             return await self.update_integration(
                 integration_type, data, user_id=user_id or "default"
             )
@@ -371,6 +381,8 @@ class IntegrationsHandler(SecureHandler):
             integration_type, err = self._extract_integration_type(normalized)
             if err:
                 return err
+            if integration_type is None:
+                return error_response("Integration type is required", status=400)
             return await self.delete_integration(integration_type, user_id=user_id or "default")
         return error_response("Not found", status=404)
 

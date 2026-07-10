@@ -432,7 +432,7 @@ class PluginsHandler(BaseHandler):
         # Schema validation for input sanitization
         validation_result = validate_against_schema(body, PLUGIN_RUN_SCHEMA)
         if not validation_result.is_valid:
-            return error_response(validation_result.error, 400)
+            return error_response(validation_result.error or "Invalid plugin input", 400)
 
         input_data = body.get("input", {})
         config = body.get("config", {})
@@ -622,7 +622,7 @@ class PluginsHandler(BaseHandler):
         # Validate manifest against schema (enforces name format, length limits, entry_point pattern)
         validation_result = validate_against_schema(manifest, PLUGIN_MANIFEST_SCHEMA)
         if not validation_result.is_valid:
-            return error_response(validation_result.error, 400)
+            return error_response(validation_result.error or "Invalid plugin manifest", 400)
 
         name = manifest.get("name", "")
 

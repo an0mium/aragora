@@ -30,12 +30,14 @@ from typing import Any
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 # Pre-declare optional import names for type safety
-httpx: Any = None
+httpx: Any
 
 try:
-    import httpx  # noqa: F401 - Optionally imported for availability check
+    import httpx as _httpx
+
+    httpx = _httpx
 except ImportError:
-    pass
+    httpx = None
 
 from aragora.server.http_utils import run_async
 
@@ -280,7 +282,7 @@ class PulseHandler(BaseHandler):
             if category:
                 is_valid, err = validate_path_segment(category, "category", SAFE_ID_PATTERN)
                 if not is_valid:
-                    return error_response(err, 400)
+                    return error_response(err or "Invalid category", 400)
             return self._suggest_debate_topic(category)
 
         if path == "/api/v1/pulse/analytics":
@@ -306,7 +308,7 @@ class PulseHandler(BaseHandler):
                 topic_id = segments[5]
                 is_valid, err = validate_path_segment(topic_id, "topic_id", SAFE_ID_PATTERN)
                 if not is_valid:
-                    return error_response(err, 400)
+                    return error_response(err or "Invalid topic_id", 400)
                 return self._get_topic_outcomes(topic_id)
 
         return None

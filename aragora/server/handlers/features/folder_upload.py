@@ -210,10 +210,12 @@ class FolderUploadHandler(BaseHandler):
 
         # GET /api/v1/documents/folders/{folder_id}
         if path.startswith("/api/v1/documents/folders/"):
-            folder_id, err = self.extract_path_param(path, 5, "folder_id")
+            extracted_folder_id, err = self.extract_path_param(path, 5, "folder_id")
             if err:
                 return err
-            return self._get_folder(folder_id)
+            if extracted_folder_id is None:
+                return error_response("Missing folder_id in path", 400)
+            return self._get_folder(extracted_folder_id)
 
         return None
 
@@ -238,6 +240,8 @@ class FolderUploadHandler(BaseHandler):
             folder_id, err = self.extract_path_param(path, 5, "folder_id")
             if err:
                 return err
+            if folder_id is None:
+                return error_response("Missing folder_id in path", 400)
             return self._delete_folder(folder_id, handler=handler)
         return None
 
@@ -261,6 +265,8 @@ class FolderUploadHandler(BaseHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Invalid JSON body", 400)
 
         folder_path = body.get("path")
         if not folder_path:
@@ -277,6 +283,8 @@ class FolderUploadHandler(BaseHandler):
             else:
                 status_code = 400
             return error_response(error_msg, status_code)
+        if path is None:
+            return error_response("Invalid folder path", 400)
 
         # Build config from request
         config_data = body.get("config", {})
@@ -338,6 +346,8 @@ class FolderUploadHandler(BaseHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Invalid JSON body", 400)
 
         folder_path = body.get("path")
         if not folder_path:
@@ -354,6 +364,8 @@ class FolderUploadHandler(BaseHandler):
             else:
                 status_code = 400
             return error_response(error_msg, status_code)
+        if path is None:
+            return error_response("Invalid folder path", 400)
 
         # Create job
         folder_id = str(uuid.uuid4())

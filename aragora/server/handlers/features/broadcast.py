@@ -10,8 +10,9 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, TypeVar
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 
 T = TypeVar("T")
 
@@ -35,21 +36,30 @@ from aragora.rbac.decorators import require_permission
 logger = logging.getLogger(__name__)
 
 # Optional imports for broadcast functionality
+broadcast_debate: Callable[..., Coroutine[Any, Any, Path | None]] | None
 try:
-    from aragora.broadcast import broadcast_debate
+    from aragora.broadcast import broadcast_debate as _broadcast_debate
 
+    broadcast_debate = _broadcast_debate
     BROADCAST_AVAILABLE = True
 except ImportError:
     BROADCAST_AVAILABLE = False
     broadcast_debate = None
 
-BroadcastPipeline: Any = None
-BroadcastOptions: Any = None
+BroadcastPipeline: Any
+BroadcastOptions: Any
 try:
-    from aragora.broadcast.pipeline import BroadcastOptions, BroadcastPipeline
+    from aragora.broadcast.pipeline import (
+        BroadcastOptions as _BroadcastOptions,
+        BroadcastPipeline as _BroadcastPipeline,
+    )
 
+    BroadcastPipeline = _BroadcastPipeline
+    BroadcastOptions = _BroadcastOptions
     PIPELINE_AVAILABLE = True
 except ImportError:
+    BroadcastPipeline = None
+    BroadcastOptions = None
     PIPELINE_AVAILABLE = False
 
 try:
@@ -189,7 +199,7 @@ class BroadcastHandler(BaseHandler):
 
         Rate limited to 3 requests/min due to high CPU usage for TTS.
         """
-        if not BROADCAST_AVAILABLE:
+        if not BROADCAST_AVAILABLE or broadcast_debate is None:
             return error_response("Broadcast module not available", status=503)
 
         storage = self.get_storage()

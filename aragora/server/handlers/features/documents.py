@@ -131,6 +131,8 @@ class DocumentHandler(BaseHandler):
             doc_id, err = self.extract_path_param(path, 4, "document_id")
             if err:
                 return err
+            if doc_id is None:
+                return error_response("Missing document_id in path", 400)
             return self._get_document(doc_id)
 
         return None
@@ -169,6 +171,8 @@ class DocumentHandler(BaseHandler):
             doc_id, err = self.extract_path_param(path, 4, "document_id")
             if err:
                 return err
+            if doc_id is None:
+                return error_response("Missing document_id in path", 400)
             return self._delete_document(doc_id)
         return None
 

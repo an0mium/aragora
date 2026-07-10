@@ -199,7 +199,7 @@ class AudioHandler(BaseHandler):
         # Validate debate ID to prevent path traversal
         valid, error = validate_debate_id(debate_id)
         if not valid:
-            return error_response(error, status=400)
+            return error_response(error or "Invalid debate ID", status=400)
 
         # Get audio file path
         audio_path = audio_store.get_path(debate_id)

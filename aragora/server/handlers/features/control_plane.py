@@ -437,7 +437,7 @@ class AgentDashboardHandler(SecureHandler):
                     task_index = i
                     break
 
-            if not task:
+            if task is None or task_index is None:
                 return self._error_response(404, f"Task {task_id} not found")
 
             # Update priority
