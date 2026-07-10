@@ -320,7 +320,7 @@ class TestEmailConfigurationLogic:
     """Tests for email configuration internal logic."""
 
     def test_configure_email_validates_schema(self, handler):
-        """Email configuration should validate against schema."""
+        """Notification writes reject absent bodies and null validation messages."""
         mock_http = MockHandler.with_json_body(
             {"smtp_host": ""},  # Empty host
             path="/api/v1/notifications/email/config",
@@ -338,6 +338,45 @@ class TestEmailConfigurationLogic:
             result = handler._configure_email(mock_http, org_id="test-org")
 
         assert get_status_code(result) == 400
+
+        missing_body_cases = [
+            ("_configure_email", {"org_id": "test-org"}),
+            ("_configure_telegram", {"org_id": "test-org"}),
+            ("_add_email_recipient", {"org_id": "test-org"}),
+            ("_send_test_notification", {}),
+            ("_send_notification", {}),
+        ]
+        for method_name, kwargs in missing_body_cases:
+            with patch.object(
+                handler,
+                "read_json_body_validated",
+                return_value=(None, None),
+            ):
+                result = getattr(handler, method_name)(mock_http, **kwargs)
+
+            assert get_status_code(result) == 400
+            assert get_json(result)["error"] == "JSON body is required"
+
+        for method_name in (
+            "_configure_email",
+            "_configure_telegram",
+            "_send_notification",
+        ):
+            with (
+                patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({}, None),
+                ),
+                patch(
+                    "aragora.server.handlers.social.notifications.validate_against_schema",
+                    return_value=MagicMock(is_valid=False, error=None),
+                ),
+            ):
+                result = getattr(handler, method_name)(mock_http)
+
+            assert get_status_code(result) == 400
+            assert get_json(result)["error"] == "Invalid notification configuration"
 
     def test_configure_email_saves_to_store(self, handler):
         """Email configuration should save to org store."""
