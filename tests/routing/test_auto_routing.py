@@ -371,27 +371,37 @@ class TestGetDomainLeaderboard:
 class TestCreateWithDefaults:
     """Tests for AgentSelector.create_with_defaults() factory method."""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_optional_agent_flags(self, monkeypatch):
+        """Keep factory tests independent of ambient optional-agent flags."""
+        monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
+        monkeypatch.setenv("ARAGORA_ENABLE_FUSION", "0")
+
     @pytest.mark.parametrize(
-        ("enable_kimi", "excluded_agents"),
-        [(False, {"kimi"}), (True, set())],
+        ("enable_kimi", "enable_fusion"),
+        [(False, False), (True, False), (True, True)],
     )
     def test_creates_selector_with_default_agents(
         self,
         monkeypatch,
         enable_kimi,
-        excluded_agents,
+        enable_fusion,
     ):
         """create_with_defaults should register default agents."""
         if enable_kimi:
             monkeypatch.setenv("ARAGORA_ENABLE_KIMI_CLI", "1")
-        else:
-            monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
-        monkeypatch.setenv("ARAGORA_ENABLE_FUSION", "0")
+        monkeypatch.setenv("ARAGORA_ENABLE_FUSION", str(int(enable_fusion)))
 
         selector = AgentSelector.create_with_defaults()
 
+        expected_agents = set(DEFAULT_AGENT_EXPERTISE)
+        if not enable_kimi:
+            expected_agents.remove("kimi")
+        if enable_fusion:
+            expected_agents.add("fusion")
+
         assert "fusion" not in DEFAULT_AGENT_EXPERTISE
-        assert set(selector.agent_pool) == set(DEFAULT_AGENT_EXPERTISE) - excluded_agents
+        assert set(selector.agent_pool) == expected_agents
 
     def test_default_agents_have_expertise(self):
         """Default agents should have expertise profiles."""
@@ -433,13 +443,17 @@ class TestCreateWithDefaults:
         # Claude's rating should be updated
         assert selector.agent_pool["claude"].elo_rating == 1700
 
-    def test_default_expertise_matches_constant(self, monkeypatch):
+    @pytest.mark.parametrize("enable_fusion", [False, True])
+    def test_default_expertise_matches_constant(self, monkeypatch, enable_fusion):
         """Default expertise should match DEFAULT_AGENT_EXPERTISE constant."""
         monkeypatch.setenv("ARAGORA_ENABLE_KIMI_CLI", "1")
-        monkeypatch.setenv("ARAGORA_ENABLE_FUSION", "0")
+        monkeypatch.setenv("ARAGORA_ENABLE_FUSION", str(int(enable_fusion)))
         selector = AgentSelector.create_with_defaults()
 
-        assert set(selector.agent_pool) == set(DEFAULT_AGENT_EXPERTISE)
+        expected_agents = set(DEFAULT_AGENT_EXPERTISE)
+        if enable_fusion:
+            expected_agents.add("fusion")
+        assert set(selector.agent_pool) == expected_agents
         for agent_name, expected_expertise in DEFAULT_AGENT_EXPERTISE.items():
             actual_expertise = selector.agent_pool[agent_name].expertise
             assert actual_expertise == expected_expertise
