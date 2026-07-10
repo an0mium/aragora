@@ -382,8 +382,12 @@ jobs:
             echo "Expected exactly two typecheck tool requirements from pyproject.toml" >&2
             exit 2
           fi
+          # pyjwt is pinned so mypy sees one deterministic jwt signature: the
+          # ubuntu runner image ships an ambient PyJWT in dist-packages that
+          # otherwise shadows "not installed" and drifts with image updates.
           "${PYBIN}" -m pip install --user \
             "${TYPECHECK_REQUIREMENTS[@]}" \
+            "pyjwt[crypto]==2.13.0" \
             types-requests types-redis types-python-dateutil types-setuptools \
             types-jsonschema types-PyYAML
 
@@ -550,8 +554,11 @@ jobs:
             echo "Expected exactly two typecheck tool requirements from pyproject.toml" >&2
             exit 2
           fi
+          # Same deterministic pyjwt pin as the typecheck-run job (ambient
+          # runner-image PyJWT otherwise leaks into mypy's resolution).
           python -m pip install \
             "${TYPECHECK_REQUIREMENTS[@]}" \
+            "pyjwt[crypto]==2.13.0" \
             types-requests types-redis types-python-dateutil types-setuptools \
             types-jsonschema types-PyYAML
 
