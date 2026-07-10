@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
@@ -230,7 +230,7 @@ class KnowledgePipelineStep(BaseStep):
             if file_path.is_file() and self._is_supported_file(file_path):
                 try:
                     content = file_path.read_text(encoding="utf-8", errors="ignore")
-                    result = await self._pipeline.process_document(
+                    result = await cast(Any, self._pipeline).process_document(
                         content=content,
                         filename=file_path.name,
                         metadata={"path": str(file_path)},
@@ -250,7 +250,7 @@ class KnowledgePipelineStep(BaseStep):
     async def _process_file(self, file_path: Path) -> dict[str, Any]:
         """Process a single file."""
         content = file_path.read_text(encoding="utf-8", errors="ignore")
-        result = await self._pipeline.process_document(
+        result = await cast(Any, self._pipeline).process_document(
             content=content,
             filename=file_path.name,
             metadata={"path": str(file_path)},
@@ -283,7 +283,7 @@ class KnowledgePipelineStep(BaseStep):
             connector = WebConnector(**web_config)
             content = await connector.fetch(url)
 
-            result = await self._pipeline.process_document(
+            result = await cast(Any, self._pipeline).process_document(
                 content=content,
                 filename=url.split("/")[-1] or "web_document",
                 metadata={"url": url},
@@ -342,7 +342,7 @@ class KnowledgePipelineStep(BaseStep):
             chunks_created = 0
 
             for doc in documents:
-                result = await self._pipeline.process_document(
+                result = await cast(Any, self._pipeline).process_document(
                     content=doc.get("content", ""),
                     filename=doc.get("filename", "document"),
                     metadata=doc.get("metadata", {}),

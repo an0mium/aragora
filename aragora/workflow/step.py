@@ -433,7 +433,9 @@ class AgentStep(BaseStep):
         if selection_strategy in {"best_score", "power_law"}:
             best = max(
                 candidates,
-                key=lambda c: float(c.get("score")) if c.get("score") is not None else 0.0,
+                key=lambda c: float(cast(Any, c.get("score")))
+                if c.get("score") is not None
+                else 0.0,
             )
 
         output: dict[str, Any] = {

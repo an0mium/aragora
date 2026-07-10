@@ -10,7 +10,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from collections.abc import Callable
 
 if TYPE_CHECKING:
@@ -379,7 +379,7 @@ class TaskQueue:
         # Collect results
         task_ids = self._workflows.get(workflow_id, set())
         return {
-            tid: self._tasks[tid].result
+            tid: cast(TaskResult, self._tasks[tid].result)
             for tid in task_ids
             if tid in self._tasks and self._tasks[tid].result
         }

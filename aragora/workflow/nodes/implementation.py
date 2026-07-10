@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
@@ -79,10 +79,9 @@ class ImplementationStep(BaseStep):
             from aragora.implement.types import ImplementTask
 
             metadata = context.metadata if isinstance(context.metadata, dict) else {}
+            raw_plan_meta = metadata.get("plan_metadata")
             plan_meta = (
-                metadata.get("plan_metadata")
-                if isinstance(metadata.get("plan_metadata"), dict)
-                else {}
+                cast(dict[str, Any], raw_plan_meta) if isinstance(raw_plan_meta, dict) else {}
             )
             profile_payload = (
                 metadata.get("implementation_profile")

@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 from collections.abc import Callable
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
@@ -577,10 +577,9 @@ class HumanCheckpointStep(BaseStep):
             from aragora.approvals.chat import send_chat_approval_request
 
             metadata = context.metadata if isinstance(context.metadata, dict) else {}
+            raw_plan_meta = metadata.get("plan_metadata")
             plan_meta = (
-                metadata.get("plan_metadata")
-                if isinstance(metadata.get("plan_metadata"), dict)
-                else {}
+                cast(dict[str, Any], raw_plan_meta) if isinstance(raw_plan_meta, dict) else {}
             )
 
             targets = (

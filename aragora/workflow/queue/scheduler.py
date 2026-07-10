@@ -322,9 +322,9 @@ class DependencyScheduler:
         # Schedule initial tasks (those with no dependencies)
         ready_tasks = graph.get_ready_tasks(set())
         for task_id in ready_tasks:
-            task = self._tasks.get(task_id)
-            if task:
-                await self._schedule_task(task)
+            scheduled_task = self._tasks.get(task_id)
+            if scheduled_task:
+                await self._schedule_task(scheduled_task)
 
         logger.info("Submitted workflow %s with %s tasks", workflow_id, len(tasks))
         return workflow_id

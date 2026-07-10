@@ -182,7 +182,7 @@ class NomicLoopStep(BaseStep):
                 debate_config = DebateConfig(rounds=DebateSettings().default_rounds)
 
             if config.get("debate_rounds"):
-                debate_config.rounds = int(config.get("debate_rounds"))
+                debate_config.rounds = int(cast(Any, config.get("debate_rounds")))
             if config.get("consensus_mechanism"):
                 debate_config.consensus_mode = str(config.get("consensus_mechanism"))
 
