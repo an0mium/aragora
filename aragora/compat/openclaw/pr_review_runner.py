@@ -463,7 +463,7 @@ class PRReviewRunner:
 
         # Parse PR URL
         repo, pr_number, error = _parse_pr_url(pr_url)
-        if error:
+        if error or repo is None or pr_number is None:
             return ReviewResult(
                 pr_url=pr_url,
                 pr_number=None,
@@ -474,7 +474,7 @@ class PRReviewRunner:
                 comment_posted=False,
                 comment_url=None,
                 receipt=None,
-                error=error,
+                error=error or "Invalid PR URL",
             )
 
         # Step 1: Fetch diff (policy-checked)
@@ -482,8 +482,13 @@ class PRReviewRunner:
             return self._error_result(pr_url, pr_number, repo, "Policy denied: pr diff")
 
         diff, error = self._fetch_diff(repo, pr_number)
-        if error:
-            return self._error_result(pr_url, pr_number, repo, f"Fetch failed: {error}")
+        if error or diff is None:
+            return self._error_result(
+                pr_url,
+                pr_number,
+                repo,
+                f"Fetch failed: {error or 'no diff returned'}",
+            )
 
         # Step 2: Check diff size
         if not self.checker.check_diff_size(diff):
@@ -494,8 +499,13 @@ class PRReviewRunner:
 
         # Step 3: Run review
         findings_data, error = await self._run_review(diff)
-        if error:
-            return self._error_result(pr_url, pr_number, repo, f"Review failed: {error}")
+        if error or findings_data is None:
+            return self._error_result(
+                pr_url,
+                pr_number,
+                repo,
+                f"Review failed: {error or 'no findings data returned'}",
+            )
 
         # Step 4: Parse findings
         findings = _parse_findings(findings_data)
@@ -609,8 +619,13 @@ class PRReviewRunner:
 
         # Run review
         findings_data, error = await self._run_review(diff)
-        if error:
-            return self._error_result(label, None, None, f"Review failed: {error}")
+        if error or findings_data is None:
+            return self._error_result(
+                label,
+                None,
+                None,
+                f"Review failed: {error or 'no findings data returned'}",
+            )
 
         # Parse findings
         findings = _parse_findings(findings_data)

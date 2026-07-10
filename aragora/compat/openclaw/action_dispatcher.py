@@ -143,6 +143,12 @@ class OpenClawActionDispatcher:
         """Current browser URL."""
         return self._current_url
 
+    def _require_executor(self) -> Any:
+        """Return the initialized executor or fail closed."""
+        if self._executor is None:
+            raise RuntimeError("Action executor is not initialized")
+        return self._executor
+
     async def start(self, start_url: str | None = None) -> None:
         """
         Start the dispatcher and underlying executor.
@@ -328,7 +334,7 @@ class OpenClawActionDispatcher:
             return await self._execute_extract(action, action_id)
 
         # Standard Aragora action -- delegate to executor
-        return await self._executor.execute(action)
+        return await self._require_executor().execute(action)
 
     async def _execute_navigate(self, action: NavigateAction, action_id: str) -> ActionResult:
         """Execute a navigate action."""
@@ -340,12 +346,13 @@ class OpenClawActionDispatcher:
                 error="Navigate action requires a URL",
             )
 
-        success = await self._executor.navigate(action.url)
+        executor = self._require_executor()
+        success = await executor.navigate(action.url)
         self._current_url = action.url if success else self._current_url
 
         screenshot_b64 = None
         if success:
-            screenshot_b64 = await self._executor.take_screenshot()
+            screenshot_b64 = await executor.take_screenshot()
 
         return ActionResult(
             action_id=action_id,
@@ -359,7 +366,7 @@ class OpenClawActionDispatcher:
     async def _execute_extract(self, action: ExtractAction, action_id: str) -> ActionResult:
         """Execute an extract action (content extraction from page)."""
         # Extract is a read-only action -- take screenshot of current state
-        screenshot_b64 = await self._executor.take_screenshot()
+        screenshot_b64 = await self._require_executor().take_screenshot()
         return ActionResult(
             action_id=action_id,
             action_type=ActionType.SCREENSHOT,
