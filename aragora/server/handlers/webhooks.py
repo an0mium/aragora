@@ -22,7 +22,7 @@ import hmac
 import logging
 import time
 import warnings
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from aragora.security.webhook_signing import generate_signature as _generate_signature
 from aragora.server.handlers.base import (
@@ -38,15 +38,20 @@ from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.url_security import validate_webhook_url
 from aragora.server.validation.query_params import safe_query_int
 
-# RBAC imports - graceful fallback if not available
-try:
-    from aragora.rbac import AuthorizationContext, check_permission
+if TYPE_CHECKING:
+    from aragora.rbac import AuthorizationContext
 
-    RBAC_AVAILABLE = True
+# RBAC imports - graceful fallback if not available
+_AuthorizationContext: Any = None
+check_permission: Any = None
+try:
+    import aragora.rbac as _rbac
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext: Any = None  # type: ignore[no-redef]
-    check_permission = None
+else:
+    _AuthorizationContext = _rbac.AuthorizationContext
+    check_permission = _rbac.check_permission
+    RBAC_AVAILABLE = True
 
 from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
 
@@ -206,7 +211,7 @@ class WebhookHandler(SecureHandler):
 
     def _get_auth_context(self, handler) -> AuthorizationContext | None:
         """Build RBAC authorization context from request."""
-        if not RBAC_AVAILABLE or AuthorizationContext is None:
+        if not RBAC_AVAILABLE or _AuthorizationContext is None:
             return None
 
         user = self.get_current_user(handler)
@@ -214,7 +219,7 @@ class WebhookHandler(SecureHandler):
             return None
 
         # User context has user_id and potentially role info
-        return AuthorizationContext(
+        return _AuthorizationContext(
             user_id=user.user_id,
             roles=set([user.role]) if hasattr(user, "role") and user.role else set(),
             org_id=getattr(user, "org_id", None),
