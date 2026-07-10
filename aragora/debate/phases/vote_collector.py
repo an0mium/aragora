@@ -34,6 +34,7 @@ from aragora.debate.bias_mitigation import (
     average_permutation_votes,
 )
 from aragora.debate.config.defaults import DEBATE_DEFAULTS
+from aragora.debate.phases._phase_invariant import require_phase_result
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Vote
@@ -220,22 +221,26 @@ class VoteCollector:
         """
         votes: list[Vote] = []
         task = ctx.env.task if ctx.env else ""
+        vote_with_agent = self._vote_with_agent
+        if vote_with_agent is None:
+            return votes
+        with_timeout = self._with_timeout
 
-        async def cast_vote(agent: Agent) -> tuple[Any, Any] | None:
+        async def cast_vote(agent: Agent) -> tuple[Any, Any]:
             """Cast a vote for a single agent."""
             logger.debug("agent_voting_permutation agent=%s perm=%s", agent.name, permutation_idx)
             try:
                 timeout = get_complexity_governor().get_scaled_timeout(
                     float(self.config.agent_timeout)
                 )
-                if self._with_timeout:
-                    vote_result = await self._with_timeout(
-                        self._vote_with_agent(agent, proposals, task),
+                if with_timeout:
+                    vote_result = await with_timeout(
+                        vote_with_agent(agent, proposals, task),
                         agent.name,
                         timeout_seconds=timeout,
                     )
                 else:
-                    vote_result = await self._vote_with_agent(agent, proposals, task)
+                    vote_result = await vote_with_agent(agent, proposals, task)
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
@@ -333,8 +338,8 @@ class VoteCollector:
 
         # Handle success callbacks for averaged votes
         for vote in averaged_votes:
-            agent_name = vote.agent if hasattr(vote, "agent") else None
-            agent = next((a for a in ctx.agents if a.name == agent_name), None)
+            averaged_agent_name = vote.agent if hasattr(vote, "agent") else None
+            agent = next((a for a in ctx.agents if a.name == averaged_agent_name), None)
             if agent:
                 self._handle_vote_success(ctx, agent, vote)
 
@@ -378,6 +383,10 @@ class VoteCollector:
 
         votes: list[Vote] = []
         task = ctx.env.task if ctx.env else ""
+        vote_with_agent = self._vote_with_agent
+        if vote_with_agent is None:
+            return votes
+        with_timeout = self._with_timeout
 
         async def cast_vote(agent: Agent) -> tuple[Any, Any]:
             """Cast a vote for a single agent with timeout protection."""
@@ -386,14 +395,14 @@ class VoteCollector:
                 timeout = get_complexity_governor().get_scaled_timeout(
                     float(self.config.agent_timeout)
                 )
-                if self._with_timeout:
-                    vote_result = await self._with_timeout(
-                        self._vote_with_agent(agent, ctx.proposals, task),
+                if with_timeout:
+                    vote_result = await with_timeout(
+                        vote_with_agent(agent, ctx.proposals, task),
                         agent.name,
                         timeout_seconds=timeout,
                     )
                 else:
-                    vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
+                    vote_result = await vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
@@ -499,6 +508,10 @@ class VoteCollector:
         votes: list[Vote] = []
         voting_errors = 0
         task = ctx.env.task if ctx.env else ""
+        vote_with_agent = self._vote_with_agent
+        if vote_with_agent is None:
+            return votes, voting_errors
+        with_timeout = self._with_timeout
 
         async def cast_vote(agent: Agent) -> tuple[Any, Any]:
             """Cast a vote for unanimous consensus with timeout protection."""
@@ -507,14 +520,14 @@ class VoteCollector:
                 timeout = get_complexity_governor().get_scaled_timeout(
                     float(self.config.agent_timeout)
                 )
-                if self._with_timeout:
-                    vote_result = await self._with_timeout(
-                        self._vote_with_agent(agent, ctx.proposals, task),
+                if with_timeout:
+                    vote_result = await with_timeout(
+                        vote_with_agent(agent, ctx.proposals, task),
                         agent.name,
                         timeout_seconds=timeout,
                     )
                 else:
-                    vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
+                    vote_result = await vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
@@ -591,7 +604,7 @@ class VoteCollector:
             vote: The Vote object
             unanimous: Whether this is for unanimous consensus mode
         """
-        result = ctx.result
+        result = require_phase_result(ctx)
 
         logger.debug(
             f"vote_cast{'_unanimous' if unanimous else ''} agent={agent.name} "
@@ -629,7 +642,7 @@ class VoteCollector:
                     agent_name=agent.name,
                     position_type="vote",
                     position_text=vote.choice,
-                    round_num=result.rounds_used if result else 0,
+                    round_num=result.rounds_used,
                     confidence=vote.confidence,
                 )
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
