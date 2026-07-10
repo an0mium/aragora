@@ -7,7 +7,7 @@ Handles button presses (votes, view details) and inline bot queries.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ...base import HandlerResult, json_response
 from ..chat_events import emit_message_received, emit_vote_received
@@ -26,6 +26,15 @@ def _tg():
 
 class TelegramCallbacksMixin:
     """Mixin providing callback query and inline query handling for Telegram."""
+
+    if TYPE_CHECKING:
+        # Supplied by sibling mixins in TelegramHandler's runtime composition.
+        _answer_callback_async: Any
+        _answer_inline_query_async: Any
+        _check_telegram_user_permission: Any
+        _deny_telegram_permission: Any
+        _handle_command: Any
+        _send_message_async: Any
 
     def _handle_message(self, message: dict[str, Any]) -> HandlerResult:
         """Handle incoming text message.
@@ -90,7 +99,7 @@ class TelegramCallbacksMixin:
 
         RBAC Permission Required: telegram:callbacks:handle
         """
-        callback_id = callback.get("id")
+        callback_id = str(callback.get("id") or "")
         data = callback.get("data", "")
         user = callback.get("from", {})
         user_id = user.get("id")

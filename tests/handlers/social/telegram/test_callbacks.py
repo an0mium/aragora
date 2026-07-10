@@ -1126,6 +1126,21 @@ class TestEdgeCases:
         assert _status(result) == 200
 
     @pytest.mark.usefixtures("_full_patch")
+    def test_vote_callback_without_id_uses_empty_string(self, handler):
+        """A malformed vote callback never passes None as the callback ID."""
+        cb = _make_callback("vote:debate1:agree")
+        del cb["id"]
+        with patch.object(
+            handler,
+            "_handle_vote",
+            return_value=MagicMock(status_code=200, body=b'{"ok":true}'),
+        ) as handle_vote:
+            result = handler._handle_callback_query(cb)
+
+        assert _status(result) == 200
+        handle_vote.assert_called_once_with("", CHAT_ID, USER_ID, USERNAME, "debate1", "agree")
+
+    @pytest.mark.usefixtures("_full_patch")
     def test_vote_with_empty_debate_id(self, handler, _patch_tg, _patch_events):
         """Vote with empty debate_id still processes."""
         with patch("aragora.server.handlers.social.telegram.callbacks.record_vote"):
