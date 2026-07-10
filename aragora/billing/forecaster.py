@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from statistics import mean, stdev
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from aragora.billing.cost_tracker import CostTracker
@@ -757,8 +757,11 @@ class CostForecaster:
                 message="No budget limit configured",
             )
 
-        monthly_limit = budget.monthly_limit_usd
-        current_spend = getattr(budget, "current_monthly_spend", Decimal("0"))
+        monthly_limit = cast(Decimal, budget.monthly_limit_usd)
+        current_spend = cast(
+            Decimal,
+            getattr(budget, "current_monthly_spend", Decimal("0")),
+        )
         remaining = monthly_limit - current_spend
 
         # Calculate daily burn rate from recent history

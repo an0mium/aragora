@@ -39,6 +39,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 
 try:
     import fcntl  # POSIX file locking (macOS + Linux CI)
@@ -98,7 +99,7 @@ def _store_path() -> Path:
     try:
         from aragora.config import get_default_data_dir
 
-        base = Path(get_default_data_dir())
+        base = Path(cast(Any, get_default_data_dir)())
     except Exception:  # noqa: BLE001 - data dir resolution must never crash the guard
         base = Path.home() / ".aragora"
     return base / "budget_guard.json"

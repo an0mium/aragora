@@ -26,7 +26,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from aragora.billing.budget_manager import BudgetAlert, BudgetManager
@@ -357,7 +357,7 @@ class BudgetAlertNotifier:
                     await connector.send_message(
                         channel_id=channel_id,
                         text=message["text"],
-                        blocks=message.get("blocks"),
+                        blocks=cast(list[dict[str, Any] | None], message.get("blocks")),
                     )
                 else:
                     raise ValueError(f"No Slack workspace found: {workspace_id}")
