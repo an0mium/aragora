@@ -439,9 +439,11 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
                             claims_to_promote.append(claim)
             elif debate_id:
                 # Filter by debate
-                result = self._extraction_results.get(debate_id)
-                if result:
-                    claims_to_promote = [c for c in result.claims if c.confidence >= min_conf]
+                debate_result = self._extraction_results.get(debate_id)
+                if debate_result:
+                    claims_to_promote = [
+                        c for c in debate_result.claims if c.confidence >= min_conf
+                    ]
             else:
                 # All claims meeting threshold
                 for result in self._extraction_results.values():

@@ -8,7 +8,7 @@ based on age, contradictions, new evidence, and consensus changes.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, TYPE_CHECKING
 
@@ -37,7 +37,7 @@ class StalenessConfig:
     """Configuration for staleness detection."""
 
     # Age-based staleness
-    age_thresholds: dict[str, timedelta] = None
+    age_thresholds: dict[str, timedelta] = field(default_factory=lambda: TIER_AGE_THRESHOLDS.copy())
     age_weight: float = 0.4
 
     # Contradiction-based staleness
@@ -54,10 +54,6 @@ class StalenessConfig:
     # Auto-revalidation
     auto_revalidation_threshold: float = 0.8
     revalidation_batch_size: int = 10
-
-    def __post_init__(self):
-        if self.age_thresholds is None:
-            self.age_thresholds = TIER_AGE_THRESHOLDS.copy()
 
 
 class StalenessDetector:

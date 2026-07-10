@@ -67,6 +67,7 @@ class WeaviateVectorStore(BaseVectorStore):
         config.backend = VectorBackend.WEAVIATE
         super().__init__(config)
 
+        self._connected: bool
         self._client: Any | None = None
         self._collections: dict[str, Any] = {}  # Cache for collection references
 
@@ -245,6 +246,8 @@ class WeaviateVectorStore(BaseVectorStore):
         with collection.batch.dynamic() as batch:
             for item in items:
                 item_id = item.get("id")
+                if not isinstance(item_id, str):
+                    raise ValueError("Batch vector item requires a string id")
                 properties = {
                     "content": item["content"],
                     "namespace": namespace or "",

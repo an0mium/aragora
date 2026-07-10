@@ -754,11 +754,12 @@ class KnowledgeBridgeHub:
                     # Handle various result formats
                     if isinstance(r, dict):
                         content = r.get("content", r.get("summary", str(r)))
+                        content_text = str(content) if content is not None else ""
                         confidence = r.get("confidence", "")
                         conf_str = (
                             f" ({confidence:.0%})" if isinstance(confidence, (int, float)) else ""
                         )
-                        items.append(f"- {content[:200]}{conf_str}")
+                        items.append(f"- {content_text[:200]}{conf_str}")
                     elif hasattr(r, "content"):
                         conf = getattr(r, "confidence", "")
                         conf_str = f" ({conf:.0%})" if isinstance(conf, (int, float)) else ""

@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.connectors.supermemory import SupermemoryClient, SupermemoryConfig
-    from aragora.debate import DebateResult
+    from aragora.core import DebateResult
 
 from aragora.knowledge.mound.adapters._base import (
     KnowledgeMoundAdapter,

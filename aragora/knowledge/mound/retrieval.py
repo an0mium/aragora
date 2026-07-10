@@ -125,11 +125,11 @@ class KnowledgeMoundRetriever:
         if not items:
             return None
 
-        item_ids = [
-            getattr(item, "id", None) or getattr(item, "item_id", "")
-            for item in items
-            if getattr(item, "id", None) or getattr(item, "item_id", "")
-        ]
+        item_ids: list[str] = []
+        for item in items:
+            item_id = getattr(item, "id", None) or getattr(item, "item_id", None)
+            if isinstance(item_id, str) and item_id:
+                item_ids.append(item_id)
         return RetrievedKnowledgeContext(
             query=query_text,
             items=items,

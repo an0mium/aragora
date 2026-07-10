@@ -51,14 +51,13 @@ def _mock_trace_context(
     yield _MockSpan()
 
 
-# Pre-declare trace_context for optional import
-trace_context: Any = _mock_trace_context
-try:
-    from aragora.server.middleware.tracing import trace_context
-
-    TRACING_AVAILABLE = True
-except ImportError:
-    TRACING_AVAILABLE = False
+if TYPE_CHECKING:
+    from aragora.observability.middleware.tracing import trace_context
+else:
+    try:
+        from aragora.observability.middleware.tracing import trace_context
+    except ImportError:
+        trace_context = _mock_trace_context
 
 
 from aragora.knowledge.mound.validation import (

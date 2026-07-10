@@ -347,21 +347,22 @@ class DedupOperationsMixin(_DedupMixinBase):
                 )
                 if hasattr(rel_type, "value"):
                     rel_type = rel_type.value
-                if source == merge_id:
+                if source == merge_id and isinstance(target, str):
                     await self._create_relationship(
                         source_id=keep_id,
                         target_id=target,
                         relationship_type=rel_type,
                         workspace_id=workspace_id,
                     )
-                elif target == merge_id:
+                    updated_rels += 1
+                elif target == merge_id and isinstance(source, str):
                     await self._create_relationship(
                         source_id=source,
                         target_id=keep_id,
                         relationship_type=rel_type,
                         workspace_id=workspace_id,
                     )
-                updated_rels += 1
+                    updated_rels += 1
 
         # Archive or delete duplicates using adapter methods
         archived = 0

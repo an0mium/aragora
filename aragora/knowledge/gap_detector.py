@@ -559,8 +559,10 @@ class KnowledgeGapDetector:
         if isinstance(receipt, dict):
             debate_id = receipt.get("debate_id", receipt.get("id", ""))
             topic = receipt.get("topic", receipt.get("task", ""))
-            confidence = float(receipt.get("confidence", receipt.get("consensus_confidence", 1.0)))
-            consensus_score = float(receipt.get("consensus_score", receipt.get("agreement", 1.0)))
+            raw_confidence = receipt.get("confidence", receipt.get("consensus_confidence", 1.0))
+            raw_consensus_score = receipt.get("consensus_score", receipt.get("agreement", 1.0))
+            confidence = float(raw_confidence) if raw_confidence is not None else 1.0
+            consensus_score = float(raw_consensus_score) if raw_consensus_score is not None else 1.0
             domain = receipt.get("domain", "general")
             question = receipt.get("question", receipt.get("task", topic))
         else:

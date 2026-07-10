@@ -705,11 +705,14 @@ class CultureAccumulator:
         agent_patterns = workspace_patterns.get(CulturePatternType.AGENT_PREFERENCES, {})
 
         # Find patterns matching the task type
-        matching = []
+        matching: list[tuple[str, float]] = []
         for pattern_key, pattern in agent_patterns.items():
             domain = pattern.pattern_value.get("domain", "")
-            if domain == task_type or task_type.lower() in domain.lower():
-                matching.append((pattern.pattern_value.get("agent"), pattern.confidence))
+            agent = pattern.pattern_value.get("agent")
+            if isinstance(agent, str) and (
+                domain == task_type or task_type.lower() in domain.lower()
+            ):
+                matching.append((agent, pattern.confidence))
 
         # Sort by confidence and return top agents
         matching.sort(key=lambda x: x[1], reverse=True)

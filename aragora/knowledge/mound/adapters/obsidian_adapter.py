@@ -413,7 +413,7 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
             return ValidationSyncResult(
                 records_analyzed=0,
                 records_updated=0,
-                records_failed=1,
+                records_skipped=1,
                 errors=["Obsidian connector not configured"],
                 duration_ms=(time.time() - start_time) * 1000,
             )
@@ -423,7 +423,7 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
             return ValidationSyncResult(
                 records_analyzed=0,
                 records_updated=0,
-                records_failed=1,
+                records_skipped=1,
                 errors=["Knowledge Mound not available"],
                 duration_ms=(time.time() - start_time) * 1000,
             )
@@ -454,7 +454,7 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
                                 float(utility), 3
                             )
 
-                        connector.update_note_frontmatter(note_path, frontmatter_updates)
+                        await connector.update_note_frontmatter(note_path, frontmatter_updates)
                         updated += 1
                     except (RuntimeError, ValueError, OSError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                         failed += 1
@@ -479,7 +479,7 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
         return ValidationSyncResult(
             records_analyzed=analyzed,
             records_updated=updated,
-            records_failed=failed,
+            records_skipped=failed,
             errors=errors,
             duration_ms=duration_ms,
         )

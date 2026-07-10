@@ -361,6 +361,7 @@ class KnowledgeMound:
         self._ensure_initialized()
         if self._meta_store is None:
             raise RuntimeError("Meta store not initialized - call initialize() first")
+        meta_store = self._meta_store
 
         visited: set[str] = set()
         result: list[KnowledgeNode] = []
@@ -370,13 +371,11 @@ class KnowledgeMound:
                 return
 
             visited.add(node_id)
-            node = self._meta_store.get_node(node_id)
+            node = meta_store.get_node(node_id)
             if node:
                 result.append(node)
 
-            relationships = self._meta_store.get_relationships(
-                node_id, relationship_type, direction
-            )
+            relationships = meta_store.get_relationships(node_id, relationship_type, direction)
 
             for rel in relationships:
                 next_id = rel.to_node_id if direction != "incoming" else rel.from_node_id

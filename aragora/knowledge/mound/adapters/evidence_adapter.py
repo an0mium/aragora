@@ -18,7 +18,7 @@ The adapter provides:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 from collections.abc import Callable
@@ -70,11 +70,7 @@ class EvidenceSearchResult:
 
     evidence: dict[str, Any]
     relevance_score: float = 0.0
-    matched_topics: list[str] = None
-
-    def __post_init__(self) -> None:
-        if self.matched_topics is None:
-            self.matched_topics = []
+    matched_topics: list[str] = field(default_factory=list)
 
 
 class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):

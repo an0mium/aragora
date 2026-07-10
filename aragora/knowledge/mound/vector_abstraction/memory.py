@@ -433,7 +433,7 @@ class InMemoryVectorStore(BaseVectorStore):
         for key, value in filters.items():
             # Support nested keys with dot notation
             parts = key.split(".")
-            current = vector.metadata
+            current: Any = vector.metadata
             field_exists = True
             for part in parts:
                 if isinstance(current, dict) and part in current:

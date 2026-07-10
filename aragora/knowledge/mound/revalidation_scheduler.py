@@ -271,7 +271,11 @@ class RevalidationScheduler:
 
         # Fallback: use knowledge mound's schedule_revalidation
         try:
-            task_ids = await self._knowledge_mound.schedule_revalidation(
+            knowledge_mound = self._knowledge_mound
+            if knowledge_mound is None:
+                logger.warning("Knowledge Mound unavailable for revalidation fallback")
+                return None
+            task_ids = await knowledge_mound.schedule_revalidation(
                 node_ids=[node_id],
                 priority=priority_str,
             )

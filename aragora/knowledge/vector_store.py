@@ -115,7 +115,7 @@ class KnowledgeVectorConfig:
             api_key=os.getenv("WEAVIATE_API_KEY"),
             collection_name=os.getenv("WEAVIATE_KNOWLEDGE_COLLECTION", "KnowledgeNodes"),
             embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
-            default_workspace=workspace_id or os.getenv("ARAGORA_WORKSPACE", "default"),
+            default_workspace=workspace_id or os.getenv("ARAGORA_WORKSPACE") or "default",
         )
 
 
@@ -152,6 +152,12 @@ class KnowledgeVectorStore:
     def is_connected(self) -> bool:
         """Check if connected to Weaviate."""
         return self._connected and self._client is not None
+
+    def _require_collection(self) -> Any:
+        """Return the active collection or fail with the public connection error."""
+        if not self.is_connected or self._collection is None:
+            raise RuntimeError("Not connected to Weaviate")
+        return self._collection
 
     async def connect(self) -> bool:
         """
@@ -252,8 +258,7 @@ class KnowledgeVectorStore:
         Returns:
             Weaviate object UUID
         """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to Weaviate")
+        collection = self._require_collection()
 
         # Serialize relationships as comma-separated IDs
         properties = {
@@ -284,7 +289,7 @@ class KnowledgeVectorStore:
             "created_at": node.created_at if hasattr(node, "created_at") else "",
         }
 
-        uuid = self._collection.data.insert(
+        uuid = collection.data.insert(
             properties=properties,
             vector=embedding,
         )
@@ -308,8 +313,7 @@ class KnowledgeVectorStore:
         Returns:
             List of Weaviate object UUIDs
         """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to Weaviate")
+        collection = self._require_collection()
 
         if len(nodes) != len(embeddings):
             raise ValueError("Number of nodes must match number of embeddings")
@@ -327,7 +331,7 @@ class KnowledgeVectorStore:
 
             with (
                 track_vector_operation("index_batch", "weaviate"),
-                self._collection.batch.dynamic() as batch,
+                collection.batch.dynamic() as batch,
             ):
                 for node, embedding in zip(batch_nodes, batch_embeddings):
                     properties = {
@@ -418,6 +422,7 @@ class KnowledgeVectorStore:
         workspace_id: str | None,
     ) -> list[KnowledgeSearchResult]:
         """Internal implementation of semantic search."""
+        collection = self._require_collection()
         # Build filters
         filters = []
         ws = workspace_id or self.workspace_id
@@ -434,7 +439,7 @@ class KnowledgeVectorStore:
         for f in filters[1:]:
             combined_filter = combined_filter & f
 
-        response = self._collection.query.near_vector(
+        response = collection.query.near_vector(
             near_vector=embedding,
             limit=limit,
             filters=combined_filter,
@@ -517,6 +522,7 @@ class KnowledgeVectorStore:
         workspace_id: str | None,
     ) -> list[KnowledgeSearchResult]:
         """Internal implementation of keyword search."""
+        collection = self._require_collection()
         # Build filters
         filters = []
         ws = workspace_id or self.workspace_id
@@ -533,7 +539,7 @@ class KnowledgeVectorStore:
         for f in filters[1:]:
             combined_filter = combined_filter & f
 
-        response = self._collection.query.bm25(
+        response = collection.query.bm25(
             query=query,
             limit=limit,
             filters=combined_filter,
@@ -584,8 +590,7 @@ class KnowledgeVectorStore:
         Returns:
             List of related nodes
         """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to Weaviate")
+        collection = self._require_collection()
 
         if relationship_type not in ("supports", "contradicts", "derived_from"):
             raise ValueError(f"Invalid relationship type: {relationship_type}")
@@ -598,7 +603,7 @@ class KnowledgeVectorStore:
             property_name
         ).like(f"*{node_id}*")
 
-        response = self._collection.query.fetch_objects(
+        response = collection.query.fetch_objects(
             filters=filters,
             limit=limit,
         )
@@ -639,15 +644,14 @@ class KnowledgeVectorStore:
         Returns:
             Node if found, None otherwise
         """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to Weaviate")
+        collection = self._require_collection()
 
         ws = workspace_id or self.workspace_id
         filters = Filter.by_property("workspace_id").equal(ws) & Filter.by_property(
             "node_id"
         ).equal(node_id)
 
-        response = self._collection.query.fetch_objects(
+        response = collection.query.fetch_objects(
             filters=filters,
             limit=1,
         )
@@ -684,15 +688,14 @@ class KnowledgeVectorStore:
         Returns:
             True if deleted, False if not found
         """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to Weaviate")
+        collection = self._require_collection()
 
         ws = workspace_id or self.workspace_id
         filters = Filter.by_property("workspace_id").equal(ws) & Filter.by_property(
             "node_id"
         ).equal(node_id)
 
-        result = self._collection.data.delete_many(where=filters)
+        result = collection.data.delete_many(where=filters)
         deleted = result.successful if hasattr(result, "successful") else 0
         return deleted > 0
 
@@ -706,13 +709,10 @@ class KnowledgeVectorStore:
         Returns:
             Number of nodes deleted
         """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to Weaviate")
+        collection = self._require_collection()
 
         ws = workspace_id or self.workspace_id
-        result = self._collection.data.delete_many(
-            where=Filter.by_property("workspace_id").equal(ws)
-        )
+        result = collection.data.delete_many(where=Filter.by_property("workspace_id").equal(ws))
 
         deleted = result.successful if hasattr(result, "successful") else 0
         logger.info("Deleted %s nodes from workspace %s", deleted, ws)
@@ -733,8 +733,7 @@ class KnowledgeVectorStore:
         Returns:
             Number of nodes
         """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to Weaviate")
+        collection = self._require_collection()
 
         ws = workspace_id or self.workspace_id
         filters = Filter.by_property("workspace_id").equal(ws)
@@ -742,7 +741,7 @@ class KnowledgeVectorStore:
         if node_type:
             filters = filters & Filter.by_property("node_type").equal(node_type)
 
-        response = self._collection.aggregate.over_all(
+        response = collection.aggregate.over_all(
             filters=filters,
             total_count=True,
         )

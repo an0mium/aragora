@@ -844,8 +844,9 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
         if isinstance(agent_id, int):
             resolved_agent_id = agent_id if agent_id >= 0 else None
         elif isinstance(metadata, dict):
+            on_chain_agent_id = metadata.get("on_chain_agent_id")
             try:
-                candidate = int(metadata.get("on_chain_agent_id"))
+                candidate = int(on_chain_agent_id) if on_chain_agent_id is not None else None
             except (TypeError, ValueError):
                 candidate = None
             if candidate is not None and candidate >= 0:
