@@ -394,9 +394,7 @@ class EvidenceFetchSkill(Skill):
             facts = store.query_facts(claim)[:5]
             for fact in facts:
                 validation_status = getattr(fact, "validation_status", None)
-                status_value = (
-                    validation_status.value if hasattr(validation_status, "value") else "unknown"
-                )
+                status_value = getattr(validation_status, "value", "unknown")
                 results.append(
                     {
                         "claim": getattr(fact, "statement", str(fact)),

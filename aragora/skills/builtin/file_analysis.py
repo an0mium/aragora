@@ -251,6 +251,11 @@ class FileAnalysisSkill(Skill):
                 file_name = path.name
                 size_bytes = path.stat().st_size
             else:
+                if not isinstance(content, str):
+                    return SkillResult.create_failure(
+                        "'content' must be a string",
+                        error_code="invalid_input",
+                    )
                 encoding = "utf-8"
                 size_bytes = len(content.encode("utf-8"))
 

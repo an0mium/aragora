@@ -662,8 +662,20 @@ class SkillRegistry:
             if not _ensure_audit_imports():
                 return
 
+            audit_log_cls = _audit_log_cls
+            audit_event_cls = _audit_event_cls
+            audit_category_cls = _audit_category_cls
+            audit_outcome_cls = _audit_outcome_cls
+            if (
+                audit_log_cls is None
+                or audit_event_cls is None
+                or audit_category_cls is None
+                or audit_outcome_cls is None
+            ):
+                return
+
             outcome_str = _skill_status_to_audit_outcome(result.status)
-            outcome = _audit_outcome_cls(outcome_str)
+            outcome = audit_outcome_cls(outcome_str)
 
             details: dict[str, Any] = {
                 "skill_name": skill_name,
@@ -675,8 +687,8 @@ class SkillRegistry:
             if error_message or result.error_message:
                 details["error"] = error_message or result.error_message
 
-            event = _audit_event_cls(
-                category=_audit_category_cls.ACCESS,
+            event = audit_event_cls(
+                category=audit_category_cls.ACCESS,
                 action="skill_invoke",
                 actor_id=context.user_id or "anonymous",
                 resource_type="skill",
@@ -688,7 +700,7 @@ class SkillRegistry:
                 reason=error_message or "",
             )
 
-            audit_log = _audit_log_cls()
+            audit_log = audit_log_cls()
             audit_log.log(event)
         except (ImportError, AttributeError, RuntimeError, TypeError):
             logger.debug(

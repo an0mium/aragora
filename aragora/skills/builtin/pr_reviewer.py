@@ -107,11 +107,22 @@ class PRReviewerSkill(Skill):
                     error_code="FETCH_FAILED",
                 )
 
+        if not isinstance(diff, str):
+            return SkillResult.create_failure(
+                error_message="Diff must be a string",
+                error_code="INVALID_INPUT",
+            )
+
         # Step 2: Run the review
         findings, error = await self._run_review(diff)
         if error:
             return SkillResult.create_failure(
                 error_message=f"Review failed: {error}",
+                error_code="REVIEW_FAILED",
+            )
+        if findings is None:
+            return SkillResult.create_failure(
+                error_message="Review returned no findings",
                 error_code="REVIEW_FAILED",
             )
 
