@@ -215,6 +215,93 @@ def test_docs_site_sync_fallback_mirror_pages_match_source_content() -> None:
         )
 
 
+# Pre-existing docs/reference mirror pairs: docs/reference/<NAME>.md source
+# files that were already mirrored into the docs-site through a pre-existing
+# DOC_MAP entry (an unambiguous basename fallback or an explicit
+# non-`reference/`-prefixed key) BEFORE the docs/reference/** DOC_MAP work.
+# Each pair binds a claimed SOURCE to its specific checked-in DESTINATION via
+# an expected-content marker read from the SOURCE file at test time --
+# independent of running sync-docs.js, so a wrong-source resolver mapping
+# cannot regenerate matching wrong content and pass (the resolver is not its
+# own oracle here).
+#
+# The pair table below is derived from PR #9066's review context
+# (DOCS_REFERENCE_PRE_EXISTING_MIRROR, read via `gh pr diff 9066`) as a
+# READ-ONLY reference for the claimed source->destination pairs. No #9066
+# hunks are included in this diff: this is a tests-only literal, and #9066's
+# sync-docs.js edits remain unmerged (parked Tier-2 operator-review). When PR
+# #9066 merges, its DOCS_REFERENCE_PRE_EXISTING_MIRROR dict should be unified
+# with this pair table (cosmetic follow-up -- comment only, no behavior change
+# here; do not resubmit #9066's sync-docs.js diff).
+DOCS_REFERENCE_PRE_EXISTING_MIRROR_PAIRS: dict[str, str] = {
+    "ACCOUNTING.md": "guides/accounting.md",
+    "ADMIN.md": "admin/overview.md",
+    "BILLING.md": "enterprise/billing.md",
+    "BILLING_UNITS.md": "enterprise/billing-units.md",
+    "CLI_REFERENCE.md": "api/cli.md",
+    "CONTROL_PLANE.md": "enterprise/control-plane-overview.md",
+    "DATABASE.md": "deployment/database.md",
+    "DATABASE_SCHEMA.md": "deployment/database-schema.md",
+    "DEPENDENCIES.md": "contributing/dependencies.md",
+    "DEPRECATION_POLICY.md": "contributing/deprecation.md",
+    "DOCUMENTS.md": "guides/documents.md",
+    "ENVIRONMENT.md": "getting-started/environment.md",
+    "HANDLERS.md": "contributing/handlers.md",
+    "LIBRARY_USAGE.md": "guides/library-usage.md",
+}
+
+
+def _source_h1_marker(path: Path) -> str:
+    """Return the first H1 heading text from a markdown source.
+
+    Frontmatter (if present) is skipped first. Used as a distinctive content
+    marker read from the SOURCE file at test time, independent of sync-docs.js.
+    """
+    content = path.read_text(encoding="utf-8")
+    body = re.sub(r"\A---\n.*?\n---\n", "", content, count=1, flags=re.DOTALL)
+    match = re.search(r"^# (.+)$", body, re.MULTILINE)
+    if not match:
+        raise AssertionError(f"No H1 heading found in source {path}")
+    return match.group(1).strip()
+
+
+def test_docs_reference_pre_existing_mirror_binds_source_to_destination() -> None:
+    """Independent source-identity binding for the docs/reference mirrors.
+
+    The fallback-pages parity test above regenerates via sync-docs.js and
+    compares, so the resolver is its own oracle: a wrong-source mapping still
+    regenerates matching wrong content and passes. This test does NOT invoke
+    sync-docs.js. For each claimed pair it reads the SOURCE
+    docs/reference/<NAME>.md file at test time, extracts a distinctive content
+    marker (the source H1 heading), and asserts that marker appears in the
+    checked-in DESTINATION docs-site page. A wrong-source mapping fails because
+    the wrong source's H1 will not be present in the real destination; a stale
+    destination fails because its content no longer carries the source marker.
+    """
+    for source_name, dest_rel in DOCS_REFERENCE_PRE_EXISTING_MIRROR_PAIRS.items():
+        source_path = REPO_ROOT / "docs" / "reference" / source_name
+        dest_path = DOCS_SITE_ROOT / dest_rel
+
+        assert source_path.exists(), (
+            f"DOCS_REFERENCE_PRE_EXISTING_MIRROR_PAIRS claims source "
+            f"docs/reference/{source_name}, but that file is missing."
+        )
+        assert dest_path.exists(), (
+            f"DOCS_REFERENCE_PRE_EXISTING_MIRROR_PAIRS claims destination "
+            f"docs-site/docs/{dest_rel} for docs/reference/{source_name}, "
+            f"but that page is missing."
+        )
+
+        marker = _source_h1_marker(source_path)
+        dest_content = dest_path.read_text(encoding="utf-8")
+        assert marker in dest_content, (
+            f"docs/reference/{source_name} (H1 marker {marker!r}) is claimed to "
+            f"be mirrored at docs-site/docs/{dest_rel}, but the destination does "
+            f"not contain that marker. The destination may be stale, mapped from "
+            f"the wrong source, or the source H1 may have changed without a sync."
+        )
+
+
 def test_active_execution_links_to_synced_roadmap_intake_register() -> None:
     active = _read_docs_site("contributing/active-execution-issues.md")
     roadmap = _read_docs_site("contributing/roadmap.md")
