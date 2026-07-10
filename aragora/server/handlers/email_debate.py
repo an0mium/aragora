@@ -89,6 +89,8 @@ class EmailDebateHandler(BaseHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Invalid or too large JSON body", 400)
 
         if not body.get("subject") and not body.get("body"):
             return error_response("Missing required field: subject or body", 400)
@@ -158,6 +160,8 @@ class EmailDebateHandler(BaseHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Invalid or too large JSON body", 400)
 
         if not body.get("emails"):
             return error_response("Missing required field: emails", 400)
@@ -236,6 +240,8 @@ class EmailDebateHandler(BaseHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Invalid or too large JSON body", 400)
 
         if not body.get("emails"):
             return error_response("Missing required field: emails", 400)
