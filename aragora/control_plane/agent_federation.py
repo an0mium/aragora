@@ -46,7 +46,7 @@ import random
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from aragora.control_plane.registry import AgentInfo, AgentRegistry
 
@@ -336,14 +336,15 @@ class FederatedAgentPool:
                     if data.get("region_id"):
                         info.region_id = data["region_id"]
 
+                    remote_instance_id = cast(str, data.get("instance_id", source_region))
                     remote_agent = FederatedAgent(
                         info=info,
-                        instance_id=data.get("instance_id", source_region),
+                        instance_id=remote_instance_id,
                         is_local=False,
                         remote_endpoint=data.get("endpoint"),
                     )
                     self._agents[agent_id] = remote_agent
-                    self._remote_instances[source_region] = {"last_seen": time.time()}
+                    self._remote_instances[cast(str, source_region)] = {"last_seen": time.time()}
                     logger.debug(
                         "[FederatedAgentPool] Added remote agent %s from %s",
                         agent_id,

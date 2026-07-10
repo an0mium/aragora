@@ -18,7 +18,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.server.prometheus_control_plane import (
     record_control_plane_task_submitted,
@@ -54,10 +54,12 @@ CostLimitExceededError: Any = None
 # Policy imports (optional - graceful fallback if not available)
 try:
     from aragora.control_plane.policy import (
-        PolicyViolationError,
-        EnforcementLevel,
+        PolicyViolationError as _PolicyViolationError,
+        EnforcementLevel as _EnforcementLevel,
     )
 
+    PolicyViolationError = _PolicyViolationError
+    EnforcementLevel = _EnforcementLevel
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
@@ -65,9 +67,10 @@ except ImportError:
 # Cost enforcement imports (optional - graceful fallback if not available)
 try:
     from aragora.control_plane.cost_enforcement import (
-        CostLimitExceededError,
+        CostLimitExceededError as _CostLimitExceededError,
     )
 
+    CostLimitExceededError = _CostLimitExceededError
     HAS_COST_ENFORCEMENT = True
 except ImportError:
     HAS_COST_ENFORCEMENT = False
@@ -1133,6 +1136,7 @@ class TaskScheduler:
     ) -> Task | None:
         """Claim task from Redis Streams."""
         cap_set = set(capabilities)
+        redis = cast(Any, self._redis)
 
         # Try each priority level from highest to lowest
         for priority in sorted(TaskPriority, key=lambda p: p.value, reverse=True):
@@ -1140,7 +1144,7 @@ class TaskScheduler:
 
             try:
                 # Read from consumer group
-                messages = await self._redis.xreadgroup(
+                messages = await redis.xreadgroup(
                     groupname=self._consumer_group,
                     consumername=worker_id,
                     streams={stream_key: ">"},
@@ -1160,8 +1164,8 @@ class TaskScheduler:
                         task = await self.get(task_id)
                         if not task:
                             # Task deleted, ack and skip
-                            await self._redis.xack(stream_key, self._consumer_group, msg_id)
-                            await self._redis.xdel(stream_key, msg_id)
+                            await redis.xack(stream_key, self._consumer_group, msg_id)
+                            await redis.xdel(stream_key, msg_id)
                             continue
 
                         # Check capabilities
@@ -1170,7 +1174,7 @@ class TaskScheduler:
                         ):
                             # Worker doesn't have required capabilities
                             # XACK to remove from this worker's pending list
-                            await self._redis.xack(stream_key, self._consumer_group, msg_id)
+                            await redis.xack(stream_key, self._consumer_group, msg_id)
 
                             # Track rejection in metadata for debugging
                             if "rejection_count" not in task.metadata:
@@ -1209,7 +1213,7 @@ class TaskScheduler:
 
                             if not result.allowed:
                                 # Policy violation - requeue task for another worker
-                                await self._redis.xack(stream_key, self._consumer_group, msg_id)
+                                await redis.xack(stream_key, self._consumer_group, msg_id)
 
                                 # Track policy rejection
                                 if "policy_rejection_count" not in task.metadata:

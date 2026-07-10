@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 from aragora.observability import get_logger
 from aragora.exceptions import REDIS_CONNECTION_ERRORS
@@ -108,7 +108,8 @@ class RedisPolicyCache:
             return False
 
         try:
-            self._redis = aioredis.from_url(
+            redis_module = cast(ModuleType, aioredis)
+            self._redis = redis_module.from_url(
                 self._redis_url,
                 encoding="utf-8",
                 decode_responses=True,

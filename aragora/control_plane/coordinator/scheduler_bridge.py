@@ -12,6 +12,7 @@ import time
 from typing import (
     TYPE_CHECKING,
     Any,
+    cast,
 )
 
 from aragora.control_plane.scheduler import Task, TaskPriority, TaskScheduler, TaskStatus
@@ -44,7 +45,7 @@ try:
 
     HAS_KM_ADAPTER = True
 except ImportError:
-    _km_adapter = None
+    _km_adapter = cast(Any, None)
     logger.debug("KM control_plane_adapter not available; KM task outcome storage disabled")
 
 # Optional Policy

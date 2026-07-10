@@ -92,7 +92,7 @@ class TenantContext:
         exc_val: BaseException | None,
         exc_tb: object,
     ) -> None:
-        _current_tenant.reset(self._token)
+        _current_tenant.reset(cast(Token[str | None], self._token))
 
     async def __aenter__(self) -> TenantContext:
         self._token = _current_tenant.set(self.tenant_id)
@@ -104,7 +104,7 @@ class TenantContext:
         exc_val: BaseException | None,
         exc_tb: object,
     ) -> None:
-        _current_tenant.reset(self._token)
+        _current_tenant.reset(cast(Token[str | None], self._token))
 
 
 def with_tenant(tenant_id: str) -> Callable[[F], F]:

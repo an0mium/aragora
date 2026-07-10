@@ -756,7 +756,7 @@ class NotificationManager:
         # Delete from persistence asynchronously
         if self._redis:
             for config in removed_configs:
-                asyncio.create_task(self._delete_persisted_channel(config.config_id))
+                asyncio.create_task(self._delete_persisted_channel(cast(str, config.config_id)))
 
         return len(self._channels) < initial_count
 
@@ -780,7 +780,7 @@ class NotificationManager:
         # Delete from persistence
         if self._redis:
             for config in removed_configs:
-                await self._delete_persisted_channel(config.config_id)
+                await self._delete_persisted_channel(cast(str, config.config_id))
 
         return len(self._channels) < initial_count
 
