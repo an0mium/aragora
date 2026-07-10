@@ -220,6 +220,7 @@ class WeaviateStore:
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to Weaviate")
+        collection = cast(Any, self._collection)
 
         properties = {
             "chunk_id": chunk.id,
@@ -237,7 +238,7 @@ class WeaviateStore:
             "token_count": chunk.token_count,
         }
 
-        uuid = self._collection.data.insert(
+        uuid = collection.data.insert(
             properties=properties,
             vector=embedding,
         )
@@ -263,6 +264,7 @@ class WeaviateStore:
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to Weaviate")
+        collection = cast(Any, self._collection)
 
         if len(chunks) != len(embeddings):
             raise ValueError("Number of chunks must match number of embeddings")
@@ -275,7 +277,7 @@ class WeaviateStore:
             batch_chunks = chunks[i : i + self.config.batch_size]
             batch_embeddings = embeddings[i : i + self.config.batch_size]
 
-            with self._collection.batch.dynamic() as batch:
+            with collection.batch.dynamic() as batch:
                 for chunk, embedding in zip(batch_chunks, batch_embeddings):
                     properties = {
                         "chunk_id": chunk.id,
@@ -329,13 +331,14 @@ class WeaviateStore:
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to Weaviate")
+        collection = cast(Any, self._collection)
 
         # Build filter if document_ids specified
         filters = None
         if document_ids:
             filters = Filter.by_property("document_id").contains_any(document_ids)
 
-        response = self._collection.query.near_vector(
+        response = collection.query.near_vector(
             near_vector=embedding,
             limit=limit,
             filters=filters,
@@ -383,13 +386,14 @@ class WeaviateStore:
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to Weaviate")
+        collection = cast(Any, self._collection)
 
         # Build filter if document_ids specified
         filters = None
         if document_ids:
             filters = Filter.by_property("document_id").contains_any(document_ids)
 
-        response = self._collection.query.bm25(
+        response = collection.query.bm25(
             query=query,
             limit=limit,
             filters=filters,
@@ -427,8 +431,9 @@ class WeaviateStore:
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to Weaviate")
+        collection = cast(Any, self._collection)
 
-        result = self._collection.data.delete_many(
+        result = collection.data.delete_many(
             where=Filter.by_property("document_id").equal(document_id)
         )
 
@@ -453,8 +458,9 @@ class WeaviateStore:
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to Weaviate")
+        collection = cast(Any, self._collection)
 
-        response = self._collection.query.fetch_objects(
+        response = collection.query.fetch_objects(
             filters=Filter.by_property("document_id").equal(document_id),
             limit=limit,
         )
@@ -490,14 +496,15 @@ class WeaviateStore:
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to Weaviate")
+        collection = cast(Any, self._collection)
 
         if document_id:
-            response = self._collection.aggregate.over_all(
+            response = collection.aggregate.over_all(
                 filters=Filter.by_property("document_id").equal(document_id),
                 total_count=True,
             )
         else:
-            response = self._collection.aggregate.over_all(total_count=True)
+            response = collection.aggregate.over_all(total_count=True)
 
         return response.total_count or 0
 
