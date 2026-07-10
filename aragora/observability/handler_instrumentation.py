@@ -150,7 +150,7 @@ def track_request(
         )
 
     try:
-        if hasattr(span, "__enter__"):
+        if span is not None and hasattr(span, "__enter__"):
             span.__enter__()
         yield context
     except Exception as e:  # noqa: BLE001 - instrumentation must catch all to record metrics before re-raising
@@ -230,7 +230,7 @@ def instrument_handler(
                 span = _safe_start_span(name, attrs)
 
             try:
-                if hasattr(span, "__enter__"):
+                if span is not None and hasattr(span, "__enter__"):
                     span.__enter__()
                 result = func(*args, **kwargs)
 
@@ -344,7 +344,7 @@ class MetricsMiddleware:
             )
 
         try:
-            if hasattr(span, "__enter__"):
+            if span is not None and hasattr(span, "__enter__"):
                 span.__enter__()
             result = func(*args, **kwargs)
 
