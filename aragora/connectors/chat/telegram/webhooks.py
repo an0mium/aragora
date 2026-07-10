@@ -12,7 +12,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ..models import (
     BotCommand,
@@ -28,6 +28,9 @@ from ..models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Keep the legacy runtime default without widening this partition's public API.
+_NO_BLOCKS = cast(list[dict[str, Any] | None], None)
 
 
 class TelegramWebhooksMixin:
@@ -428,7 +431,7 @@ class TelegramWebhooksMixin:
         self,
         command: BotCommand,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         ephemeral: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -458,7 +461,7 @@ class TelegramWebhooksMixin:
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -483,7 +486,7 @@ class TelegramWebhooksMixin:
             interaction.id, text=text if not replace_original else None
         )
 
-        if replace_original and interaction.message_id:
+        if replace_original and interaction.message_id and interaction.channel:
             # Edit the original message
             return await self.update_message(
                 channel_id=interaction.channel.id,

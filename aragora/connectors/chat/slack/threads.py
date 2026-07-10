@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -200,14 +200,15 @@ class SlackThreadManager:
         self, thread_ts: str, channel_id: str, message: str, **kwargs: Any
     ) -> ChatMessage:
         """Reply to an existing thread."""
+        blocks = cast(list[dict[str, Any] | None], kwargs.get("blocks"))
         response = await self.connector.send_message(
-            channel_id=channel_id, text=message, thread_id=thread_ts, blocks=kwargs.get("blocks")
+            channel_id=channel_id, text=message, thread_id=thread_ts, blocks=blocks
         )
         channel = ChatChannel(id=channel_id, platform="slack")
         # Bot messages don't include author_id in response; use empty string for bot user
         user = ChatUser(id="", platform="slack", is_bot=True)
         return ChatMessage(
-            id=response.message_id,
+            id=response.message_id or "",
             platform="slack",
             channel=channel,
             author=user,

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 from .base import ChatPlatformConnector
 
@@ -252,7 +252,7 @@ class ChatPlatformRegistry:
         self,
         text: str,
         channels: dict[str, str],  # platform -> channel_id
-        blocks: dict[str, list[dict]] | None = None,  # platform -> blocks
+        blocks: dict[str, list[dict[str, Any] | None]] | None = None,
     ) -> dict[str, bool]:
         """
         Broadcast a message to multiple platforms.
@@ -273,7 +273,10 @@ class ChatPlatformRegistry:
                 results[platform] = False
                 continue
 
-            platform_blocks = blocks.get(platform) if blocks else None
+            platform_blocks = cast(
+                list[dict[str, Any] | None],
+                blocks.get(platform) if blocks else None,
+            )
 
             try:
                 response = await connector.send_message(

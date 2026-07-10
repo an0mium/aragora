@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from ..models import (
@@ -22,6 +22,9 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
+# Keep the legacy runtime default without widening this partition's public API.
+_NO_BLOCKS = cast(list[dict[str, Any] | None], None)
 
 
 class ChannelUserMixin:
@@ -190,7 +193,7 @@ class ChannelUserMixin:
         self,
         user_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -364,7 +367,7 @@ class ChannelUserMixin:
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         thread_name: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:

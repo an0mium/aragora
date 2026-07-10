@@ -163,6 +163,8 @@ class TTSBridge:
                 voice=resolved_voice,
                 output_dir=str(self._get_temp_dir()),
             )
+            if audio_path is None:
+                raise RuntimeError(f"TTS backend '{backend.name}' returned no audio")
             return Path(audio_path)
         except (RuntimeError, OSError, ValueError) as e:
             logger.error("TTS synthesis failed: %s", e)

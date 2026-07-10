@@ -23,7 +23,7 @@ import random
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from aragora.config import resolve_db_path
 
@@ -461,7 +461,7 @@ class SlackMessageQueue:
             response = await connector.send_message(
                 channel_id=message.channel_id,
                 text=message.text,
-                blocks=message.blocks,
+                blocks=cast(list[dict[str, Any] | None], message.blocks),
                 thread_id=message.thread_ts,
             )
 

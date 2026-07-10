@@ -28,6 +28,7 @@ class SessionMixin:
 
     # These methods are expected from the base class/other mixins
     send_message: Any
+    _session_manager: Any | None
 
     @property
     @abstractmethod

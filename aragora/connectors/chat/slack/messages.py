@@ -9,9 +9,13 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
+
+# Keep legacy runtime defaults without widening this partition's public API.
+_NO_BLOCKS = cast(list[dict[str, Any] | None], None)
+_NO_FIELDS = cast(list[tuple[str, str] | None], None)
 
 try:
     import httpx
@@ -38,53 +42,17 @@ from .client import (
 
 
 class SlackMessagesMixin:
-    """Mixin providing message send/update/delete, formatting, and file operations.
+    """Mixin providing message send/update/delete, formatting, and file operations."""
 
-    This mixin expects to be combined with SlackConnector which provides
-    the declared attributes and methods below.
-    """
-
-    # Declare expected attributes from the concrete class for type checking
+    # Supplied by SlackConnector or ChatPlatformConnector at composition time.
     bot_token: str | None
     _circuit_breaker: Any
     _max_retries: int
     _timeout: float
-
-    @property
-    def platform_name(self) -> str: ...
-
-    def _get_headers(self) -> dict[str, str]: ...
-
-    async def _slack_api_request(
-        self,
-        endpoint: str,
-        payload: dict[str, Any] | None = None,
-        operation: str = "api_call",
-        *,
-        method: str = "POST",
-        params: dict[str, Any] | None = None,
-        json_data: dict[str, Any] | None = None,
-        form_data: dict[str, Any] | None = None,
-        files: dict[str, Any] | None = None,
-        timeout: float | None = None,
-        max_retries: int | None = None,
-    ) -> tuple[bool, dict[str, Any] | None, str | None]: ...
-
-    async def _http_request(
-        self,
-        method: str,
-        url: str,
-        headers: dict[str, str] | None = None,
-        json: dict[str, Any] | None = None,
-        data: Any | None = None,
-        content: bytes | None = None,
-        files: dict[str, Any] | None = None,
-        max_retries: int = 3,
-        base_delay: float = 1.0,
-        timeout: float | None = None,
-        return_raw: bool = False,
-        operation: str = "http_request",
-    ) -> tuple[bool, dict[str, Any] | bytes | None, str | None]: ...
+    platform_name: Any
+    _get_headers: Any
+    _slack_api_request: Any
+    _http_request: Any
 
     def _compute_message_relevance(
         self,
@@ -109,7 +77,7 @@ class SlackMessagesMixin:
         self,
         channel_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -149,7 +117,7 @@ class SlackMessagesMixin:
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Update a Slack message with retry and circuit breaker."""
@@ -194,7 +162,7 @@ class SlackMessagesMixin:
         channel_id: str,
         user_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send ephemeral message visible only to one user with retry."""
@@ -280,7 +248,7 @@ class SlackMessagesMixin:
         self,
         command: Any,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -316,7 +284,7 @@ class SlackMessagesMixin:
         self,
         interaction: Any,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -350,7 +318,7 @@ class SlackMessagesMixin:
         self,
         response_url: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
         response_type: str = "ephemeral",
         replace_original: bool = False,
     ) -> SendMessageResponse:
@@ -591,7 +559,7 @@ class SlackMessagesMixin:
         self,
         title: str | None = None,
         body: str | None = None,
-        fields: list[tuple[str, str] | None] = None,
+        fields: list[tuple[str, str] | None] = _NO_FIELDS,
         actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:

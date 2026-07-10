@@ -439,6 +439,8 @@ class ToolBridge:
                 await asyncio.sleep(1.0 * (attempt + 1))
 
         # All retries failed
+        if last_error is None:
+            last_error = RuntimeError("Tool execution failed without an error")
         invocation.status = ToolStatus.FAILED
         invocation.completed_at = datetime.now(timezone.utc)
         invocation.error = str(last_error)
