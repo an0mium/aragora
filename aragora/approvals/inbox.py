@@ -6,7 +6,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -196,11 +196,14 @@ def collect_pending_approvals(
         try:
             from aragora.server.handlers.openclaw.store import _get_store
 
-            store = _get_store()
-            if hasattr(store, "list_approvals"):
-                approvals, _total = store.list_approvals(limit=limit, offset=0)
-                for req in approvals:
-                    req_dict = req.to_dict() if hasattr(req, "to_dict") else req
+            gateway_store = _get_store()
+            if hasattr(gateway_store, "list_approvals"):
+                gateway_approvals, _total = gateway_store.list_approvals(limit=limit, offset=0)
+                for gateway_req in gateway_approvals:
+                    req_dict = cast(
+                        dict[str, Any],
+                        gateway_req.to_dict() if hasattr(gateway_req, "to_dict") else gateway_req,
+                    )
                     created_at = req_dict.get("created_at") if isinstance(req_dict, dict) else None
                     items.append(
                         UnifiedApprovalItem(
@@ -234,8 +237,8 @@ def collect_pending_approvals(
         try:
             from aragora.inbox import ReceiptState, get_inbox_trust_wedge_store
 
-            store = get_inbox_trust_wedge_store()
-            for envelope in store.list_receipts(state=ReceiptState.CREATED, limit=limit):
+            wedge_store = get_inbox_trust_wedge_store()
+            for envelope in wedge_store.list_receipts(state=ReceiptState.CREATED, limit=limit):
                 created_at = envelope.receipt.created_at
                 label_id = envelope.intent.label_id or envelope.decision.label_id
                 action_label = envelope.intent.action.value.upper()
