@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -29,6 +29,7 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.params import get_clamped_int_param
 
 if TYPE_CHECKING:
+    from aragora.billing.auth.context import UserAuthContext
     from aragora.extensions.moltbot import InboxManager
 
 logger = logging.getLogger(__name__)
@@ -203,6 +204,7 @@ class MoltbotInboxHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        authenticated_user = cast("UserAuthContext", user)
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -236,7 +238,7 @@ class MoltbotInboxHandler(BaseHandler):
         inbox = get_inbox()
         channel = await inbox.register_channel(
             config=config,
-            user_id=user.user_id,
+            user_id=cast(str, authenticated_user.user_id),
             tenant_id=body.get("tenant_id"),
         )
 

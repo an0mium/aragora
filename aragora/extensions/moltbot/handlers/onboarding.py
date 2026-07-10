@@ -18,7 +18,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
 from .types import serialize_datetime, serialize_enum
 
 if TYPE_CHECKING:
+    from aragora.billing.auth.context import UserAuthContext
     from aragora.extensions.moltbot.onboarding import OnboardingOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -368,6 +369,7 @@ class MoltbotOnboardingHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        authenticated_user = cast("UserAuthContext", user)
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -380,7 +382,7 @@ class MoltbotOnboardingHandler(BaseHandler):
         try:
             session = await orchestrator.start_session(
                 flow_id=flow_id,
-                user_id=body.get("user_id", user.user_id),
+                user_id=cast(str, body.get("user_id", authenticated_user.user_id)),
                 channel_id=body.get("channel_id", "web"),
                 tenant_id=body.get("tenant_id"),
                 initial_data=body.get("initial_data"),

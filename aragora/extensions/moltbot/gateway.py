@@ -14,7 +14,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 from collections.abc import Callable
 
 from aragora.gateway.device_registry import (
@@ -78,7 +78,7 @@ def _moltbot_device_from_gateway(device: GatewayDeviceNode) -> DeviceNode:
         tenant_id=metadata.get("tenant_id"),
         created_at=created_at,
         updated_at=updated_at,
-        status=status,
+        status=cast(Literal["online", "offline", "error"], status),
         last_seen=last_seen,
         last_heartbeat=last_heartbeat,
         state=dict(metadata.get("state", {})),

@@ -17,7 +17,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -29,6 +29,7 @@ from aragora.server.handlers.base import (
 from .types import serialize_datetime, serialize_enum
 
 if TYPE_CHECKING:
+    from aragora.billing.auth.context import UserAuthContext
     from aragora.extensions.moltbot.canvas import Canvas, CanvasElement, CanvasManager
 
 logger = logging.getLogger(__name__)
@@ -217,6 +218,7 @@ class MoltbotCanvasHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        authenticated_user = cast("UserAuthContext", user)
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -241,7 +243,7 @@ class MoltbotCanvasHandler(BaseHandler):
         manager = get_canvas_manager()
         canvas = await manager.create_canvas(
             config=config,
-            owner_id=body.get("owner_id", user.user_id),
+            owner_id=cast(str, body.get("owner_id", authenticated_user.user_id)),
             tenant_id=body.get("tenant_id"),
         )
 
@@ -291,6 +293,7 @@ class MoltbotCanvasHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        authenticated_user = cast("UserAuthContext", user)
 
         manager = get_canvas_manager()
         canvas = await manager.get_canvas(canvas_id)
@@ -299,7 +302,7 @@ class MoltbotCanvasHandler(BaseHandler):
             return error_response("Canvas not found", 404)
 
         # Check ownership
-        if canvas.owner_id != user.user_id:
+        if canvas.owner_id != authenticated_user.user_id:
             return error_response("Only owner can delete canvas", 403)
 
         success = await manager.delete_canvas(canvas_id)
@@ -387,7 +390,10 @@ class MoltbotCanvasHandler(BaseHandler):
         )
 
         return json_response(
-            {"success": True, "element": self._serialize_element(element)},
+            {
+                "success": True,
+                "element": self._serialize_element(cast("CanvasElement", element)),
+            },
             status=201,
         )
 
@@ -449,6 +455,7 @@ class MoltbotCanvasHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        authenticated_user = cast("UserAuthContext", user)
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -470,7 +477,7 @@ class MoltbotCanvasHandler(BaseHandler):
             return error_response("Canvas not found", 404)
 
         # Only owner can add collaborators
-        if canvas.owner_id != user.user_id:
+        if canvas.owner_id != authenticated_user.user_id:
             return error_response("Only owner can add collaborators", 403)
 
         # Use join_canvas to add collaborator
@@ -498,6 +505,7 @@ class MoltbotCanvasHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        authenticated_user = cast("UserAuthContext", user)
 
         manager = get_canvas_manager()
         canvas = await manager.get_canvas(canvas_id)
@@ -506,7 +514,7 @@ class MoltbotCanvasHandler(BaseHandler):
             return error_response("Canvas not found", 404)
 
         # Only owner can remove collaborators
-        if canvas.owner_id != user.user_id:
+        if canvas.owner_id != authenticated_user.user_id:
             return error_response("Only owner can remove collaborators", 403)
 
         # Use leave_canvas to remove collaborator

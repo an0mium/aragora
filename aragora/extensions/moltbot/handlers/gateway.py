@@ -14,7 +14,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -24,6 +24,7 @@ from aragora.server.handlers.base import (
 )
 
 if TYPE_CHECKING:
+    from aragora.billing.auth.context import UserAuthContext
     from aragora.extensions.moltbot import LocalGateway
 
 logger = logging.getLogger(__name__)
@@ -158,6 +159,7 @@ class MoltbotGatewayHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        authenticated_user = cast("UserAuthContext", user)
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -184,7 +186,7 @@ class MoltbotGatewayHandler(BaseHandler):
         gateway = get_gateway()
         device = await gateway.register_device(
             config=config,
-            user_id=user.user_id,
+            user_id=cast(str, authenticated_user.user_id),
             tenant_id=body.get("tenant_id"),
         )
 
