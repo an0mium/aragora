@@ -3323,6 +3323,8 @@ class TestParentheticalModelFamily:
             ("hy3", "tencent"),
             ("hunyuan", "tencent"),
             ("seed", "bytedance"),
+            ("seed-2.0", "bytedance"),
+            ("seed-2.0 (doubao)", "bytedance"),
             ("doubao", "bytedance"),
             ("bytedance-seed", "bytedance"),
         ],

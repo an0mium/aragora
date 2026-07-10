@@ -317,6 +317,7 @@ _FAMILY_ALIASES: dict[str, str] = {
     "hy3": "tencent",
     "hunyuan": "tencent",
     "seed": "bytedance",
+    "seed-2.0": "bytedance",
     "doubao": "bytedance",
     "bytedance-seed": "bytedance",
 }

@@ -4154,6 +4154,7 @@ def _normalize_model_family(value: str) -> str:
         "hy3": "tencent",
         "hunyuan": "tencent",
         "seed": "bytedance",
+        "seed-2.0": "bytedance",
         "doubao": "bytedance",
         "bytedance-seed": "bytedance",
         "nous-hermes": "hermes",

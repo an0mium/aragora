@@ -2053,6 +2053,7 @@ def test_collect_dedupes_families() -> None:
         ("hy3", "tencent"),
         ("hunyuan", "tencent"),
         ("seed", "bytedance"),
+        ("seed-2.0", "bytedance"),
         ("doubao", "bytedance"),
         ("bytedance-seed", "bytedance"),
     ],
@@ -2063,9 +2064,9 @@ def test_canonical_family_collapses_aliases(name: str, expected: str) -> None:
     assert canonical_family(name) == expected
 
 
-def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
-    # codex/gpt are the OpenAI family's CLI/product names. They must collapse to
-    # ONE canonical family so a single provider can't satisfy the 2-family quorum.
+def test_collect_aliases_collapse_to_single_canonical_family() -> None:
+    # Aliases must collapse to ONE canonical family so a single provider cannot
+    # satisfy the 2-family quorum by using multiple product/model names.
     fakes, _ = _fakes(tier=4)
     outcome = collect_evidence(
         repo="o/r",
@@ -2076,6 +2077,17 @@ def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
         **fakes,
     )
     assert [item.family for item in outcome.items] == ["openai"]
+
+    fakes, _ = _fakes(tier=4)
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["bytedance", "seed-2.0"],
+        author="me",
+        apply=False,
+        **fakes,
+    )
+    assert [item.family for item in outcome.items] == ["bytedance"]
 
 
 @pytest.mark.parametrize(
