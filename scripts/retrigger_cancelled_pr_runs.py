@@ -200,7 +200,6 @@ def compute_reruns(
     now: datetime,
     ttl_hours: float,
     protected_paths: set[str],
-    protected_names: set[str],
     events: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Select PROTECTED cancelled PR runs that deserve exactly one honest rerun.
@@ -209,20 +208,27 @@ def compute_reruns(
     cancelled by required-check-priority.yml and are never selected."""
     considered_events = events or PR_EVENTS
     cutoff = now - timedelta(hours=ttl_hours)
-    # Supersession is judged ONLY among runs of the same PR event class: a
-    # newer push/workflow_dispatch run on the same branch does not re-evaluate
-    # the PR's required contexts, so it must not suppress rerunning a
-    # cancelled current pull_request run (#9133 openai P2).
-    newest_by_group: dict[tuple[Any, str], datetime] = {}
+    # Supersession is judged ONLY among runs of the same PR event class AND
+    # the same head SHA: a newer push/workflow_dispatch run does not
+    # re-evaluate the PR's required contexts (#9133 openai P2 r2), and a newer
+    # PR run at a DIFFERENT (stale) SHA does not cover the current head
+    # (#9133 claude P2 r3). Ties on GitHub's second-granular timestamps are
+    # broken by run id, so same-second bursts cannot both survive.
+    newest_by_group: dict[tuple[Any, str, str], tuple[datetime, int]] = {}
     for run in runs:
         if str(run.get("event", "")).strip() not in considered_events:
             continue
         created = _parse_created_at(str(run.get("created_at", "")))
         if created is None:
             continue
-        group = (run.get("workflow_id"), str(run.get("head_branch", "")).strip())
-        if group not in newest_by_group or created > newest_by_group[group]:
-            newest_by_group[group] = created
+        key = (
+            run.get("workflow_id"),
+            str(run.get("head_branch", "")).strip(),
+            str(run.get("head_sha", "")).strip(),
+        )
+        stamp = (created, int(run.get("id") or 0))
+        if key not in newest_by_group or stamp > newest_by_group[key]:
+            newest_by_group[key] = stamp
 
     reruns: list[dict[str, Any]] = []
     for run in runs:
@@ -230,9 +236,14 @@ def compute_reruns(
             continue
         if str(run.get("conclusion", "")).strip() != "cancelled":
             continue
+        # Path-ONLY protection matching (#9133 claude P3): for pull_request
+        # runs both path and name come from the PR branch's workflow file, but
+        # spoofing a keep-list PATH requires the PR to modify a protected
+        # workflow file — which itself triggers Tier-4 review — while spoofing
+        # a display NAME is free. The residual blast radius is one bounded
+        # rerun (run_attempt==1 marker), never authority.
         workflow_path = str(run.get("path", "")).split("@")[0].strip()
-        workflow_name = str(run.get("name", "")).strip()
-        if workflow_path not in protected_paths and workflow_name not in protected_names:
+        if workflow_path not in protected_paths:
             continue  # intentional_advisory_priority cancellation: stays cancelled
         if int(run.get("run_attempt") or 1) != 1:
             continue  # once-per-run marker: a rerun already happened
@@ -244,10 +255,10 @@ def compute_reruns(
         created = _parse_created_at(str(run.get("created_at", "")))
         if created is None or created < cutoff:
             continue
-        group = (run.get("workflow_id"), branch)
+        group = (run.get("workflow_id"), branch, sha)
         newest = newest_by_group.get(group)
-        if newest is not None and created < newest:
-            continue  # a newer run of this workflow+branch supersedes this one
+        if newest is not None and (created, int(run.get("id") or 0)) < newest:
+            continue  # a newer same-head run of this workflow supersedes this one
         reruns.append(
             {
                 "run_id": int(run.get("id") or 0),
@@ -298,8 +309,8 @@ def main(argv: list[str] | None = None) -> int:
     if not token:
         print("GITHUB_TOKEN (or GH_TOKEN) is required", file=sys.stderr)
         return 2
-    protected_paths, protected_names = load_protected_manifest()
-    if not protected_paths and not protected_names:
+    protected_paths, _protected_names = load_protected_manifest()
+    if not protected_paths:
         print("protected manifest empty/unreadable; failing closed (no reruns)", file=sys.stderr)
         print(json.dumps({"repo": args.repo, "rerun_count": 0, "reruns": []}, indent=2))
         return 0
@@ -312,7 +323,6 @@ def main(argv: list[str] | None = None) -> int:
         now=datetime.now(timezone.utc),
         ttl_hours=args.ttl_hours,
         protected_paths=protected_paths,
-        protected_names=protected_names,
     )
     apply_failures = 0
     for item in reruns:

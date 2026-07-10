@@ -33,7 +33,7 @@ NOW = datetime(2026, 7, 10, 12, 0, 0, tzinfo=timezone.utc)
 def _protected(mod) -> dict:
     paths, names = mod.load_protected_manifest()
     assert paths and names  # the committed manifest must never be empty
-    return {"protected_paths": paths, "protected_names": names}
+    return {"protected_paths": paths}
 
 
 def _run(
@@ -41,6 +41,7 @@ def _run(
     *,
     workflow_id: int = 77,
     name: str = "Tests",
+    path: str = ".github/workflows/test.yml",
     branch: str = "feat/x",
     sha: str = "a" * 40,
     conclusion: str = "cancelled",
@@ -52,6 +53,7 @@ def _run(
         "id": run_id,
         "workflow_id": workflow_id,
         "name": name,
+        "path": path,
         "head_branch": branch,
         "head_sha": sha,
         "conclusion": conclusion,
@@ -140,7 +142,7 @@ def test_advisory_cancellation_is_intentional_and_never_rerun(mod) -> None:
     """Portability Lint is NOT in the protected manifest: its PR-open
     cancellation is required-check-priority.yml working as designed
     (intentional_advisory_priority), so the guardian must leave it alone."""
-    advisory = _run(name="Portability Lint")
+    advisory = _run(name="Portability Lint", path=".github/workflows/portability.yml")
     reruns = mod.compute_reruns(
         [advisory], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
@@ -156,7 +158,6 @@ def test_empty_manifest_fails_closed(mod, tmp_path) -> None:
         now=NOW,
         ttl_hours=6.0,
         protected_paths=paths,
-        protected_names=names,
     )
     assert reruns == []  # with no manifest, nothing is rerun-eligible
 
@@ -174,8 +175,10 @@ def test_manifest_matches_priority_keep_list(mod) -> None:
     paths, names = mod.load_protected_manifest()
     import re as _re
 
-    for match in _re.finditer(r"'(\.github/workflows/[^']+\.yml)'", workflow):
-        assert match.group(1) in paths, f"keep-list path missing from manifest: {match.group(1)}"
+    matches = _re.findall(r"'(\.github/workflows/[^']+\.yml)'", workflow)
+    assert len(matches) >= 1, "drift guard is vacuous: keep-list regex matched nothing"
+    for path in matches:
+        assert path in paths, f"keep-list path missing from manifest: {path}"
 
 
 def test_newer_non_pr_run_does_not_suppress_pr_rerun(mod) -> None:
@@ -191,3 +194,39 @@ def test_newer_non_pr_run_does_not_suppress_pr_rerun(mod) -> None:
         **_protected(mod),
     )
     assert [r["run_id"] for r in reruns] == [1]
+
+
+def test_newer_run_at_stale_sha_does_not_suppress_current_head_rerun(mod) -> None:
+    """A newer PR run at a DIFFERENT (stale) SHA does not cover the current
+    head, so it must not suppress the rerun (#9133 claude P2 round 3)."""
+    cancelled_current = _run(run_id=1, age_hours=2.0)
+    newer_stale_sha = _run(run_id=2, conclusion="success", sha="b" * 40, age_hours=0.5)
+    reruns = mod.compute_reruns(
+        [cancelled_current, newer_stale_sha],
+        active_heads=_heads(),
+        now=NOW,
+        ttl_hours=6.0,
+        **_protected(mod),
+    )
+    assert [r["run_id"] for r in reruns] == [1]
+
+
+def test_same_second_tie_broken_by_run_id(mod) -> None:
+    """Second-granular timestamps tie in a synchronize+labeled burst; the
+    higher run id is newest, so only it survives (#9133 claude P3)."""
+    older = _run(run_id=10, age_hours=1.0)
+    newer = _run(run_id=11, age_hours=1.0)  # same created_at, higher id
+    reruns = mod.compute_reruns(
+        [older, newer], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+    )
+    assert [r["run_id"] for r in reruns] == [11]
+
+
+def test_name_spoofing_alone_never_qualifies(mod) -> None:
+    """Protection matching is path-ONLY: a PR-branch workflow merely NAMED
+    'Tests' at an advisory path stays intentionally cancelled (#9133 P3)."""
+    spoofed = _run(name="Tests", path=".github/workflows/my-advisory.yml")
+    reruns = mod.compute_reruns(
+        [spoofed], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+    )
+    assert reruns == []
