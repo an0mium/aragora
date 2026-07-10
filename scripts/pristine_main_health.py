@@ -32,6 +32,9 @@ from aragora.nomic.throughput import LedgerRecord, ThroughputLedger  # noqa: E40
 DEFAULT_PRISTINE_DIR = Path.home() / ".aragora" / "pristine-main"
 DEFAULT_HALT_FILE = _REPO_ROOT / ".aragora" / "merge_executor.halt"
 OWNER_MARKER_PURPOSE = "aragora.pristine_main_health"
+EVIDENCE_TAIL_LINES = 15
+EVIDENCE_TAIL_CHARS = 4_000
+INFRA_ERROR_EXIT = 2
 
 # Suite commands run INSIDE the pristine worktree. "required" mirrors the
 # required-check lane; "full" runs the whole suite including path-gated shards
@@ -59,6 +62,88 @@ def _now_iso() -> str:
 
 def _run(cmd: list[str], *, cwd: Path, timeout: int) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+
+
+def _stream_text(value: str | bytes | None) -> str:
+    if isinstance(value, bytes):
+        return value.decode(errors="replace")
+    return value or ""
+
+
+def _bounded_tail(value: str | bytes | None, *, lines: int = EVIDENCE_TAIL_LINES) -> str:
+    tail = "\n".join(_stream_text(value).strip().splitlines()[-lines:])
+    return tail[-EVIDENCE_TAIL_CHARS:]
+
+
+def _format_stream_evidence(
+    *,
+    stdout: str | bytes | None,
+    stderr: str | bytes | None,
+) -> str:
+    sections: list[str] = []
+    stdout_tail = _bounded_tail(stdout)
+    stderr_tail = _bounded_tail(stderr)
+    if stdout_tail:
+        sections.append(
+            f"stdout (last {EVIDENCE_TAIL_LINES} lines, <= {EVIDENCE_TAIL_CHARS} chars):\n"
+            f"{stdout_tail}"
+        )
+    if stderr_tail:
+        sections.append(
+            f"stderr (last {EVIDENCE_TAIL_LINES} lines, <= {EVIDENCE_TAIL_CHARS} chars):\n"
+            f"{stderr_tail}"
+        )
+    return "\n".join(sections) or "stdout/stderr: (empty)"
+
+
+def _format_process_failure(cmd: list[str], proc: subprocess.CompletedProcess) -> str:
+    evidence = _format_stream_evidence(stdout=proc.stdout, stderr=proc.stderr)
+    return f"exit {proc.returncode}: {' '.join(cmd)}\n{evidence}"
+
+
+def _check_test_runtime(repo: Path) -> str | None:
+    """Return bounded evidence when this interpreter cannot run pytest."""
+    cmd = [sys.executable, "-c", "import pytest"]
+    try:
+        proc = _run(cmd, cwd=repo, timeout=60)
+    except subprocess.TimeoutExpired as exc:
+        evidence = _format_stream_evidence(stdout=exc.stdout, stderr=exc.stderr)
+        return f"TIMEOUT after 60s: {' '.join(cmd)}\n{evidence}"
+    except OSError as exc:
+        return f"runtime launch failed: {' '.join(cmd)}\n{type(exc).__name__}: {exc}"
+    if proc.returncode != 0:
+        return _format_process_failure(cmd, proc)
+    return None
+
+
+def _record_health(
+    repo: Path,
+    *,
+    sha: str | None,
+    suite: str,
+    status: str,
+    failures: list[str],
+    infra_errors: list[str],
+) -> None:
+    try:
+        ledger = ThroughputLedger(repo)
+        ledger.append(
+            LedgerRecord(
+                kind="note",
+                timestamp=_now_iso(),
+                data={
+                    "event": "pristine_main_health",
+                    "sha": sha,
+                    "suite": suite,
+                    "green": status == "green",
+                    "status": status,
+                    "failures": [failure.splitlines()[0] for failure in failures],
+                    "infra_errors": infra_errors,
+                },
+            )
+        )
+    except OSError as exc:
+        print(f"warning: ledger append failed: {exc}", file=sys.stderr)
 
 
 def _canon(path: Path) -> str:
@@ -182,49 +267,71 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    runtime_error = _check_test_runtime(args.repo_root)
+    if runtime_error:
+        _record_health(
+            args.repo_root,
+            sha=None,
+            suite=args.suite,
+            status="infra_error",
+            failures=[],
+            infra_errors=[runtime_error],
+        )
+        print("INFRA_ERROR: pristine-main test runtime is unavailable:", file=sys.stderr)
+        print(f"  {runtime_error}", file=sys.stderr)
+        print("halt marker NOT written (infrastructure failure)", file=sys.stderr)
+        return INFRA_ERROR_EXIT
+
     sha = refresh_pristine_worktree(args.repo_root, args.pristine_dir)
     print(f"pristine origin/main at {sha[:12]} in {args.pristine_dir}")
 
     failures: list[str] = []
+    infra_errors: list[str] = []
     for cmd in SUITES[args.suite]:
         print(f"running: {' '.join(cmd)}")
         try:
             proc = _run(cmd, cwd=args.pristine_dir, timeout=args.timeout_minutes * 60)
-        except subprocess.TimeoutExpired:
-            failures.append(f"TIMEOUT after {args.timeout_minutes}m: {' '.join(cmd)}")
+        except subprocess.TimeoutExpired as exc:
+            evidence = _format_stream_evidence(stdout=exc.stdout, stderr=exc.stderr)
+            failures.append(f"TIMEOUT after {args.timeout_minutes}m: {' '.join(cmd)}\n{evidence}")
             continue
+        except OSError as exc:
+            infra_errors.append(
+                f"command launch failed: {' '.join(cmd)}\n{type(exc).__name__}: {exc}"
+            )
+            break
         if proc.returncode != 0:
-            tail = "\n".join(proc.stdout.strip().splitlines()[-15:])
-            failures.append(f"exit {proc.returncode}: {' '.join(cmd)}\n{tail}")
+            failures.append(_format_process_failure(cmd, proc))
 
-    green = not failures
+    status = "infra_error" if infra_errors else "main_red" if failures else "green"
+    green = status == "green"
 
     # SAFETY ORDER: on red, write the halt marker BEFORE any bookkeeping so an
     # unwritable ledger can never fail open (#9058 openai [P2] round 2).
-    if not green and not args.no_halt_file:
+    # Infrastructure failures are inconclusive about main and must never create
+    # or replace a main-red marker (#9113).
+    if status == "main_red" and not args.no_halt_file:
         write_halt_marker(args.halt_file, sha=sha, failures=failures)
 
-    try:
-        ledger = ThroughputLedger(args.repo_root)
-        ledger.append(
-            LedgerRecord(
-                kind="note",
-                timestamp=_now_iso(),
-                data={
-                    "event": "pristine_main_health",
-                    "sha": sha,
-                    "suite": args.suite,
-                    "green": green,
-                    "failures": [f.splitlines()[0] for f in failures],
-                },
-            )
-        )
-    except OSError as exc:
-        print(f"warning: ledger append failed: {exc}", file=sys.stderr)
+    _record_health(
+        args.repo_root,
+        sha=sha,
+        suite=args.suite,
+        status=status,
+        failures=failures,
+        infra_errors=infra_errors,
+    )
 
     if green:
         print(f"GREEN: pristine main {sha[:12]} passed suite '{args.suite}'")
         return 0
+
+    if infra_errors:
+        print(f"INFRA_ERROR: pristine main {sha[:12]} was not classified:", file=sys.stderr)
+        for error in infra_errors:
+            print(f"  {error}", file=sys.stderr)
+        print("halt marker NOT written (infrastructure failure)", file=sys.stderr)
+        return INFRA_ERROR_EXIT
 
     print(f"RED: pristine main {sha[:12]} failed suite '{args.suite}':", file=sys.stderr)
     for failure in failures:

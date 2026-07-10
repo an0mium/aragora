@@ -28,10 +28,14 @@ def _install_fake_worktree(mod, monkeypatch, sha="deadbeef" * 5):
 
 
 class _Proc:
-    def __init__(self, returncode: int, stdout: str = "") -> None:
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
         self.returncode = returncode
         self.stdout = stdout
-        self.stderr = ""
+        self.stderr = stderr
+
+
+def _is_runtime_probe(cmd: list[str]) -> bool:
+    return cmd == [sys.executable, "-c", "import pytest"]
 
 
 def test_existing_pristine_without_owner_marker_refuses_destructive_refresh(
@@ -116,13 +120,22 @@ def test_green_run_writes_ledger_and_no_halt(mod, monkeypatch, tmp_path):
     assert record.kind == "note"
     assert record.data["event"] == "pristine_main_health"
     assert record.data["green"] is True
+    assert record.data["status"] == "green"
 
 
 def test_red_run_writes_merge_executor_compatible_halt_marker(mod, monkeypatch, tmp_path):
     sha = _install_fake_worktree(mod, monkeypatch)
-    monkeypatch.setattr(
-        mod, "_run", lambda cmd, *, cwd, timeout: _Proc(1, "FAILED tests/x.py::t - boom")
-    )
+
+    def fake_run(cmd, *, cwd, timeout):
+        if _is_runtime_probe(cmd):
+            return _Proc(0)
+        return _Proc(
+            1,
+            "FAILED tests/x.py::t - boom",
+            "collection warning from stderr",
+        )
+
+    monkeypatch.setattr(mod, "_run", fake_run)
     halt = tmp_path / "halt.json"
     rc = mod.main(
         [
@@ -140,17 +153,24 @@ def test_red_run_writes_merge_executor_compatible_halt_marker(mod, monkeypatch, 
     marker = json.loads(halt.read_text())
     assert marker["reason"] == "main_red"  # the field merge_executor keys on
     assert sha[:12] in marker["details"][0]
+    assert "FAILED tests/x.py::t - boom" in marker["details"][1]
+    assert "collection warning from stderr" in marker["details"][1]
     assert "human deletes" in marker["re_arm"]
     from aragora.nomic.throughput import ThroughputLedger
 
     (record,) = ThroughputLedger(tmp_path).records()
     assert record.data["green"] is False
+    assert record.data["status"] == "main_red"
     assert record.data["failures"]
 
 
 def test_no_halt_file_flag_reports_only(mod, monkeypatch, tmp_path):
     _install_fake_worktree(mod, monkeypatch)
-    monkeypatch.setattr(mod, "_run", lambda cmd, *, cwd, timeout: _Proc(2))
+
+    def fake_run(cmd, *, cwd, timeout):
+        return _Proc(0) if _is_runtime_probe(cmd) else _Proc(2)
+
+    monkeypatch.setattr(mod, "_run", fake_run)
     halt = tmp_path / "halt.json"
     rc = mod.main(
         [
@@ -167,6 +187,116 @@ def test_no_halt_file_flag_reports_only(mod, monkeypatch, tmp_path):
     )
     assert rc == 1
     assert not halt.exists()
+
+
+def test_missing_pytest_records_infra_error_without_touching_halt(
+    mod, monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setattr(
+        mod,
+        "refresh_pristine_worktree",
+        lambda repo, pristine: pytest.fail("runtime probe must precede worktree refresh"),
+    )
+
+    def fake_run(cmd, *, cwd, timeout):
+        assert _is_runtime_probe(cmd)
+        return _Proc(
+            1,
+            "probe stdout",
+            f"{sys.executable}: No module named pytest",
+        )
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    halt = tmp_path / "halt.json"
+    original_halt = '{"reason": "existing-incident"}\n'
+    halt.write_text(original_halt)
+
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--pristine-dir",
+            str(tmp_path / "pristine"),
+            "--halt-file",
+            str(halt),
+            "--suite",
+            "full",
+        ]
+    )
+
+    assert rc == mod.INFRA_ERROR_EXIT
+    assert halt.read_text() == original_halt
+    stderr = capsys.readouterr().err
+    assert "INFRA_ERROR" in stderr
+    assert "probe stdout" in stderr
+    assert "No module named pytest" in stderr
+    assert "halt marker NOT written" in stderr
+
+    from aragora.nomic.throughput import ThroughputLedger
+
+    (record,) = ThroughputLedger(tmp_path).records()
+    assert record.data["green"] is False
+    assert record.data["status"] == "infra_error"
+    assert record.data["failures"] == []
+    assert "probe stdout" in record.data["infra_errors"][0]
+    assert "No module named pytest" in record.data["infra_errors"][0]
+
+
+def test_suite_launch_error_is_infra_error_and_never_writes_halt(
+    mod, monkeypatch, tmp_path, capsys
+):
+    _install_fake_worktree(mod, monkeypatch)
+
+    def fake_run(cmd, *, cwd, timeout):
+        if _is_runtime_probe(cmd):
+            return _Proc(0)
+        raise OSError("runner executable disappeared")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    halt = tmp_path / "halt.json"
+
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--pristine-dir",
+            str(tmp_path / "pristine"),
+            "--halt-file",
+            str(halt),
+            "--suite",
+            "required",
+        ]
+    )
+
+    assert rc == mod.INFRA_ERROR_EXIT
+    assert not halt.exists()
+    assert "runner executable disappeared" in capsys.readouterr().err
+
+    from aragora.nomic.throughput import ThroughputLedger
+
+    (record,) = ThroughputLedger(tmp_path).records()
+    assert record.data["status"] == "infra_error"
+    assert "runner executable disappeared" in record.data["infra_errors"][0]
+
+
+def test_failure_evidence_tails_stdout_and_stderr(mod):
+    stdout = "\n".join(f"stdout-{index}" for index in range(20))
+    stderr = "\n".join(f"stderr-{index}" for index in range(20))
+
+    evidence = mod._format_stream_evidence(stdout=stdout, stderr=stderr)
+
+    assert "stdout-4" not in evidence
+    assert "stderr-4" not in evidence
+    assert "stdout-5" in evidence
+    assert "stderr-5" in evidence
+    assert "stdout-19" in evidence
+    assert "stderr-19" in evidence
+
+
+def test_failure_evidence_caps_single_long_line(mod):
+    tail = mod._bounded_tail("x" * (mod.EVIDENCE_TAIL_CHARS + 100))
+
+    assert tail == "x" * mod.EVIDENCE_TAIL_CHARS
 
 
 def test_full_suite_ignores_known_broken_collection(mod):
