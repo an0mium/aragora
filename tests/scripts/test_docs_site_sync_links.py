@@ -707,6 +707,17 @@ def test_reference_sidebar_is_registered() -> None:
     assert "dirName: 'reference'" in content
 
 
+def test_reference_sidebar_is_exposed_in_primary_navbar() -> None:
+    sidebars = (REPO_ROOT / "docs-site" / "sidebars.js").read_text(encoding="utf-8")
+    config = (REPO_ROOT / "docs-site" / "docusaurus.config.js").read_text(encoding="utf-8")
+
+    registered_sidebars = set(re.findall(r"^\s{2}([A-Za-z]\w*):\s*\[", sidebars, re.MULTILINE))
+    navbar_sidebars = set(re.findall(r"sidebarId:\s*'([^']+)'", config))
+
+    assert "referenceSidebar" in registered_sidebars
+    assert "referenceSidebar" in navbar_sidebars
+
+
 def test_documentation_index_links_into_reference_use_mirrored_relative_paths() -> None:
     # PR #8967 added docs/reference/INSTALL_MATRIX.md but deliberately did not
     # link it from docs/INDEX.md: docs/reference/** had no DOC_MAP entries at
