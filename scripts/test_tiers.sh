@@ -183,10 +183,13 @@ case "$tier" in
     ;;
 
   typecheck)
-    # Run the authoritative baseline-aware typecheck gate.
+    # Run the authoritative baseline-aware typecheck gate. CI installs the
+    # pinned mypy into a specific interpreter's user site and passes it via
+    # TYPECHECK_PYTHON; a hardcoded python3 could resolve to a different
+    # interpreter that lacks the pinned toolchain.
     echo -e "${YELLOW}=== Type checking aragora (REQUIRED) ===${NC}"
 
-    if python3 scripts/ci/mypy_with_baseline.py; then
+    if "${TYPECHECK_PYTHON:-python3}" scripts/ci/mypy_with_baseline.py; then
       echo -e "${GREEN}=== Type check passed (no new errors) ===${NC}"
     else
       TYPECHECK_STATUS=$?
