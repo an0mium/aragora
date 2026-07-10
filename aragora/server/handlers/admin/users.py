@@ -110,6 +110,8 @@ class UserManagementMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check RBAC permission
         perm_err = self._check_rbac_permission(auth_ctx, "admin.organizations.list")
@@ -117,10 +119,14 @@ class UserManagementMixin:
             return perm_err
 
         user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
 
         # Parse pagination params
-        limit = min(int(get_string_param(query_params, "limit", "50")), 100)
-        offset = int(get_string_param(query_params, "offset", "0"))
+        limit_param = get_string_param(query_params, "limit", "50")
+        offset_param = get_string_param(query_params, "offset", "0")
+        limit = min(int(limit_param if limit_param is not None else "50"), 100)
+        offset = int(offset_param if offset_param is not None else "0")
         tier_filter = get_string_param(query_params, "tier", None)
 
         organizations, total = user_store.list_all_organizations(
@@ -183,6 +189,8 @@ class UserManagementMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check RBAC permission
         perm_err = self._check_rbac_permission(auth_ctx, "admin.users.list")
@@ -190,13 +198,18 @@ class UserManagementMixin:
             return perm_err
 
         user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
 
         # Parse params
-        limit = min(int(get_string_param(query_params, "limit", "50")), 100)
-        offset = int(get_string_param(query_params, "offset", "0"))
+        limit_param = get_string_param(query_params, "limit", "50")
+        offset_param = get_string_param(query_params, "offset", "0")
+        limit = min(int(limit_param if limit_param is not None else "50"), 100)
+        offset = int(offset_param if offset_param is not None else "0")
         org_id = get_string_param(query_params, "org_id", None)
         role = get_string_param(query_params, "role", None)
-        active_only = get_string_param(query_params, "active_only", "false").lower() == "true"
+        active_only_param = get_string_param(query_params, "active_only", "false")
+        active_only = active_only_param is not None and active_only_param.lower() == "true"
 
         users, total = user_store.list_all_users(
             limit=limit,
@@ -266,6 +279,8 @@ class UserManagementMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check granular RBAC permission for impersonation (CRITICAL: admin:impersonate)
         perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_IMPERSONATE, target_user_id)
@@ -303,6 +318,8 @@ class UserManagementMixin:
             )
 
         user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
 
         # Verify target user exists
         target_user = user_store.get_user_by_id(target_user_id)
@@ -383,6 +400,8 @@ class UserManagementMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check granular RBAC permission (CRITICAL: admin:users:write)
         perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_USERS_WRITE, target_user_id)
@@ -390,6 +409,8 @@ class UserManagementMixin:
             return perm_err
 
         user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
 
         # Verify target user exists
         target_user = user_store.get_user_by_id(target_user_id)
@@ -452,6 +473,8 @@ class UserManagementMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check granular RBAC permission (CRITICAL: admin:users:write)
         perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_USERS_WRITE, target_user_id)
@@ -459,6 +482,8 @@ class UserManagementMixin:
             return perm_err
 
         user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
 
         # Verify target user exists
         target_user = user_store.get_user_by_id(target_user_id)
@@ -520,6 +545,8 @@ class UserManagementMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check granular RBAC permission (CRITICAL: admin:users:write)
         perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_USERS_WRITE, target_user_id)
@@ -527,6 +554,8 @@ class UserManagementMixin:
             return perm_err
 
         user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
 
         # Verify target user exists
         target_user = user_store.get_user_by_id(target_user_id)

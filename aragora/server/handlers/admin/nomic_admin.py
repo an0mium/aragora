@@ -106,6 +106,8 @@ class NomicAdminMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check RBAC permission
         perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.read")
@@ -214,6 +216,8 @@ class NomicAdminMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check RBAC permission
         perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.read")
@@ -313,6 +317,8 @@ class NomicAdminMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check RBAC permission (CRITICAL: admin:nomic:write)
         perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_NOMIC_WRITE)
@@ -466,6 +472,8 @@ class NomicAdminMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check RBAC permission (CRITICAL: admin:nomic:write)
         perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_NOMIC_WRITE)
@@ -593,6 +601,8 @@ class NomicAdminMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check RBAC permission (CRITICAL: admin:nomic:write)
         perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_NOMIC_WRITE)
@@ -711,6 +721,8 @@ class NomicAdminMixin:
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+        if auth_ctx is None:
+            return error_response("Not authenticated", 401)
 
         # Check RBAC permission (CRITICAL: admin:system:write)
         perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_SYSTEM_WRITE)

@@ -255,6 +255,58 @@ class TestModuleExports:
 
 
 # ===========================================================================
+# Fail-closed dependency contracts
+# ===========================================================================
+
+
+@pytest.mark.parametrize(
+    ("method_name", "args"),
+    [
+        ("_list_organizations", ({},)),
+        ("_list_users", ({},)),
+        ("_impersonate_user", ("user-001",)),
+        ("_deactivate_user", ("user-001",)),
+        ("_activate_user", ("user-001",)),
+        ("_unlock_user", ("user-001",)),
+    ],
+)
+def test_missing_admin_context_fails_closed(http, method_name, args):
+    h = TestableHandler(admin_result=(None, None))
+
+    result = getattr(h, method_name)(http(), *args)
+
+    assert _status(result) == 401
+    assert "authenticated" in _body(result)["error"].lower()
+
+
+@pytest.mark.parametrize(
+    ("method_name", "args"),
+    [
+        ("_list_organizations", ({},)),
+        ("_list_users", ({},)),
+        ("_impersonate_user", ("user-001",)),
+        ("_deactivate_user", ("user-001",)),
+        ("_activate_user", ("user-001",)),
+        ("_unlock_user", ("user-001",)),
+    ],
+)
+def test_missing_user_store_fails_closed(http, method_name, args):
+    h = TestableHandler()
+    h._user_store = None
+    mock_http = http()
+    mock_http.headers["Authorization"] = "Bearer test-token"
+
+    with patch(
+        "aragora.server.handlers.admin.users._get_session_manager_from_handler",
+        return_value=MockSessionManager(mfa_fresh=True),
+    ):
+        result = getattr(h, method_name)(mock_http, *args)
+
+    assert _status(result) == 503
+    assert "unavailable" in _body(result)["error"].lower()
+
+
+# ===========================================================================
 # GET /api/v1/admin/organizations
 # ===========================================================================
 

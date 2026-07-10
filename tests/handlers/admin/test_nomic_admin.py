@@ -185,6 +185,31 @@ class TestGetNomicDir:
 
 
 # ===========================================================================
+# Fail-closed authentication contract
+# ===========================================================================
+
+
+@pytest.mark.parametrize(
+    "method_name",
+    [
+        "_get_nomic_status",
+        "_get_nomic_circuit_breakers",
+        "_reset_nomic_phase",
+        "_pause_nomic",
+        "_resume_nomic",
+        "_reset_nomic_circuit_breakers",
+    ],
+)
+def test_missing_admin_context_fails_closed(http, method_name):
+    h = TestableHandler(admin_result=(None, None))
+
+    result = getattr(h, method_name)(http())
+
+    assert _status(result) == 401
+    assert "authenticated" in _body(result)["error"].lower()
+
+
+# ===========================================================================
 # GET /api/v1/admin/nomic/status
 # ===========================================================================
 
