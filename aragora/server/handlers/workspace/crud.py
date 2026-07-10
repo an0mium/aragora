@@ -14,6 +14,7 @@ Stability: STABLE
 from __future__ import annotations
 
 import logging
+from collections.abc import Coroutine
 from typing import Any, TYPE_CHECKING
 
 from aragora.events.handler_events import emit_handler_event, CREATED, DELETED
@@ -23,6 +24,8 @@ from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
+    from aragora.billing.auth.context import UserAuthContext
+    from aragora.privacy import DataIsolationManager, PrivacyAuditLog
     from aragora.protocols import HTTPRequestHandler
     from aragora.server.handlers.base import HandlerResult
 
@@ -46,7 +49,33 @@ class WorkspaceCrudMixin:
     - _run_async(coro)
     - _check_rbac_permission(handler, perm, auth_ctx)
     - read_json_body(handler)
+
+    The ``TYPE_CHECKING`` declarations mirror the shared workspace host
+    protocol without changing the runtime MRO.
     """
+
+    if TYPE_CHECKING:
+
+        def _get_user_store(self) -> Any: ...
+
+        def _get_isolation_manager(self) -> DataIsolationManager: ...
+
+        def _get_audit_log(self) -> PrivacyAuditLog: ...
+
+        def _run_async(self, coro: Coroutine[Any, Any, Any]) -> Any: ...
+
+        def _check_rbac_permission(
+            self,
+            handler: HTTPRequestHandler,
+            permission_key: str,
+            auth_ctx: UserAuthContext | None = ...,
+        ) -> HandlerResult | None: ...
+
+        def read_json_body(
+            self,
+            handler: Any,
+            max_size: int | None = ...,
+        ) -> dict[str, Any] | None: ...
 
     @api_endpoint(
         method="POST",
