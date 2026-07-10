@@ -469,17 +469,32 @@ def lint_comment(
                     f"evidence-lint timed out after {_EVIDENCE_LINT_TIMEOUT}s"
                 )
                 continue
-            if proc.returncode != 0 or not proc.stdout.strip():
+            # The evidence-lint CLI exits 1 BY DESIGN on every substantive
+            # rejection while still printing the parsed JSON result
+            # (review_queue.py: ``return 0 if result["would_count"] else 1``).
+            # The exit code is therefore a verdict signal, not a health
+            # signal: parse stdout first, and treat only empty/undecodable/
+            # non-dict output as infra failure. Gating on returncode here was
+            # the original root cause of every rejection collapsing to ``{}``.
+            stdout = (proc.stdout or "").strip()
+            if not stdout:
                 stderr = (proc.stderr or "").strip()[:120]
                 failure = _lint_infra_failure(
-                    f"evidence-lint exit {proc.returncode}" + (f": {stderr}" if stderr else "")
+                    f"evidence-lint exit {proc.returncode} with empty stdout"
+                    + (f": {stderr}" if stderr else "")
                 )
                 continue
             try:
-                return _enforce_reason_invariant(json.loads(proc.stdout))
+                parsed = json.loads(stdout)
             except json.JSONDecodeError:
                 failure = _lint_infra_failure("evidence-lint emitted undecodable JSON")
                 continue
+            if not isinstance(parsed, dict):
+                failure = _lint_infra_failure(
+                    f"evidence-lint emitted non-dict JSON ({type(parsed).__name__})"
+                )
+                continue
+            return _enforce_reason_invariant(parsed)
         return failure
     finally:
         if body_file:

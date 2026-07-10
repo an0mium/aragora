@@ -237,3 +237,29 @@ def test_lint_comment_reason_invariant_leaves_counting_results_alone(monkeypatch
     counting = {"would_count": True, "problems": [], "counted_reviewer_ids": ["claude"]}
     monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(counting)))
     assert m.lint_comment(*_LINT_ARGS) == counting
+
+
+def test_lint_comment_exit1_with_json_is_a_verdict_not_infra_failure(monkeypatch) -> None:
+    """The evidence-lint CLI exits 1 BY DESIGN on substantive rejections while
+    printing the parsed JSON (review_queue: 'return 0 if would_count else 1').
+    The exit code must never be treated as a health signal (#9129 claude P1)."""
+    calls = []
+    rejection = {"would_count": False, "problems": ["blocking_or_negative_verdict"]}
+
+    def _exit1(*a, **k):
+        calls.append(1)
+        return _proc(json.dumps(rejection), returncode=1)
+
+    monkeypatch.setattr(m, "run", _exit1)
+    assert m.lint_comment(*_LINT_ARGS) == rejection
+    assert len(calls) == 1  # a verdict, even at exit 1, is final: no retry
+
+
+def test_lint_comment_non_dict_json_is_infra_failure(monkeypatch) -> None:
+    for payload in ("null", "[]", '"oops"'):
+        monkeypatch.setattr(m, "run", lambda *a, _p=payload, **k: _proc(_p))
+        lint = m.lint_comment(*_LINT_ARGS)
+        assert lint["would_count"] is False
+        assert lint["problems"][0].startswith(
+            "evidence_lint_infra_failure: evidence-lint emitted non-dict JSON"
+        )
