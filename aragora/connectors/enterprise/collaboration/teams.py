@@ -17,7 +17,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
-from typing import Any
+from typing import Any, cast
 from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import (
@@ -170,7 +170,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         self.exclude_system_messages = exclude_system_messages
         self.messages_per_channel = messages_per_channel
         self.use_delta_sync = use_delta_sync
-        self.tenant_id = tenant_id
+        self.tenant_id = cast(str, tenant_id)
 
         self._access_token: str | None = None
         self._token_expiry: datetime | None = None

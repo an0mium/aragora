@@ -824,7 +824,7 @@ class FHIRConnector(EnterpriseConnector):
                     params["_lastUpdated"] = f"gt{state.last_item_timestamp.isoformat()}"
 
                 # Use cursor if available
-                url = f"{self.base_url}/{resource_name}"
+                url: str | None = f"{self.base_url}/{resource_name}"
                 if state.cursor and state.cursor.startswith(f"{resource_name}:"):
                     url = state.cursor.split(":", 1)[1]
 

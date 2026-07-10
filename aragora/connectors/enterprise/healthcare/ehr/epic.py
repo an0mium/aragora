@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.healthcare.ehr.base import (
@@ -398,7 +398,8 @@ class EpicAdapter(EHRAdapter):
                 try:
                     # Fetch document binary
                     access_token = await self._ensure_authenticated()
-                    response = await self._http_client.get(
+                    http_client = cast(Any, self._http_client)
+                    response = await http_client.get(
                         url,
                         headers={"Authorization": f"Bearer {access_token}"},
                     )

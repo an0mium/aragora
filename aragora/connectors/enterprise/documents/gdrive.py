@@ -361,7 +361,7 @@ class GoogleDriveConnector(EnterpriseConnector):
     ) -> tuple[list[DriveFile], str]:
         """Get changes since a token for incremental sync."""
         files = []
-        page_token = start_page_token
+        page_token: str | None = start_page_token
 
         while page_token:
             params: dict[str, Any] = {

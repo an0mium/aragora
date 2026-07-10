@@ -37,7 +37,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, cast
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 from aragora.connectors.base import Evidence
@@ -135,7 +135,7 @@ class KafkaMessage:
             source_type="event_stream",
             source_id=f"kafka/{self.topic}/{self.partition}/{self.offset}",
             title=title,
-            url=None,
+            url=cast(str, None),
             author=self.headers.get("producer", "kafka"),
             created_at=self.timestamp,
             updated_at=self.timestamp,
@@ -241,7 +241,7 @@ class KafkaConnector(EnterpriseConnector):
         try:
             from aiokafka import AIOKafkaProducer
 
-            producer_config = {
+            producer_config: dict[str, Any] = {
                 "bootstrap_servers": self.config.bootstrap_servers,
             }
 

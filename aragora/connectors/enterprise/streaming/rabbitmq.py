@@ -36,7 +36,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 from aragora.connectors.base import Evidence
@@ -163,7 +163,7 @@ class RabbitMQMessage:
             source_type="message_queue",
             source_id=f"rabbitmq/{self.queue}/{self.delivery_tag}",
             title=title,
-            url=None,
+            url=cast(str, None),
             author=self.headers.get("producer", "rabbitmq"),
             created_at=self.timestamp,
             updated_at=self.timestamp,

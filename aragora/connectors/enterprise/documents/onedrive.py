@@ -472,6 +472,7 @@ class OneDriveConnector(EnterpriseConnector):
             OneDriveFile objects
         """
         drive_path = self._get_drive_path()
+        endpoint: str | None
 
         if folder_path == "/" or not folder_path:
             endpoint = f"{drive_path}/root/children"
@@ -528,6 +529,7 @@ class OneDriveConnector(EnterpriseConnector):
             OneDriveFolder objects
         """
         drive_path = self._get_drive_path()
+        endpoint: str | None
 
         if parent_path == "/" or not parent_path:
             endpoint = f"{drive_path}/root/children"
@@ -726,6 +728,7 @@ class OneDriveConnector(EnterpriseConnector):
             SyncItem for each changed file
         """
         drive_path = self._get_drive_path()
+        endpoint: str | None
 
         if state.cursor:
             # Use delta link from previous sync

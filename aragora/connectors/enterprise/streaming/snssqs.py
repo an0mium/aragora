@@ -33,7 +33,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 if TYPE_CHECKING:
@@ -190,7 +190,7 @@ class SQSMessage:
             source_type="event_stream",
             source_id=f"sqs/{self.message_id}",
             title=title,
-            url=None,
+            url=cast(str, None),
             author=self.message_attributes.get("producer", {}).get("StringValue", "aws-sqs"),
             created_at=self.timestamp,
             updated_at=self.timestamp,
@@ -523,7 +523,8 @@ class SNSSQSConnector(EnterpriseConnector):
 
                 try:
                     # Receive messages with long polling
-                    response = await self._sqs_client.receive_message(
+                    sqs_client = cast(Any, self._sqs_client)
+                    response = await sqs_client.receive_message(
                         QueueUrl=self.config.queue_url,
                         MaxNumberOfMessages=self.config.max_messages,
                         WaitTimeSeconds=self.config.wait_time_seconds,

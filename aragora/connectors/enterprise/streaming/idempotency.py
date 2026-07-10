@@ -350,27 +350,30 @@ class IdempotencyTracker:
 
     async def _redis_exists(self, key: str) -> bool:
         """Check if key exists in Redis."""
-        if hasattr(self._redis, "exists"):
+        redis_client = self._redis
+        if redis_client is not None and hasattr(redis_client, "exists"):
             # async redis
-            result = await self._redis.exists(key)
+            result = await redis_client.exists(key)
             return bool(result)
         return False
 
     async def _redis_setex(self, key: str, ttl: int, value: str) -> bool:
         """Set key with expiry in Redis."""
-        if hasattr(self._redis, "setex"):
-            await self._redis.setex(key, ttl, value)
+        redis_client = self._redis
+        if redis_client is not None and hasattr(redis_client, "setex"):
+            await redis_client.setex(key, ttl, value)
             return True
-        if hasattr(self._redis, "set"):
-            await self._redis.set(key, value, ex=ttl)
+        if redis_client is not None and hasattr(redis_client, "set"):
+            await redis_client.set(key, value, ex=ttl)
             return True
         return False
 
     async def _redis_setnx(self, key: str, value: str, ttl: int) -> bool:
         """Set key if not exists (atomic) with expiry."""
-        if hasattr(self._redis, "set"):
+        redis_client = self._redis
+        if redis_client is not None and hasattr(redis_client, "set"):
             # Use SET with NX and EX options
-            result = await self._redis.set(key, value, nx=True, ex=ttl)
+            result = await redis_client.set(key, value, nx=True, ex=ttl)
             return result is not None
         return False
 

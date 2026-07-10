@@ -775,7 +775,7 @@ class OutlookConnector(EnterpriseConnector):
         if state.cursor:
             logger.info("[Outlook] Starting incremental sync with delta link...")
 
-            delta_link = state.cursor
+            delta_link: str | None = state.cursor
             new_message_ids = set()
 
             while delta_link:

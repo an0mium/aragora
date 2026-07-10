@@ -487,7 +487,8 @@ class EHRAdapter(ProductionConnectorMixin, ABC):
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Make authenticated request to EHR with retry and circuit breaker."""
-        if not self._http_client:
+        http_client = self._http_client
+        if not http_client:
             raise RuntimeError("Not connected")
 
         # Capture headers from kwargs before the inner function
@@ -504,7 +505,7 @@ class EHRAdapter(ProductionConnectorMixin, ABC):
             self._last_request_at = datetime.now(timezone.utc)
 
             try:
-                response = await self._http_client.request(
+                response = await http_client.request(
                     method,
                     url,
                     headers=headers,
@@ -516,7 +517,7 @@ class EHRAdapter(ProductionConnectorMixin, ABC):
                     self._token = None
                     access_token_new = await self._ensure_authenticated()
                     headers["Authorization"] = f"Bearer {access_token_new}"
-                    response = await self._http_client.request(
+                    response = await http_client.request(
                         method,
                         url,
                         headers=headers,
