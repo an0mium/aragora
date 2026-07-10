@@ -3179,7 +3179,7 @@ def test_grok_reviewer_falls_back_to_api_without_cli(monkeypatch) -> None:
     assert res.family == "grok" and res.text == "api"
     # Soak holdout: the API path must pin the evaluated slug, not the
     # day-2 grok-4.5 agent default.
-    assert seen["model"] == "grok-4.3"
+    assert seen["model"] == "x-ai/grok-4.3"
 
 
 def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeypatch) -> None:

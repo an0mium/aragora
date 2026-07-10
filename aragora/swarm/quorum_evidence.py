@@ -1392,7 +1392,9 @@ def _run_grok_reviewer(prompt: str) -> ReviewerResult:
     # Soak holdout (matches the OpenRouter fallback pin below): the API path
     # would otherwise use the day-2 grok-4.5 agent default for merge-authority
     # evidence; pin the evaluated grok-4.3 until the 14-day soak passes.
-    return _run_api_agent("grok", prompt, model="grok-4.3")
+    # ``model=`` semantics here are "OpenRouter slug" (routes through
+    # _build_openrouter_agent), so pass the prefixed catalog id.
+    return _run_api_agent("grok", prompt, model="x-ai/grok-4.3")
 
 
 def _run_gemini_reviewer(prompt: str) -> ReviewerResult:

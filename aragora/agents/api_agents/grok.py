@@ -31,8 +31,11 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
         "grok-4.2": "x-ai/grok-4",  # grok-4.2 not yet on OpenRouter; use grok-4
         "grok-4-2": "x-ai/grok-4",
         "grok-4.5": "x-ai/grok-4.5",
-        "grok-4-1-fast": "x-ai/grok-4.1-fast",
-        "grok-4-1-fast-reasoning": "x-ai/grok-4.1-fast",
+        "grok-4.3": "x-ai/grok-4.3",
+        # x-ai/grok-4.1-fast is gone from the OpenRouter catalog; grok-4.3 is
+        # the live cost-tier successor.
+        "grok-4-1-fast": "x-ai/grok-4.3",
+        "grok-4-1-fast-reasoning": "x-ai/grok-4.3",
         "grok-4-latest": "x-ai/grok-4.5",
         "grok-4": "x-ai/grok-4",
         "grok-4-fast": "x-ai/grok-4-fast",
