@@ -32,6 +32,8 @@ from aragora.nomic.throughput import LedgerRecord, ThroughputLedger  # noqa: E40
 DEFAULT_PRISTINE_DIR = Path.home() / ".aragora" / "pristine-main"
 DEFAULT_HALT_FILE = _REPO_ROOT / ".aragora" / "merge_executor.halt"
 OWNER_MARKER_PURPOSE = "aragora.pristine_main_health"
+FAILURE_TAIL_LINES = 15
+FAILURE_TAIL_CHARS = 2_000
 
 # Suite commands run INSIDE the pristine worktree. "required" mirrors the
 # required-check lane; "full" runs the whole suite including path-gated shards
@@ -59,6 +61,22 @@ def _now_iso() -> str:
 
 def _run(cmd: list[str], *, cwd: Path, timeout: int) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+
+
+def _bounded_stream_tail(stream: str | bytes | None) -> str:
+    """Return a labeled-evidence-safe tail for a captured process stream."""
+    if isinstance(stream, bytes):
+        text = stream.decode("utf-8", errors="replace")
+    else:
+        text = stream or ""
+    tail = "\n".join(text.rstrip().splitlines()[-FAILURE_TAIL_LINES:])
+    if len(tail) > FAILURE_TAIL_CHARS:
+        tail = tail[-FAILURE_TAIL_CHARS:]
+    return tail or "<empty>"
+
+
+def _failure_evidence(stdout: str | bytes | None, stderr: str | bytes | None) -> str:
+    return f"stdout:\n{_bounded_stream_tail(stdout)}\nstderr:\n{_bounded_stream_tail(stderr)}"
 
 
 def _canon(path: Path) -> str:
@@ -190,12 +208,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"running: {' '.join(cmd)}")
         try:
             proc = _run(cmd, cwd=args.pristine_dir, timeout=args.timeout_minutes * 60)
-        except subprocess.TimeoutExpired:
-            failures.append(f"TIMEOUT after {args.timeout_minutes}m: {' '.join(cmd)}")
+        except subprocess.TimeoutExpired as exc:
+            failures.append(
+                f"TIMEOUT after {args.timeout_minutes}m: {' '.join(cmd)}\n"
+                f"{_failure_evidence(exc.stdout, exc.stderr)}"
+            )
             continue
         if proc.returncode != 0:
-            tail = "\n".join(proc.stdout.strip().splitlines()[-15:])
-            failures.append(f"exit {proc.returncode}: {' '.join(cmd)}\n{tail}")
+            failures.append(
+                f"exit {proc.returncode}: {' '.join(cmd)}\n"
+                f"{_failure_evidence(proc.stdout, proc.stderr)}"
+            )
 
     green = not failures
 

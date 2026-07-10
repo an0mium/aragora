@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -28,10 +29,10 @@ def _install_fake_worktree(mod, monkeypatch, sha="deadbeef" * 5):
 
 
 class _Proc:
-    def __init__(self, returncode: int, stdout: str = "") -> None:
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
         self.returncode = returncode
         self.stdout = stdout
-        self.stderr = ""
+        self.stderr = stderr
 
 
 def test_existing_pristine_without_owner_marker_refuses_destructive_refresh(
@@ -140,12 +141,87 @@ def test_red_run_writes_merge_executor_compatible_halt_marker(mod, monkeypatch, 
     marker = json.loads(halt.read_text())
     assert marker["reason"] == "main_red"  # the field merge_executor keys on
     assert sha[:12] in marker["details"][0]
+    assert "stdout:\nFAILED tests/x.py::t - boom" in marker["details"][1]
+    assert "stderr:\n<empty>" in marker["details"][1]
     assert "human deletes" in marker["re_arm"]
     from aragora.nomic.throughput import ThroughputLedger
 
     (record,) = ThroughputLedger(tmp_path).records()
     assert record.data["green"] is False
     assert record.data["failures"]
+
+
+def test_stderr_only_bootstrap_failure_is_preserved(mod, monkeypatch, tmp_path):
+    _install_fake_worktree(mod, monkeypatch)
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda cmd, *, cwd, timeout: _Proc(1, stderr="python: No module named pytest"),
+    )
+    halt = tmp_path / "halt.json"
+
+    assert (
+        mod.main(
+            [
+                "--repo-root",
+                str(tmp_path),
+                "--pristine-dir",
+                str(tmp_path / "pristine"),
+                "--halt-file",
+                str(halt),
+                "--suite",
+                "required",
+            ]
+        )
+        == 1
+    )
+
+    failure = json.loads(halt.read_text())["details"][1]
+    assert "stdout:\n<empty>" in failure
+    assert "stderr:\npython: No module named pytest" in failure
+
+
+def test_timeout_preserves_bounded_stdout_and_stderr(mod, monkeypatch, tmp_path):
+    _install_fake_worktree(mod, monkeypatch)
+    stdout = "\n".join(f"stdout-{index}-" + "x" * 200 for index in range(30))
+    stderr = "\n".join(f"stderr-{index}-" + "y" * 200 for index in range(30))
+
+    def timeout_run(cmd, *, cwd, timeout):
+        raise subprocess.TimeoutExpired(
+            cmd=cmd,
+            timeout=timeout,
+            output=stdout,
+            stderr=stderr,
+        )
+
+    monkeypatch.setattr(mod, "_run", timeout_run)
+    halt = tmp_path / "halt.json"
+
+    assert (
+        mod.main(
+            [
+                "--repo-root",
+                str(tmp_path),
+                "--pristine-dir",
+                str(tmp_path / "pristine"),
+                "--halt-file",
+                str(halt),
+                "--suite",
+                "required",
+                "--timeout-minutes",
+                "1",
+            ]
+        )
+        == 1
+    )
+
+    failure = json.loads(halt.read_text())["details"][1]
+    assert "TIMEOUT after 1m" in failure
+    assert "stdout-29-" in failure and "stdout-0-" not in failure
+    assert "stderr-29-" in failure and "stderr-0-" not in failure
+    stdout_tail, stderr_tail = failure.split("stdout:\n", 1)[1].split("\nstderr:\n", 1)
+    assert len(stdout_tail) <= mod.FAILURE_TAIL_CHARS
+    assert len(stderr_tail) <= mod.FAILURE_TAIL_CHARS
 
 
 def test_no_halt_file_flag_reports_only(mod, monkeypatch, tmp_path):

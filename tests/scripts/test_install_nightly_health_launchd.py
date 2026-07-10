@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import plistlib
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -75,6 +76,13 @@ def test_dry_run_renders_valid_escaped_plist(
     assert data["ProgramArguments"][:2] == ["/bin/bash", "-lc"]
     command = data["ProgramArguments"][2]
     assert "resolve_aragora_python" in command
+    if short_label == "pristine-main-health":
+        assert (
+            "resolve_aragora_python import\\ pytest pytest pristine-main\\ health\\ runtime"
+            in command
+        )
+    else:
+        assert "import\\ pytest" not in command
     assert 'exec "$PYTHON_BIN"' in command
     assert "quot;" not in command
     assert script_name in command
@@ -106,6 +114,50 @@ def test_dry_run_rejects_unknown_label(tmp_path: Path) -> None:
 
     assert proc.returncode == 64
     assert "unknown label" in proc.stderr
+
+
+def test_pristine_command_rejects_runtime_without_pytest_before_suite(tmp_path: Path) -> None:
+    _, data = _render(tmp_path, "pristine-main-health")
+    repo = tmp_path / "repo & state"
+    home = tmp_path / "home & state"
+    scripts = repo / "scripts"
+    scripts.mkdir()
+    shutil.copyfile(REPO_ROOT / "scripts" / "aragora_runtime.sh", scripts / "aragora_runtime.sh")
+
+    suite_started = tmp_path / "suite-started"
+    probe_log = tmp_path / "probe.log"
+    bad_python = repo / ".venv" / "bin" / "python3"
+    bad_python.parent.mkdir(parents=True)
+    bad_python.write_text(
+        "#!/bin/bash\n"
+        'if [[ "${1:-}" == "-c" ]]; then\n'
+        '  printf \'%s\\n\' "${2:-}" >> "$PROBE_LOG"\n'
+        "  exit 1\n"
+        "fi\n"
+        'touch "$SUITE_STARTED"\n',
+        encoding="utf-8",
+    )
+    bad_python.chmod(0o755)
+
+    proc = subprocess.run(
+        ["/bin/bash", "-c", data["ProgramArguments"][2]],
+        cwd=repo,
+        env={
+            "HOME": str(home),
+            "PATH": str(bad_python.parent),
+            "ARAGORA_REPO_ROOT": str(repo),
+            "PROBE_LOG": str(probe_log),
+            "SUITE_STARTED": str(suite_started),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    assert not suite_started.exists()
+    assert set(probe_log.read_text(encoding="utf-8").splitlines()) == {"import pytest"}
+    assert "without usable pytest imports" in proc.stderr
 
 
 def test_install_writes_and_loads_all_valid_plists(tmp_path: Path) -> None:

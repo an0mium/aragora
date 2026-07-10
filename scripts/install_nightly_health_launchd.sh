@@ -60,7 +60,7 @@ normalize_label() {
 
 command_for() {
   local label="$1"
-  local runtime_q repo_q script_q pristine_q halt_q handoff_q
+  local runtime_q repo_q script_q pristine_q halt_q handoff_q probe_q import_label_q runtime_label_q
   runtime_q="$(shell_quote "${REPO_ROOT}/scripts/aragora_runtime.sh")"
   repo_q="$(shell_quote "${REPO_ROOT}")"
 
@@ -69,8 +69,12 @@ command_for() {
       script_q="$(shell_quote "${REPO_ROOT}/scripts/pristine_main_health.py")"
       pristine_q="$(shell_quote "${HOME}/.aragora/pristine-main-health")"
       halt_q="$(shell_quote "${REPO_ROOT}/.aragora/merge_executor.halt")"
-      printf 'source %s && PYTHON_BIN="$(resolve_aragora_python)" && exec "$PYTHON_BIN" %s --repo-root %s --pristine-dir %s --halt-file %s' \
-        "${runtime_q}" "${script_q}" "${repo_q}" "${pristine_q}" "${halt_q}"
+      probe_q="$(shell_quote "import pytest")"
+      import_label_q="$(shell_quote "pytest")"
+      runtime_label_q="$(shell_quote "pristine-main health runtime")"
+      printf 'source %s && PYTHON_BIN="$(resolve_aragora_python %s %s %s)" && exec "$PYTHON_BIN" %s --repo-root %s --pristine-dir %s --halt-file %s' \
+        "${runtime_q}" "${probe_q}" "${import_label_q}" "${runtime_label_q}" \
+        "${script_q}" "${repo_q}" "${pristine_q}" "${halt_q}"
       ;;
     com.aragora.throughput-snapshot)
       script_q="$(shell_quote "${REPO_ROOT}/scripts/throughput_ledger.py")"
