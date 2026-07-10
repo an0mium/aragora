@@ -95,7 +95,9 @@ at 0%.
 
 ### W3 (Jul 23–30): "Publish the bundle; flip the gate to enforcing"
 - **External outcome:** EU AI Act GPAI/Art-50 bundle **published by Jul 30** (3-day
-  buffer): signed prod receipt + stranger verification artifact + Art.14 pack +
+  buffer): signed prod receipt + verification artifact (simulated-stranger run
+  per the 2026-07-10 QUALITY_BAR amendment; upgraded to a real outsider's
+  artifact only if the ≥8/10 gate clears first) + Art.14 pack +
   Rekor note. Close ODR-2 #8225 (PQC hybrid explicitly deferred with rationale).
 - Jul 25: record T4 kill-switch proof; #8762 review Jul 29 (T2 re-scope if #8766
   didn't demo).
