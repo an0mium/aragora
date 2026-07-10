@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.memory.tier_manager import MemoryTier
 from aragora.resilience.retry import PROVIDER_RETRY_POLICIES, with_retry
@@ -482,7 +482,7 @@ class RetrievalMixin:
         if tiers:
             tier_strings = [t.value if isinstance(t, MemoryTier) else str(t) for t in tiers]
 
-        results = await self._hybrid_search.search(
+        results = await cast(Any, self._hybrid_search).search(
             query=query,
             limit=limit,
             tiers=tier_strings,
