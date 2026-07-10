@@ -69,25 +69,3 @@ class TestCanonicalMetricsRegex:
 
     def test_check_regex_matches_gemini_3_1_pro(self) -> None:
         assert self._matches("GEMINI_3_1_PRO")
-
-
-class TestBrokenSlugLegacyUpgrades:
-    """The dead OpenRouter slugs repaired in #9073 must remap through
-    ``upgrade_legacy_pin`` so stored pins/receipts that still carry them
-    resolve to live catalog ids instead of the very slugs declared broken."""
-
-    def test_broken_gemini_slug_upgrades(self) -> None:
-        upgraded = model_pins.upgrade_legacy_pin("google/gemini-3.1-pro")
-        assert upgraded in {
-            model_pins.GEMINI_31_PRO_DIRECT,
-            model_pins.GEMINI_31_PRO_VIA_OPENROUTER,
-        }
-        assert upgraded != "google/gemini-3.1-pro"
-
-    def test_broken_mistral_slug_upgrades(self) -> None:
-        upgraded = model_pins.upgrade_legacy_pin("mistralai/mistral-large")
-        assert upgraded in {
-            model_pins.MISTRAL_LARGE_DIRECT,
-            model_pins.MISTRAL_LARGE_VIA_OPENROUTER,
-        }
-        assert upgraded != "mistralai/mistral-large"

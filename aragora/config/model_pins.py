@@ -234,10 +234,6 @@ _LEGACY_UPGRADES: Final[dict[str, tuple[str, str]]] = {
     ),
     "google/gemini-2.5-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
     "google/gemini-2.5-flash": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    # Broken OpenRouter slugs repaired in #9073: stored pins/receipts that
-    # carry the dead ids must upgrade to the corrected catalog slugs.
-    "google/gemini-3.1-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "mistralai/mistral-large": (MISTRAL_LARGE_DIRECT, MISTRAL_LARGE_VIA_OPENROUTER),
 }
 
 
