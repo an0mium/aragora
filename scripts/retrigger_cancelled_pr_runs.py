@@ -1,22 +1,31 @@
 #!/usr/bin/env python3
-"""Re-run externally cancelled PR workflow runs once (M1 re-trigger guardian).
+"""Re-run unexpectedly cancelled PROTECTED PR workflow runs once.
 
-Implements mitigation M1 from docs/governance/PR_RUN_CANCELLATION_DIAGNOSIS.md:
-an external cancellation actor intermittently cancels non-required advisory
-``pull_request`` runs at the checkout step, leaving terminal-``cancelled``
-"failures" that mask real coverage (observed live 2026-07-09: ~6 incidents,
-100% of which cleared on manual rerun, including a shard killed at 96%
-all-passing).
+Cancellation-provenance-aware M1 guardian (docs/governance/
+PR_RUN_CANCELLATION_DIAGNOSIS.md). The repo INTENTIONALLY cancels
+non-required advisory ``pull_request`` runs through
+``.github/workflows/required-check-priority.yml`` — those cancellations are
+the prioritization system working and must stay cancelled. What must never
+stay terminal-cancelled is the PROTECTED class: required checks and the
+priority keep-list (observed live 2026-07-09: keep-listed test shards killed
+mid-run — one at 96% all-passing — each clearing on manual rerun at 30-90min
+settlement latency).
 
-A cancelled run is re-run ONLY when ALL hold:
+Provenance rule: a cancelled run is rerun-eligible ONLY if its workflow is in
+``scripts/ci/required_workflow_manifest.json`` (the versioned protected
+manifest mirroring the priority keep-list) — i.e. only
+``unexpected_required_cancellation``, never ``intentional_advisory_priority``.
+
+A protected cancelled run is re-run ONLY when ALL hold:
 - ``conclusion == cancelled`` and the event is a PR event;
+- its workflow path/name is in the protected manifest;
 - its ``head_sha`` equals the PR's CURRENT head (not superseded);
 - no newer run of the same workflow+branch exists (rerun would be moot);
 - the PR is open and not draft;
 - the run is younger than ``--ttl-hours``;
 - ``run_attempt == 1`` — a rerun bumps the attempt counter, so this is the
-  stateless once-per-run marker that bounds re-run loops if the external
-  actor keeps cancelling.
+  stateless once-per-run marker that bounds re-run loops if the canceller
+  strikes again.
 
 Dry-run by default; ``--apply`` performs the reruns.
 """
@@ -28,10 +37,26 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 from urllib import error, parse, request
 
 PR_EVENTS = {"pull_request"}
+DEFAULT_MANIFEST = Path(__file__).resolve().parent / "ci" / "required_workflow_manifest.json"
+
+
+def load_protected_manifest(path: Path = DEFAULT_MANIFEST) -> tuple[set[str], set[str]]:
+    """Load the protected workflow paths/names. Fail CLOSED on any problem:
+    an unreadable or empty manifest yields empty sets, and with empty sets no
+    run is rerun-eligible — the guardian then does nothing rather than risk
+    re-running intentionally cancelled advisory runs."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set(), set()
+    paths = {str(p).strip() for p in data.get("workflow_paths", []) if str(p).strip()}
+    names = {str(n).strip() for n in data.get("workflow_names", []) if str(n).strip()}
+    return paths, names
 
 
 class GitHubApiError(RuntimeError):
@@ -174,9 +199,14 @@ def compute_reruns(
     active_heads: dict[str, str],
     now: datetime,
     ttl_hours: float,
+    protected_paths: set[str],
+    protected_names: set[str],
     events: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Select cancelled PR runs that deserve exactly one honest rerun."""
+    """Select PROTECTED cancelled PR runs that deserve exactly one honest rerun.
+
+    Advisory workflows outside the protected manifest are intentionally
+    cancelled by required-check-priority.yml and are never selected."""
     considered_events = events or PR_EVENTS
     cutoff = now - timedelta(hours=ttl_hours)
     newest_by_group: dict[tuple[Any, str], datetime] = {}
@@ -194,6 +224,10 @@ def compute_reruns(
             continue
         if str(run.get("conclusion", "")).strip() != "cancelled":
             continue
+        workflow_path = str(run.get("path", "")).split("@")[0].strip()
+        workflow_name = str(run.get("name", "")).strip()
+        if workflow_path not in protected_paths and workflow_name not in protected_names:
+            continue  # intentional_advisory_priority cancellation: stays cancelled
         if int(run.get("run_attempt") or 1) != 1:
             continue  # once-per-run marker: a rerun already happened
         branch = str(run.get("head_branch", "")).strip()
@@ -258,6 +292,11 @@ def main(argv: list[str] | None = None) -> int:
     if not token:
         print("GITHUB_TOKEN (or GH_TOKEN) is required", file=sys.stderr)
         return 2
+    protected_paths, protected_names = load_protected_manifest()
+    if not protected_paths and not protected_names:
+        print("protected manifest empty/unreadable; failing closed (no reruns)", file=sys.stderr)
+        print(json.dumps({"repo": args.repo, "rerun_count": 0, "reruns": []}, indent=2))
+        return 0
     client = GitHubClient(args.repo, token)
     active_heads = compute_active_head_map(client.list_open_pulls())
     runs = client.list_recent_workflow_runs(args.max_runs)
@@ -266,6 +305,8 @@ def main(argv: list[str] | None = None) -> int:
         active_heads=active_heads,
         now=datetime.now(timezone.utc),
         ttl_hours=args.ttl_hours,
+        protected_paths=protected_paths,
+        protected_names=protected_names,
     )
     for item in reruns:
         if args.apply:
