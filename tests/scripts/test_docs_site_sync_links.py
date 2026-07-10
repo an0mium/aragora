@@ -325,11 +325,19 @@ def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
 
 # docs/specs/*.md files that are deliberately excluded from the docs-site
 # mirror (e.g. a draft or an operator-gated spec not meant for public
-# publication). Empty today -- every current docs/specs/*.md file is
-# mirrored -- but test_docs_specs_directory_is_mirrored consults this set so a
-# future deliberate exclusion has an explicit, reviewable home instead of a
-# silent special case grown into the assertion logic below.
-DOCS_SPECS_MIRROR_ALLOWLIST: frozenset[str] = frozenset()
+# publication). test_docs_specs_directory_is_mirrored consults this set so a
+# deliberate exclusion has an explicit, reviewable home instead of a silent
+# special case grown into the assertion logic below.
+DOCS_SPECS_MIRROR_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        # Archival Tier-4 adjudicator-wiring repair packet (#8748): internal
+        # operator merge-authority working material (PREPARE-ONLY, not a public
+        # spec). Stays off the public docs-site like other operator-gated docs
+        # (e.g. docs/RECEIPT_CONTRACT.md). Landed via a foreign commit (#9020)
+        # after PR #8958's glob-completeness test.
+        "2026-07-01-adjudicator-wiring-tier4-packet.md",
+    }
+)
 
 
 def _default_specs_mirror_dest(source_name: str) -> str:
