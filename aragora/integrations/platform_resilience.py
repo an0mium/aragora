@@ -678,9 +678,15 @@ def with_platform_resilience(
             # Check circuit breaker
             if not circuit.can_proceed():
                 health = circuit.get_health()
+                underlying_circuit = circuit._circuit
+                cooldown_remaining = (
+                    underlying_circuit.cooldown_remaining()
+                    if underlying_circuit is not None
+                    else 0.0
+                )
                 logger.warning(
                     f"Platform {platform} circuit open, skipping {func.__name__}. "
-                    f"Retry in {circuit._circuit.cooldown_remaining():.1f}s"
+                    f"Retry in {cooldown_remaining:.1f}s"
                 )
                 # Optionally queue to DLQ
                 if use_dlq and args:

@@ -87,7 +87,8 @@ except ImportError:
     # Stubs replace LangChain/pydantic types when the optional dependency is not
     # installed. The type mismatches are unavoidable since stubs are not subclasses
     # of the real library types.
-    BaseTool = _BaseToolStub  # type: ignore[misc,assignment]
+    _LCBaseTool = _BaseToolStub  # type: ignore[misc,assignment]
+    BaseTool = _LCBaseTool
     BaseModel = _BaseModelStub  # type: ignore[misc,assignment]
     Field = _FieldStub
     AsyncCallbackManagerForToolRun = None  # type: ignore[misc,assignment]
@@ -140,7 +141,7 @@ class AragoraDebateInput(BaseModel):
     )
 
 
-class AragoraDebateTool(BaseTool):
+class AragoraDebateTool(_LCBaseTool):
     """
     LangChain Tool for running Aragora debates.
 
@@ -259,7 +260,7 @@ class AragoraKnowledgeInput(BaseModel):
     )
 
 
-class AragoraKnowledgeTool(BaseTool):
+class AragoraKnowledgeTool(_LCBaseTool):
     """
     LangChain Tool for querying Aragora Knowledge Mound.
 
@@ -360,7 +361,7 @@ class AragoraDecisionInput(BaseModel):
     )
 
 
-class AragoraDecisionTool(BaseTool):
+class AragoraDecisionTool(_LCBaseTool):
     """
     LangChain Tool for making decisions with Aragora.
 
@@ -457,7 +458,7 @@ class AragoraDecisionTool(BaseTool):
 def get_aragora_tools(
     aragora_url: str = "http://localhost:8080",
     api_token: str | None = None,
-) -> list[BaseTool]:
+) -> list[_LCBaseTool]:
     """
     Get all Aragora LangChain tools.
 

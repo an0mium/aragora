@@ -58,6 +58,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_EMAIL_REDIS_ERRORS: tuple[type[Exception], ...] = (
+    *REDIS_CONNECTION_ERRORS,
+    RuntimeError,
+    ValueError,
+)
+
 # Configuration from environment
 EMAIL_INBOUND_SECRET = os.environ.get("EMAIL_INBOUND_SECRET", "")
 SENDGRID_INBOUND_SECRET = os.environ.get("SENDGRID_INBOUND_SECRET", EMAIL_INBOUND_SECRET)
@@ -558,7 +564,7 @@ def register_email_origin(
                 "Redis library not installed (pip install redis)",
             )
         logger.debug("Redis not available, using SQLite/PostgreSQL only")
-    except (*REDIS_CONNECTION_ERRORS, RuntimeError, ValueError) as e:
+    except _EMAIL_REDIS_ERRORS as e:
         if is_distributed_state_required():
             raise DistributedStateError(
                 "email_reply_loop",
@@ -589,7 +595,7 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
             if origin:
                 _reply_origins[in_reply_to] = origin  # Cache locally
                 return origin
-        except (*REDIS_CONNECTION_ERRORS, RuntimeError, ValueError) as e:
+        except _EMAIL_REDIS_ERRORS as e:
             logger.debug("Redis email origin lookup not available: %s: %s", type(e).__name__, e)
 
         # Try PostgreSQL if configured

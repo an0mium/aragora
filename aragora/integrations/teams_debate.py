@@ -44,7 +44,7 @@ import uuid
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from aragora.utils.public_urls import public_receipt_url
 
@@ -1077,7 +1077,7 @@ class TeamsDebateLifecycle:
             }
 
         debate_id = result_dict.get("debate_id", "")
-        topic = result_dict.get("topic", result_dict.get("task", ""))
+        topic = cast(str, result_dict.get("topic", result_dict.get("task", "")))
 
         card = _build_consensus_card(
             topic=topic,

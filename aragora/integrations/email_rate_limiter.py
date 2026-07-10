@@ -310,6 +310,8 @@ class EmailRateLimiter:
     ) -> RateLimitResult:
         """Acquire using Redis for distributed coordination."""
         redis = self._redis
+        if redis is None:
+            return await self._acquire_local(tenant_id, provider, limits, count)
         now = time.time()
         # now_dt could be used for logging in the future
 

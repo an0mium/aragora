@@ -279,8 +279,7 @@ class DecisionExporter:
         level_order = {"critical": 4, "high": 3, "medium": 2, "low": 1}
         for risk in risks:
             level_str = getattr(risk, "level", None)
-            if hasattr(level_str, "value"):
-                level_str = level_str.value
+            level_str = getattr(level_str, "value", level_str)
             # Associate with all tasks if risk metadata contains task_id
             related_task = getattr(risk, "task_id", None) or (
                 getattr(risk, "metadata", {}) or {}

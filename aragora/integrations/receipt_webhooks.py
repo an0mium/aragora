@@ -101,7 +101,7 @@ class ReceiptWebhookNotifier:
         """Get the webhook dispatcher (lazy initialization)."""
         if self._dispatcher is None:
             self._dispatcher = get_webhook_dispatcher()
-        return self._dispatcher
+        return cast(WebhookDispatcher, self._dispatcher)
 
     def _emit(self, payload: ReceiptWebhookPayload) -> None:
         """Emit a webhook event via the dispatcher."""
