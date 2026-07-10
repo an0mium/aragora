@@ -257,8 +257,12 @@ class SlackProvider(NotificationProvider):
         from aragora.http_client import WEBHOOK_TIMEOUT
         from aragora.security.ssrf_protection import validate_url
 
+        webhook_url = self.config.webhook_url
+        if not webhook_url:
+            raise SlackNotificationError("Slack webhook is not configured")
+
         # SSRF protection: validate webhook URL before making outbound request
-        url_check = validate_url(self.config.webhook_url)
+        url_check = validate_url(webhook_url)
         if not url_check.is_safe:
             raise SlackNotificationError(
                 f"SSRF blocked: {url_check.error}",
@@ -270,7 +274,7 @@ class SlackProvider(NotificationProvider):
 
         async with aiohttp.ClientSession(timeout=WEBHOOK_TIMEOUT) as session:
             async with session.post(
-                self.config.webhook_url,
+                webhook_url,
                 json=message,
             ) as response:
                 if response.status != 200:

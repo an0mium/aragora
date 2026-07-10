@@ -32,6 +32,7 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 import logging
 import threading
 from typing import TYPE_CHECKING
@@ -73,9 +74,9 @@ def _emit_notification_event(event_type_name: str, data: dict) -> None:
 
         # Try to use the global event emitter if available
         try:
-            from aragora.server.stream.emitter import get_emitter
+            from aragora.server.stream.emitter import get_global_emitter
 
-            emitter = get_emitter()
+            emitter = get_global_emitter()
             if emitter is not None:
                 emitter.emit(event)
         except (ImportError, RuntimeError, AttributeError):
@@ -218,7 +219,7 @@ class NotificationService:
         self,
         notification: Notification,
         channels: list[NotificationChannel] | None = None,
-        recipients: dict[NotificationChannel, list[str] | None] = None,
+        recipients: Mapping[NotificationChannel, Sequence[str] | None] | None = None,
     ) -> list[NotificationResult]:
         """
         Send notification to specified channels and recipients.
@@ -256,7 +257,7 @@ class NotificationService:
             # Get recipients for this channel
             channel_recipients: list[str] = []
             if recipients and channel in recipients:
-                channel_recipients = recipients[channel] or []
+                channel_recipients = list(recipients[channel] or [])
             else:
                 # Default recipients
                 channel_recipients = self._get_default_recipients(channel, notification)
