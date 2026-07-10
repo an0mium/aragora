@@ -221,3 +221,19 @@ def test_lint_comment_bad_json_returns_explicit_infra_failure(monkeypatch) -> No
     assert lint["problems"] == [
         "evidence_lint_infra_failure: evidence-lint emitted undecodable JSON"
     ]
+
+
+def test_lint_comment_enforces_reason_invariant_on_parsed_rejection(monkeypatch) -> None:
+    """would_count == False must ALWAYS carry a reason: a parsed rejection with
+    an empty problems list would still render as 'DOES NOT count ()'."""
+    bare = {"would_count": False, "problems": [], "counted_reviewer_ids": []}
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(bare)))
+    lint = m.lint_comment(*_LINT_ARGS)
+    assert lint["would_count"] is False
+    assert lint["problems"] == ["evidence_lint_rejection_without_reason"]
+
+
+def test_lint_comment_reason_invariant_leaves_counting_results_alone(monkeypatch) -> None:
+    counting = {"would_count": True, "problems": [], "counted_reviewer_ids": ["claude"]}
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(counting)))
+    assert m.lint_comment(*_LINT_ARGS) == counting

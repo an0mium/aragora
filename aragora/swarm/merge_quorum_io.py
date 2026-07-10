@@ -432,6 +432,19 @@ def _lint_infra_failure(reason: str) -> dict[str, Any]:
 _EVIDENCE_LINT_INFRA_RETRIES = 1
 
 
+def _enforce_reason_invariant(lint: dict[str, Any]) -> dict[str, Any]:
+    """Enforce ``would_count == False => problems is non-empty``.
+
+    Every non-counting lint result must carry a diagnosable reason; a parsed
+    result that rejects with an empty problems list would still render as the
+    unanswerable ``DOES NOT count ()``. Counting/eligibility are unchanged —
+    this only guarantees the reason channel is never silently empty."""
+    if isinstance(lint, dict) and not lint.get("would_count") and not lint.get("problems"):
+        lint = dict(lint)
+        lint["problems"] = ["evidence_lint_rejection_without_reason"]
+    return lint
+
+
 def lint_comment(
     pr: int,
     head_sha: str,
@@ -463,7 +476,7 @@ def lint_comment(
                 )
                 continue
             try:
-                return json.loads(proc.stdout)
+                return _enforce_reason_invariant(json.loads(proc.stdout))
             except json.JSONDecodeError:
                 failure = _lint_infra_failure("evidence-lint emitted undecodable JSON")
                 continue
