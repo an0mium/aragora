@@ -812,7 +812,9 @@ class FeedbackPhase:
         try:
             from aragora.pipeline.pr_generator import DecisionMemo
 
-            debate_id = getattr(result, "id", None) or getattr(ctx, "debate_id", "unknown")
+            debate_id = str(
+                getattr(result, "id", None) or getattr(ctx, "debate_id", None) or "unknown"
+            )
             task = getattr(ctx.env, "task", "") if ctx.env else ""
 
             proposals = getattr(result, "proposals", {})
@@ -897,6 +899,10 @@ class FeedbackPhase:
         This is a fire-and-forget task so it doesn't block debate completion.
         Failures are logged but don't affect the debate result.
         """
+        workflow = self.post_debate_workflow
+        if workflow is None:
+            return
+
         try:
             from aragora.workflow.engine import get_workflow_engine
 
@@ -915,7 +921,7 @@ class FeedbackPhase:
             }
 
             workflow_result = await engine.execute(
-                definition=self.post_debate_workflow,
+                definition=workflow,
                 inputs=workflow_input,
             )
 
@@ -1166,7 +1172,7 @@ class FeedbackPhase:
             self.event_emitter.emit(
                 StreamEvent(
                     type=StreamEventType.SELECTION_FEEDBACK,
-                    loop_id=self.loop_id,
+                    loop_id=self.loop_id or "unknown",
                     data={
                         "debate_id": ctx.debate_id,
                         "adjustments": adjustments,
@@ -1240,6 +1246,10 @@ class FeedbackPhase:
         This is a fire-and-forget task so it doesn't block debate completion.
         Failures are logged but don't affect the debate result.
         """
+        broadcast_pipeline = self.broadcast_pipeline
+        if broadcast_pipeline is None:
+            return
+
         try:
             from aragora.broadcast.pipeline import BroadcastOptions
 
@@ -1248,7 +1258,7 @@ class FeedbackPhase:
                 generate_rss_episode=True,
             )
 
-            pipeline_result = await self.broadcast_pipeline.run(
+            pipeline_result = await broadcast_pipeline.run(
                 ctx.debate_id,
                 options,
             )
@@ -1289,7 +1299,7 @@ class FeedbackPhase:
                 self.event_emitter.emit(
                     StreamEvent(
                         type=StreamEventType.RISK_WARNING,
-                        loop_id=self.loop_id,
+                        loop_id=self.loop_id or "unknown",
                         data={
                             "level": risk.level.value,
                             "domain": risk.domain,
@@ -1649,6 +1659,9 @@ class FeedbackPhase:
             return
 
         result = ctx.result
+        if result is None:
+            return
+
         if not result.final_answer:
             return
 
@@ -1671,9 +1684,11 @@ class FeedbackPhase:
         if not self.relationship_tracker:
             return
 
-        try:
-            result = ctx.result
+        result = ctx.result
+        if result is None:
+            return
 
+        try:
             # Extract critiques from messages
             critiques = []
             if result.messages:
@@ -1707,9 +1722,11 @@ class FeedbackPhase:
         if not self.moment_detector:
             return
 
-        try:
-            result = ctx.result
+        result = ctx.result
+        if result is None:
+            return
 
+        try:
             # Upset victories
             if result.winner and self.elo_system:
                 for agent in ctx.agents:
@@ -1750,9 +1767,11 @@ class FeedbackPhase:
         if not self.debate_embeddings:
             return
 
-        try:
-            result = ctx.result
+        result = ctx.result
+        if result is None:
+            return
 
+        try:
             # Build transcript
             transcript_parts = []
             if result.messages:
@@ -1824,7 +1843,7 @@ class FeedbackPhase:
                 self.event_emitter.emit(
                     StreamEvent(
                         type=StreamEventType.FLIP_DETECTED,
-                        loop_id=self.loop_id,
+                        loop_id=self.loop_id or "unknown",
                         data={
                             "agent": agent_name,
                             "flip_type": getattr(flip, "flip_type", "unknown"),
