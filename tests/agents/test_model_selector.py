@@ -58,6 +58,7 @@ class TestModelProfiles:
         assert grok.model_id == "grok-4.5"
         assert grok.cost_input_per_1k == 0.002
         assert grok.cost_output_per_1k == 0.006
+        assert grok.max_context_tokens == 500000
 
     def test_all_profiles_have_required_fields(self):
         """Verify all profiles have required fields populated."""

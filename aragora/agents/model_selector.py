@@ -386,7 +386,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.92,
             ModelCapability.FACTUAL_ACCURACY: 0.88,
         },
-        max_context_tokens=256000,
+        max_context_tokens=500000,
         max_output_tokens=16384,
         cost_input_per_1k=0.002,
         cost_output_per_1k=0.006,
