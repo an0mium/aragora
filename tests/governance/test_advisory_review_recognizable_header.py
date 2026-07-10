@@ -30,12 +30,20 @@ def _comment(
     *,
     author: str = "operator",
     created_at: str = "2026-05-27T16:25:18Z",
+    updated_at: str | None = None,
+    include_updated_at: bool = True,
+    persisted: bool = False,
 ) -> dict[str, Any]:
-    return {
+    comment = {
         "author": {"login": author},
         "body": body,
         "createdAt": created_at,
     }
+    if include_updated_at:
+        comment["updatedAt"] = updated_at or created_at
+    if persisted:
+        comment["url"] = "https://github.com/synaptent/aragora/pull/1#issuecomment-1"
+    return comment
 
 
 def _review_body(
@@ -156,12 +164,62 @@ def test_pre_transition_direct_heading_is_counted_but_flagged() -> None:
     signals = _model_review_signals_from_comments(
         [_comment(body, created_at="2026-07-10T12:59:59Z")],
         head_sha=HEAD_SHA,
+        head_committed_at="2026-07-10T12:59:58Z",
     )
 
     assert _counted_model_reviewer_ids(signals, []) == ["claude"]
     assert signals[0]["lineage_undisclosed"] is True
     assert signals[0]["lineage_transition_receipt"]
     assert "lineage_undisclosed" in signals[0]["identity_problems"]
+
+
+def test_pre_transition_comment_edited_after_cutoff_is_uncounted() -> None:
+    body = _review_body("Claude")
+    signals = _model_review_signals_from_comments(
+        [
+            _comment(
+                body,
+                created_at="2026-07-10T12:59:57Z",
+                updated_at="2026-07-10T13:00:01Z",
+            )
+        ],
+        head_sha=HEAD_SHA,
+        head_committed_at="2026-07-10T12:59:58Z",
+    )
+
+    assert _counted_model_reviewer_ids(signals, []) == []
+    assert signals[0]["lineage_undisclosed"] is False
+
+
+def test_pre_transition_comment_cannot_cover_post_cutoff_head() -> None:
+    body = _review_body("Claude")
+    signals = _model_review_signals_from_comments(
+        [_comment(body, created_at="2026-07-10T12:59:59Z")],
+        head_sha=HEAD_SHA,
+        head_committed_at="2026-07-10T13:00:01Z",
+    )
+
+    assert _counted_model_reviewer_ids(signals, []) == []
+    assert signals[0]["lineage_undisclosed"] is False
+
+
+def test_transition_comment_without_updated_at_is_uncounted() -> None:
+    body = _review_body("Claude")
+    signals = _model_review_signals_from_comments(
+        [
+            _comment(
+                body,
+                created_at="2026-07-10T12:59:59Z",
+                include_updated_at=False,
+                persisted=True,
+            )
+        ],
+        head_sha=HEAD_SHA,
+        head_committed_at="2026-07-10T12:59:58Z",
+    )
+
+    assert _counted_model_reviewer_ids(signals, []) == []
+    assert signals[0]["lineage_undisclosed"] is False
 
 
 def test_post_transition_direct_heading_without_metadata_is_uncounted() -> None:

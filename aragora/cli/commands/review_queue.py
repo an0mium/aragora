@@ -4235,21 +4235,33 @@ def _structured_identity_metadata(text: str, heading_index: int | None) -> dict[
 def _lineage_transition_eligible(
     comment: dict[str, Any],
     *,
-    allow_missing_created_at: bool = False,
+    head_committed_at: str,
 ) -> bool:
     """Whether a persisted comment is in the bounded founder transition cohort.
 
-    The cohort is bounded by comment creation time. Once such a comment is
-    grounded on an unchanged exact head it stays countable and visibly flagged;
-    an elapsed wall-clock deadline can therefore never silently de-count an
-    in-flight settlement.
+    Creation, last edit, and the reviewed head must all predate the cutoff.
+    Requiring the immutable head timestamp and GitHub's edit timestamp prevents
+    an old comment from being edited later to cite a new head while retaining
+    the legacy identity exception.
     """
 
     created_at = _parse_github_datetime(comment.get("createdAt"))
+    updated_at = _parse_github_datetime(comment.get("updatedAt"))
+    committed_at = _parse_github_datetime(head_committed_at)
     cutoff = _parse_github_datetime(LINEAGE_DISCLOSURE_TRANSITION_CUTOFF)
+    persisted_github_shape = "updatedAt" in comment or bool(comment.get("id") or comment.get("url"))
+    if persisted_github_shape:
+        if created_at is None or updated_at is None or committed_at is None or cutoff is None:
+            return False
+        return bool(committed_at <= created_at <= updated_at <= cutoff)
+
+    # Preserve compatibility for synthetic/legacy in-memory callers that do
+    # not carry a persisted GitHub object identity. Production GraphQL payloads
+    # include updatedAt; the REST fallback includes url and therefore takes the
+    # strict branch above even when edit metadata is unavailable.
     if created_at is None:
-        return allow_missing_created_at
-    return bool(created_at and cutoff and created_at <= cutoff)
+        return not bool(head_committed_at)
+    return bool(cutoff and created_at <= cutoff)
 
 
 def _comment_lineage_transition(
@@ -4262,7 +4274,7 @@ def _comment_lineage_transition(
         return False
     return _lineage_transition_eligible(
         comment,
-        allow_missing_created_at=not bool(head_committed_at),
+        head_committed_at=head_committed_at,
     )
 
 
