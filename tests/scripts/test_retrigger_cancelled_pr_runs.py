@@ -176,3 +176,18 @@ def test_manifest_matches_priority_keep_list(mod) -> None:
 
     for match in _re.finditer(r"'(\.github/workflows/[^']+\.yml)'", workflow):
         assert match.group(1) in paths, f"keep-list path missing from manifest: {match.group(1)}"
+
+
+def test_newer_non_pr_run_does_not_suppress_pr_rerun(mod) -> None:
+    """A newer push/dispatch run on the same branch does not re-evaluate the
+    PR's required contexts, so it must not count as supersession (#9133 P2)."""
+    cancelled_pr_run = _run(run_id=1, age_hours=2.0)
+    newer_push_run = _run(run_id=2, conclusion="success", event="push", age_hours=0.5)
+    reruns = mod.compute_reruns(
+        [cancelled_pr_run, newer_push_run],
+        active_heads=_heads(),
+        now=NOW,
+        ttl_hours=6.0,
+        **_protected(mod),
+    )
+    assert [r["run_id"] for r in reruns] == [1]

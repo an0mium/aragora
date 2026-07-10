@@ -209,8 +209,14 @@ def compute_reruns(
     cancelled by required-check-priority.yml and are never selected."""
     considered_events = events or PR_EVENTS
     cutoff = now - timedelta(hours=ttl_hours)
+    # Supersession is judged ONLY among runs of the same PR event class: a
+    # newer push/workflow_dispatch run on the same branch does not re-evaluate
+    # the PR's required contexts, so it must not suppress rerunning a
+    # cancelled current pull_request run (#9133 openai P2).
     newest_by_group: dict[tuple[Any, str], datetime] = {}
     for run in runs:
+        if str(run.get("event", "")).strip() not in considered_events:
+            continue
         created = _parse_created_at(str(run.get("created_at", "")))
         if created is None:
             continue
@@ -308,15 +314,34 @@ def main(argv: list[str] | None = None) -> int:
         protected_paths=protected_paths,
         protected_names=protected_names,
     )
+    apply_failures = 0
     for item in reruns:
         if args.apply:
             ok, detail = client.rerun_workflow_run(item["run_id"])
             item["applied"] = ok
             item["detail"] = detail
+            if not ok:
+                apply_failures += 1
         else:
             item["applied"] = False
             item["detail"] = "dry-run"
-    print(json.dumps({"repo": args.repo, "rerun_count": len(reruns), "reruns": reruns}, indent=2))
+    print(
+        json.dumps(
+            {
+                "repo": args.repo,
+                "rerun_count": len(reruns),
+                "apply_failures": apply_failures,
+                "reruns": reruns,
+            },
+            indent=2,
+        )
+    )
+    if apply_failures:
+        # Fail LOUD: if actions:write is missing or GitHub rejects reruns, a
+        # green scheduled run would hide the very regression this guardian
+        # exists to repair (#9133 openai P3).
+        print(f"{apply_failures} rerun request(s) failed", file=sys.stderr)
+        return 1
     return 0
 
 
