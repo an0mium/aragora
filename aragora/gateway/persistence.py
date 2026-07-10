@@ -25,7 +25,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, Protocol, cast, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from aragora.gateway.inbox import InboxMessage, MessagePriority
 from aragora.gateway.device_registry import DeviceNode, DeviceStatus
@@ -168,9 +168,10 @@ def _dict_to_device(d: dict[str, Any]) -> DeviceNode:
     status = d.get("status", "offline")
     if isinstance(status, str):
         status = DeviceStatus(status)
+    device_id = d.get("device_id")
 
     return DeviceNode(
-        device_id=cast(str, d.get("device_id")),
+        device_id=device_id if isinstance(device_id, str) else "",
         name=d["name"],
         device_type=d.get("device_type", "unknown"),
         status=status,
@@ -195,11 +196,13 @@ def _rule_to_dict(rule: RoutingRule) -> dict[str, Any]:
 
 def _dict_to_rule(d: dict[str, Any]) -> RoutingRule:
     """Convert dict to RoutingRule."""
+    channel_pattern = d.get("channel_pattern")
+    sender_pattern = d.get("sender_pattern")
     return RoutingRule(
         rule_id=d["rule_id"],
         agent_id=d["agent_id"],
-        channel_pattern=cast(str, d.get("channel_pattern")),
-        sender_pattern=cast(str, d.get("sender_pattern")),
+        channel_pattern=channel_pattern if isinstance(channel_pattern, str) else "*",
+        sender_pattern=sender_pattern if isinstance(sender_pattern, str) else "*",
         content_pattern=d.get("content_pattern"),
         priority=d.get("priority", 0),
         enabled=d.get("enabled", True),

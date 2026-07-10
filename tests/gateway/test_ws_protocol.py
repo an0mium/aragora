@@ -2,6 +2,8 @@
 Tests for gateway WebSocket protocol adapter (OpenClaw parity skeleton).
 """
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from aragora.gateway import (
@@ -36,6 +38,22 @@ async def test_ws_protocol_session_flow():
     assert closed["type"] == "session.closed"
     assert closed["session"]["status"] == "ended"
     assert closed["session"]["end_reason"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_ws_protocol_bind_handles_session_disappearing(monkeypatch):
+    gateway = LocalGateway(config=GatewayConfig(enable_auth=False))
+    adapter = GatewayProtocolAdapter(gateway)
+    monkeypatch.setattr(adapter, "bind_device_to_session", AsyncMock(return_value=True))
+    monkeypatch.setattr(adapter, "get_session", AsyncMock(return_value=None))
+    ws_protocol = GatewayWebSocketProtocol(adapter)
+
+    response = await ws_protocol.handle_message(
+        {"type": "session.bind", "session_id": "session-1", "device_id": "device-2"}
+    )
+
+    assert response["type"] == "error"
+    assert response["error"]["code"] == "not_found"
 
 
 @pytest.mark.asyncio

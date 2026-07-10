@@ -274,15 +274,14 @@ class TestDeviceSerialization:
             restored = _dict_to_device(d)
             assert restored.status == status
 
-    def test_device_auto_generated_id(self):
-        """Test device with missing device_id uses None (auto-gen happens at registration)."""
+    def test_device_missing_id_uses_empty_registration_sentinel(self):
+        """A missing persisted ID uses the registry's auto-generation sentinel."""
         d = {
             "name": "My Device",
             "device_type": "laptop",
         }
         device = _dict_to_device(d)
-        # device_id should be None when not provided (auto-generated on registration)
-        assert device.device_id is None
+        assert device.device_id == ""
 
     def test_device_with_none_last_seen(self):
         """Test device with None last_seen timestamp."""
@@ -330,26 +329,26 @@ class TestRuleSerialization:
         }
         rule = _dict_to_rule(d)
 
-        assert rule.channel_pattern is None  # _dict_to_rule uses .get() which returns None
-        assert rule.sender_pattern is None
+        assert rule.channel_pattern == "*"
+        assert rule.sender_pattern == "*"
         assert rule.content_pattern is None
         assert rule.enabled is True
         assert rule.priority == 0
 
-    def test_rule_with_none_patterns(self):
-        """Test rule with None patterns."""
-        rule = RoutingRule(
-            rule_id="r1",
-            agent_id="claude",
-            channel_pattern=None,
-            sender_pattern=None,
-            content_pattern=None,
+    def test_rule_with_none_patterns_uses_declared_defaults(self):
+        """Malformed legacy null patterns remain safe for routing."""
+        restored = _dict_to_rule(
+            {
+                "rule_id": "r1",
+                "agent_id": "claude",
+                "channel_pattern": None,
+                "sender_pattern": None,
+                "content_pattern": None,
+            }
         )
-        d = _rule_to_dict(rule)
-        restored = _dict_to_rule(d)
 
-        assert restored.channel_pattern is None
-        assert restored.sender_pattern is None
+        assert restored.channel_pattern == "*"
+        assert restored.sender_pattern == "*"
         assert restored.content_pattern is None
 
     def test_rule_enabled_default_true(self):

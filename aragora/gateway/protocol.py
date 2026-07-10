@@ -574,6 +574,8 @@ class GatewayWebSocketProtocol:
             if not ok:
                 return self._error("not_found", "session not bindable", request_id)
             bound_session = await self._adapter.get_session(session_id)
+            if bound_session is None:
+                return self._error("not_found", "session not found after binding", request_id)
             return self._wrap_response(
                 {"type": "session.bound", "session": self._serialize_session(bound_session)},
                 request_id,
