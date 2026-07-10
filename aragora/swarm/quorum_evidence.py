@@ -1423,7 +1423,9 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
 _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     "claude": "anthropic/claude-fable-5",
     "openai": "openai/gpt-5-pro",
-    "grok": "x-ai/grok-4.5",
+    # grok-4.5 (released Jul 8, 2026) stays out of merge-authority evidence
+    # until its 14-day soak passes; grok-4.3 is the evaluated slug.
+    "grok": "x-ai/grok-4.3",
     "gemini": "google/gemini-3.1-pro-preview",
     # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$

@@ -77,7 +77,9 @@ _OPENROUTER_FALLBACK_MODELS = {
     "anthropic-api": "anthropic/claude-opus-4.8",
     "openai-api": "openai/gpt-5.3",
     "gemini": "google/gemini-3-flash-preview",
-    "grok": "x-ai/grok-4.5",
+    # Streaming fallback favors cost/latency over flagship quality; grok-4.3
+    # is the cheapest evaluated grok slug ($1.25/$2.50 vs 4.5's $2/$6).
+    "grok": "x-ai/grok-4.3",
     "mistral-api": "mistralai/mistral-large-2512",
 }
 _OPENROUTER_GENERIC_FALLBACK_MODEL = "openai/gpt-5.3-chat"
