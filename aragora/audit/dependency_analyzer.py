@@ -810,11 +810,17 @@ class DependencyAnalyzer:
                                     severity=self._map_severity(
                                         vuln_info.get("severity", "moderate")
                                     ),
-                                    title=vuln_info.get("title", adv.get("name", "Vulnerability")),
-                                    description=vuln_info.get("overview", vuln_info.get("url", "")),
+                                    title=str(
+                                        vuln_info.get("title") or adv.get("name") or "Vulnerability"
+                                    ),
+                                    description=str(
+                                        vuln_info.get("overview") or vuln_info.get("url") or ""
+                                    ),
                                     affected_package=adv.get("name", ""),
-                                    affected_versions=vuln_info.get(
-                                        "vulnerable_versions", adv.get("range", "*")
+                                    affected_versions=str(
+                                        vuln_info.get("vulnerable_versions")
+                                        or adv.get("range")
+                                        or "*"
                                     ),
                                     fixed_version=(
                                         adv.get("fixAvailable", {}).get("version")

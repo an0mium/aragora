@@ -1585,6 +1585,41 @@ class TestJsVulnerabilityChecking:
         assert vulns[0].affected_package == "lodash"
 
     @pytest.mark.asyncio
+    async def test_npm_audit_null_text_fields_use_string_defaults(
+        self, analyzer, tmp_repo, package_json_content
+    ):
+        """Explicit JSON nulls do not leak into string vulnerability fields."""
+        (tmp_repo / "package.json").write_text(package_json_content)
+        mock_result = MagicMock()
+        mock_result.stdout = json.dumps(
+            {
+                "vulnerabilities": {
+                    "lodash": {
+                        "name": "lodash",
+                        "via": [
+                            {
+                                "source": 12345,
+                                "title": None,
+                                "overview": None,
+                                "url": None,
+                                "vulnerable_versions": None,
+                            }
+                        ],
+                        "range": "<4.17.21",
+                    }
+                }
+            }
+        )
+
+        with patch("subprocess.run", return_value=mock_result):
+            vulns = await analyzer._check_js_vulnerabilities(str(tmp_repo))
+
+        assert len(vulns) == 1
+        assert vulns[0].title == "lodash"
+        assert vulns[0].description == ""
+        assert vulns[0].affected_versions == "<4.17.21"
+
+    @pytest.mark.asyncio
     async def test_npm_audit_no_package_json(self, analyzer, tmp_repo):
         """Test npm audit with no package.json."""
         vulns = await analyzer._check_js_vulnerabilities(str(tmp_repo))
