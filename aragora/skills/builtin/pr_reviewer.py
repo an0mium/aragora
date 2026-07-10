@@ -122,7 +122,7 @@ class PRReviewerSkill(Skill):
             )
         if findings is None:
             return SkillResult.create_failure(
-                error_message="Review returned no findings",
+                error_message="Review failed: no structured result returned by review engine",
                 error_code="REVIEW_FAILED",
             )
 
@@ -176,6 +176,8 @@ class PRReviewerSkill(Skill):
             from aragora.cli.review import run_review_on_diff  # type: ignore[attr-defined]
 
             findings = await run_review_on_diff(diff, demo=self._demo)
+            if findings is None:
+                return None, "review engine returned no structured result"
             return findings, None
         except ImportError:
             # Fallback: run as subprocess
