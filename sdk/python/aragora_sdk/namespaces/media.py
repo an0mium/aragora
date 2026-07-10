@@ -208,7 +208,7 @@ class MediaAPI:
         return self._client._request("GET", "/api/v1/podcast/feed")
 
     # =========================================================================
-    # Media Conversions
+    # Unsupported Media Operations
     # =========================================================================
 
     def convert_audio(
@@ -218,15 +218,12 @@ class MediaAPI:
         bitrate: int | None = None,
     ) -> dict[str, Any]:
         """
-        Convert an audio file to a different format.
+        Guard unsupported conversion access until the API publishes this route.
 
         Args:
             audio_id: The source audio file identifier.
             target_format: Target format (mp3, aac, m4a, wav, ogg).
             bitrate: Optional target bitrate in kbps.
-
-        Returns:
-            Dict with converted audio file details.
 
         Raises:
             NotImplementedError: The public API does not expose this route.
@@ -238,13 +235,10 @@ class MediaAPI:
 
     def get_transcription(self, audio_id: str) -> dict[str, Any]:
         """
-        Get transcription for an audio file.
+        Guard unsupported transcription access until the API publishes this route.
 
         Args:
             audio_id: The audio file identifier.
-
-        Returns:
-            Dict with transcription text and metadata.
 
         Raises:
             NotImplementedError: The public API does not expose this route.
@@ -360,7 +354,7 @@ class AsyncMediaAPI:
         return await self._client._request("GET", "/api/v1/podcast/feed")
 
     # =========================================================================
-    # Media Conversions
+    # Unsupported Media Operations
     # =========================================================================
 
     async def convert_audio(
