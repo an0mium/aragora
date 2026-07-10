@@ -293,6 +293,7 @@ class TokenManager:
             TokenData if valid, None otherwise
         """
         redis_client = await self._get_redis()
+        token_data: TokenData | None
 
         if redis_client:
             key = f"{self.config.key_prefix}{token}"
@@ -310,7 +311,7 @@ class TokenManager:
         else:
             async with self._lock:
                 token_data = self._local_store.get(token)
-                if not token_data:
+                if token_data is None:
                     return None
 
         # Check expiration
