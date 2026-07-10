@@ -183,34 +183,16 @@ case "$tier" in
     ;;
 
   typecheck)
-    # Run mypy on aragora - REQUIRED (0 errors as of Phase 5)
+    # Run the authoritative baseline-aware typecheck gate.
     echo -e "${YELLOW}=== Type checking aragora (REQUIRED) ===${NC}"
 
-    set +e
-    MYPY_OUTPUT="$(mypy aragora/ --ignore-missing-imports --show-error-codes 2>&1)"
-    MYPY_STATUS=$?
-    set -e
-
-    # Count actual errors (not notes). Mypy may emit either
-    # "file:line: error:" or "file:line:col: error:" depending on config/version.
-    ERROR_COUNT=$(printf '%s\n' "$MYPY_OUTPUT" | { grep -cE "^[^:]+:[0-9]+(:[0-9]+)?: error:" || true; } | tr -d '[:space:]')
-    ERROR_COUNT=${ERROR_COUNT:-0}
-
-    if [ "$MYPY_STATUS" -ne 0 ] || [ "$ERROR_COUNT" -gt 0 ]; then
-      echo -e "${RED}Found $ERROR_COUNT mypy error(s)!${NC}"
-      if [ -n "$MYPY_OUTPUT" ]; then
-        printf '%s\n' "$MYPY_OUTPUT"
-      fi
-      echo ""
+    if python3 scripts/ci/mypy_with_baseline.py; then
+      echo -e "${GREEN}=== Type check passed (no new errors) ===${NC}"
+    else
+      TYPECHECK_STATUS=$?
       echo -e "${RED}=== Type check FAILED ===${NC}"
-      echo "mypy error count must remain at 0 (currently: $ERROR_COUNT)"
-      if [ "$MYPY_STATUS" -ne 0 ]; then
-        exit "$MYPY_STATUS"
-      fi
-      exit 1
+      exit "$TYPECHECK_STATUS"
     fi
-
-    echo -e "${GREEN}=== Type check passed (0 errors) ===${NC}"
     ;;
 
   frontend)

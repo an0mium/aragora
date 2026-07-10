@@ -88,7 +88,7 @@ experimental = [
     "playwright>=1.60.0,<2.0",
 ]
 dev = [
-    "mypy>=2.1.0,<3.0",
+    "mypy==2.2.0",
     "mypy-baseline>=0.7.4,<0.8",
     "types-PyYAML>=6.0.12.20260518,<7.0",
     "types-croniter>=6.2.2.20260518,<7.0",

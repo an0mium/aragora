@@ -370,9 +370,22 @@ jobs:
           echo "python_bin=$PYTHON_BIN" >> "$GITHUB_OUTPUT"
 
       - name: Install mypy and type stubs
+        shell: bash
         run: |
-          "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user -e .
-          "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user mypy types-requests types-redis types-python-dateutil types-setuptools types-jsonschema types-PyYAML
+          set -euo pipefail
+          PYBIN="${{ steps.typecheck_python.outputs.python_bin }}"
+          "${PYBIN}" -m pip install --user -e .
+          mapfile -t TYPECHECK_REQUIREMENTS < <(
+            "${PYBIN}" scripts/ci/mypy_with_baseline.py --print-install-requirements
+          )
+          if [[ "${#TYPECHECK_REQUIREMENTS[@]}" -ne 2 ]]; then
+            echo "Expected exactly two typecheck tool requirements from pyproject.toml" >&2
+            exit 2
+          fi
+          "${PYBIN}" -m pip install --user \
+            "${TYPECHECK_REQUIREMENTS[@]}" \
+            types-requests types-redis types-python-dateutil types-setuptools \
+            types-jsonschema types-PyYAML
 
       - name: Resolve phase-1 typecheck plan
         id: typecheck_plan
@@ -510,10 +523,22 @@ jobs:
           python-version: "3.11"
 
       - name: Install mypy and dependencies
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install mypy types-requests types-redis types-python-dateutil types-setuptools types-jsonschema types-PyYAML
           python -m pip install -e .
+          mapfile -t TYPECHECK_REQUIREMENTS < <(
+            python scripts/ci/mypy_with_baseline.py --print-install-requirements
+          )
+          if [[ "${#TYPECHECK_REQUIREMENTS[@]}" -ne 2 ]]; then
+            echo "Expected exactly two typecheck tool requirements from pyproject.toml" >&2
+            exit 2
+          fi
+          python -m pip install \
+            "${TYPECHECK_REQUIREMENTS[@]}" \
+            types-requests types-redis types-python-dateutil types-setuptools \
+            types-jsonschema types-PyYAML
 
       - name: Typecheck core modules (REQUIRED)
         run: |
