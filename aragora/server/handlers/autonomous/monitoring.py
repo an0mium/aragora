@@ -294,11 +294,15 @@ class MonitoringHandler:
             data, err = await parse_json_body(request, context="record_metric")
             if err:
                 return err
+            if data is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid request body"}, status=400
+                )
 
             # Validate metric_name
             metric_name = data.get("metric_name")
             is_valid, error_msg = validate_metric_name(metric_name)
-            if not is_valid:
+            if not is_valid or not isinstance(metric_name, str):
                 return web.json_response(
                     {"success": False, "error": error_msg},
                     status=400,
@@ -307,7 +311,7 @@ class MonitoringHandler:
             # Validate value
             raw_value = data.get("value")
             is_valid, value, error_msg = validate_metric_value(raw_value)
-            if not is_valid:
+            if not is_valid or value is None:
                 return web.json_response(
                     {"success": False, "error": error_msg},
                     status=400,
@@ -395,7 +399,7 @@ class MonitoringHandler:
             # Validate metric_name
             metric_name = request.match_info.get("metric_name")
             is_valid, error_msg = validate_metric_name(metric_name)
-            if not is_valid:
+            if not is_valid or not isinstance(metric_name, str):
                 return web.json_response(
                     {"success": False, "error": error_msg},
                     status=400,
@@ -652,7 +656,7 @@ class MonitoringHandler:
             # Validate metric_name
             metric_name = request.match_info.get("metric_name")
             is_valid, error_msg = validate_metric_name(metric_name)
-            if not is_valid:
+            if not is_valid or not isinstance(metric_name, str):
                 return web.json_response(
                     {"success": False, "error": error_msg},
                     status=400,

@@ -172,6 +172,12 @@ class AlertHandler:
             data, err = await parse_json_body(request, context="acknowledge_alert")
             if err:
                 return err
+            if data is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid request body"}, status=400
+                )
+            if not alert_id:
+                return web.json_response({"success": False, "error": "Alert not found"}, status=404)
             acknowledged_by = data.get("acknowledged_by") or auth_ctx.user_id
 
             analyzer = get_alert_analyzer()
@@ -228,6 +234,9 @@ class AlertHandler:
             decision = checker.check_permission(auth_ctx, "alerts:write")
             if not decision.allowed:
                 raise ForbiddenError("Permission denied")
+
+            if not alert_id:
+                return web.json_response({"success": False, "error": "Alert not found"}, status=404)
 
             analyzer = get_alert_analyzer()
             success = analyzer.resolve_alert(alert_id)
@@ -292,6 +301,10 @@ class AlertHandler:
             data, err = await parse_json_body(request, context="set_threshold")
             if err:
                 return err
+            if data is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid request body"}, status=400
+                )
             metric_name = data.get("metric_name")
 
             if not metric_name:
@@ -361,6 +374,10 @@ class AlertHandler:
             data, err = await parse_json_body(request, context="check_metric")
             if err:
                 return err
+            if data is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid request body"}, status=400
+                )
             metric_name = data.get("metric_name")
             value = data.get("value")
 

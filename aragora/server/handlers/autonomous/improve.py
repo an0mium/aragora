@@ -133,6 +133,8 @@ class AutonomousImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ign
             body, error = self.read_json_object_or_error(handler)
             if error:
                 return error
+            if body is None:
+                return error_response("Invalid JSON body", 400)
             return await self._start_run(body)
 
         return None

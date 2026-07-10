@@ -372,6 +372,17 @@ class TestGetAgentCalibration:
         assert "No calibration data" in data["message"]
 
     @pytest.mark.asyncio
+    async def test_calibration_missing_agent_id(self, install_learner):
+        req = _make_request(match_info={})
+
+        resp = await LearningHandler.get_agent_calibration(req)
+
+        assert resp.status == 400
+        data = await _parse(resp)
+        assert data["error"] == "agent_id is required"
+        install_learner.get_calibration.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_calibration_null_last_updated(self, install_learner):
         cal = _make_calibration(agent_id="new-agent")
         cal.last_updated = None

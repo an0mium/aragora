@@ -117,6 +117,11 @@ class LearningHandler:
             if not decision.allowed:
                 raise ForbiddenError("Permission denied")
 
+            if not agent_id:
+                return web.json_response(
+                    {"success": False, "error": "agent_id is required"}, status=400
+                )
+
             learner = get_continuous_learner()
             calibration = learner.get_calibration(agent_id)
 
@@ -253,6 +258,10 @@ class LearningHandler:
             data, err = await parse_json_body(request, context="record_debate_outcome")
             if err:
                 return err
+            if data is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid request body"}, status=400
+                )
             debate_id = data.get("debate_id")
             agents = data.get("agents", [])
             winner = data.get("winner")
@@ -336,6 +345,10 @@ class LearningHandler:
             data, err = await parse_json_body(request, context="record_user_feedback")
             if err:
                 return err
+            if data is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid request body"}, status=400
+                )
             debate_id = data.get("debate_id")
             agent_id = data.get("agent_id")
             feedback_type = data.get("feedback_type")

@@ -179,6 +179,10 @@ class TriggerHandler:
             data, err = await parse_json_body(request, context="add_trigger")
             if err:
                 return err
+            if data is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid request body"}, status=400
+                )
             trigger_id = data.get("trigger_id")
             name = data.get("name")
 
@@ -258,6 +262,11 @@ class TriggerHandler:
             if not decision.allowed:
                 raise ForbiddenError("Permission denied")
 
+            if not trigger_id:
+                return web.json_response(
+                    {"success": False, "error": "Trigger not found"}, status=404
+                )
+
             trigger = get_scheduled_trigger()
             if hasattr(trigger, "remove_trigger"):
                 success = trigger.remove_trigger(trigger_id)
@@ -328,6 +337,11 @@ class TriggerHandler:
             if not decision.allowed:
                 raise ForbiddenError("Permission denied")
 
+            if not trigger_id:
+                return web.json_response(
+                    {"success": False, "error": "Trigger not found"}, status=404
+                )
+
             trigger = get_scheduled_trigger()
             success = trigger.enable_trigger(trigger_id)
 
@@ -390,6 +404,11 @@ class TriggerHandler:
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError("Permission denied")
+
+            if not trigger_id:
+                return web.json_response(
+                    {"success": False, "error": "Trigger not found"}, status=404
+                )
 
             trigger = get_scheduled_trigger()
             success = trigger.disable_trigger(trigger_id)

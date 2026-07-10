@@ -126,7 +126,7 @@ class ApprovalHandler:
 
             # Check RBAC permission (admins bypass). If permissions are unset/empty,
             # allow legacy access (pre-RBAC contexts).
-            perms = getattr(auth_ctx, "permissions", set()) or set()
+            perms: set[str] = getattr(auth_ctx, "permissions", set()) or set()
             if perms and not _is_admin(auth_ctx):
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
@@ -210,7 +210,7 @@ class ApprovalHandler:
 
             # Check RBAC permission (admins bypass). If permissions are unset/empty,
             # allow legacy access (pre-RBAC contexts).
-            perms = getattr(auth_ctx, "permissions", set()) or set()
+            perms: set[str] = getattr(auth_ctx, "permissions", set()) or set()
             if perms and not _is_admin(auth_ctx):
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
@@ -221,6 +221,11 @@ class ApprovalHandler:
                     raise ForbiddenError("Permission denied")
 
             logger.debug("get_request %s called by user %s", request_id, auth_ctx.user_id)
+
+            if not request_id:
+                return web.json_response(
+                    {"success": False, "error": "Request not found"}, status=404
+                )
 
             flow = get_approval_flow()
             req = flow._load_request(request_id)
@@ -303,7 +308,7 @@ class ApprovalHandler:
 
             # Check RBAC permission (admins bypass). If permissions are unset/empty,
             # allow legacy access (pre-RBAC contexts).
-            perms = getattr(auth_ctx, "permissions", set()) or set()
+            perms: set[str] = getattr(auth_ctx, "permissions", set()) or set()
             if perms and not _is_admin(auth_ctx):
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
@@ -316,6 +321,14 @@ class ApprovalHandler:
             data, err = await parse_json_body(request, context="approve_request")
             if err:
                 return err
+            if data is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid request body"}, status=400
+                )
+            if not request_id:
+                return web.json_response(
+                    {"success": False, "error": "Request not found"}, status=404
+                )
             # Use authenticated user as approver, or override if specified
             approved_by = data.get("approved_by") or auth_ctx.user_id
 
@@ -394,7 +407,7 @@ class ApprovalHandler:
 
             # Check RBAC permission (admins bypass). If permissions are unset/empty,
             # allow legacy access (pre-RBAC contexts).
-            perms = getattr(auth_ctx, "permissions", set()) or set()
+            perms: set[str] = getattr(auth_ctx, "permissions", set()) or set()
             if perms and not _is_admin(auth_ctx):
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
@@ -407,6 +420,14 @@ class ApprovalHandler:
             data, err = await parse_json_body(request, context="reject_request")
             if err:
                 return err
+            if data is None:
+                return web.json_response(
+                    {"success": False, "error": "Invalid request body"}, status=400
+                )
+            if not request_id:
+                return web.json_response(
+                    {"success": False, "error": "Request not found"}, status=404
+                )
             # Use authenticated user as rejecter, or override if specified
             rejected_by = data.get("rejected_by") or auth_ctx.user_id
             reason = data.get("reason", "No reason provided")
