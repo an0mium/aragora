@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -21,6 +24,25 @@ def _docs_specs_map_entries() -> dict[str, str]:
             content,
         )
     )
+
+
+def _docs_mirror_map_entries() -> dict[str, str]:
+    """Return the full DOC_MAP from sync-docs.js as {source: destination}."""
+    content = SYNC_SCRIPT.read_text(encoding="utf-8")
+    doc_map_block = re.search(r"const DOC_MAP = \{(.*?)\n\};", content, re.DOTALL)
+    if not doc_map_block:
+        raise RuntimeError("Could not locate DOC_MAP in sync-docs.js")
+    return dict(
+        re.findall(
+            r"'([^']+\.md)'\s*:\s*'([^']+\.md)'",
+            doc_map_block.group(1),
+        )
+    )
+
+
+def _docs_mirror_dest_to_source() -> dict[str, str]:
+    """Reverse DOC_MAP so we can look up the claimed source for a destination page."""
+    return {dest: src for src, dest in _docs_mirror_map_entries().items()}
 
 
 def test_documentation_index_rewrites_status_and_planning_links() -> None:
@@ -100,38 +122,97 @@ def test_commercial_overview_rewrites_current_proof_status_links() -> None:
         assert link not in content
 
 
+# Pre-existing fallback mirror destinations: pages that were already mirrored
+# into the docs-site before the docs/specs DOC_MAP work. The original guard
+# only asserted their existence; the parity test below also asserts that each
+# destination still matches the source claimed by sync-docs.js's DOC_MAP.
+DOCS_SITE_FALLBACK_MIRROR_PAGES: list[Path] = [
+    DOCS_SITE_ROOT / "contributing" / "2026-03-26-pmf-14-day-execution-plan.md",
+    DOCS_SITE_ROOT / "contributing" / "active-execution-issues.md",
+    DOCS_SITE_ROOT / "contributing" / "b0-benchmark-truth-status.md",
+    DOCS_SITE_ROOT / "contributing" / "aragora-evolution-roadmap.md",
+    DOCS_SITE_ROOT / "contributing" / "canonical-goals.md",
+    DOCS_SITE_ROOT / "contributing" / "claude.md",
+    DOCS_SITE_ROOT / "contributing" / "conductor-control-plane-implementation-spec.md",
+    DOCS_SITE_ROOT / "contributing" / "dev-swarm-coordination.md",
+    DOCS_SITE_ROOT / "contributing" / "documentation-hygiene-and-gap-register.md",
+    DOCS_SITE_ROOT / "contributing" / "execution-next-6-weeks-2026-03-05.md",
+    DOCS_SITE_ROOT / "contributing" / "extended-readme.md",
+    DOCS_SITE_ROOT / "contributing" / "feature-discovery.md",
+    DOCS_SITE_ROOT / "contributing" / "feature-gap-list.md",
+    DOCS_SITE_ROOT / "contributing" / "mission-cadence-m0-m1.md",
+    DOCS_SITE_ROOT / "contributing" / "next-steps-canonical.md",
+    DOCS_SITE_ROOT / "contributing" / "pmf-dogfood-execution-plan.md",
+    DOCS_SITE_ROOT / "contributing" / "pmf-scorecard.md",
+    DOCS_SITE_ROOT / "contributing" / "roadmap.md",
+    DOCS_SITE_ROOT / "contributing" / "roadmap-intake-register.md",
+    DOCS_SITE_ROOT / "contributing" / "strategy-as-bounded-mission-cadence-design.md",
+    DOCS_SITE_ROOT / "contributing" / "tw03-rescue-productization-status.md",
+    DOCS_SITE_ROOT / "guides" / "conductor-workflow.md",
+    DOCS_SITE_ROOT / "guides" / "marketplace.md",
+    DOCS_SITE_ROOT / "guides" / "swarm-dogfood-operator.md",
+    DOCS_SITE_ROOT / "guides" / "worker-prompt-pack.md",
+    DOCS_SITE_ROOT / "enterprise" / "secrets.md",
+]
+
+
 def test_docs_site_sync_creates_linked_status_and_planning_pages() -> None:
-    expected_pages = [
-        DOCS_SITE_ROOT / "contributing" / "2026-03-26-pmf-14-day-execution-plan.md",
-        DOCS_SITE_ROOT / "contributing" / "active-execution-issues.md",
-        DOCS_SITE_ROOT / "contributing" / "b0-benchmark-truth-status.md",
-        DOCS_SITE_ROOT / "contributing" / "aragora-evolution-roadmap.md",
-        DOCS_SITE_ROOT / "contributing" / "canonical-goals.md",
-        DOCS_SITE_ROOT / "contributing" / "claude.md",
-        DOCS_SITE_ROOT / "contributing" / "conductor-control-plane-implementation-spec.md",
-        DOCS_SITE_ROOT / "contributing" / "dev-swarm-coordination.md",
-        DOCS_SITE_ROOT / "contributing" / "documentation-hygiene-and-gap-register.md",
-        DOCS_SITE_ROOT / "contributing" / "execution-next-6-weeks-2026-03-05.md",
-        DOCS_SITE_ROOT / "contributing" / "extended-readme.md",
-        DOCS_SITE_ROOT / "contributing" / "feature-discovery.md",
-        DOCS_SITE_ROOT / "contributing" / "feature-gap-list.md",
-        DOCS_SITE_ROOT / "contributing" / "mission-cadence-m0-m1.md",
-        DOCS_SITE_ROOT / "contributing" / "next-steps-canonical.md",
-        DOCS_SITE_ROOT / "contributing" / "pmf-dogfood-execution-plan.md",
-        DOCS_SITE_ROOT / "contributing" / "pmf-scorecard.md",
-        DOCS_SITE_ROOT / "contributing" / "roadmap.md",
-        DOCS_SITE_ROOT / "contributing" / "roadmap-intake-register.md",
-        DOCS_SITE_ROOT / "contributing" / "strategy-as-bounded-mission-cadence-design.md",
-        DOCS_SITE_ROOT / "contributing" / "tw03-rescue-productization-status.md",
-        DOCS_SITE_ROOT / "guides" / "conductor-workflow.md",
-        DOCS_SITE_ROOT / "guides" / "marketplace.md",
-        DOCS_SITE_ROOT / "guides" / "swarm-dogfood-operator.md",
-        DOCS_SITE_ROOT / "guides" / "worker-prompt-pack.md",
-        DOCS_SITE_ROOT / "enterprise" / "secrets.md",
-    ]
+    expected_pages = DOCS_SITE_FALLBACK_MIRROR_PAGES
 
     for page in expected_pages:
         assert page.exists(), f"Expected synced docs-site page missing: {page}"
+
+
+def test_docs_site_sync_fallback_mirror_pages_match_source_content() -> None:
+    """Regenerate the docs-site mirror in a temp directory and assert parity.
+
+    The existence-only check above can be fooled by a stale destination file
+    that no longer corresponds to its claimed docs/ source. This test runs
+    sync-docs.js against a clean copy of the docs sources and compares each
+    pre-existing fallback mirror destination to the freshly generated page.
+    If a destination differs from the source it is claimed to come from, the
+    test fails.
+    """
+    dest_to_source = _docs_mirror_dest_to_source()
+    root_source_files = {src for src in dest_to_source.values() if src.startswith("../")}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        shutil.copytree(REPO_ROOT / "docs", tmp_path / "docs")
+        shutil.copytree(
+            REPO_ROOT / "docs-site" / "scripts",
+            tmp_path / "docs-site" / "scripts",
+        )
+        for src_rel in root_source_files:
+            src = (REPO_ROOT / "docs" / src_rel).resolve()
+            shutil.copy2(src, tmp_path / src.name)
+
+        subprocess.run(
+            ["node", str(tmp_path / "docs-site" / "scripts" / "sync-docs.js")],
+            cwd=tmp_path,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        mismatches: list[str] = []
+        for page in DOCS_SITE_FALLBACK_MIRROR_PAGES:
+            rel = page.relative_to(DOCS_SITE_ROOT)
+            generated = tmp_path / "docs-site" / "docs" / rel
+            if not generated.exists():
+                mismatches.append(f"{rel}: generated page missing from fresh sync")
+                continue
+            if generated.read_text(encoding="utf-8") != page.read_text(encoding="utf-8"):
+                mismatches.append(f"{rel}: content differs from fresh sync")
+
+        assert not mismatches, "\n".join(
+            [
+                "Pre-existing fallback mirror destinations do not match a fresh sync-docs.js run. "
+                "Either the mirror is stale or the destination is no longer generated from the claimed source.",
+                *mismatches,
+            ]
+        )
 
 
 def test_active_execution_links_to_synced_roadmap_intake_register() -> None:
@@ -325,11 +406,17 @@ def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
 
 # docs/specs/*.md files that are deliberately excluded from the docs-site
 # mirror (e.g. a draft or an operator-gated spec not meant for public
-# publication). Empty today -- every current docs/specs/*.md file is
-# mirrored -- but test_docs_specs_directory_is_mirrored consults this set so a
-# future deliberate exclusion has an explicit, reviewable home instead of a
-# silent special case grown into the assertion logic below.
-DOCS_SPECS_MIRROR_ALLOWLIST: frozenset[str] = frozenset()
+# publication). Every current docs/specs/*.md file is either mirrored via
+# DOC_MAP or listed here; test_docs_specs_directory_is_mirrored consults this
+# set so a future deliberate exclusion has an explicit, reviewable home instead
+# of a silent special case grown into the assertion logic below.
+DOCS_SPECS_MIRROR_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        # Archival Tier-4 packet; operator-gated and not meant for public docs-site
+        # publication unless a future DOC_MAP entry is explicitly approved.
+        "2026-07-01-adjudicator-wiring-tier4-packet.md",
+    }
+)
 
 
 def _default_specs_mirror_dest(source_name: str) -> str:
