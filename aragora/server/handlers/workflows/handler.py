@@ -7,7 +7,8 @@ with the unified server.
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from collections.abc import Callable
+from typing import Any, cast, TYPE_CHECKING, TypeVar
 import sys
 
 from aragora.server.handlers.base import (
@@ -60,6 +61,14 @@ from .approvals import (
 
 if TYPE_CHECKING:
     from aragora.rbac import AuthorizationContext
+
+_HandlerMethod = TypeVar("_HandlerMethod", bound=Callable[..., Any])
+
+
+def _typed_handle_errors(context: str) -> Callable[[_HandlerMethod], _HandlerMethod]:
+    """Preserve handler signatures across the legacy decorator union type."""
+    return cast(Callable[[_HandlerMethod], _HandlerMethod], handle_errors(context))
+
 
 # Import RBAC components conditionally
 if RBAC_AVAILABLE:
@@ -444,7 +453,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 and context.org_id
             ):
                 return context.org_id
-        return get_string_param(query_params, "tenant_id", "default")
+        return cast(str, get_string_param(query_params, "tenant_id", "default"))
 
     @track_handler("workflows/main", method="GET")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
@@ -576,6 +585,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        body = cast(dict[str, Any], body)
 
         # POST /api/workflows/{id}/execute
         if path.endswith("/execute"):
@@ -635,6 +645,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        body = cast(dict[str, Any], body)
 
         workflow_id = self._extract_id(path)
         if workflow_id:
@@ -650,7 +661,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         """Handle PUT requests (same as PATCH for workflows)."""
         return self.handle_patch(path, query_params, handler)
 
-    @handle_errors
+    @_typed_handle_errors("handle_delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -815,10 +826,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             tenant_id = self._get_tenant_id(handler, query_params)
             # Get user_id from auth context if available
             auth_context = self._get_auth_context(handler) if self._rbac_enabled() else None
-            created_by = (
+            created_by = cast(
+                str,
                 auth_context.user_id
                 if auth_context and not isinstance(auth_context, str)
-                else get_string_param(query_params, "user_id", "")
+                else get_string_param(query_params, "user_id", ""),
             )
 
             result = self._run_async_fn()(
@@ -1319,10 +1331,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         try:
             # Get responder from auth context if available
             auth_context = self._get_auth_context(handler) if self._rbac_enabled() else None
-            responder_id = (
+            responder_id = cast(
+                str,
                 auth_context.user_id
                 if auth_context and not isinstance(auth_context, str)
-                else get_string_param(query_params, "user_id", "")
+                else get_string_param(query_params, "user_id", ""),
             )
 
             resolved = self._run_async_fn()(

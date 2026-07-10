@@ -12,7 +12,7 @@ Provides endpoints for the visual workflow builder:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -80,6 +80,7 @@ class WorkflowBuilderHandler(BaseHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        body = cast(dict[str, Any], body)
 
         if path == "/api/v1/workflows/generate":
             return self._generate_workflow(body)

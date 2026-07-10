@@ -27,6 +27,8 @@ Backward Compatibility:
 
 from __future__ import annotations
 
+from typing import Any
+
 # Core utilities (for internal use and advanced users)
 from .core import (
     logger,
@@ -96,18 +98,27 @@ from .approvals import (
 )
 
 # Human approval helpers (for patching in tests)
+get_pending_approvals: Any
+get_approval_request: Any
+_resolve: Any
+ApprovalStatus: Any
 try:
     from aragora.workflow.nodes.human_checkpoint import (
-        get_pending_approvals,
-        get_approval_request,
-        resolve_approval as _resolve,
-        ApprovalStatus,
+        get_pending_approvals as _get_pending_approvals,
+        get_approval_request as _get_approval_request,
+        resolve_approval as _resolve_approval,
+        ApprovalStatus as _ApprovalStatus,
     )
+
+    get_pending_approvals = _get_pending_approvals
+    get_approval_request = _get_approval_request
+    _resolve = _resolve_approval
+    ApprovalStatus = _ApprovalStatus
 except ImportError:  # pragma: no cover - optional dependency
-    get_pending_approvals = None  # type: ignore[assignment]
-    get_approval_request = None  # type: ignore[assignment]
-    _resolve = None  # type: ignore[assignment]
-    ApprovalStatus = None  # type: ignore[misc]
+    get_pending_approvals = None
+    get_approval_request = None
+    _resolve = None
+    ApprovalStatus = None
 
 # HTTP handlers
 from .handler import (
@@ -116,13 +127,24 @@ from .handler import (
 )
 
 # Optional RBAC helpers for tests and patching
+extract_user_from_request: Any
 try:
-    from aragora.billing.auth import extract_user_from_request
+    from aragora.billing.auth import extract_user_from_request as _extract_user_from_request
+
+    extract_user_from_request = _extract_user_from_request
 except ImportError:  # pragma: no cover - optional dependency
     extract_user_from_request = None
 
+check_permission: Any
+get_role_permissions: Any
 try:
-    from aragora.rbac import check_permission, get_role_permissions
+    from aragora.rbac import (
+        check_permission as _check_permission,
+        get_role_permissions as _get_role_permissions,
+    )
+
+    check_permission = _check_permission
+    get_role_permissions = _get_role_permissions
 except ImportError:  # pragma: no cover - optional dependency
     check_permission = None
     get_role_permissions = None

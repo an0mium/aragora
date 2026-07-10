@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -250,7 +250,7 @@ def _workflow_to_summary(wf: Any) -> WorkflowSummary:
     """Convert a workflow object to a summary."""
     if isinstance(wf, dict):
         return WorkflowSummary(
-            id=wf.get("id", wf.get("workflow_id", "")),
+            id=cast(str, wf.get("id", wf.get("workflow_id", ""))),
             name=wf.get("name", ""),
             description=wf.get("description", ""),
             status=wf.get("status", "pending"),
@@ -294,7 +294,7 @@ def _workflow_to_detail(wf: Any) -> WorkflowDetail:
                 )
 
         return WorkflowDetail(
-            id=wf.get("id", wf.get("workflow_id", "")),
+            id=cast(str, wf.get("id", wf.get("workflow_id", ""))),
             name=wf.get("name", ""),
             description=wf.get("description", ""),
             status=wf.get("status", "pending"),
@@ -419,7 +419,7 @@ async def list_workflow_templates(
                 if isinstance(t, dict):
                     templates.append(
                         TemplateSummary(
-                            name=t.get("name", t.get("id", "")),
+                            name=cast(str, t.get("name", t.get("id", ""))),
                             description=t.get("description", ""),
                             category=t.get("category", ""),
                             node_count=len(t.get("nodes", [])),
@@ -754,7 +754,7 @@ async def get_workflow_history(
             if isinstance(entry, dict):
                 executions.append(
                     HistoryEntry(
-                        execution_id=entry.get("execution_id", entry.get("id", "")),
+                        execution_id=cast(str, entry.get("execution_id", entry.get("id", ""))),
                         status=entry.get("status", "completed"),
                         started_at=entry.get("started_at"),
                         completed_at=entry.get("completed_at"),

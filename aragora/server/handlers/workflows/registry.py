@@ -11,7 +11,7 @@ Provides endpoints for the public template registry:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -137,6 +137,7 @@ class TemplateRegistryHandler(BaseHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        body = cast(dict[str, Any], body)
 
         # POST /api/v1/templates/registry/{id}/install
         if listing_id and path.endswith("/install"):

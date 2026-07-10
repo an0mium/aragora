@@ -7,7 +7,8 @@ and registering built-in templates.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Awaitable
+from typing import Any, cast
 
 from .core import (
     logger,
@@ -357,7 +358,7 @@ async def load_yaml_templates_async() -> None:
         for template_id, template in templates.items():
             existing = await store.get_template(template_id)  # type: ignore[misc]  # WorkflowStoreType union: async/sync method variance
             if not existing:
-                await store.save_template(template)
+                await cast(Awaitable[None], store.save_template(template))
                 loaded += 1
         if loaded > 0:
             logger.info("Loaded %s new YAML templates into database (async)", loaded)
@@ -386,7 +387,7 @@ async def register_builtin_templates_async() -> None:
             template.is_template = True
             existing = await store.get_template(template.id)  # type: ignore[misc]  # WorkflowStoreType union: async/sync method variance
             if not existing:
-                await store.save_template(template)
+                await cast(Awaitable[None], store.save_template(template))
                 logger.debug("Registered built-in template: %s", template.id)
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
         logger.warning("Failed to register built-in templates (async): %s", e)

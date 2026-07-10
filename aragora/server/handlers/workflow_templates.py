@@ -890,7 +890,10 @@ class TemplateRecommendationsHandler(BaseHandler):
         """Get recommended templates for a use case."""
         from aragora.workflow.templates import get_template
 
-        use_case = get_bounded_string_param(query_params, "use_case", "general", max_length=50)
+        use_case = (
+            get_bounded_string_param(query_params, "use_case", "general", max_length=50)
+            or "general"
+        )
         limit = get_clamped_int_param(query_params, "limit", 4, min_val=1, max_val=10)
 
         # Get recommendations for the use case
