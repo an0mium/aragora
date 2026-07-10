@@ -18,12 +18,13 @@ multi-instance deployments. This ensures webhooks survive server restarts.
 
 from __future__ import annotations
 
-import hashlib
 import hmac
 import logging
 import time
-from typing import Any
+import warnings
+from typing import Any, TypeAlias
 
+from aragora.security.webhook_signing import generate_signature as _generate_signature
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
     error_response,
@@ -44,7 +45,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext: Any = None
+    AuthorizationContext: Any = None  # type: ignore[no-redef]
     check_permission = None
 
 from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
@@ -68,6 +69,13 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+warnings.warn(
+    "aragora.server.handlers.webhooks.generate_signature is deprecated; "
+    "use aragora.security.webhook_signing.generate_signature instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 # Rate limits for webhook operations
 WEBHOOK_REGISTER_RPM = 10  # Max 10 webhook registrations per minute
 WEBHOOK_TEST_RPM = 5  # Max 5 test deliveries per minute
@@ -80,7 +88,7 @@ _list_limiter = RateLimiter(requests_per_minute=WEBHOOK_LIST_RPM)
 
 # Backward compatibility alias - the old WebhookStore interface is now provided
 # by WebhookConfigStoreBackend from aragora.storage.webhook_config_store
-WebhookStore = WebhookConfigStoreBackend
+WebhookStore: TypeAlias = WebhookConfigStoreBackend
 
 
 def get_webhook_store() -> WebhookConfigStoreBackend:
@@ -103,20 +111,14 @@ def get_webhook_store() -> WebhookConfigStoreBackend:
 
 
 def generate_signature(payload: str, secret: str) -> str:
-    """
-    Generate HMAC-SHA256 signature for webhook payload.
-
-    Args:
-        payload: JSON string payload
-        secret: Webhook secret key
-
-    Returns:
-        Hex-encoded signature with sha256= prefix
-    """
-    signature = hmac.new(
-        secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
-    ).hexdigest()
-    return f"sha256={signature}"
+    """Deprecated compatibility wrapper for the shared webhook signer."""
+    warnings.warn(
+        "aragora.server.handlers.webhooks.generate_signature is deprecated; "
+        "use aragora.security.webhook_signing.generate_signature instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _generate_signature(payload, secret)
 
 
 def verify_signature(payload: str, signature: str, secret: str) -> bool:
@@ -131,7 +133,7 @@ def verify_signature(payload: str, signature: str, secret: str) -> bool:
     Returns:
         True if signature is valid
     """
-    expected = generate_signature(payload, secret)
+    expected = _generate_signature(payload, secret)
     return hmac.compare_digest(signature, expected)
 
 
