@@ -48,10 +48,20 @@ at 0%.
 
 ## 2. Week-by-week
 
-### W1 (Jul 9–16): "A stranger verifies a signed production receipt"
-- **External outcome:** #8858 closed — a real human with no repo context
-  pip-installs `aragora-verify` and validates a **signed production receipt from
-  api.aragora.ai**; artifact in `docs/artifacts/`. Hard date: wave-3 kill-switch Jul 16.
+### W1 (Jul 9–16): "A (simulated) stranger verifies a signed production receipt"
+
+> **Founder amendment (2026-07-10, formal replan):** no external human is
+> recruited for #8858 until the project measures **≥8/10 on every dimension of
+> [`docs/status/QUALITY_BAR.md`](../status/QUALITY_BAR.md)** (founder assessment
+> at decision time: ~4/10). A real stranger's first impression is scarce and
+> unrepeatable; until the bar is met, the outsider run is replaced by
+> **simulated stranger runs** — clean VM, public docs only, adversarial
+> persona, every failure recorded before anything is fixed.
+
+- **External outcome (amended):** first simulated stranger run executed against
+  a **signed production receipt from api.aragora.ai**; run transcript + failure
+  list in `docs/artifacts/`, every failure converted to an issue. #8858 stays
+  open, blocked on the quality bar, not on a date.
 - Merge #8809 (`/.well-known` signing-key endpoints; precondition). Enable Ed25519
   on production receipts (closes the #8801 "unsigned" limitation). Fix stranger-test
   frictions #8877, #7401. Close main-red #8930.
@@ -60,12 +70,13 @@ at 0%.
   halt-file, ledger begins daily records.
 - #9044 round 1: disposition the 4 ready stuck PRs (#8406 Tier-4→founder, #8519,
   #8809, #8823).
-- **Exit:** #8858 artifact w/ named human; prod receipts signed + one verified
-  offline; #8809/#9048/#9058 merged; ≥4/9 stuck PRs dispositioned (round 1 —
-  the W2 round-2 tail takes the cumulative count to ≥8/9); #8930 closed.
-- **Founder:** recruit the outsider (Jul 9, the only human-ownable binding-date
-  task); settle Tier-4 #8406; approve prod signing-key deployment; pentest vendor
-  shortlist.
+- **Exit (amended):** simulated stranger-run artifact + failure issues filed;
+  prod receipts signed + one verified offline; #8809/#9048/#9058 merged; ≥4/9
+  stuck PRs dispositioned (round 1 — the W2 round-2 tail takes the cumulative
+  count to ≥8/9); #8930 closed.
+- **Founder:** calibrate the QUALITY_BAR.md rubric (replaces the outsider
+  recruit); settle Tier-4 #8406; approve prod signing-key deployment; pentest
+  vendor shortlist.
 
 ### W2 (Jul 16–23): "Human oversight is attestable — compliance chain complete"
 - **External outcome:** #8230 (Art.14 human-oversight attestation) shipped: schema +
@@ -117,14 +128,19 @@ at 0%.
 
 1. **Product share of merges (7-day):** ≥40% ramping to ≥50%. Trip: <20% two
    consecutive weeks → substrate freeze, drain-only.
-2. **External artifacts:** ≥1 per 14 days (W1 outsider run → W3 bundle → W4 demo).
+2. **External artifacts:** ≥1 per 14 days (W1 stranger-sim run → W3 bundle →
+   W4 demo; a real outsider only after the QUALITY_BAR gate clears).
    Trip: 0 in 30 days → demote to Phase 1 + human review.
 3. **Settlement latency (ready→merged, Tier 0-2, p50):** ≤48h. Trip: >7 days →
    drain-only, no new feature PRs.
 
 ## 4. Mid-month replan triggers (any one forces a replan session, never a silent slip)
 
-- #8858 not done by **Jul 16** → W2 collapses to outsider-proof only.
+- ~~#8858 not done by **Jul 16** → W2 collapses to outsider-proof only.~~
+  Superseded by the 2026-07-10 founder amendment: #8858 is gated on
+  `docs/status/QUALITY_BAR.md` (≥8/10 all dimensions), not on a date. The
+  replacement trigger: no simulated stranger run executed by **Jul 16** → W2
+  collapses to stranger-sim + quality-bar work only.
 - #8230 not merged by **Jul 23** or bundle not 100% draft → W3 goes
   compliance-only; the demo dies for the month.
 - Main red >24h → all lanes to repair; plan resumes at last checkpoint.
