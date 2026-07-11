@@ -15,6 +15,11 @@ Backends, in order:
    after CLI attempts fail. The key comes from ``ANTHROPIC_API_KEY`` or the
    aragora secrets manager; if neither is present the attempt is recorded as a
    normal failed backend attempt.
+3. OpenRouter Chat Completions API — used only with explicit
+   ``--openrouter-fallback`` opt-in after CLI/API attempts fail. This is useful
+   when the Claude subscription CLI is quota-exhausted but an OpenRouter key is
+   available. The key comes from ``OPENROUTER_API_KEY`` or the aragora secrets
+   manager.
 
 Output is the raw model text on stdout, or a JSON envelope with ``--json``.
 Exit codes: 0 ok, 2 all backends timed out, 3 no prompt, 4 all backends failed
@@ -26,6 +31,7 @@ Examples::
     python scripts/consult_claude.py --prompt-file /tmp/question.md --json
     echo "$QUESTION" | python scripts/consult_claude.py --timeout 300 --overall-timeout 1200
     python scripts/consult_claude.py --api-fallback --prompt-file /tmp/question.md
+    python scripts/consult_claude.py --openrouter-fallback --prompt-file /tmp/question.md
 """
 
 from __future__ import annotations
@@ -54,6 +60,11 @@ DEFAULT_MODEL = "claude-fable-5"
 FALLBACK_MODEL = "claude-opus-4-8"
 DEFAULT_TIMEOUT_SECONDS = 600
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_OPENROUTER_MODEL = os.environ.get(
+    "ARAGORA_CONSULT_OPENROUTER_MODEL",
+    os.environ.get("OPENROUTER_FABLE_MODEL", "anthropic/claude-opus-4.1"),
+)
 API_MAX_TOKENS = 8192
 MAX_API_RESPONSE_BYTES = 4 * 1024 * 1024
 API_UNSUPPORTED_MODELS = {"claude-fable-5"}
@@ -218,6 +229,18 @@ def _resolve_api_key() -> str | None:
         return None
 
 
+def _resolve_openrouter_api_key() -> str | None:
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if key:
+        return key
+    try:
+        from aragora.config.secrets import get_secret
+
+        return get_secret("OPENROUTER_API_KEY")
+    except Exception:
+        return None
+
+
 def _response_socket(response):
     fp = getattr(response, "fp", None)
     raw = getattr(fp, "raw", None)
@@ -343,6 +366,101 @@ def _run_api(prompt: str, model: str, timeout: float, system: str | None) -> dic
     return {"ok": True, "backend": "api", "elapsed_s": elapsed, "text": text}
 
 
+def _run_openrouter_api(prompt: str, model: str, timeout: float, system: str | None) -> dict:
+    """One bounded OpenRouter Chat Completions attempt. Never raises."""
+    key = _resolve_openrouter_api_key()
+    if not key:
+        return {
+            "ok": False,
+            "backend": "openrouter",
+            "error": "no OPENROUTER_API_KEY available",
+        }
+    messages: list[dict[str, str]] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    payload = {
+        "model": model,
+        "max_tokens": API_MAX_TOKENS,
+        "messages": messages,
+    }
+    request = urllib.request.Request(
+        OPENROUTER_API_URL,
+        data=json.dumps(payload).encode(),
+        headers={
+            "authorization": f"Bearer {key}",
+            "content-type": "application/json",
+            "http-referer": "https://github.com/synaptent/aragora",
+            "x-title": "Aragora bounded consult",
+        },
+    )
+    started = time.monotonic()
+    deadline = started + timeout
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = _read_api_response_with_deadline(response, deadline=deadline)
+            if len(raw) > MAX_API_RESPONSE_BYTES:
+                return {
+                    "ok": False,
+                    "backend": "openrouter",
+                    "error": _safe_api_error(
+                        "OpenRouter response exceeds maximum size: response body redacted"
+                    ),
+                }
+            body = json.loads(raw.decode())
+            if not isinstance(body, dict):
+                raise ValueError("OpenRouter response JSON is not an object")
+    except urllib.error.HTTPError as exc:
+        return {
+            "ok": False,
+            "backend": "openrouter",
+            "error": _safe_api_error(f"OpenRouter HTTP {exc.code}: response body redacted"),
+        }
+    except (json.JSONDecodeError, UnicodeError, ValueError):
+        return {
+            "ok": False,
+            "backend": "openrouter",
+            "error": _safe_api_error("OpenRouter response parse failed: response body redacted"),
+        }
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        timed_out = "timed out" in str(exc).lower() or isinstance(exc, TimeoutError)
+        return {
+            "ok": False,
+            "backend": "openrouter",
+            "timed_out": timed_out,
+            "error": _safe_api_error(f"OpenRouter request failed: {type(exc).__name__}"),
+        }
+    elapsed = round(time.monotonic() - started, 1)
+    choices = body.get("choices", [])
+    if not isinstance(choices, list):
+        choices = []
+    text_parts: list[str] = []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        message = choice.get("message", {})
+        if not isinstance(message, dict):
+            continue
+        content = message.get("content", "")
+        if isinstance(content, str):
+            text_parts.append(content)
+        elif isinstance(content, list):
+            text_parts.extend(
+                block.get("text", "")
+                for block in content
+                if isinstance(block, dict) and isinstance(block.get("text"), str)
+            )
+    text = "".join(text_parts).strip()
+    if not text:
+        return {
+            "ok": False,
+            "backend": "openrouter",
+            "elapsed_s": elapsed,
+            "error": "OpenRouter returned no text",
+        }
+    return {"ok": True, "backend": "openrouter", "elapsed_s": elapsed, "text": text}
+
+
 def _remaining_timeout(started: float, overall_timeout: float, per_attempt_timeout: float) -> float:
     remaining = overall_timeout - (time.monotonic() - started)
     return max(0.0, min(per_attempt_timeout, remaining))
@@ -368,19 +486,32 @@ def _api_models(model: str, fallback_model: str | None) -> list[str]:
     return models
 
 
-def _planned_attempt_count(*, model: str, fallback_model: str | None, api_fallback: bool) -> int:
+def _planned_attempt_count(
+    *,
+    model: str,
+    fallback_model: str | None,
+    api_fallback: bool,
+    openrouter_fallback: bool,
+) -> int:
     cli_attempts = 1 + int(bool(fallback_model and fallback_model != model))
     api_attempts = len(_api_models(model, fallback_model)) if api_fallback else 0
-    return cli_attempts + api_attempts
+    openrouter_attempts = int(openrouter_fallback)
+    return cli_attempts + api_attempts + openrouter_attempts
 
 
 def _default_overall_timeout(
-    *, timeout: float, model: str, fallback_model: str | None, api_fallback: bool
+    *,
+    timeout: float,
+    model: str,
+    fallback_model: str | None,
+    api_fallback: bool,
+    openrouter_fallback: bool,
 ) -> float:
     return timeout * _planned_attempt_count(
         model=model,
         fallback_model=fallback_model,
         api_fallback=api_fallback,
+        openrouter_fallback=openrouter_fallback,
     )
 
 
@@ -392,6 +523,8 @@ def consult(
     fallback_model: str | None = FALLBACK_MODEL,
     system: str | None = None,
     api_fallback: bool = False,
+    openrouter_fallback: bool = False,
+    openrouter_model: str = DEFAULT_OPENROUTER_MODEL,
 ) -> dict:
     """Run the consult across backends and return the first success.
 
@@ -403,7 +536,7 @@ def consult(
     _validate_timeout(timeout, "timeout")
     if overall_timeout is not None:
         _validate_timeout(overall_timeout, "overall_timeout")
-    prompt = _compose_prompt(prompt, system)
+    cli_prompt = _compose_prompt(prompt, system)
     attempts: list[dict] = []
     started = time.monotonic()
     if overall_timeout is None:
@@ -412,12 +545,13 @@ def consult(
             model=model,
             fallback_model=fallback_model,
             api_fallback=api_fallback,
+            openrouter_fallback=openrouter_fallback,
         )
     attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
     if attempt_timeout <= 0:
         _append_budget_exhausted(attempts, model=model, backend="cli")
     else:
-        result = _run_cli(prompt, model, attempt_timeout)
+        result = _run_cli(cli_prompt, model, attempt_timeout)
         attempts.append({"model": model, **result})
         if result.get("ok"):
             return {**result, "model": model, "attempts": attempts}
@@ -426,7 +560,7 @@ def consult(
         if attempt_timeout <= 0:
             _append_budget_exhausted(attempts, model=fallback_model, backend="cli")
         else:
-            result = _run_cli(prompt, fallback_model, attempt_timeout)
+            result = _run_cli(cli_prompt, fallback_model, attempt_timeout)
             attempts.append({"model": fallback_model, **result})
             if result.get("ok"):
                 return {**result, "model": fallback_model, "attempts": attempts}
@@ -441,10 +575,19 @@ def consult(
             if attempt_timeout <= 0:
                 _append_budget_exhausted(attempts, model=api_model, backend="api")
                 continue
-            result = _run_api(prompt, api_model, attempt_timeout, system=None)
+            result = _run_api(prompt, api_model, attempt_timeout, system=system)
             attempts.append({"model": api_model, **result})
             if result.get("ok"):
                 return {**result, "model": api_model, "attempts": attempts}
+    if openrouter_fallback:
+        attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
+        if attempt_timeout <= 0:
+            _append_budget_exhausted(attempts, model=openrouter_model, backend="openrouter")
+        else:
+            result = _run_openrouter_api(prompt, openrouter_model, attempt_timeout, system=system)
+            attempts.append({"model": openrouter_model, **result})
+            if result.get("ok"):
+                return {**result, "model": openrouter_model, "attempts": attempts}
     timed_out = all(a.get("timed_out") for a in attempts) and bool(attempts)
     budget_exhausted = any(a.get("budget_exhausted") for a in attempts)
     return {
@@ -542,6 +685,30 @@ def main(argv: list[str] | None = None) -> int:
         action="store_false",
         help=argparse.SUPPRESS,
     )
+    parser.set_defaults(openrouter_fallback=False)
+    openrouter_fallback_group = parser.add_mutually_exclusive_group()
+    openrouter_fallback_group.add_argument(
+        "--openrouter-fallback",
+        dest="openrouter_fallback",
+        action="store_true",
+        help=(
+            "Opt in to OpenRouter fallback when CLI/API attempts fail "
+            "(requires OPENROUTER_API_KEY and may use paid API credits)"
+        ),
+    )
+    openrouter_fallback_group.add_argument(
+        "--no-openrouter-fallback",
+        dest="openrouter_fallback",
+        action="store_false",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--openrouter-model",
+        default=DEFAULT_OPENROUTER_MODEL,
+        help=(
+            f"OpenRouter model id for --openrouter-fallback (default: {DEFAULT_OPENROUTER_MODEL})"
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="Emit a JSON result envelope")
     args = parser.parse_args(argv)
 
@@ -590,6 +757,8 @@ def main(argv: list[str] | None = None) -> int:
             fallback_model=args.fallback_model or None,
             system=args.system,
             api_fallback=args.api_fallback,
+            openrouter_fallback=args.openrouter_fallback,
+            openrouter_model=args.openrouter_model,
         )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
