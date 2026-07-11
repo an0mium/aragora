@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.connectors.devops.pagerduty import PagerDutyError
 from aragora.observability.slo_alert_bridge import (
     SLOAlertConfig,
     register_pagerduty_alert_sink,
@@ -61,7 +62,15 @@ class PagerDutySLOAlertSink:
             return incident.id
         except ImportError:
             logger.debug("PagerDuty connector not available")
-        except Exception as e:  # noqa: BLE001 - external connector boundary must fail soft
+        except (
+            PagerDutyError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        ) as e:
             logger.error("PagerDuty incident delivery failed: %s", e)
         return None
 
@@ -73,7 +82,15 @@ class PagerDutySLOAlertSink:
                 resolution=resolution,
             )
             return True
-        except Exception as e:  # noqa: BLE001 - external connector boundary must fail soft
+        except (
+            PagerDutyError,
+            OSError,
+            ConnectionError,
+            TimeoutError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        ) as e:
             logger.error("PagerDuty incident resolution failed: %s", e)
             return False
 
