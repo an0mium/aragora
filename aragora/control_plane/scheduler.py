@@ -381,7 +381,7 @@ class TaskScheduler:
                     encoding="utf-8",
                     decode_responses=True,
                 )
-                await self._redis.ping()
+                await cast(Any, self._redis.ping())
 
                 # Create consumer groups for each priority stream
                 for priority in TaskPriority:

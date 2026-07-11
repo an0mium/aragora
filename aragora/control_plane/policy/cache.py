@@ -29,14 +29,16 @@ from .types import (
 logger = get_logger(__name__)
 
 # Pre-declare optional import with module type annotation
-aioredis: ModuleType | None = None
+aioredis: ModuleType | None
 
 # Redis availability check (optional - for distributed cache)
 try:
-    import redis.asyncio as aioredis
+    import redis.asyncio as _aioredis
 
+    aioredis = _aioredis
     REDIS_AVAILABLE = True
 except ImportError:
+    aioredis = None
     REDIS_AVAILABLE = False
 
 
