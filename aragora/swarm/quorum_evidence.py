@@ -349,6 +349,9 @@ _MAX_DIFF_CHARS = 60_000
 _PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
+# Keep CLI failures useful without leaking the full provider transcript. The
+# head identifies the transport; the tail usually carries quota/auth failures.
+_MAX_CLI_ERROR_CHARS = 500
 # Claude CLI startup can legitimately take longer on large reviews, especially
 # when subscription auth and local MCP state are cold. Keep only that path at a
 # generous ceiling; reviewer transports without the Claude-specific probe stay
@@ -426,6 +429,32 @@ def _cap_text(text: str) -> str:
     if len(text) > _MAX_REVIEWER_CHARS:
         return text[:_MAX_REVIEWER_CHARS].rstrip() + "\n\n[reviewer output truncated]"
     return text
+
+
+def _bounded_cli_failure_detail(
+    stderr: str | None,
+    stdout: str | None = None,
+    *,
+    redact: Iterable[str] = (),
+) -> str:
+    """Return a bounded CLI diagnostic with actionable tail lines preserved."""
+    text = (stderr or stdout or "").strip()
+    for value in redact:
+        if value:
+            text = text.replace(value, "[review prompt redacted]")
+    if len(text) <= _MAX_CLI_ERROR_CHARS:
+        return text
+
+    marker = "\n...[CLI diagnostic truncated]...\n"
+    head_chars = 180
+    tail_chars = _MAX_CLI_ERROR_CHARS - head_chars - len(marker)
+    head = text[:head_chars]
+    tail = text[-tail_chars:]
+    if "\n" in head:
+        head = head.rsplit("\n", 1)[0]
+    if "\n" in tail:
+        tail = tail.split("\n", 1)[1]
+    return f"{head.rstrip()}{marker}{tail.lstrip()}"
 
 
 def _timeout_seconds(env_name: str, default: int) -> float:
@@ -1244,7 +1273,11 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
     except (FileNotFoundError, OSError, subprocess.SubprocessError):
         return None  # let the real review surface the precise (and fast) error
     if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        detail = _bounded_cli_failure_detail(
+            proc.stderr,
+            proc.stdout,
+            redact=(_CLI_PROBE_PROMPT,),
+        )
         suffix = f": {detail}" if detail else ""
         return f"{family} CLI liveness probe exit {proc.returncode}{suffix}"
     return None
@@ -1278,11 +1311,12 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
         return ReviewerResult("claude", "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (proc.stdout or "").strip()
     if proc.returncode != 0 or not text:
+        detail = _bounded_cli_failure_detail(proc.stderr, proc.stdout, redact=(prompt,))
         return ReviewerResult(
             "claude",
             "",
             False,
-            f"claude CLI exit {proc.returncode}: {(proc.stderr or '').strip()[:200]}",
+            f"claude CLI exit {proc.returncode}: {detail}",
         )
     return ReviewerResult("claude", _cap_text(text), True)
 
@@ -1360,7 +1394,11 @@ def _run_argv_cli_reviewer(
         return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (proc.stdout or "").strip()
     if proc.returncode != 0 or not text:
-        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        detail = _bounded_cli_failure_detail(
+            proc.stderr,
+            proc.stdout,
+            redact=(argv[-1],),
+        )
         return ReviewerResult(family, "", False, f"{family} CLI exit {proc.returncode}: {detail}")
     return ReviewerResult(family, _cap_text(text), True, harness=harness)
 
@@ -1526,8 +1564,13 @@ def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
             if not text:
                 text = (proc.stdout or "").strip()
             if proc.returncode != 0 or not text:
-                detail = (proc.stderr or proc.stdout or "").strip()[:200]
-                if index < len(model_candidates) - 1 and _codex_model_selection_failed(detail):
+                raw_detail = (proc.stderr or proc.stdout or "").strip()
+                detail = _bounded_cli_failure_detail(
+                    proc.stderr,
+                    proc.stdout,
+                    redact=(prompt,),
+                )
+                if index < len(model_candidates) - 1 and _codex_model_selection_failed(raw_detail):
                     model_errors.append(f"{model}: {detail}")
                     continue
                 if model_errors:

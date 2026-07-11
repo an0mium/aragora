@@ -470,7 +470,7 @@ def test_run_openai_reviewer_retries_default_codex_model_selection_failure(
                 cmd,
                 1,
                 stdout="",
-                stderr=f"model {model} is not supported",
+                stderr=("session header metadata\n" * 30) + f"model {model} is not supported",
             )
         output_paths[-1].write_text("Verdict: PASS after fallback", encoding="utf-8")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
@@ -557,6 +557,56 @@ def test_run_openai_reviewer_codex_failure_never_fabricates(
     assert result.ok is False
     assert "codex CLI exit 1: codex failed" in result.error
     assert result.harness == ""
+
+
+def test_run_openai_reviewer_preserves_actionable_error_tail_and_redacts_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prompt = "review prompt with private diff content"
+    stderr = (
+        "OpenAI Codex v0.144.1\n"
+        + ("session header metadata\n" * 30)
+        + f"user\n{prompt}\n"
+        + "ERROR: You've hit your usage limit. Try again at 4:50 PM."
+    )
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=stderr)
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "gpt-5.5")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer(prompt)
+
+    assert result.ok is False
+    assert "usage limit" in result.error
+    assert "4:50 PM" in result.error
+    assert prompt not in result.error
+    assert "[review prompt redacted]" in result.error
+    assert "[CLI diagnostic truncated]" in result.error
+
+
+def test_argv_cli_reviewer_preserves_error_tail_without_prompt(monkeypatch) -> None:
+    prompt = "sensitive argv review prompt"
+    stderr = ("provider header\n" * 30) + prompt + "\nERROR: authentication expired"
+
+    monkeypatch.setattr(
+        qe.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, stdout="", stderr=stderr),
+    )
+
+    result = qe._run_argv_cli_reviewer(
+        "grok",
+        ["grok", "--sandbox", "read-only", "-p", prompt],
+        "test harness",
+    )
+
+    assert result.ok is False
+    assert "authentication expired" in result.error
+    assert prompt not in result.error
+    assert "[review prompt redacted]" in result.error
 
 
 @pytest.mark.parametrize(
