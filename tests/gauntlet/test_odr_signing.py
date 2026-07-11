@@ -452,9 +452,29 @@ def test_secrets_manager_disabled_is_unconfigured(monkeypatch: pytest.MonkeyPatc
         "from_env",
         classmethod(lambda cls: cls(use_aws=False)),
     )
+    monkeypatch.delenv(SIGNING_KEY_SECRET_ENV, raising=False)
 
     with pytest.raises(OdrSigningUnconfiguredError, match="AWS Secrets Manager is not enabled"):
         load_signing_key_from_secrets()
+
+
+def test_secrets_manager_disabled_with_explicit_secret_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An explicitly named signing secret means signing is INTENDED: a
+    disabled secrets backend is then a misconfiguration, not 'unconfigured'."""
+    from aragora.config.secrets import SecretsConfig
+
+    monkeypatch.setattr(
+        SecretsConfig,
+        "from_env",
+        classmethod(lambda cls: cls(use_aws=False)),
+    )
+    monkeypatch.setenv(SIGNING_KEY_SECRET_ENV, "aragora/explicit-signing-key")
+
+    with pytest.raises(OdrSigningError) as exc:
+        load_signing_key_from_secrets()
+    assert not isinstance(exc.value, OdrSigningUnconfiguredError)
 
 
 def test_sign_odr_receipt_wraps_digest_errors() -> None:

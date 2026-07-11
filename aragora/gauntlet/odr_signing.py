@@ -161,11 +161,16 @@ def _load_pem_secret_from_aws(secret_id: str, *, explicitly_named: bool = False)
 
     config = secret_config.SecretsConfig.from_env()
     if not config.use_aws:
-        raise OdrSigningUnconfiguredError(
+        message = (
             "AWS Secrets Manager is not enabled for ODR signing; set "
             "ARAGORA_USE_SECRETS_MANAGER=true and provision the PEM private key "
             f"in secret '{secret_label}'"
         )
+        if explicitly_named:
+            # The operator explicitly named a signing secret: signing is
+            # intended, so an unusable secrets backend must fail closed.
+            raise OdrSigningError(message)
+        raise OdrSigningUnconfiguredError(message)
 
     manager = secret_config.SecretManager(config)
     regions = config.aws_regions or [config.aws_region]
