@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import re
+import signal
 import sys
 from pathlib import Path
 
@@ -25,6 +28,11 @@ def mod():
 def _install_fake_worktree(mod, monkeypatch, sha="deadbeef" * 5):
     monkeypatch.setattr(mod, "refresh_pristine_worktree", lambda repo, pristine: sha)
     monkeypatch.setattr(mod, "_check_required_toolchain", lambda pristine: None)
+    monkeypatch.setattr(
+        mod,
+        "_run_suite",
+        lambda cmd, *, cwd, timeout: mod._run(cmd, cwd=cwd, timeout=timeout),
+    )
     return sha
 
 
@@ -388,6 +396,108 @@ def test_suite_launch_error_is_infra_error_and_never_writes_halt(
     (record,) = ThroughputLedger(tmp_path).records()
     assert record.data["status"] == "infra_error"
     assert "runner executable disappeared" in record.data["infra_errors"][0]
+
+
+def test_timeout_kills_sigterm_ignoring_group_and_never_writes_halt(
+    mod, monkeypatch, tmp_path, capsys
+):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    pristine = tmp_path / "pristine"
+    pristine.mkdir()
+    monkeypatch.setattr(mod, "_check_test_runtime", lambda repo: None)
+    monkeypatch.setattr(mod, "_check_required_toolchain", lambda pristine: None)
+    monkeypatch.setattr(mod, "refresh_pristine_worktree", lambda repo, pristine: "deadbeef" * 5)
+    monkeypatch.setattr(mod, "SUITE_TERMINATION_GRACE_SECONDS", 0.2)
+    child = [
+        sys.executable,
+        "-c",
+        (
+            "import os, signal, sys, time; "
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+            "print(f'child-pid={os.getpid()}', flush=True); "
+            "print('partial-stderr', file=sys.stderr, flush=True); "
+            "time.sleep(60)"
+        ),
+    ]
+    monkeypatch.setitem(mod.SUITES, "required", [child])
+
+    halt = tmp_path / "halt.json"
+    original_halt = b'{"reason": "existing-main-red"}\n'
+    halt.write_bytes(original_halt)
+
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(repo),
+            "--pristine-dir",
+            str(pristine),
+            "--halt-file",
+            str(halt),
+            "--suite",
+            "required",
+            "--timeout-minutes",
+            "0.01",
+        ]
+    )
+
+    assert rc == mod.INFRA_ERROR_EXIT
+    assert halt.read_bytes() == original_halt
+    stderr = capsys.readouterr().err
+    assert "TIMEOUT after 0.01m" in stderr
+    assert "child-pid=" in stderr
+    assert "partial-stderr" in stderr
+    assert "sent SIGTERM" in stderr
+    assert "sent SIGKILL" in stderr
+
+    child_pids = re.findall(r"^child-pid=(\d+)$", stderr, re.MULTILINE)
+    assert len(child_pids) == 1
+    child_pid = int(child_pids[0])
+    with pytest.raises(ProcessLookupError):
+        os.kill(child_pid, 0)
+
+    from aragora.nomic.throughput import ThroughputLedger
+
+    (record,) = ThroughputLedger(repo).records()
+    assert record.data["status"] == "infra_error"
+    assert record.data["failures"] == []
+    assert "sent SIGKILL" in record.data["infra_errors"][0]
+
+
+def test_externally_signaled_suite_is_infra_error_without_touching_halt(
+    mod, monkeypatch, tmp_path, capsys
+):
+    _install_fake_worktree(mod, monkeypatch)
+
+    def fake_run(cmd, *, cwd, timeout):
+        if _is_runtime_probe(cmd):
+            return _Proc(0)
+        return _Proc(-signal.SIGTERM, "partial-stdout", "partial-stderr")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    halt = tmp_path / "halt.json"
+    original_halt = b'{"reason": "existing-main-red"}\n'
+    halt.write_bytes(original_halt)
+
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--pristine-dir",
+            str(tmp_path / "pristine"),
+            "--halt-file",
+            str(halt),
+            "--suite",
+            "required",
+        ]
+    )
+
+    assert rc == mod.INFRA_ERROR_EXIT
+    assert halt.read_bytes() == original_halt
+    stderr = capsys.readouterr().err
+    assert "suite terminated by signal" in stderr
+    assert "partial-stdout" in stderr
+    assert "partial-stderr" in stderr
 
 
 def test_failure_evidence_tails_stdout_and_stderr(mod):

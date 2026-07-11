@@ -19,8 +19,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -37,6 +39,7 @@ OWNER_MARKER_PURPOSE = "aragora.pristine_main_health"
 EVIDENCE_TAIL_LINES = 15
 EVIDENCE_TAIL_CHARS = 4_000
 INFRA_ERROR_EXIT = 2
+SUITE_TERMINATION_GRACE_SECONDS = 30.0
 
 # Suite commands run INSIDE the pristine worktree. "required" mirrors the
 # required-check lane; "full" runs the whole suite including path-gated shards
@@ -64,6 +67,53 @@ def _now_iso() -> str:
 
 def _run(cmd: list[str], *, cwd: Path, timeout: int) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+
+
+def _run_suite(
+    cmd: list[str],
+    *,
+    cwd: Path,
+    timeout: float,
+) -> subprocess.CompletedProcess:
+    """Run a suite in its own session and reap the whole group on timeout."""
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        termination = f"sent SIGTERM to suite process group {proc.pid}"
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            stdout, stderr = proc.communicate(timeout=SUITE_TERMINATION_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            termination += (
+                f"; still running after {SUITE_TERMINATION_GRACE_SECONDS:g}s grace; sent SIGKILL"
+            )
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            stdout, stderr = proc.communicate()
+        stderr_text = _stream_text(stderr)
+        stderr_with_termination = "\n".join(
+            part for part in (stderr_text.rstrip(), termination) if part
+        )
+        raise subprocess.TimeoutExpired(
+            cmd,
+            timeout,
+            output=_stream_text(stdout),
+            stderr=stderr_with_termination,
+        )
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
 
 
 def _stream_text(value: str | bytes | None) -> str:
@@ -322,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pristine-dir", type=Path, default=DEFAULT_PRISTINE_DIR)
     parser.add_argument("--halt-file", type=Path, default=DEFAULT_HALT_FILE)
     parser.add_argument("--suite", choices=sorted(SUITES), default="full")
-    parser.add_argument("--timeout-minutes", type=int, default=180, help="per-command timeout")
+    parser.add_argument("--timeout-minutes", type=float, default=180, help="per-command timeout")
     parser.add_argument(
         "--no-halt-file",
         action="store_true",
@@ -363,17 +413,24 @@ def main(argv: list[str] | None = None) -> int:
     for cmd in commands:
         print(f"running: {' '.join(cmd)}")
         try:
-            proc = _run(cmd, cwd=args.pristine_dir, timeout=args.timeout_minutes * 60)
+            proc = _run_suite(cmd, cwd=args.pristine_dir, timeout=args.timeout_minutes * 60)
         except subprocess.TimeoutExpired as exc:
             evidence = _format_stream_evidence(stdout=exc.stdout, stderr=exc.stderr)
-            failures.append(f"TIMEOUT after {args.timeout_minutes}m: {' '.join(cmd)}\n{evidence}")
-            continue
+            infra_errors.append(
+                f"TIMEOUT after {args.timeout_minutes:g}m: {' '.join(cmd)}\n{evidence}"
+            )
+            break
         except OSError as exc:
             infra_errors.append(
                 f"command launch failed: {' '.join(cmd)}\n{type(exc).__name__}: {exc}"
             )
             break
-        if proc.returncode != 0:
+        if proc.returncode < 0:
+            infra_errors.append(
+                f"suite terminated by signal {-proc.returncode}: {' '.join(cmd)}\n"
+                f"{_format_stream_evidence(stdout=proc.stdout, stderr=proc.stderr)}"
+            )
+        elif proc.returncode != 0:
             failures.append(_format_process_failure(cmd, proc))
 
     status = "infra_error" if infra_errors else "main_red" if failures else "green"
