@@ -607,6 +607,62 @@ class TestSendPagerDutyAlert:
         second_sink.create_incident.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_failed_factory_replacement_clears_prior_sink(
+        self, pagerduty_config: SLOAlertConfig
+    ):
+        """A failed explicit replacement cannot retain stale PagerDuty credentials."""
+        old_sink = AsyncMock()
+        old_sink.create_incident = AsyncMock(return_value="PD-OLD")
+        register_pagerduty_alert_sink(lambda config: old_sink)
+        bridge = SLOAlertBridge(pagerduty_config)
+
+        def failing_factory(config):
+            raise ValueError("invalid replacement")
+
+        register_pagerduty_alert_sink(failing_factory)
+        try:
+            violation = ActiveViolation(
+                operation="debate",
+                percentile="p99",
+                severity="critical",
+                first_seen=time.time(),
+                last_seen=time.time(),
+            )
+            assert await bridge._send_pagerduty_alert(violation, {}) is None
+        finally:
+            register_pagerduty_alert_sink(None)
+
+        old_sink.create_incident.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_connector_sink_constructs_real_incident_request(
+        self, pagerduty_config: SLOAlertConfig
+    ):
+        """The concrete adapter maps primitive urgency into the connector enum."""
+        from aragora.connectors.devops.pagerduty import IncidentUrgency
+        from aragora.connectors.devops.slo_alert_sink import PagerDutySLOAlertSink
+
+        incident = MagicMock(id="PD-REAL")
+        connector = AsyncMock()
+        connector.create_incident = AsyncMock(return_value=incident)
+        sink = PagerDutySLOAlertSink(pagerduty_config)
+        sink._connector = connector
+
+        assert (
+            await sink.create_incident(
+                title="SLO violation",
+                service_id="service-id",
+                urgency="high",
+                description="latency exceeded",
+                incident_key="dedup-key",
+            )
+            == "PD-REAL"
+        )
+        request = connector.create_incident.call_args.args[0]
+        assert request.urgency is IncidentUrgency.HIGH
+        assert request.incident_key == "dedup-key"
+
+    @pytest.mark.asyncio
     async def test_connector_sink_reports_resolution_failure(
         self, pagerduty_config: SLOAlertConfig
     ):

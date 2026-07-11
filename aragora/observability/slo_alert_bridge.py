@@ -214,6 +214,8 @@ class SLOAlertBridge:
             replacement = _pagerduty_alert_sink_factory(self.config)
         except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
             logger.error("Failed to initialize PagerDuty alert sink: %s", e)
+            self._pagerduty_client = None
+            self._pagerduty_sink_generation = _pagerduty_alert_sink_generation
             return
 
         self._pagerduty_client = replacement
@@ -238,6 +240,8 @@ class SLOAlertBridge:
             replacement = _channel_alert_sink_factory(self.config)
         except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
             logger.error("Failed to initialize channel alert sink: %s", e)
+            self._notification_manager = None
+            self._channel_sink_generation = _channel_alert_sink_generation
             return
 
         self._notification_manager = replacement
