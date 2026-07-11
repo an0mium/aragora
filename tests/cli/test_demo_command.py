@@ -301,9 +301,11 @@ class TestDemoIntegration:
 
         captured = capsys.readouterr()
         assert "ARAGORA DEMO" in captured.out
+        assert "Mode:   Offline (mock agents, no API keys needed)" in captured.out
         assert "DECISION SUMMARY" in captured.out
         assert "WINNING POSITION" in captured.out
         assert "DECISION RECEIPT" in captured.out
+        assert "package unavailable" not in captured.out
 
     def test_demo_has_proposals_and_votes(self):
         """The demo produces proposals, critiques, and votes."""
