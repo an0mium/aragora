@@ -189,8 +189,7 @@ def dispatch_webhook(
     Returns:
         Tuple of (success, status_code, error_message)
     """
-    # Import here to avoid circular dependency
-    from aragora.server.handlers.webhooks import generate_signature
+    from aragora.security.webhook_signing import generate_signature
 
     # SSRF protection: validate webhook URL before making outbound request
     from aragora.security.ssrf_protection import validate_url
