@@ -233,6 +233,17 @@ describe('Core Namespace APIs', () => {
         })
       );
     });
+
+    it('should keep the text contract on empty text responses (string, not {})', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(''),
+      });
+
+      await expect(client.receipts.signingKeyPem()).resolves.toBe('');
+    });
   });
 
   describe('gauntlet namespace', () => {

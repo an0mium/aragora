@@ -2183,20 +2183,36 @@ class TestSigningKeyEndpoints:
                 assert "signing key" in data["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_signing_key_load_failure_is_not_cached(self, receipts_handler):
-        """A failed load is retried on the next request (no negative cache)."""
+    async def test_signing_key_load_failure_is_negative_cached(self, receipts_handler):
+        """A failed load is negative-cached: these endpoints are public and
+        unauthenticated, so uncached failures would forward every request to
+        Secrets Manager (throttling/billing amplification). The negative entry
+        expires quickly so a freshly provisioned key is still picked up."""
+        import time as time_module
+
         from aragora.gauntlet.odr_signing import OdrSigningError
 
         key = _make_ed25519_private_key()
-        with patch(
-            "aragora.gauntlet.odr_signing.load_signing_key_from_secrets",
-            side_effect=[OdrSigningError("transient"), key],
-        ) as loader:
+        fake_now = [1000.0]
+        with (
+            patch(
+                "aragora.gauntlet.odr_signing.load_signing_key_from_secrets",
+                side_effect=[OdrSigningError("transient"), key],
+            ) as loader,
+            patch.object(time_module, "monotonic", side_effect=lambda: fake_now[0]),
+        ):
             first = await receipts_handler.handle("GET", "/api/v2/receipts/signing-key")
+            # Within the negative-cache TTL: served from cache, loader NOT re-hit.
             second = await receipts_handler.handle("GET", "/api/v2/receipts/signing-key")
+            assert loader.call_count == 1
+
+            # After the negative TTL expires the loader is retried and succeeds.
+            fake_now[0] += receipts_handler.SIGNING_KEY_NEGATIVE_CACHE_TTL_SECONDS + 1
+            third = await receipts_handler.handle("GET", "/api/v2/receipts/signing-key")
 
         assert first.status_code == 404
-        assert second.status_code == 200
+        assert second.status_code == 404
+        assert third.status_code == 200
         assert loader.call_count == 2
 
     @pytest.mark.asyncio

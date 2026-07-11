@@ -261,6 +261,15 @@ class TestReceiptsSigningKey:
             )
             client.close()
 
+    def test_get_signing_key_pem_demo_mode_raises_not_found(self) -> None:
+        """Demo mode mirrors the live 404: NotFoundError, not a hard crash."""
+        from aragora_sdk.exceptions import NotFoundError
+
+        client = AragoraClient(demo=True)
+        with pytest.raises(NotFoundError):
+            client.receipts.get_signing_key_pem()
+        client.close()
+
     def test_get_signing_key_pem_with_real_text_transport(self) -> None:
         """Exercise the real client's non-JSON response path."""
         pem = "-----BEGIN PUBLIC KEY-----\nreal-key\n-----END PUBLIC KEY-----\n"

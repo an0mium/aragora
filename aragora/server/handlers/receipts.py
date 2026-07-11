@@ -381,6 +381,13 @@ class ReceiptsHandler(BaseHandler):
     #: re-reading it from Secrets Manager (allows key rotation without restart).
     SIGNING_KEY_CACHE_TTL_SECONDS = 300.0
 
+    #: How long a FAILED key resolution (no key configured / Secrets Manager
+    #: error) is cached. These endpoints are public and unauthenticated, so
+    #: without negative caching every request would hit AWS Secrets Manager —
+    #: an amplification vector for throttling and billing. Short TTL so a
+    #: freshly provisioned key is picked up quickly.
+    SIGNING_KEY_NEGATIVE_CACHE_TTL_SECONDS = 30.0
+
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
@@ -398,9 +405,10 @@ class ReceiptsHandler(BaseHandler):
         )
         self._store = None  # Set by tests or lazy init
         self._share_store = None  # Set by tests or lazy init
-        # Cached (monotonic_timestamp, (public_key_pem, key_id)) for the
+        # Cached (monotonic_timestamp, (public_key_pem, key_id) | None) for the
         # ODR signing-key endpoints; only PUBLIC key material is ever cached.
-        self._signing_key_cache: tuple[float, tuple[str, str]] | None = None
+        # A cached None is a negative entry (resolution failed recently).
+        self._signing_key_cache: tuple[float, tuple[str, str] | None] | None = None
 
     def _get_store(self):
         """Get receipt store (lazy initialization)."""
@@ -1185,16 +1193,26 @@ class ReceiptsHandler(BaseHandler):
 
         now = time.monotonic()
         cached = self._signing_key_cache
-        if cached is not None and now - cached[0] < self.SIGNING_KEY_CACHE_TTL_SECONDS:
-            return cached[1]
+        if cached is not None:
+            ttl = (
+                self.SIGNING_KEY_CACHE_TTL_SECONDS
+                if cached[1] is not None
+                else self.SIGNING_KEY_NEGATIVE_CACHE_TTL_SECONDS
+            )
+            if now - cached[0] < ttl:
+                return cached[1]
 
         try:
-            resolved = await asyncio.to_thread(self._resolve_signing_public_key)
+            resolved: tuple[str, str] | None = await asyncio.to_thread(
+                self._resolve_signing_public_key
+            )
         except OdrSigningError as e:
             # Fail closed: no key configured/loadable means 404, never a
             # generated key. Static message to callers; detail in logs only.
+            # Negative-cached: these endpoints are public, and an uncached
+            # failure would forward every request to Secrets Manager.
             logger.info("ODR signing key unavailable: %s", e)
-            return None
+            resolved = None
 
         self._signing_key_cache = (now, resolved)
         return resolved

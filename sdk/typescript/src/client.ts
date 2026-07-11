@@ -1294,14 +1294,17 @@ export class AragoraClient {
           throw AragoraError.fromResponse(response.status, body);
         }
 
-        // Handle empty responses
         const text = await response.text();
-        if (!text) {
-          return {} as T;
-        }
 
+        // Text responses keep their contract even when the body is empty:
+        // '' is a valid string result, never coerced to {}.
         if (options.responseType === 'text') {
           return text as T;
+        }
+
+        // Handle empty JSON responses
+        if (!text) {
+          return {} as T;
         }
 
         return JSON.parse(text) as T;

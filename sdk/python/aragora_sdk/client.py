@@ -598,7 +598,9 @@ class AragoraClient:
             if response_format == "text":
                 if isinstance(result, str):
                     return result
-                raise AragoraError("Demo response is not text")
+                # Mirror the live API: a deployment without this text resource
+                # (e.g. no ODR signing key in demo mode) answers 404.
+                raise NotFoundError(f"Demo mode has no text response for '{path}'")
             return result
 
         url = urljoin(self.base_url, path)
@@ -1267,7 +1269,9 @@ class AragoraAsyncClient:
             if response_format == "text":
                 if isinstance(result, str):
                     return result
-                raise AragoraError("Demo response is not text")
+                # Mirror the live API: a deployment without this text resource
+                # (e.g. no ODR signing key in demo mode) answers 404.
+                raise NotFoundError(f"Demo mode has no text response for '{path}'")
             return result
 
         import asyncio
