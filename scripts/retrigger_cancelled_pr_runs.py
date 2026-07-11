@@ -147,13 +147,18 @@ class GitHubClient:
             current_query["page"] = int(current_query["page"]) + 1
         return items
 
-    def list_open_pulls(self) -> list[dict[str, Any]]:
+    def list_open_pulls(self, max_pages: int = 10) -> tuple[list[dict[str, Any]], bool]:
+        """Return (open PRs, scan_truncated). A truncated scan can only cause
+        MISSED reruns (fail-safe direction), but it must be loud, not silent
+        (#9133 openai P2): callers surface the flag in output and stderr."""
         pulls = self.paginate(
             f"/repos/{self.repo}/pulls",
             query={"state": "open", "per_page": 100},
-            max_pages=5,
+            max_pages=max_pages,
         )
-        return [p for p in pulls if isinstance(p, dict)]
+        normalized = [p for p in pulls if isinstance(p, dict)]
+        truncated = len(normalized) >= max_pages * 100
+        return normalized, truncated
 
     def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
         runs = self.paginate(
@@ -179,9 +184,14 @@ def _parse_created_at(value: str) -> datetime | None:
         return None
 
 
-def compute_active_head_map(open_pulls: list[dict[str, Any]]) -> dict[str, str]:
-    """Return branch -> head_sha for open, NON-draft PR heads."""
-    active: dict[str, str] = {}
+def compute_active_head_pairs(open_pulls: list[dict[str, Any]]) -> set[tuple[str, str]]:
+    """Return {(branch, head_sha)} pairs for open, NON-draft PR heads.
+
+    Keyed by PAIR, not branch alone (#9133 openai P2): two open PRs — a fork
+    and a same-repo branch, or two forks — can share a branch name with
+    different SHAs; a branch-keyed dict lets whichever PR sorts last shadow
+    the other and could qualify a stale-head run for rerun."""
+    active: set[tuple[str, str]] = set()
     for pr in open_pulls:
         if bool(pr.get("draft")):
             continue
@@ -189,14 +199,14 @@ def compute_active_head_map(open_pulls: list[dict[str, Any]]) -> dict[str, str]:
         branch = str(head.get("ref", "")).strip()
         sha = str(head.get("sha", "")).strip()
         if branch and sha:
-            active[branch] = sha
+            active.add((branch, sha))
     return active
 
 
 def compute_reruns(
     runs: list[dict[str, Any]],
     *,
-    active_heads: dict[str, str],
+    active_head_pairs: set[tuple[str, str]],
     now: datetime,
     ttl_hours: float,
     protected_paths: set[str],
@@ -249,8 +259,7 @@ def compute_reruns(
             continue  # once-per-run marker: a rerun already happened
         branch = str(run.get("head_branch", "")).strip()
         sha = str(run.get("head_sha", "")).strip()
-        active_sha = active_heads.get(branch)
-        if not active_sha or active_sha != sha:
+        if (branch, sha) not in active_head_pairs:
             continue  # superseded head, closed PR, or draft
         created = _parse_created_at(str(run.get("created_at", "")))
         if created is None or created < cutoff:
@@ -315,11 +324,18 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"repo": args.repo, "rerun_count": 0, "reruns": []}, indent=2))
         return 0
     client = GitHubClient(args.repo, token)
-    active_heads = compute_active_head_map(client.list_open_pulls())
+    open_pulls, pr_scan_truncated = client.list_open_pulls()
+    if pr_scan_truncated:
+        print(
+            "warning: open-PR scan hit the pagination cap; some protected "
+            "cancelled runs may be missed this pass",
+            file=sys.stderr,
+        )
+    active_head_pairs = compute_active_head_pairs(open_pulls)
     runs = client.list_recent_workflow_runs(args.max_runs)
     reruns = compute_reruns(
         runs,
-        active_heads=active_heads,
+        active_head_pairs=active_head_pairs,
         now=datetime.now(timezone.utc),
         ttl_hours=args.ttl_hours,
         protected_paths=protected_paths,
@@ -340,6 +356,7 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "repo": args.repo,
                 "rerun_count": len(reruns),
+                "open_pr_scan_truncated": pr_scan_truncated,
                 "apply_failures": apply_failures,
                 "reruns": reruns,
             },

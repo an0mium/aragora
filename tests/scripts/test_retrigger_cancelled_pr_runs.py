@@ -63,13 +63,13 @@ def _run(
     }
 
 
-def _heads(branch: str = "feat/x", sha: str = "a" * 40) -> dict[str, str]:
-    return {branch: sha}
+def _heads(branch: str = "feat/x", sha: str = "a" * 40) -> set[tuple[str, str]]:
+    return {(branch, sha)}
 
 
 def test_cancelled_current_head_run_is_selected(mod) -> None:
     reruns = mod.compute_reruns(
-        [_run()], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+        [_run()], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert [r["run_id"] for r in reruns] == [1]
     assert reruns[0]["workflow"] == "Tests"
@@ -78,7 +78,7 @@ def test_cancelled_current_head_run_is_selected(mod) -> None:
 def test_superseded_head_is_skipped(mod) -> None:
     reruns = mod.compute_reruns(
         [_run(sha="b" * 40)],
-        active_heads=_heads(sha="a" * 40),
+        active_head_pairs=_heads(sha="a" * 40),
         now=NOW,
         ttl_hours=6.0,
         **_protected(mod),
@@ -89,7 +89,7 @@ def test_superseded_head_is_skipped(mod) -> None:
 def test_draft_or_closed_pr_branch_is_skipped(mod) -> None:
     # compute_active_head_map excludes drafts, so an absent branch == draft/closed.
     reruns = mod.compute_reruns(
-        [_run(branch="gone")], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+        [_run(branch="gone")], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert reruns == []
 
@@ -98,7 +98,7 @@ def test_newer_run_of_same_workflow_supersedes(mod) -> None:
     cancelled = _run(run_id=1, age_hours=2.0)
     newer = _run(run_id=2, conclusion="success", age_hours=0.5)
     reruns = mod.compute_reruns(
-        [cancelled, newer], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+        [cancelled, newer], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert reruns == []
 
@@ -106,14 +106,14 @@ def test_newer_run_of_same_workflow_supersedes(mod) -> None:
 def test_second_attempt_is_never_rerun_again(mod) -> None:
     # run_attempt > 1 means a rerun already happened: the stateless once-marker.
     reruns = mod.compute_reruns(
-        [_run(attempt=2)], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+        [_run(attempt=2)], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert reruns == []
 
 
 def test_old_cancellation_outside_ttl_is_skipped(mod) -> None:
     reruns = mod.compute_reruns(
-        [_run(age_hours=7.0)], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+        [_run(age_hours=7.0)], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert reruns == []
 
@@ -125,17 +125,22 @@ def test_non_pr_events_and_non_cancelled_conclusions_are_skipped(mod) -> None:
         _run(run_id=3, conclusion="success"),
     ]
     assert (
-        mod.compute_reruns(runs, active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod))
+        mod.compute_reruns(
+            runs, active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+        )
         == []
     )
 
 
-def test_active_head_map_excludes_drafts(mod) -> None:
+def test_active_head_pairs_excludes_drafts_and_keeps_name_collisions(mod) -> None:
     pulls = [
         {"draft": False, "head": {"ref": "feat/x", "sha": "a" * 40}},
         {"draft": True, "head": {"ref": "feat/draft", "sha": "b" * 40}},
+        # fork PR sharing the branch name with a different head (#9133 P2):
+        {"draft": False, "head": {"ref": "feat/x", "sha": "c" * 40}},
     ]
-    assert mod.compute_active_head_map(pulls) == {"feat/x": "a" * 40}
+    pairs = mod.compute_active_head_pairs(pulls)
+    assert pairs == {("feat/x", "a" * 40), ("feat/x", "c" * 40)}
 
 
 def test_advisory_cancellation_is_intentional_and_never_rerun(mod) -> None:
@@ -144,7 +149,7 @@ def test_advisory_cancellation_is_intentional_and_never_rerun(mod) -> None:
     (intentional_advisory_priority), so the guardian must leave it alone."""
     advisory = _run(name="Portability Lint", path=".github/workflows/portability.yml")
     reruns = mod.compute_reruns(
-        [advisory], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+        [advisory], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert reruns == []
 
@@ -154,7 +159,7 @@ def test_empty_manifest_fails_closed(mod, tmp_path) -> None:
     assert paths == set() and names == set()
     reruns = mod.compute_reruns(
         [_run()],
-        active_heads=_heads(),
+        active_head_pairs=_heads(),
         now=NOW,
         ttl_hours=6.0,
         protected_paths=paths,
@@ -188,7 +193,7 @@ def test_newer_non_pr_run_does_not_suppress_pr_rerun(mod) -> None:
     newer_push_run = _run(run_id=2, conclusion="success", event="push", age_hours=0.5)
     reruns = mod.compute_reruns(
         [cancelled_pr_run, newer_push_run],
-        active_heads=_heads(),
+        active_head_pairs=_heads(),
         now=NOW,
         ttl_hours=6.0,
         **_protected(mod),
@@ -203,7 +208,7 @@ def test_newer_run_at_stale_sha_does_not_suppress_current_head_rerun(mod) -> Non
     newer_stale_sha = _run(run_id=2, conclusion="success", sha="b" * 40, age_hours=0.5)
     reruns = mod.compute_reruns(
         [cancelled_current, newer_stale_sha],
-        active_heads=_heads(),
+        active_head_pairs=_heads(),
         now=NOW,
         ttl_hours=6.0,
         **_protected(mod),
@@ -217,7 +222,7 @@ def test_same_second_tie_broken_by_run_id(mod) -> None:
     older = _run(run_id=10, age_hours=1.0)
     newer = _run(run_id=11, age_hours=1.0)  # same created_at, higher id
     reruns = mod.compute_reruns(
-        [older, newer], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+        [older, newer], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert [r["run_id"] for r in reruns] == [11]
 
@@ -227,6 +232,6 @@ def test_name_spoofing_alone_never_qualifies(mod) -> None:
     'Tests' at an advisory path stays intentionally cancelled (#9133 P3)."""
     spoofed = _run(name="Tests", path=".github/workflows/my-advisory.yml")
     reruns = mod.compute_reruns(
-        [spoofed], active_heads=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+        [spoofed], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert reruns == []
