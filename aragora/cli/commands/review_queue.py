@@ -3195,6 +3195,7 @@ def _advisory_settle_review_signals(
     *,
     head_sha: str = "",
     head_committed_at: str = "",
+    strict_receipt: bool = False,
 ) -> tuple[bool, bool, bool, frozenset[str]]:
     """Single-pass classification of grounded reviews for advisory_settle.
 
@@ -3202,8 +3203,16 @@ def _advisory_settle_review_signals(
     has_blocking_finding, validated_review_families)``. The final element is the
     set of canonical model families with at least one grounded, non-bot,
     countable-identity review at head in ANY verdict — the "models were heard"
-    accounting used by the operator-advisory-settlement relief valve, which must
-    never be derivable from unvalidated comment text.
+    accounting used by the operator-advisory-settlement relief valve.
+
+    ``strict_receipt=True`` (the valve's mode; claude #9203 P2) additionally
+    requires each POSITIVE signal's identity to carry a receipt artifact
+    (``missing_receipt_artifact`` absent from its identity problems). Without
+    it, family attribution reduces to self-declared comment text — a heading
+    plus a ``Model family:`` line any non-bot login can fabricate — letting a
+    drive-by account manufacture the appearance of unreachable Tier-4 quorum.
+    The blocking-finding scan stays permissive in both modes (a [P0]/[P1] can
+    never be laundered out by a missing receipt).
 
     Source-validation is applied UNIFORMLY so every *positive* input to the gate
     passes the SAME filters the strict quorum path uses — closing the class of
@@ -3242,6 +3251,10 @@ def _advisory_settle_review_signals(
             continue
         identity = _resolve_model_review_identity(body)
         if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
+            continue
+        if strict_receipt and "missing_receipt_artifact" in identity.identity_problems:
+            # Valve mode: self-declared headings without a receipt artifact do
+            # not establish that a model was heard (claude #9203 P2).
             continue
         family = str(identity.model_family or "").strip().lower()
         if family:
@@ -3409,6 +3422,20 @@ def _build_model_review_quorum(
         head_sha=head_sha,
         head_committed_at=head_committed_at,
     )
+    # Valve-mode strict pass (claude #9203 P2): positive signals must be
+    # receipt-backed so self-declared headings cannot manufacture "models were
+    # heard". advisory_settle (Tier 0-2) keeps the original semantics above.
+    (
+        _wf_review_present_strict,
+        _genuine_advisory_dissent_strict,
+        _,
+        _validated_review_families_strict,
+    ) = _advisory_settle_review_signals(
+        pr.get("comments") or [],
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+        strict_receipt=True,
+    )
     advisory_settle_eligible = (
         advisory_dissent_settle_enabled()
         and tier is not None
@@ -3475,11 +3502,15 @@ def _build_model_review_quorum(
         # [P0]/[P1]) proves the non-counting is severity-gating, not infra —
         # infra failures must be REPAIRED (re-collect, fix the artifact), never
         # settled over. This is the same bar advisory_settle already enforces.
-        and _genuine_advisory_dissent
+        # All three positive signals use the STRICT receipt-backed pass (claude
+        # #9203 P2): a self-declared heading with no receipt artifact cannot
+        # establish that a model was heard, dissented, or was western-frontier.
+        # The blocking scan deliberately stays the PERMISSIVE one.
+        and _genuine_advisory_dissent_strict
         and not unresolved_dissent
         and not _any_blocking_finding
-        and _wf_review_present
-        and len(_validated_review_families) >= 2
+        and _wf_review_present_strict
+        and len(_validated_review_families_strict) >= 2
         and _has_operator_settlement_comment(pr, head_sha=head_sha)
         and _human_settlement_status_creator_verified(
             repo_slug=repo_slug or rest_fallback._repo_slug_from_pr_payload(pr, None),
@@ -3575,9 +3606,10 @@ def _build_model_review_quorum(
     if operator_advisory_settlement_eligible:
         reasons.append(
             "operator advisory settlement: model quorum is unreachable (every review "
-            f"severity-gated advisory; {len(_validated_review_families)} model families "
-            "heard, no [P0]/[P1] blocking findings, no unresolved dissent); the trusted "
-            "settlement operator settled over advisory-only dissent at exact head "
+            f"severity-gated advisory; {len(_validated_review_families_strict)} "
+            "receipt-backed model families heard, no [P0]/[P1] blocking findings, no "
+            "unresolved dissent); the trusted settlement operator settled over "
+            "advisory-only dissent at exact head "
             "(docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md)"
         )
     if (
@@ -3709,7 +3741,9 @@ def _build_model_review_quorum(
         "advisory_findings": advisory_findings if advisory_settle_eligible else [],
         "advisory_settle": advisory_settle_eligible,
         "operator_advisory_settlement": operator_advisory_settlement_eligible,
-        "validated_review_families": sorted(_validated_review_families),
+        # Valve audit accounting: the STRICT (receipt-backed) family set, so the
+        # packet never overstates who was "heard" (claude #9203 P2).
+        "validated_review_families": sorted(_validated_review_families_strict),
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
     }
@@ -3972,15 +4006,21 @@ def _has_operator_settlement_comment(pr: dict[str, Any], *, head_sha: str) -> bo
 
     Stricter than :func:`_has_tier_four_human_preapproval_comment` (which any
     author can satisfy): the operator-advisory-settlement relief valve requires
-    the marker comment itself to come from the trusted settlement login, so the
-    settlement record — not just the commit status — is non-forgeable.
+    the marker comment itself to come from the trusted settlement login. Note
+    (claude #9203 P3): GitHub lets any write-access collaborator EDIT an
+    existing comment while ``author.login`` is preserved, so the comment is a
+    corroborating settlement record, not an unforgeable one — the creator-pinned
+    ``aragora/human-settlement`` commit status is the sole unforgeable
+    authorization root; this check is the second factor.
     """
-    head = str(head_sha or "").strip()
+    head = str(head_sha or "").strip().lower()
     # Format guard (claude #9203 P3): a full 40-hex SHA. A short or malformed
     # head would make the ``head in body`` substring check dangerously loose
     # (e.g. a 3-char value matching unrelated text). Callers pass headRefOid,
-    # so this only rejects genuinely malformed input — fail closed.
-    if not re.fullmatch(r"[0-9a-fA-F]{40}", head):
+    # so this only rejects genuinely malformed input — fail closed. Both sides
+    # are lowercased so a legitimately authorized marker citing an uppercase
+    # SHA is not silently rejected.
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
         return False
     trusted = _trusted_settlement_creator().casefold()
     if not trusted:
@@ -3998,7 +4038,7 @@ def _has_operator_settlement_comment(pr: dict[str, Any], *, head_sha: str) -> bo
         lowered = body.lower()
         if TIER_FOUR_SETTLEMENT_MARKER not in body:
             continue
-        if head not in body:
+        if head not in lowered:
             continue
         if not any(token in lowered for token in TIER_FOUR_AUTHORIZED_MERGE_TOKENS):
             continue
