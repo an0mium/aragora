@@ -43,7 +43,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +111,9 @@ class ActiveViolation:
     notified_channels: set[str] = field(default_factory=set)
 
 
+PagerDutyUrgency = Literal["high", "low"]
+
+
 class PagerDutyAlertSink(Protocol):
     """Connector-owned PagerDuty delivery contract."""
 
@@ -119,7 +122,7 @@ class PagerDutyAlertSink(Protocol):
         *,
         title: str,
         service_id: str,
-        urgency: str,
+        urgency: PagerDutyUrgency,
         description: str,
         incident_key: str | None,
     ) -> str | None:
@@ -215,7 +218,6 @@ class SLOAlertBridge:
         except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
             logger.error("Failed to initialize PagerDuty alert sink: %s", e)
             self._pagerduty_client = None
-            self._pagerduty_sink_generation = _pagerduty_alert_sink_generation
             return
 
         self._pagerduty_client = replacement
@@ -241,7 +243,6 @@ class SLOAlertBridge:
         except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
             logger.error("Failed to initialize channel alert sink: %s", e)
             self._notification_manager = None
-            self._channel_sink_generation = _channel_alert_sink_generation
             return
 
         self._notification_manager = replacement
@@ -303,7 +304,7 @@ class SLOAlertBridge:
             return None
 
         try:
-            urgency_map = {
+            urgency_map: dict[AlertSeverity, PagerDutyUrgency] = {
                 AlertSeverity.CRITICAL: "high",
                 AlertSeverity.MAJOR: "high",
                 AlertSeverity.MODERATE: "low",
@@ -311,7 +312,7 @@ class SLOAlertBridge:
             }
 
             severity = self._map_severity(violation.severity)
-            urgency = urgency_map.get(severity, "low")
+            urgency: PagerDutyUrgency = urgency_map.get(severity, "low")
 
             # Build description with context
             description = (
@@ -739,6 +740,7 @@ __all__ = [
     "SLOAlertConfig",
     "SLOAlertBridge",
     "ActiveViolation",
+    "PagerDutyUrgency",
     "PagerDutyAlertSink",
     "ChannelAlertSink",
     "register_pagerduty_alert_sink",

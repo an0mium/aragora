@@ -7,6 +7,7 @@ from typing import Any
 
 from aragora.connectors.devops.pagerduty import PagerDutyError
 from aragora.observability.slo_alert_bridge import (
+    PagerDutyUrgency,
     SLOAlertConfig,
     register_pagerduty_alert_sink,
 )
@@ -40,7 +41,7 @@ class PagerDutySLOAlertSink:
         *,
         title: str,
         service_id: str,
-        urgency: str,
+        urgency: PagerDutyUrgency,
         description: str,
         incident_key: str | None,
     ) -> str | None:
@@ -62,6 +63,7 @@ class PagerDutySLOAlertSink:
             return incident.id
         except ImportError:
             logger.debug("PagerDuty connector not available")
+            return None
         except (
             PagerDutyError,
             OSError,
@@ -82,6 +84,9 @@ class PagerDutySLOAlertSink:
                 resolution=resolution,
             )
             return True
+        except ImportError:
+            logger.debug("PagerDuty connector not available")
+            return False
         except (
             PagerDutyError,
             OSError,

@@ -615,8 +615,11 @@ class TestSendPagerDutyAlert:
         old_sink.create_incident = AsyncMock(return_value="PD-OLD")
         register_pagerduty_alert_sink(lambda config: old_sink)
         bridge = SLOAlertBridge(pagerduty_config)
+        factory_calls = 0
 
         def failing_factory(config):
+            nonlocal factory_calls
+            factory_calls += 1
             raise ValueError("invalid replacement")
 
         register_pagerduty_alert_sink(failing_factory)
@@ -629,10 +632,12 @@ class TestSendPagerDutyAlert:
                 last_seen=time.time(),
             )
             assert await bridge._send_pagerduty_alert(violation, {}) is None
+            assert await bridge._send_pagerduty_alert(violation, {}) is None
         finally:
             register_pagerduty_alert_sink(None)
 
         old_sink.create_incident.assert_not_awaited()
+        assert factory_calls == 2
 
     @pytest.mark.asyncio
     async def test_connector_sink_constructs_real_incident_request(
@@ -909,6 +914,39 @@ class TestSendSlackAlert:
 
         first_sink.notify.assert_awaited_once()
         second_sink.notify.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_failed_channel_factory_retries_without_stale_sink(
+        self, slack_config: SLOAlertConfig
+    ):
+        """Transient channel factory failures are retried without using the old sink."""
+        old_sink = AsyncMock()
+        old_sink.notify = AsyncMock()
+        register_channel_alert_sink(lambda config: old_sink)
+        bridge = SLOAlertBridge(slack_config)
+        factory_calls = 0
+
+        def failing_factory(config):
+            nonlocal factory_calls
+            factory_calls += 1
+            raise ValueError("invalid replacement")
+
+        register_channel_alert_sink(failing_factory)
+        violation = ActiveViolation(
+            operation="debate",
+            percentile="p99",
+            severity="critical",
+            first_seen=time.time(),
+            last_seen=time.time(),
+        )
+        try:
+            assert await bridge._send_slack_alert(violation, {}) is False
+            assert await bridge._send_slack_alert(violation, {}) is False
+        finally:
+            register_channel_alert_sink(None)
+
+        old_sink.notify.assert_not_awaited()
+        assert factory_calls == 2
 
     @pytest.mark.asyncio
     async def test_no_webhook_url_returns_false(self):
