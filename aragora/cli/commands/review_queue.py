@@ -3459,6 +3459,12 @@ def _build_model_review_quorum(
         # self-check), which would make this valve dead code in CI. The former
         # is True whenever no NON-quorum required check is failing/pending.
         and advisory_settle_reachable
+        # Quorum must be UNREACHABLE, not merely unmet (claude #9203 P2): reviews
+        # actually came back (>=2 families heard) AND zero produced a countable
+        # signal — i.e. every review was severity-gated to advisory. Without the
+        # ``signal_count == 0`` bar the valve could fire on a Tier 3-4 PR that was
+        # simply never reviewed, contradicting the spec and audit annotation.
+        and signal_count == 0
         and not unresolved_dissent
         and not _any_blocking_finding
         and _wf_review_present
@@ -3959,7 +3965,11 @@ def _has_operator_settlement_comment(pr: dict[str, Any], *, head_sha: str) -> bo
     settlement record — not just the commit status — is non-forgeable.
     """
     head = str(head_sha or "").strip()
-    if not head:
+    # Format guard (claude #9203 P3): a full 40-hex SHA. A short or malformed
+    # head would make the ``head in body`` substring check dangerously loose
+    # (e.g. a 3-char value matching unrelated text). Callers pass headRefOid,
+    # so this only rejects genuinely malformed input — fail closed.
+    if not re.fullmatch(r"[0-9a-fA-F]{40}", head):
         return False
     trusted = _trusted_settlement_creator().casefold()
     if not trusted:
