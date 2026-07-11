@@ -3061,6 +3061,8 @@ def _build_merge_authorization_packet(
             "human_preapproval_recorded": quorum.get("human_preapproval_recorded", False),
             "settlement_creator_pin": quorum.get("settlement_creator_pin", {}),
             "unresolved_dissent": quorum["unresolved_dissent"],
+            "operator_advisory_settlement": quorum.get("operator_advisory_settlement", False),
+            "validated_review_families": quorum.get("validated_review_families", []),
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
             "counted_reviewer_ids": quorum["counted_reviewer_ids"],
@@ -3193,10 +3195,15 @@ def _advisory_settle_review_signals(
     *,
     head_sha: str = "",
     head_committed_at: str = "",
-) -> tuple[bool, bool, bool]:
+) -> tuple[bool, bool, bool, frozenset[str]]:
     """Single-pass classification of grounded reviews for advisory_settle.
 
-    Returns ``(has_valid_wf_review, has_valid_advisory_dissent, has_blocking_finding)``.
+    Returns ``(has_valid_wf_review, has_valid_advisory_dissent,
+    has_blocking_finding, validated_review_families)``. The final element is the
+    set of canonical model families with at least one grounded, non-bot,
+    countable-identity review at head in ANY verdict — the "models were heard"
+    accounting used by the operator-advisory-settlement relief valve, which must
+    never be derivable from unvalidated comment text.
 
     Source-validation is applied UNIFORMLY so every *positive* input to the gate
     passes the SAME filters the strict quorum path uses — closing the class of
@@ -3214,6 +3221,7 @@ def _advisory_settle_review_signals(
     has_wf = False
     has_advisory_dissent = False
     has_blocking = False
+    validated_families: set[str] = set()
     for comment in comments or []:
         if not isinstance(comment, dict):
             continue
@@ -3235,13 +3243,16 @@ def _advisory_settle_review_signals(
         identity = _resolve_model_review_identity(body)
         if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
             continue
-        if str(identity.model_family or "").strip().lower() in WESTERN_FRONTIER_FAMILIES:
+        family = str(identity.model_family or "").strip().lower()
+        if family:
+            validated_families.add(family)
+        if family in WESTERN_FRONTIER_FAMILIES:
             has_wf = True
         # Genuine advisory dissent: a CHANGES-REQUESTED verdict from a validated
         # source with no blocking [P0]/[P1] finding.
         if _has_blocking_or_negative_verdict(body) and not _has_blocking_finding_or_label(body):
             has_advisory_dissent = True
-    return has_wf, has_advisory_dissent, has_blocking
+    return has_wf, has_advisory_dissent, has_blocking, frozenset(validated_families)
 
 
 def _build_model_review_quorum(
@@ -3392,6 +3403,7 @@ def _build_model_review_quorum(
         _wf_review_present,
         _genuine_advisory_dissent,
         _any_blocking_finding,
+        _validated_review_families,
     ) = _advisory_settle_review_signals(
         pr.get("comments") or [],
         head_sha=head_sha,
@@ -3422,6 +3434,36 @@ def _build_model_review_quorum(
         and not unresolved_dissent
         and not _any_blocking_finding
     )
+    # Constitutional relief valve (docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md;
+    # #8933 incident, PR #8939: four evidence rounds, zero blocking findings,
+    # zero countable signals). Model quorum can be UNREACHABLE — every review
+    # severity-gated advisory — rather than merely unmet, and any fix to the
+    # gate is itself gate-blocked without this branch. The trusted settlement
+    # operator may settle over ADVISORY-ONLY dissent at Tier 3-4 when models
+    # were demonstrably heard. [P0]/[P1] findings and unresolved dissent still
+    # block everyone, including the operator; every condition fails closed.
+    # Authorization rests SOLELY on the trusted-creator commit status + the
+    # trusted-author marker comment; validated-family accounting comes from the
+    # same single validated pass advisory_settle uses, never raw comment text.
+    operator_advisory_settlement_eligible = bool(
+        _operator_advisory_settlement_enabled()
+        and tier in (3, 4)
+        and not quorum_satisfied
+        and not settlement_recorded
+        and not has_pending
+        and not checks_unavailable
+        and not blocking_workflow_state
+        and quorum_only_required_failure
+        and not unresolved_dissent
+        and not _any_blocking_finding
+        and _wf_review_present
+        and len(_validated_review_families) >= 2
+        and _has_operator_settlement_comment(pr, head_sha=head_sha)
+        and _human_settlement_status_creator_verified(
+            repo_slug=repo_slug or rest_fallback._repo_slug_from_pr_payload(pr, None),
+            head_sha=head_sha,
+        )[0]
+    )
     # The incomplete-quorum check only acts as an ACTIVE blocker when advisory_settle
     # is NOT rescuing this PR; otherwise the merge-quorum check is treated as resolved
     # by the advisory path (and the verdict chain reports advisory_settle instead).
@@ -3430,6 +3472,7 @@ def _build_model_review_quorum(
         and not quorum_satisfied
         and not settlement_recorded
         and not advisory_settle_eligible
+        and not operator_advisory_settlement_eligible
     )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
     human_preapproval_recorded = (
@@ -3537,6 +3580,7 @@ def _build_model_review_quorum(
             has_failures
             and not missing_quorum_is_active_check_blocker
             and not advisory_settle_eligible
+            and not operator_advisory_settlement_eligible
         )
         or has_pending
         or checks_unavailable
@@ -3544,6 +3588,7 @@ def _build_model_review_quorum(
             machine_recommendation == "repair_first"
             and not missing_quorum_is_active_check_blocker
             and not advisory_settle_eligible
+            and not operator_advisory_settlement_eligible
         )
         or stale_quorum_check_after_satisfied_evidence
         or blocking_workflow_state
@@ -3556,6 +3601,14 @@ def _build_model_review_quorum(
         # advisory findings only. Tier 0-2 only; no human risk settlement required.
         status = "satisfied"
         verdict = "advisory_settle"
+        requires_human_risk_settlement = False
+        admin_squash_allowed = True
+    elif operator_advisory_settlement_eligible:
+        # Distinct, auditable verdict (mirrors advisory_settle): the audit trail
+        # records that the trusted operator settled over advisory-only dissent
+        # with quorum unreachable, not that quorum was met.
+        status = "satisfied"
+        verdict = "operator_advisory_settlement"
         requires_human_risk_settlement = False
         admin_squash_allowed = True
     elif not quorum_satisfied:
@@ -3619,6 +3672,8 @@ def _build_model_review_quorum(
         # this gate's. Mirrors ``advisory_views`` content for the eligible case.
         "advisory_findings": advisory_findings if advisory_settle_eligible else [],
         "advisory_settle": advisory_settle_eligible,
+        "operator_advisory_settlement": operator_advisory_settlement_eligible,
+        "validated_review_families": sorted(_validated_review_families),
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
     }
@@ -3854,6 +3909,63 @@ def _human_settlement_status_creator_verified(
             f"settlement-creator pin: '{context}' status created by trusted settlement creator '{trusted}'",
         )
     return fail(f"no '{context}' status found on head commit; failing closed")
+
+
+_OPERATOR_ADVISORY_SETTLEMENT_ENV = "ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT"
+
+
+def _operator_advisory_settlement_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in operator-advisory-settlement relief valve is active.
+
+    Default OFF, mirroring ``advisory_dissent_settle_enabled``. Defined locally
+    (rather than beside that helper in ``aragora.swarm.quorum_evidence``) to
+    avoid touching a file contested by in-flight PRs #9129/#9147; consolidation
+    is a follow-up once those land. See docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md.
+    """
+    source = os.environ if env is None else env
+    return str(source.get(_OPERATOR_ADVISORY_SETTLEMENT_ENV, "")).strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _has_operator_settlement_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
+    """A Tier-4 settlement marker comment AUTHORED by the trusted operator.
+
+    Stricter than :func:`_has_tier_four_human_preapproval_comment` (which any
+    author can satisfy): the operator-advisory-settlement relief valve requires
+    the marker comment itself to come from the trusted settlement login, so the
+    settlement record — not just the commit status — is non-forgeable.
+    """
+    head = str(head_sha or "").strip()
+    if not head:
+        return False
+    trusted = _trusted_settlement_creator().casefold()
+    if not trusted:
+        return False
+    for comment in pr.get("comments") or []:
+        if not isinstance(comment, dict):
+            continue
+        author_payload = comment.get("author")
+        author = (
+            str(author_payload.get("login", "") or "") if isinstance(author_payload, dict) else ""
+        )
+        if author.casefold() != trusted:
+            continue
+        body = str(comment.get("body") or "")
+        lowered = body.lower()
+        if TIER_FOUR_SETTLEMENT_MARKER not in body:
+            continue
+        if head not in body:
+            continue
+        if not any(token in lowered for token in TIER_FOUR_AUTHORIZED_MERGE_TOKENS):
+            continue
+        if "human-risk settlement" not in lowered:
+            continue
+        return True
+    return False
 
 
 def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
