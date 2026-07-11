@@ -350,20 +350,18 @@ def test_git_failure_returns_child_to_awaiting_claim_with_note(tmp_path):
 
     assert res.done == []
     assert res.blocked == ["mission-intake-tests"]
-    assert res.parked == []  # first git failure is NOT terminal / NOT a park
+    # Repair 3 (#8766 openai P1): a git failure parks IMMEDIATELY under the
+    # dedicated paced kind — it must never age through the generic
+    # park_threshold accounting into a constraint park within one run.
+    assert res.parked == ["mission-intake-tests"]
     ledger = Ledger(ledger_path)
-    assert not ledger.is_excluded("feature:mission-intake-tests")
     assert "mission-intake-tests" not in ledger.done_units()
 
     reconcile_from_ledger(state_path, ledger_path)
     child = MissionState.load(state_path).get("mission-intake-tests")
-    assert child.status == Status.AWAITING_CLAIM  # never BLOCKED on a git blip
+    assert child.status == Status.PARKED  # paced park — never BLOCKED on a git blip
+    assert child.metadata["parked_kind"] == "branch-materialization-failed"
     assert "branch materialization" in child.notes
-    # Still claimable by the next worker.
-    assert (
-        select_for(MissionState.load(state_path), Ledger(ledger_path), "w2")
-        == "mission-intake-tests"
-    )
 
 
 @pytest.mark.parametrize(
@@ -395,15 +393,21 @@ def test_runner_process_failure_returns_child_to_awaiting_claim(tmp_path, runner
 
     assert res.blocked == ["mission-intake-tests"]
     assert res.done == []
-    assert res.parked == []
+    assert res.parked == ["mission-intake-tests"]  # paced park, repair 3
 
     reconcile_from_ledger(state_path, ledger_path)
     child = MissionState.load(state_path).get("mission-intake-tests")
-    assert child.status == Status.AWAITING_CLAIM
+    assert child.status == Status.PARKED
+    assert child.metadata["parked_kind"] == "branch-materialization-failed"
     assert "branch materialization for mission-intake-tests failed" in child.notes
 
 
-def test_repeated_git_failure_is_bounded_by_existing_park_accounting(tmp_path):
+def test_git_failure_parks_once_never_reclaimed_same_run(tmp_path):
+    """Repair 3 (#8766 openai P1): with park_threshold=2 the OLD contract let
+    the same worker immediately reclaim the unit and constraint-park it in one
+    run (reconcile then BLOCKED it). The park now happens on the FIRST failure
+    under the paced kind, so the unit is attempted exactly once per run and
+    persistence is bounded by the orchestrator's retry_count -> BLOCKED cap."""
     state_path, ledger_path = _child_state(tmp_path)
     git = FakeGit(fail_creates=True)
 
@@ -419,8 +423,12 @@ def test_repeated_git_failure_is_bounded_by_existing_park_accounting(tmp_path):
         park_threshold=2,
     )
 
-    assert res.parked == ["mission-intake-tests"]  # bounded, not an infinite treadmill
-    assert res.blocked.count("mission-intake-tests") == 2
+    assert res.parked == ["mission-intake-tests"]
+    assert res.blocked.count("mission-intake-tests") == 1  # one attempt, one park
+    reconcile_from_ledger(state_path, ledger_path)
+    child = MissionState.load(state_path).get("mission-intake-tests")
+    assert child.status == Status.PARKED
+    assert child.metadata["parked_kind"] == "branch-materialization-failed"
 
 
 def test_retryable_parked_handoff_parks_without_repeated_attempts(tmp_path):

@@ -27,6 +27,7 @@ from pathlib import Path
 from .ledger import DEFAULT_LEASE_TTL, Ledger, LedgerCorruptError, select_for
 from .orchestrator import Dispatch, Handoff
 from .state import (
+    PARK_KIND_MATERIALIZATION,
     PARK_KIND_MISSING_BRANCH,
     Feature,
     MissionState,
@@ -351,15 +352,20 @@ def _run_worker_fenced(
             try:
                 branch = materialize(feature, ledger)
             except BranchMaterializationError as exc:
-                # Non-terminal by contract: a git blip must return the child to
-                # the claimable pool with a diagnostic, never BLOCK it outright.
-                # Repeated failures are still bounded by the park accounting.
+                # Infra-retryable by contract (#8766 openai P1): a git blip
+                # parks under the dedicated PACED kind instead of flowing to
+                # the generic failure path, where park_threshold=2 plus an
+                # immediate same-worker reclaim could constraint-park (and
+                # reconcile then BLOCK) fresh work in a single run. The
+                # reconciler releases it after the backoff; triage bounds
+                # persistent failure via retry_count → BLOCKED at the cap.
                 handoff = Handoff(
                     success=False,
+                    parked=True,
+                    parked_kind=PARK_KIND_MATERIALIZATION,
                     blocked_reason=f"branch materialization failed: {exc}",
                     discovered=[
-                        f"branch materialization for {unit} failed; "
-                        f"returned to awaiting-claim: {exc}"
+                        f"branch materialization for {unit} failed; parked for paced retry: {exc}"
                     ],
                 )
             else:
@@ -575,6 +581,11 @@ def _retryable_park_kind_from_constraint(reason: str | None) -> str | None:
         return None
     if reason.startswith(f"parked ({PARK_KIND_MISSING_BRANCH}):"):
         return PARK_KIND_MISSING_BRANCH
+    if reason.startswith(f"parked ({PARK_KIND_MATERIALIZATION}):"):
+        # #8766 openai P1: a git-blip park folds back as a PACED retryable
+        # park, never as BLOCKED — reconcile escalating it was the exact
+        # mechanism that killed fresh mission work in one worker run.
+        return PARK_KIND_MATERIALIZATION
     return None
 
 

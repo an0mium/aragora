@@ -22,6 +22,7 @@ from pathlib import Path
 from .ledger import LedgerCorruptError
 from .state import (
     PARK_KIND_DECOMPOSITION,
+    PARK_KIND_MATERIALIZATION,
     PARK_KIND_MISSING_BRANCH,
     Feature,
     MissionState,
@@ -257,6 +258,17 @@ class MissionOrchestrator:
                     "reconciler released parked feature %s for a decomposition retry", feat.id
                 )
                 changed = True
+            elif kind == PARK_KIND_MATERIALIZATION:
+                # Same pacing contract as decomposition (#8766 openai P1): a
+                # transient git failure is retried across real time, never
+                # burned through in consecutive ticks.
+                if not self._decomposition_retry_due(feat):
+                    continue
+                state.unpark(feat.id, "retrying branch materialization (bounded by the retry cap)")
+                logger.info(
+                    "reconciler released parked feature %s for a materialization retry", feat.id
+                )
+                changed = True
         return changed
 
     def _decomposition_retry_due(self, feat: Feature) -> bool:
@@ -323,6 +335,19 @@ class MissionOrchestrator:
                     state.mark_terminal(
                         feature_id,
                         f"decomposition failed after {feat.retry_count} attempts: {reason}",
+                    )
+                    return
+            elif handoff.parked_kind == PARK_KIND_MATERIALIZATION:
+                # Infra-retryable git failure (#8766 openai P1): each failed
+                # materialization attempt burns retry budget; at max_retries
+                # the feature reaches BLOCKED — operator-recoverable, unlike
+                # TERMINAL — instead of a transient blip killing fresh work.
+                feat.retry_count += 1
+                if feat.retry_count >= self.max_retries:
+                    state.mark_blocked(
+                        feature_id,
+                        f"branch materialization failed after "
+                        f"{feat.retry_count} attempts: {reason}",
                     )
                     return
             elif handoff.parked_kind == PARK_KIND_MISSING_BRANCH and _has_recorded_branch(feat):

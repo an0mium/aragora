@@ -144,6 +144,10 @@ class Status:
 # reconciler must see before releasing it.
 PARK_KIND_DECOMPOSITION = "decomposition-failed"  # retry-bounded → TERMINAL at the cap
 PARK_KIND_MISSING_BRANCH = "missing-branch"  # waits for a live metadata.branch to appear
+# Infra-retryable git failure during branch materialization (#8766 openai P1):
+# paced like decomposition, retry-bounded → BLOCKED (operator-recoverable) at
+# the cap — never a generic constraint park that reconcile escalates in one run.
+PARK_KIND_MATERIALIZATION = "branch-materialization-failed"
 
 
 def preconditions_met(preconditions: list[str], completed: set[str]) -> bool:

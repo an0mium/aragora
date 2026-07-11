@@ -37,6 +37,7 @@ from aragora.missions.dispatch import BossLoopDispatch, GateVerdict
 from aragora.missions.intake import IntakeBridgeDispatch
 from aragora.missions.state import (
     PARK_KIND_DECOMPOSITION,
+    PARK_KIND_MATERIALIZATION,
     PARK_KIND_MISSING_BRANCH,
 )
 from aragora.missions.swarm import _reconcile_locked
@@ -456,3 +457,56 @@ def test_ledger_reconcile_releases_missing_branch_park_when_worker_materializes(
     assert feat.metadata["branch"] == "mission/child-a"
     assert "parked_reason" not in feat.metadata
     assert "unparked" in feat.notes
+
+
+def test_materialization_park_is_paced_and_reaches_blocked_at_cap(tmp_path):
+    """#8766 openai P1 (repair 3): a transient git failure during branch
+    materialization parks under the dedicated PACED kind — it is retried
+    across real time, never constraint-parked into BLOCKED within one worker
+    run — and only PERSISTENT failure reaches BLOCKED after max_retries."""
+    state_path = _branchless_state(tmp_path)
+    state = MissionState.load(state_path)
+    state.save(state_path)
+
+    calls = {"n": 0}
+
+    def always_failing_materialization(feature: Feature) -> Handoff:
+        calls["n"] += 1
+        return Handoff(
+            success=False,
+            parked=True,
+            parked_kind=PARK_KIND_MATERIALIZATION,
+            blocked_reason="branch materialization failed: git blip",
+        )
+
+    # backoff=0 so the test exercises the retry-bound quickly; pacing itself
+    # is pinned by the next test.
+    orch = MissionOrchestrator(state_path, decomposition_retry_backoff=0.0)
+    orch.run(always_failing_materialization, max_ticks=50)
+
+    feat = MissionState.load(state_path).get("f1")
+    assert feat.status == Status.BLOCKED  # operator-recoverable, not TERMINAL
+    assert feat.retry_count == 3
+    assert "branch materialization failed after 3 attempts" in feat.notes
+    assert calls["n"] == 3  # bounded: one attempt per burned retry
+
+
+def test_materialization_retry_is_paced_not_burned_in_consecutive_ticks(tmp_path):
+    """With a real backoff, consecutive ticks must NOT burn the retry budget:
+    the park stays parked until the pacing window elapses."""
+    state_path = _branchless_state(tmp_path)
+
+    def failing_materialization(feature: Feature) -> Handoff:
+        return Handoff(
+            success=False,
+            parked=True,
+            parked_kind=PARK_KIND_MATERIALIZATION,
+            blocked_reason="branch materialization failed: git blip",
+        )
+
+    orch = MissionOrchestrator(state_path, decomposition_retry_backoff=3600.0)
+    orch.run(failing_materialization, max_ticks=10)
+
+    feat = MissionState.load(state_path).get("f1")
+    assert feat.status == Status.PARKED  # waiting out the backoff, not BLOCKED
+    assert feat.retry_count == 1  # exactly one attempt; no consecutive-tick burn
