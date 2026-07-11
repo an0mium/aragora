@@ -148,7 +148,8 @@ PYTHONPATH=. python3 scripts/emit_pr_receipt.py \
   --outcome docs/benchmarks/fixtures/droid-sentry-pr-6.collect-outcome.json \
   --out /tmp/m9-benchmark-replay.odr.json \
   --verify
-aragora-verify /tmp/m9-benchmark-replay.odr.json --json
+PYTHONPATH=aragora-verify/src python3 -m aragora_verify \
+  /tmp/m9-benchmark-replay.odr.json --json
 ```
 
 Observed result: both commands exit 0; the verifier reports
