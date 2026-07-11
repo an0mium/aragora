@@ -61,6 +61,18 @@ class OdrSigningError(Exception):
     """Raised when a private key cannot be loaded or a receipt cannot be signed."""
 
 
+class OdrSigningUnconfiguredError(OdrSigningError):
+    """No signing key is configured — an EXPECTED deployment state.
+
+    Raised only when the deployment genuinely has no key: Secrets Manager is
+    not enabled, or the signing secret does not exist in any configured
+    region. Every other loader failure (unreadable secret, bad AWS setup,
+    invalid key material) stays a plain :class:`OdrSigningError` so callers
+    that degrade to unsigned output on *unconfigured* deployments still fail
+    closed when a configured key is broken.
+    """
+
+
 def _load_ed25519():  # noqa: ANN202 - lazy import keeps the error actionable
     try:
         from cryptography.exceptions import InvalidSignature
@@ -144,7 +156,7 @@ def _load_pem_secret_from_aws(secret_id: str) -> str:
 
     config = secret_config.SecretsConfig.from_env()
     if not config.use_aws:
-        raise OdrSigningError(
+        raise OdrSigningUnconfiguredError(
             "AWS Secrets Manager is not enabled for ODR signing; set "
             "ARAGORA_USE_SECRETS_MANAGER=true and provision the PEM private key "
             f"in secret '{secret_label}'"
@@ -153,23 +165,34 @@ def _load_pem_secret_from_aws(secret_id: str) -> str:
     manager = secret_config.SecretManager(config)
     regions = config.aws_regions or [config.aws_region]
     last_error: Exception | None = None
+    all_not_found = True
     for region in regions:
         client = manager._get_aws_client(region)  # noqa: SLF001 - reuse repo AWS client setup.
         if client is None:
+            all_not_found = False
             continue
         try:
             response = client.get_secret_value(SecretId=secret_id)
-        except (secret_config.ClientError, secret_config.BotoCoreError) as exc:
+        except secret_config.ClientError as exc:
             last_error = exc
+            code = exc.response.get("Error", {}).get("Code") if hasattr(exc, "response") else None
+            if code != "ResourceNotFoundException":
+                all_not_found = False
+            continue
+        except secret_config.BotoCoreError as exc:
+            last_error = exc
+            all_not_found = False
             continue
         except (OSError, RuntimeError, ValueError, KeyError) as exc:
             last_error = exc
+            all_not_found = False
             continue
 
         secret_string = response.get("SecretString")
         if isinstance(secret_string, str) and secret_string.strip():
             return secret_string
 
+        all_not_found = False
         secret_binary = response.get("SecretBinary")
         if isinstance(secret_binary, bytes) and secret_binary:
             try:
@@ -182,6 +205,15 @@ def _load_pem_secret_from_aws(secret_id: str) -> str:
 
         last_error = OdrSigningError(f"ODR signing key secret '{secret_label}' is empty")
         continue
+
+    if all_not_found and last_error is not None:
+        # Every configured region answered ResourceNotFound: the key was never
+        # provisioned. This is the expected pre-provisioning deployment state,
+        # distinct from a configured-but-unreadable key.
+        raise OdrSigningUnconfiguredError(
+            f"ODR signing key secret '{secret_label}' does not exist in any "
+            "configured AWS region (not provisioned yet)"
+        )
 
     detail = f" (last error: {type(last_error).__name__})" if last_error else ""
     raise OdrSigningError(
@@ -301,6 +333,7 @@ def _is_signature_entry_compatible(entry: Any) -> bool:
 __all__ = [
     "ODR_SIGNATURE_ALG",
     "OdrSigningError",
+    "OdrSigningUnconfiguredError",
     "compute_key_id",
     "generate_signing_key",
     "load_private_key_from_pem",

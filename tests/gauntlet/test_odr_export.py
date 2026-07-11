@@ -28,7 +28,11 @@ from aragora.gauntlet.odr_export import (
     odr_content_digest,
     sign_odr_if_configured,
 )
-from aragora.gauntlet.odr_signing import OdrSigningError, generate_signing_key
+from aragora.gauntlet.odr_signing import (
+    OdrSigningError,
+    OdrSigningUnconfiguredError,
+    generate_signing_key,
+)
 from aragora.gauntlet.odr_verify import verify_odr_document
 from aragora.gauntlet.receipt_models import (
     AgentResponseRecord,
@@ -363,9 +367,9 @@ class TestConfiguredSigning:
         assert signature.status == "fail"
         assert result.ok is False
 
-    def test_missing_key_warns_and_preserves_unsigned_export(self, caplog) -> None:
+    def test_unconfigured_key_warns_and_preserves_unsigned_export(self, caplog) -> None:
         def missing_key():
-            raise OdrSigningError("signing key is not configured")
+            raise OdrSigningUnconfiguredError("signing key is not configured")
 
         unsigned = decision_receipt_to_odr(_full_receipt())
         with caplog.at_level(logging.WARNING):
@@ -374,6 +378,19 @@ class TestConfiguredSigning:
         assert exported is unsigned
         assert exported["signatures"] == []
         assert "exporting unsigned ODR receipt" in caplog.text
+
+    def test_configured_but_broken_key_fails_closed(self) -> None:
+        """A CONFIGURED key that cannot be loaded must never silently
+        downgrade a deployment expected to sign into unsigned exports."""
+
+        def broken_key():
+            raise OdrSigningError("secret exists but key material is invalid")
+
+        with pytest.raises(OdrSigningError):
+            sign_odr_if_configured(
+                decision_receipt_to_odr(_full_receipt()),
+                key_loader=broken_key,
+            )
 
     def test_cli_odr_export_uses_configured_signing_key(self, monkeypatch) -> None:
         from aragora.cli.commands.receipt import _export_odr

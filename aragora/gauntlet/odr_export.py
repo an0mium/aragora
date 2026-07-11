@@ -440,18 +440,21 @@ def sign_odr_if_configured(
 ) -> dict[str, Any]:
     """Sign an ODR export when the production key is available.
 
-    Missing key configuration is an expected deployment state, so export stays
-    available and explicitly unsigned. Once a key is loaded, signing errors are
-    allowed to propagate rather than silently publishing a receipt that was
-    expected to be signed.
+    A genuinely UNCONFIGURED key (Secrets Manager disabled, or the secret was
+    never provisioned) is an expected deployment state, so export stays
+    available and explicitly unsigned. A key that is configured but cannot be
+    loaded (unreadable secret, bad AWS setup, invalid key material) propagates
+    instead — silently publishing an unsigned receipt from a deployment that
+    was expected to sign would fail open. Once a key is loaded, signing errors
+    always propagate.
     """
     from aragora.gauntlet import odr_signing
 
     loader = key_loader or odr_signing.load_signing_key_from_secrets
     try:
         private_key = loader()
-    except odr_signing.OdrSigningError as exc:
-        logger.warning("ODR signing key unavailable; exporting unsigned ODR receipt: %s", exc)
+    except odr_signing.OdrSigningUnconfiguredError as exc:
+        logger.warning("ODR signing key not configured; exporting unsigned ODR receipt: %s", exc)
         return odr
     return odr_signing.sign_odr_receipt(odr, private_key)
 
