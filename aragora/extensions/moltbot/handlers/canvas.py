@@ -219,6 +219,8 @@ class MoltbotCanvasHandler(BaseHandler):
         if err:
             return err
         authenticated_user = cast("UserAuthContext", user)
+        if authenticated_user.user_id is None:
+            return error_response("Authenticated user ID required", 401)
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -243,7 +245,7 @@ class MoltbotCanvasHandler(BaseHandler):
         manager = get_canvas_manager()
         canvas = await manager.create_canvas(
             config=config,
-            owner_id=cast(str, body.get("owner_id", authenticated_user.user_id)),
+            owner_id=authenticated_user.user_id,
             tenant_id=body.get("tenant_id"),
         )
 

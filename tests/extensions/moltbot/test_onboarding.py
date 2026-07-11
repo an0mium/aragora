@@ -5,11 +5,57 @@ Tests flow management, session handling, step progression, and analytics.
 """
 
 import asyncio
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from pathlib import Path
 
 from aragora.extensions.moltbot import OnboardingOrchestrator, ChannelType
 from aragora.extensions.moltbot.models import OnboardingStep
+
+
+class TestOnboardingHandler:
+    """Tests for authenticated onboarding handler boundaries."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("supplied_user_id", [None, "other-user", 123])
+    async def test_start_session_uses_authenticated_user(self, supplied_user_id: object) -> None:
+        """Client JSON cannot override onboarding session attribution."""
+        from aragora.extensions.moltbot.handlers.onboarding import MoltbotOnboardingHandler
+
+        onboarding_handler = MoltbotOnboardingHandler({})
+        auth_context = MagicMock(user_id="authenticated-user")
+        orchestrator = MagicMock()
+        orchestrator.start_session = AsyncMock(return_value=MagicMock())
+        request = MagicMock()
+
+        with (
+            patch.object(
+                onboarding_handler,
+                "require_auth_or_error",
+                return_value=(auth_context, None),
+            ),
+            patch.object(
+                onboarding_handler,
+                "read_json_body_validated",
+                return_value=({"user_id": supplied_user_id}, None),
+            ),
+            patch(
+                "aragora.extensions.moltbot.handlers.onboarding.get_orchestrator",
+                return_value=orchestrator,
+            ),
+            patch.object(
+                onboarding_handler,
+                "_serialize_session",
+                return_value={"user_id": "authenticated-user"},
+            ),
+        ):
+            response = await onboarding_handler._handle_start_session("flow-1", request)
+
+        assert response.status_code == 201
+        assert json.loads(response.body)["session"]["user_id"] == "authenticated-user"
+        assert orchestrator.start_session.await_args.kwargs["user_id"] == "authenticated-user"
 
 
 class TestFlowManagement:

@@ -370,6 +370,8 @@ class MoltbotOnboardingHandler(BaseHandler):
         if err:
             return err
         authenticated_user = cast("UserAuthContext", user)
+        if authenticated_user.user_id is None:
+            return error_response("Authenticated user ID required", 401)
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -382,7 +384,7 @@ class MoltbotOnboardingHandler(BaseHandler):
         try:
             session = await orchestrator.start_session(
                 flow_id=flow_id,
-                user_id=cast(str, body.get("user_id", authenticated_user.user_id)),
+                user_id=authenticated_user.user_id,
                 channel_id=body.get("channel_id", "web"),
                 tenant_id=body.get("tenant_id"),
                 initial_data=body.get("initial_data"),

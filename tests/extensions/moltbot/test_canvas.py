@@ -20,6 +20,44 @@ from aragora.extensions.moltbot import (
 )
 
 
+class TestCanvasHandler:
+    """Tests for authenticated canvas handler boundaries."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("supplied_owner_id", [None, "other-user", 123])
+    async def test_create_uses_authenticated_owner(
+        self, tmp_path: Path, supplied_owner_id: object
+    ) -> None:
+        """Client JSON cannot override the authenticated canvas owner."""
+        from aragora.extensions.moltbot.handlers.canvas import MoltbotCanvasHandler
+
+        manager = CanvasManager(storage_path=tmp_path / "canvas")
+        canvas_handler = MoltbotCanvasHandler({})
+        auth_context = MagicMock(user_id="authenticated-user")
+        request = MagicMock()
+
+        with (
+            patch.object(
+                canvas_handler,
+                "require_auth_or_error",
+                return_value=(auth_context, None),
+            ),
+            patch.object(
+                canvas_handler,
+                "read_json_body_validated",
+                return_value=({"name": "Owned Canvas", "owner_id": supplied_owner_id}, None),
+            ),
+            patch(
+                "aragora.extensions.moltbot.handlers.canvas.get_canvas_manager",
+                return_value=manager,
+            ),
+        ):
+            response = await canvas_handler._handle_create_canvas(request)
+
+        assert response.status_code == 201
+        assert json.loads(response.body)["canvas"]["owner_id"] == "authenticated-user"
+
+
 class TestCanvasManager:
     """Tests for CanvasManager."""
 
