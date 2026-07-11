@@ -219,10 +219,9 @@ class ReceiptDeliveryHook:
 
                 builder = ExplanationBuilder()
                 decision = await builder.build(result, ctx)
+                raw_explainability = receipt_data.get("explainability")
                 existing_explainability = (
-                    dict(receipt_data.get("explainability"))
-                    if isinstance(receipt_data.get("explainability"), dict)
-                    else {}
+                    dict(raw_explainability) if isinstance(raw_explainability, dict) else {}
                 )
                 receipt_data["explainability"] = {
                     **existing_explainability,
