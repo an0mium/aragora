@@ -161,9 +161,12 @@ class GitHubClient:
         return normalized, truncated
 
     def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
+        # Filter server-side to PR-event runs: without it, push/schedule/
+        # dispatch runs consume the bounded window and eligible cancelled PR
+        # runs can fall outside it in a high-churn repo (#9133 openai P2 r5).
         runs = self.paginate(
             f"/repos/{self.repo}/actions/runs",
-            query={"per_page": 100},
+            query={"per_page": 100, "event": "pull_request"},
             max_pages=max(1, (max_runs + 99) // 100),
         )
         normalized = [r for r in runs if isinstance(r, dict)]

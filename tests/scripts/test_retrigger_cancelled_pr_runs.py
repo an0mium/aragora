@@ -235,3 +235,18 @@ def test_name_spoofing_alone_never_qualifies(mod) -> None:
         [spoofed], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert reruns == []
+
+
+def test_run_scan_filters_pull_request_events_server_side(mod, monkeypatch) -> None:
+    """The runs window is bounded; without a server-side event filter,
+    push/schedule runs consume it and eligible cancelled PR runs fall
+    outside (#9133 openai P2 round 5)."""
+    seen = {}
+
+    class _Client(mod.GitHubClient):
+        def paginate(self, path, *, query=None, max_pages=10):
+            seen.update(query or {})
+            return []
+
+    _Client("o/r", "tok").list_recent_workflow_runs(300)
+    assert seen.get("event") == "pull_request"
