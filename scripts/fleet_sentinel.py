@@ -709,12 +709,15 @@ def check_lane_liveness(
         try:
             entry = json.loads(Path(ledger_file).read_text())
             lane = str(entry["lane"])
-            status = str(entry.get("status", ""))
+            raw_status = entry.get("status", entry.get("state"))
+            if raw_status is None:
+                raise KeyError("status")
+            status = str(raw_status)
+            if status != "in_progress":
+                continue
             launched_at = parse_iso(str(entry["launched_at"]))
         except (OSError, json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
             unreadable.append(f"{ledger_file} ({exc.__class__.__name__})")
-            continue
-        if status != "in_progress":
             continue
         in_progress += 1
         age_hours = (now - launched_at).total_seconds() / 3600.0
