@@ -3252,10 +3252,19 @@ def _advisory_settle_review_signals(
         identity = _resolve_model_review_identity(body)
         if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
             continue
-        if strict_receipt and "missing_receipt_artifact" in identity.identity_problems:
-            # Valve mode: self-declared headings without a receipt artifact do
-            # not establish that a model was heard (claude #9203 P2).
-            continue
+        if strict_receipt:
+            # Valve mode (claude #9203 round-4 suggestion, completed after the
+            # round-5 openai P1 showed the receipt LINE alone is spoofable text):
+            # positive signals must be AUTHORED by a trusted evidence-poster
+            # login. Authorship is API-real — GitHub sets it from the
+            # authenticated token — so a drive-by account cannot fabricate a
+            # heard family no matter what its comment body claims. The receipt
+            # requirement is kept as well (collector-posted evidence always
+            # carries one), but the authorship pin is the load-bearing guard.
+            if author.casefold() not in _trusted_evidence_posters():
+                continue
+            if "missing_receipt_artifact" in identity.identity_problems:
+                continue
         family = str(identity.model_family or "").strip().lower()
         if family:
             validated_families.add(family)
@@ -3941,6 +3950,24 @@ def _trusted_settlement_creator() -> str:
         str(os.environ.get(SETTLEMENT_CREATOR_ENV_VAR, "") or "").strip()
         or DEFAULT_TRUSTED_SETTLEMENT_CREATOR
     )
+
+
+#: Logins whose posted comments may establish "a model was heard" for the
+#: operator-advisory-settlement valve (env-overridable, comma-separated). The
+#: defaults are the operator's own accounts: the settlement creator plus the
+#: gh login the evidence collector posts under. Authorship is API-real, so this
+#: pin cannot be satisfied by comment text (openai #9203 P1). Mirrors the
+#: DEFAULT_TRUSTED_SETTLEMENT_CREATOR precedent.
+TRUSTED_EVIDENCE_POSTERS_ENV_VAR = "ARAGORA_TRUSTED_EVIDENCE_POSTERS"
+DEFAULT_TRUSTED_EVIDENCE_POSTERS: tuple[str, ...] = ("scarmani", "an0mium")
+
+
+def _trusted_evidence_posters() -> frozenset[str]:
+    raw = str(os.environ.get(TRUSTED_EVIDENCE_POSTERS_ENV_VAR, "") or "").strip()
+    logins = (
+        [part.strip() for part in raw.split(",")] if raw else list(DEFAULT_TRUSTED_EVIDENCE_POSTERS)
+    )
+    return frozenset(login.casefold() for login in logins if login)
 
 
 def _human_settlement_status_creator_verified(

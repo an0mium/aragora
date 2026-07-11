@@ -53,14 +53,16 @@ following hold (any failure → fail closed, verdict unchanged):
    front door (get the passes to count), not this valve.
 4. A validated western-frontier review is present at head, and **≥2 distinct
    canonical model families** were heard — computed from a strict validated
-   pass (grounded, non-bot, countable identity, **and receipt-backed**: an
-   identity with `missing_receipt_artifact` does not establish that a model
-   was heard). A self-declared heading plus `Model family:` line is spoofable
-   by any non-bot login (claude #9203 P2); requiring the receipt artifact ties
-   family attribution to collector-posted evidence. Note the comment-side
-   records are corroborating, not unforgeable — write-access collaborators can
-   edit comments with `author.login` preserved; the creator-pinned commit
-   status (condition 5) is the sole unforgeable authorization root.
+   pass: grounded, non-bot, countable identity, receipt-backed, **and authored
+   by a trusted evidence-poster login** (`ARAGORA_TRUSTED_EVIDENCE_POSTERS`,
+   default: the operator's settlement + collector accounts). Authorship is the
+   load-bearing guard: it is API-real (GitHub sets it from the authenticated
+   token), so no comment BODY — including a fabricated `Receipt artifact:`
+   line, which is just text (openai #9203 P1) — can establish a heard family
+   from an untrusted account. Comment-side records remain corroborating, not
+   unforgeable (write-access collaborators can edit bodies with `author.login`
+   preserved); the creator-pinned commit status (condition 5) is the sole
+   unforgeable authorization root.
 5. An `aragora/human-settlement` commit status = success at the exact head,
    created by the **trusted settlement operator login**
    (`ARAGORA_SETTLEMENT_CREATOR`, default `scarmani`) — the unforgeable

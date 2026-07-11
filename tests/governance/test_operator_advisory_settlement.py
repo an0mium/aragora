@@ -177,18 +177,22 @@ class TestFlagGate:
 # --- assembled verdict through _build_model_review_quorum -------------------
 
 
-def _advisory_review(family: str, *, receipt: bool = True) -> dict[str, Any]:
+def _advisory_review(
+    family: str, *, receipt: bool = True, author: str = "an0mium"
+) -> dict[str, Any]:
     """A grounded advisory (CHANGES-REQUESTED, [P2]-only) review — non-blocking,
     non-counting under severity gating, but a validated family that was HEARD.
 
-    ``receipt=True`` mirrors a real collector-posted review (which always carries
-    a receipt artifact); ``receipt=False`` models a self-declared/spoofed heading,
-    which the valve's strict pass must ignore (claude #9203 P2)."""
+    ``receipt=True`` + the default trusted ``author`` mirror a real
+    collector-posted review; ``receipt=False`` or an untrusted ``author`` model
+    the spoof shapes the valve's strict pass must ignore (claude #9203 P2 /
+    openai #9203 P1: the receipt LINE is forgeable text — authorship is the
+    API-real guard)."""
     receipt_line = (
         f"**Receipt artifact:** .aragora/receipts/{family}-review.json\n" if receipt else ""
     )
     return {
-        "author": {"login": "an0mium"},
+        "author": {"login": author},
         "createdAt": "2026-07-11T00:00:00Z",
         "body": (
             f"## {family} independent model review\n"
@@ -307,6 +311,35 @@ class TestAssembledValve:
             repo_slug="synaptent/aragora",
         )
         assert q["operator_advisory_settlement"] is False
+
+    def test_valve_ignores_untrusted_author_even_with_receipt_line(self, monkeypatch: Any) -> None:
+        """openai #9203 P1: a fabricated 'Receipt artifact:' line is just text.
+        A drive-by login posting perfect-looking reviews (receipt line included)
+        must not establish heard families — authorship is the API-real guard."""
+        monkeypatch.setenv("ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        monkeypatch.setattr(rq, "_trusted_settlement_creator", lambda: "scarmani")
+        monkeypatch.setattr(
+            rq, "_human_settlement_status_creator_verified", lambda **_kw: (True, "verified")
+        )
+        pr = self._tier4_pr()
+        pr["comments"] = [
+            _advisory_review("claude", receipt=True, author="drive-by-account"),
+            _advisory_review("openai", receipt=True, author="drive-by-account"),
+            _marker("scarmani"),
+        ]
+        q = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=True,
+            check_surfaces=self._SURFACE_CLEAR,
+            repo_slug="synaptent/aragora",
+        )
+        assert q["operator_advisory_settlement"] is False
+        assert q["validated_review_families"] == []
 
     def test_valve_ignores_spoofed_headings_without_receipt(self, monkeypatch: Any) -> None:
         """claude #9203 P2: self-declared review headings with no receipt artifact
