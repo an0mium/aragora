@@ -11,10 +11,25 @@ from aragora.observability.metrics.slo import (
     get_slo_webhook_status,
     get_violation_state,
     record_slo_violation,
+    register_slo_event_sink_provider,
     check_and_record_slo_with_recovery,
     SLOWebhookConfig,
     SEVERITY_ORDER,
 )
+
+
+@pytest.fixture(autouse=True)
+def _register_webhook_sink_provider():
+    """Preserve dynamic dispatcher patching through the inward provider."""
+
+    def provider():
+        from aragora.integrations import webhooks
+
+        return webhooks.get_dispatcher()
+
+    register_slo_event_sink_provider(provider)
+    yield
+    register_slo_event_sink_provider(None)
 
 
 class TestSeverityOrdering:
@@ -101,6 +116,54 @@ class TestInitSLOWebhooks:
         ):
             result = init_slo_webhooks(webhook_config=config)
             assert result is True
+
+    def test_registered_provider_supplies_dispatcher(self):
+        """The integrations layer can register its dispatcher inward."""
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.enqueue = MagicMock(return_value=True)
+        register_slo_event_sink_provider(lambda: mock_dispatcher)
+        try:
+            assert init_slo_webhooks() is True
+        finally:
+            register_slo_event_sink_provider(None)
+
+    def test_replacing_provider_discards_active_dispatcher(self):
+        """Replacing a provider cannot leave the previous dispatcher active."""
+        old_dispatcher = MagicMock()
+        old_dispatcher.enqueue = MagicMock(return_value=True)
+        new_dispatcher = MagicMock()
+        new_dispatcher.enqueue = MagicMock(return_value=True)
+
+        register_slo_event_sink_provider(lambda: old_dispatcher)
+        assert init_slo_webhooks() is True
+        register_slo_event_sink_provider(lambda: new_dispatcher)
+
+        assert (
+            notify_slo_violation(
+                operation="provider_reset",
+                percentile="p99",
+                latency_ms=600.0,
+                threshold_ms=500.0,
+                severity="minor",
+                cooldown_seconds=0.0,
+            )
+            is False
+        )
+        old_dispatcher.enqueue.assert_not_called()
+
+        assert init_slo_webhooks() is True
+        assert (
+            notify_slo_violation(
+                operation="provider_reinitialized",
+                percentile="p99",
+                latency_ms=600.0,
+                threshold_ms=500.0,
+                severity="minor",
+                cooldown_seconds=0.0,
+            )
+            is True
+        )
+        new_dispatcher.enqueue.assert_called_once()
 
 
 class TestNotifySLOViolation:
@@ -374,13 +437,11 @@ class TestSLORecovery:
 
         mock_dispatcher.enqueue = capture_enqueue
 
-        # Set a webhook callback so the check passes
-        slo_module._webhook_callback = lambda x: True
-
         with patch(
             "aragora.integrations.webhooks.get_dispatcher",
             return_value=mock_dispatcher,
         ):
+            assert init_slo_webhooks() is True
             result = notify_slo_recovery(
                 operation="recovery_test",
                 percentile="p99",
@@ -400,6 +461,31 @@ class TestSLORecovery:
             assert event["margin_ms"] == 100.0  # 500 - 400
             assert event["violation_duration_seconds"] == 120.0
             assert event["context"]["request_id"] == "req_456"
+
+    def test_recovery_uses_registered_sink(self):
+        """Recovery events use the same registered sink as violations."""
+        import aragora.observability.metrics.slo as slo_module
+
+        mock_dispatcher = MagicMock()
+        captured_events = []
+        mock_dispatcher.enqueue = lambda event: captured_events.append(event) or True
+        register_slo_event_sink_provider(lambda: mock_dispatcher)
+        try:
+            assert init_slo_webhooks() is True
+            assert (
+                notify_slo_recovery(
+                    operation="registered_recovery",
+                    percentile="p99",
+                    latency_ms=400.0,
+                    threshold_ms=500.0,
+                    violation_duration_seconds=60.0,
+                )
+                is True
+            )
+            assert captured_events[-1]["type"] == "slo_recovery"
+        finally:
+            register_slo_event_sink_provider(None)
+            slo_module._webhook_callback = None
 
 
 class TestViolationState:

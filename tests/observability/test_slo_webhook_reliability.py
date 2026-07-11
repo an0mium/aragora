@@ -21,6 +21,21 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _register_webhook_sink_provider():
+    """Route patched integration dispatchers through the observability hook."""
+    from aragora.observability.metrics.slo import register_slo_event_sink_provider
+
+    def provider():
+        from aragora.integrations import webhooks
+
+        return webhooks.get_dispatcher()
+
+    register_slo_event_sink_provider(provider)
+    yield
+    register_slo_event_sink_provider(None)
+
+
 class TestSLOWebhookRetryExhaustion:
     """Test retry exhaustion and DLQ handling."""
 

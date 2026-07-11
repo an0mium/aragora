@@ -745,5 +745,15 @@ def shutdown_dispatcher() -> None:
         _dispatcher = None
 
 
+def register_slo_event_sink() -> None:
+    """Register the integrations dispatcher with observability."""
+    from aragora.observability.metrics.slo import register_slo_event_sink_provider
+
+    register_slo_event_sink_provider(get_dispatcher)
+
+
+register_slo_event_sink()
+
+
 # Alias for backward compatibility
 get_webhook_dispatcher = get_dispatcher

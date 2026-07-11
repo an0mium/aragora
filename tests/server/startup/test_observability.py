@@ -12,6 +12,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+class TestRegisterObservabilitySinks:
+    """Tests for higher-layer sink composition."""
+
+    def test_registers_pagerduty_and_channel_factories(self) -> None:
+        from aragora.observability import slo_alert_bridge
+        from aragora.server.startup.observability import register_observability_sinks
+
+        slo_alert_bridge.register_pagerduty_alert_sink(None)
+        slo_alert_bridge.register_channel_alert_sink(None)
+        try:
+            assert register_observability_sinks() is True
+            assert slo_alert_bridge._pagerduty_alert_sink_factory is not None
+            assert slo_alert_bridge._channel_alert_sink_factory is not None
+        finally:
+            slo_alert_bridge.register_pagerduty_alert_sink(None)
+            slo_alert_bridge.register_channel_alert_sink(None)
+
+
 # =============================================================================
 # init_structured_logging Tests
 # =============================================================================

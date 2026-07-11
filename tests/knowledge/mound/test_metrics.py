@@ -11,6 +11,7 @@ from aragora.knowledge.mound.metrics import (
     OperationStats,
     HealthStatus,
     HealthReport,
+    get_prometheus_health_status,
     get_metrics,
     set_metrics,
 )
@@ -79,6 +80,26 @@ class TestKMMetrics:
 
         assert metrics._window_size == 1000
         assert metrics._latency_warn_ms == 100.0
+
+    @pytest.mark.parametrize(
+        ("status", "expected"),
+        [
+            (HealthStatus.UNKNOWN, 0),
+            (HealthStatus.UNHEALTHY, 1),
+            (HealthStatus.DEGRADED, 2),
+            (HealthStatus.HEALTHY, 3),
+        ],
+    )
+    def test_prometheus_health_adapter_uses_primitive_values(self, status, expected):
+        """The KM side maps domain health values before crossing the boundary."""
+        metrics = KMMetrics()
+        original = get_metrics()
+        metrics.get_health = lambda: HealthReport(status=status)  # type: ignore[method-assign]
+        try:
+            set_metrics(metrics)
+            assert get_prometheus_health_status() == expected
+        finally:
+            set_metrics(original)
 
     def test_record_operation(self):
         """Test recording an operation."""

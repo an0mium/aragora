@@ -32,7 +32,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 from collections.abc import Callable, Generator
 
 from aragora.observability.config import get_metrics_config
@@ -62,6 +62,8 @@ __all__ = [
     "get_violation_state",
     "SLOWebhookConfig",
     "SEVERITY_ORDER",
+    "SLOEventSink",
+    "register_slo_event_sink_provider",
     # Callback registration for external alert bridges
     "register_violation_callback",
     "register_recovery_callback",
@@ -72,6 +74,27 @@ __all__ = [
 
 # Webhook notification callback (set by init_slo_webhooks)
 _webhook_callback: Callable[[dict[str, Any]], bool] | None = None
+_webhook_sink: SLOEventSink | None = None
+
+
+class SLOEventSink(Protocol):
+    """Higher-layer webhook delivery contract."""
+
+    def enqueue(self, event: dict[str, Any]) -> bool:
+        """Queue an SLO event for delivery."""
+
+
+SLOEventSinkProvider = Callable[[], SLOEventSink | None]
+_slo_event_sink_provider: SLOEventSinkProvider | None = None
+
+
+def register_slo_event_sink_provider(provider: SLOEventSinkProvider | None) -> None:
+    """Register the integrations-side provider for SLO event delivery."""
+    global _slo_event_sink_provider, _webhook_callback, _webhook_sink
+    _slo_event_sink_provider = provider
+    _webhook_callback = None
+    _webhook_sink = None
+
 
 # Violation buffer for batching webhook notifications
 _violation_buffer: list[dict[str, Any]] = []
@@ -414,18 +437,20 @@ def init_slo_webhooks(
     Returns:
         True if webhooks were successfully initialized
     """
-    global _webhook_callback, _buffer_lock
+    global _webhook_callback, _webhook_sink, _buffer_lock
 
     try:
         import threading
-        from aragora.integrations.webhooks import get_dispatcher
 
         _buffer_lock = threading.Lock()
 
-        dispatcher = get_dispatcher()
+        dispatcher = _slo_event_sink_provider() if _slo_event_sink_provider else None
         if dispatcher is None:
+            _webhook_callback = None
+            _webhook_sink = None
             logger.debug("Webhook dispatcher not available, SLO webhooks disabled")
             return False
+        _webhook_sink = dispatcher
 
         # Create callback that sends to webhook dispatcher
         config = webhook_config or SLOWebhookConfig()
@@ -589,17 +614,14 @@ def notify_slo_recovery(
 
     # Send to webhook dispatcher
     try:
-        from aragora.integrations.webhooks import get_dispatcher
-
-        dispatcher = get_dispatcher()
-        if dispatcher:
+        if _webhook_callback is not None and _webhook_sink is not None:
             event = {
                 "type": "slo_recovery",
                 **recovery_data,
             }
-            result = dispatcher.enqueue(event)
+            result = _webhook_sink.enqueue(event)
 
-    except (ImportError, OSError, ConnectionError, RuntimeError) as e:
+    except (OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
         logger.debug("Failed to send SLO recovery webhook: %s", e)
 
     # Invoke registered external callbacks (e.g., SLO Alert Bridge)

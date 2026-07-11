@@ -19,6 +19,10 @@ Usage:
         init_slo_alerting,
     )
 
+    # Higher-layer adapters register themselves with observability.
+    import aragora.connectors.devops.slo_alert_sink
+    import aragora.control_plane.slo_alert_sink
+
     # Initialize at startup
     bridge = init_slo_alerting(
         pagerduty_api_key="...",
@@ -35,10 +39,11 @@ import asyncio
 import hashlib
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +111,58 @@ class ActiveViolation:
     notified_channels: set[str] = field(default_factory=set)
 
 
+class PagerDutyAlertSink(Protocol):
+    """Connector-owned PagerDuty delivery contract."""
+
+    async def create_incident(
+        self,
+        *,
+        title: str,
+        service_id: str,
+        urgency: str,
+        description: str,
+        incident_key: str | None,
+    ) -> str | None:
+        """Create an incident and return its external identifier."""
+
+    async def resolve_incident(self, incident_id: str, resolution: str) -> bool:
+        """Resolve an existing incident."""
+
+
+class ChannelAlertSink(Protocol):
+    """Control-plane-owned notification delivery contract."""
+
+    async def notify(
+        self,
+        *,
+        event_type: str,
+        title: str,
+        body: str,
+        priority: str,
+        metadata: dict[str, Any],
+    ) -> Any:
+        """Deliver an alert notification."""
+
+
+PagerDutyAlertSinkFactory = Callable[[SLOAlertConfig], PagerDutyAlertSink]
+ChannelAlertSinkFactory = Callable[[SLOAlertConfig], ChannelAlertSink]
+
+_pagerduty_alert_sink_factory: PagerDutyAlertSinkFactory | None = None
+_channel_alert_sink_factory: ChannelAlertSinkFactory | None = None
+
+
+def register_pagerduty_alert_sink(factory: PagerDutyAlertSinkFactory | None) -> None:
+    """Register the connector-side PagerDuty sink factory."""
+    global _pagerduty_alert_sink_factory
+    _pagerduty_alert_sink_factory = factory
+
+
+def register_channel_alert_sink(factory: ChannelAlertSinkFactory | None) -> None:
+    """Register the control-plane channel sink factory."""
+    global _channel_alert_sink_factory
+    _channel_alert_sink_factory = factory
+
+
 class SLOAlertBridge:
     """
     Bridges SLO violations to alerting systems.
@@ -122,6 +179,28 @@ class SLOAlertBridge:
         self._pagerduty_client: Any | None = None
         self._notification_manager: Any | None = None
         self._lock = asyncio.Lock()
+
+        if config.pagerduty_enabled and _pagerduty_alert_sink_factory is not None:
+            try:
+                self._pagerduty_client = _pagerduty_alert_sink_factory(config)
+            except (OSError, RuntimeError, ValueError) as e:
+                logger.error("Failed to initialize PagerDuty alert sink: %s", e)
+        elif config.pagerduty_enabled:
+            logger.warning(
+                "PagerDuty SLO alerting enabled without a registered sink; "
+                "register the connector adapter before creating the bridge"
+            )
+
+        if config.slack_enabled and _channel_alert_sink_factory is not None:
+            try:
+                self._notification_manager = _channel_alert_sink_factory(config)
+            except (OSError, RuntimeError, ValueError) as e:
+                logger.error("Failed to initialize channel alert sink: %s", e)
+        elif config.slack_enabled:
+            logger.warning(
+                "Slack SLO alerting enabled without a registered sink; "
+                "register the control-plane adapter before creating the bridge"
+            )
 
     def _make_incident_key(self, operation: str, percentile: str) -> str:
         """Generate unique incident key for deduplication."""
@@ -174,34 +253,19 @@ class SLOAlertBridge:
         context: dict[str, Any],
     ) -> str | None:
         """Create or update a PagerDuty incident."""
-        if not self.config.pagerduty_enabled:
+        if not self.config.pagerduty_enabled or self._pagerduty_client is None:
             return None
 
         try:
-            from aragora.connectors.devops.pagerduty import (
-                PagerDutyConnector,
-                PagerDutyCredentials,
-                IncidentCreateRequest,
-                IncidentUrgency,
-            )
-
-            if self._pagerduty_client is None:
-                credentials = PagerDutyCredentials(
-                    api_key=self.config.pagerduty_api_key or "",
-                    email=self.config.pagerduty_email,
-                )
-                self._pagerduty_client = PagerDutyConnector(credentials)
-
-            # Map severity to PagerDuty urgency/priority
             urgency_map = {
-                AlertSeverity.CRITICAL: IncidentUrgency.HIGH,
-                AlertSeverity.MAJOR: IncidentUrgency.HIGH,
-                AlertSeverity.MODERATE: IncidentUrgency.LOW,
-                AlertSeverity.MINOR: IncidentUrgency.LOW,
+                AlertSeverity.CRITICAL: "high",
+                AlertSeverity.MAJOR: "high",
+                AlertSeverity.MODERATE: "low",
+                AlertSeverity.MINOR: "low",
             }
 
             severity = self._map_severity(violation.severity)
-            urgency = urgency_map.get(severity, IncidentUrgency.LOW)
+            urgency = urgency_map.get(severity, "low")
 
             # Build description with context
             description = (
@@ -216,24 +280,21 @@ class SLOAlertBridge:
             if self.config.include_runbook_links:
                 description += "\n\nRunbook: https://docs.aragora.dev/runbooks/slo-violations"
 
-            request = IncidentCreateRequest(
+            incident_id = await self._pagerduty_client.create_incident(
                 title=f"[SLO] {violation.operation} {violation.percentile} violation ({violation.severity})",
                 service_id=self.config.pagerduty_service_id or "",
                 urgency=urgency,
                 description=description,
                 incident_key=violation.incident_key,
             )
-
-            # Client is guaranteed to be non-None after the above assignment
-            if self._pagerduty_client is None:
-                raise RuntimeError("PagerDuty client not initialized")
-            incident = await self._pagerduty_client.create_incident(request)
-            logger.info("Created PagerDuty incident %s for %s", incident.id, violation.operation)
-            return incident.id
-
-        except ImportError:
-            logger.debug("PagerDuty connector not available")
-        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
+            if incident_id:
+                logger.info(
+                    "Created PagerDuty incident %s for %s",
+                    incident_id,
+                    violation.operation,
+                )
+            return incident_id
+        except (OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
             logger.error("Failed to create PagerDuty incident: %s", e)
 
         return None
@@ -244,25 +305,20 @@ class SLOAlertBridge:
         context: dict[str, Any],
     ) -> bool:
         """Send alert to Slack."""
-        if not self.config.slack_enabled or not self.config.slack_webhook_url:
+        if (
+            not self.config.slack_enabled
+            or not self.config.slack_webhook_url
+            or self._notification_manager is None
+        ):
             return False
 
         try:
-            from aragora.control_plane.channels import (
-                NotificationManager,
-                NotificationEventType,
-                NotificationPriority,
-            )
-
-            if self._notification_manager is None:
-                self._notification_manager = NotificationManager()
-
             severity = self._map_severity(violation.severity)
             priority_map = {
-                AlertSeverity.CRITICAL: NotificationPriority.CRITICAL,
-                AlertSeverity.MAJOR: NotificationPriority.URGENT,
-                AlertSeverity.MODERATE: NotificationPriority.HIGH,
-                AlertSeverity.MINOR: NotificationPriority.NORMAL,
+                AlertSeverity.CRITICAL: "critical",
+                AlertSeverity.MAJOR: "urgent",
+                AlertSeverity.MODERATE: "high",
+                AlertSeverity.MINOR: "normal",
             }
 
             # Build Slack message with blocks
@@ -306,14 +362,11 @@ class SLOAlertBridge:
                 },
             ]
 
-            # Manager is guaranteed to be non-None after the above assignment
-            if self._notification_manager is None:
-                raise RuntimeError("Notification manager not initialized")
             await self._notification_manager.notify(
-                event_type=NotificationEventType.SLA_VIOLATION,
+                event_type="sla_violation",
                 title=f"SLO Violation: {violation.operation} {violation.percentile}",
                 body=f"Severity: {violation.severity}, Latency: {context.get('latency_ms')}ms",
-                priority=priority_map.get(severity, NotificationPriority.NORMAL),
+                priority=priority_map.get(severity, "normal"),
                 metadata={
                     "operation": violation.operation,
                     "percentile": violation.percentile,
@@ -325,9 +378,7 @@ class SLOAlertBridge:
             logger.info("Sent Slack alert for %s", violation.operation)
             return True
 
-        except ImportError:
-            logger.debug("Notification manager not available")
-        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
+        except (ImportError, OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
             logger.error("Failed to send Slack alert: %s", e)
 
         return False
@@ -426,29 +477,33 @@ class SLOAlertBridge:
                 and self._pagerduty_client
             ):
                 try:
-                    await self._pagerduty_client.resolve_incident(
+                    resolved = await self._pagerduty_client.resolve_incident(
                         violation.pagerduty_incident_id,
                         resolution=f"SLO {operation} {percentile} recovered. "
                         f"Duration: {time.time() - violation.first_seen:.0f}s, "
                         f"Occurrences: {violation.count}",
                     )
-                    logger.info("Resolved PagerDuty incident %s", violation.pagerduty_incident_id)
+                    if resolved:
+                        logger.info(
+                            "Resolved PagerDuty incident %s",
+                            violation.pagerduty_incident_id,
+                        )
+                    else:
+                        logger.error(
+                            "Failed to resolve PagerDuty incident %s",
+                            violation.pagerduty_incident_id,
+                        )
                 except (OSError, ConnectionError, RuntimeError) as e:
                     logger.error("Failed to resolve PagerDuty incident: %s", e)
 
             # Send recovery notification to Slack
             if "slack" in violation.notified_channels and self._notification_manager:
                 try:
-                    from aragora.control_plane.channels import (
-                        NotificationEventType,
-                        NotificationPriority,
-                    )
-
                     await self._notification_manager.notify(
-                        event_type=NotificationEventType.TASK_COMPLETED,
+                        event_type="task_completed",
                         title=f"SLO Recovered: {operation} {percentile}",
                         body=f"Duration: {time.time() - violation.first_seen:.0f}s, Occurrences: {violation.count}",
-                        priority=NotificationPriority.LOW,
+                        priority="low",
                         metadata={
                             "operation": operation,
                             "percentile": percentile,
@@ -456,7 +511,14 @@ class SLOAlertBridge:
                             "occurrence_count": violation.count,
                         },
                     )
-                except (ImportError, OSError, ConnectionError, RuntimeError) as e:
+                except (
+                    ImportError,
+                    OSError,
+                    ConnectionError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as e:
                     logger.error("Failed to send recovery notification: %s", e)
 
             # Clean up
@@ -492,6 +554,8 @@ class SLOAlertBridge:
 
 # Global bridge instance
 _bridge: SLOAlertBridge | None = None
+_registered_violation_callback: Callable[[dict[str, Any]], Any] | None = None
+_registered_recovery_callback: Callable[[dict[str, Any]], Any] | None = None
 
 
 def get_slo_alert_bridge() -> SLOAlertBridge | None:
@@ -525,7 +589,9 @@ def init_slo_alerting(
     Returns:
         Configured SLOAlertBridge instance
     """
-    global _bridge
+    global _bridge, _registered_violation_callback, _registered_recovery_callback
+
+    _unregister_bridge_callbacks()
 
     config = SLOAlertConfig(
         pagerduty_enabled=bool(pagerduty_api_key and pagerduty_service_id),
@@ -572,6 +638,8 @@ def init_slo_alerting(
 
         register_violation_callback(violation_callback)
         register_recovery_callback(recovery_callback)
+        _registered_violation_callback = violation_callback
+        _registered_recovery_callback = recovery_callback
 
         logger.info(
             "SLO alerting initialized: pagerduty=%s, slack=%s, teams=%s",
@@ -586,23 +654,34 @@ def init_slo_alerting(
     return _bridge
 
 
+def _unregister_bridge_callbacks() -> None:
+    """Unregister callbacks owned by this bridge without disturbing other consumers."""
+    global _registered_violation_callback, _registered_recovery_callback
+
+    try:
+        from aragora.observability.metrics.slo import (
+            unregister_recovery_callback,
+            unregister_violation_callback,
+        )
+
+        if _registered_violation_callback is not None:
+            unregister_violation_callback(_registered_violation_callback)
+        if _registered_recovery_callback is not None:
+            unregister_recovery_callback(_registered_recovery_callback)
+    except ImportError:
+        pass
+
+    _registered_violation_callback = None
+    _registered_recovery_callback = None
+
+
 def shutdown_slo_alerting() -> None:
     """Shutdown the SLO alerting system and unregister callbacks."""
     global _bridge
 
-    if _bridge is None:
-        return
-
-    try:
-        from aragora.observability.metrics.slo import clear_all_callbacks
-
-        clear_all_callbacks()
-        logger.info("SLO alerting shutdown, callbacks unregistered")
-
-    except ImportError:
-        pass
-
+    _unregister_bridge_callbacks()
     _bridge = None
+    logger.info("SLO alerting shutdown, callbacks unregistered")
 
 
 __all__ = [
@@ -611,6 +690,10 @@ __all__ = [
     "SLOAlertConfig",
     "SLOAlertBridge",
     "ActiveViolation",
+    "PagerDutyAlertSink",
+    "ChannelAlertSink",
+    "register_pagerduty_alert_sink",
+    "register_channel_alert_sink",
     "get_slo_alert_bridge",
     "init_slo_alerting",
     "shutdown_slo_alerting",

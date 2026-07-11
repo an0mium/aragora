@@ -538,6 +538,7 @@ def get_metrics() -> KMMetrics:
     global _global_metrics
     if _global_metrics is None:
         _global_metrics = KMMetrics()
+    _register_prometheus_health_provider()
     return _global_metrics
 
 
@@ -545,6 +546,25 @@ def set_metrics(metrics: KMMetrics) -> None:
     """Set the global metrics instance."""
     global _global_metrics
     _global_metrics = metrics
+    _register_prometheus_health_provider()
+
+
+def get_prometheus_health_status() -> int:
+    """Return the current KM health as the observability gauge value."""
+    health_map = {
+        HealthStatus.UNKNOWN: 0,
+        HealthStatus.UNHEALTHY: 1,
+        HealthStatus.DEGRADED: 2,
+        HealthStatus.HEALTHY: 3,
+    }
+    return health_map.get(get_metrics().get_health().status, 0)
+
+
+def _register_prometheus_health_provider() -> None:
+    """Register the KM-owned health adapter with observability."""
+    from aragora.observability.metrics.km import register_km_health_provider
+
+    register_km_health_provider(get_prometheus_health_status)
 
 
 __all__ = [
@@ -555,4 +575,5 @@ __all__ = [
     "HealthReport",
     "get_metrics",
     "set_metrics",
+    "get_prometheus_health_status",
 ]

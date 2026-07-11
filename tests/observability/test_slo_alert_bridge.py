@@ -25,6 +25,8 @@ from aragora.observability.slo_alert_bridge import (
     SLOAlertConfig,
     get_slo_alert_bridge,
     init_slo_alerting,
+    register_channel_alert_sink,
+    register_pagerduty_alert_sink,
     shutdown_slo_alerting,
 )
 
@@ -32,6 +34,23 @@ from aragora.observability.slo_alert_bridge import (
 # =============================================================================
 # Fixtures
 # =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _register_external_alert_sinks():
+    """Register concrete adapters before constructing bridge fixtures."""
+    from aragora.connectors.devops.slo_alert_sink import (
+        register_slo_alert_sink as register_pagerduty_sink,
+    )
+    from aragora.control_plane.slo_alert_sink import (
+        register_slo_alert_sink as register_channel_sink,
+    )
+
+    register_pagerduty_sink()
+    register_channel_sink()
+    yield
+    register_pagerduty_alert_sink(None)
+    register_channel_alert_sink(None)
 
 
 @pytest.fixture
@@ -142,6 +161,7 @@ def mock_pagerduty_connector():
 def mock_notification_manager():
     """Mock notification manager."""
     mock_manager = AsyncMock()
+    mock_manager.add_channel = MagicMock()
     mock_manager.notify = AsyncMock()
 
     mock_event_type = MagicMock()
@@ -513,6 +533,48 @@ class TestSendPagerDutyAlert:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_registered_sink_factory_handles_incident_creation(
+        self, pagerduty_config: SLOAlertConfig
+    ):
+        """PagerDuty delivery uses the connector-owned registered sink."""
+        sink = AsyncMock()
+        sink.create_incident = AsyncMock(return_value="PD-REGISTERED")
+        register_pagerduty_alert_sink(lambda config: sink)
+        try:
+            registered_bridge = SLOAlertBridge(pagerduty_config)
+            violation = ActiveViolation(
+                operation="debate",
+                percentile="p99",
+                severity="critical",
+                first_seen=time.time(),
+                last_seen=time.time(),
+                incident_key="registered-key",
+            )
+
+            result = await registered_bridge._send_pagerduty_alert(
+                violation,
+                {"latency_ms": 500, "threshold_ms": 200},
+            )
+
+            assert result == "PD-REGISTERED"
+            sink.create_incident.assert_awaited_once()
+        finally:
+            register_pagerduty_alert_sink(None)
+
+    @pytest.mark.asyncio
+    async def test_connector_sink_reports_resolution_failure(
+        self, pagerduty_config: SLOAlertConfig
+    ):
+        """Connector exceptions produce an explicit failed resolution result."""
+        from aragora.connectors.devops.slo_alert_sink import PagerDutySLOAlertSink
+
+        sink = PagerDutySLOAlertSink(pagerduty_config)
+        sink._connector = AsyncMock()
+        sink._connector.resolve_incident = AsyncMock(side_effect=ConnectionError("down"))
+
+        assert await sink.resolve_incident("PD-1", "recovered") is False
+
+    @pytest.mark.asyncio
     async def test_import_error_returns_none(self, pd_bridge: SLOAlertBridge):
         """Import error for PagerDuty connector returns None gracefully."""
         violation = ActiveViolation(
@@ -696,6 +758,27 @@ class TestSendSlackAlert:
         )
         result = await bridge._send_slack_alert(violation, {})
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_registered_channel_sink_handles_notification(self, slack_config: SLOAlertConfig):
+        """Slack delivery uses the control-plane-owned registered sink."""
+        sink = AsyncMock()
+        sink.notify = AsyncMock()
+        register_channel_alert_sink(lambda config: sink)
+        try:
+            registered_bridge = SLOAlertBridge(slack_config)
+            violation = ActiveViolation(
+                operation="debate",
+                percentile="p99",
+                severity="critical",
+                first_seen=time.time(),
+                last_seen=time.time(),
+            )
+
+            assert await registered_bridge._send_slack_alert(violation, {}) is True
+            sink.notify.assert_awaited_once()
+        finally:
+            register_channel_alert_sink(None)
 
     @pytest.mark.asyncio
     async def test_no_webhook_url_returns_false(self):
@@ -1821,25 +1904,37 @@ class TestShutdownSLOAlerting:
 
         module._bridge = original
 
-    def test_shutdown_calls_clear_all_callbacks(self):
-        """Shutdown unregisters callbacks via clear_all_callbacks."""
+    def test_shutdown_unregisters_only_bridge_callbacks(self):
+        """Shutdown unregisters the callbacks owned by the bridge."""
         import aragora.observability.slo_alert_bridge as module
 
         original = module._bridge
+        original_violation = module._registered_violation_callback
+        original_recovery = module._registered_recovery_callback
 
         module._bridge = SLOAlertBridge(SLOAlertConfig())
+        violation_callback = MagicMock()
+        recovery_callback = MagicMock()
+        module._registered_violation_callback = violation_callback
+        module._registered_recovery_callback = recovery_callback
 
         mock_slo_module = MagicMock()
-        mock_slo_module.clear_all_callbacks = MagicMock()
+        mock_slo_module.unregister_violation_callback = MagicMock()
+        mock_slo_module.unregister_recovery_callback = MagicMock()
 
         with patch.dict(
             "sys.modules",
             {"aragora.observability.metrics.slo": mock_slo_module},
         ):
             shutdown_slo_alerting()
-            mock_slo_module.clear_all_callbacks.assert_called_once()
+            mock_slo_module.unregister_violation_callback.assert_called_once_with(
+                violation_callback
+            )
+            mock_slo_module.unregister_recovery_callback.assert_called_once_with(recovery_callback)
 
         module._bridge = original
+        module._registered_violation_callback = original_violation
+        module._registered_recovery_callback = original_recovery
 
     def test_shutdown_handles_import_error(self):
         """Shutdown handles missing SLO module gracefully."""
