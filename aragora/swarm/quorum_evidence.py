@@ -352,6 +352,12 @@ _MAX_REVIEWER_CHARS = 32_000
 # Keep CLI failures useful without leaking the full provider transcript. The
 # head identifies the transport; the tail usually carries quota/auth failures.
 _MAX_CLI_ERROR_CHARS = 500
+_CLI_TRANSCRIPT_ROLES = frozenset({"system", "developer", "user", "assistant"})
+_CLI_DIAGNOSTIC_PREFIX = re.compile(
+    r"^(?:error|fatal|warning|failed|failure|usage|quota|rate limit|authentication|"
+    r"authorization|unauthorized|forbidden|model|you(?:'ve| have|'re| are))\b",
+    re.IGNORECASE,
+)
 # Claude CLI startup can legitimately take longer on large reviews, especially
 # when subscription auth and local MCP state are cold. Keep only that path at a
 # generous ceiling; reviewer transports without the Claude-specific probe stay
@@ -442,12 +448,32 @@ def _bounded_cli_failure_detail(
     for value in redact:
         if value:
             text = text.replace(value, "[review prompt redacted]")
+
+    # Codex-style CLIs may echo the full prompt after a role marker. Strip that
+    # transcript payload even when the provider escapes or truncates the prompt,
+    # resuming only at an explicit diagnostic line.
+    filtered_lines: list[str] = []
+    suppress_payload = False
+    for line in text.splitlines():
+        if line.strip().lower().rstrip(":") in _CLI_TRANSCRIPT_ROLES:
+            suppress_payload = True
+            continue
+        if suppress_payload:
+            if not _CLI_DIAGNOSTIC_PREFIX.match(line.strip()):
+                continue
+            suppress_payload = False
+        filtered_lines.append(line)
+    text = "\n".join(filtered_lines).strip()
+
     if len(text) <= _MAX_CLI_ERROR_CHARS:
         return text
 
     marker = "\n...[CLI diagnostic truncated]...\n"
-    head_chars = 180
-    tail_chars = _MAX_CLI_ERROR_CHARS - head_chars - len(marker)
+    content_chars = max(0, _MAX_CLI_ERROR_CHARS - len(marker))
+    if content_chars == 0:
+        return marker.strip()[:_MAX_CLI_ERROR_CHARS]
+    head_chars = content_chars // 3
+    tail_chars = content_chars - head_chars
     head = text[:head_chars]
     tail = text[-tail_chars:]
     if "\n" in head:
@@ -1373,7 +1399,12 @@ def _resolve_grok_build_bin() -> str:
 
 
 def _run_argv_cli_reviewer(
-    family: str, argv: list[str], harness: str, timeout: float = _REVIEWER_TIMEOUT
+    family: str,
+    argv: list[str],
+    harness: str,
+    *,
+    prompt: str,
+    timeout: float = _REVIEWER_TIMEOUT,
 ) -> ReviewerResult:
     """Run a headless single-prompt CLI reviewer (prompt passed as an argv value).
 
@@ -1382,6 +1413,8 @@ def _run_argv_cli_reviewer(
     the review body. Same exact-head composition + evidence-lint as every other
     reviewer decides whether the result can count.
     """
+    if not argv:
+        return ReviewerResult(family, "", False, f"{family} CLI command is empty")
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
     except FileNotFoundError:
@@ -1397,7 +1430,7 @@ def _run_argv_cli_reviewer(
         detail = _bounded_cli_failure_detail(
             proc.stderr,
             proc.stdout,
-            redact=(argv[-1],),
+            redact=(prompt,),
         )
         return ReviewerResult(family, "", False, f"{family} CLI exit {proc.returncode}: {detail}")
     return ReviewerResult(family, _cap_text(text), True, harness=harness)
@@ -1423,6 +1456,7 @@ def _run_grok_reviewer(prompt: str) -> ReviewerResult:
             "grok",
             [grok_bin, "--sandbox", "read-only", "--no-plan", "-p", prompt],
             _GROK_BUILD_HARNESS,
+            prompt=prompt,
             timeout=timeout,
         )
         if result.ok or not _env_key_present("XAI_API_KEY", "GROK_API_KEY"):
@@ -1446,6 +1480,7 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
             "gemini",
             [agy_path, "--sandbox", "-p", prompt],
             _ANTIGRAVITY_HARNESS,
+            prompt=prompt,
             timeout=timeout,
         )
         if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):

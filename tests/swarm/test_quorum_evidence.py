@@ -563,10 +563,11 @@ def test_run_openai_reviewer_preserves_actionable_error_tail_and_redacts_prompt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     prompt = "review prompt with private diff content"
+    escaped_prompt = prompt.replace(" ", "\\ ")
     stderr = (
         "OpenAI Codex v0.144.1\n"
         + ("session header metadata\n" * 30)
-        + f"user\n{prompt}\n"
+        + f"user\n{escaped_prompt}\n"
         + "ERROR: You've hit your usage limit. Try again at 4:50 PM."
     )
 
@@ -583,7 +584,7 @@ def test_run_openai_reviewer_preserves_actionable_error_tail_and_redacts_prompt(
     assert "usage limit" in result.error
     assert "4:50 PM" in result.error
     assert prompt not in result.error
-    assert "[review prompt redacted]" in result.error
+    assert escaped_prompt not in result.error
     assert "[CLI diagnostic truncated]" in result.error
 
 
@@ -601,12 +602,20 @@ def test_argv_cli_reviewer_preserves_error_tail_without_prompt(monkeypatch) -> N
         "grok",
         ["grok", "--sandbox", "read-only", "-p", prompt],
         "test harness",
+        prompt=prompt,
     )
 
     assert result.ok is False
     assert "authentication expired" in result.error
     assert prompt not in result.error
     assert "[review prompt redacted]" in result.error
+
+
+def test_argv_cli_reviewer_rejects_empty_command() -> None:
+    result = qe._run_argv_cli_reviewer("grok", [], "test harness", prompt="sensitive")
+
+    assert result.ok is False
+    assert result.error == "grok CLI command is empty"
 
 
 @pytest.mark.parametrize(
@@ -3196,8 +3205,9 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "17")
     seen: dict = {}
 
-    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+    def fake_cli(family, argv, harness, *, prompt, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["prompt"] = prompt
         seen["timeout"] = timeout
         return qe.ReviewerResult(family, "verdict", True, harness=harness)
 
@@ -3208,6 +3218,7 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     # read-only sandbox + headless single-prompt, explicit Grok Build path.
     assert seen["argv"][1:] == ["--sandbox", "read-only", "--no-plan", "-p", "review prompt"]
     assert seen["argv"][0].endswith(".grok/bin/grok")
+    assert seen["prompt"] == "review prompt"
     assert seen["timeout"] == 17.0
 
 
@@ -3243,8 +3254,9 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
     seen: dict = {}
 
-    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+    def fake_cli(family, argv, harness, *, prompt, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["prompt"] = prompt
         seen["timeout"] = timeout
         return qe.ReviewerResult(family, "v", True, harness=harness)
 
@@ -3254,6 +3266,7 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     assert res.family == "gemini"
     # resolved path (not bare "agy") + sandbox.
     assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+    assert seen["prompt"] == "review prompt"
     assert seen["timeout"] == 19.0
 
 
