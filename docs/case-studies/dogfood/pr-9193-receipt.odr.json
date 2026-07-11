@@ -10,11 +10,11 @@
       "alg": "sha-256",
       "value": "a0bb35d264ebcbab3285f7385c429ea3f9a7a0a3c0e599ef823600b8b9a5b24b"
     },
-    "summary": "Merge synaptent/aragora#9193 @ 65521e892675 — tests(scripts): harden docs-site fallback mirror guard with source parity"
+    "summary": "Merge synaptent/aragora#9193 @ 65521e892675"
   },
   "claim": {
     "verdict": "CHANGES_REQUESTED",
-    "statement": "Merge synaptent/aragora#9193 @ 65521e892675 — tests(scripts): harden docs-site fallback mirror guard with source parity"
+    "statement": "Merge synaptent/aragora#9193 @ 65521e892675"
   },
   "reasoning": {
     "status": "present",
@@ -53,7 +53,7 @@
         "grok"
       ],
       "views": [
-        "grok: Verdict: CHANGES-REQUESTED\n- [P2] tests/scripts/test_docs_site_sync_links.py:163: subprocess.run invokes `node sync-docs.js` in a stripped tmp tree (only docs/ + scripts/ + a few ../ sources copied); missing node_modules/deps will cause runtime failures or silent partial syncs.\n- [P2] tests/scripts/test_docs_site_sync_links.py:145: root_source_files logic only handles entries starting with \"../\"; any DOC_MAP entry using a different relative form will be omitted from the temp workspace and produc"
+        "grok: Verdict: CHANGES-REQUESTED\n- [P2] tests/scripts/test_docs_site_sync_links.py:163: subprocess.run invokes `node sync-docs.js` in a stripped tmp tree (only docs/ + scripts/ + a few ../ sources copied); missing node_modules/deps will cause runtime failures or silent partial syncs.\n- [P2] tests/scripts/test_docs_site_sync_links.py:145: root_source_files logic only handles entries starting with \"../\"; any DOC_MAP entry using a different relative form will be omitted from the temp workspace and produce false mismatches.\n- [P2] tests/scripts/test_docs_site_sync_links.py:128: new test now requires Node.js + sync-docs.js runtime in the test env (previously absent), introducing an undeclared CI dependency and potential flakiness."
       ]
     }
   },

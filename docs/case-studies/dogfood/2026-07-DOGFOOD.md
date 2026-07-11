@@ -13,10 +13,14 @@ genuine, independent multi-model reviews, and every review produced a verifiable
 Open Decision Receipt (ODR) artifact. All 5 receipts independently verify with
 `aragora-verify` at **exit 0** (schema_conformance=pass, quorum_consistency=pass).
 
-The quorum caught a real defect (a `None`-return type-contract violation in PR #9030 that both
-models unanimously flagged), produced genuine dissent on 2 PRs (grok blocked where mistral
-passed), and honestly recorded 2 PRs as clean passes. Limitations are documented below, not
-hidden.
+The quorum produced genuine model findings and dissent on 3 PRs (grok blocked where mistral
+passed, or both blocked), and honestly recorded 2 PRs as clean passes. However, after
+independent exact-head verification, **zero model findings were confirmed as real defects** —
+the headline PR #9030 "catch" (a `None`-return type-contract violation) is a model false
+positive disproven by the reviewed code (the caller guards `None` via a truthiness check
+before iterating). This is an honest result: a 2-family quorum that flags risks but whose
+flags did not correspond to confirmed defects on this PR slice. Limitations are documented
+below, not hidden, and each named gap links a follow-up issue.
 
 ## Provider Selection
 
@@ -38,11 +42,14 @@ is expired/invalid; this is recorded as a limitation, not hidden.
 > **Note on `collect_quorum_evidence.py`:** The Action's standard evidence collector
 > (`scripts/collect_quorum_evidence.py`) routes the "mistral" family through an OpenRouter
 > transport agent, which failed due to the broken OpenRouter key. To use the direct Mistral API
-> (`mistral-api` agent type with `MISTRAL_API_KEY`), we ran reviewers via
-> `aragora.agents.create_agent("grok")` and `create_agent("mistral-api")` directly, then built
-> ODR receipts through the canonical `collect_outcome_to_decision_receipt` +
-> `decision_receipt_to_odr` pipeline (the same transform `scripts/emit_pr_receipt.py` uses).
-> No merge-authority, quorum, settle, or receipt-pipeline code was modified.
+> (`mistral-api` agent type with `MISTRAL_API_KEY`), the original live run invoked
+> `aragora.agents.create_agent("grok")` and `create_agent("mistral-api")` directly. The raw
+> reviewer outputs from that live run are committed as fixtures
+> (`raw-reviews/pr-<N>-reviewers.json`), and the ODR receipts are regenerated from them through
+> the canonical `collect_outcome_to_decision_receipt` + `decision_receipt_to_odr` pipeline
+> (the same transform `scripts/emit_pr_receipt.py` uses) by the committed offline replay driver
+> [`replay_dogfood_receipts.py`](replay_dogfood_receipts.py). No merge-authority, quorum,
+> settle, or receipt-pipeline code was modified.
 
 ## PR Selection
 
@@ -103,25 +110,50 @@ Each receipt satisfies:
 
 ## Honest Report: Catches / Misses / Blocked / Couldn't-Decide
 
-### Caught (real issues the quorum identified)
+### Model Findings (not independently confirmed as real defects)
 
-1. **PR #9030 — `None`-return type contract violation (P1/P2, unanimous):**
-   Both models independently identified that `_detect_with_llm` now returns `None` on empty
-   content, breaking the `-> list[tuple[str, float]]` type annotation and risking a crash at
-   callers that iterate the result. Mistral flagged it as **P1** ("the existing fallback logic
-   in `detect()` will crash when it tries to iterate over `None`"). Grok flagged it as **P2**.
-   This is a genuine correctness regression catch by the heterogeneous quorum.
+Per the **exact-head defect rule**, no model finding is classified as a "real catch"
+unless it is independently confirmed against the reviewed PR's exact head. After
+exact-head verification, **zero model findings were confirmed as real defects** on
+this PR slice. All flagged items are recorded below as model findings, with the
+exact-head analysis for each.
 
-2. **PR #9062 — Timeout calculation ignores `api_fallback` (P2, grok):**
-   Grok identified that `run_consult` computes `overall_timeout` as
-   `timeout * (2 + int(openrouter_fallback))`, ignoring `api_fallback`, `fallback_model`, and
-   `_planned_attempt_count`, causing potential under/over-budgeting. Mistral noted the related
-   behavioral change (system prompt handling) but as P3.
+1. **PR #9030 — `None`-return type contract violation (P1/P2, unanimous) — MODEL FALSE
+   POSITIVE:**
+   Both models flagged that `_detect_with_llm` returns `None` on empty content, claiming
+   the caller `detect()` "will crash when it tries to iterate over `None`." Exact-head
+   analysis of `aragora/routing/domain_matcher.py` at head `6fe6ad588f4c` disproves this:
+   the caller guards the return value with `if llm_result:` (a truthiness check) before
+   any iteration, and falls back to `_detect_with_keywords()` when the result is `None`
+   or empty. The return type already permitted `None` (the exception handler and
+   no-valid-domains paths both returned `None` before this PR), and the PR's own test
+   `test_llm_detection_empty_response_fallback` confirms the fallback works. This is a
+   confirmed model false positive, not a real catch.
 
-3. **PR #9193 — Test environment Node dependency risk (P2, grok):**
-   Grok identified that the test's `subprocess.run` invokes `node sync-docs.js` in a stripped
-   tmp tree that may be missing `node_modules`/deps, risking runtime failures or silent partial
-   syncs. Mistral passed with only a P3 debug-logging suggestion.
+2. **PR #9062 — Timeout calculation ignores `api_fallback` (P2, grok) — UNCONFIRMED:**
+   Grok flagged that `run_consult` computes `overall_timeout` as
+   `timeout * (2 + int(openrouter_fallback))`, claiming it ignores `api_fallback`,
+   `fallback_model`, and `_planned_attempt_count`. Exact-head analysis of
+   `scripts/fable_goal_cycle.py` at head `0a37ec64bde1` shows `run_consult` has no
+   `api_fallback`, `fallback_model`, or `_planned_attempt_count` parameters — the
+   function's only fallback-related parameter is `openrouter_fallback`. The finding
+   references parameters that do not exist in the reviewed function. This is an
+   unconfirmed model finding (likely a hallucinated cross-reference), not a real catch.
+
+3. **PR #9193 — Test environment Node dependency risk (P2, grok) — UNCONFIRMED:**
+   Grok flagged that the test's `subprocess.run` invokes `node sync-docs.js` in a
+   stripped tmp tree that may be missing `node_modules`/deps. Exact-head analysis of
+   `tests/scripts/test_docs_site_sync_links.py` at head `65521e892675` shows the test
+   copies `docs/` and `docs-site/scripts/` to a temp directory and runs `node
+   sync-docs.js`. The PR merged with passing CI, confirming `sync-docs.js` is
+   self-contained (no external `node_modules` required). This is an unconfirmed model
+   finding (a theoretical risk that does not materialize), not a real catch.
+
+**Honest summary: zero real catches.** The 2-family quorum produced model findings on
+3 of 5 PRs, but none were independently confirmed as real defects against the exact
+head. This is an acceptable, honest result for a 2-family retrospective dogfood: the
+gate produces structured, dissent-bearing, verifiable receipts, but the model findings
+on this particular PR slice did not correspond to confirmed defects.
 
 ### Missed (issues the quorum did not flag)
 
@@ -138,52 +170,71 @@ Each receipt satisfies:
 
 1. **PR #9193 — Grok blocked, Mistral passed.** Grok's 3 P2 findings (Node deps, root_source_files
    logic, Node dependency in test) vs. Mistral's 1 P3. The quorum verdict is CHANGES_REQUESTED
-   (dissent recorded). A human would need to adjudicate whether the stripped-tree test
-   environment actually fails in CI or is handled by global Node modules.
+   (dissent recorded). Exact-head analysis found Grok's Node-deps finding unconfirmed (the PR
+   merged with passing CI; `sync-docs.js` is self-contained), so this dissent was based on an
+   unconfirmed model finding rather than a real defect.
 
 2. **PR #9062 — Grok blocked, Mistral passed.** Grok's 2 P2 findings (timeout calculation,
    prompt composition) vs. Mistral's 3 P3 findings. The quorum verdict is CHANGES_REQUESTED
-   (dissent recorded). A human would need to adjudicate whether the timeout calculation
-   actually causes hangs or is acceptable for the fallback path.
+   (dissent recorded). Exact-head analysis found Grok's timeout finding unconfirmed (it
+   references parameters that do not exist in the reviewed function), so this dissent was
+   based on an unconfirmed model finding rather than a real defect.
 
 ### Couldn't-Decide
 
 1. **Whether the PR #9030 `None`-return caused a production issue.** Both models flagged it,
-   but the PR is already merged. We cannot determine from the review alone whether the
-   `None`-return path is actually reached in production or was intentional for the
-   empty-content case. The quorum correctly flagged the risk; a post-merge audit would be
-   needed to confirm impact.
+   but exact-head analysis disproved the finding (the caller guards `None` via `if llm_result:`
+   before iterating). This is a confirmed model false positive, not an open question — the
+   "couldn't-decide" is whether the quorum **should have** caught the false positive itself,
+   which it cannot without an exact-head verification step in the pipeline.
 
 2. **Whether a 3rd family would have broken the dissent ties on PRs #9193 and #9062.** With
    only 2 families, both dissent cases are 1-1 splits. A 3rd family (Gemini) was unreachable
    due to an invalid API key. Adding a 3rd family could have produced a majority verdict
-   instead of an unresolved split.
+   instead of an unresolved split. → Follow-up: [#9207](https://github.com/synaptent/aragora/issues/9207)
 
 3. **Grok's higher blocking rate.** Grok returned CHANGES_REQUESTED on 3 of 5 PRs while
-   Mistral returned CHANGES_REQUESTED on only 1. This could reflect genuine adversarial
-   thoroughness (grok caught more real issues) or over-blocking (grok's P2 findings on #9193
-   and #9062 may be advisory rather than blocking). The 2-family quorum cannot adjudicate
-   this calibration question.
+   Mistral returned CHANGES_REQUESTED on only 1. Since exact-head analysis found zero
+   confirmed real catches, Grok's higher blocking rate may reflect over-blocking rather than
+   genuine thoroughness. The 2-family quorum cannot adjudicate this calibration question.
+   → Follow-up: [#9208](https://github.com/synaptent/aragora/issues/9208)
 
 ## Reproducibility
 
-### Exact commands
+### Offline replay (zero LLM spend)
+
+The 5 ODR receipts in this directory are regenerated from the committed raw reviewer
+outputs by the offline replay driver
+[`replay_dogfood_receipts.py`](replay_dogfood_receipts.py), which feeds the stored raw
+model outputs (`raw-reviews/pr-<N>-reviewers.json`) through the canonical
+`collect_outcome_to_decision_receipt` + `decision_receipt_to_odr` collector pipeline
+(the same transform `scripts/emit_pr_receipt.py` uses). This path makes **zero live LLM
+calls** and spends nothing.
 
 ```bash
-# 1. Load environment (never print/commit secrets)
-set -a; . "$REPO_ROOT/.env"; set +a
-export ARAGORA_SECRETS_STRICT=false
+# 1. Regenerate all 5 receipts through the canonical collector (no LLM calls, $0 spend)
+#    Run from the repo root with the mission venv:
+PYTHONPATH="$REPO_ROOT" venv/bin/python3 docs/case-studies/dogfood/replay_dogfood_receipts.py
 
-# 2. Fetch PR diffs
-gh pr diff 9193 --repo synaptent/aragora > /tmp/pr-9193.diff
-# ... repeat for each PR
+# 2. Verify each receipt (all exit 0: schema_conformance=pass, quorum_consistency=pass)
+for f in docs/case-studies/dogfood/pr-*-receipt.odr.json; do
+    aragora-verify "$f" --json
+done
+```
 
-# 3. Run reviews (script runs grok + mistral-api concurrently per PR, builds ODR receipts)
-PYTHONPATH="$REPO_ROOT" venv/bin/python3 scripts/dogfood_m8.py
+### Original live run (how the raw outputs were produced)
 
-# 4. Verify each receipt
-aragora-verify docs/case-studies/dogfood/pr-9193-receipt.odr.json --json
-# ... repeat for each receipt (all exit 0)
+The raw reviewer outputs (`raw-reviews/pr-<N>-reviewers.json`) were produced by the
+original live M8 run, which used `aragora.agents.create_agent("grok")` and
+`create_agent("mistral-api")` to review each PR's diff. That live run is not reproducible
+without provider keys, but its outputs are committed as fixtures so the receipt
+regeneration above is fully reproducible offline.
+
+```bash
+# Original live run (requires reachable provider keys; NOT needed for receipt regeneration):
+set -a; . "$REPO_ROOT/.env"; set +a  # load secrets (never print/commit)
+gh pr diff 9193 --repo synaptent/aragora > /tmp/pr-9193.diff  # fetch diffs
+# Reviewers ran via create_agent("grok") + create_agent("mistral-api") per PR
 ```
 
 ### Provider set
@@ -203,15 +254,18 @@ reply with 'Verdict: PASS' or 'Verdict: CHANGES-REQUESTED'... tag [P1]/[P2]/[P3]
    (HTTP 400 "API key not valid"). OpenRouter's key is a placeholder (HTTP 401). The quorum
    uses xAI + Mistral only — still heterogeneous (2 distinct families) but a 3rd family would
    strengthen tie-breaking on dissent cases.
+   → Follow-up: [#9206](https://github.com/synaptent/aragora/issues/9206)
 
 2. **Receipts are UNSIGNED.** No ODR signing path is wired in the shipped Action. All receipts
    have `signatures: []` and verify at exit 0 with `signature=warn`. Authenticity is
    **UNVERIFIED** — the receipts prove schema/digest/quorum integrity but not cryptographic
    authenticity. This is the current honest state of the product, not a dogfood artifact.
+   → Follow-up: [#8544](https://github.com/synaptent/aragora/issues/8544)
 
 3. **Costs are estimates.** Provider invoices are not available in-session. The spend ledger
-   records conservative upper-bound estimates based on published per-token pricing. Total
-   estimated M8 spend: ~$0.23 (well under the $100 cap).
+   records conservative upper-bound estimates based on published per-token pricing, with an
+   explicit rounding policy (see [Spend Ledger](#spend-ledger) below). Total estimated M8
+   spend: $0.2301 (well under the $100 cap).
 
 4. **All reviewed PRs are already merged.** The dogfood reviews are retrospective — we review
    already-merged PRs to evaluate the gate's catch rate, not to block merges. The catches and
@@ -220,31 +274,36 @@ reply with 'Verdict: PASS' or 'Verdict: CHANGES-REQUESTED'... tag [P1]/[P2]/[P3]
 5. **2-family quorum cannot adjudicate dissent.** With 2 families, a 1-1 split (PRs #9193,
    #9062) produces an unresolved CHANGES_REQUESTED verdict. A 3-family quorum would produce a
    majority. This is an inherent limitation of the 2-family configuration, not a gate defect.
+   → Follow-up: [#9207](https://github.com/synaptent/aragora/issues/9207)
 
-6. **No `aragora review` CLI path was used for receipt production.** The standard
-   `aragora review` CLI produces a review.json but does not directly emit an ODR receipt. We
-   used the canonical `collect_outcome_to_decision_receipt` + `decision_receipt_to_odr`
-   transform (the same path `scripts/emit_pr_receipt.py` uses) to produce ODRs from the
-   reviewer outputs. This is the Action's actual receipt emission path.
+6. **`aragora review` CLI does not directly emit ODR receipts.** The standard
+   `aragora review` CLI produces a review.json but does not directly emit an ODR receipt.
+   Receipts were produced through the canonical `collect_outcome_to_decision_receipt` +
+   `decision_receipt_to_odr` transform (the same path `scripts/emit_pr_receipt.py` uses) via
+   the committed offline replay driver [`replay_dogfood_receipts.py`](replay_dogfood_receipts.py).
+   → Follow-up: [#9209](https://github.com/synaptent/aragora/issues/9209)
 
 ## Spend Ledger
 
-The shared spend ledger is at [`spend-ledger.json`](spend-ledger.json). Summary:
+The shared spend ledger is at [`spend-ledger.json`](spend-ledger.json). The ledger stores
+the **exact** per-entry `estimated_cost_usd` values and the cumulative total is the exact
+arithmetic sum (no rounding). Summary:
 
-| Entry | PR | Est. Cost |
-|-------|----|-----------|
-| connectivity probe | — | $0.0001 |
-| review-pr-9193 | #9193 | $0.05 |
-| review-pr-9062 | #9062 | $0.07 |
-| review-pr-9030 | #9030 | $0.03 |
-| review-pr-9056 | #9056 | $0.05 |
-| review-pr-9027 | #9027 | $0.03 |
-| **M8 sub-total** | | **$0.23** |
-| M9 sub-total | | $0.00 (not yet run) |
-| **Cumulative** | | **$0.23 / $100** |
+| Entry | PR | Est. Cost (USD) |
+|-------|----|-----------------|
+| connectivity probe | — | 0.0001 |
+| review-pr-9193 | #9193 | 0.05 |
+| review-pr-9062 | #9062 | 0.07 |
+| review-pr-9030 | #9030 | 0.03 |
+| review-pr-9056 | #9056 | 0.05 |
+| review-pr-9027 | #9027 | 0.03 |
+| **M8 exact sum** | | **0.2301** |
+| M9 sub-total | | 0.00 (not yet run) |
+| **Cumulative** | | **0.2301 / 100.0** |
 
 No unrecorded spend. All 10 reviewer calls (2 per PR x 5 PRs) plus 1 connectivity probe are
-accounted for in the ledger.
+accounted for in the ledger. The cumulative total is the exact sum of the per-entry values
+(0.0001 + 0.05 + 0.07 + 0.03 + 0.05 + 0.03 = 0.2301), stored without rounding.
 
 ## What This Proves
 
@@ -253,10 +312,16 @@ The dogfood demonstrates the **review → receipt → verify** loop end-to-end o
 1. **Review:** Real heterogeneous multi-model review (grok + mistral) on real Aragora PRs,
    producing genuine independent verdicts with real dissent.
 2. **Receipt:** Each review produces a portable ODR artifact with quorum participants,
-   disclosed model-family independence, structured dissent, and a PR-bound subject identifier.
+   disclosed model-family independence, structured dissent, and a PR-bound subject identifier —
+   regenerated through the canonical `collect_outcome_to_decision_receipt` collector via the
+   committed [`replay_dogfood_receipts.py`](replay_dogfood_receipts.py) offline replay driver.
 3. **Verify:** Every receipt independently verifies with `aragora-verify` (exit 0,
    schema_conformance=pass, quorum_consistency=pass) — no Aragora install or account required.
 
-The quorum caught a real type-contract violation (PR #9030), produced genuine dissent (PRs
-#9193, #9062), and honestly passed clean PRs (#9056, #9027). Limitations (2 families, unsigned
-receipts, retrospective reviews) are documented above, not hidden.
+The quorum produced genuine dissent (PRs #9193, #9062) and honestly passed clean PRs (#9056,
+#9027). After exact-head verification, **zero model findings were confirmed as real defects**
+— the headline PR #9030 "catch" was a model false positive (the caller guards `None` before
+iterating). This is an honest result: the gate produces structured, verifiable, dissent-bearing
+receipts, but the model findings on this PR slice did not correspond to confirmed defects.
+Limitations (2 families, unsigned receipts, retrospective reviews, zero confirmed catches) are
+documented above with follow-up issue links, not hidden.

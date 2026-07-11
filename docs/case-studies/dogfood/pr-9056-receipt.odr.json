@@ -10,11 +10,11 @@
       "alg": "sha-256",
       "value": "4d9406f25d6bdd37eb1da958162e6c1f96246437e111c265884b8f995740bee8"
     },
-    "summary": "Merge synaptent/aragora#9056 @ d7ed551d0564 — feat(swarm): wire PR-keyed round budget into A1 reconciler (Tier 4)"
+    "summary": "Merge synaptent/aragora#9056 @ d7ed551d0564"
   },
   "claim": {
     "verdict": "PASS",
-    "statement": "Merge synaptent/aragora#9056 @ d7ed551d0564 — feat(swarm): wire PR-keyed round budget into A1 reconciler (Tier 4)"
+    "statement": "Merge synaptent/aragora#9056 @ d7ed551d0564"
   },
   "reasoning": {
     "status": "present",

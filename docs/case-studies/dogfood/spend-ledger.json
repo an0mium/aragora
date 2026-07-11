@@ -93,8 +93,9 @@
       "note": "Both: PASS. Grok no findings. Mistral 1 P2 (path traversal edge case)."
     }
   ],
-  "cumulative_usd": 0.23,
-  "cumulative_m8_usd": 0.23,
+  "cumulative_usd": 0.2301,
+  "cumulative_m8_usd": 0.2301,
   "cumulative_m9_usd": 0.0,
-  "note": "Costs are estimates based on published per-token pricing (xai grok-4 ~$5/$15 per 1M in/out; mistral-large ~$2/$6 per 1M in/out). Actual provider invoices not available in-session. All estimates are conservative upper bounds. Cumulative well under $100 cap."
+  "rounding_policy": "No rounding: cumulative fields store the exact arithmetic sum of the per-entry estimated_cost_usd values (0.0001 + 0.05 + 0.07 + 0.03 + 0.05 + 0.03 = 0.2301).",
+  "note": "Costs are estimates based on published per-token pricing (xai grok-4 ~$5/$15 per 1M in/out; mistral-large ~$2/$6 per 1M in/out). Actual provider invoices not available in-session. All estimates are conservative upper bounds. Cumulative is the exact sum of entries (no rounding). Well under $100 cap."
 }

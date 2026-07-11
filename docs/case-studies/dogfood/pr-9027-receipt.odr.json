@@ -10,11 +10,11 @@
       "alg": "sha-256",
       "value": "cc7f680589ea919a658eae7b0f6b8fa4ab3c871768833d319f420d4958e75e16"
     },
-    "summary": "Merge synaptent/aragora#9027 @ 363bde32f58c — fix(scripts): accept operator-context dir in goal-cycle context"
+    "summary": "Merge synaptent/aragora#9027 @ 363bde32f58c"
   },
   "claim": {
     "verdict": "PASS",
-    "statement": "Merge synaptent/aragora#9027 @ 363bde32f58c — fix(scripts): accept operator-context dir in goal-cycle context"
+    "statement": "Merge synaptent/aragora#9027 @ 363bde32f58c"
   },
   "reasoning": {
     "status": "present",
