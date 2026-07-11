@@ -3195,7 +3195,7 @@ def _advisory_settle_review_signals(
     *,
     head_sha: str = "",
     head_committed_at: str = "",
-    strict_receipt: bool = False,
+    strict_author: bool = False,
 ) -> tuple[bool, bool, bool, frozenset[str]]:
     """Single-pass classification of grounded reviews for advisory_settle.
 
@@ -3205,14 +3205,17 @@ def _advisory_settle_review_signals(
     countable-identity review at head in ANY verdict — the "models were heard"
     accounting used by the operator-advisory-settlement relief valve.
 
-    ``strict_receipt=True`` (the valve's mode; claude #9203 P2) additionally
-    requires each POSITIVE signal's identity to carry a receipt artifact
-    (``missing_receipt_artifact`` absent from its identity problems). Without
-    it, family attribution reduces to self-declared comment text — a heading
-    plus a ``Model family:`` line any non-bot login can fabricate — letting a
-    drive-by account manufacture the appearance of unreachable Tier-4 quorum.
-    The blocking-finding scan stays permissive in both modes (a [P0]/[P1] can
-    never be laundered out by a missing receipt).
+    ``strict_author=True`` (the valve's mode) additionally requires each
+    POSITIVE signal to be AUTHORED by a trusted evidence-poster login
+    (:func:`_trusted_evidence_posters`). Authorship is API-real — GitHub sets
+    it from the authenticated token — so no comment BODY (heading, ``Model
+    family:`` line, or a fabricated receipt line, all forgeable text; openai
+    #9203 round-5 P1) can establish a heard family from an untrusted account.
+    No receipt artifact is required: ``compose_evidence_comment`` never emits
+    one, so a receipt gate would make the valve unfireable against real
+    collector-posted reviews (openai #9203 round-6 P2). The blocking-finding
+    scan stays permissive in both modes (a [P0]/[P1] from ANY author still
+    blocks).
 
     Source-validation is applied UNIFORMLY so every *positive* input to the gate
     passes the SAME filters the strict quorum path uses — closing the class of
@@ -3252,7 +3255,7 @@ def _advisory_settle_review_signals(
         identity = _resolve_model_review_identity(body)
         if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
             continue
-        if strict_receipt:
+        if strict_author:
             # Valve mode: positive signals must be AUTHORED by a trusted
             # evidence-poster login. Authorship is API-real — GitHub sets it
             # from the authenticated token — so a drive-by account cannot
@@ -3442,7 +3445,7 @@ def _build_model_review_quorum(
         pr.get("comments") or [],
         head_sha=head_sha,
         head_committed_at=head_committed_at,
-        strict_receipt=True,
+        strict_author=True,
     )
     advisory_settle_eligible = (
         advisory_dissent_settle_enabled()
@@ -3502,18 +3505,17 @@ def _build_model_review_quorum(
         and signal_count == 0
         # Quorum must be unreachable because reviews were severity-gated to
         # ADVISORY, not because they failed to count for INFRA reasons — a
-        # missing receipt artifact, a reviewer CLI outage, an unrecognized
-        # heading (openai #9203 P1). ``_validated_review_families`` counts any
-        # grounded recognized heading, so >=2 heard + signal_count==0 alone
-        # cannot distinguish "all advisory" from "all infra-failed". Requiring a
-        # GENUINE advisory dissent (a validated-source changes_requested with no
-        # [P0]/[P1]) proves the non-counting is severity-gating, not infra —
-        # infra failures must be REPAIRED (re-collect, fix the artifact), never
-        # settled over. This is the same bar advisory_settle already enforces.
-        # All three positive signals use the STRICT receipt-backed pass (claude
-        # #9203 P2): a self-declared heading with no receipt artifact cannot
-        # establish that a model was heard, dissented, or was western-frontier.
-        # The blocking scan deliberately stays the PERMISSIVE one.
+        # reviewer CLI outage or an unrecognized heading (openai #9203 P1).
+        # ``signal_count == 0`` alone cannot make that distinction, so the
+        # valve additionally requires a DEMONSTRATED severity-gated advisory
+        # dissent (a validated-source changes_requested with no [P0]/[P1] —
+        # the same bar advisory_settle enforces). This is evidence of
+        # severity-gating, not proof that no infra failure also occurred
+        # (claude #9203 round-7 P3): infra failures that suppress counting
+        # must still be REPAIRED (re-collect, restore the reviewer), never
+        # settled over; the operator settles over the advisory dissent only.
+        # All three positive signals use the STRICT trusted-author pass; the
+        # blocking scan deliberately stays the PERMISSIVE one.
         and _genuine_advisory_dissent_strict
         and not unresolved_dissent
         and not _any_blocking_finding

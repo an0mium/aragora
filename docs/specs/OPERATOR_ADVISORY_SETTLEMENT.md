@@ -47,10 +47,13 @@ following hold (any failure → fail closed, verdict unchanged):
    cannot tell "every review was severity-gated to advisory" (the case this
    valve is *for*) apart from "reviews failed to count for INFRA reasons" — a
    missing receipt artifact, a reviewer CLI outage, an unrecognized heading.
-   **Infra failures must be repaired (re-collect, fix the artifact, wait for
-   reviewer uptime), never settled over.** A PR whose reviews were all *passes*
-   that merely failed to count for infra reasons settles through the NORMAL
-   front door (get the passes to count), not this valve.
+   The genuine-dissent requirement is evidence of severity-gating, not proof
+   that no infra failure also occurred (claude #9203 round-7 P3). **Infra
+   failures must be repaired (re-collect, restore the reviewer), never settled
+   over** — the operator settles over the advisory dissent only. A PR whose
+   reviews were all *passes* that merely failed to count for infra reasons
+   settles through the NORMAL front door (get the passes to count), not this
+   valve.
 4. A validated western-frontier review is present at head, and **≥2 distinct
    canonical model families** were heard — computed from a strict validated
    pass: grounded, non-bot, countable identity, **and authored by a trusted
