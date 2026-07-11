@@ -124,7 +124,7 @@ Live review with a provider key:
 ```bash
 export ANTHROPIC_API_KEY=...        # provider credential for live model review
 aragora review-pr 123               # multi-agent review of a GitHub PR
-aragora receipt export <id> --format odr -o receipt.odr.json   # portable receipt
+aragora receipt export aragora-demo-receipt.json --format odr -o receipt.odr.json   # portable receipt
 ```
 
 ## Core workflows
