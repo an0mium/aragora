@@ -3,17 +3,20 @@
 Spec: docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md (#8933 incident, PR #8939).
 
 These pin the two new load-bearing helpers directly (the valve's family
-accounting and its trusted-author marker check) plus the flag gate. The valve's
-full assembly in ``_build_model_review_quorum`` is exercised through the public
-``review-queue merge-packet`` path in the CLI integration suite; here we lock
-the security-critical primitives so a reviewer can see the invariants hold.
+accounting and its trusted-author marker check), the flag gate, AND the
+assembled verdict through ``_build_model_review_quorum`` — the last of these
+guards the self-check-independent reachability signal (a packet-level test is
+what catches a valve gated on the always-False-in-CI ``quorum_only_failure``).
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from aragora.cli.commands import review_queue as rq
+from aragora.cli.commands.review_queue import _build_model_review_quorum
 
 HEAD = "abfea376c6216173b6f4ed84306893acc9563545"
 COMMITTED_AT = "2026-07-10T23:00:00Z"
@@ -169,3 +172,130 @@ class TestFlagGate:
                 )
                 is False
             )
+
+
+# --- assembled verdict through _build_model_review_quorum -------------------
+
+
+def _advisory_review(family: str) -> dict[str, Any]:
+    """A grounded advisory (CHANGES-REQUESTED, [P2]-only) review — non-blocking,
+    non-counting under severity gating, but a validated family that was HEARD."""
+    return {
+        "author": {"login": "an0mium"},
+        "createdAt": "2026-07-11T00:00:00Z",
+        "body": (
+            f"## {family} independent model review\n"
+            f"**Model family:** {family}\n"
+            f"Current head: {HEAD}\n\n"
+            "Verdict: request changes.\n"
+            "- [P2] a non-blocking nit worth polishing."
+        ),
+    }
+
+
+class TestAssembledValve:
+    """Exercise the full valve through _build_model_review_quorum.
+
+    This is the level that catches a valve gated on the wrong reachability
+    signal: quorum_only_failure is always False inside the enforcing job, so a
+    unit test of the primitives alone would pass while the valve stayed dead.
+    """
+
+    def _tier4_pr(self) -> dict[str, Any]:
+        return {
+            "number": 8939,
+            "title": "gate-code change",
+            "state": "OPEN",
+            "isDraft": False,
+            "headRefOid": HEAD,
+            "mergeable": "MERGEABLE",
+            "comments": [
+                _advisory_review("claude"),
+                _advisory_review("openai"),
+                _marker("scarmani"),
+            ],
+            "statusCheckRollup": [
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"context": "aragora/human-settlement", "state": "SUCCESS"},
+            ],
+            "commits": [{"commit": {"committedDate": COMMITTED_AT}}],
+        }
+
+    _SURFACE_CLEAR = {
+        # Self-check-independent: no NON-quorum required check is failing, so the
+        # surface is clear even though quorum_only_failure is False (the quorum
+        # row is the excluded self-check inside the enforcing job).
+        "required_pr_checks": {
+            "quorum_only_failure": False,
+            "advisory_settle_surface_clear": True,
+        }
+    }
+
+    def _build(self, monkeypatch: Any, files: list[str]) -> dict[str, Any]:
+        # Mirror the enforcing CI env: severity-gated dissent turns the [P2]-only
+        # CHANGES-REQUESTED reviews into advisory (non-blocking) dissent, so
+        # unresolved_dissent is False and the valve can consider them. Without
+        # this flag a [P2] CR is a hard dissent and the valve correctly refuses.
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        monkeypatch.setattr(rq, "_trusted_settlement_creator", lambda: "scarmani")
+        monkeypatch.setattr(
+            rq,
+            "_human_settlement_status_creator_verified",
+            lambda **_kw: (True, "verified"),
+        )
+        return _build_model_review_quorum(
+            pr=self._tier4_pr(),
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=True,  # the quorum row is the failing required check
+            check_surfaces=self._SURFACE_CLEAR,
+            repo_slug="synaptent/aragora",
+        )
+
+    def test_valve_fires_flag_on(self, monkeypatch: Any) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT", "1")
+        q = self._build(monkeypatch, ["aragora/cli/commands/review_queue.py"])
+        assert q["tier"] == 4
+        assert q["operator_advisory_settlement"] is True
+        assert q["status"] == "satisfied"
+        assert q["verdict"] == "operator_advisory_settlement"
+        assert sorted(q["validated_review_families"]) == ["claude", "openai"]
+
+    def test_valve_silent_flag_off(self, monkeypatch: Any) -> None:
+        monkeypatch.delenv("ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT", raising=False)
+        q = self._build(monkeypatch, ["aragora/cli/commands/review_queue.py"])
+        # Flag off → the valve is inert and the PR is NOT settled, regardless of
+        # which not-ready status the surrounding ladder reports.
+        assert q["operator_advisory_settlement"] is False
+        assert q["status"] != "satisfied"
+        assert q["verdict"] != "operator_advisory_settlement"
+        assert q["admin_squash_allowed"] is False
+
+    def test_valve_refuses_tier_two(self, monkeypatch: Any) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT", "1")
+        q = self._build(monkeypatch, ["aragora/cli/commands/swarm.py"])
+        assert q["tier"] <= 2
+        assert q["operator_advisory_settlement"] is False
+
+    def test_valve_refuses_on_blocking_finding(self, monkeypatch: Any) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        monkeypatch.setattr(rq, "_trusted_settlement_creator", lambda: "scarmani")
+        monkeypatch.setattr(
+            rq, "_human_settlement_status_creator_verified", lambda **_kw: (True, "verified")
+        )
+        pr = self._tier4_pr()
+        pr["comments"][0]["body"] += "\n- [P1] a genuine blocking bug."
+        q = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=True,
+            check_surfaces=self._SURFACE_CLEAR,
+            repo_slug="synaptent/aragora",
+        )
+        assert q["operator_advisory_settlement"] is False

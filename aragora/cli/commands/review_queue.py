@@ -3453,7 +3453,12 @@ def _build_model_review_quorum(
         and not has_pending
         and not checks_unavailable
         and not blocking_workflow_state
-        and quorum_only_required_failure
+        # #8739: use the self-check-INDEPENDENT reachability signal, not
+        # ``quorum_only_required_failure`` — the latter is always False inside
+        # the enforcing merge-quorum job (the quorum row is the excluded
+        # self-check), which would make this valve dead code in CI. The former
+        # is True whenever no NON-quorum required check is failing/pending.
+        and advisory_settle_reachable
         and not unresolved_dissent
         and not _any_blocking_finding
         and _wf_review_present
@@ -3510,6 +3515,7 @@ def _build_model_review_quorum(
         and not settlement_recorded
         and not missing_quorum_is_active_check_blocker
         and not advisory_settle_eligible
+        and not operator_advisory_settlement_eligible
     ):
         reasons.append("checks are failing; repair before settlement")
     elif missing_quorum_is_active_check_blocker:
@@ -3549,7 +3555,20 @@ def _build_model_review_quorum(
         )
         if advisory_findings:
             reasons.append(f"{len(advisory_findings)} advisory finding(s) surfaced for follow-up")
-    if not quorum_satisfied and not settlement_recorded and not advisory_settle_eligible:
+    if operator_advisory_settlement_eligible:
+        reasons.append(
+            "operator advisory settlement: model quorum is unreachable (every review "
+            f"severity-gated advisory; {len(_validated_review_families)} model families "
+            "heard, no [P0]/[P1] blocking findings, no unresolved dissent); the trusted "
+            "settlement operator settled over advisory-only dissent at exact head "
+            "(docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md)"
+        )
+    if (
+        not quorum_satisfied
+        and not settlement_recorded
+        and not advisory_settle_eligible
+        and not operator_advisory_settlement_eligible
+    ):
         if signal_count < requirement["required_model_signals"]:
             reasons.append(
                 "model quorum incomplete: "
