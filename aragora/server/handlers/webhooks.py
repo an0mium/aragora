@@ -49,9 +49,13 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 else:
-    _AuthorizationContext = _rbac.AuthorizationContext
-    check_permission = _rbac.check_permission
-    RBAC_AVAILABLE = True
+    try:
+        _AuthorizationContext = _rbac.AuthorizationContext
+        check_permission = _rbac.check_permission
+    except AttributeError:
+        RBAC_AVAILABLE = False
+    else:
+        RBAC_AVAILABLE = True
 
 from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
 
