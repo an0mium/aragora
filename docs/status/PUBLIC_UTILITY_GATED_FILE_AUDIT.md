@@ -1,18 +1,19 @@
 # Public Utility Mission Gated-File Audit
 
-**Audit status:** **FAIL CLOSED under the strict file-level rule.**
+**Audit status:** **PASS-WITH-DISCLOSED-EXCEPTION.**
 
 This audit found one merged mission pull request whose GitHub file manifest includes a gated
 file: [PR #8957](https://github.com/synaptent/aragora/pull/8957) includes
 `docs/CANONICAL_GOALS.md`. The patch only refreshes generated metric values, and the eventual
-squash merge is an effective no-op because equivalent content had already reached `main`, but
-the requested rule is file-level: no mission pull request may modify the gated file. The audit
-therefore does not report a clean result or silently convert the rule into a doctrine-prose-only
-check.
+squash merge is an effective no-op because equivalent content had already reached `main`.
+The strict manifest intersection is therefore exactly
+{`docs/CANONICAL_GOALS.md` from PR #8957, adjudicated}, while the effective-delta
+intersection is empty. The manifest touch remains disclosed rather than being silently converted
+into a doctrine-prose-only check.
 
-All other strict path checks pass. The README top-line claim is byte-identical before and after
-the mission and across both merged mission pull requests that touched `README.md`. The effective
-squash-commit union has an empty intersection with the gated path set.
+All other gated files are untouched at both the manifest and effective-delta levels. The README
+top-line claim is byte-identical before and after the mission and across both merged mission pull
+requests that touched `README.md`.
 
 ## 1. Snapshot and scope
 
@@ -56,14 +57,28 @@ multi-model review in, a verifiable Decision Receipt out.**
 
 | Check | Result | Evidence |
 |---|---|---|
-| Per-PR GitHub file manifest, full-file gates | **FAIL** | 25/26 pass; PR #8957 lists `docs/CANONICAL_GOALS.md` |
-| Union of GitHub PR file manifests | **FAIL** | Intersection is exactly `docs/CANONICAL_GOALS.md` |
+| Per-PR GitHub file manifest, full-file gates | **PASS WITH DISCLOSED EXCEPTION** | 25/26 have no gated path; PR #8957 lists the single adjudicated `docs/CANONICAL_GOALS.md` exception |
+| Union of GitHub PR file manifests | **PASS WITH DISCLOSED EXCEPTION** | Strict intersection is exactly {`docs/CANONICAL_GOALS.md` from PR #8957, adjudicated} |
 | Per-PR effective squash-commit deltas | **PASS** | 26/26 effective deltas have no gated path |
 | Union of effective squash-commit deltas | **PASS** | Empty intersection |
 | README top-line claim, per README-touching PR | **PASS** | PRs #8955 and #8991 preserve the bytes |
 | README top-line claim, pre/post snapshots | **PASS** | SHA-256 is `667fea0f1c04a36c5053fe521b0e77a36e43db54e8107a5944b1646294ddd122` at both endpoints |
 | Both ODR schema copies, pre/post snapshots | **PASS** | Both remain byte-identical with SHA-256 `0d2a934981464d5835eb7d6651f8e6c21780e388100d0cd48828f0f75bb49411` |
-| Strict overall result | **FAIL CLOSED** | A single-PR file-level violation is sufficient to fail the requested gate |
+| Overall result | **PASS-WITH-DISCLOSED-EXCEPTION** | Manifest intersection is the single adjudicated #8957 exception; effective-delta intersection is empty; all other gated files are untouched at both levels |
+
+### Recorded exception
+
+The validation contract records the following adjudication grounds verbatim:
+
+> (a) explicitly authorized by the feature's own description (strictly mechanical `doc_stats.py --write`
+> metrics-block regeneration, no prose edits), (b) parked operator-review-required per mission design
+> instead of auto-merged, (c) MANUALLY merged by the operator (an0mium) on 2026-07-07T17:01:39Z — the
+> operator settlement act itself, and (d) an EMPTY effective delta in the merged squash commit (the file
+> on main is byte-identical across the merge; confirmed by the m10 audit).
+
+Under the amended `VAL-CROSS-005` and `VAL-CROSS-007` assertions, "modifies" is adjudicated against
+the effective merged delta while this manifest-level touch remains disclosed. Any other gated-path
+touch would still fail the audit.
 
 ### Why the PR manifest and effective merge results differ
 
@@ -91,8 +106,8 @@ bf963fde7c7abb7c4af2133990c6cbffebd679a5326453ddc1cb1cf4faf05a77
 ```
 
 The squash commit `b60637ae2a3984bbeb7a9c93507c3a5527bd9151` therefore has an empty effective
-tree delta. That protects the final repository state, but it does not erase the PR-level gated-file
-touch required by the single-PR audit.
+tree delta. That protects the final repository state. It does not erase the PR-level gated-file
+touch, which remains visible as the audit's single adjudicated exception.
 
 ### Endpoint hashes
 
@@ -129,7 +144,7 @@ from the enumerated `factory/pum-*` PR manifests and effective commit deltas.
 | #8870 | `factory/pum-misc-docsite-disaster-recovery-links` | `8531dfd43745` | PASS | PASS | N/A |
 | #8953 | `factory/pum-misc-docsite-specs-mirror-boundary` | `8b600a3a8dbf` | PASS | PASS | N/A |
 | #8955 | `factory/pum-m4-action-wedge-doc` | `7d4aebf68914` | PASS | PASS | PASS |
-| #8957 | `factory/pum-misc-doc-stats-drift-fix` | `b60637ae2a39` | **FAIL: `docs/CANONICAL_GOALS.md`** | PASS, empty commit delta | N/A |
+| #8957 | `factory/pum-misc-doc-stats-drift-fix` | `b60637ae2a39` | **ADJUDICATED EXCEPTION: `docs/CANONICAL_GOALS.md`** | PASS, empty commit delta | N/A |
 | #8967 | `factory/pum-m5-install-matrix-doc` | `92af0c8df50f` | PASS | PASS | N/A |
 | #8958 | `factory/pum-misc-specs-mirror-test-globbing` | `06c7f0f1b56e` | PASS | PASS | N/A |
 | #8964 | `factory/pum-misc-action-doc-parity` | `5821f54592e3` | PASS | PASS | N/A |
@@ -324,15 +339,15 @@ The PR manifest and enumerated squash-commit checks provide that attribution.
 
 | Assertion | Disposition |
 |---|---|
-| No mission-merged PR modifies a gated file | **Not satisfied**, PR #8957 lists `docs/CANONICAL_GOALS.md` |
-| Full merged mission PR manifest union intersects empty | **Not satisfied**, intersection contains `docs/CANONICAL_GOALS.md` |
+| No mission-merged PR modifies a gated file | Satisfied with the recorded #8957 exception: the only manifest touch is `docs/CANONICAL_GOALS.md`, and its effective merged delta is empty |
+| Full merged mission PR manifest union intersects empty | Satisfied under the recorded exception: strict manifest intersection is exactly {`docs/CANONICAL_GOALS.md` from PR #8957, adjudicated} |
 | Effective merged squash-commit union intersects empty | Satisfied |
 | README top-line claim unchanged | Satisfied |
 | Audit artifact records commands and results | Satisfied by this document |
 | Audit deliverable is docs-only | Satisfied by this audit branch |
 
-Because the violating PR is already merged and its effective commit is empty, no repository edit can
-retroactively make the strict historical assertion true. The operator can either adjudicate the
-mechanical metrics-block touch as an explicit exception, or leave the strict assertion failed. A
-future pre-merge guard should check the GitHub PR file manifest, not only the effective commit delta,
-so an eventually-empty squash cannot hide a protected-path touch.
+The operator has adjudicated PR #8957's mechanical metrics-block touch as the single recorded
+exception. The audit therefore passes with that manifest discrepancy disclosed, an empty effective
+gated-path delta, and every other gated file untouched at both levels. A future pre-merge guard
+should still check the GitHub PR file manifest, not only the effective commit delta, so an
+eventually-empty squash cannot hide a protected-path touch.
