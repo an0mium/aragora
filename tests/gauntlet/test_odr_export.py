@@ -406,6 +406,39 @@ class TestConfiguredSigning:
         signature = next(check for check in result.checks if check.name == "signature")
         assert signature.status == "pass", signature.detail
 
+    def test_cli_export_reports_broken_configured_key_cleanly(
+        self, monkeypatch, tmp_path, capsys
+    ) -> None:
+        """A configured-but-unusable key exits 1 with a clean CLI error, not a
+        traceback, and never writes an unsigned export."""
+        import argparse
+
+        from aragora.cli.commands.receipt import cmd_receipt_export
+        from aragora.gauntlet import odr_signing
+
+        def broken_loader():
+            raise OdrSigningError("secret exists but key material is invalid")
+
+        monkeypatch.setattr(odr_signing, "load_signing_key_from_secrets", broken_loader)
+
+        receipt_file = tmp_path / "receipt.json"
+        receipt_file.write_text(json.dumps(_full_receipt().to_dict()), encoding="utf-8")
+        output_file = tmp_path / "out.json"
+        args = argparse.Namespace(
+            receipt=str(receipt_file),
+            format="odr",
+            output=str(output_file),
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            cmd_receipt_export(args)
+
+        assert exc.value.code == 1
+        assert not output_file.exists()
+        stderr = capsys.readouterr().err
+        assert "signing key is configured but could not be used" in stderr
+        assert "Traceback" not in stderr
+
 
 # ---------------------------------------------------------------------------
 # Schema validation

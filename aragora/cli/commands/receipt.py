@@ -773,8 +773,20 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
     if output_format in ("json",):
         content = json.dumps(data, indent=2, default=str)
     elif output_format == "odr":
+        from aragora.gauntlet.odr_signing import OdrSigningError
+
         try:
             content = _export_odr(data)
+        except OdrSigningError as e:
+            # A configured-but-unusable signing key fails closed upstream;
+            # present it as a clean CLI error, not a traceback.
+            logger.warning("ODR signing failed: %s", e)
+            print(
+                "Error: ODR signing key is configured but could not be used; "
+                "refusing to export an unsigned receipt (see logs)",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         except (ImportError, KeyError, TypeError, ValueError) as e:
             logger.warning("ODR export failed: %s", e)
             print("Error: Could not export receipt as ODR profile", file=sys.stderr)
