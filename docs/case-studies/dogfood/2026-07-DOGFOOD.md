@@ -213,8 +213,10 @@ calls** and spends nothing.
 
 ```bash
 # 1. Regenerate all 5 receipts through the canonical collector (no LLM calls, $0 spend)
-#    Run from the repo root with the mission venv:
-PYTHONPATH="$REPO_ROOT" venv/bin/python3 docs/case-studies/dogfood/replay_dogfood_receipts.py
+#    Run from the repo root.  No venv or PYTHONPATH required — the script computes the
+#    repo root from its own location and adds it to sys.path.  It fails closed (nonzero
+#    exit) if any expected raw-review fixture is missing or any receipt is unproduced.
+python3 docs/case-studies/dogfood/replay_dogfood_receipts.py
 
 # 2. Verify each receipt (all exit 0: schema_conformance=pass, quorum_consistency=pass)
 for f in docs/case-studies/dogfood/pr-*-receipt.odr.json; do
@@ -232,7 +234,7 @@ regeneration above is fully reproducible offline.
 
 ```bash
 # Original live run (requires reachable provider keys; NOT needed for receipt regeneration):
-set -a; . "$REPO_ROOT/.env"; set +a  # load secrets (never print/commit)
+set -a; . .env; set +a  # load secrets from the repo root (never print/commit)
 gh pr diff 9193 --repo synaptent/aragora > /tmp/pr-9193.diff  # fetch diffs
 # Reviewers ran via create_agent("grok") + create_agent("mistral-api") per PR
 ```
@@ -266,10 +268,12 @@ reply with 'Verdict: PASS' or 'Verdict: CHANGES-REQUESTED'... tag [P1]/[P2]/[P3]
    records conservative upper-bound estimates based on published per-token pricing, with an
    explicit rounding policy (see [Spend Ledger](#spend-ledger) below). Total estimated M8
    spend: $0.2301 (well under the $100 cap).
+   → Follow-up: [#9210](https://github.com/synaptent/aragora/issues/9210)
 
 4. **All reviewed PRs are already merged.** The dogfood reviews are retrospective — we review
    already-merged PRs to evaluate the gate's catch rate, not to block merges. The catches and
    misses are assessed against the known merged state, not a live merge decision.
+   → Follow-up: [#9211](https://github.com/synaptent/aragora/issues/9211)
 
 5. **2-family quorum cannot adjudicate dissent.** With 2 families, a 1-1 split (PRs #9193,
    #9062) produces an unresolved CHANGES_REQUESTED verdict. A 3-family quorum would produce a

@@ -11,13 +11,17 @@ and feeds them through the **canonical review-to-receipt collector**
 ``scripts/emit_pr_receipt.py`` uses to turn a ``CollectOutcome`` into a portable
 ODR.
 
-Usage (from the repo root, with the mission venv)::
+Usage (from the repo root, no venv or PYTHONPATH required — the script
+computes the repo root from its own location and adds it to ``sys.path``)::
 
     python3 docs/case-studies/dogfood/replay_dogfood_receipts.py
 
 This regenerates all 5 ODR receipts in ``docs/case-studies/dogfood/`` and writes
 a machine-readable summary to ``dogfood-summary.json``.  Each receipt can then be
 verified with ``aragora-verify <receipt>.odr.json`` (expected exit 0).
+
+The script **fails closed** (nonzero exit) if any expected raw-review fixture is
+missing or any receipt cannot be produced — no silent partial output.
 
 Design notes
 ------------
@@ -30,6 +34,10 @@ Design notes
 * **No guarded paths touched.**  This script imports the canonical collector and
   ODR exporter but modifies no merge-authority, quorum, settle, or
   receipt-pipeline source code.
+* **Repository-relative paths.**  The repo root is computed from this script's
+  committed location (``docs/case-studies/dogfood/`` → ``parents[2]``).  All
+  paths serialized into ``dogfood-summary.json`` are repository-relative; no
+  absolute worker-worktree paths are written into committed artifacts.
 """
 
 from __future__ import annotations
@@ -39,8 +47,9 @@ import sys
 from pathlib import Path
 
 # Resolve the repo root from this script's location (docs/case-studies/dogfood/).
+# parents[0] = docs/case-studies, parents[1] = docs, parents[2] = repo root.
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]  # docs/case-studies/dogfood -> repo root
+REPO_ROOT = SCRIPT_DIR.parents[2]  # docs/case-studies/dogfood -> repo root
 sys.path.insert(0, str(REPO_ROOT))
 
 from aragora.gauntlet.odr_export import decision_receipt_to_odr, odr_content_digest
@@ -184,13 +193,26 @@ def regenerate_receipt(
 
 
 def main() -> int:
+    """Regenerate all 5 receipts, failing closed on any missing input or output.
+
+    Exits nonzero if any expected raw-review fixture is missing, any fixture
+    cannot be parsed, or the number of produced receipts does not equal the
+    number of expected PRs.  No partial summary is written on failure.
+    """
     results: list[dict] = []
+    errors: list[str] = []
     for pr, head, title, tier in PRS:
         raw_path = RAW_DIR / f"pr-{pr}-reviewers.json"
         if not raw_path.exists():
-            print(f"SKIP PR #{pr}: raw reviews not found at {raw_path}")
+            errors.append(f"PR #{pr}: raw reviews not found at {raw_path}")
+            print(f"ERROR PR #{pr}: raw reviews not found at {raw_path}")
             continue
-        reviewers = json.loads(raw_path.read_text(encoding="utf-8"))
+        try:
+            reviewers = json.loads(raw_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            errors.append(f"PR #{pr}: cannot read {raw_path}: {exc}")
+            print(f"ERROR PR #{pr}: cannot read {raw_path}: {exc}")
+            continue
         result = regenerate_receipt(pr, head, title, tier, reviewers)
         results.append(result)
         print(
@@ -200,6 +222,17 @@ def main() -> int:
             f"families={result['distinct_model_families']} "
             f"digest={result['odr_digest'][:12]}"
         )
+
+    # Fail closed: every expected fixture must be present and every receipt
+    # produced.  No silent partial output.
+    if errors:
+        print(f"\nFAILED: {len(errors)} error(s), {len(results)} receipt(s) produced.")
+        for e in errors:
+            print(f"  - {e}")
+        return 1
+    if len(results) != len(PRS):
+        print(f"\nFAILED: expected {len(PRS)} receipts, produced {len(results)}.")
+        return 1
 
     summary_path = SCRIPT_DIR / "dogfood-summary.json"
     summary_path.write_text(
