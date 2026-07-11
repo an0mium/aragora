@@ -34,17 +34,39 @@ dependencies, stale generated files, or partial environment changes that make a
 main-health result ambiguous. A detached exact-head worktree keeps the evidence
 about `origin/main`, not about the local operator session.
 
-Run the aggregate local proxy for protected checks:
+Select and record the interpreter before running the aggregate local proxy. Do
+not inherit an unexamined `mypy` from `PATH`:
 
 ```bash
-PATH="$HOME/.pyenv/versions/3.11.11/bin:$PATH" make ci-required
+PYTHON_BIN="${PYTHON_BIN:-$HOME/.pyenv/versions/3.12.12/bin/python3}"
+export PATH="$(dirname "$PYTHON_BIN"):$PATH"
+
+"$PYTHON_BIN" --version
+"$PYTHON_BIN" -m mypy --version
+MYPY_BIN=$(command -v mypy)
+test "$(dirname "$MYPY_BIN")" = "$(dirname "$PYTHON_BIN")"
+"$PYTHON_BIN" - <<'PY'
+from importlib.metadata import version
+
+for package in ("mypy", "mypy-baseline", "PyJWT"):
+    print(f"{package}=={version(package)}")
+PY
+
+make ci-required
 ```
+
+The declared mypy range is `>=2.1.0,<3.0`. A missing mypy, a mypy below that
+floor, or a `mypy` executable that does not belong to `PYTHON_BIN` is an
+environment failure, not evidence that `main` is red (the mismatch observed in
+#9175). For the current #9099 campaign, comparable identity counts additionally
+require the campaign's exact environment: Python 3.12.12, mypy 2.2.0,
+mypy-baseline 0.7.4, and PyJWT 2.13.0. Record all four versions with the result.
 
 Capture the full log outside the worktree, for example:
 
 ```bash
 LOG=/tmp/aragora-main-health-ci-required-$(date -u +%Y%m%dT%H%M%SZ).log
-PATH="$HOME/.pyenv/versions/3.11.11/bin:$PATH" make ci-required >"$LOG" 2>&1
+make ci-required >"$LOG" 2>&1
 ```
 
 ## Local Context Map
@@ -83,6 +105,115 @@ It is fail-fast, so later rows are `not reached` when an earlier command fails.
   `make ci-required`; run or request the dedicated SDK check path.
 - If `aragora-merge-quorum` is skipped on `main`, classify it as main-unsafe or
   PR-only rather than dispatching it.
+
+## Human Re-arm Evidence Standard
+
+The presence of `.aragora/merge_executor.halt` is binding. Automated workers
+may gather evidence but must not delete, rewrite, or work around the marker.
+Re-arm is a separate human action after the following packet is complete.
+
+### 1. Pin the tested state
+
+Record the halt marker before testing, then fetch `main` with an explicit
+refspec and create a new detached worktree at the fetched SHA:
+
+```bash
+cat .aragora/merge_executor.halt
+git fetch origin +refs/heads/main:refs/remotes/origin/main
+TESTED_SHA=$(git rev-parse origin/main)
+WT=/private/tmp/aragora-main-rearm-${TESTED_SHA:0:12}
+git worktree add --detach "$WT" "$TESTED_SHA"
+cd "$WT"
+test "$(git rev-parse HEAD)" = "$TESTED_SHA"
+test -z "$(git status --porcelain=v1 --untracked-files=all)"
+```
+
+Never reuse a session worktree for re-arm evidence. If `WT` already exists,
+choose a new path; do not clean or reset an unverified directory.
+
+### 2. Prove the toolchain before interpreting results
+
+Run the interpreter and package-version preflight from the no-dispatch
+procedure above. Classify the run before inspecting code failures:
+
+| Classification | Meaning | Required action |
+| --- | --- | --- |
+| `infra_error` | Python or required packages are missing; mypy is outside `>=2.1.0,<3.0`; `mypy` resolves outside `PYTHON_BIN`; dependency setup, disk, or runner startup fails. | Repair the environment and rerun. Do not use the result as red-main evidence. |
+| `product_red` | A valid pinned environment reaches collection/check execution and reports a mypy diagnostic, collection error, assertion failure, or other reproducible repository failure. | Keep the halt marker. Open or advance a bounded repair against the exact SHA. |
+| `inconclusive` | `origin/main` moves during the run, the process times out, or the evidence log is incomplete. | Discard the result and rerun from the new exact head. |
+| `green_candidate` | Required and full suites both exit 0 under the recorded environment, with complete logs. | Continue to head-stability and packet review; do not re-arm yet. |
+
+For the #9099 campaign, a run under a different version than Python 3.12.12,
+mypy 2.2.0, mypy-baseline 0.7.4, or PyJWT 2.13.0 may diagnose a local problem,
+but it cannot prove the campaign identity set has drained.
+
+### 3. Run both required and hidden-red coverage
+
+Capture separate logs and exit codes. The full suite is load-bearing because
+path-gated PR checks are the reason the halt exists:
+
+```bash
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+REQUIRED_LOG=/tmp/aragora-main-rearm-required-$STAMP.log
+FULL_LOG=/tmp/aragora-main-rearm-full-$STAMP.log
+
+if make ci-required >"$REQUIRED_LOG" 2>&1; then
+  REQUIRED_RC=0
+else
+  REQUIRED_RC=$?
+fi
+
+if "$PYTHON_BIN" -m pytest tests/ -q -p no:cacheprovider \
+  --ignore=tests/connectors >"$FULL_LOG" 2>&1; then
+  FULL_RC=0
+else
+  FULL_RC=$?
+fi
+
+printf 'required_rc=%s full_rc=%s\n' "$REQUIRED_RC" "$FULL_RC"
+```
+
+Do not use `&&` between the suites: the packet needs an explicit result for
+each. Both exit codes must be zero. Any skip or ignore beyond the command above
+must be called out and justified in the packet; it is not silently equivalent
+to green.
+
+### 4. Recheck head stability
+
+After both suites finish, prove that the tested commit is still current:
+
+```bash
+test "$(git rev-parse HEAD)" = "$TESTED_SHA"
+test -z "$(git status --porcelain=v1 --untracked-files=all)"
+git fetch origin +refs/heads/main:refs/remotes/origin/main
+LIVE_SHA=$(git rev-parse origin/main)
+test "$LIVE_SHA" = "$TESTED_SHA"
+```
+
+If `LIVE_SHA` differs, classify the packet as `inconclusive`. Green evidence
+for an older main commit does not authorize re-arm at the new head.
+
+### 5. Packet fields and human action
+
+The re-arm packet must include:
+
+- the halt marker contents and its original failing SHA
+- `TESTED_SHA` and commit summary
+- UTC start/end timestamps and elapsed time for each suite
+- Python, mypy, mypy-baseline, and PyJWT versions
+- exact commands, exit codes, and immutable log paths
+- any skipped/ignored surfaces and why they do not weaken the claim
+- final clean-worktree and `LIVE_SHA == TESTED_SHA` proof
+- classification: `infra_error`, `product_red`, `inconclusive`, or
+  `green_candidate`
+
+Only a `green_candidate` packet may be presented to the human operator for
+re-arm. The operator reviews the evidence, confirms the marker still describes
+the same incident, and explicitly authorizes removing the exact halt file.
+Removal is not implied by a green command result and is never delegated to the
+worker that produced the packet. After re-arm, the next merge cycle must still
+re-run its normal exact-head ownership, quorum, settlement, and branch-
+protection gates.
 
 ## Snapshot: 2026-07-08
 
