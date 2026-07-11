@@ -1,0 +1,112 @@
+"""Tests for the offline quorum-vs-single benchmark measurement."""
+
+from __future__ import annotations
+
+import json
+import sys
+from copy import deepcopy
+from pathlib import Path
+from typing import Any
+
+SCRIPTS_DIR = str(Path(__file__).resolve().parents[2] / "scripts")
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
+
+import measure_factory_review_quorum_vs_single as measure_script  # noqa: E402
+
+
+ARTIFACT_DIR = Path(__file__).resolve().parents[2] / "docs/benchmarks"
+
+
+def _artifact(name: str) -> dict[str, Any]:
+    return json.loads((ARTIFACT_DIR / name).read_text(encoding="utf-8"))
+
+
+def _inputs() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    return (
+        _artifact("factory_review_benchmark_manifest.json"),
+        _artifact("factory_review_quorum_vs_single_evidence.json"),
+        _artifact("factory_review_quorum_vs_single_live_collection.json"),
+    )
+
+
+def _measure(
+    tmp_path: Path,
+    monkeypatch: object,
+    inputs: tuple[dict[str, Any], dict[str, Any], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    monkeypatch.setattr(measure_script, "REPO_ROOT", tmp_path.parent)
+    monkeypatch.setattr(measure_script, "DEFAULT_MANIFEST", tmp_path.parent / "manifest.json")
+    monkeypatch.setattr(measure_script, "DEFAULT_LIVE_COLLECTION", tmp_path.parent / "live.json")
+    manifest, evidence, live = inputs or _inputs()
+    return measure_script.measure(
+        manifest,
+        evidence,
+        live,
+        baseline_provider="mistral-api",
+        outcome_dir=tmp_path,
+    )
+
+
+def test_measure_records_named_single_miss_and_emits_collect_outcome(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    result = _measure(tmp_path, monkeypatch)
+
+    case = result["cases"][0]
+    assert case["baseline"]["missed_golden_ids"] == ["2743651586"]
+    assert case["quorum"]["distinct_model_families"] == 2
+    assert case["quorum"]["caught_beyond_baseline_golden_ids"] == ["2743651586"]
+    assert result["summary"]["single_model_miss_case_count"] == 2
+
+    fixture = json.loads(
+        (tmp_path / "droid-sentry-pr-6.collect-outcome.json").read_text(encoding="utf-8")
+    )
+    assert fixture["mode"] == "collect_evidence"
+    assert fixture["head_sha"] == "cb7212e11dbdbc1813237ad129c7bc108f944e3d"
+    assert fixture["counting_families"] == ["grok", "mistral"]
+    assert "golden_comment_id=2743651586" in fixture["items"][0]["body"]
+    assert "live reviewer output collection canonical sha256:" in fixture["action_reason"]
+    assert result["adjudication_scope"].startswith("manual golden_comment_id mappings only")
+
+
+def test_manifest_rejects_moving_validation_url() -> None:
+    manifest, _, _ = _inputs()
+    manifest["smoke_cases"][0]["validation_url"] = manifest["smoke_cases"][0][
+        "validation_url"
+    ].replace(manifest["source"]["benchmark_head_sha"], "main")
+
+    try:
+        measure_script._manifest_cases(manifest)
+    except ValueError as exc:
+        assert "not pinned" in str(exc)
+    else:
+        raise AssertionError("moving validation URL must fail closed")
+
+
+def test_measure_rejects_same_family_quorum(tmp_path: Path, monkeypatch: object) -> None:
+    manifest, evidence, live_collection = deepcopy(_inputs())
+    evidence["cases"][0]["model_results"][1]["family"] = "grok"
+    live_collection["cases"][0]["model_results"][1]["family"] = "grok"
+
+    try:
+        _measure(tmp_path, monkeypatch, (manifest, evidence, live_collection))
+    except ValueError as exc:
+        assert "fewer than two distinct families" in str(exc)
+    else:
+        raise AssertionError("same-family reviewers must not count as a quorum")
+
+
+def test_measure_uses_live_text_instead_of_rewritten_adjudication(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    manifest, evidence, live_collection = deepcopy(_inputs())
+    evidence["cases"][0]["model_results"][0]["findings"][0]["body"] = "rewritten"
+
+    result = _measure(tmp_path, monkeypatch, (manifest, evidence, live_collection))
+
+    assert result["cases"][0]["models"][0]["finding_set"][0]["body"].startswith(
+        "In organization_auditlogs.py"
+    )
