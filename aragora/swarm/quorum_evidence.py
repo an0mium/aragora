@@ -96,6 +96,16 @@ WESTERN_FAMILIES: frozenset[str] = frozenset(
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
 
 
+#: Families that count toward a Tier 3-4 quorum — a strict subset of
+#: WESTERN_FAMILIES. mistral and hermes are Western but not frontier-grade
+#: enough to co-authorize a highest-tier (merge-authority / protected-surface)
+#: change, so at Tier 3-4 they are advisory-only: they still post and still
+#: block on [P0]/[P1], but do not count toward the two-signal bar (operator
+#: decision 2026-07-11). They remain valid Western signals for the Tier 2
+#: "at least one Western" requirement, which is unchanged.
+TIER_3_4_COUNTED_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "gemini", "grok"))
+
+
 def is_western_family(family: str) -> bool:
     """Whether ``family`` counts toward a Western-only quorum (Tier 3-4)."""
     return str(family).strip().lower() in WESTERN_FAMILIES
@@ -220,7 +230,9 @@ class TierQuorumRule:
         families when ``western_only_counted``)."""
         families = {str(f).strip().lower() for f in supportive}
         if self.western_only_counted:
-            families = {f for f in families if f in WESTERN_FAMILIES}
+            # Tier 3-4: only the frontier-grade Western subset counts; mistral
+            # and hermes are advisory-only here (see TIER_3_4_COUNTED_FAMILIES).
+            families = {f for f in families if f in TIER_3_4_COUNTED_FAMILIES}
         return families
 
     def is_satisfied_by(self, supportive: Iterable[str]) -> bool:
@@ -324,10 +336,12 @@ def canonical_family(name: str) -> str:
 
 # Default reviewer pair: the two western-frontier families (claude→opus-4.8,
 # openai→gpt-5.5). Chosen as the strongest, most-aligned adversarial reviewers so
-# a substantial diff can actually clear a 2-signal quorum, and because Tier 3-4
-# requires two western-frontier families. grok (xai) remains available via
-# --reviewers but is not western-frontier and empirically tends to reopen an
-# advisory nitpick loop on large diffs. Override per-run with --reviewers.
+# a substantial diff can actually clear a 2-signal quorum. Tier 3-4 requires two
+# distinct families from TIER_3_4_COUNTED_FAMILIES (claude, openai, gemini,
+# grok); grok and gemini remain available via --reviewers and count at Tier 3-4,
+# though grok empirically tends to reopen an advisory nitpick loop on large
+# diffs. mistral and hermes are Western but advisory-only at Tier 3-4. Override
+# per-run with --reviewers.
 DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "openai")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
@@ -1423,7 +1437,7 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
 _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     "claude": "anthropic/claude-fable-5",
     "openai": "openai/gpt-5-pro",
-    "grok": "x-ai/grok-4.3",
+    "grok": "x-ai/grok-4.5",
     "gemini": "google/gemini-3.1-pro-preview",
     # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
