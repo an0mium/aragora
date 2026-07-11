@@ -6,7 +6,7 @@
  * Features:
  * - Audio file metadata retrieval and management
  * - Direct audio URL generation
- * - Audio upload, conversion, and transcription
+ * - Audio upload
  * - Podcast episode management
  * - RSS feed access
  *
@@ -25,17 +25,11 @@
  *   filePath: '/path/to/audio.mp3',
  *   debateId: 'debate_456'
  * });
- *
- * // Convert audio format
- * const converted = await client.media.convertAudio('audio_123', {
- *   targetFormat: 'aac',
- *   bitrate: 128
- * });
  * ```
  */
 
 /**
- * Supported audio formats for upload and conversion.
+ * Supported audio formats for upload.
  */
 export type AudioFormat = 'mp3' | 'aac' | 'm4a' | 'wav' | 'ogg';
 
@@ -170,7 +164,6 @@ interface MediaClientInterface {
  *
  * Provides methods for media asset management:
  * - Get, list, upload, and delete audio files
- * - Audio format conversion and transcription
  * - Podcast episode management
  * - RSS feed access
  *
@@ -183,9 +176,6 @@ interface MediaClientInterface {
  *
  * // List audio files for a debate
  * const { audio_files } = await client.media.listAudio({ debateId: 'debate_456' });
- *
- * // Get transcription
- * const transcription = await client.media.getTranscription('audio_123');
  * ```
  */
 export class MediaAPI {
@@ -389,60 +379,36 @@ export class MediaAPI {
   }
 
   // =========================================================================
-  // Media Conversions
+  // Unsupported Media Operations
   // =========================================================================
 
   /**
-   * Convert an audio file to a different format.
+   * Guard unsupported conversion access until the API publishes this route.
    *
    * @param audioId - The source audio file identifier
    * @param options - Conversion options
    * @param options.targetFormat - Target format (mp3, aac, m4a, wav, ogg)
    * @param options.bitrate - Optional target bitrate in kbps
-   * @returns Converted audio file details
-   *
-   * @example
-   * ```typescript
-   * // Convert MP3 to AAC
-   * const converted = await client.media.convertAudio('audio_123', {
-   *   targetFormat: 'aac',
-   *   bitrate: 128
-   * });
-   *
-   * // Convert to WAV (lossless)
-   * const lossless = await client.media.convertAudio('audio_123', {
-   *   targetFormat: 'wav'
-   * });
-   * ```
+   * @throws Error because the public API does not expose this route
    */
   async convertAudio(
-    audioId: string,
-    options: AudioConversionParams
+    _audioId: string,
+    _options: AudioConversionParams
   ): Promise<AudioFile> {
-    const json: Record<string, unknown> = {
-      target_format: options.targetFormat,
-    };
-    if (options.bitrate !== undefined) json.bitrate = options.bitrate;
-
-    return this.client.request('POST', `/api/v1/media/audio/${audioId}/convert`, {
-      json,
-    });
+    throw new Error(
+      'POST /api/v1/media/audio/{audioId}/convert is not part of the current Aragora API contract.'
+    );
   }
 
   /**
-   * Get transcription for an audio file.
+   * Guard unsupported transcription access until the API publishes this route.
    *
    * @param audioId - The audio file identifier
-   * @returns Transcription text and metadata
-   *
-   * @example
-   * ```typescript
-   * const transcription = await client.media.getTranscription('audio_123');
-   * console.log(`Language: ${transcription.language}`);
-   * console.log(`Text: ${transcription.text}`);
-   * ```
+   * @throws Error because the public API does not expose this route
    */
-  async getTranscription(audioId: string): Promise<Transcription> {
-    return this.client.request('GET', `/api/v1/media/audio/${audioId}/transcription`);
+  async getTranscription(_audioId: string): Promise<Transcription> {
+    throw new Error(
+      'GET /api/v1/media/audio/{audioId}/transcription is not part of the current Aragora API contract.'
+    );
   }
 }
