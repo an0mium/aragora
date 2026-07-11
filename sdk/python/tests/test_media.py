@@ -171,46 +171,22 @@ class TestMediaConversions:
     """Tests for media conversion operations."""
 
     def test_convert_audio(self, client: AragoraClient, mock_request) -> None:
-        """Convert audio to different format."""
-        mock_request.return_value = {
-            "id": "audio_converted",
-            "format": "aac",
-            "status": "completed",
-        }
+        """Reject conversion calls because no public route backs them."""
+        with pytest.raises(NotImplementedError, match="media/audio/.*/convert"):
+            client.media.convert_audio(
+                audio_id="audio_123",
+                target_format="aac",
+                bitrate=128,
+            )
 
-        result = client.media.convert_audio(
-            audio_id="audio_123",
-            target_format="aac",
-            bitrate=128,
-        )
-
-        mock_request.assert_called_once_with(
-            "POST",
-            "/api/v1/media/audio/audio_123/convert",
-            params=None,
-            json={"target_format": "aac", "bitrate": 128},
-            headers=None,
-        )
-        assert result["format"] == "aac"
+        mock_request.assert_not_called()
 
     def test_get_transcription(self, client: AragoraClient, mock_request) -> None:
-        """Get audio transcription."""
-        mock_request.return_value = {
-            "text": "Hello, this is a test transcription.",
-            "language": "en",
-            "confidence": 0.95,
-        }
+        """Reject transcription calls because no public route backs them."""
+        with pytest.raises(NotImplementedError, match="media/audio/.*/transcription"):
+            client.media.get_transcription("audio_123")
 
-        result = client.media.get_transcription("audio_123")
-
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/media/audio/audio_123/transcription",
-            params=None,
-            json=None,
-            headers=None,
-        )
-        assert "transcription" in result["text"].lower()
+        mock_request.assert_not_called()
 
 
 class TestAsyncMedia:
@@ -254,13 +230,21 @@ class TestAsyncMedia:
 
     @pytest.mark.asyncio
     async def test_async_convert_audio(self, mock_async_request) -> None:
-        """Convert audio asynchronously."""
-        mock_async_request.return_value = {"id": "converted", "format": "wav"}
-
+        """Reject async conversion calls because no public route backs them."""
         async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            result = await client.media.convert_audio(
-                audio_id="audio_123",
-                target_format="wav",
-            )
+            with pytest.raises(NotImplementedError, match="media/audio/.*/convert"):
+                await client.media.convert_audio(
+                    audio_id="audio_123",
+                    target_format="wav",
+                )
 
-            assert result["format"] == "wav"
+            mock_async_request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_get_transcription(self, mock_async_request) -> None:
+        """Reject async transcription calls because no public route backs them."""
+        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+            with pytest.raises(NotImplementedError, match="media/audio/.*/transcription"):
+                await client.media.get_transcription("audio_123")
+
+            mock_async_request.assert_not_called()
