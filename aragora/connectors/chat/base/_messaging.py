@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..models import (
@@ -20,10 +20,6 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
-
-# Keep legacy runtime defaults without widening this partition's public API.
-_NO_BLOCKS = cast(list[dict[str, Any] | None], None)
-_NO_FIELDS = cast(list[tuple[str, str] | None], None)
 
 
 class MessagingMixin:
@@ -57,7 +53,7 @@ class MessagingMixin:
         self,
         channel_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -121,7 +117,7 @@ class MessagingMixin:
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -188,7 +184,7 @@ class MessagingMixin:
         channel_id: str,
         user_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -238,7 +234,7 @@ class MessagingMixin:
         self,
         command: BotCommand,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -304,7 +300,7 @@ class MessagingMixin:
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -381,7 +377,7 @@ class MessagingMixin:
         self,
         title: str | None = None,
         body: str | None = None,
-        fields: list[tuple[str, str] | None] = _NO_FIELDS,
+        fields: list[tuple[str, str] | None] | None = None,
         actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:

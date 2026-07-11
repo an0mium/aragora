@@ -37,7 +37,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.connectors.chat import (
     ChatPlatformConnector,
@@ -556,7 +556,7 @@ class ChatWebhookRouter:
             await connector.respond_to_command(
                 command,
                 response_text,
-                blocks=blocks,
+                blocks=cast(list[dict[str, Any] | None] | None, blocks),
                 ephemeral=True,
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:

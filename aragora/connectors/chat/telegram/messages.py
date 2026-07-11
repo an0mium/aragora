@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from ..models import (
     MessageButton,
@@ -17,10 +17,6 @@ from ..models import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Keep legacy runtime defaults without widening this partition's public API.
-_NO_BLOCKS = cast(list[dict[str, Any] | None], None)
-_NO_FIELDS = cast(list[tuple[str, str] | None], None)
 
 
 class TelegramMessagesMixin:
@@ -36,7 +32,7 @@ class TelegramMessagesMixin:
         self,
         channel_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -82,7 +78,7 @@ class TelegramMessagesMixin:
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Edit an existing message.
@@ -169,7 +165,7 @@ class TelegramMessagesMixin:
         self,
         title: str | None = None,
         body: str | None = None,
-        fields: list[tuple[str, str] | None] = _NO_FIELDS,
+        fields: list[tuple[str, str] | None] | None = None,
         actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 from aragora.connectors.chat.models import (
     BotCommand,
@@ -23,9 +23,6 @@ from aragora.connectors.chat.models import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Keep the legacy runtime default without widening this partition's public API.
-_NO_FIELDS = cast(list[tuple[str, str] | None], None)
 
 
 class _TeamsConnectorProtocol(Protocol):
@@ -44,7 +41,7 @@ class TeamsEventsMixin:
         self,
         title: str | None = None,
         body: str | None = None,
-        fields: list[tuple[str, str] | None] = _NO_FIELDS,
+        fields: list[tuple[str, str] | None] | None = None,
         actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict]:

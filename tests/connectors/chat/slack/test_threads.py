@@ -622,6 +622,23 @@ class TestReplyToThread:
         assert message.thread_id == "1704067200.000001"
         assert message.content == "Reply content"
 
+    @pytest.mark.asyncio
+    async def test_reply_to_thread_rejects_failed_send(self, thread_manager, mock_connector):
+        """A failed send must not produce a ChatMessage with an empty identifier."""
+        from aragora.connectors.chat.models import SendMessageResponse
+
+        mock_connector.send_message.return_value = SendMessageResponse(
+            success=False,
+            error="thread send failed",
+        )
+
+        with pytest.raises(RuntimeError, match="thread send failed"):
+            await thread_manager.reply_to_thread(
+                "1704067200.000001",
+                "C12345",
+                "Reply content",
+            )
+
 
 # ---------------------------------------------------------------------------
 # Broadcast Thread Reply Tests

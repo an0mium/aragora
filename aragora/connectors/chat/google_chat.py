@@ -15,13 +15,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, cast
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Keep legacy runtime defaults without widening this partition's public API.
-_NO_BLOCKS = cast(list[dict[str, Any] | None], None)
-_NO_FIELDS = cast(list[tuple[str, str] | None], None)
 
 # Try to import required libraries
 try:
@@ -162,7 +159,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -233,7 +230,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Update a Google Chat message."""
@@ -326,7 +323,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -348,7 +345,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -410,7 +407,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         self,
         title: str | None = None,
         body: str | None = None,
-        fields: list[tuple[str, str] | None] = _NO_FIELDS,
+        fields: list[tuple[str, str] | None] | None = None,
         actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict]:

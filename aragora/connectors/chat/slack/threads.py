@@ -200,15 +200,17 @@ class SlackThreadManager:
         self, thread_ts: str, channel_id: str, message: str, **kwargs: Any
     ) -> ChatMessage:
         """Reply to an existing thread."""
-        blocks = cast(list[dict[str, Any] | None], kwargs.get("blocks"))
+        blocks = cast(list[dict[str, Any] | None] | None, kwargs.get("blocks"))
         response = await self.connector.send_message(
             channel_id=channel_id, text=message, thread_id=thread_ts, blocks=blocks
         )
+        if not response.success or not response.message_id:
+            raise RuntimeError(response.error or "Slack thread reply did not return a message ID")
         channel = ChatChannel(id=channel_id, platform="slack")
         # Bot messages don't include author_id in response; use empty string for bot user
         user = ChatUser(id="", platform="slack", is_bot=True)
         return ChatMessage(
-            id=response.message_id or "",
+            id=response.message_id,
             platform="slack",
             channel=channel,
             author=user,

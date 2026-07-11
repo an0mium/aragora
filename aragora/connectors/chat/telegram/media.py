@@ -9,14 +9,11 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from ..models import SendMessageResponse
 
 logger = logging.getLogger(__name__)
-
-# Keep the legacy runtime default without widening this partition's public API.
-_NO_BLOCKS = cast(list[dict[str, Any] | None], None)
 
 
 class TelegramMediaMixin:
@@ -34,7 +31,7 @@ class TelegramMediaMixin:
         photo: str | bytes,
         caption: str | None = None,
         thread_id: str | None = None,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a photo to a Telegram chat.
@@ -106,7 +103,7 @@ class TelegramMediaMixin:
         width: int | None = None,
         height: int | None = None,
         supports_streaming: bool = True,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a video to a Telegram chat.
@@ -187,7 +184,7 @@ class TelegramMediaMixin:
         animation: str | bytes,
         caption: str | None = None,
         thread_id: str | None = None,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send an animation (GIF) to a Telegram chat.

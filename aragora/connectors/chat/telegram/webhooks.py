@@ -12,7 +12,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from ..models import (
     BotCommand,
@@ -28,9 +28,6 @@ from ..models import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Keep the legacy runtime default without widening this partition's public API.
-_NO_BLOCKS = cast(list[dict[str, Any] | None], None)
 
 
 class TelegramWebhooksMixin:
@@ -431,7 +428,7 @@ class TelegramWebhooksMixin:
         self,
         command: BotCommand,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         ephemeral: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -461,7 +458,7 @@ class TelegramWebhooksMixin:
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: list[dict[str, Any] | None] = _NO_BLOCKS,
+        blocks: list[dict[str, Any] | None] | None = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:

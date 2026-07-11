@@ -25,7 +25,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
@@ -353,7 +353,7 @@ class ReceiptDeliveryHook:
             result = await connector.send_message(
                 channel_id=channel_id,
                 text="Decision Receipt",
-                blocks=blocks,
+                blocks=cast(list[dict[str, Any] | None], blocks),
             )
 
             return DeliveryResult(
