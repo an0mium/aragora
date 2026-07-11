@@ -341,10 +341,12 @@ class TestAssembledValve:
         assert q["operator_advisory_settlement"] is False
         assert q["validated_review_families"] == []
 
-    def test_valve_ignores_spoofed_headings_without_receipt(self, monkeypatch: Any) -> None:
-        """claude #9203 P2: self-declared review headings with no receipt artifact
-        must not establish 'models were heard' — a drive-by account cannot
-        manufacture unreachable Tier-4 quorum from comment text alone."""
+    def test_trusted_author_without_receipt_line_counts(self, monkeypatch: Any) -> None:
+        """openai #9203 round-6 P2: compose_evidence_comment never emits a
+        Receipt artifact line, so trusted-author evidence WITHOUT one is the
+        production shape and must count — a receipt requirement would make the
+        valve unfireable against every real collector-posted review. The guard
+        against spoofing is authorship (API-real), not body text."""
         monkeypatch.setenv("ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT", "1")
         monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
         monkeypatch.setattr(rq, "_trusted_settlement_creator", lambda: "scarmani")
@@ -367,8 +369,8 @@ class TestAssembledValve:
             check_surfaces=self._SURFACE_CLEAR,
             repo_slug="synaptent/aragora",
         )
-        assert q["operator_advisory_settlement"] is False
-        assert q["validated_review_families"] == []
+        assert q["operator_advisory_settlement"] is True
+        assert sorted(q["validated_review_families"]) == ["claude", "openai"]
 
     def test_valve_refuses_all_pass_non_counting(self, monkeypatch: Any) -> None:
         """openai #9203 P1 (behavioral): an all-PASS non-counting Tier-4 PR — no

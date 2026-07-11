@@ -53,16 +53,19 @@ following hold (any failure → fail closed, verdict unchanged):
    front door (get the passes to count), not this valve.
 4. A validated western-frontier review is present at head, and **≥2 distinct
    canonical model families** were heard — computed from a strict validated
-   pass: grounded, non-bot, countable identity, receipt-backed, **and authored
-   by a trusted evidence-poster login** (`ARAGORA_TRUSTED_EVIDENCE_POSTERS`,
-   default: the operator's settlement + collector accounts). Authorship is the
-   load-bearing guard: it is API-real (GitHub sets it from the authenticated
-   token), so no comment BODY — including a fabricated `Receipt artifact:`
-   line, which is just text (openai #9203 P1) — can establish a heard family
-   from an untrusted account. Comment-side records remain corroborating, not
-   unforgeable (write-access collaborators can edit bodies with `author.login`
-   preserved); the creator-pinned commit status (condition 5) is the sole
-   unforgeable authorization root.
+   pass: grounded, non-bot, countable identity, **and authored by a trusted
+   evidence-poster login** (`ARAGORA_TRUSTED_EVIDENCE_POSTERS`, default: the
+   operator's settlement + collector accounts). Authorship is the load-bearing
+   guard: it is API-real (GitHub sets it from the authenticated token), so no
+   comment BODY can establish a heard family from an untrusted account — any
+   body text, including a fabricated `Receipt artifact:` line, is forgeable
+   (openai #9203 round-5 P1). The strict pass deliberately does NOT require a
+   receipt artifact: `compose_evidence_comment` never emits one, so a receipt
+   requirement would make the valve unfireable against every real
+   collector-posted review (openai #9203 round-6 P2). Comment-side records
+   remain corroborating, not unforgeable (write-access collaborators can edit
+   bodies with `author.login` preserved); the creator-pinned commit status
+   (condition 5) is the sole unforgeable authorization root.
 5. An `aragora/human-settlement` commit status = success at the exact head,
    created by the **trusted settlement operator login**
    (`ARAGORA_SETTLEMENT_CREATOR`, default `scarmani`) — the unforgeable

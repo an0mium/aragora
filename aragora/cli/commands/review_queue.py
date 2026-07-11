@@ -3253,17 +3253,16 @@ def _advisory_settle_review_signals(
         if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
             continue
         if strict_receipt:
-            # Valve mode (claude #9203 round-4 suggestion, completed after the
-            # round-5 openai P1 showed the receipt LINE alone is spoofable text):
-            # positive signals must be AUTHORED by a trusted evidence-poster
-            # login. Authorship is API-real — GitHub sets it from the
-            # authenticated token — so a drive-by account cannot fabricate a
-            # heard family no matter what its comment body claims. The receipt
-            # requirement is kept as well (collector-posted evidence always
-            # carries one), but the authorship pin is the load-bearing guard.
+            # Valve mode: positive signals must be AUTHORED by a trusted
+            # evidence-poster login. Authorship is API-real — GitHub sets it
+            # from the authenticated token — so a drive-by account cannot
+            # fabricate a heard family no matter what its comment body claims
+            # (openai #9203 round-5 P1: any body TEXT, including a receipt
+            # line, is forgeable). Deliberately NOT gated on a receipt
+            # artifact: compose_evidence_comment never emits one, so a receipt
+            # requirement would make the valve unfireable against every real
+            # collector-posted review (openai #9203 round-6 P2).
             if author.casefold() not in _trusted_evidence_posters():
-                continue
-            if "missing_receipt_artifact" in identity.identity_problems:
                 continue
         family = str(identity.model_family or "").strip().lower()
         if family:
