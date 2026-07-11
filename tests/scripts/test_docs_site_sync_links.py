@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -21,6 +24,25 @@ def _docs_specs_map_entries() -> dict[str, str]:
             content,
         )
     )
+
+
+def _docs_mirror_map_entries() -> dict[str, str]:
+    """Return the full DOC_MAP from sync-docs.js as {source: destination}."""
+    content = SYNC_SCRIPT.read_text(encoding="utf-8")
+    doc_map_block = re.search(r"const DOC_MAP = \{(.*?)\n\};", content, re.DOTALL)
+    if not doc_map_block:
+        raise RuntimeError("Could not locate DOC_MAP in sync-docs.js")
+    return dict(
+        re.findall(
+            r"'([^']+\.md)'\s*:\s*'([^']+\.md)'",
+            doc_map_block.group(1),
+        )
+    )
+
+
+def _docs_mirror_dest_to_source() -> dict[str, str]:
+    """Reverse DOC_MAP so we can look up the claimed source for a destination page."""
+    return {dest: src for src, dest in _docs_mirror_map_entries().items()}
 
 
 def test_documentation_index_rewrites_status_and_planning_links() -> None:
@@ -100,38 +122,184 @@ def test_commercial_overview_rewrites_current_proof_status_links() -> None:
         assert link not in content
 
 
+# Pre-existing fallback mirror destinations: pages that were already mirrored
+# into the docs-site before the docs/specs DOC_MAP work. The original guard
+# only asserted their existence; the parity test below also asserts that each
+# destination still matches the source claimed by sync-docs.js's DOC_MAP.
+DOCS_SITE_FALLBACK_MIRROR_PAGES: list[Path] = [
+    DOCS_SITE_ROOT / "contributing" / "2026-03-26-pmf-14-day-execution-plan.md",
+    DOCS_SITE_ROOT / "contributing" / "active-execution-issues.md",
+    DOCS_SITE_ROOT / "contributing" / "b0-benchmark-truth-status.md",
+    DOCS_SITE_ROOT / "contributing" / "aragora-evolution-roadmap.md",
+    DOCS_SITE_ROOT / "contributing" / "canonical-goals.md",
+    DOCS_SITE_ROOT / "contributing" / "claude.md",
+    DOCS_SITE_ROOT / "contributing" / "conductor-control-plane-implementation-spec.md",
+    DOCS_SITE_ROOT / "contributing" / "dev-swarm-coordination.md",
+    DOCS_SITE_ROOT / "contributing" / "documentation-hygiene-and-gap-register.md",
+    DOCS_SITE_ROOT / "contributing" / "execution-next-6-weeks-2026-03-05.md",
+    DOCS_SITE_ROOT / "contributing" / "extended-readme.md",
+    DOCS_SITE_ROOT / "contributing" / "feature-discovery.md",
+    DOCS_SITE_ROOT / "contributing" / "feature-gap-list.md",
+    DOCS_SITE_ROOT / "contributing" / "mission-cadence-m0-m1.md",
+    DOCS_SITE_ROOT / "contributing" / "next-steps-canonical.md",
+    DOCS_SITE_ROOT / "contributing" / "pmf-dogfood-execution-plan.md",
+    DOCS_SITE_ROOT / "contributing" / "pmf-scorecard.md",
+    DOCS_SITE_ROOT / "contributing" / "roadmap.md",
+    DOCS_SITE_ROOT / "contributing" / "roadmap-intake-register.md",
+    DOCS_SITE_ROOT / "contributing" / "strategy-as-bounded-mission-cadence-design.md",
+    DOCS_SITE_ROOT / "contributing" / "tw03-rescue-productization-status.md",
+    DOCS_SITE_ROOT / "guides" / "conductor-workflow.md",
+    DOCS_SITE_ROOT / "guides" / "marketplace.md",
+    DOCS_SITE_ROOT / "guides" / "swarm-dogfood-operator.md",
+    DOCS_SITE_ROOT / "guides" / "worker-prompt-pack.md",
+    DOCS_SITE_ROOT / "enterprise" / "secrets.md",
+]
+
+
 def test_docs_site_sync_creates_linked_status_and_planning_pages() -> None:
-    expected_pages = [
-        DOCS_SITE_ROOT / "contributing" / "2026-03-26-pmf-14-day-execution-plan.md",
-        DOCS_SITE_ROOT / "contributing" / "active-execution-issues.md",
-        DOCS_SITE_ROOT / "contributing" / "b0-benchmark-truth-status.md",
-        DOCS_SITE_ROOT / "contributing" / "aragora-evolution-roadmap.md",
-        DOCS_SITE_ROOT / "contributing" / "canonical-goals.md",
-        DOCS_SITE_ROOT / "contributing" / "claude.md",
-        DOCS_SITE_ROOT / "contributing" / "conductor-control-plane-implementation-spec.md",
-        DOCS_SITE_ROOT / "contributing" / "dev-swarm-coordination.md",
-        DOCS_SITE_ROOT / "contributing" / "documentation-hygiene-and-gap-register.md",
-        DOCS_SITE_ROOT / "contributing" / "execution-next-6-weeks-2026-03-05.md",
-        DOCS_SITE_ROOT / "contributing" / "extended-readme.md",
-        DOCS_SITE_ROOT / "contributing" / "feature-discovery.md",
-        DOCS_SITE_ROOT / "contributing" / "feature-gap-list.md",
-        DOCS_SITE_ROOT / "contributing" / "mission-cadence-m0-m1.md",
-        DOCS_SITE_ROOT / "contributing" / "next-steps-canonical.md",
-        DOCS_SITE_ROOT / "contributing" / "pmf-dogfood-execution-plan.md",
-        DOCS_SITE_ROOT / "contributing" / "pmf-scorecard.md",
-        DOCS_SITE_ROOT / "contributing" / "roadmap.md",
-        DOCS_SITE_ROOT / "contributing" / "roadmap-intake-register.md",
-        DOCS_SITE_ROOT / "contributing" / "strategy-as-bounded-mission-cadence-design.md",
-        DOCS_SITE_ROOT / "contributing" / "tw03-rescue-productization-status.md",
-        DOCS_SITE_ROOT / "guides" / "conductor-workflow.md",
-        DOCS_SITE_ROOT / "guides" / "marketplace.md",
-        DOCS_SITE_ROOT / "guides" / "swarm-dogfood-operator.md",
-        DOCS_SITE_ROOT / "guides" / "worker-prompt-pack.md",
-        DOCS_SITE_ROOT / "enterprise" / "secrets.md",
-    ]
+    expected_pages = DOCS_SITE_FALLBACK_MIRROR_PAGES
 
     for page in expected_pages:
         assert page.exists(), f"Expected synced docs-site page missing: {page}"
+
+
+def test_docs_site_sync_fallback_mirror_pages_match_source_content() -> None:
+    """Regenerate the docs-site mirror in a temp directory and assert parity.
+
+    The existence-only check above can be fooled by a stale destination file
+    that no longer corresponds to its claimed docs/ source. This test runs
+    sync-docs.js against a clean copy of the docs sources and compares each
+    pre-existing fallback mirror destination to the freshly generated page.
+    If a destination differs from the source it is claimed to come from, the
+    test fails.
+    """
+    dest_to_source = _docs_mirror_dest_to_source()
+    root_source_files = {src for src in dest_to_source.values() if src.startswith("../")}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        shutil.copytree(REPO_ROOT / "docs", tmp_path / "docs")
+        shutil.copytree(
+            REPO_ROOT / "docs-site" / "scripts",
+            tmp_path / "docs-site" / "scripts",
+        )
+        for src_rel in root_source_files:
+            src = (REPO_ROOT / "docs" / src_rel).resolve()
+            shutil.copy2(src, tmp_path / src.name)
+
+        subprocess.run(
+            ["node", str(tmp_path / "docs-site" / "scripts" / "sync-docs.js")],
+            cwd=tmp_path,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        mismatches: list[str] = []
+        for page in DOCS_SITE_FALLBACK_MIRROR_PAGES:
+            rel = page.relative_to(DOCS_SITE_ROOT)
+            generated = tmp_path / "docs-site" / "docs" / rel
+            if not generated.exists():
+                mismatches.append(f"{rel}: generated page missing from fresh sync")
+                continue
+            if generated.read_text(encoding="utf-8") != page.read_text(encoding="utf-8"):
+                mismatches.append(f"{rel}: content differs from fresh sync")
+
+        assert not mismatches, "\n".join(
+            [
+                "Pre-existing fallback mirror destinations do not match a fresh sync-docs.js run. "
+                "Either the mirror is stale or the destination is no longer generated from the claimed source.",
+                *mismatches,
+            ]
+        )
+
+
+# Pre-existing docs/reference mirror pairs: docs/reference/<NAME>.md source
+# files that were already mirrored into the docs-site through a pre-existing
+# DOC_MAP entry (an unambiguous basename fallback or an explicit
+# non-`reference/`-prefixed key) BEFORE the docs/reference/** DOC_MAP work.
+# Each pair binds a claimed SOURCE to its specific checked-in DESTINATION via
+# an expected-content marker read from the SOURCE file at test time --
+# independent of running sync-docs.js, so a wrong-source resolver mapping
+# cannot regenerate matching wrong content and pass (the resolver is not its
+# own oracle here).
+#
+# The pair table below is derived from PR #9066's review context
+# (DOCS_REFERENCE_PRE_EXISTING_MIRROR, read via `gh pr diff 9066`) as a
+# READ-ONLY reference for the claimed source->destination pairs. No #9066
+# hunks are included in this diff: this is a tests-only literal, and #9066's
+# sync-docs.js edits remain unmerged (parked Tier-2 operator-review). When PR
+# #9066 merges, its DOCS_REFERENCE_PRE_EXISTING_MIRROR dict should be unified
+# with this pair table (cosmetic follow-up -- comment only, no behavior change
+# here; do not resubmit #9066's sync-docs.js diff).
+DOCS_REFERENCE_PRE_EXISTING_MIRROR_PAIRS: dict[str, str] = {
+    "ACCOUNTING.md": "guides/accounting.md",
+    "ADMIN.md": "admin/overview.md",
+    "BILLING.md": "enterprise/billing.md",
+    "BILLING_UNITS.md": "enterprise/billing-units.md",
+    "CLI_REFERENCE.md": "api/cli.md",
+    "CONTROL_PLANE.md": "enterprise/control-plane-overview.md",
+    "DATABASE.md": "deployment/database.md",
+    "DATABASE_SCHEMA.md": "deployment/database-schema.md",
+    "DEPENDENCIES.md": "contributing/dependencies.md",
+    "DEPRECATION_POLICY.md": "contributing/deprecation.md",
+    "DOCUMENTS.md": "guides/documents.md",
+    "ENVIRONMENT.md": "getting-started/environment.md",
+    "HANDLERS.md": "contributing/handlers.md",
+    "LIBRARY_USAGE.md": "guides/library-usage.md",
+}
+
+
+def _source_h1_marker(path: Path) -> str:
+    """Return the first H1 heading text from a markdown source.
+
+    Frontmatter (if present) is skipped first. Used as a distinctive content
+    marker read from the SOURCE file at test time, independent of sync-docs.js.
+    """
+    content = path.read_text(encoding="utf-8")
+    body = re.sub(r"\A---\n.*?\n---\n", "", content, count=1, flags=re.DOTALL)
+    match = re.search(r"^# (.+)$", body, re.MULTILINE)
+    if not match:
+        raise AssertionError(f"No H1 heading found in source {path}")
+    return match.group(1).strip()
+
+
+def test_docs_reference_pre_existing_mirror_binds_source_to_destination() -> None:
+    """Independent source-identity binding for the docs/reference mirrors.
+
+    The fallback-pages parity test above regenerates via sync-docs.js and
+    compares, so the resolver is its own oracle: a wrong-source mapping still
+    regenerates matching wrong content and passes. This test does NOT invoke
+    sync-docs.js. For each claimed pair it reads the SOURCE
+    docs/reference/<NAME>.md file at test time, extracts a distinctive content
+    marker (the source H1 heading), and asserts that marker appears in the
+    checked-in DESTINATION docs-site page. A wrong-source mapping fails because
+    the wrong source's H1 will not be present in the real destination; a stale
+    destination fails because its content no longer carries the source marker.
+    """
+    for source_name, dest_rel in DOCS_REFERENCE_PRE_EXISTING_MIRROR_PAIRS.items():
+        source_path = REPO_ROOT / "docs" / "reference" / source_name
+        dest_path = DOCS_SITE_ROOT / dest_rel
+
+        assert source_path.exists(), (
+            f"DOCS_REFERENCE_PRE_EXISTING_MIRROR_PAIRS claims source "
+            f"docs/reference/{source_name}, but that file is missing."
+        )
+        assert dest_path.exists(), (
+            f"DOCS_REFERENCE_PRE_EXISTING_MIRROR_PAIRS claims destination "
+            f"docs-site/docs/{dest_rel} for docs/reference/{source_name}, "
+            f"but that page is missing."
+        )
+
+        marker = _source_h1_marker(source_path)
+        dest_content = dest_path.read_text(encoding="utf-8")
+        assert marker in dest_content, (
+            f"docs/reference/{source_name} (H1 marker {marker!r}) is claimed to "
+            f"be mirrored at docs-site/docs/{dest_rel}, but the destination does "
+            f"not contain that marker. The destination may be stale, mapped from "
+            f"the wrong source, or the source H1 may have changed without a sync."
+        )
 
 
 def test_active_execution_links_to_synced_roadmap_intake_register() -> None:
@@ -325,11 +493,17 @@ def test_ambiguous_readme_basename_links_resolve_to_valid_targets() -> None:
 
 # docs/specs/*.md files that are deliberately excluded from the docs-site
 # mirror (e.g. a draft or an operator-gated spec not meant for public
-# publication). Empty today -- every current docs/specs/*.md file is
-# mirrored -- but test_docs_specs_directory_is_mirrored consults this set so a
-# future deliberate exclusion has an explicit, reviewable home instead of a
-# silent special case grown into the assertion logic below.
-DOCS_SPECS_MIRROR_ALLOWLIST: frozenset[str] = frozenset()
+# publication). Every current docs/specs/*.md file is either mirrored via
+# DOC_MAP or listed here; test_docs_specs_directory_is_mirrored consults this
+# set so a future deliberate exclusion has an explicit, reviewable home instead
+# of a silent special case grown into the assertion logic below.
+DOCS_SPECS_MIRROR_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        # Archival Tier-4 packet; operator-gated and not meant for public docs-site
+        # publication unless a future DOC_MAP entry is explicitly approved.
+        "2026-07-01-adjudicator-wiring-tier4-packet.md",
+    }
+)
 
 
 def _default_specs_mirror_dest(source_name: str) -> str:
