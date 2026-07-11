@@ -120,6 +120,24 @@ def test_build_packet_accepts_conductor_cycles_context_file(tmp_path: Path) -> N
     assert "OPERATOR CONTEXT MISSING" not in packet
 
 
+def test_build_packet_accepts_operator_context_file(tmp_path: Path) -> None:
+    context_dir = tmp_path / ".aragora" / "operator-context"
+    context_dir.mkdir(parents=True)
+    context_file = context_dir / "cycle_report.md"
+    context_file.write_text("cycle 177: C13 RETIRE-PRESERVE", encoding="utf-8")
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        "standing mission",
+        [context_file],
+        since_hours=24,
+        root=tmp_path,
+    )
+
+    assert "cycle 177: C13 RETIRE-PRESERVE" in packet
+    assert "OPERATOR CONTEXT MISSING" not in packet
+
+
 def test_build_packet_truncates_large_conductor_cycles_context_file(tmp_path: Path) -> None:
     context_dir = tmp_path / ".aragora" / "conductor_cycles"
     context_dir.mkdir(parents=True)
@@ -184,6 +202,7 @@ def test_build_packet_aggregate_truncation_preserves_closed_fences() -> None:
 def test_build_packet_refuses_sensitive_context_path(tmp_path: Path) -> None:
     context_file = tmp_path / "cycle_report.md"
     context_file.write_text("TOKEN=secret", encoding="utf-8")
+    allowed_roots = " or ".join(str(subdir) for subdir in fable_goal_cycle.SAFE_CONTEXT_SUBDIRS)
 
     packet = fable_goal_cycle.build_packet(
         {"sections": {}, "gaps": []},
@@ -194,10 +213,9 @@ def test_build_packet_refuses_sensitive_context_path(tmp_path: Path) -> None:
     )
 
     assert "OPERATOR CONTEXT MISSING" in packet
-    assert (
-        "context file must be under .aragora/goal-cycle-context or .aragora/conductor_cycles"
-        in packet
-    )
+    assert f"context file must be under {allowed_roots}" in packet
+    for subdir in fable_goal_cycle.SAFE_CONTEXT_SUBDIRS:
+        assert str(subdir) in packet
     assert "TOKEN=secret" not in packet
 
 
@@ -213,6 +231,7 @@ def test_build_packet_refuses_symlink_to_sensitive_context_path(tmp_path: Path) 
         context_file.symlink_to(sensitive)
     except OSError:
         return
+    allowed_roots = " or ".join(str(subdir) for subdir in fable_goal_cycle.SAFE_CONTEXT_SUBDIRS)
 
     packet = fable_goal_cycle.build_packet(
         {"sections": {}, "gaps": []},
@@ -223,10 +242,9 @@ def test_build_packet_refuses_symlink_to_sensitive_context_path(tmp_path: Path) 
     )
 
     assert "OPERATOR CONTEXT MISSING" in packet
-    assert (
-        "context file must be under .aragora/goal-cycle-context or .aragora/conductor_cycles"
-        in packet
-    )
+    assert f"context file must be under {allowed_roots}" in packet
+    for subdir in fable_goal_cycle.SAFE_CONTEXT_SUBDIRS:
+        assert str(subdir) in packet
     assert "TOKEN=secret" not in packet
 
 
@@ -377,3 +395,31 @@ def test_run_consult_rejects_success_without_text(monkeypatch, tmp_path: Path) -
 
     assert result["ok"] is False
     assert "without text" in result["error"]
+
+
+def test_run_consult_can_enable_openrouter_fallback(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(command, timeout, cwd=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        captured["cwd"] = cwd
+        return True, json.dumps({"ok": True, "text": "advice"})
+
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        "claude-fable-5",
+        timeout=12.5,
+        openrouter_fallback=True,
+        openrouter_model="anthropic/claude-test",
+    )
+
+    command = captured["command"]
+    assert result["ok"] is True
+    assert "--openrouter-fallback" in command
+    assert command[command.index("--openrouter-model") + 1] == "anthropic/claude-test"
+    assert command[command.index("--overall-timeout") + 1] == "37.5"
+    assert captured["timeout"] == 97.5
