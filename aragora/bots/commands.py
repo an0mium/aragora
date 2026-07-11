@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 from collections.abc import Callable, Coroutine
 
 from aragora.bots.base import (
@@ -334,15 +334,15 @@ async def _route_via_decision_router(
     Returns a ``CommandResult`` on success or failure, or ``None`` if the
     router is unavailable and the caller should fall back to HTTP.
     """
-    from aragora.core import (
+    from aragora.core.decision_models import (
         DecisionConfig,
         DecisionRequest,
-        DecisionType,
-        InputSource,
         RequestContext,
         ResponseChannel,
-        get_decision_router,
     )
+    from aragora.core import get_decision_router
+    from aragora.core.decision_router import DecisionRouter
+    from aragora.core.decision_types import DecisionType, InputSource
 
     platform_to_source: dict[Platform, InputSource] = {
         Platform.DISCORD: InputSource.DISCORD,
@@ -384,7 +384,8 @@ async def _route_via_decision_router(
 
     _register_debate_origin_best_effort(request.request_id, ctx, topic)
 
-    router = get_decision_router()
+    router_factory = cast(Callable[[], DecisionRouter], get_decision_router)
+    router = router_factory()
     result = await router.route(request)
 
     if result.request_id and result.request_id != request.request_id:
