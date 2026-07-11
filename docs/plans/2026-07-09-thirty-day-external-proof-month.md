@@ -58,10 +58,14 @@ at 0%.
 > **simulated stranger runs** — clean VM, public docs only, adversarial
 > persona, every failure recorded before anything is fixed.
 
-- **External outcome (amended):** first simulated stranger run executed against
-  a **signed production receipt from api.aragora.ai**; run transcript + failure
-  list in `docs/artifacts/`, every failure converted to an issue. #8858 stays
-  open, blocked on the quality bar, not on a date.
+- **Instrument outcome (amended):** first simulated stranger run executes the
+  public quickstart and every receipt-verification path available to a clean
+  environment, records whether a signed production receipt is actually
+  obtainable, and converts each failure to an issue. The baseline run found
+  the signing-key endpoint returning 404 and available receipts unsigned;
+  signed production verification remains an unresolved W1 target, not a
+  prerequisite for running the baseline instrument. #8858 stays open, blocked
+  on the quality bar, not on a date.
 - Merge #8809 (`/.well-known` signing-key endpoints; precondition). Enable Ed25519
   on production receipts (closes the #8801 "unsigned" limitation). Fix stranger-test
   frictions #8877, #7401. Close main-red #8930.
@@ -71,9 +75,9 @@ at 0%.
 - #9044 round 1: disposition the 4 ready stuck PRs (#8406 Tier-4→founder, #8519,
   #8809, #8823).
 - **Exit (amended):** simulated stranger-run artifact + failure issues filed;
-  prod receipts signed + one verified offline; #8809/#9048/#9058 merged; ≥4/9
-  stuck PRs dispositioned (round 1 — the W2 round-2 tail takes the cumulative
-  count to ≥8/9); #8930 closed.
+  the remaining proof target is prod receipts signed + one verified offline;
+  #8809/#9048/#9058 merged; ≥4/9 stuck PRs dispositioned (round 1 — the W2
+  round-2 tail takes the cumulative count to ≥8/9); #8930 closed.
 - **Founder:** calibrate the QUALITY_BAR.md rubric (replaces the outsider
   recruit); settle Tier-4 #8406; approve prod signing-key deployment; pentest
   vendor shortlist.

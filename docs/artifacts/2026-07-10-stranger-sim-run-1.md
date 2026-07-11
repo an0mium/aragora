@@ -41,6 +41,24 @@ Genuine positives: 17s clean install; quickstart pair verbatim-truthful and
 instant; principled exit codes; honest "weakening signals" framing; the
 committed example ODR verifies.
 
+## Durable evidence and issue map
+
+The original subagent transcript is session-local and is not treated as a
+durable public artifact. The repo-visible run record is the
+[External-Proof Month scoreboard update](https://github.com/synaptent/aragora/issues/9065#issuecomment-4939711390),
+and the reproducible findings are tracked as follows:
+
+- Findings 1 and 6: [#9185](https://github.com/synaptent/aragora/issues/9185)
+  (`aragora-verify` rejects the quickstart receipt; verifier disagreement).
+- Finding 2: [#9186](https://github.com/synaptent/aragora/issues/9186)
+  (documented export-by-ID form fails for demo receipts).
+- Finding 3: [#9187](https://github.com/synaptent/aragora/issues/9187)
+  (PyPI page has no usable first-run path).
+- Finding 4: [#9188](https://github.com/synaptent/aragora/issues/9188)
+  (signing-key endpoint 404; authenticity path unavailable).
+- Findings 5 and 7-11: [#9189](https://github.com/synaptent/aragora/issues/9189)
+  (the seven-item minor-friction bundle).
+
 ## Dimension scores (this run)
 
 | Dimension | Score | One-line basis |
@@ -49,5 +67,5 @@ committed example ODR verifies.
 | 2. Packaging truthfulness | **5/10** | Literal quickstart truthful; headline portability claim, export-by-ID example, PyPI page, key endpoint are not |
 | 3. Docs coherence | **4/10** | Three verifiers/three stories; help text contradicts itself; PyPI/GitHub gap; doctor contradicts demo |
 
-Full command-by-command transcript preserved in the run log (subagent
-aaf1e68e, 2026-07-10T21:26–21:30Z); findings filed as issues (see PR).
+Each linked issue carries the stable reproduction and acceptance surface for
+its finding; the issue map above replaces the non-durable session-log pointer.
