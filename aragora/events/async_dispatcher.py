@@ -151,7 +151,7 @@ class AsyncWebhookDispatcher:
         Returns:
             Tuple of (success, status_code, error_message)
         """
-        from aragora.server.handlers.webhooks import generate_signature
+        from aragora.security.webhook_signing import generate_signature
         from aragora.server.middleware.tracing import get_trace_id
 
         client = await self._ensure_client()
