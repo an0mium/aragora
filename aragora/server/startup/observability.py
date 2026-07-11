@@ -20,9 +20,13 @@ def register_observability_sinks() -> bool:
         from aragora.control_plane.slo_alert_sink import (
             register_slo_alert_sink as register_channel_sink,
         )
+        from aragora.integrations.webhooks import (
+            register_slo_event_sink as register_webhook_sink,
+        )
 
         register_pagerduty_sink()
         register_channel_sink()
+        register_webhook_sink()
         return True
     except ImportError as e:
         logger.debug("Observability alert sinks not available: %s", e)

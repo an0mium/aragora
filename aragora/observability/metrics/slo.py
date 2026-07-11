@@ -517,7 +517,9 @@ def init_slo_webhooks(
 ) -> bool:
     """Initialize SLO webhook notifications.
 
-    Connects SLO violations to the webhook dispatcher for external alerting.
+    Connects SLO violations to the registered higher-layer event sink. The
+    application composition root must register a provider before calling this
+    function; server startup does so via ``register_observability_sinks``.
 
     Args:
         webhook_config: Optional configuration for webhook behavior
@@ -539,7 +541,9 @@ def init_slo_webhooks(
         if dispatcher is None:
             _webhook_callback = None
             _webhook_sink = None
-            logger.debug("Webhook dispatcher not available, SLO webhooks disabled")
+            logger.warning(
+                "SLO event sink provider not registered or unavailable; webhooks disabled"
+            )
             return False
         _webhook_sink = dispatcher
 

@@ -543,7 +543,7 @@ class SLOAlertBridge:
                             "Failed to resolve PagerDuty incident %s",
                             violation.pagerduty_incident_id,
                         )
-                except (OSError, ConnectionError, RuntimeError) as e:
+                except (OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
                     logger.error("Failed to resolve PagerDuty incident: %s", e)
 
             # Send recovery notification to Slack
