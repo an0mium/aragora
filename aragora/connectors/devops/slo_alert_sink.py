@@ -21,19 +21,23 @@ class PagerDutySLOAlertSink:
     def __init__(self, config: SLOAlertConfig) -> None:
         self._config = config
         self._connector: Any | None = None
+        self._owns_connector = False
 
     def _get_connector(self) -> Any:
-        if self._connector is None:
-            from aragora.connectors.devops.pagerduty import (
-                PagerDutyConnector,
-                PagerDutyCredentials,
-            )
+        if self._connector is not None:
+            return self._connector
 
-            credentials = PagerDutyCredentials(
-                api_key=self._config.pagerduty_api_key or "",
-                email=self._config.pagerduty_email,
-            )
-            self._connector = PagerDutyConnector(credentials)
+        from aragora.connectors.devops.pagerduty import (
+            PagerDutyConnector,
+            PagerDutyCredentials,
+        )
+
+        credentials = PagerDutyCredentials(
+            api_key=self._config.pagerduty_api_key or "",
+            email=self._config.pagerduty_email,
+        )
+        self._connector = PagerDutyConnector(credentials)
+        self._owns_connector = True
         return self._connector
 
     async def create_incident(
@@ -59,7 +63,12 @@ class PagerDutySLOAlertSink:
                 description=description,
                 incident_key=incident_key,
             )
-            incident = await self._get_connector().create_incident(request)
+            connector = self._get_connector()
+            if self._owns_connector:
+                async with connector as initialized:
+                    incident = await initialized.create_incident(request)
+            else:
+                incident = await connector.create_incident(request)
             return incident.id
         except ImportError:
             logger.debug("PagerDuty connector not available")
@@ -79,10 +88,18 @@ class PagerDutySLOAlertSink:
     async def resolve_incident(self, incident_id: str, resolution: str) -> bool:
         """Resolve a PagerDuty incident."""
         try:
-            await self._get_connector().resolve_incident(
-                incident_id,
-                resolution=resolution,
-            )
+            connector = self._get_connector()
+            if self._owns_connector:
+                async with connector as initialized:
+                    await initialized.resolve_incident(
+                        incident_id,
+                        resolution=resolution,
+                    )
+            else:
+                await connector.resolve_incident(
+                    incident_id,
+                    resolution=resolution,
+                )
             return True
         except ImportError:
             logger.debug("PagerDuty connector not available")

@@ -571,7 +571,12 @@ def _register_prometheus_health_provider() -> bool:
     return True
 
 
-_register_prometheus_health_provider()
+def register_prometheus_health_provider() -> bool:
+    """Register the KM health provider at an application composition root."""
+    return _register_prometheus_health_provider()
+
+
+register_prometheus_health_provider()
 
 
 __all__ = [
@@ -583,4 +588,5 @@ __all__ = [
     "get_metrics",
     "set_metrics",
     "get_prometheus_health_status",
+    "register_prometheus_health_provider",
 ]

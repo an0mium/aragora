@@ -138,6 +138,8 @@ def mock_pagerduty_connector():
     mock_connector = AsyncMock()
     mock_connector.create_incident = AsyncMock(return_value=mock_incident)
     mock_connector.resolve_incident = AsyncMock()
+    mock_connector.__aenter__ = AsyncMock(return_value=mock_connector)
+    mock_connector.__aexit__ = AsyncMock(return_value=None)
 
     mock_credentials_cls = MagicMock()
     mock_connector_cls = MagicMock(return_value=mock_connector)
@@ -666,6 +668,40 @@ class TestSendPagerDutyAlert:
         request = connector.create_incident.call_args.args[0]
         assert request.urgency is IncidentUrgency.HIGH
         assert request.incident_key == "dedup-key"
+
+    @pytest.mark.asyncio
+    async def test_connector_sink_manages_real_connector_context(
+        self, pagerduty_config: SLOAlertConfig
+    ):
+        """The concrete adapter enters and closes connectors it constructs."""
+        from aragora.connectors.devops.slo_alert_sink import PagerDutySLOAlertSink
+
+        incident = MagicMock(id="PD-CONTEXT")
+        initialized = AsyncMock()
+        initialized.create_incident = AsyncMock(return_value=incident)
+        connector = MagicMock()
+        connector.__aenter__ = AsyncMock(return_value=initialized)
+        connector.__aexit__ = AsyncMock(return_value=None)
+        sink = PagerDutySLOAlertSink(pagerduty_config)
+
+        with patch(
+            "aragora.connectors.devops.pagerduty.PagerDutyConnector",
+            return_value=connector,
+        ):
+            assert (
+                await sink.create_incident(
+                    title="SLO violation",
+                    service_id="service-id",
+                    urgency="high",
+                    description="latency exceeded",
+                    incident_key="dedup-key",
+                )
+                == "PD-CONTEXT"
+            )
+
+        connector.__aenter__.assert_awaited_once()
+        connector.__aexit__.assert_awaited_once()
+        initialized.create_incident.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_connector_sink_reports_resolution_failure(

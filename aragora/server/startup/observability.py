@@ -23,10 +23,14 @@ def register_observability_sinks() -> bool:
         from aragora.integrations.webhooks import (
             register_slo_event_sink as register_webhook_sink,
         )
+        from aragora.knowledge.mound.metrics import (
+            register_prometheus_health_provider as register_km_health_provider,
+        )
 
         register_pagerduty_sink()
         register_channel_sink()
         register_webhook_sink()
+        register_km_health_provider()
         return True
     except ImportError as e:
         logger.debug("Observability alert sinks not available: %s", e)
