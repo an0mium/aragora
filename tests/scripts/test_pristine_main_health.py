@@ -316,6 +316,49 @@ def test_below_floor_path_mypy_is_infra_error_without_touching_halt(
     assert "found 1.19.1" in record.data["infra_errors"][0]
 
 
+def test_invalid_toolchain_contract_is_infra_error_without_touching_halt(
+    mod, monkeypatch, tmp_path, capsys
+):
+    """A malformed pyproject (no parsable mypy floor) is inconclusive about main:
+    it must be classified infra_error, never written as a main-red halt (#9113)."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    pristine = tmp_path / "pristine"
+    pristine.mkdir(parents=True)
+    (pristine / "pyproject.toml").write_text("[project]\nname = 'x'\n", encoding="utf-8")
+    monkeypatch.setattr(mod, "_check_test_runtime", lambda repo: None)
+    monkeypatch.setattr(mod, "refresh_pristine_worktree", lambda repo, pristine: "deadbeef" * 5)
+
+    halt = tmp_path / "halt.json"
+    original_halt = b'{"reason": "existing-main-red"}\n'
+    halt.write_bytes(original_halt)
+
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(repo),
+            "--pristine-dir",
+            str(pristine),
+            "--halt-file",
+            str(halt),
+            "--suite",
+            "required",
+        ]
+    )
+
+    assert rc == mod.INFRA_ERROR_EXIT
+    assert halt.read_bytes() == original_halt
+    stderr = capsys.readouterr().err
+    assert "INFRA_ERROR" in stderr
+    assert "toolchain contract invalid" in stderr
+
+    from aragora.nomic.throughput import ThroughputLedger
+
+    (record,) = ThroughputLedger(repo).records()
+    assert record.data["status"] == "infra_error"
+    assert "toolchain contract invalid" in record.data["infra_errors"][0]
+
+
 def test_missing_path_mypy_is_infra_error_without_touching_halt(mod, monkeypatch, tmp_path, capsys):
     repo = tmp_path / "repo"
     repo.mkdir()

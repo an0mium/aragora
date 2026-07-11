@@ -404,7 +404,10 @@ def main(argv: list[str] | None = None) -> int:
         try:
             toolchain_error = _check_required_toolchain(args.pristine_dir)
         except (OSError, UnicodeError, ValueError) as exc:
-            failures.append(f"required-suite toolchain contract invalid: {exc}")
+            # A broken toolchain *contract* (unreadable/malformed pyproject) is
+            # inconclusive about main, exactly like a missing runtime: it must
+            # never masquerade as a main-red test result (#9113).
+            infra_errors.append(f"required-suite toolchain contract invalid: {exc}")
         else:
             if toolchain_error:
                 infra_errors.append(toolchain_error)
