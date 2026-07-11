@@ -4,6 +4,9 @@ Tests for Moltbot Canvas component.
 Tests canvas creation, element management, layers, and collaboration.
 """
 
+import json
+from unittest.mock import MagicMock, patch
+
 import pytest
 from pathlib import Path
 
@@ -168,6 +171,34 @@ class TestCanvasElements:
         assert element.x == 100
         assert element.y == 100
         assert element.content["text"] == "Hello World"
+
+        from aragora.extensions.moltbot.handlers.canvas import MoltbotCanvasHandler
+
+        request = MagicMock()
+        auth_context = MagicMock(user_id="user-1")
+        canvas_handler = MoltbotCanvasHandler({})
+        with (
+            patch.object(
+                canvas_handler,
+                "require_auth_or_error",
+                return_value=(auth_context, None),
+            ),
+            patch.object(
+                canvas_handler,
+                "read_json_body_validated",
+                return_value=({"type": "text", "layer_id": "missing-layer"}, None),
+            ),
+            patch(
+                "aragora.extensions.moltbot.handlers.canvas.get_canvas_manager",
+                return_value=manager,
+            ),
+        ):
+            response = await canvas_handler._handle_add_element(canvas.id, request)
+
+        assert response.status_code == 400
+        assert json.loads(response.body) == {
+            "error": "Layer not found or canvas has no active layer"
+        }
 
     @pytest.mark.asyncio
     async def test_add_element_increments_version(self, manager: CanvasManager, canvas: Canvas):

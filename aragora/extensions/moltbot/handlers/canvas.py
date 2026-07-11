@@ -389,10 +389,13 @@ class MoltbotCanvasHandler(BaseHandler):
             layer_id=body.get("layer_id"),
         )
 
+        if element is None:
+            return error_response("Layer not found or canvas has no active layer", 400)
+
         return json_response(
             {
                 "success": True,
-                "element": self._serialize_element(cast("CanvasElement", element)),
+                "element": self._serialize_element(element),
             },
             status=201,
         )
