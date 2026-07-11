@@ -6,6 +6,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TEST_TIERS = REPO_ROOT / "scripts" / "test_tiers.sh"
@@ -27,6 +29,7 @@ def _run_typecheck_with_fake_python(
     fake_python.chmod(0o755)
 
     env = os.environ.copy()
+    env.pop("TYPECHECK_PYTHON", None)
     env["PATH"] = f"{fake_bin}{os.pathsep}{env['PATH']}"
     return subprocess.run(
         ["bash", str(TEST_TIERS), "typecheck"],
@@ -60,3 +63,13 @@ def test_typecheck_tier_passes_when_baseline_helper_exits_cleanly(tmp_path: Path
     output = proc.stdout + proc.stderr
     assert proc.returncode == 0
     assert "=== Type check passed (no new errors) ===" in output
+
+
+def test_typecheck_tier_ignores_inherited_python_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("TYPECHECK_PYTHON", "/missing/inherited/python")
+
+    proc = _run_typecheck_with_fake_python(tmp_path, "exit 0")
+
+    assert proc.returncode == 0

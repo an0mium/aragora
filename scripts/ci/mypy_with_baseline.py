@@ -34,6 +34,7 @@ DEFAULT_MYPY_ARGS: tuple[str, ...] = (
 )
 MYPY_DIAGNOSTIC_RE = re.compile(r"^.+?:\d+(?::\d+)?: error:", re.MULTILINE)
 CONFIGURATION_ERROR = 2
+TYPECHECK_DISTRIBUTIONS: tuple[str, ...] = ("mypy", "mypy-baseline", "pyjwt")
 
 
 def _error(message: str) -> None:
@@ -47,7 +48,7 @@ def _requirement_name(requirement: str) -> str:
     return match.group(1).lower().replace("_", "-").replace(".", "-")
 
 
-def _load_typecheck_requirements(pyproject_path: Path) -> tuple[str, str]:
+def _load_typecheck_requirements(pyproject_path: Path) -> tuple[str, ...]:
     with pyproject_path.open("rb") as handle:
         document: dict[str, Any] = tomllib.load(handle)
 
@@ -55,7 +56,7 @@ def _load_typecheck_requirements(pyproject_path: Path) -> tuple[str, str]:
     if not isinstance(dev, list) or not all(isinstance(item, str) for item in dev):
         raise ValueError("project.optional-dependencies.dev must be a list of requirements")
 
-    selected: dict[str, list[str]] = {"mypy": [], "mypy-baseline": []}
+    selected: dict[str, list[str]] = {name: [] for name in TYPECHECK_DISTRIBUTIONS}
     for requirement in dev:
         name = _requirement_name(requirement)
         if name in selected:
@@ -66,13 +67,20 @@ def _load_typecheck_requirements(pyproject_path: Path) -> tuple[str, str]:
             raise ValueError(
                 f"expected exactly one {name!r} requirement in project.optional-dependencies.dev"
             )
-    return selected["mypy"][0], selected["mypy-baseline"][0]
+    return tuple(selected[name][0] for name in TYPECHECK_DISTRIBUTIONS)
 
 
-def _expected_mypy_version(requirement: str) -> str:
-    match = re.fullmatch(r"mypy==([^,;\s]+)", requirement, flags=re.IGNORECASE)
+def _expected_exact_version(requirement: str, distribution: str) -> str:
+    match = re.fullmatch(
+        rf"{re.escape(distribution)}(?:\[[^\]]+\])?==([^,;\s]+)",
+        requirement,
+        flags=re.IGNORECASE,
+    )
     if match is None:
-        raise ValueError("the CI mypy requirement must use one exact 'mypy==VERSION' pin")
+        raise ValueError(
+            f"the CI {distribution} requirement must use one exact "
+            f"'{distribution}[extras]==VERSION' pin"
+        )
     return match.group(1)
 
 
@@ -80,20 +88,16 @@ def _installed_distribution_version(distribution: str) -> str:
     return metadata.version(distribution)
 
 
-def _validate_toolchain(expected_mypy: str, baseline_requirement: str) -> None:
-    try:
-        actual_mypy = _installed_distribution_version("mypy")
-    except metadata.PackageNotFoundError as exc:
-        raise ValueError("mypy is not installed") from exc
-    if actual_mypy != expected_mypy:
-        raise ValueError(
-            f"installed mypy {actual_mypy!r} does not match pinned version {expected_mypy!r}"
-        )
-
-    try:
-        _installed_distribution_version("mypy-baseline")
-    except metadata.PackageNotFoundError as exc:
-        raise ValueError(f"{baseline_requirement} is not installed") from exc
+def _validate_toolchain(expected_versions: dict[str, str]) -> None:
+    for distribution, expected in expected_versions.items():
+        try:
+            actual = _installed_distribution_version(distribution)
+        except metadata.PackageNotFoundError as exc:
+            raise ValueError(f"{distribution} is not installed") from exc
+        if actual != expected:
+            raise ValueError(
+                f"installed {distribution} {actual!r} does not match pinned version {expected!r}"
+            )
 
 
 def _run_mypy(mypy_args: tuple[str, ...]) -> subprocess.CompletedProcess[str]:
@@ -162,19 +166,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        mypy_requirement, baseline_requirement = _load_typecheck_requirements(PYPROJECT_PATH)
-        expected_mypy = _expected_mypy_version(mypy_requirement)
+        requirements = _load_typecheck_requirements(PYPROJECT_PATH)
+        expected_versions = {
+            distribution: _expected_exact_version(requirement, distribution)
+            for distribution, requirement in zip(TYPECHECK_DISTRIBUTIONS, requirements, strict=True)
+        }
     except (OSError, ValueError, tomllib.TOMLDecodeError) as exc:
         _error(str(exc))
         return CONFIGURATION_ERROR
 
     if args.print_install_requirements:
-        print(mypy_requirement)
-        print(baseline_requirement)
+        print("\n".join(requirements))
         return 0
 
     try:
-        _validate_toolchain(expected_mypy, baseline_requirement)
+        _validate_toolchain(expected_versions)
     except ValueError as exc:
         _error(str(exc))
         return CONFIGURATION_ERROR

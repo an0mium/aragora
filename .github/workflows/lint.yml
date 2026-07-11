@@ -378,16 +378,14 @@ jobs:
           mapfile -t TYPECHECK_REQUIREMENTS < <(
             "${PYBIN}" scripts/ci/mypy_with_baseline.py --print-install-requirements
           )
-          if [[ "${#TYPECHECK_REQUIREMENTS[@]}" -ne 2 ]]; then
-            echo "Expected exactly two typecheck tool requirements from pyproject.toml" >&2
+          if [[ "${#TYPECHECK_REQUIREMENTS[@]}" -ne 3 ]]; then
+            echo "Expected exactly three typecheck tool requirements from pyproject.toml" >&2
             exit 2
           fi
-          # pyjwt is pinned so mypy sees one deterministic jwt signature: the
-          # ubuntu runner image ships an ambient PyJWT in dist-packages that
-          # otherwise shadows "not installed" and drifts with image updates.
+          # The declared requirements include the exact PyJWT signature pin;
+          # do not duplicate that version outside pyproject.toml.
           "${PYBIN}" -m pip install --user \
             "${TYPECHECK_REQUIREMENTS[@]}" \
-            "pyjwt[crypto]==2.13.0" \
             types-requests types-redis types-python-dateutil types-setuptools \
             types-jsonschema types-PyYAML
 
@@ -553,15 +551,13 @@ jobs:
           mapfile -t TYPECHECK_REQUIREMENTS < <(
             python scripts/ci/mypy_with_baseline.py --print-install-requirements
           )
-          if [[ "${#TYPECHECK_REQUIREMENTS[@]}" -ne 2 ]]; then
-            echo "Expected exactly two typecheck tool requirements from pyproject.toml" >&2
+          if [[ "${#TYPECHECK_REQUIREMENTS[@]}" -ne 3 ]]; then
+            echo "Expected exactly three typecheck tool requirements from pyproject.toml" >&2
             exit 2
           fi
-          # Same deterministic pyjwt pin as the typecheck-run job (ambient
-          # runner-image PyJWT otherwise leaks into mypy's resolution).
+          # Same pyproject-declared toolchain as the required typecheck job.
           python -m pip install \
             "${TYPECHECK_REQUIREMENTS[@]}" \
-            "pyjwt[crypto]==2.13.0" \
             types-requests types-redis types-python-dateutil types-setuptools \
             types-jsonschema types-PyYAML
 
