@@ -75,6 +75,8 @@ __all__ = [
 # Webhook notification callback (set by init_slo_webhooks)
 _webhook_callback: Callable[[dict[str, Any]], bool] | None = None
 _webhook_sink: SLOEventSink | None = None
+_webhook_config: SLOWebhookConfig | None = None
+_webhook_init_requested = False
 
 
 class SLOEventSink(Protocol):
@@ -89,11 +91,62 @@ _slo_event_sink_provider: SLOEventSinkProvider | None = None
 
 
 def register_slo_event_sink_provider(provider: SLOEventSinkProvider | None) -> None:
-    """Register the integrations-side provider for SLO event delivery."""
+    """Register the integrations-side provider for SLO event delivery.
+
+    An initialized integration switches only after the replacement provider
+    resolves successfully, so concurrent delivery never observes an empty
+    callback and a transient replacement failure cannot disable the old sink.
+    """
     global _slo_event_sink_provider, _webhook_callback, _webhook_sink
+    global _webhook_init_requested
+
+    if provider is None:
+        _slo_event_sink_provider = None
+        _webhook_callback = None
+        _webhook_sink = None
+        _webhook_init_requested = False
+        return
+
+    if _webhook_init_requested:
+        try:
+            replacement = provider()
+        except (ImportError, OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
+            logger.warning("Failed to replace SLO webhook provider: %s", e)
+            return
+        if replacement is None:
+            logger.warning("SLO webhook provider replacement returned no sink")
+            return
+
+        config = _webhook_config or SLOWebhookConfig()
+        replacement_callback = _build_slo_violation_callback(config)
+        _slo_event_sink_provider = provider
+        _webhook_sink = replacement
+        _webhook_callback = replacement_callback
+        return
+
     _slo_event_sink_provider = provider
     _webhook_callback = None
     _webhook_sink = None
+
+
+def _resolve_slo_event_sink(*, refresh: bool = False) -> SLOEventSink | None:
+    """Resolve the current integrations-side sink without importing upward."""
+    global _webhook_sink
+
+    if _webhook_sink is not None and not refresh:
+        return _webhook_sink
+    if _slo_event_sink_provider is None:
+        return None
+    try:
+        resolved = _slo_event_sink_provider()
+    except (ImportError, OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
+        logger.debug("Webhook dispatcher not available: %s", e)
+        return _webhook_sink
+    if resolved is not None:
+        _webhook_sink = resolved
+    elif refresh:
+        _webhook_sink = None
+    return _webhook_sink
 
 
 # Violation buffer for batching webhook notifications
@@ -114,6 +167,41 @@ class SLOWebhookConfig:
 
 # Severity ordering for filtering
 SEVERITY_ORDER = {"minor": 0, "moderate": 1, "major": 2, "critical": 3}
+
+
+def _build_slo_violation_callback(
+    config: SLOWebhookConfig,
+) -> Callable[[dict[str, Any]], bool]:
+    """Create a violation callback that follows the provider's current sink."""
+
+    def send_violation_webhook(violation_data: dict[str, Any]) -> bool:
+        severity = violation_data.get("severity", "minor")
+        if SEVERITY_ORDER.get(severity, 0) < SEVERITY_ORDER.get(config.min_severity, 0):
+            return False
+
+        operation = violation_data.get("operation", "unknown")
+        percentile = violation_data.get("percentile", "p99")
+        timestamp_ms = int(time.time() * 1000)
+        event = {
+            "type": "slo_violation",
+            "idempotency_key": f"{operation}:{percentile}:{timestamp_ms}",
+            "timestamp": datetime.now().isoformat(),
+            "operation": operation,
+            "percentile": percentile,
+            "severity": severity,
+            "latency_ms": violation_data.get("latency_ms", 0),
+            "threshold_ms": violation_data.get("threshold_ms", 0),
+            "margin_ms": violation_data.get("margin_ms", 0),
+            "margin_percent": violation_data.get("margin_percent", 0),
+            "context": violation_data.get("context", {}),
+        }
+        sink = _resolve_slo_event_sink(refresh=True)
+        if sink is None:
+            return False
+        return sink.enqueue(event)
+
+    return send_violation_webhook
+
 
 # Cooldown tracking
 _last_notification: dict[str, float] = {}
@@ -438,13 +526,16 @@ def init_slo_webhooks(
         True if webhooks were successfully initialized
     """
     global _webhook_callback, _webhook_sink, _buffer_lock
+    global _webhook_config, _webhook_init_requested
 
     try:
         import threading
 
         _buffer_lock = threading.Lock()
+        _webhook_config = webhook_config or SLOWebhookConfig()
+        _webhook_init_requested = True
 
-        dispatcher = _slo_event_sink_provider() if _slo_event_sink_provider else None
+        dispatcher = _resolve_slo_event_sink()
         if dispatcher is None:
             _webhook_callback = None
             _webhook_sink = None
@@ -453,37 +544,8 @@ def init_slo_webhooks(
         _webhook_sink = dispatcher
 
         # Create callback that sends to webhook dispatcher
-        config = webhook_config or SLOWebhookConfig()
-
-        def send_violation_webhook(violation_data: dict[str, Any]) -> bool:
-            """Send violation to webhook dispatcher."""
-            severity = violation_data.get("severity", "minor")
-
-            # Check severity threshold
-            if SEVERITY_ORDER.get(severity, 0) < SEVERITY_ORDER.get(config.min_severity, 0):
-                return False
-
-            # Build webhook event
-            operation = violation_data.get("operation", "unknown")
-            percentile = violation_data.get("percentile", "p99")
-            timestamp_ms = int(time.time() * 1000)
-            event = {
-                "type": "slo_violation",
-                "idempotency_key": f"{operation}:{percentile}:{timestamp_ms}",
-                "timestamp": datetime.now().isoformat(),
-                "operation": operation,
-                "percentile": percentile,
-                "severity": severity,
-                "latency_ms": violation_data.get("latency_ms", 0),
-                "threshold_ms": violation_data.get("threshold_ms", 0),
-                "margin_ms": violation_data.get("margin_ms", 0),
-                "margin_percent": violation_data.get("margin_percent", 0),
-                "context": violation_data.get("context", {}),
-            }
-
-            return dispatcher.enqueue(event)
-
-        _webhook_callback = send_violation_webhook
+        config = _webhook_config or SLOWebhookConfig()
+        _webhook_callback = _build_slo_violation_callback(config)
         logger.info("SLO webhook notifications initialized")
         return True
 
@@ -612,14 +674,17 @@ def notify_slo_recovery(
 
     result = False
 
-    # Send to webhook dispatcher
+    # Send to webhook dispatcher. Recovery delivery historically worked
+    # without explicit webhook initialization, so resolve the registered sink
+    # directly while keeping the dependency direction inverted.
     try:
-        if _webhook_callback is not None and _webhook_sink is not None:
+        sink = _resolve_slo_event_sink(refresh=True)
+        if sink is not None:
             event = {
                 "type": "slo_recovery",
                 **recovery_data,
             }
-            result = _webhook_sink.enqueue(event)
+            result = sink.enqueue(event)
 
     except (OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
         logger.debug("Failed to send SLO recovery webhook: %s", e)

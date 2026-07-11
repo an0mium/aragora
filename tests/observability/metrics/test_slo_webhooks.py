@@ -127,8 +127,8 @@ class TestInitSLOWebhooks:
         finally:
             register_slo_event_sink_provider(None)
 
-    def test_replacing_provider_discards_active_dispatcher(self):
-        """Replacing a provider cannot leave the previous dispatcher active."""
+    def test_replacing_provider_rebinds_active_dispatcher(self):
+        """Replacing a provider keeps initialized delivery active on the new sink."""
         old_dispatcher = MagicMock()
         old_dispatcher.enqueue = MagicMock(return_value=True)
         new_dispatcher = MagicMock()
@@ -140,21 +140,7 @@ class TestInitSLOWebhooks:
 
         assert (
             notify_slo_violation(
-                operation="provider_reset",
-                percentile="p99",
-                latency_ms=600.0,
-                threshold_ms=500.0,
-                severity="minor",
-                cooldown_seconds=0.0,
-            )
-            is False
-        )
-        old_dispatcher.enqueue.assert_not_called()
-
-        assert init_slo_webhooks() is True
-        assert (
-            notify_slo_violation(
-                operation="provider_reinitialized",
+                operation="provider_rebound",
                 percentile="p99",
                 latency_ms=600.0,
                 threshold_ms=500.0,
@@ -163,6 +149,66 @@ class TestInitSLOWebhooks:
             )
             is True
         )
+        old_dispatcher.enqueue.assert_not_called()
+        new_dispatcher.enqueue.assert_called_once()
+
+    def test_failed_provider_replacement_preserves_active_dispatcher(self):
+        """A replacement that cannot resolve does not disable active delivery."""
+        old_dispatcher = MagicMock()
+        old_dispatcher.enqueue = MagicMock(return_value=True)
+
+        register_slo_event_sink_provider(lambda: old_dispatcher)
+        assert init_slo_webhooks() is True
+        register_slo_event_sink_provider(lambda: None)
+
+        assert (
+            notify_slo_violation(
+                operation="provider_replacement_failed",
+                percentile="p99",
+                latency_ms=600.0,
+                threshold_ms=500.0,
+                severity="minor",
+                cooldown_seconds=0.0,
+            )
+            is True
+        )
+        old_dispatcher.enqueue.assert_called_once()
+
+    def test_violation_callback_refreshes_replaceable_provider_result(self):
+        """Violation delivery follows a dispatcher singleton replacement."""
+        old_dispatcher = MagicMock()
+        old_dispatcher.enqueue = MagicMock(return_value=True)
+        new_dispatcher = MagicMock()
+        new_dispatcher.enqueue = MagicMock(return_value=True)
+        current_dispatcher = [old_dispatcher]
+        register_slo_event_sink_provider(lambda: current_dispatcher[0])
+        assert init_slo_webhooks() is True
+
+        assert (
+            notify_slo_violation(
+                operation="old_dispatcher",
+                percentile="p99",
+                latency_ms=600.0,
+                threshold_ms=500.0,
+                severity="minor",
+                cooldown_seconds=0.0,
+            )
+            is True
+        )
+        current_dispatcher[0] = new_dispatcher
+        assert (
+            notify_slo_violation(
+                operation="new_dispatcher",
+                percentile="p99",
+                latency_ms=600.0,
+                threshold_ms=500.0,
+                severity="minor",
+                cooldown_seconds=0.0,
+            )
+            is True
+        )
+
+        old_dispatcher.enqueue.assert_called_once()
         new_dispatcher.enqueue.assert_called_once()
 
 
@@ -410,10 +456,8 @@ class TestSLORecovery:
     """Tests for SLO recovery notifications."""
 
     def test_notify_slo_recovery_returns_false_when_not_initialized(self):
-        """Test returns False when webhooks not initialized."""
-        import aragora.observability.metrics.slo as slo_module
-
-        slo_module._webhook_callback = None
+        """Test returns False when no webhook sink is registered."""
+        register_slo_event_sink_provider(None)
 
         result = notify_slo_recovery(
             operation="test_op",
@@ -486,6 +530,66 @@ class TestSLORecovery:
         finally:
             register_slo_event_sink_provider(None)
             slo_module._webhook_callback = None
+
+    def test_recovery_resolves_registered_sink_without_explicit_init(self):
+        """Recovery delivery preserves legacy no-init behavior via the provider."""
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.enqueue = MagicMock(return_value=True)
+        register_slo_event_sink_provider(lambda: mock_dispatcher)
+
+        try:
+            assert (
+                notify_slo_recovery(
+                    operation="registered_recovery_no_init",
+                    percentile="p99",
+                    latency_ms=400.0,
+                    threshold_ms=500.0,
+                    violation_duration_seconds=60.0,
+                )
+                is True
+            )
+        finally:
+            register_slo_event_sink_provider(None)
+
+        event = mock_dispatcher.enqueue.call_args.args[0]
+        assert event["type"] == "slo_recovery"
+
+    def test_recovery_refreshes_replaceable_provider_result(self):
+        """Recovery delivery does not retain a stopped singleton dispatcher."""
+        old_dispatcher = MagicMock()
+        old_dispatcher.enqueue = MagicMock(return_value=True)
+        new_dispatcher = MagicMock()
+        new_dispatcher.enqueue = MagicMock(return_value=True)
+        current_dispatcher = [old_dispatcher]
+        register_slo_event_sink_provider(lambda: current_dispatcher[0])
+
+        try:
+            assert (
+                notify_slo_recovery(
+                    operation="old_dispatcher",
+                    percentile="p99",
+                    latency_ms=400.0,
+                    threshold_ms=500.0,
+                    violation_duration_seconds=60.0,
+                )
+                is True
+            )
+            current_dispatcher[0] = new_dispatcher
+            assert (
+                notify_slo_recovery(
+                    operation="new_dispatcher",
+                    percentile="p99",
+                    latency_ms=400.0,
+                    threshold_ms=500.0,
+                    violation_duration_seconds=60.0,
+                )
+                is True
+            )
+        finally:
+            register_slo_event_sink_provider(None)
+
+        old_dispatcher.enqueue.assert_called_once()
+        new_dispatcher.enqueue.assert_called_once()
 
 
 class TestViolationState:

@@ -149,18 +149,28 @@ ChannelAlertSinkFactory = Callable[[SLOAlertConfig], ChannelAlertSink]
 
 _pagerduty_alert_sink_factory: PagerDutyAlertSinkFactory | None = None
 _channel_alert_sink_factory: ChannelAlertSinkFactory | None = None
+_pagerduty_alert_sink_generation = 0
+_channel_alert_sink_generation = 0
 
 
 def register_pagerduty_alert_sink(factory: PagerDutyAlertSinkFactory | None) -> None:
     """Register the connector-side PagerDuty sink factory."""
-    global _pagerduty_alert_sink_factory
+    global _pagerduty_alert_sink_factory, _pagerduty_alert_sink_generation
     _pagerduty_alert_sink_factory = factory
+    _pagerduty_alert_sink_generation += 1
+    bridge = globals().get("_bridge")
+    if isinstance(bridge, SLOAlertBridge):
+        bridge._ensure_pagerduty_sink()
 
 
 def register_channel_alert_sink(factory: ChannelAlertSinkFactory | None) -> None:
     """Register the control-plane channel sink factory."""
-    global _channel_alert_sink_factory
+    global _channel_alert_sink_factory, _channel_alert_sink_generation
     _channel_alert_sink_factory = factory
+    _channel_alert_sink_generation += 1
+    bridge = globals().get("_bridge")
+    if isinstance(bridge, SLOAlertBridge):
+        bridge._ensure_channel_sink()
 
 
 class SLOAlertBridge:
@@ -178,29 +188,60 @@ class SLOAlertBridge:
         self._last_notification: dict[str, float] = {}
         self._pagerduty_client: Any | None = None
         self._notification_manager: Any | None = None
+        self._pagerduty_sink_generation = -1
+        self._channel_sink_generation = -1
         self._lock = asyncio.Lock()
 
-        if config.pagerduty_enabled and _pagerduty_alert_sink_factory is not None:
-            try:
-                self._pagerduty_client = _pagerduty_alert_sink_factory(config)
-            except (OSError, RuntimeError, ValueError) as e:
-                logger.error("Failed to initialize PagerDuty alert sink: %s", e)
-        elif config.pagerduty_enabled:
-            logger.warning(
-                "PagerDuty SLO alerting enabled without a registered sink; "
-                "register the connector adapter before creating the bridge"
-            )
+        self._ensure_pagerduty_sink(warn_if_missing=True)
+        self._ensure_channel_sink(warn_if_missing=True)
 
-        if config.slack_enabled and _channel_alert_sink_factory is not None:
-            try:
-                self._notification_manager = _channel_alert_sink_factory(config)
-            except (OSError, RuntimeError, ValueError) as e:
-                logger.error("Failed to initialize channel alert sink: %s", e)
-        elif config.slack_enabled:
-            logger.warning(
-                "Slack SLO alerting enabled without a registered sink; "
-                "register the control-plane adapter before creating the bridge"
-            )
+    def _ensure_pagerduty_sink(self, *, warn_if_missing: bool = False) -> None:
+        """Attach the current PagerDuty adapter when one is registered."""
+        if not self.config.pagerduty_enabled:
+            return
+        if self._pagerduty_sink_generation == _pagerduty_alert_sink_generation:
+            return
+        if _pagerduty_alert_sink_factory is None:
+            self._pagerduty_client = None
+            self._pagerduty_sink_generation = _pagerduty_alert_sink_generation
+            if warn_if_missing:
+                logger.warning(
+                    "PagerDuty SLO alerting enabled without a registered sink; "
+                    "register the connector adapter before creating the bridge"
+                )
+            return
+        try:
+            replacement = _pagerduty_alert_sink_factory(self.config)
+        except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
+            logger.error("Failed to initialize PagerDuty alert sink: %s", e)
+            return
+
+        self._pagerduty_client = replacement
+        self._pagerduty_sink_generation = _pagerduty_alert_sink_generation
+
+    def _ensure_channel_sink(self, *, warn_if_missing: bool = False) -> None:
+        """Attach the current channel adapter when one is registered."""
+        if not self.config.slack_enabled:
+            return
+        if self._channel_sink_generation == _channel_alert_sink_generation:
+            return
+        if _channel_alert_sink_factory is None:
+            self._notification_manager = None
+            self._channel_sink_generation = _channel_alert_sink_generation
+            if warn_if_missing:
+                logger.warning(
+                    "Slack SLO alerting enabled without a registered sink; "
+                    "register the control-plane adapter before creating the bridge"
+                )
+            return
+        try:
+            replacement = _channel_alert_sink_factory(self.config)
+        except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
+            logger.error("Failed to initialize channel alert sink: %s", e)
+            return
+
+        self._notification_manager = replacement
+        self._channel_sink_generation = _channel_alert_sink_generation
 
     def _make_incident_key(self, operation: str, percentile: str) -> str:
         """Generate unique incident key for deduplication."""
@@ -253,6 +294,7 @@ class SLOAlertBridge:
         context: dict[str, Any],
     ) -> str | None:
         """Create or update a PagerDuty incident."""
+        self._ensure_pagerduty_sink()
         if not self.config.pagerduty_enabled or self._pagerduty_client is None:
             return None
 
@@ -305,6 +347,7 @@ class SLOAlertBridge:
         context: dict[str, Any],
     ) -> bool:
         """Send alert to Slack."""
+        self._ensure_channel_sink()
         if (
             not self.config.slack_enabled
             or not self.config.slack_webhook_url
@@ -463,6 +506,8 @@ class SLOAlertBridge:
         Resolves any open incidents and sends recovery notifications.
         """
         incident_key = self._make_incident_key(operation, percentile)
+        self._ensure_pagerduty_sink()
+        self._ensure_channel_sink()
 
         async with self._lock:
             if incident_key not in self._active_violations:

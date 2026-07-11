@@ -3,6 +3,8 @@ Tests for KM Health Metrics and Observability.
 """
 
 import time
+from unittest.mock import patch
+
 import pytest
 
 from aragora.knowledge.mound.metrics import (
@@ -338,6 +340,33 @@ class TestGlobalMetrics:
 
         assert metrics is not None
         assert isinstance(metrics, KMMetrics)
+
+    def test_get_metrics_does_not_import_observability_on_hot_path(self):
+        """The singleton accessor does not repeat cross-layer registration."""
+        import aragora.knowledge.mound.metrics as m
+
+        m._global_metrics = None
+        with patch.object(
+            m,
+            "_register_prometheus_health_provider",
+            side_effect=AssertionError("registration should not run"),
+        ):
+            assert isinstance(get_metrics(), KMMetrics)
+
+    def test_prometheus_registration_fails_soft_when_observability_unavailable(self):
+        """KM metrics remain usable if the observability adapter cannot import."""
+        import builtins
+        import aragora.knowledge.mound.metrics as m
+
+        original_import = builtins.__import__
+
+        def guarded_import(name, *args, **kwargs):
+            if name == "aragora.observability.metrics.km":
+                raise ImportError("observability unavailable")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=guarded_import):
+            assert m._register_prometheus_health_provider() is False
 
     def test_set_metrics_replaces_instance(self):
         """Test setting global metrics."""
