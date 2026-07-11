@@ -41,10 +41,14 @@ stop sign until its provenance is understood.
 
 Prefer the missing independent family, not a broad reviewer sweep.
 
-- For a missing non-OpenAI signal, use `claude` first with explicit
+- If the gate names a missing family, run that family directly with explicit
   `--reviewer-timeout 600 --overall-timeout 900`.
-- If Claude returns no usable body, retry once with `grok`, the same explicit
-  `--reviewer-timeout 600 --overall-timeout 900`, and the documented OpenRouter
+- If the gate only reports a missing non-OpenAI signal, use any eligible
+  independent family that satisfies the current Tier. Prefer `claude` only when
+  its reviewer slot is available under ONE-CLAUDE; otherwise use another
+  eligible family such as `grok`.
+- If the selected family returns no usable body, rotate once to a different
+  eligible family with the same explicit timeouts and the documented provider
   fallback environment when required.
 - Never use an interactive Claude CLI path for this conductor cycle.
 - Do not retry the same family on the same head after concrete dissent.
@@ -55,10 +59,14 @@ Always start with a dry run and save the JSON artifact in a unique private
 temporary directory. Do not use a predictable shared `/tmp` filename:
 
 ```bash
-umask 077
 artifact_dir="$(mktemp -d "${TMPDIR:-/tmp}/aragora-quorum-pr${PR}.XXXXXX")"
+chmod 700 "$artifact_dir"
 artifact="${artifact_dir}/ev_${PR}_${HEAD}_${FAMILY}_dry.json"
 ```
+
+After recording the required digest and moving any artifact that must be
+retained to its approved durable location, remove the private temporary
+directory with `rm -rf -- "$artifact_dir"`.
 
 The dry-run body must satisfy all of these checks before any apply attempt:
 
