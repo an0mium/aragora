@@ -647,6 +647,38 @@ def test_cli_failure_detail_marks_unrecognized_suppressed_payload() -> None:
 
 
 @pytest.mark.parametrize(
+    "diagnostic",
+    [
+        "OAuth authentication failed",
+        "HTTP 401 Unauthorized",
+        "Connection reset by peer",
+        "SSL handshake failed",
+        "three errors occurred",
+    ],
+)
+def test_cli_failure_detail_recognizes_nonprefixed_diagnostics(diagnostic: str) -> None:
+    prompt = "review a private diff without exposing it"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\nuser\n{prompt}\n{diagnostic}",
+        redact=prompt,
+    )
+
+    assert prompt not in detail
+    assert diagnostic in detail
+
+
+def test_cli_failure_detail_does_not_resume_on_prompt_fragment_with_error_word() -> None:
+    prompt = "review the private authentication error handling in this diff"
+    detail = qe._bounded_cli_failure_detail(
+        "provider header\nuser\nprivate authentication error handling\nprovider stopped",
+        redact=prompt,
+    )
+
+    assert "private authentication error handling" not in detail
+    assert qe._CLI_OMITTED_DIAGNOSTIC in detail
+
+
+@pytest.mark.parametrize(
     ("exc", "expected_error"),
     [
         (

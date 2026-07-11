@@ -353,13 +353,29 @@ _MAX_REVIEWER_CHARS = 32_000
 # head identifies the transport; the tail usually carries quota/auth failures.
 _MAX_CLI_ERROR_CHARS = 500
 _CLI_TRANSCRIPT_ROLES = frozenset({"system", "developer", "user", "assistant"})
-_CLI_DIAGNOSTIC_PREFIX = re.compile(
-    r"^(?:\[(?:error|fatal|warn(?:ing)?)\]|error|fatal|warning|traceback|exception|"
-    r"[\w.]*error|failed|failure|usage|quota|rate limit|authentication|authorization|"
-    r"unauthorized|forbidden|model|you(?:'ve| have|'re| are))(?:\s|:|$)",
+_CLI_DIAGNOSTIC_SIGNAL = re.compile(
+    r"(?:\b(?:errors?|exceptions?|traceback|failed|failures?|usage|quota|rate limit|"
+    r"authentication|authorization|unauthorized|forbidden)\b|\bHTTP\s+[45]\d\d\b|"
+    r"\bconnection\s+(?:reset|refused|closed|aborted)\b|\bSSL\s+handshake\b|"
+    r"\byou(?:'ve| have|'re| are)\s+(?:hit|out of)\b)",
     re.IGNORECASE,
 )
 _CLI_OMITTED_DIAGNOSTIC = "[CLI transcript payload omitted; no diagnostic line recognized]"
+
+
+def _looks_like_prompt_fragment(line: str, prompt: str | None) -> bool:
+    """Whether a CLI line is a normalized fragment of the submitted prompt."""
+    if not prompt:
+        return False
+
+    def normalize(value: str) -> str:
+        return re.sub(r"\s+", " ", value.replace("\\ ", " ").replace("\\", "")).strip().lower()
+
+    normalized_line = normalize(line)
+    normalized_prompt = normalize(prompt)
+    return len(normalized_line) >= 16 and normalized_line in normalized_prompt
+
+
 # Claude CLI startup can legitimately take longer on large reviews, especially
 # when subscription auth and local MCP state are cold. Keep only that path at a
 # generous ceiling; reviewer transports without the Claude-specific probe stay
@@ -465,7 +481,7 @@ def _bounded_cli_failure_detail(
             omitted_payload = True
             continue
         if suppress_payload:
-            if not _CLI_DIAGNOSTIC_PREFIX.match(line.strip()):
+            if _looks_like_prompt_fragment(line, redact) or not _CLI_DIAGNOSTIC_SIGNAL.search(line):
                 continue
             suppress_payload = False
         filtered_lines.append(line)
