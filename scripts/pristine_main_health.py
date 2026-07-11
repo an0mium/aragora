@@ -153,6 +153,36 @@ def _format_process_failure(cmd: list[str], proc: subprocess.CompletedProcess) -
     return f"exit {proc.returncode}: {' '.join(cmd)}\n{evidence}"
 
 
+# A failing suite command whose output shows the RUNNER environment is broken
+# (a tool missing from PATH, a third-party dependency missing from the
+# interpreter) is inconclusive about main, exactly like a timeout. A missing
+# first-party module stays main_red: an unimportable ``aragora.*``/``tests``
+# module on pristine main IS the red this script exists to catch, so the
+# module-name check below fails closed on first-party imports.
+_INFRA_OUTPUT_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?m)^make(\[\d+\])?: .*(command not found|No such file or directory)"),
+    re.compile(r"(?m)command not found"),
+)
+_MISSING_MODULE_PATTERN = re.compile(
+    r"(?m)^(?:ModuleNotFoundError|ImportError): No module named ['\"]?(?P<module>[A-Za-z0-9_.]+)"
+)
+_FIRST_PARTY_MODULE_PREFIXES = ("aragora", "tests", "scripts")
+
+
+def _infra_failure_signature(proc: subprocess.CompletedProcess) -> str | None:
+    """Return the matched runner-environment signature, or None for real red."""
+    output = f"{_stream_text(proc.stdout)}\n{_stream_text(proc.stderr)}"
+    for pattern in _INFRA_OUTPUT_PATTERNS:
+        match = pattern.search(output)
+        if match:
+            return match.group(0).strip()
+    for match in _MISSING_MODULE_PATTERN.finditer(output):
+        module = match.group("module")
+        if module.split(".")[0] not in _FIRST_PARTY_MODULE_PREFIXES:
+            return match.group(0).strip()
+    return None
+
+
 def _check_test_runtime(repo: Path) -> str | None:
     """Return bounded evidence when this interpreter cannot run pytest."""
     cmd = [sys.executable, "-c", "import pytest"]
@@ -434,7 +464,14 @@ def main(argv: list[str] | None = None) -> int:
                 f"{_format_stream_evidence(stdout=proc.stdout, stderr=proc.stderr)}"
             )
         elif proc.returncode != 0:
-            failures.append(_format_process_failure(cmd, proc))
+            signature = _infra_failure_signature(proc)
+            if signature:
+                infra_errors.append(
+                    f"runner environment failure ({signature}): "
+                    f"{_format_process_failure(cmd, proc)}"
+                )
+            else:
+                failures.append(_format_process_failure(cmd, proc))
 
     status = "infra_error" if infra_errors else "main_red" if failures else "green"
     green = status == "green"

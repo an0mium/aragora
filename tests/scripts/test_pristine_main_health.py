@@ -359,6 +359,63 @@ def test_invalid_toolchain_contract_is_infra_error_without_touching_halt(
     assert "toolchain contract invalid" in record.data["infra_errors"][0]
 
 
+def test_infra_failure_signature_classification(mod):
+    """Runner-environment breakage is infra; first-party import failure is red."""
+    # A tool missing from PATH (make or shell reporting it) is infra.
+    assert (
+        mod._infra_failure_signature(_Proc(2, "make: mypy: No such file or directory")) is not None
+    )
+    assert mod._infra_failure_signature(_Proc(127, "zsh: ruff: command not found")) is not None
+    # A missing THIRD-PARTY module in the runner interpreter is infra.
+    proc = _Proc(1, "")
+    proc.stderr = "ModuleNotFoundError: No module named 'jsonschema'"
+    assert mod._infra_failure_signature(proc) is not None
+    # A missing FIRST-PARTY module IS the red this script exists to catch.
+    proc = _Proc(1, "")
+    proc.stderr = "ModuleNotFoundError: No module named 'aragora.debate.orchestrator'"
+    assert mod._infra_failure_signature(proc) is None
+    # Ordinary test failures are red.
+    assert mod._infra_failure_signature(_Proc(1, "FAILED tests/x.py::t - boom")) is None
+
+
+def test_suite_tool_missing_is_infra_error_without_touching_halt(
+    mod, monkeypatch, tmp_path, capsys
+):
+    """`make ci-required` failing because a tool is absent must never halt merges."""
+    _install_fake_worktree(mod, monkeypatch)
+    monkeypatch.setattr(mod, "_check_test_runtime", lambda repo: None)
+    monkeypatch.setattr(mod, "_check_required_toolchain", lambda pristine: None)
+    monkeypatch.setattr(
+        mod,
+        "_run_suite",
+        lambda cmd, *, cwd, timeout: _Proc(2, "make: ruff: command not found"),
+    )
+
+    halt = tmp_path / "halt.json"
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--pristine-dir",
+            str(tmp_path / "pristine"),
+            "--halt-file",
+            str(halt),
+            "--suite",
+            "required",
+        ]
+    )
+
+    assert rc == mod.INFRA_ERROR_EXIT
+    assert not halt.exists()
+    assert "command not found" in capsys.readouterr().err
+
+    from aragora.nomic.throughput import ThroughputLedger
+
+    (record,) = ThroughputLedger(tmp_path).records()
+    assert record.data["status"] == "infra_error"
+    assert "runner environment failure" in record.data["infra_errors"][0]
+
+
 def test_missing_path_mypy_is_infra_error_without_touching_halt(mod, monkeypatch, tmp_path, capsys):
     repo = tmp_path / "repo"
     repo.mkdir()
