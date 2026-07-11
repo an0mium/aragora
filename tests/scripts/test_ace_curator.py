@@ -1,0 +1,254 @@
+"""Focused tests for the incremental ACE fleet-playbook curator."""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+
+SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "ace_curator.py"
+SPEC = importlib.util.spec_from_file_location("ace_curator_under_test", SCRIPT)
+assert SPEC and SPEC.loader
+ace_curator = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = ace_curator
+SPEC.loader.exec_module(ace_curator)
+
+
+def source(identifier: str, text: str = "bounded failure evidence"):
+    return ace_curator.SourceEntry(identifier, "fixture.jsonl", 1, text)
+
+
+def test_first_run_adds_traceable_stable_lessons() -> None:
+    sources = [source("SRC-A"), source("SRC-B")]
+    decisions = [
+        {
+            "action": "add",
+            "stable_key": "exact-head-before-settlement",
+            "lesson": "Recheck the exact PR head before settlement.",
+            "reason": "Repeated head drift invalidated earlier gate evidence.",
+            "source_ids": ["SRC-A", "SRC-B"],
+        }
+    ]
+
+    result = ace_curator.apply_decisions([], sources, decisions, now="2026-07-11T00:00:00Z")
+
+    assert result.added == 1
+    assert result.updated == 0
+    assert result.lessons[0].id == ace_curator.lesson_id("exact-head-before-settlement")
+    assert result.lessons[0].sources == (
+        "SRC-A@fixture.jsonl:1",
+        "SRC-B@fixture.jsonl:1",
+    )
+    rendered = ace_curator.render_playbook(result.lessons)
+    assert "Recheck the exact PR head" in rendered
+    assert '"sources": ["SRC-A@fixture.jsonl:1", "SRC-B@fixture.jsonl:1"]' in rendered
+
+
+def test_second_run_updates_in_place_and_appends_without_reordering() -> None:
+    first = ace_curator.apply_decisions(
+        [],
+        [source("SRC-A")],
+        [
+            {
+                "action": "add",
+                "stable_key": "exact-head",
+                "lesson": "Check the exact head.",
+                "reason": "Initial reflection.",
+                "source_ids": ["SRC-A"],
+            }
+        ],
+        now="2026-07-11T00:00:00Z",
+    )
+    original_id = first.lessons[0].id
+    second = ace_curator.apply_decisions(
+        first.lessons,
+        [source("SRC-B"), source("SRC-C")],
+        [
+            {
+                "action": "update",
+                "target_id": original_id,
+                "lesson": "Check the exact head before every irreversible action.",
+                "reason": "A second incident broadened the lesson.",
+                "source_ids": ["SRC-B"],
+            },
+            {
+                "action": "add",
+                "stable_key": "bounded-polling",
+                "lesson": "Bound polling to the watched surface's change rate.",
+                "reason": "Repeated polling produced no new evidence.",
+                "source_ids": ["SRC-C"],
+            },
+        ],
+        now="2026-07-12T00:00:00Z",
+    )
+
+    assert second.updated == 1
+    assert second.added == 1
+    assert [item.id for item in second.lessons][0] == original_id
+    assert second.lessons[0].sources == (
+        "SRC-A@fixture.jsonl:1",
+        "SRC-B@fixture.jsonl:1",
+    )
+    assert second.lessons[1].id == ace_curator.lesson_id("bounded-polling")
+
+
+def test_semantic_dedupe_is_idempotent_when_model_targets_existing_lesson() -> None:
+    existing = ace_curator.Lesson(
+        id=ace_curator.lesson_id("owner-check"),
+        stable_key="owner-check",
+        lesson="Check live ownership before mutation.",
+        sources=("SRC-A@fixture.jsonl:1",),
+        change_reason="Initial lesson.",
+        updated_at="2026-07-11T00:00:00Z",
+    )
+    decision = {
+        "action": "update",
+        "target_id": existing.id,
+        "lesson": existing.lesson,
+        "reason": "Semantically equivalent evidence.",
+        "source_ids": ["SRC-A"],
+    }
+
+    result = ace_curator.apply_decisions(
+        [existing], [source("SRC-A")], [decision], now="2026-07-12T00:00:00Z"
+    )
+
+    assert result.unchanged == 1
+    assert result.updated == 0
+    assert result.lessons == (existing,)
+
+
+def test_edit_requires_reason_and_known_traceable_sources() -> None:
+    with pytest.raises(ValueError, match="lesson and reason"):
+        ace_curator.apply_decisions(
+            [],
+            [source("SRC-A")],
+            [
+                {
+                    "action": "add",
+                    "stable_key": "missing-reason",
+                    "lesson": "Do something.",
+                    "source_ids": ["SRC-A"],
+                }
+            ],
+        )
+    with pytest.raises(ValueError, match="unknown source"):
+        ace_curator.apply_decisions(
+            [],
+            [source("SRC-A")],
+            [
+                {
+                    "action": "add",
+                    "stable_key": "unknown-source",
+                    "lesson": "Do something.",
+                    "reason": "Grounded elsewhere.",
+                    "source_ids": ["SRC-UNKNOWN"],
+                }
+            ],
+        )
+
+
+def test_collection_redacts_secrets_and_leaves_input_unchanged(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    original = (
+        json.dumps(
+            {
+                "summary": "provider failed",
+                "failure_detail": "OPENAI_API_KEY=sk-supersecretvalue",
+            }
+        )
+        + "\n"
+    )
+    ledger.write_text(original, encoding="utf-8")
+
+    entries = ace_curator.collect_sources([ledger], max_sources=10)
+
+    assert ledger.read_text(encoding="utf-8") == original
+    assert len(entries) == 1
+    assert "supersecretvalue" not in entries[0].text
+    assert "[REDACTED_SECRET]" in entries[0].text
+
+
+def test_playbook_round_trip_and_noop_write(tmp_path: Path) -> None:
+    lesson = ace_curator.Lesson(
+        id=ace_curator.lesson_id("stable"),
+        stable_key="stable",
+        lesson="Keep stable lessons stable.",
+        sources=("SRC-A@fixture.jsonl:1",),
+        change_reason="Fixture.",
+        updated_at="2026-07-11T00:00:00Z",
+    )
+    path = tmp_path / "playbook.md"
+    rendered = ace_curator.render_playbook([lesson])
+
+    assert ace_curator.write_playbook(path, rendered) is True
+    assert ace_curator.load_playbook(path) == [lesson]
+    assert ace_curator.write_playbook(path, rendered) is False
+
+
+def test_cli_uses_offline_model_decisions_without_live_api(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    ledger.write_text(
+        json.dumps({"summary": "owner collision repeated", "blocker_class": "owner"}) + "\n",
+        encoding="utf-8",
+    )
+    entries = ace_curator.collect_sources([ledger], max_sources=10)
+    decisions = tmp_path / "decisions.json"
+    decisions.write_text(
+        json.dumps(
+            {
+                "decisions": [
+                    {
+                        "action": "add",
+                        "stable_key": "owner-collision",
+                        "lesson": "Check object ownership before mutation.",
+                        "reason": "Fixture reflection.",
+                        "source_ids": [entries[0].id],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "playbook.md"
+
+    rc = ace_curator.main(
+        [
+            "--input",
+            str(ledger),
+            "--output",
+            str(output),
+            "--decisions-json",
+            str(decisions),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    assert "Check object ownership" in output.read_text(encoding="utf-8")
+
+
+def test_cli_refuses_to_overwrite_an_input(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    original = json.dumps({"summary": "do not overwrite me"}) + "\n"
+    ledger.write_text(original, encoding="utf-8")
+    decisions = tmp_path / "decisions.json"
+    decisions.write_text('{"decisions": []}\n', encoding="utf-8")
+
+    rc = ace_curator.main(
+        [
+            "--input",
+            str(ledger),
+            "--output",
+            str(ledger),
+            "--decisions-json",
+            str(decisions),
+        ]
+    )
+
+    assert rc == 2
+    assert ledger.read_text(encoding="utf-8") == original
