@@ -522,12 +522,13 @@ Conclusion:""",
         prompt = prompt_template.format(content=combined)
 
         try:
+            agent_call = self.agent_call
+            if agent_call is None:
+                raise RuntimeError("agent_call is required for LLM compression")
+
             # Use semaphore to control concurrent LLM calls
             semaphore = get_call_semaphore(self.config.max_sub_calls)
             async with semaphore:
-                agent_call = self.agent_call
-                if agent_call is None:
-                    raise RuntimeError("agent_call is required for LLM compression")
                 result = agent_call(prompt, self.config.root_model)
                 if inspect.isawaitable(result):
                     response = await result

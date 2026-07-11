@@ -61,6 +61,11 @@ class DebateOutcome:
     agents: list[str] = field(default_factory=list)
     domain: str = "general"
 
+    def __post_init__(self) -> None:
+        # Preserve normalization for deserializers that explicitly pass null.
+        if self.agents is None:
+            self.agents = []
+
 
 class DebateTrajectoryCollector:
     """
