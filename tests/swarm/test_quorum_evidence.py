@@ -618,6 +618,34 @@ def test_argv_cli_reviewer_rejects_empty_command() -> None:
     assert result.error == "grok CLI command is empty"
 
 
+def test_cli_failure_detail_preserves_traceback_after_escaped_prompt() -> None:
+    prompt = "review prompt with sensitive diff"
+    escaped_prompt = prompt.replace(" ", "\\ ")
+    stderr = (
+        "provider header\n"
+        f"user\n{escaped_prompt}\n"
+        "Traceback (most recent call last):\n"
+        '  File "reviewer.py", line 1, in <module>\n'
+        "ConnectionError: provider unavailable"
+    )
+
+    detail = qe._bounded_cli_failure_detail(stderr, redact=prompt)
+
+    assert escaped_prompt not in detail
+    assert "Traceback (most recent call last)" in detail
+    assert "ConnectionError: provider unavailable" in detail
+
+
+def test_cli_failure_detail_marks_unrecognized_suppressed_payload() -> None:
+    detail = qe._bounded_cli_failure_detail(
+        "provider header\nuser\nescaped prompt fragment\nprovider stopped",
+        redact="original prompt",
+    )
+
+    assert "escaped prompt fragment" not in detail
+    assert qe._CLI_OMITTED_DIAGNOSTIC in detail
+
+
 @pytest.mark.parametrize(
     ("exc", "expected_error"),
     [

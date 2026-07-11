@@ -354,10 +354,12 @@ _MAX_REVIEWER_CHARS = 32_000
 _MAX_CLI_ERROR_CHARS = 500
 _CLI_TRANSCRIPT_ROLES = frozenset({"system", "developer", "user", "assistant"})
 _CLI_DIAGNOSTIC_PREFIX = re.compile(
-    r"^(?:error|fatal|warning|failed|failure|usage|quota|rate limit|authentication|"
-    r"authorization|unauthorized|forbidden|model|you(?:'ve| have|'re| are))\b",
+    r"^(?:\[(?:error|fatal|warn(?:ing)?)\]|error|fatal|warning|traceback|exception|"
+    r"[\w.]*error|failed|failure|usage|quota|rate limit|authentication|authorization|"
+    r"unauthorized|forbidden|model|you(?:'ve| have|'re| are))(?:\s|:|$)",
     re.IGNORECASE,
 )
+_CLI_OMITTED_DIAGNOSTIC = "[CLI transcript payload omitted; no diagnostic line recognized]"
 # Claude CLI startup can legitimately take longer on large reviews, especially
 # when subscription auth and local MCP state are cold. Keep only that path at a
 # generous ceiling; reviewer transports without the Claude-specific probe stay
@@ -441,12 +443,14 @@ def _bounded_cli_failure_detail(
     stderr: str | None,
     stdout: str | None = None,
     *,
-    redact: Iterable[str] = (),
+    redact: str | None = None,
 ) -> str:
     """Return a bounded CLI diagnostic with actionable tail lines preserved."""
     text = (stderr or stdout or "").strip()
-    for value in redact:
-        if value:
+    if redact:
+        escaped = redact.replace("\\", "\\\\").replace(" ", "\\ ")
+        variants = {redact, escaped, json.dumps(redact)[1:-1]}
+        for value in sorted(variants, key=len, reverse=True):
             text = text.replace(value, "[review prompt redacted]")
 
     # Codex-style CLIs may echo the full prompt after a role marker. Strip that
@@ -454,15 +458,19 @@ def _bounded_cli_failure_detail(
     # resuming only at an explicit diagnostic line.
     filtered_lines: list[str] = []
     suppress_payload = False
+    omitted_payload = False
     for line in text.splitlines():
         if line.strip().lower().rstrip(":") in _CLI_TRANSCRIPT_ROLES:
             suppress_payload = True
+            omitted_payload = True
             continue
         if suppress_payload:
             if not _CLI_DIAGNOSTIC_PREFIX.match(line.strip()):
                 continue
             suppress_payload = False
         filtered_lines.append(line)
+    if suppress_payload and omitted_payload:
+        filtered_lines.append(_CLI_OMITTED_DIAGNOSTIC)
     text = "\n".join(filtered_lines).strip()
 
     if len(text) <= _MAX_CLI_ERROR_CHARS:
@@ -1302,7 +1310,7 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
         detail = _bounded_cli_failure_detail(
             proc.stderr,
             proc.stdout,
-            redact=(_CLI_PROBE_PROMPT,),
+            redact=_CLI_PROBE_PROMPT,
         )
         suffix = f": {detail}" if detail else ""
         return f"{family} CLI liveness probe exit {proc.returncode}{suffix}"
@@ -1337,7 +1345,7 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
         return ReviewerResult("claude", "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (proc.stdout or "").strip()
     if proc.returncode != 0 or not text:
-        detail = _bounded_cli_failure_detail(proc.stderr, proc.stdout, redact=(prompt,))
+        detail = _bounded_cli_failure_detail(proc.stderr, proc.stdout, redact=prompt)
         return ReviewerResult(
             "claude",
             "",
@@ -1430,7 +1438,7 @@ def _run_argv_cli_reviewer(
         detail = _bounded_cli_failure_detail(
             proc.stderr,
             proc.stdout,
-            redact=(prompt,),
+            redact=prompt,
         )
         return ReviewerResult(family, "", False, f"{family} CLI exit {proc.returncode}: {detail}")
     return ReviewerResult(family, _cap_text(text), True, harness=harness)
@@ -1603,7 +1611,7 @@ def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
                 detail = _bounded_cli_failure_detail(
                     proc.stderr,
                     proc.stdout,
-                    redact=(prompt,),
+                    redact=prompt,
                 )
                 if index < len(model_candidates) - 1 and _codex_model_selection_failed(raw_detail):
                     model_errors.append(f"{model}: {detail}")
