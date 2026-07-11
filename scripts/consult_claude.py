@@ -70,6 +70,13 @@ MAX_API_RESPONSE_BYTES = 4 * 1024 * 1024
 API_UNSUPPORTED_MODELS = {"claude-fable-5"}
 MAX_PROMPT_BYTES = 512 * 1024
 API_RESPONSE_READ_CHUNK_BYTES = 64 * 1024
+_CLI_RATE_LIMIT_MARKERS = (
+    "you've hit your session limit",
+    "you have hit your session limit",
+    "rate limit exceeded",
+    "usage limit reached",
+    "hit your usage limit",
+)
 
 EXIT_OK = 0
 EXIT_TIMEOUT = 2
@@ -87,6 +94,18 @@ def _safe_cli_error(*, returncode: int | None = None, empty: bool | None = None)
     if empty is not None:
         parts.append(f"empty={empty}")
     return ", ".join(parts)
+
+
+def _classify_cli_failure(text: str) -> dict[str, bool | str]:
+    """Classify known CLI failures without returning raw model or account output."""
+
+    lowered = text.lower()
+    if any(marker in lowered for marker in _CLI_RATE_LIMIT_MARKERS):
+        return {
+            "rate_limited": True,
+            "failure_kind": "rate_limited",
+        }
+    return {"failure_kind": "cli_error"}
 
 
 def _safe_api_error(message: str) -> str:
@@ -183,11 +202,16 @@ def _run_cli(prompt: str, model: str, timeout: float) -> dict:
     elapsed = round(time.monotonic() - started, 1)
     text = _strip_preamble(stdout) if used_profile else stdout.strip()
     if proc.returncode != 0:
+        classification = _classify_cli_failure(text)
+        error = _safe_cli_error(returncode=proc.returncode, empty=not text)
+        if classification.get("rate_limited"):
+            error = f"claude CLI rate limited, rc={proc.returncode}"
         return {
             "ok": False,
             "backend": backend,
             "elapsed_s": elapsed,
-            "error": _safe_cli_error(returncode=proc.returncode, empty=not text),
+            **classification,
+            "error": error,
         }
     if text:
         return {"ok": True, "backend": backend, "elapsed_s": elapsed, "text": text}
@@ -555,7 +579,8 @@ def consult(
         attempts.append({"model": model, **result})
         if result.get("ok"):
             return {**result, "model": model, "attempts": attempts}
-    if fallback_model and fallback_model != model:
+    cli_rate_limited = bool(attempts and attempts[-1].get("rate_limited"))
+    if fallback_model and fallback_model != model and not cli_rate_limited:
         attempt_timeout = _remaining_timeout(started, overall_timeout, timeout)
         if attempt_timeout <= 0:
             _append_budget_exhausted(attempts, model=fallback_model, backend="cli")
@@ -590,11 +615,13 @@ def consult(
                 return {**result, "model": openrouter_model, "attempts": attempts}
     timed_out = all(a.get("timed_out") for a in attempts) and bool(attempts)
     budget_exhausted = any(a.get("budget_exhausted") for a in attempts)
+    rate_limited = any(a.get("rate_limited") for a in attempts)
     return {
         "ok": False,
         "model": str(attempts[-1].get("model", model)) if attempts else model,
         "timed_out": timed_out,
         "budget_exhausted": budget_exhausted,
+        "rate_limited": rate_limited,
         "attempts": attempts,
         "error": "; ".join(str(a.get("error")) for a in attempts),
     }

@@ -125,6 +125,43 @@ def test_run_cli_does_not_treat_nonzero_stdout_as_success(monkeypatch) -> None:
     assert "secret" not in json.dumps(result)
 
 
+def test_run_cli_classifies_rate_limit_without_exposing_raw_output(monkeypatch) -> None:
+    class FakePopen:
+        returncode = 1
+        pid = 54321
+
+        def __init__(self, *args, **kwargs):
+            assert kwargs["stderr"] == subprocess.DEVNULL
+
+        def communicate(self, input, timeout):
+            assert input == "live prompt"
+            assert timeout == 12.5
+            return "You've hit your session limit - resets 3am (America/Chicago)\n", ""
+
+    monkeypatch.setattr(consult_claude.shutil, "which", lambda name: "/usr/bin/claude")
+    monkeypatch.setattr(consult_claude.subprocess, "Popen", FakePopen)
+
+    result = consult_claude._run_cli("live prompt", "claude-fable-5", 12.5)
+
+    assert result == {
+        "ok": False,
+        "backend": "cli",
+        "elapsed_s": result["elapsed_s"],
+        "rate_limited": True,
+        "failure_kind": "rate_limited",
+        "error": "claude CLI rate limited, rc=1",
+    }
+    serialized = json.dumps(result)
+    assert "3am" not in serialized
+    assert "America/Chicago" not in serialized
+
+
+def test_classify_cli_failure_does_not_treat_generic_limit_as_rate_limit() -> None:
+    result = consult_claude._classify_cli_failure("recursion limit reached")
+
+    assert result == {"failure_kind": "cli_error"}
+
+
 def test_consult_default_is_cli_only(monkeypatch) -> None:
     cli_models: list[str] = []
 
@@ -725,6 +762,100 @@ def test_consult_tries_fallback_cli_after_primary_timeout(monkeypatch) -> None:
     assert result["ok"] is True
     assert result["model"] == consult_claude.FALLBACK_MODEL
     assert cli_models == [consult_claude.DEFAULT_MODEL, consult_claude.FALLBACK_MODEL]
+
+
+def test_consult_skips_redundant_cli_fallback_after_subscription_rate_limit(
+    monkeypatch,
+) -> None:
+    cli_models: list[str] = []
+
+    def fake_cli(_prompt: str, model: str, _timeout: float) -> dict:
+        cli_models.append(model)
+        return {
+            "ok": False,
+            "backend": "cli",
+            "rate_limited": True,
+            "failure_kind": "rate_limited",
+            "error": "claude CLI rate limited, rc=1",
+        }
+
+    monkeypatch.setattr(consult_claude, "_run_cli", fake_cli)
+
+    result = consult_claude.consult("question", api_fallback=False)
+
+    assert result["ok"] is False
+    assert result["rate_limited"] is True
+    assert result["model"] == consult_claude.DEFAULT_MODEL
+    assert cli_models == [consult_claude.DEFAULT_MODEL]
+
+
+def test_consult_rate_limit_still_allows_explicit_openrouter_fallback(monkeypatch) -> None:
+    cli_models: list[str] = []
+
+    def fake_cli(_prompt: str, model: str, _timeout: float) -> dict:
+        cli_models.append(model)
+        return {
+            "ok": False,
+            "backend": "cli",
+            "rate_limited": True,
+            "failure_kind": "rate_limited",
+            "error": "claude CLI rate limited, rc=1",
+        }
+
+    def fake_openrouter(
+        _prompt: str,
+        model: str,
+        _timeout: float,
+        *,
+        system: str | None = None,
+    ) -> dict:
+        assert model == "anthropic/claude-test"
+        assert system is None
+        return {"ok": True, "backend": "openrouter", "text": "fallback answer"}
+
+    monkeypatch.setattr(consult_claude, "_run_cli", fake_cli)
+    monkeypatch.setattr(consult_claude, "_run_openrouter_api", fake_openrouter)
+
+    result = consult_claude.consult(
+        "question",
+        openrouter_fallback=True,
+        openrouter_model="anthropic/claude-test",
+    )
+
+    assert result["ok"] is True
+    assert result["backend"] == "openrouter"
+    assert cli_models == [consult_claude.DEFAULT_MODEL]
+
+
+def test_main_json_surfaces_safe_rate_limit_classification(monkeypatch, capsys) -> None:
+    def fake_consult(*_args, **_kwargs) -> dict:
+        return {
+            "ok": False,
+            "model": consult_claude.DEFAULT_MODEL,
+            "timed_out": False,
+            "budget_exhausted": False,
+            "rate_limited": True,
+            "attempts": [
+                {
+                    "model": consult_claude.DEFAULT_MODEL,
+                    "ok": False,
+                    "backend": "cli",
+                    "rate_limited": True,
+                    "failure_kind": "rate_limited",
+                    "error": "claude CLI rate limited, rc=1",
+                }
+            ],
+            "error": "claude CLI rate limited, rc=1",
+        }
+
+    monkeypatch.setattr(consult_claude, "consult", fake_consult)
+
+    rc = consult_claude.main(["--json", "question"])
+
+    assert rc == consult_claude.EXIT_ALL_FAILED
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["rate_limited"] is True
+    assert payload["attempts"][0]["failure_kind"] == "rate_limited"
 
 
 def test_consult_failure_reports_last_attempted_model(monkeypatch) -> None:
