@@ -26,6 +26,7 @@ from aragora.gauntlet.odr_signing import (
     ODR_SIGNATURE_ALG,
     SIGNING_KEY_SECRET_ENV,
     OdrSigningError,
+    OdrSigningUnconfiguredError,
     compute_key_id,
     generate_signing_key,
     load_private_key_from_pem,
@@ -383,6 +384,76 @@ def test_load_signing_key_requires_aws_secret_manager(
     )
 
     with pytest.raises(OdrSigningError, match="AWS Secrets Manager is not enabled"):
+        load_signing_key_from_secrets()
+
+
+def _not_found_client():
+    from aragora.config.secrets import ClientError
+
+    class NotFoundClient:
+        def get_secret_value(self, *, SecretId: str) -> dict[str, str]:
+            raise ClientError(
+                {"Error": {"Code": "ResourceNotFoundException"}},
+                "GetSecretValue",
+            )
+
+    return NotFoundClient()
+
+
+def _aws_enabled_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aragora.config.secrets import SecretsConfig
+
+    monkeypatch.setattr(
+        SecretsConfig,
+        "from_env",
+        classmethod(
+            lambda cls: cls(
+                use_aws=True,
+                aws_region="us-east-1",
+                aws_regions=["us-east-1"],
+            )
+        ),
+    )
+
+
+def test_default_secret_not_found_is_unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The DEFAULT secret missing everywhere = key never provisioned (expected)."""
+    from aragora.config.secrets import SecretManager
+
+    _aws_enabled_config(monkeypatch)
+    monkeypatch.setattr(SecretManager, "_get_aws_client", lambda self, region: _not_found_client())
+    monkeypatch.delenv(SIGNING_KEY_SECRET_ENV, raising=False)
+
+    with pytest.raises(OdrSigningUnconfiguredError, match="not provisioned yet"):
+        load_signing_key_from_secrets()
+
+
+def test_explicitly_named_secret_not_found_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An operator-named secret that is missing is a typo/deletion, never
+    'unconfigured' — it must fail closed."""
+    from aragora.config.secrets import SecretManager
+
+    _aws_enabled_config(monkeypatch)
+    monkeypatch.setattr(SecretManager, "_get_aws_client", lambda self, region: _not_found_client())
+    monkeypatch.setenv(SIGNING_KEY_SECRET_ENV, "aragora/typoed-secret-name")
+
+    with pytest.raises(OdrSigningError) as exc:
+        load_signing_key_from_secrets()
+    assert not isinstance(exc.value, OdrSigningUnconfiguredError)
+
+
+def test_secrets_manager_disabled_is_unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aragora.config.secrets import SecretsConfig
+
+    monkeypatch.setattr(
+        SecretsConfig,
+        "from_env",
+        classmethod(lambda cls: cls(use_aws=False)),
+    )
+
+    with pytest.raises(OdrSigningUnconfiguredError, match="AWS Secrets Manager is not enabled"):
         load_signing_key_from_secrets()
 
 

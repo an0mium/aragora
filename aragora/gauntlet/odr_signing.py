@@ -133,7 +133,7 @@ def _secret_id_contains_key_material(secret_id: str) -> bool:
     return "-----BEGIN" in secret_id or "PRIVATE KEY" in secret_id or "\n" in secret_id
 
 
-def _load_pem_secret_from_aws(secret_id: str) -> str:
+def _load_pem_secret_from_aws(secret_id: str, *, explicitly_named: bool = False) -> str:
     """Fetch a standalone PEM secret from AWS Secrets Manager.
 
     This intentionally does not call ``get_secret(secret_id)`` because that API
@@ -141,6 +141,11 @@ def _load_pem_secret_from_aws(secret_id: str) -> str:
     back to environment variables in non-strict local mode. ODR signing keys are
     standalone custody material: the environment may name the SecretId, but it
     must never carry the raw private key.
+
+    ``explicitly_named`` marks a secret id the operator chose (env var or
+    argument) rather than the built-in default. An explicitly named secret
+    that does not exist is a configuration ERROR (typo, deleted secret) and
+    must fail closed, never be treated as "not configured".
     """
     secret_label = _secret_id_label(secret_id)
     if _secret_id_contains_key_material(secret_id):
@@ -206,10 +211,13 @@ def _load_pem_secret_from_aws(secret_id: str) -> str:
         last_error = OdrSigningError(f"ODR signing key secret '{secret_label}' is empty")
         continue
 
-    if all_not_found and last_error is not None:
-        # Every configured region answered ResourceNotFound: the key was never
-        # provisioned. This is the expected pre-provisioning deployment state,
-        # distinct from a configured-but-unreadable key.
+    if all_not_found and last_error is not None and not explicitly_named:
+        # Every configured region answered ResourceNotFound for the DEFAULT
+        # secret name: the key was never provisioned. This is the expected
+        # pre-provisioning deployment state, distinct from a
+        # configured-but-unreadable key. An explicitly named secret that is
+        # missing falls through to the hard error below (typo/deletion must
+        # fail closed).
         raise OdrSigningUnconfiguredError(
             f"ODR signing key secret '{secret_label}' does not exist in any "
             "configured AWS region (not provisioned yet)"
@@ -230,8 +238,9 @@ def load_signing_key_from_secrets(
     used for every other Aragora secret), never from a raw env var. The env
     var only *names* which secret to read.
     """
-    name = secret_name or os.environ.get(SIGNING_KEY_SECRET_ENV) or DEFAULT_SIGNING_KEY_SECRET
-    pem = _load_pem_secret_from_aws(name)
+    explicit = secret_name or os.environ.get(SIGNING_KEY_SECRET_ENV)
+    name = explicit or DEFAULT_SIGNING_KEY_SECRET
+    pem = _load_pem_secret_from_aws(name, explicitly_named=bool(explicit))
     return load_private_key_from_pem(pem)
 
 
