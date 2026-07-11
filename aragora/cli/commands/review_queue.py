@@ -3465,6 +3465,17 @@ def _build_model_review_quorum(
         # ``signal_count == 0`` bar the valve could fire on a Tier 3-4 PR that was
         # simply never reviewed, contradicting the spec and audit annotation.
         and signal_count == 0
+        # Quorum must be unreachable because reviews were severity-gated to
+        # ADVISORY, not because they failed to count for INFRA reasons — a
+        # missing receipt artifact, a reviewer CLI outage, an unrecognized
+        # heading (openai #9203 P1). ``_validated_review_families`` counts any
+        # grounded recognized heading, so >=2 heard + signal_count==0 alone
+        # cannot distinguish "all advisory" from "all infra-failed". Requiring a
+        # GENUINE advisory dissent (a validated-source changes_requested with no
+        # [P0]/[P1]) proves the non-counting is severity-gating, not infra —
+        # infra failures must be REPAIRED (re-collect, fix the artifact), never
+        # settled over. This is the same bar advisory_settle already enforces.
+        and _genuine_advisory_dissent
         and not unresolved_dissent
         and not _any_blocking_finding
         and _wf_review_present

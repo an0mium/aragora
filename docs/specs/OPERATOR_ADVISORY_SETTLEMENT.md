@@ -41,6 +41,16 @@ following hold (any failure → fail closed, verdict unchanged):
    `advisory_settle` uses (`_advisory_settle_review_signals`, hardened in
    #8729 against spoofed-identity / bot-author laundering). **Blocking model
    dissent still stops everyone, including the operator.**
+   3a. **A genuine advisory dissent must be present** — a validated-source
+   `changes_requested` carrying only `[P2]`/`[P3]` (no `[P0]`/`[P1]`). This is
+   the load-bearing distinction (openai #9203 P1): `signal_count == 0` alone
+   cannot tell "every review was severity-gated to advisory" (the case this
+   valve is *for*) apart from "reviews failed to count for INFRA reasons" — a
+   missing receipt artifact, a reviewer CLI outage, an unrecognized heading.
+   **Infra failures must be repaired (re-collect, fix the artifact, wait for
+   reviewer uptime), never settled over.** A PR whose reviews were all *passes*
+   that merely failed to count for infra reasons settles through the NORMAL
+   front door (get the passes to count), not this valve.
 4. A validated western-frontier review is present at head, and **≥2 distinct
    canonical model families** were heard — computed from the same single
    validated pass (grounded, non-bot, countable identity), never from raw

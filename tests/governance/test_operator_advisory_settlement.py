@@ -299,3 +299,47 @@ class TestAssembledValve:
             repo_slug="synaptent/aragora",
         )
         assert q["operator_advisory_settlement"] is False
+
+    def test_valve_refuses_all_pass_non_counting(self, monkeypatch: Any) -> None:
+        """openai #9203 P1 (behavioral): an all-PASS non-counting Tier-4 PR — no
+        genuine advisory dissent — must NOT settle via the valve; its path is the
+        normal front door (get the passes to count). The `_genuine_advisory_dissent`
+        requirement is the load-bearing guard here; this asserts the resulting
+        behavior end-to-end (defense in depth may also refuse via other bars)."""
+        monkeypatch.setenv("ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        monkeypatch.setattr(rq, "_trusted_settlement_creator", lambda: "scarmani")
+        monkeypatch.setattr(
+            rq, "_human_settlement_status_creator_verified", lambda **_kw: (True, "verified")
+        )
+        pr = self._tier4_pr()
+        # Replace the advisory (CR) reviews with PASS reviews from both families:
+        # heard + validated, but no genuine advisory dissent — the infra-failure
+        # shape the valve must refuse.
+        pass_bodies = []
+        for family in ("claude", "openai"):
+            pass_bodies.append(
+                {
+                    "author": {"login": "an0mium"},
+                    "createdAt": "2026-07-11T00:00:00Z",
+                    "body": (
+                        f"## {family} independent model review\n"
+                        f"**Model family:** {family}\n"
+                        f"Current head: {HEAD}\n\n"
+                        "Verdict: pass.\n"
+                        "Looks good."
+                    ),
+                }
+            )
+        pr["comments"] = [*pass_bodies, _marker("scarmani")]
+        q = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=True,
+            check_surfaces=self._SURFACE_CLEAR,
+            repo_slug="synaptent/aragora",
+        )
+        assert q["operator_advisory_settlement"] is False
