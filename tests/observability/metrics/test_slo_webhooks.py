@@ -211,6 +211,24 @@ class TestInitSLOWebhooks:
         old_dispatcher.enqueue.assert_called_once()
         new_dispatcher.enqueue.assert_called_once()
 
+    def test_reinitialization_refreshes_cached_dispatcher(self):
+        """Repeated initialization resolves the provider's current dispatcher."""
+        import aragora.observability.metrics.slo as slo_module
+
+        old_dispatcher = MagicMock()
+        old_dispatcher.enqueue = MagicMock(return_value=True)
+        new_dispatcher = MagicMock()
+        new_dispatcher.enqueue = MagicMock(return_value=True)
+        current_dispatcher = [old_dispatcher]
+
+        register_slo_event_sink_provider(lambda: current_dispatcher[0])
+        assert init_slo_webhooks() is True
+        assert slo_module._webhook_sink is old_dispatcher
+
+        current_dispatcher[0] = new_dispatcher
+        assert init_slo_webhooks() is True
+        assert slo_module._webhook_sink is new_dispatcher
+
 
 class TestNotifySLOViolation:
     """Tests for notify_slo_violation function."""

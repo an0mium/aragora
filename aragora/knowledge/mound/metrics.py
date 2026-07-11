@@ -576,9 +576,6 @@ def register_prometheus_health_provider() -> bool:
     return _register_prometheus_health_provider()
 
 
-register_prometheus_health_provider()
-
-
 __all__ = [
     "KMMetrics",
     "OperationType",

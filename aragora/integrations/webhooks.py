@@ -745,14 +745,16 @@ def shutdown_dispatcher() -> None:
         _dispatcher = None
 
 
-def register_slo_event_sink() -> None:
+def register_slo_event_sink() -> bool:
     """Register the integrations dispatcher with observability."""
-    from aragora.observability.metrics.slo import register_slo_event_sink_provider
+    try:
+        from aragora.observability.metrics.slo import register_slo_event_sink_provider
+    except ImportError as e:
+        logger.debug("Observability SLO event sink contract unavailable: %s", e)
+        return False
 
     register_slo_event_sink_provider(get_dispatcher)
-
-
-register_slo_event_sink()
+    return True
 
 
 # Alias for backward compatibility

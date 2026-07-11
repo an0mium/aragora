@@ -537,7 +537,7 @@ def init_slo_webhooks(
         _webhook_config = webhook_config or SLOWebhookConfig()
         _webhook_init_requested = True
 
-        dispatcher = _resolve_slo_event_sink()
+        dispatcher = _resolve_slo_event_sink(refresh=True)
         if dispatcher is None:
             _webhook_callback = None
             _webhook_sink = None

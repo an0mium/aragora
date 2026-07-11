@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.connectors.devops.pagerduty import PagerDutyError
-from aragora.observability.slo_alert_bridge import (
-    PagerDutyUrgency,
-    SLOAlertConfig,
-    register_pagerduty_alert_sink,
-)
+
+if TYPE_CHECKING:
+    from aragora.observability.slo_alert_bridge import PagerDutyUrgency, SLOAlertConfig
 
 logger = logging.getLogger(__name__)
 
@@ -117,12 +115,16 @@ class PagerDutySLOAlertSink:
             return False
 
 
-def register_slo_alert_sink() -> None:
+def register_slo_alert_sink() -> bool:
     """Register this adapter with the observability-owned sink contract."""
+    try:
+        from aragora.observability.slo_alert_bridge import register_pagerduty_alert_sink
+    except ImportError as e:
+        logger.debug("Observability PagerDuty sink contract unavailable: %s", e)
+        return False
+
     register_pagerduty_alert_sink(PagerDutySLOAlertSink)
-
-
-register_slo_alert_sink()
+    return True
 
 
 __all__ = ["PagerDutySLOAlertSink", "register_slo_alert_sink"]

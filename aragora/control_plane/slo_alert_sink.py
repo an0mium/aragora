@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+import logging
+from typing import TYPE_CHECKING, Any
 
-from aragora.observability.slo_alert_bridge import (
-    SLOAlertConfig,
-    register_channel_alert_sink,
-)
+if TYPE_CHECKING:
+    from aragora.observability.slo_alert_bridge import SLOAlertConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ControlPlaneSLOAlertSink:
@@ -60,12 +61,16 @@ class ControlPlaneSLOAlertSink:
         )
 
 
-def register_slo_alert_sink() -> None:
+def register_slo_alert_sink() -> bool:
     """Register this adapter with the observability-owned sink contract."""
+    try:
+        from aragora.observability.slo_alert_bridge import register_channel_alert_sink
+    except ImportError as e:
+        logger.debug("Observability channel sink contract unavailable: %s", e)
+        return False
+
     register_channel_alert_sink(ControlPlaneSLOAlertSink)
-
-
-register_slo_alert_sink()
+    return True
 
 
 __all__ = ["ControlPlaneSLOAlertSink", "register_slo_alert_sink"]

@@ -19,9 +19,16 @@ Usage:
         init_slo_alerting,
     )
 
-    # Higher-layer adapters register themselves with observability.
-    import aragora.connectors.devops.slo_alert_sink
-    import aragora.control_plane.slo_alert_sink
+    # Register higher-layer adapters at the application composition root.
+    from aragora.connectors.devops.slo_alert_sink import (
+        register_slo_alert_sink as register_pagerduty_sink,
+    )
+    from aragora.control_plane.slo_alert_sink import (
+        register_slo_alert_sink as register_channel_sink,
+    )
+
+    register_pagerduty_sink()
+    register_channel_sink()
 
     # Initialize at startup
     bridge = init_slo_alerting(

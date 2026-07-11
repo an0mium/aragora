@@ -27,11 +27,13 @@ def register_observability_sinks() -> bool:
             register_prometheus_health_provider as register_km_health_provider,
         )
 
-        register_pagerduty_sink()
-        register_channel_sink()
-        register_webhook_sink()
-        register_km_health_provider()
-        return True
+        results = (
+            register_pagerduty_sink(),
+            register_channel_sink(),
+            register_webhook_sink(),
+            register_km_health_provider(),
+        )
+        return all(results)
     except ImportError as e:
         logger.debug("Observability alert sinks not available: %s", e)
     except (OSError, RuntimeError, ValueError) as e:
