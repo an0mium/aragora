@@ -128,6 +128,18 @@ jobs:
           # blocking findings remain — surfacing advisory_findings for follow-up. Tier 3-4
           # unaffected (human settlement). Reverting is a single env flip back OFF.
           ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE: "1"
+          # Activate the operator-advisory-settlement relief valve (default OFF;
+          # docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md, #8933 incident). At Tier 3-4,
+          # when model quorum is UNREACHABLE because every review is severity-gated
+          # advisory (zero countable signals across rounds), the trusted settlement
+          # operator may settle over advisory-only dissent: requires >=2 validated
+          # model families heard at head, a validated western-frontier review, ZERO
+          # [P0]/[P1] findings anywhere, no unresolved dissent, a trusted-creator
+          # 'aragora/human-settlement' success status at the exact head, AND a
+          # trusted-author settlement marker comment naming the exact head. Blocking
+          # model dissent still stops everyone, including the operator. Reverting is
+          # a single env flip back OFF.
+          ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT: "1"
         shell: bash
         run: |
           set -euo pipefail
@@ -218,6 +230,17 @@ jobs:
 
           # Tier 0-2: model quorum alone authorizes the merge.
           if status == "satisfied":
+              if verdict == "operator_advisory_settlement":
+                  families = entry.get("validated_review_families") or []
+                  print(
+                      f"::notice::OPERATOR-SETTLED-OVER-ADVISORY: Tier {tier} PR "
+                      f"#{pr_number} at {head_sha[:12]} — model quorum unreachable "
+                      f"(severity-gated advisory reviews from {families}); zero "
+                      "blocking findings; trusted-operator settlement status and "
+                      "marker comment verified at exact head. See "
+                      "docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md."
+                  )
+                  sys.exit(0)
               print("Model quorum satisfied; Tier 0-2 settlement authorized.")
               sys.exit(0)
 
