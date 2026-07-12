@@ -55,7 +55,7 @@ def _get_degraded_status() -> dict[str, Any]:
     }
 
 
-def init_security_edge_adapters() -> bool:
+def init_security_edge_adapters(*, strict: bool = False) -> bool:
     """Register higher-layer providers consumed by the security package."""
     try:
         from aragora.ops.security_edge_adapters import register_security_edge_adapters
@@ -64,6 +64,8 @@ def init_security_edge_adapters() -> bool:
         logger.info("Security edge adapters registered")
         return True
     except (ImportError, RuntimeError, ValueError, TypeError) as e:
+        if strict:
+            raise RuntimeError("Security edge adapter registration failed") from e
         logger.warning("Security edge adapter registration failed: %s", e)
         return False
 

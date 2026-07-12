@@ -679,7 +679,7 @@ async def run_startup_sequence(
         logger.info("ARAGORA_STRICT_STARTUP enabled: server will fail fast on dependency errors")
         graceful_degradation = False
 
-    security_edge_adapters = init_security_edge_adapters()
+    security_edge_adapters = init_security_edge_adapters(strict=strict_startup)
 
     # Phase 1: Configuration validation
     await _validate_config(graceful_degradation)
@@ -687,7 +687,9 @@ async def run_startup_sequence(
     # Phase 2: Prerequisites (requirements, connectivity, storage, migrations, schema)
     prereqs = await _validate_prerequisites(graceful_degradation)
     if prereqs is None:
-        return _get_degraded_status()
+        status = _get_degraded_status()
+        status["security_edge_adapters"] = security_edge_adapters
+        return status
 
     # Phase 3: Initialize all components
     structured_logging = init_structured_logging()

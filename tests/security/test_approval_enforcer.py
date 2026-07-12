@@ -359,7 +359,7 @@ class TestPolicyEnforcement:
         assert decision.matched_rule is None  # No rule matched
 
     @pytest.mark.asyncio
-    async def test_missing_policy_adapter_preserves_allow_fallback(self, make_request):
+    async def test_structural_policy_fallback_preserves_enforcement(self, make_request):
         register_policy_evaluation_adapter(None)
         enforcer = UnifiedApprovalEnforcer(policy=_create_test_policy(), audit_enabled=False)
 
@@ -367,8 +367,8 @@ class TestPolicyEnforcement:
             make_request(action_type="shell", details={"command": "rm -rf /"})
         )
 
-        assert decision.approved is True
-        assert decision.reason == "Policy module unavailable; action allowed"
+        assert decision.denied is True
+        assert decision.matched_rule == "block_dangerous_commands"
 
 
 # ---------------------------------------------------------------------------
@@ -404,9 +404,10 @@ class TestApprovalWorkflowIntegration:
         mock_workflow.request_approval.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_missing_workflow_adapter_preserves_pending_decision(self, make_request):
+    async def test_structural_workflow_fallback_preserves_routing(self, make_request):
         register_approval_workflow_adapter(None)
         workflow = AsyncMock()
+        workflow.request_approval.return_value = MagicMock(id="approval-structural")
         enforcer = UnifiedApprovalEnforcer(
             policy=_create_test_policy(),
             approval_workflow=workflow,
@@ -421,8 +422,8 @@ class TestApprovalWorkflowIntegration:
         )
 
         assert decision.result == EnforcementResult.PENDING_APPROVAL
-        assert decision.approval_request_id is None
-        workflow.request_approval.assert_not_awaited()
+        assert decision.approval_request_id == "approval-structural"
+        workflow.request_approval.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_no_workflow_keeps_pending(self, policy_enforcer, make_request):

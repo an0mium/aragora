@@ -161,6 +161,180 @@ class ApprovalWorkflowAdapter(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class PolicyActionRequest:
+    """Layer-neutral policy request compatible with action policy engines."""
+
+    action_type: _PolicyActionType
+    user_id: str
+    session_id: str
+    workspace_id: str
+    path: str | None
+    command: str | None
+    url: str | None
+    roles: list[str]
+    tenant_id: str | None
+
+
+class _PolicyActionType(str, Enum):
+    """Enum-compatible action types expected by policy implementations."""
+
+    SHELL = "shell"
+    FILE_READ = "file_read"
+    FILE_WRITE = "file_write"
+    FILE_DELETE = "file_delete"
+    BROWSER = "browser"
+    API = "api"
+    SCREENSHOT = "screenshot"
+    KEYBOARD = "keyboard"
+    MOUSE = "mouse"
+
+
+class _ApprovalValue(str, Enum):
+    """Enum-compatible values expected by approval workflow implementations."""
+
+    DESTRUCTIVE_ACTION = "destructive_action"
+    EXTERNAL_SYSTEM = "external_system"
+    SYSTEM_MODIFICATION = "system_modification"
+    UNKNOWN = "unknown"
+    HIGH = "high"
+
+
+@dataclass
+class _ApprovalContext:
+    """Structural approval context used when no specialized adapter is registered."""
+
+    task_id: str
+    action_type: str
+    action_details: dict[str, Any]
+    category: _ApprovalValue
+    reason: str
+    risk_level: str = "medium"
+    screenshot_b64: str | None = None
+    current_url: str | None = None
+    user_id: str | None = None
+    tenant_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+class _StructuralPolicyEvaluationAdapter:
+    """Evaluate policy objects through their existing structural interface."""
+
+    @staticmethod
+    def _request(request: EnforcementRequest) -> PolicyActionRequest | None:
+        action_type_map = {
+            "shell": _PolicyActionType.SHELL,
+            "file_read": _PolicyActionType.FILE_READ,
+            "file_write": _PolicyActionType.FILE_WRITE,
+            "file_delete": _PolicyActionType.FILE_DELETE,
+            "browser": _PolicyActionType.BROWSER,
+            "api": _PolicyActionType.API,
+            "screenshot": _PolicyActionType.SCREENSHOT,
+            "keyboard": _PolicyActionType.KEYBOARD,
+            "mouse": _PolicyActionType.MOUSE,
+        }
+        action_type = action_type_map.get(request.action_type)
+        if action_type is None:
+            return None
+        return PolicyActionRequest(
+            action_type=action_type,
+            user_id=request.actor_id,
+            session_id=request.session_id,
+            workspace_id=request.workspace_id,
+            path=request.details.get("path"),
+            command=request.details.get("command"),
+            url=request.details.get("url"),
+            roles=request.roles,
+            tenant_id=request.tenant_id,
+        )
+
+    def evaluate(self, policy: Any, request: EnforcementRequest) -> PolicyEvaluation:
+        policy_request = self._request(request)
+        if policy_request is None:
+            return PolicyEvaluation(
+                result=EnforcementResult.ALLOWED,
+                reason=f"Unknown action type '{request.action_type}'; not policy-controlled",
+            )
+
+        result = policy.evaluate(policy_request)
+        decision = getattr(result.decision, "value", result.decision)
+        if decision == "allow":
+            enforcement_result = EnforcementResult.ALLOWED
+        elif decision == "deny":
+            enforcement_result = EnforcementResult.DENIED
+        else:
+            enforcement_result = EnforcementResult.PENDING_APPROVAL
+        return PolicyEvaluation(
+            result=enforcement_result,
+            reason=result.reason,
+            matched_rule=result.matched_rule.name if result.matched_rule else None,
+        )
+
+    def requires_approval(self, policy: Any, request: EnforcementRequest) -> bool:
+        policy_request = self._request(request)
+        if policy_request is None:
+            return False
+        result = policy.evaluate(policy_request)
+        return getattr(result.decision, "value", result.decision) == "require_approval"
+
+
+class _StructuralApprovalWorkflowAdapter:
+    """Use the approval workflow's public structural interface directly."""
+
+    async def request_approval(
+        self,
+        workflow: Any,
+        request: EnforcementRequest,
+        reason: str,
+    ) -> ApprovalRoute:
+        category_map = {
+            "gateway": _ApprovalValue.SYSTEM_MODIFICATION,
+            "device": _ApprovalValue.EXTERNAL_SYSTEM,
+            "computer_use": _ApprovalValue.DESTRUCTIVE_ACTION,
+        }
+        category = category_map.get(request.source, _ApprovalValue.UNKNOWN)
+        context = _ApprovalContext(
+            task_id=request.session_id or str(uuid.uuid4()),
+            action_type=request.action_type,
+            action_details=request.details,
+            category=category,
+            reason=reason,
+            risk_level=request.details.get("risk_level", "medium"),
+            user_id=request.actor_id,
+            tenant_id=request.tenant_id,
+        )
+        approval_request = await workflow.request_approval(
+            context=context,
+            priority=_ApprovalValue.HIGH,
+        )
+        return ApprovalRoute(
+            approval_request_id=approval_request.id,
+            category=category.value,
+            priority="high",
+        )
+
+    async def wait_for_approval(
+        self,
+        workflow: Any,
+        approval_request_id: str,
+        timeout: float | None,
+    ) -> bool:
+        status = await workflow.wait_for_decision(
+            approval_request_id,
+            timeout=timeout,
+        )
+        return getattr(status, "value", status) == "approved"
+
+    async def is_approval_valid(self, workflow: Any, approval_id: str) -> bool:
+        request = await workflow.get_request(approval_id)
+        if not request:
+            return False
+        status = getattr(request.status, "value", request.status)
+        return status == "approved" and not request.is_expired()
+
+
+_structural_policy_adapter = _StructuralPolicyEvaluationAdapter()
+_structural_approval_adapter = _StructuralApprovalWorkflowAdapter()
 _policy_evaluation_adapter: PolicyEvaluationAdapter | None = None
 _approval_workflow_adapter: ApprovalWorkflowAdapter | None = None
 
@@ -244,9 +418,7 @@ class UnifiedApprovalEnforcer:
         if not self._approval_workflow:
             return False
 
-        adapter = _approval_workflow_adapter
-        if adapter is None:
-            return False
+        adapter = _approval_workflow_adapter or _structural_approval_adapter
 
         try:
             return await adapter.wait_for_approval(
@@ -394,16 +566,7 @@ class UnifiedApprovalEnforcer:
                 evaluation_time_ms=(time.time() - start) * 1000,
             )
 
-        adapter = _policy_evaluation_adapter
-        if adapter is None:
-            logger.warning("OpenClaw policy module not available")
-            return EnforcementDecision(
-                id=decision_id,
-                result=EnforcementResult.ALLOWED,
-                reason="Policy module unavailable; action allowed",
-                request=request,
-                evaluation_time_ms=(time.time() - start) * 1000,
-            )
+        adapter = _policy_evaluation_adapter or _structural_policy_adapter
 
         try:
             result = adapter.evaluate(self._policy, request)
@@ -438,10 +601,7 @@ class UnifiedApprovalEnforcer:
             # No workflow configured - keep as pending
             return decision
 
-        adapter = _approval_workflow_adapter
-        if adapter is None:
-            logger.warning("Computer-use approval module not available")
-            return decision
+        adapter = _approval_workflow_adapter or _structural_approval_adapter
 
         try:
             route = await adapter.request_approval(
@@ -467,9 +627,7 @@ class UnifiedApprovalEnforcer:
         if not self._policy:
             return False
 
-        adapter = _policy_evaluation_adapter
-        if adapter is None:
-            return False
+        adapter = _policy_evaluation_adapter or _structural_policy_adapter
 
         try:
             return adapter.requires_approval(self._policy, request)
@@ -485,9 +643,7 @@ class UnifiedApprovalEnforcer:
         if not self._approval_workflow:
             return False
 
-        adapter = _approval_workflow_adapter
-        if adapter is None:
-            return False
+        adapter = _approval_workflow_adapter or _structural_approval_adapter
 
         try:
             return await adapter.is_approval_valid(self._approval_workflow, approval_id)

@@ -52,6 +52,16 @@ class TestInitSecurityEdgeAdapters:
 
         assert result is False
 
+    def test_strict_mode_raises_when_registration_fails(self):
+        with (
+            patch(
+                "aragora.ops.security_edge_adapters.register_security_edge_adapters",
+                side_effect=ImportError("adapter unavailable"),
+            ),
+            pytest.raises(RuntimeError, match="Security edge adapter registration failed"),
+        ):
+            init_security_edge_adapters(strict=True)
+
 
 # =============================================================================
 # Test: _get_degraded_status

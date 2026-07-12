@@ -486,15 +486,14 @@ class TestMigrationAuditProvider:
             reason="dry_run_key_rotation",
         )
 
-    def test_dry_run_missing_audit_provider_preserves_import_failure(self, encryption_service):
-        with (
-            patch(
-                "aragora.security.encryption.get_encryption_service",
-                return_value=encryption_service,
-            ),
-            pytest.raises(ImportError),
+    def test_dry_run_missing_audit_provider_remains_available(self, encryption_service):
+        with patch(
+            "aragora.security.encryption.get_encryption_service",
+            return_value=encryption_service,
         ):
-            rotate_encryption_key(dry_run=True, stores=[])
+            result = rotate_encryption_key(dry_run=True, stores=[])
+
+        assert result.success is True
 
     def test_live_audit_import_failure_remains_best_effort(self, encryption_service):
         old_key = MagicMock(version=1)
