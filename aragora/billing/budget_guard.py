@@ -95,13 +95,7 @@ def _store_path() -> Path:
     override = os.environ.get(_STORE_ENV, "").strip()
     if override:
         return Path(override)
-    try:
-        from aragora.persistence.db_config import get_default_data_dir
-
-        base = get_default_data_dir()
-    except Exception:  # noqa: BLE001 - data dir resolution must never crash the guard
-        base = Path.home() / ".aragora"
-    return base / "budget_guard.json"
+    return Path.home() / ".aragora" / "budget_guard.json"
 
 
 def _mem_get() -> float:
