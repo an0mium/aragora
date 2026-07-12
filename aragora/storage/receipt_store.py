@@ -195,7 +195,7 @@ class StoredReceipt:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
-        result = {
+        result: dict[str, Any] = {
             "receipt_id": self.receipt_id,
             "gauntlet_id": self.gauntlet_id,
             "debate_id": self.debate_id,
