@@ -52,6 +52,24 @@
   by design; only the parser emits canonical values.
 - **Time:** ~55m (incl. two gate rounds)
 
+## Batch 2: verdict contract + truncation exposure
+
+- **Predicted tier / final tier:** 3 / 3 (stacked with B1 on PR #9249, one settlement unit)
+- **Rollback tag:** `elves/m-signal-9241/pre-batch-2` (pushed: yes)
+- **Scope delivered:** truncated reviews (_TRUNCATION_MARKER, now a shared constant) never
+  count; PASS carrying a blocking [P0]/[P1]/Blocker-label finding is self-contradictory and
+  never counts (reuses has_blocking_finding_or_label — gate-lockstep); fresh-collect verdict
+  parsed from the COMPOSED body, not raw text (openai round-2 P2: normalization over-rejection).
+- **Commands run + results:** pytest test_quorum_evidence.py → 231 passed; ruff clean;
+  mypy (venv 2.1.0) clean.
+- **Adversarial review:** round 1 at cc96267a: claude PASS, openai CHANGES-REQUESTED [P2]
+  (raw-vs-composed verdict source) → revised; round 2 at fefa9c91ef: claude PASS + openai PASS,
+  both counting, dissent none. Evidence: run-elves-9241/receipts/b2-pr9249-evidence{,-r2}.json
+- **Receipt:** run-elves-9241/receipts/b2-gauntlet-receipt-final.json — VALID (3/3)
+- **Settlement:** Tier 3 → PARKED with B1 (single packet, PR #9249 head fefa9c91ef)
+- **Commit:** fefa9c91ef (`Co-authored-by: claude[bot]`) — pushed: yes
+- **Time:** ~35m
+
 ---
 
 ## Completed Archive
@@ -65,3 +83,4 @@
 | Batch | Tier | Receipt | Packet path | Requested at | Status |
 | --- | --- | --- | --- | --- | --- |
 | B1 (PR #9249) | 3 | run-elves-9241/receipts/b1-gauntlet-receipt-final.json | run-elves-9241/receipts/b1-pr9249-evidence-r2.json | 2026-07-12T02:40Z | pending |
+| B2 (PR #9249, stacked w/ B1) | 3 | run-elves-9241/receipts/b2-gauntlet-receipt-final.json | run-elves-9241/receipts/b2-pr9249-evidence-r2.json | 2026-07-12T02:55Z | pending |
