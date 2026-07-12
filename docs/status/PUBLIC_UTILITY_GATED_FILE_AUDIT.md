@@ -159,8 +159,9 @@ from the enumerated `factory/pum-*` PR manifests and effective commit deltas.
 
 ## 4. Reproduction commands
 
-Run from a checkout containing the post snapshot. These commands require authenticated `gh`, `git`,
-`jq`, `awk`, `sed`, `cmp`, `sort`, and `shasum`.
+Run from a checkout containing the post snapshot. These commands require Bash, authenticated `gh`,
+`git`, `jq`, `awk`, `grep`, `paste`, `sort`, and `shasum`. The manifest commands inspect both
+`filename` and `previous_filename` so a gated path renamed away cannot disappear from the audit.
 
 ### 4.1 Inventory the exact audited PR set
 
@@ -210,7 +211,7 @@ for pr in $PR_LIST; do
   hits=$(
     gh api --paginate \
       "/repos/synaptent/aragora/pulls/$pr/files?per_page=100" \
-      --jq '.[].filename' |
+      --jq '.[] | .filename, (.previous_filename // empty)' |
       awk "$is_gated"
   )
   if [ -z "$hits" ]; then
@@ -223,7 +224,7 @@ done
 for pr in $PR_LIST; do
   gh api --paginate \
     "/repos/synaptent/aragora/pulls/$pr/files?per_page=100" \
-    --jq '.[].filename'
+    --jq '.[] | .filename, (.previous_filename // empty)'
 done |
   sort -u |
   awk "$is_gated"
@@ -238,6 +239,7 @@ docs/CANONICAL_GOALS.md
 ### 4.3 Effective squash-commit union check
 
 ```bash
+set -o pipefail
 POST_MERGED_AT=2026-07-11T17:51:30Z
 
 gh api --paginate \
@@ -250,6 +252,11 @@ gh api --paginate \
     ) |
     .merge_commit_sha' |
 while read -r sha; do
+  parent_count=$(git rev-list --parents -n 1 "$sha" | awk '{print NF - 1}')
+  if [ "$parent_count" -ne 1 ]; then
+    printf 'FAIL\t%s\tparent-count=%s\n' "$sha" "$parent_count" >&2
+    exit 1
+  fi
   git diff-tree --no-commit-id --name-only -r "$sha"
 done |
   sort -u |
@@ -263,33 +270,71 @@ done |
   '
 ```
 
-Expected: no output.
+Expected: no output and exit status 0. A merge commit with zero or multiple parents fails before
+its paths can be mistaken for an empty effective delta.
 
 ### 4.4 README top-line claim check
 
 ```bash
 POST_MERGED_AT=2026-07-11T17:51:30Z
+PR_LIST=$(
+  gh api --paginate \
+    '/repos/synaptent/aragora/pulls?state=closed&per_page=100' \
+    --jq '.[] |
+      select(
+        .merged_at != null and
+        (.head.ref | startswith("factory/pum-")) and
+        .merged_at <= "'"$POST_MERGED_AT"'"
+      ) |
+      .number'
+)
 
-gh pr list \
-  --repo synaptent/aragora \
-  --state merged \
-  --search 'head:factory/pum-' \
-  --limit 400 \
-  --json number,headRefName,mergedAt,mergeCommit,files |
-jq -r \
-  --arg cutoff "$POST_MERGED_AT" '
-    .[] |
-    select(.mergedAt <= $cutoff) |
-    select(any(.files[]; .path == "README.md")) |
-    [.number, .headRefName, .mergeCommit.oid] | @tsv
-  ' |
-while IFS=$'\t' read -r pr branch sha; do
-  if cmp -s \
-    <(git show "$sha^:README.md" | sed -n '3,4p') \
-    <(git show "$sha:README.md" | sed -n '3,4p'); then
+README_PRS=$(
+  for pr in $PR_LIST; do
+    if gh api --paginate \
+      "/repos/synaptent/aragora/pulls/$pr/files?per_page=100" \
+      --jq '.[] | .filename, (.previous_filename // empty)' |
+      grep -Fxq 'README.md'; then
+      printf '%s\n' "$pr"
+    fi
+  done
+)
+
+actual_readme_prs=$(printf '%s\n' "$README_PRS" | sort -n | paste -sd, -)
+if [ "$actual_readme_prs" != '8955,8991' ]; then
+  printf 'FAIL\tREADME PR set\texpected=8955,8991\tactual=%s\n' \
+    "$actual_readme_prs" >&2
+  exit 1
+fi
+
+EXPECTED_CLAIM='**Aragora is an auditable execution control plane for AI-assisted decisions:
+multi-model review in, a verifiable Decision Receipt out.**'
+
+readme_claim_at() {
+  git show "$1:README.md" |
+    awk '
+      /^\*\*Aragora is an auditable execution control plane for AI-assisted decisions:$/ {
+        first = $0
+        if (getline second) {
+          print first "\n" second
+        }
+        exit
+      }
+    '
+}
+
+for pr in $README_PRS; do
+  IFS=$'\t' read -r number branch sha < <(
+    gh api "/repos/synaptent/aragora/pulls/$pr" \
+      --jq '[.number, .head.ref, .merge_commit_sha] | @tsv'
+  )
+  before=$(readme_claim_at "$sha^")
+  after=$(readme_claim_at "$sha")
+  if [ "$before" = "$EXPECTED_CLAIM" ] && [ "$after" = "$EXPECTED_CLAIM" ]; then
     printf 'PASS\tPR #%s\t%s\n' "$pr" "$branch"
   else
-    printf 'FAIL\tPR #%s\t%s\n' "$pr" "$branch"
+    printf 'FAIL\tPR #%s\t%s\tclaim mismatch\n' "$pr" "$branch" >&2
+    exit 1
   fi
 done
 
@@ -297,7 +342,12 @@ for ref in \
   d780bd489808698ea20836f7b540f9301011f3c1 \
   258fb97b821344e0f1e4fd597436108503e61759
 do
-  git show "$ref:README.md" | sed -n '3,4p' | shasum -a 256
+  claim=$(readme_claim_at "$ref")
+  if [ "$claim" != "$EXPECTED_CLAIM" ]; then
+    printf 'FAIL\t%s\tclaim mismatch\n' "$ref" >&2
+    exit 1
+  fi
+  printf '%s\n' "$claim" | shasum -a 256
 done
 ```
 
