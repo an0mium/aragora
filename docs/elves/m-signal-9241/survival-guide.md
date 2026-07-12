@@ -38,7 +38,7 @@ Invariants: NEVER touch aragora/cli/commands/review_queue.py (Tier-4 merge autho
 
 ## Stop Gate
 
-- **Planned batches remaining:** 5 (B3-B7)
+- **Planned batches remaining:** 4 (B4-B7)
 - **Batches blocked on human settlement (Tier 3-4):** B1+B2 (PR #9249, parked, single packet at fefa9c91ef)
 - **Stop allowed right now:** no
 - **Why:** B2-B7 unblocked work remains
@@ -88,9 +88,9 @@ check in". A genuine Tier 3-4 settlement block pauses THAT BATCH only — move t
 ## Current Phase
 
 **Status:** In progress
-**Active batch:** Batch 3: full-file reviewer grounding — Tier 2
-**What was just finished:** B2 gated clean (claude+openai PASS at fefa9c91ef), receipt VALID, PARKED with B1
-**Single next action:** tag pre-batch-3, implement B3 (bounded full-file contents in reviewer prompts)
+**Active batch:** Batch 4: credential-health preflight — Tier 2
+**What was just finished:** B3 auto-settled Tier 2 at b425e9ce7d (openai counting + claude advisory); #9129 live evidence captured
+**Single next action:** tag pre-batch-4, implement B4 (credential_unhealthy classification + fallback preflight)
 
 ---
 

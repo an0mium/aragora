@@ -70,6 +70,26 @@
 - **Commit:** fefa9c91ef (`Co-authored-by: claude[bot]`) — pushed: yes
 - **Time:** ~35m
 
+## Batch 3: full-file reviewer grounding
+
+- **Predicted tier / final tier:** 2 / 2
+- **Rollback tag:** `elves/m-signal-9241/pre-batch-3` (pushed: yes)
+- **Scope delivered:** review prompts append bounded post-change contents of changed files
+  (6 files x 400 lines, largest diff first, REST contents API) with an explicit
+  verify-imports instruction; best-effort by contract (fetch failure never blocks).
+- **Commands:** pytest → 236 passed; ruff + mypy(venv) clean.
+- **Adversarial review at b425e9ce7d:** openai PASS (counting), claude PASS (advisory [P2],
+  non-counting with problems=[] — ITSELF live evidence of the #9129 lint-infra bug B6 targets).
+- **Dissent disposition (documented):** claude [P2] — the B2 contradiction guard can falsely
+  demote a PASS that enumerates RESOLVED prior findings ("- [P1] X — addressed in <sha>").
+  Failure mode is conservative (extra gate round; never a false count). Proper fix lives in
+  _NO_FINDING_HEADS (review_queue.py — Tier-4, untouchable by this run). QUEUED as follow-up
+  for founder: extend _NO_FINDING_HEADS with resolved/addressed/fixed heads.
+- **Receipt:** run-elves-9241/receipts/b3-gauntlet-receipt.json — VALID (3/3)
+- **Settlement:** Tier 2 → AUTO-SETTLED (2 heterogeneous PASS signals, zero dissent)
+- **Commit:** b425e9ce7d — pushed: yes
+- **Time:** ~30m
+
 ---
 
 ## Completed Archive
