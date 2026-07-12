@@ -312,7 +312,7 @@ class TestSyncStoreE2E:
     @pytest.mark.asyncio
     async def test_save_and_retrieve_encrypted_connector(self, encryption_key, temp_db):
         """Test saving and retrieving connector config with encryption."""
-        from aragora.connectors.enterprise.sync_store import (
+        from aragora.storage.sync_store import (
             SyncStore,
             ConnectorConfig,
         )
@@ -357,14 +357,10 @@ class TestKeyRotationE2E:
     def security_migration_adapters(self):
         """Register the application composition adapters for direct E2E calls."""
         from aragora.ops.security_edge_adapters import register_security_migration_adapters
-        from aragora.security.migration import (
-            register_migration_audit_provider,
-            register_sync_store_provider,
-        )
+        from aragora.security.migration import register_migration_audit_provider
 
         register_security_migration_adapters()
         yield
-        register_sync_store_provider(None)
         register_migration_audit_provider(None)
 
     @pytest.fixture

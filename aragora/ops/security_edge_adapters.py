@@ -13,10 +13,7 @@ from aragora.security.approval_enforcer import (
     register_approval_workflow_adapter,
     register_policy_evaluation_adapter,
 )
-from aragora.security.migration import (
-    register_migration_audit_provider,
-    register_sync_store_provider,
-)
+from aragora.security.migration import register_migration_audit_provider
 
 
 def _to_policy_request(
@@ -166,12 +163,6 @@ class ComputerUseApprovalWorkflowAdapter:
         return request.status == ApprovalStatus.APPROVED and not request.is_expired()
 
 
-def _get_sync_store() -> Any:
-    from aragora.connectors.enterprise.sync_store import get_sync_store
-
-    return get_sync_store()
-
-
 def _audit_security(**kwargs: Any) -> Any:
     from aragora.audit.unified import audit_security
 
@@ -179,8 +170,7 @@ def _audit_security(**kwargs: Any) -> Any:
 
 
 def register_security_migration_adapters() -> None:
-    """Register connector and audit providers used by security migration."""
-    register_sync_store_provider(_get_sync_store)
+    """Register the audit provider used by security migration."""
     register_migration_audit_provider(_audit_security)
 
 
