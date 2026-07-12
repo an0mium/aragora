@@ -38,11 +38,11 @@ Invariants: NEVER touch aragora/cli/commands/review_queue.py (Tier-4 merge autho
 
 ## Stop Gate
 
-- **Planned batches remaining:** 7 (B1-B7)
-- **Batches blocked on human settlement (Tier 3-4):** none yet (B1/B2 will park after gating)
+- **Planned batches remaining:** 6 (B2-B7)
+- **Batches blocked on human settlement (Tier 3-4):** B1 (PR #9249, parked, packet ready)
 - **Stop allowed right now:** no
-- **Why:** run is staged, not launched; all batches pending
-- **Next required action:** launch call reads this guide and starts B1
+- **Why:** B2-B7 unblocked work remains
+- **Next required action:** implement B2 (truncation + PASS-with-blocking-findings)
 
 ---
 
@@ -87,10 +87,10 @@ check in". A genuine Tier 3-4 settlement block pauses THAT BATCH only — move t
 
 ## Current Phase
 
-**Status:** Launch-ready
-**Active batch:** none (B1 next)
-**What was just finished:** staging complete, preflight green, artifacts committed
-**Single next action:** launch call starts B1 (rollback tag first)
+**Status:** In progress
+**Active batch:** Batch 2: verdict contract + truncation — Tier 3
+**What was just finished:** B1 gated clean (claude+openai PASS at d03d78a9d9), receipt VALID, PARKED for settlement on PR #9249
+**Single next action:** implement B2 in quorum_evidence.py (tag pre-batch-2 already pushed)
 
 ---
 
