@@ -485,6 +485,21 @@ class EvidenceItem:
     # ``severity_gated_dissent_enabled`` here vs ``tiered_merge_gate_enabled`` there).
     severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
+    def __post_init__(self) -> None:
+        # Verdict contract (issue #9241 B1): a review with no parseable verdict is
+        # malformed reviewer output and must NEVER count toward quorum — counting
+        # feeds counting_families, "families heard", and relief-valve conditions,
+        # so an unknown-verdict item with would_count=True is an integrity hole
+        # (observed live 2026-07-11: grok CLI returned preamble-only bodies with
+        # verdict=unknown yet would_count=True). Enforced here, at the single
+        # choke point every construction path shares (fresh collect, from_raw,
+        # prepared-apply relint).
+        if self.would_count and self.verdict == "unknown":
+            self.would_count = False
+            self.problems.append(
+                "no parseable verdict in reviewer output — malformed review never counts"
+            )
+
     @property
     def supportive(self) -> bool:
         # Unchanged by the severity gate: advisory ≠ supportive. A downgraded

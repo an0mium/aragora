@@ -3593,3 +3593,85 @@ def test_advisory_dissent_settle_enabled_accepts_injected_env() -> None:
         qe.advisory_dissent_settle_enabled({"ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE": "0"}) is False
     )
     assert qe.advisory_dissent_settle_enabled({}) is False
+
+
+# ---------------------------------------------------------------------------
+# Verdict contract (issue #9241 B1): malformed reviews never count
+# ---------------------------------------------------------------------------
+
+
+class TestNoVerdictNeverCounts:
+    """A review with no parseable verdict is malformed and must never count.
+
+    Observed live 2026-07-11: the grok CLI harness returned preamble-only
+    bodies ("I'll review the PR ... Pulling the full implementation ...") with
+    verdict=unknown yet would_count=True — a no-verdict review feeding
+    counting_families and 'families heard' conditions.
+    """
+
+    def test_unknown_verdict_demotes_would_count_at_construction(self) -> None:
+        item = EvidenceItem(
+            family="grok",
+            body="I'll review the PR diff for correctness. Pulling files now.",
+            would_count=True,
+            verdict="unknown",
+        )
+        assert item.would_count is False
+        assert any("never counts" in p for p in item.problems)
+        assert item.supportive is False
+
+    def test_unknown_verdict_excluded_from_counting_families(self) -> None:
+        outcome = CollectOutcome(
+            repo="synaptent/aragora",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=3,
+            action="prepare",
+            action_reason="test",
+            items=[
+                EvidenceItem(family="grok", body="preamble only", would_count=True),
+                EvidenceItem(
+                    family="openai", body="Verdict: PASS", would_count=True, verdict="pass"
+                ),
+            ],
+        )
+        assert outcome.counting_families == ["openai"]
+
+    def test_grok_style_preamble_parses_to_unknown_verdict(self) -> None:
+        body = (
+            "## Grok independent model review\n\n"
+            "I'll review the PR #8809 diff at head 5899700 for correctness, "
+            "security, and regressions. Reading the full prompt and the "
+            "implementation files.\n\ndogfood: yes\n"
+        )
+        assert qe._reviewer_verdict(body) == "unknown"
+        item = EvidenceItem(family="grok", body=body, would_count=True)
+        assert item.would_count is False
+
+    def test_pass_and_changes_requested_verdicts_unaffected(self) -> None:
+        passing = EvidenceItem(
+            family="claude", body="Verdict: PASS", would_count=True, verdict="pass"
+        )
+        assert passing.would_count is True
+        assert passing.supportive is True
+
+        dissenting = EvidenceItem(
+            family="gemini",
+            body="Verdict: CHANGES-REQUESTED\n- [P1] real blocker",
+            would_count=False,
+            verdict="changes_requested",
+        )
+        assert dissenting.would_count is False
+        assert dissenting.problems == []
+
+    def test_from_raw_prepared_artifact_cannot_smuggle_unknown_count(self) -> None:
+        raw = {
+            "family": "grok",
+            "body": "preamble with no verdict line",
+            "would_count": True,
+            "verdict": "unknown",
+        }
+        item = qe._evidence_item_from_dict(raw)
+        assert item.would_count is False
+        assert any("never counts" in problem for problem in item.problems)
