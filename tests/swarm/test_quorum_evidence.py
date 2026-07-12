@@ -3734,3 +3734,27 @@ class TestTruncationAndContradictionNeverCount:
             verdict="pass",
         )
         assert item.would_count is True
+
+
+def test_fresh_collect_verdict_parsed_from_composed_body(monkeypatch) -> None:
+    """A raw output whose verdict only becomes parseable after normalization
+    (e.g. wrapped in a thinking trace) must count via the composed body —
+    parsing raw text would over-reject (#9249 openai P2)."""
+    raw = "<think>deliberating at length</think>\nVerdict: PASS\n\nNo findings.\n"
+    assert qe._reviewer_verdict(qe._strip_thinking_traces(raw)) == "pass"
+
+    fakes, _posted = _fakes(tier=3)
+    fakes["reviewer_runner"] = lambda family, prompt: ReviewerResult(
+        family, raw, True, harness="test"
+    )
+    fakes["linter"] = lambda pr, head, committed, author, body, env: {
+        "would_count": True,
+        "counted_reviewer_ids": ["claude"],
+        "problems": [],
+    }
+    outcome = collect_evidence(
+        repo="synaptent/aragora", pr=1, families=["claude"], author="tester", apply=False, **fakes
+    )
+    (item,) = outcome.items
+    assert item.verdict == "pass"
+    assert item.would_count is True

@@ -2152,7 +2152,12 @@ def collect_evidence(
                 family=family,
                 body=body,
                 would_count=bool(lint.get("would_count")),
-                verdict=_reviewer_verdict(result.text),
+                # Parse the COMPOSED body, not the raw reviewer text: composition
+                # normalizes messy output (thinking traces, preamble) into a
+                # canonical verdict line, and the prepared-apply relint path
+                # already parses item.body — raw-text parsing here could demote
+                # a successfully normalized review (openai #9249 [P2]).
+                verdict=_reviewer_verdict(body),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
             )
