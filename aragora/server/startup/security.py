@@ -7,7 +7,7 @@ and decision router initialization.
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aragora.exceptions import REDIS_CONNECTION_ERRORS
 
@@ -881,7 +881,7 @@ async def init_mfa_drift_monitor() -> bool:
                 def _notify_violation(report) -> None:
                     """Forward MFA drift violation to the notification service."""
                     try:
-                        notif_svc.send(
+                        cast(Any, notif_svc).send(
                             channel="security",
                             subject="MFA policy drift detected",
                             body=report.summary,
