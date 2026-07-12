@@ -91,6 +91,7 @@ from aragora.server.startup.security import (
     init_key_rotation_scheduler,
     init_mfa_drift_monitor,
     init_rbac_distributed_cache,
+    init_security_edge_adapters,
     init_secrets_rotation_scheduler,
     validate_required_secrets,
 )
@@ -678,17 +679,22 @@ async def run_startup_sequence(
         logger.info("ARAGORA_STRICT_STARTUP enabled: server will fail fast on dependency errors")
         graceful_degradation = False
 
+    security_edge_adapters = init_security_edge_adapters(strict=strict_startup)
+
     # Phase 1: Configuration validation
     await _validate_config(graceful_degradation)
 
     # Phase 2: Prerequisites (requirements, connectivity, storage, migrations, schema)
     prereqs = await _validate_prerequisites(graceful_degradation)
     if prereqs is None:
-        return _get_degraded_status()
+        status = _get_degraded_status()
+        status["security_edge_adapters"] = security_edge_adapters
+        return status
 
     # Phase 3: Initialize all components
     structured_logging = init_structured_logging()
     status = _build_initial_status(prereqs, structured_logging, time_mod.time())
+    status["security_edge_adapters"] = security_edge_adapters
     await _init_all_components(status, nomic_dir, stream_emitter)
 
     # Phase 4: Generate startup report
@@ -744,6 +750,7 @@ __all__ = [
     "init_mfa_drift_monitor",
     "init_access_review_scheduler",
     "init_rbac_distributed_cache",
+    "init_security_edge_adapters",
     "init_approval_gate_recovery",
     "init_notification_worker",
     "init_inbox_debate_router",

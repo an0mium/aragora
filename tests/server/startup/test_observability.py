@@ -12,6 +12,54 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+class TestRegisterObservabilitySinks:
+    """Tests for higher-layer sink composition."""
+
+    def test_adapter_imports_do_not_mutate_observability_registries(self) -> None:
+        """Importing an adapter is side-effect free until startup composes it."""
+        import importlib
+
+        from aragora.connectors.devops import slo_alert_sink as pagerduty_adapter
+        from aragora.control_plane import slo_alert_sink as channel_adapter
+        from aragora.integrations import webhooks as webhook_adapter
+        from aragora.observability import slo_alert_bridge
+        from aragora.observability.metrics import slo as slo_metrics
+
+        slo_alert_bridge.register_pagerduty_alert_sink(None)
+        slo_alert_bridge.register_channel_alert_sink(None)
+        slo_metrics.register_slo_event_sink_provider(None)
+
+        importlib.reload(pagerduty_adapter)
+        importlib.reload(channel_adapter)
+        importlib.reload(webhook_adapter)
+
+        assert slo_alert_bridge._pagerduty_alert_sink_factory is None
+        assert slo_alert_bridge._channel_alert_sink_factory is None
+        assert slo_metrics._slo_event_sink_provider is None
+
+    def test_registers_all_external_sink_providers(self) -> None:
+        from aragora.observability.metrics import km as km_metrics
+        from aragora.observability.metrics import slo as slo_metrics
+        from aragora.observability import slo_alert_bridge
+        from aragora.server.startup.observability import register_observability_sinks
+
+        slo_alert_bridge.register_pagerduty_alert_sink(None)
+        slo_alert_bridge.register_channel_alert_sink(None)
+        slo_metrics.register_slo_event_sink_provider(None)
+        km_metrics.register_km_health_provider(None)
+        try:
+            assert register_observability_sinks() is True
+            assert slo_alert_bridge._pagerduty_alert_sink_factory is not None
+            assert slo_alert_bridge._channel_alert_sink_factory is not None
+            assert slo_metrics._slo_event_sink_provider is not None
+            assert km_metrics._km_health_provider is not None
+        finally:
+            slo_alert_bridge.register_pagerduty_alert_sink(None)
+            slo_alert_bridge.register_channel_alert_sink(None)
+            slo_metrics.register_slo_event_sink_provider(None)
+            km_metrics.register_km_health_provider(None)
+
+
 # =============================================================================
 # init_structured_logging Tests
 # =============================================================================

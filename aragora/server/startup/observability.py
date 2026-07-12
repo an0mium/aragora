@@ -11,6 +11,36 @@ import os
 logger = logging.getLogger(__name__)
 
 
+def register_observability_sinks() -> bool:
+    """Register higher-layer alert adapters with observability contracts."""
+    try:
+        from aragora.connectors.devops.slo_alert_sink import (
+            register_slo_alert_sink as register_pagerduty_sink,
+        )
+        from aragora.control_plane.slo_alert_sink import (
+            register_slo_alert_sink as register_channel_sink,
+        )
+        from aragora.integrations.webhooks import (
+            register_slo_event_sink as register_webhook_sink,
+        )
+        from aragora.knowledge.mound.metrics import (
+            register_prometheus_health_provider as register_km_health_provider,
+        )
+
+        results = (
+            register_pagerduty_sink(),
+            register_channel_sink(),
+            register_webhook_sink(),
+            register_km_health_provider(),
+        )
+        return all(results)
+    except ImportError as e:
+        logger.debug("Observability alert sinks not available: %s", e)
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.warning("Failed to register observability alert sinks: %s", e)
+    return False
+
+
 def init_structured_logging() -> bool:
     """Initialize structured JSON logging.
 
@@ -245,6 +275,8 @@ async def init_prometheus_metrics() -> bool:
     Returns:
         True if metrics were enabled, False otherwise
     """
+    register_observability_sinks()
+
     try:
         from aragora.observability.config import is_metrics_enabled
         from aragora.observability.metrics import start_metrics_server
