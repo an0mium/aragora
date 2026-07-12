@@ -190,33 +190,6 @@ class _PolicyActionType(str, Enum):
     MOUSE = "mouse"
 
 
-class _ApprovalValue(str, Enum):
-    """Enum-compatible values expected by approval workflow implementations."""
-
-    DESTRUCTIVE_ACTION = "destructive_action"
-    EXTERNAL_SYSTEM = "external_system"
-    SYSTEM_MODIFICATION = "system_modification"
-    UNKNOWN = "unknown"
-    HIGH = "high"
-
-
-@dataclass
-class _ApprovalContext:
-    """Structural approval context used when no specialized adapter is registered."""
-
-    task_id: str
-    action_type: str
-    action_details: dict[str, Any]
-    category: _ApprovalValue
-    reason: str
-    risk_level: str = "medium"
-    screenshot_b64: str | None = None
-    current_url: str | None = None
-    user_id: str | None = None
-    tenant_id: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
 class _StructuralPolicyEvaluationAdapter:
     """Evaluate policy objects through their existing structural interface."""
 
@@ -278,63 +251,7 @@ class _StructuralPolicyEvaluationAdapter:
         return getattr(result.decision, "value", result.decision) == "require_approval"
 
 
-class _StructuralApprovalWorkflowAdapter:
-    """Use the approval workflow's public structural interface directly."""
-
-    async def request_approval(
-        self,
-        workflow: Any,
-        request: EnforcementRequest,
-        reason: str,
-    ) -> ApprovalRoute:
-        category_map = {
-            "gateway": _ApprovalValue.SYSTEM_MODIFICATION,
-            "device": _ApprovalValue.EXTERNAL_SYSTEM,
-            "computer_use": _ApprovalValue.DESTRUCTIVE_ACTION,
-        }
-        category = category_map.get(request.source, _ApprovalValue.UNKNOWN)
-        context = _ApprovalContext(
-            task_id=request.session_id or str(uuid.uuid4()),
-            action_type=request.action_type,
-            action_details=request.details,
-            category=category,
-            reason=reason,
-            risk_level=request.details.get("risk_level", "medium"),
-            user_id=request.actor_id,
-            tenant_id=request.tenant_id,
-        )
-        approval_request = await workflow.request_approval(
-            context=context,
-            priority=_ApprovalValue.HIGH,
-        )
-        return ApprovalRoute(
-            approval_request_id=approval_request.id,
-            category=category.value,
-            priority="high",
-        )
-
-    async def wait_for_approval(
-        self,
-        workflow: Any,
-        approval_request_id: str,
-        timeout: float | None,
-    ) -> bool:
-        status = await workflow.wait_for_decision(
-            approval_request_id,
-            timeout=timeout,
-        )
-        return getattr(status, "value", status) == "approved"
-
-    async def is_approval_valid(self, workflow: Any, approval_id: str) -> bool:
-        request = await workflow.get_request(approval_id)
-        if not request:
-            return False
-        status = getattr(request.status, "value", request.status)
-        return status == "approved" and not request.is_expired()
-
-
 _structural_policy_adapter = _StructuralPolicyEvaluationAdapter()
-_structural_approval_adapter = _StructuralApprovalWorkflowAdapter()
 _policy_evaluation_adapter: PolicyEvaluationAdapter | None = None
 _approval_workflow_adapter: ApprovalWorkflowAdapter | None = None
 
@@ -418,7 +335,9 @@ class UnifiedApprovalEnforcer:
         if not self._approval_workflow:
             return False
 
-        adapter = _approval_workflow_adapter or _structural_approval_adapter
+        adapter = _approval_workflow_adapter
+        if adapter is None:
+            return False
 
         try:
             return await adapter.wait_for_approval(
@@ -601,7 +520,10 @@ class UnifiedApprovalEnforcer:
             # No workflow configured - keep as pending
             return decision
 
-        adapter = _approval_workflow_adapter or _structural_approval_adapter
+        adapter = _approval_workflow_adapter
+        if adapter is None:
+            logger.warning("Approval workflow adapter not available")
+            return decision
 
         try:
             route = await adapter.request_approval(
@@ -643,7 +565,9 @@ class UnifiedApprovalEnforcer:
         if not self._approval_workflow:
             return False
 
-        adapter = _approval_workflow_adapter or _structural_approval_adapter
+        adapter = _approval_workflow_adapter
+        if adapter is None:
+            return False
 
         try:
             return await adapter.is_approval_valid(self._approval_workflow, approval_id)

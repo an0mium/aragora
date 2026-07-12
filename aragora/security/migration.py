@@ -746,6 +746,8 @@ def rotate_encryption_key(
 
             except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
                 result.errors.append(f"Store {store_name} re-encryption failed")
+                if store_name == "sync":
+                    result.failed_records += 1
                 logger.error("Key rotation failed for store %s: %s", store_name, e)
 
         result.completed_at = datetime.now(timezone.utc)
@@ -829,6 +831,8 @@ def _get_sync_store_config() -> dict[str, Any] | None:
             "id_field": "job_id",
         }
     except ImportError:
+        if _sync_store_provider is not None:
+            raise
         return None
 
 

@@ -404,10 +404,9 @@ class TestApprovalWorkflowIntegration:
         mock_workflow.request_approval.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_structural_workflow_fallback_preserves_routing(self, make_request):
+    async def test_missing_workflow_adapter_preserves_pending_decision(self, make_request):
         register_approval_workflow_adapter(None)
         workflow = AsyncMock()
-        workflow.request_approval.return_value = MagicMock(id="approval-structural")
         enforcer = UnifiedApprovalEnforcer(
             policy=_create_test_policy(),
             approval_workflow=workflow,
@@ -422,8 +421,8 @@ class TestApprovalWorkflowIntegration:
         )
 
         assert decision.result == EnforcementResult.PENDING_APPROVAL
-        assert decision.approval_request_id == "approval-structural"
-        workflow.request_approval.assert_awaited_once()
+        assert decision.approval_request_id is None
+        workflow.request_approval.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_no_workflow_keeps_pending(self, policy_enforcer, make_request):
