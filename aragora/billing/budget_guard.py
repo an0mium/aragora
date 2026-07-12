@@ -95,9 +95,7 @@ def _store_path() -> Path:
     override = os.environ.get(_STORE_ENV, "").strip()
     if override:
         return Path(override)
-    configured_data_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get(
-        "ARAGORA_NOMIC_DIR"
-    )
+    configured_data_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
     if configured_data_dir:
         return Path(configured_data_dir) / "budget_guard.json"
     # Preserve the historical machine-global ledger unless an operator
