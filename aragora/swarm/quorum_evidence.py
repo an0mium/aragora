@@ -1192,10 +1192,10 @@ def _full_file_section(
     for path in ordered:
         try:
             content = fetcher(repo, head_sha, path)
-        except (RuntimeError, ValueError, OSError, UnicodeError) as exc:
+        except (RuntimeError, ValueError, OSError, UnicodeError, subprocess.SubprocessError) as exc:
             # Grounding is best-effort by contract: the default fetcher raises
-            # RuntimeError/ValueError; transport/decoding surface OSError/
-            # UnicodeError. Anything else is a real bug and should propagate.
+            # RuntimeError/ValueError; transport/decoding surface OSError,
+            # SubprocessError, or UnicodeError. Anything else is a real bug.
             parts.append(f"--- {path}: unavailable ({type(exc).__name__}) ---")
             continue
         if not content.strip():

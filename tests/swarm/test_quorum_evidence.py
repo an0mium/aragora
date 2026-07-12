@@ -3799,6 +3799,13 @@ class TestFullFileGrounding:
         # All files unavailable -> empty section (grounding silently absent)
         assert section == ""
 
+    def test_fetch_timeout_never_blocks(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            raise subprocess.TimeoutExpired(cmd=["gh", "api"], timeout=30)
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        assert section == ""
+
     def test_prompt_appends_section(self) -> None:
         prompt = qe.build_review_prompt(
             repo="o/r",
