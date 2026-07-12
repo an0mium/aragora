@@ -429,6 +429,10 @@ async def _init_all_components(
     stream_emitter: Any | None,
 ) -> None:
     """Phase 3: Initialize all server components sequentially."""
+    from aragora.server.startup.event_subscribers import register_webhook_store
+
+    register_webhook_store()
+
     # PostgreSQL connection pool FIRST (event-loop bound, needed by subsystems)
     status["postgres_pool"] = await init_postgres_pool()
 
