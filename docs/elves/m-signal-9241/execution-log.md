@@ -90,6 +90,26 @@
 - **Commit:** b425e9ce7d — pushed: yes
 - **Time:** ~30m
 
+## Batch 4: credential-health preflight (+ round-2/3/4 gate hardening)
+
+- **Predicted tier / final tier:** 2 / 3 (counting/dissent semantics changed during gate rounds; PR-level settlement covers it)
+- **Rollback tag:** `elves/m-signal-9241/pre-batch-4` (pushed: yes)
+- **Scope delivered:** credential walls classified `credential_unhealthy(<family>)`; walled
+  primary + unconfigured fallback = explicit family-unavailable error; PLUS gate-driven
+  hardening: direction-aware truncation demotion, author-controlled path safety +
+  URL-encoding, prompt byte caps, full-file grounding OPT-IN default OFF (resolved openai
+  [P1] egress dissent), truncated CR always blocks (resolved claude round-3 fail-open corner).
+- **Adversarial review:** 4 rounds at 9f1f53fe/638755f8/ba2608fe/68bd60fb12. Final round:
+  claude PASS + openai PASS (No findings), zero dissent. openai round-3 [P1] on `supportive`
+  REFUTED with line evidence (conjunction already requires would_count). claude evidence
+  repeatedly zeroed by lint with problems=[] — third live #9129 capture, logged for B6.
+- **Receipt:** evidence artifacts b4-pr9249-evidence{,-r2,-r3,-r4}.json; gauntlet receipts at
+  prior heads VALID.
+- **Settlement:** rolled into the PR #9249 Tier-3 packet — PARKED for founder settlement at
+  head 68bd60fb12.
+- **Commits:** 9f1f53fee9, 638755f8d8, ba2608fe6f, 68bd60fb12 — pushed.
+- **Time:** ~2h across 4 gate rounds (operator present and directing after round 2).
+
 ---
 
 ## Completed Archive
@@ -104,3 +124,4 @@
 | --- | --- | --- | --- | --- | --- |
 | B1 (PR #9249) | 3 | run-elves-9241/receipts/b1-gauntlet-receipt-final.json | run-elves-9241/receipts/b1-pr9249-evidence-r2.json | 2026-07-12T02:40Z | pending |
 | B2 (PR #9249, stacked w/ B1) | 3 | run-elves-9241/receipts/b2-gauntlet-receipt-final.json | run-elves-9241/receipts/b2-pr9249-evidence-r2.json | 2026-07-12T02:55Z | pending |
+| B4 (PR #9249, full packet B1-B4) | 3 | run-elves-9241/receipts/b4-pr9249-evidence-r4.json | PR #9249 @ 68bd60fb12 | 2026-07-12T04:15Z | pending |
