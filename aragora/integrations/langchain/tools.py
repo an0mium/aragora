@@ -57,6 +57,12 @@ def _FieldStub(*args: Any, **kwargs: Any) -> Any:
     return kwargs.get("default", None)
 
 
+# Public compatibility aliases can resolve to either the optional dependency
+# types or the local stubs at runtime.
+BaseTool: type[Any]
+BaseModel: type[Any]
+
+
 # LangChain imports with fallback
 try:
     try:
@@ -90,7 +96,7 @@ except ImportError:
     _LCBaseTool = _BaseToolStub  # type: ignore[misc,assignment]
     BaseTool = _LCBaseTool
     _PydanticBaseModel = _BaseModelStub  # type: ignore[misc,assignment]
-    BaseModel = _PydanticBaseModel  # type: ignore[misc]
+    BaseModel = _PydanticBaseModel
     Field = _FieldStub
     AsyncCallbackManagerForToolRun = None  # type: ignore[misc,assignment]
     CallbackManagerForToolRun = None  # type: ignore[misc,assignment]
