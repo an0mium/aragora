@@ -69,7 +69,7 @@ Subcommands:
   view    <file>             Open receipt in browser (JSON auto-converts to HTML)
   verify  <file>             Check artifact hash and signature integrity
   inspect <file>             Display receipt details in terminal
-  export  <file> --format X  Convert between html, md, json, sarif, pdf, csv
+  export  <file> --format X  Convert between html, md, json, sarif, pdf, csv, odr
 
 Examples:
   aragora receipt view receipt.json

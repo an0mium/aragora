@@ -91,7 +91,8 @@ def _run_decide_demo_builtin_fallback(
             "before execution."
         ),
         "dissent": [
-            "Operational risks are still estimated because the full aragora-debate package is unavailable."
+            "Operational risks in this demo are estimated by built-in offline agents; "
+            "wire real LLM providers (Claude/OpenAI/etc.) via `aragora decide` with credentials for production-grade risk analysis."
         ],
         "consensus_proof": {
             "reached": True,
@@ -104,7 +105,7 @@ def _run_decide_demo_builtin_fallback(
         "mode": "demo (builtin fallback)",
     }
 
-    print("  Note: Built-in mock fallback (aragora-debate package unavailable)")
+    print("  Mode: Built-in offline demo agents (no API keys required)")
     print()
     print("=" * 60)
     print("DECISION SUMMARY")

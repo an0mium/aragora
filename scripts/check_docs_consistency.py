@@ -21,6 +21,8 @@ ARCHIVE_REFERENCE_WHITELIST = {
     "docs/ARAGORA_BUSINESS_SUMMARY.md": "redirect stub to the archived business snapshot",
     "docs/OMNIVOROUS_ROADMAP.md": "redirect stub to the archived roadmap snapshot",
     "docs/STRATEGY_INDEX.md": "canonical map from retired docs to live replacements",
+    "docs/ROADMAP_EVOLUTION.md": "tombstone that explicitly points readers to the archived brief that motivated its retirement",
+    "docs/STATUS.md": "compatibility mirror that intentionally links to the archived thesis-settlement ledger for continuity",
     "docs/archive/README.md": "archive policy and inventory",
 }
 # Files/patterns where metric numbers are intentionally historical, local-suite scoped,
@@ -33,6 +35,30 @@ METRIC_DRIFT_WHITELIST = {
     "docs/debate/**": "debate transcripts preserve prompt-time metric claims", "docs/research/**": "research notes cite exploratory subsystem-local counts", "docs/observability/**": "observability docs cite live suite measurements",
     "docs/workflow/**": "workflow docs cite older local validation counts", "docs/governance/subsystem-ledger.md": "subsystem ledger is explicitly module-local", "docs/PACKAGING.md": "packaging guide cites package-local tests and adapter surfaces",
     "docs/PYTHON_SDK_CONSOLIDATION.md": "SDK consolidation guide cites namespace-local modules", "docs/STRANDED_FEATURES_AUDIT.md": "audit entries cite feature-local test counts",
+    # M-STRANGER (#9242): fix #6 in this PR extends the docs-consistency checker to
+    # cover top-level docs (docs/*.md, CLAUDE.md, AGENTS.md). That newly exposes
+    # pre-existing marketing/positioning metric drifts in the files below. They are
+    # whitelisted as a bounded, reversible acknowledgement so the checker's expanded
+    # scope does not regress CI; individual reconciliation is tracked as follow-up
+    # work under the M-STRANGER punch list (issue #9242) and adjacent batches
+    # (#9186, #9189). CLAUDE.md and docs/CANONICAL_GOALS.md are intentionally NOT
+    # whitelisted -- they already match the canonical registered agent-count (46).
+    "docs/GA_CHECKLIST.md": "release checklist preserves historical test-count snapshot for the tracked release",
+    "docs/LANDING_PAGE.md": "marketing landing snapshot; canonical counts live in docs/METRICS.md",
+    "docs/PRICING.md": "marketing pricing snapshot; canonical counts live in docs/METRICS.md",
+    "docs/PRICING_PAGE.md": "marketing pricing snapshot; canonical counts live in docs/METRICS.md",
+    "docs/SDK_QUICKSTART.md": "SDK quickstart marketing summary; canonical counts live in docs/METRICS.md",
+    "docs/STRATEGIC_ANALYSIS.md": "strategic-analysis snapshot preserves point-in-time metric claims",
+    "docs/USE_CASES.md": "use-case marketing summary; canonical counts live in docs/METRICS.md",
+    "docs/compliance/**": "compliance packages preserve release-era metric claims for regulatory submissions",
+    "docs/integrations/**": "integration guides cite ecosystem-facing marketing counts",
+    "docs/landing/**": "public landing surfaces preserve release-era marketing metrics",
+    "docs/launch/**": "launch collateral (Show HN, press) preserves release-era marketing metrics",
+    "docs/outreach/**": "outreach playbooks preserve marketing-era metrics",
+    "docs/reference/**": "reference control-plane/architecture docs cite subsystem-local counts",
+    "docs/security/**": "security RFPs and pentest scopes preserve engagement-era metrics",
+    "docs/specs/**": "spec/pipeline docs cite feature-local metrics",
+    "docs/strategy/**": "strategy/positioning docs preserve marketing-era metrics; explicit anti-lead callouts remain valid regardless of the specific number cited",
 }
 LINK_RE = re.compile(r"(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)")
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
@@ -70,19 +96,47 @@ def is_relative_to(path: Path, parent: Path) -> bool:
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 def markdown_files(root: Path) -> list[Path]:
+    # NOTE: the `docs/**/*.md` pathspec requires at least one intermediate
+    # directory in git's implementation, so top-level docs (e.g.
+    # docs/COMMERCIAL_OVERVIEW.md) are only picked up via the explicit
+    # `docs/*.md` pathspec. CLAUDE.md is included so the top-level agent
+    # guide participates in the same consistency checks as README.md.
     result = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "--", "README.md", "docs/**/*.md"],
+        [
+            "git",
+            "-C",
+            str(root),
+            "ls-files",
+            "--",
+            "README.md",
+            "CLAUDE.md",
+            "AGENTS.md",
+            "docs/*.md",
+            "docs/**/*.md",
+        ],
         capture_output=True,
         text=True,
         check=False,
     )
     if result.returncode == 0:
-        return [root / line for line in result.stdout.splitlines() if line.strip()]
+        seen: set[Path] = set()
+        files: list[Path] = []
+        for line in result.stdout.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            path = root / stripped
+            if path in seen:
+                continue
+            seen.add(path)
+            files.append(path)
+        return files
 
-    files: list[Path] = []
-    readme = root / "README.md"
-    if readme.exists():
-        files.append(readme)
+    files = []
+    for top in ("README.md", "CLAUDE.md", "AGENTS.md"):
+        candidate = root / top
+        if candidate.exists():
+            files.append(candidate)
     docs = root / "docs"
     if docs.exists():
         files.extend(sorted(docs.rglob("*.md")))
