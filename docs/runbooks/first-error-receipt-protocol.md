@@ -19,7 +19,9 @@ REPO="$(git rev-parse --show-toplevel)"
 git -C "$REPO" fetch origin --prune
 MAIN_SHA="$(git -C "$REPO" rev-parse origin/main)"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
-WT="/private/tmp/aragora-main-first-error-$TS"
+TMP_ROOT="${TMPDIR:-/tmp}"
+TMP_ROOT="${TMP_ROOT%/}"
+WT="$TMP_ROOT/aragora-main-first-error-$TS"
 
 git -C "$REPO" worktree add --detach "$WT" "$MAIN_SHA"
 mkdir -p "$WT/logs" "$REPO/.aragora/main-red"
@@ -51,13 +53,18 @@ does not make an unexpired marker safe to reclaim.
 
 ## 3. Stream Output To A Durable Log
 
-Use the interpreter and exclusions from the incident being reproduced. Bound
-the process group with `gtimeout` on macOS or `timeout` elsewhere, and preserve
-the pipeline exit code:
+Use the interpreter, scope, and exclusions from the incident being reproduced.
+Save the example as a Bash driver and execute that driver; do not paste its
+`exit` paths into an interactive shell. Bound the process group with
+`gtimeout` on macOS or `timeout` elsewhere, and preserve the pytest side of
+the pipeline:
 
 ```bash
+#!/usr/bin/env bash
+
 cd "$WT"
 LOG="logs/first-error-$TS.log"
+TEST_TIMEOUT="${TEST_TIMEOUT:-1800s}"
 
 if command -v gtimeout >/dev/null 2>&1; then
   TIMEOUT_BIN=gtimeout
@@ -69,12 +76,18 @@ else
 fi
 
 set +e
-PYTHONUNBUFFERED=1 "$TIMEOUT_BIN" --signal=TERM --kill-after=30s 1800s \
+PYTHONUNBUFFERED=1 "$TIMEOUT_BIN" --signal=TERM --kill-after=30s "$TEST_TIMEOUT" \
   python -m pytest tests/ -x -v -p no:cacheprovider \
   --ignore=tests/connectors 2>&1 | tee "$LOG"
 TEST_RC="${PIPESTATUS[0]}"
 set -e
 ```
+
+`PIPESTATUS` is intentionally Bash-specific, which is why the example is a
+driver script rather than an interactive-shell fragment. Set `TEST_TIMEOUT`
+for the incident scope: 30 minutes can be appropriate for a focused shard but
+is not expected to prove that the full `tests/` suite is green. Record the
+selected timeout and test scope in the receipt.
 
 Do not rely on terminal scrollback. A run without a non-empty log is
 `infra_error`, even if the operator observed output on screen.
@@ -131,11 +144,22 @@ clear:
 Use read-only probes:
 
 ```bash
-ps -eo pid,etime,command | grep -E 'pytest|first-error' | grep -v grep
+ps -eo pid=,etime=,command= |
+  awk -v wt="$OLD_WT" \
+    'index($0, wt) && /pytest|first-error|timeout|gtimeout/ && $0 !~ /awk -v wt=/'
 lsof +D "$OLD_WT" 2>/dev/null
-stat -f '%m %N' "$OLD_WT" "$OLD_WT/logs"
+
+mtime_line() {
+  if stat -f '%m %N' "$@" >/dev/null 2>&1; then
+    stat -f '%m %N' "$@"
+  else
+    stat -c '%Y %n' "$@"
+  fi
+}
+
+mtime_line "$OLD_WT" "$OLD_WT/logs"
 sleep 90
-stat -f '%m %N' "$OLD_WT" "$OLD_WT/logs"
+mtime_line "$OLD_WT" "$OLD_WT/logs"
 python3 scripts/safe_worktree_cleanup.py inspect "$OLD_WT" --json
 ```
 
