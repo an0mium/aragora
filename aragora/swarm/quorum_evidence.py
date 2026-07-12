@@ -486,18 +486,24 @@ class EvidenceItem:
     severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
     def __post_init__(self) -> None:
-        # Verdict contract (issue #9241 B1): a review with no parseable verdict is
-        # malformed reviewer output and must NEVER count toward quorum — counting
+        # Verdict contract (issue #9241 B1): a review without a valid parsed verdict
+        # is malformed reviewer output and must NEVER count toward quorum — counting
         # feeds counting_families, "families heard", and relief-valve conditions,
-        # so an unknown-verdict item with would_count=True is an integrity hole
+        # so a verdict-less item with would_count=True is an integrity hole
         # (observed live 2026-07-11: grok CLI returned preamble-only bodies with
-        # verdict=unknown yet would_count=True). Enforced here, at the single
-        # choke point every construction path shares (fresh collect, from_raw,
-        # prepared-apply relint).
-        if self.would_count and self.verdict == "unknown":
+        # verdict=unknown yet would_count=True). Membership in the CLOSED canonical
+        # set, not `== "unknown"`: `_evidence_item_from_dict` passes prepared-artifact
+        # verdict strings verbatim, so a forged/corrupt artifact could otherwise
+        # smuggle `"approved"`/`"UNKNOWN "` past an equality check (claude+openai
+        # #9249 review). No normalization — only the parser emits canonical values,
+        # so anything non-canonical is untrusted and fails closed. Enforced here, at
+        # the single choke point every construction path shares (fresh collect,
+        # from_raw, prepared-apply relint).
+        if self.would_count and self.verdict not in ("pass", "changes_requested"):
             self.would_count = False
             self.problems.append(
-                "no parseable verdict in reviewer output — malformed review never counts"
+                "no valid parsed verdict in reviewer output "
+                f"(got {self.verdict!r}) — malformed review never counts"
             )
 
     @property

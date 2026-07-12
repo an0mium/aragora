@@ -3649,6 +3649,20 @@ class TestNoVerdictNeverCounts:
         item = EvidenceItem(family="grok", body=body, would_count=True)
         assert item.would_count is False
 
+    @pytest.mark.parametrize("forged", ["approved", "UNKNOWN", "unknown ", "not_a_verdict", ""])
+    def test_forged_noncanonical_verdicts_never_count(self, forged: str) -> None:
+        """Prepared artifacts pass verdict strings verbatim: anything outside the
+        closed canonical set is untrusted and fails closed (#9249 review P2)."""
+        raw = {
+            "family": "grok",
+            "body": "body text",
+            "would_count": True,
+            "verdict": forged,
+        }
+        item = qe._evidence_item_from_dict(raw)
+        assert item.would_count is False
+        assert any("never counts" in problem for problem in item.problems)
+
     def test_pass_and_changes_requested_verdicts_unaffected(self) -> None:
         passing = EvidenceItem(
             family="claude", body="Verdict: PASS", would_count=True, verdict="pass"
