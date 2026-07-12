@@ -27,6 +27,7 @@ all network/process I/O is injected so the orchestrator
 from __future__ import annotations
 
 import asyncio
+import base64
 import concurrent.futures
 import inspect
 import json
@@ -1136,6 +1137,89 @@ def _file_list_from_diff(diff: str) -> str:
     return "\n".join(paths)
 
 
+#: Bounded full-file grounding (issue #9241 B3): reviewers judging hunks without
+#: module context fabricate import-existence findings (observed live 2026-07-11:
+#: three consecutive false "X is never imported" [P1]s on #8809 — the import
+#: blocks sat outside the hunks). Bounds keep the prompt affordable.
+_FULL_FILE_MAX_FILES = 6
+_FULL_FILE_MAX_LINES = 400
+
+
+def _full_file_section(
+    repo: str,
+    head_sha: str,
+    diff_text: str,
+    *,
+    file_fetcher: Callable[[str, str, str], str] | None = None,
+) -> str:
+    """Bounded post-change contents of the changed files, largest diff first.
+
+    Best-effort by design: grounding is an enhancement — any per-file fetch
+    failure skips that file with a note and NEVER blocks the review. Returns ""
+    when nothing could be fetched.
+    """
+    fetcher = file_fetcher or _fetch_file_at_ref
+    sizes: dict[str, int] = {}
+    current: str | None = None
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git "):
+            rest = line[len("diff --git ") :].strip()
+            marker = rest.rfind(" b/")
+            current = rest[marker + len(" b/") :].strip() if marker != -1 else None
+            if current is not None:
+                sizes.setdefault(current, 0)
+        elif current is not None:
+            sizes[current] = sizes[current] + 1
+    ordered = sorted(sizes, key=lambda p: sizes[p], reverse=True)[:_FULL_FILE_MAX_FILES]
+    if not ordered:
+        return ""
+    parts: list[str] = []
+    for path in ordered:
+        try:
+            content = fetcher(repo, head_sha, path)
+        except Exception as exc:  # noqa: BLE001 - grounding is best-effort by contract
+            parts.append(f"--- {path}: unavailable ({type(exc).__name__}) ---")
+            continue
+        if not content.strip():
+            # Deleted or empty at head: nothing to ground on.
+            continue
+        lines = content.splitlines()
+        clipped = lines[:_FULL_FILE_MAX_LINES]
+        note = (
+            f" (first {_FULL_FILE_MAX_LINES} of {len(lines)} lines)"
+            if len(lines) > _FULL_FILE_MAX_LINES
+            else ""
+        )
+        parts.append(f"--- {path}{note} ---\n" + "\n".join(clipped))
+    if not any(part for part in parts if not part.endswith("---")):
+        return ""
+    return (
+        f"=== FULL CHANGED FILES (post-change contents at head {head_sha[:7]}; "
+        f"bounded to {_FULL_FILE_MAX_FILES} files x {_FULL_FILE_MAX_LINES} lines — use these "
+        "to VERIFY claims about imports/definitions before reporting them missing) ===\n"
+        + "\n\n".join(parts)
+        + "\n"
+    )
+
+
+def _fetch_file_at_ref(repo: str, ref: str, path: str) -> str:
+    """Fetch one file's contents at a ref via the GitHub contents API (REST)."""
+    proc = merge_quorum_io.run(
+        [
+            "gh",
+            "api",
+            f"repos/{repo}/contents/{path}?ref={ref}",
+            "--jq",
+            ".content",
+        ],
+        env=merge_quorum_io.aragora_env(),
+        timeout=30,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or "contents fetch failed").strip()[:120])
+    return base64.b64decode((proc.stdout or "").strip()).decode("utf-8", errors="replace")
+
+
 def build_review_prompt(
     *,
     repo: str,
@@ -1143,6 +1227,7 @@ def build_review_prompt(
     head_sha: str,
     diff_text: str,
     name_status: str = "",
+    full_files: str = "",
 ) -> str:
     """Adversarial review prompt grounded on the exact head.
 
@@ -1174,7 +1259,7 @@ def build_review_prompt(
         "-- never write a '[P1] None', '[P2] N/A', or similar no-finding line (it is misread as "
         "a blocking finding). If there are no findings at all, write 'No findings.' Be concise.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
-        f"{body_header}\n{bounded}\n"
+        f"{body_header}\n{bounded}\n" + (f"\n{full_files}" if full_files else "")
     )
 
 
@@ -1841,8 +1926,15 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
         raise RuntimeError(
             f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
         )
+    # Bounded full-file grounding (#9241 B3): best-effort, never blocks the review.
+    full_files = _full_file_section(repo, live_head, diff_text)
     return build_review_prompt(
-        repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text, name_status=name_status
+        repo=repo,
+        pr=pr,
+        head_sha=head_sha,
+        diff_text=diff_text,
+        name_status=name_status,
+        full_files=full_files,
     )
 
 

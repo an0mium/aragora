@@ -3758,3 +3758,56 @@ def test_fresh_collect_verdict_parsed_from_composed_body(monkeypatch) -> None:
     (item,) = outcome.items
     assert item.verdict == "pass"
     assert item.would_count is True
+
+
+class TestFullFileGrounding:
+    """#9241 B3: reviewers get bounded post-change file contents so
+    import-existence claims are verifiable (the gemini false-P1 class)."""
+
+    DIFF = (
+        "diff --git a/aragora/x.py b/aragora/x.py\n"
+        "index 111..222 100644\n--- a/aragora/x.py\n+++ b/aragora/x.py\n"
+        "@@ -10,1 +10,2 @@\n+    use(NotFoundError)\n"
+        "diff --git a/aragora/y.py b/aragora/y.py\n"
+        "index 333..444 100644\n--- a/aragora/y.py\n+++ b/aragora/y.py\n"
+        "@@ -1,1 +1,1 @@\n-old\n+new\n"
+    )
+
+    def test_section_contains_import_block(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            return "from .exceptions import NotFoundError\n\ndef use(x): ...\n"
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        assert "from .exceptions import NotFoundError" in section
+        assert "VERIFY claims about imports" in section
+
+    def test_bounds_respected(self) -> None:
+        big = "\n".join(f"line {i}" for i in range(1000))
+
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            return big
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        assert f"first {qe._FULL_FILE_MAX_LINES} of 1000 lines" in section
+        assert "line 999" not in section
+
+    def test_fetch_failure_never_blocks(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            raise RuntimeError("api down")
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        # All files unavailable -> empty section (grounding silently absent)
+        assert section == ""
+
+    def test_prompt_appends_section(self) -> None:
+        prompt = qe.build_review_prompt(
+            repo="o/r",
+            pr=1,
+            head_sha="a" * 40,
+            diff_text=self.DIFF,
+            full_files="=== FULL CHANGED FILES ... ===\ncontent",
+        )
+        assert prompt.rstrip().endswith("content")
+
+    def test_empty_diff_yields_empty_section(self) -> None:
+        assert qe._full_file_section("o/r", "a" * 40, "", file_fetcher=lambda *a: "x") == ""
