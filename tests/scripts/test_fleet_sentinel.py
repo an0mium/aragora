@@ -907,6 +907,36 @@ def test_lane_liveness_legacy_done_state_without_launched_at_ignored(tmp_path: P
     assert result["status"] == "ok"
 
 
+def test_lane_liveness_null_status_falls_back_to_legacy_state(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "laneOUTBOX.json").write_text(
+        json.dumps({"lane": "laneOUTBOX", "status": None, "state": "done"})
+    )
+
+    result = _liveness(tmp_path, heads={}, ahead={})
+
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_legacy_in_progress_uses_started_at(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "legacy-active.json").write_text(
+        json.dumps(
+            {
+                "lane": "q2",
+                "state": "in_progress",
+                "started_at": "2026-06-10T07:00:00Z",
+                "branch": "elves/run-x-q2",
+            }
+        )
+    )
+
+    result = _liveness(tmp_path, heads={"elves/run-x-q2": "aaa"}, ahead={"aaa": 0})
+
+    assert result["status"] == "breach"
+    assert "zero commits ahead" in result["detail"]
+
+
 def test_lane_liveness_legacy_parked_state_without_launched_at_ignored(tmp_path: Path) -> None:
     tmp_path.mkdir(exist_ok=True)
     (tmp_path / "lanePARITY.json").write_text(
@@ -916,6 +946,24 @@ def test_lane_liveness_legacy_parked_state_without_launched_at_ignored(tmp_path:
     result = _liveness(tmp_path, heads={}, ahead={})
 
     assert result["status"] == "ok"
+
+
+def test_lane_liveness_missing_status_and_state_is_unknown(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "missing-status.json").write_text(
+        json.dumps(
+            {
+                "lane": "q2",
+                "launched_at": "2026-06-10T11:00:00Z",
+                "branch": "elves/run-x-q2",
+            }
+        )
+    )
+
+    result = _liveness(tmp_path, heads={"elves/run-x-q2": "aaa"}, ahead={"aaa": 0})
+
+    assert result["status"] == "unknown"
+    assert "missing-status.json" in result["detail"]
 
 
 def test_lane_liveness_pr_open_status_without_launched_at_ignored(tmp_path: Path) -> None:
