@@ -349,6 +349,7 @@ _MAX_DIFF_CHARS = 60_000
 _PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
+_TRUNCATION_MARKER = "[reviewer output truncated]"
 # Claude CLI startup can legitimately take longer on large reviews, especially
 # when subscription auth and local MCP state are cold. Keep only that path at a
 # generous ceiling; reviewer transports without the Claude-specific probe stay
@@ -424,7 +425,7 @@ def _run_reviewer_with_infra_retry(
 def _cap_text(text: str) -> str:
     text = text.strip()
     if len(text) > _MAX_REVIEWER_CHARS:
-        return text[:_MAX_REVIEWER_CHARS].rstrip() + "\n\n[reviewer output truncated]"
+        return text[:_MAX_REVIEWER_CHARS].rstrip() + f"\n\n{_TRUNCATION_MARKER}"
     return text
 
 
@@ -504,6 +505,22 @@ class EvidenceItem:
             self.problems.append(
                 "no valid parsed verdict in reviewer output "
                 f"(got {self.verdict!r}) — malformed review never counts"
+            )
+        # Truncation contract (#9241 B2): findings conventionally follow the
+        # verdict line, so tail truncation (_cap_text) can hide blocking findings
+        # below an intact PASS — incomplete evidence must never count.
+        if self.would_count and _TRUNCATION_MARKER in self.body:
+            self.would_count = False
+            self.problems.append("reviewer output was truncated — incomplete review never counts")
+        # Contradiction contract (#9241 B2): a PASS that itself carries a blocking
+        # [P0]/[P1] finding (or a populated Blocker label) is self-contradictory
+        # reviewer output. Uses the SAME helper the severity-gated dissent check
+        # uses, so "what blocks" stays in lockstep across both halves of the gate.
+        if self.would_count and self.verdict == "pass" and has_blocking_finding_or_label(self.body):
+            self.would_count = False
+            self.problems.append(
+                "PASS verdict contradicted by a blocking [P0]/[P1] finding in the "
+                "same review — contradictory review never counts"
             )
 
     @property

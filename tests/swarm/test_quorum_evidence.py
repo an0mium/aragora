@@ -3689,3 +3689,48 @@ class TestNoVerdictNeverCounts:
         item = qe._evidence_item_from_dict(raw)
         assert item.would_count is False
         assert any("never counts" in problem for problem in item.problems)
+
+
+class TestTruncationAndContradictionNeverCount:
+    """#9241 B2: incomplete or self-contradictory reviews are not evidence."""
+
+    def test_truncated_review_never_counts(self) -> None:
+        body = "Verdict: PASS\n\nlooks good" + "x" * 10 + f"\n\n{qe._TRUNCATION_MARKER}"
+        item = EvidenceItem(family="claude", body=body, would_count=True, verdict="pass")
+        assert item.would_count is False
+        assert any("truncated" in p for p in item.problems)
+
+    def test_cap_text_marker_matches_the_guard(self) -> None:
+        capped = qe._cap_text("y" * (qe._MAX_REVIEWER_CHARS + 10))
+        assert qe._TRUNCATION_MARKER in capped
+        item = EvidenceItem(
+            family="claude",
+            body=f"Verdict: PASS\n{capped}",
+            would_count=True,
+            verdict="pass",
+        )
+        assert item.would_count is False
+
+    def test_pass_with_blocking_finding_never_counts(self) -> None:
+        body = (
+            "Verdict: PASS\n\n"
+            "- [P1] `aragora/x.py:10` — unauthenticated endpoint allows fund transfers\n"
+        )
+        item = EvidenceItem(family="openai", body=body, would_count=True, verdict="pass")
+        assert item.would_count is False
+        assert any("contradicted" in p for p in item.problems)
+
+    def test_pass_with_advisory_finding_still_counts(self) -> None:
+        body = "Verdict: PASS\n\n- [P3] `aragora/x.py:10` — minor naming nit\n"
+        item = EvidenceItem(family="openai", body=body, would_count=True, verdict="pass")
+        assert item.would_count is True
+        assert item.supportive is True
+
+    def test_clean_pass_still_counts(self) -> None:
+        item = EvidenceItem(
+            family="claude",
+            body="Verdict: PASS\n\nNo findings.\n",
+            would_count=True,
+            verdict="pass",
+        )
+        assert item.would_count is True
