@@ -548,6 +548,44 @@ class TestDemoTasks:
 class TestMain:
     """Tests for main entry point."""
 
+    def test_main_registers_webhook_store_before_normal_cli_initialization(self, monkeypatch):
+        """Normal CLI startup should register durable webhook storage first."""
+        order: list[str] = []
+        fake_args = argparse.Namespace(
+            command="status",
+            verbose=False,
+            func=lambda _args: order.append("command"),
+        )
+        fake_parser = Mock()
+        fake_parser.parse_args.return_value = fake_args
+
+        monkeypatch.setattr("aragora.cli.main._try_review_queue_fast_path", lambda _argv: None)
+        monkeypatch.setattr(
+            "aragora.server.startup.event_subscribers.register_webhook_store",
+            lambda: order.append("webhook_store"),
+        )
+        monkeypatch.setattr(
+            "aragora.modes.register_all_builtins",
+            lambda: order.append("modes"),
+        )
+        monkeypatch.setattr("aragora.cli.parser.build_parser", lambda: fake_parser)
+        monkeypatch.setattr("aragora.cli.main._hydrate_startup_secrets", lambda: None)
+
+        assert main() == 0
+        assert order == ["webhook_store", "modes", "command"]
+
+    def test_main_review_queue_fast_path_skips_webhook_store_registration(self, monkeypatch):
+        """The lightweight review-queue path should remain registration-free."""
+        register_webhook_store = Mock()
+        monkeypatch.setattr(
+            "aragora.server.startup.event_subscribers.register_webhook_store",
+            register_webhook_store,
+        )
+        monkeypatch.setattr("aragora.cli.main._try_review_queue_fast_path", lambda _argv: 17)
+
+        assert main() == 17
+        register_webhook_store.assert_not_called()
+
     def test_review_queue_build_accepts_repo_override(self):
         parser = cli_parser.build_parser()
         args = parser.parse_args(
@@ -599,7 +637,12 @@ class TestMain:
         def _unexpected_hydration(*_args, **_kwargs):
             raise AssertionError("record-settlement should not hydrate startup secrets")
 
-        monkeypatch.setattr("aragora.cli.main.build_parser", lambda: fake_parser)
+        monkeypatch.setattr("aragora.cli.main._try_review_queue_fast_path", lambda _argv: None)
+        monkeypatch.setattr(
+            "aragora.server.startup.event_subscribers.register_webhook_store",
+            lambda: None,
+        )
+        monkeypatch.setattr("aragora.cli.parser.build_parser", lambda: fake_parser)
         monkeypatch.setattr("aragora.modes.register_all_builtins", lambda: None)
         monkeypatch.setattr(
             "aragora.config.secrets.hydrate_env_from_secrets",
