@@ -95,6 +95,16 @@ def _store_path() -> Path:
     override = os.environ.get(_STORE_ENV, "").strip()
     if override:
         return Path(override)
+    configured_data_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get(
+        "ARAGORA_NOMIC_DIR"
+    )
+    if configured_data_dir:
+        return Path(configured_data_dir) / "budget_guard.json"
+    # Preserve the historical machine-global ledger unless an operator
+    # explicitly configures a data directory. This mirrors the persistence
+    # helper's explicit environment precedence without adopting its linked-
+    # worktree or CWD-relative defaults, which would fragment this shared
+    # cross-process spend counter.
     return Path.home() / ".aragora" / "budget_guard.json"
 
 
