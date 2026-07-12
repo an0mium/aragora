@@ -3854,3 +3854,36 @@ class TestCredentialWallClassification:
         assert result.ok is False
         assert result.error.startswith("credential_unhealthy(claude)")
         assert "fallback is not configured" in result.error
+
+
+class TestB4RoundTwoHardening:
+    """Direction-aware truncation, path safety, and byte caps (#9249 round-2 P2s)."""
+
+    def test_truncated_changes_requested_still_counts(self) -> None:
+        body = f"Verdict: CHANGES-REQUESTED\n\n- [P2] partial finding\n{qe._TRUNCATION_MARKER}"
+        item = EvidenceItem(
+            family="claude", body=body, would_count=True, verdict="changes_requested"
+        )
+        assert item.would_count is True  # dissent survives truncation
+
+    def test_truncated_pass_still_demoted(self) -> None:
+        body = f"Verdict: PASS\n\nfine so far\n{qe._TRUNCATION_MARKER}"
+        item = EvidenceItem(family="claude", body=body, would_count=True, verdict="pass")
+        assert item.would_count is False
+
+    @pytest.mark.parametrize(
+        "bad", ["../../etc/passwd", "/abs/path.py", "a?b.py", "a#b.py", "a\\b.py", "x/../y.py"]
+    )
+    def test_suspicious_paths_rejected(self, bad: str) -> None:
+        with pytest.raises(ValueError):
+            qe._fetch_file_at_ref("o/r", "a" * 40, bad)
+
+    def test_long_line_file_is_char_capped(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            return "x" * 500_000  # one enormous line
+
+        section = qe._full_file_section(
+            "o/r", "a" * 40, TestFullFileGrounding.DIFF, file_fetcher=fetcher
+        )
+        assert len(section) < qe._FULL_FILE_SECTION_MAX_CHARS + 10_000
+        assert "[file clipped for length]" in section

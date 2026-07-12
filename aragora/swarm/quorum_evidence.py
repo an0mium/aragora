@@ -41,6 +41,7 @@ import secrets
 import signal
 import subprocess
 import tempfile
+import urllib.parse
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -510,9 +511,14 @@ class EvidenceItem:
         # Truncation contract (#9241 B2): findings conventionally follow the
         # verdict line, so tail truncation (_cap_text) can hide blocking findings
         # below an intact PASS — incomplete evidence must never count.
-        if self.would_count and _TRUNCATION_MARKER in self.body:
+        # Direction-aware (claude #9249 B4-round [P2]): demotion applies to PASS
+        # only — incomplete evidence must never SUPPORT a merge. A truncated
+        # CHANGES-REQUESTED keeps counting: the cut tail can only contain MORE
+        # severity, and demoting it would erase a stated veto from the heard
+        # set (fail-open under the tiered gate).
+        if self.would_count and self.verdict == "pass" and _TRUNCATION_MARKER in self.body:
             self.would_count = False
-            self.problems.append("reviewer output was truncated — incomplete review never counts")
+            self.problems.append("reviewer output was truncated — an incomplete PASS never counts")
         # Contradiction contract (#9241 B2): a PASS that itself carries a blocking
         # [P0]/[P1] finding (or a populated Blocker label) is self-contradictory
         # reviewer output. Uses the SAME helper the severity-gated dissent check
@@ -1143,6 +1149,8 @@ def _file_list_from_diff(diff: str) -> str:
 #: blocks sat outside the hunks). Bounds keep the prompt affordable.
 _FULL_FILE_MAX_FILES = 6
 _FULL_FILE_MAX_LINES = 400
+_FULL_FILE_MAX_CHARS = 20_000
+_FULL_FILE_SECTION_MAX_CHARS = 80_000
 
 
 def _full_file_section(
@@ -1190,7 +1198,16 @@ def _full_file_section(
             if len(lines) > _FULL_FILE_MAX_LINES
             else ""
         )
-        parts.append(f"--- {path}{note} ---\n" + "\n".join(clipped))
+        body_text = "\n".join(clipped)
+        # Char caps (openai #9249 [P2]): line/file counts alone don't bound the
+        # prompt — a file of very long lines could append megabytes and stall
+        # every reviewer CLI. Cap per file and for the whole section.
+        if len(body_text) > _FULL_FILE_MAX_CHARS:
+            body_text = body_text[:_FULL_FILE_MAX_CHARS].rstrip() + "\n[file clipped for length]"
+            note = note or " (clipped for length)"
+        parts.append(f"--- {path}{note} ---\n" + body_text)
+        if sum(len(part) for part in parts) > _FULL_FILE_SECTION_MAX_CHARS:
+            break
     if not any(part for part in parts if not part.endswith("---")):
         return ""
     return (
@@ -1203,12 +1220,24 @@ def _full_file_section(
 
 
 def _fetch_file_at_ref(repo: str, ref: str, path: str) -> str:
-    """Fetch one file's contents at a ref via the GitHub contents API (REST)."""
+    """Fetch one file's contents at a ref via the GitHub contents API (REST).
+
+    ``path`` originates from the PR diff (author-controlled): reject traversal
+    and URL-encode it so a crafted filename cannot smuggle query parameters or
+    escape the contents endpoint (claude #9249 [P2]).
+    """
+    if (
+        path.startswith(("/", "~"))
+        or ".." in path.split("/")
+        or any(ch in path for ch in ("?", "#", "\\", "\n", "\r"))
+    ):
+        raise ValueError(f"suspicious changed-file path rejected: {path!r}")
+    encoded = urllib.parse.quote(path, safe="/")
     proc = merge_quorum_io.run(
         [
             "gh",
             "api",
-            f"repos/{repo}/contents/{path}?ref={ref}",
+            f"repos/{repo}/contents/{encoded}?ref={urllib.parse.quote(ref, safe='')}",
             "--jq",
             ".content",
         ],
