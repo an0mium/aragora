@@ -1,7 +1,10 @@
 """Guards for public first-run demo documentation."""
 
 from pathlib import Path
-import tomllib
+
+import pytest
+
+tomllib = pytest.importorskip("tomllib")
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
