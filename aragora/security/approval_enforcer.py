@@ -251,9 +251,78 @@ class _StructuralPolicyEvaluationAdapter:
         return getattr(result.decision, "value", result.decision) == "require_approval"
 
 
+class _StructuralApprovalWorkflowAdapter:
+    """Use approval workflows that expose layer-neutral construction metadata."""
+
+    async def request_approval(
+        self,
+        workflow: Any,
+        request: EnforcementRequest,
+        reason: str,
+    ) -> ApprovalRoute:
+        context_type = workflow.approval_context_type
+        category = workflow.approval_category_map.get(
+            request.source,
+            workflow.approval_category_unknown,
+        )
+        context = context_type(
+            task_id=request.session_id or str(uuid.uuid4()),
+            action_type=request.action_type,
+            action_details=request.details,
+            category=category,
+            reason=reason,
+            risk_level=request.details.get("risk_level", "medium"),
+            user_id=request.actor_id,
+            tenant_id=request.tenant_id,
+        )
+        approval_request = await workflow.request_approval(
+            context=context,
+            priority=workflow.approval_priority_high,
+        )
+        return ApprovalRoute(
+            approval_request_id=approval_request.id,
+            category=category.value,
+            priority=workflow.approval_priority_high.value,
+        )
+
+    async def wait_for_approval(
+        self,
+        workflow: Any,
+        approval_request_id: str,
+        timeout: float | None,
+    ) -> bool:
+        status = await workflow.wait_for_decision(
+            approval_request_id,
+            timeout=timeout,
+        )
+        return status == workflow.approval_status_approved
+
+    async def is_approval_valid(self, workflow: Any, approval_id: str) -> bool:
+        request = await workflow.get_request(approval_id)
+        if not request:
+            return False
+        return request.status == workflow.approval_status_approved and not request.is_expired()
+
+
 _structural_policy_adapter = _StructuralPolicyEvaluationAdapter()
+_structural_approval_adapter = _StructuralApprovalWorkflowAdapter()
 _policy_evaluation_adapter: PolicyEvaluationAdapter | None = None
 _approval_workflow_adapter: ApprovalWorkflowAdapter | None = None
+
+
+def _resolve_approval_workflow_adapter(workflow: Any) -> ApprovalWorkflowAdapter | None:
+    if _approval_workflow_adapter is not None:
+        return _approval_workflow_adapter
+    required_metadata = (
+        "approval_context_type",
+        "approval_priority_high",
+        "approval_category_map",
+        "approval_category_unknown",
+        "approval_status_approved",
+    )
+    if all(hasattr(workflow, name) for name in required_metadata):
+        return _structural_approval_adapter
+    return None
 
 
 def register_policy_evaluation_adapter(adapter: PolicyEvaluationAdapter | None) -> None:
@@ -335,7 +404,7 @@ class UnifiedApprovalEnforcer:
         if not self._approval_workflow:
             return False
 
-        adapter = _approval_workflow_adapter
+        adapter = _resolve_approval_workflow_adapter(self._approval_workflow)
         if adapter is None:
             return False
 
@@ -520,7 +589,7 @@ class UnifiedApprovalEnforcer:
             # No workflow configured - keep as pending
             return decision
 
-        adapter = _approval_workflow_adapter
+        adapter = _resolve_approval_workflow_adapter(self._approval_workflow)
         if adapter is None:
             logger.warning("Approval workflow adapter not available")
             return decision
@@ -565,7 +634,7 @@ class UnifiedApprovalEnforcer:
         if not self._approval_workflow:
             return False
 
-        adapter = _approval_workflow_adapter
+        adapter = _resolve_approval_workflow_adapter(self._approval_workflow)
         if adapter is None:
             return False
 

@@ -486,7 +486,7 @@ class TestMigrationAuditProvider:
             reason="dry_run_key_rotation",
         )
 
-    def test_dry_run_missing_audit_provider_remains_available(self, encryption_service):
+    def test_dry_run_missing_audit_provider_warns(self, encryption_service, caplog):
         with patch(
             "aragora.security.encryption.get_encryption_service",
             return_value=encryption_service,
@@ -494,6 +494,7 @@ class TestMigrationAuditProvider:
             result = rotate_encryption_key(dry_run=True, stores=[])
 
         assert result.success is True
+        assert "Migration audit provider not registered" in caplog.text
 
     def test_live_audit_import_failure_remains_best_effort(self, encryption_service):
         old_key = MagicMock(version=1)

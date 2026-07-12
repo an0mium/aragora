@@ -404,9 +404,17 @@ class TestApprovalWorkflowIntegration:
         mock_workflow.request_approval.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_missing_workflow_adapter_preserves_pending_decision(self, make_request):
+    async def test_direct_workflow_uses_its_concrete_approval_types(self, make_request):
+        from aragora.computer_use.approval import (
+            ApprovalCategory,
+            ApprovalConfig,
+            ApprovalContext,
+            ApprovalPriority,
+            ApprovalWorkflow,
+        )
+
         register_approval_workflow_adapter(None)
-        workflow = AsyncMock()
+        workflow = ApprovalWorkflow(config=ApprovalConfig())
         enforcer = UnifiedApprovalEnforcer(
             policy=_create_test_policy(),
             approval_workflow=workflow,
@@ -421,8 +429,12 @@ class TestApprovalWorkflowIntegration:
         )
 
         assert decision.result == EnforcementResult.PENDING_APPROVAL
-        assert decision.approval_request_id is None
-        workflow.request_approval.assert_not_awaited()
+        assert decision.approval_request_id is not None
+        approval = await workflow.get_request(decision.approval_request_id)
+        assert approval is not None
+        assert type(approval.context) is ApprovalContext
+        assert approval.context.category is ApprovalCategory.DESTRUCTIVE_ACTION
+        assert approval.priority is ApprovalPriority.HIGH
 
     @pytest.mark.asyncio
     async def test_no_workflow_keeps_pending(self, policy_enforcer, make_request):

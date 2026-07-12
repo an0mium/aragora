@@ -51,6 +51,7 @@ def _get_registered_sync_store() -> Any:
 def _audit_security(**kwargs: Any) -> Any:
     """Emit a security audit event through the registered provider."""
     if _migration_audit_provider is None:
+        logger.warning("Migration audit provider not registered; security event was not emitted")
         return None
     return _migration_audit_provider(**kwargs)
 
