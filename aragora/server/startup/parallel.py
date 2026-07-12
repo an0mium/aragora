@@ -834,6 +834,10 @@ async def parallel_init(
         if not status.get("_parallel_init_success"):
             logger.error("Initialization failed")
     """
+    from aragora.server.startup.event_subscribers import register_webhook_store
+
+    register_webhook_store()
+
     strict_startup = os.environ.get("ARAGORA_STRICT_STARTUP", "").lower() in (
         "1",
         "true",

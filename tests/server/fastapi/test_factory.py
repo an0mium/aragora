@@ -75,6 +75,36 @@ def test_create_app_lifespan_starts_with_fastapi_context(tmp_path: Path, monkeyp
     mocked["close_postgres_pool"].assert_awaited_once()
 
 
+def test_lifespan_registers_webhook_store_before_context_construction():
+    """FastAPI startup wires durable webhooks before optional context work."""
+    order: list[str] = []
+    app = MagicMock()
+
+    def build_context(_nomic_dir):
+        order.append("context")
+        return {}
+
+    with (
+        patch(
+            "aragora.server.startup.event_subscribers.register_webhook_store",
+            side_effect=lambda: order.append("webhook_store"),
+        ),
+        patch(
+            "aragora.server.startup.database.init_postgres_pool",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "aragora.server.startup.database.close_postgres_pool",
+            new_callable=AsyncMock,
+        ),
+        patch.object(factory, "_build_server_context", side_effect=build_context),
+        patch("aragora.server.middleware.deprecation_enforcer.register_default_deprecations"),
+    ):
+        asyncio.run(_exercise_lifespan(app))
+
+    assert order == ["webhook_store", "context"]
+
+
 def test_build_server_context_defers_postgres_user_store_in_async_context(tmp_path: Path):
     config = DatabaseConfig(
         backend_type=StorageBackendType.POSTGRES,
@@ -101,3 +131,8 @@ def test_build_server_context_defers_postgres_user_store_in_async_context(tmp_pa
 
 async def _async_build_server_context(tmp_path: Path):
     return factory._build_server_context(tmp_path)
+
+
+async def _exercise_lifespan(app):
+    async with factory.lifespan(app):
+        pass

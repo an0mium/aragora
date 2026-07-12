@@ -17,6 +17,14 @@ if TYPE_CHECKING:
     from aragora.events.cross_subscribers import CrossSubscriberManager
 
 
+def register_webhook_store() -> None:
+    """Register durable webhook storage without loading server subscribers."""
+    from aragora.events.dispatcher import register_webhook_store_provider
+    from aragora.storage.webhook_config_store import get_webhook_config_store
+
+    register_webhook_store_provider(get_webhook_config_store)
+
+
 def bootstrap_event_subscribers() -> CrossSubscriberManager:
     """Import all event-subscriber home modules and wire them into the manager.
 
@@ -34,12 +42,10 @@ def bootstrap_event_subscribers() -> CrossSubscriberManager:
         The registry-backed cross-subscriber manager singleton.
     """
     from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
-    from aragora.events.dispatcher import register_webhook_store_provider
     from aragora.server import event_subscribers as server_home
-    from aragora.storage.webhook_config_store import get_webhook_config_store
     from aragora.workflow import event_subscribers as workflow_home
 
-    register_webhook_store_provider(get_webhook_config_store)
+    register_webhook_store()
     bootstrap_debate_event_subscribers()
     workflow_home.register()
     server_home.register()

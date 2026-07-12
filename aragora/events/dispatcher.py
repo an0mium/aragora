@@ -191,22 +191,46 @@ class WebhookStore(Protocol):
 
 WebhookStoreProvider = Callable[[], WebhookStore | None]
 _webhook_store_provider: WebhookStoreProvider | None = None
+_webhook_store_provider_lock = threading.Lock()
+_webhook_store_provider_last_warning: float | None = None
+WEBHOOK_STORE_PROVIDER_WARNING_INTERVAL = 60.0
 
 
 def register_webhook_store_provider(provider: WebhookStoreProvider | None) -> None:
     """Register the higher-layer provider used by the webhook dispatcher."""
-    global _webhook_store_provider
-    _webhook_store_provider = provider
+    global _webhook_store_provider, _webhook_store_provider_last_warning
+    with _webhook_store_provider_lock:
+        _webhook_store_provider = provider
+        _webhook_store_provider_last_warning = None
+
+
+def _warn_webhook_store_provider_failure(error: Exception) -> None:
+    """Emit a throttled warning when a registered provider cannot resolve."""
+    global _webhook_store_provider_last_warning
+
+    now = time.monotonic()
+    with _webhook_store_provider_lock:
+        last_warning = _webhook_store_provider_last_warning
+        if (
+            last_warning is not None
+            and now - last_warning < WEBHOOK_STORE_PROVIDER_WARNING_INTERVAL
+        ):
+            return
+        _webhook_store_provider_last_warning = now
+
+    logger.warning("Webhook store provider failed: %s", error)
 
 
 def _resolve_webhook_store() -> WebhookStore | None:
     """Resolve webhook storage without importing a server composition surface."""
-    if _webhook_store_provider is None:
+    with _webhook_store_provider_lock:
+        provider = _webhook_store_provider
+    if provider is None:
         return None
     try:
-        return _webhook_store_provider()
-    except (ImportError, OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
-        logger.debug("Webhook store provider unavailable: %s", e)
+        return provider()
+    except Exception as e:  # noqa: BLE001 - isolate arbitrary registered backend failures
+        _warn_webhook_store_provider_failure(e)
         return None
 
 

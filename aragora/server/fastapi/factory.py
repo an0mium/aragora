@@ -228,6 +228,10 @@ async def lifespan(app: FastAPI):
     """
     logger.info("FastAPI server starting up...")
 
+    from aragora.server.startup.event_subscribers import register_webhook_store
+
+    register_webhook_store()
+
     # Initialize shared PostgreSQL pool on the running event loop before
     # any stores attempt backend selection.
     try:

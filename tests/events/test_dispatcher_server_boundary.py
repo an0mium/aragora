@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ast
+import logging
+import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -24,19 +26,53 @@ def _reset_webhook_store_provider():
     register_webhook_store_provider(None)
 
 
-def test_dispatch_event_without_registered_provider_is_noop():
+def test_dispatch_event_without_registered_provider_is_noop(caplog):
     """Library-only events usage must not require the server composition root."""
     dispatcher = WebhookDispatcher(max_workers=1)
     submit = MagicMock()
     dispatcher._executor.submit = submit
 
     try:
-        with patch("aragora.events.dispatcher.get_event_rate_limiter", return_value=None):
+        with (
+            patch("aragora.events.dispatcher.get_event_rate_limiter", return_value=None),
+            caplog.at_level(logging.WARNING, logger="aragora.events.dispatcher"),
+        ):
             dispatcher.dispatch_event("debates.created", {"debate_id": "d-1"})
     finally:
         dispatcher.shutdown(wait=False)
 
     submit.assert_not_called()
+    assert not [
+        record
+        for record in caplog.records
+        if "webhook store provider" in record.getMessage().lower()
+    ]
+
+
+def test_registered_provider_failure_emits_rate_limited_warning(caplog):
+    """A broken registered provider warns once per throttle window."""
+    dispatcher = WebhookDispatcher(max_workers=1)
+    provider = MagicMock(side_effect=sqlite3.OperationalError("store unavailable"))
+    register_webhook_store_provider(provider)
+
+    try:
+        with (
+            patch("aragora.events.dispatcher.get_event_rate_limiter", return_value=None),
+            patch("aragora.events.dispatcher.time.monotonic", side_effect=[100.0, 101.0]),
+            caplog.at_level(logging.WARNING, logger="aragora.events.dispatcher"),
+        ):
+            dispatcher.dispatch_event("debates.created", {"debate_id": "d-1"})
+            dispatcher.dispatch_event("debates.created", {"debate_id": "d-2"})
+    finally:
+        dispatcher.shutdown(wait=False)
+
+    assert provider.call_count == 2
+    warnings = [
+        record
+        for record in caplog.records
+        if "webhook store provider failed" in record.getMessage().lower()
+    ]
+    assert len(warnings) == 1
 
 
 def test_dispatch_event_looks_up_webhooks_through_registered_provider():

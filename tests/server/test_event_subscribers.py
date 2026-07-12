@@ -176,6 +176,31 @@ class TestServerEventSubscriberRegistration:
         second = get_registered_subscribers()["server"]
         assert first is second
 
+    def test_lightweight_bootstrap_registers_webhook_store_provider(self):
+        """Durable webhook storage can be wired without subscriber imports."""
+        from aragora.server.startup.event_subscribers import register_webhook_store
+
+        with (
+            patch("aragora.events.dispatcher.register_webhook_store_provider") as register_provider,
+            patch(
+                "aragora.storage.webhook_config_store.get_webhook_config_store"
+            ) as get_webhook_config_store,
+        ):
+            register_webhook_store()
+
+        register_provider.assert_called_once_with(get_webhook_config_store)
+
+    def test_superset_bootstrap_uses_lightweight_webhook_store_registration(self):
+        """Direct subscriber bootstrap must include durable store wiring."""
+        from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+
+        with patch(
+            "aragora.server.startup.event_subscribers.register_webhook_store"
+        ) as register_store:
+            bootstrap_event_subscribers()
+
+        register_store.assert_called_once_with()
+
     def test_superset_bootstrap_registers_webhook_store_provider(self):
         """Server composition wires durable webhook storage into events."""
         from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
