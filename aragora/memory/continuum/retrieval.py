@@ -19,6 +19,8 @@ from aragora.utils.json_helpers import safe_json_loads
 from .entry import AwaitableList, ContinuumMemoryEntry
 
 if TYPE_CHECKING:
+    from aragora.memory.hybrid_search import HybridMemorySearch
+
     from .core import ContinuumMemory
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ class RetrievalMixin:
     """Mixin providing retrieval operations for ContinuumMemory."""
 
     _GET_MANY_MAX_IDS: int = 200
+    _hybrid_search: HybridMemorySearch | None
 
     def retrieve(
         self: ContinuumMemory,

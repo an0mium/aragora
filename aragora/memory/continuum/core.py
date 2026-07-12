@@ -103,7 +103,7 @@ class ContinuumMemory(
     SCHEMA_VERSION: int = CONTINUUM_SCHEMA_VERSION
 
     # Type annotations for lazy-initialized attributes (HybridMemorySearch is lazy-imported)
-    _hybrid_search: Any | None = None  # type: ignore[assignment]
+    _hybrid_search: Any | None = None
 
     INITIAL_SCHEMA = INITIAL_SCHEMA
     SCHEMA_MIGRATIONS = SCHEMA_MIGRATIONS
@@ -167,7 +167,7 @@ class ContinuumMemory(
         self._tier_lock: threading.Lock = threading.Lock()
 
         # Optional Knowledge Mound adapter for bidirectional integration
-        self._km_adapter: ContinuumAdapter | None = km_adapter  # type: ignore[assignment]
+        self._km_adapter: ContinuumAdapter | None = km_adapter
 
     def register_migrations(self, manager: SchemaManager) -> None:
         """Register schema migrations for ContinuumMemory."""
