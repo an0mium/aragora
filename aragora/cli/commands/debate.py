@@ -472,6 +472,13 @@ async def _shutdown_cmd_ask_resources() -> None:
         logger.debug("Ask spam moderation shutdown skipped: %s", exc)
 
     try:
+        from aragora.events.dispatcher import shutdown_dispatcher
+
+        shutdown_dispatcher(wait=True)
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
+
+    try:
         from aragora.server.startup.database import close_postgres_pool
 
         await close_postgres_pool()
@@ -505,13 +512,6 @@ async def _shutdown_cmd_ask_resources() -> None:
         close_receipt_store()
     except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
         logger.debug("Ask receipt store shutdown skipped: %s", exc)
-
-    try:
-        from aragora.events.dispatcher import shutdown_dispatcher
-
-        shutdown_dispatcher(wait=True)
-    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
-        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
 
     try:
         from aragora.storage.webhook_config_store import reset_webhook_config_store
