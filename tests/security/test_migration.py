@@ -514,6 +514,44 @@ class TestMigrationAuditProvider:
         assert result.new_key_version == 2
         assert result.errors == []
 
+    def test_live_sync_rotation_fails_closed_without_provider(self, encryption_service):
+        old_key = MagicMock(version=1)
+        new_key = MagicMock(key_id="default", version=2)
+        encryption_service._keys = {"default": old_key}
+        encryption_service._active_key_id = "default"
+        encryption_service.rotate_key.return_value = new_key
+
+        with patch(
+            "aragora.security.encryption.get_encryption_service",
+            return_value=encryption_service,
+        ):
+            result = rotate_encryption_key(dry_run=False, stores=["sync"])
+
+        assert result.success is False
+        assert result.stores_processed == 0
+        assert result.failed_records == 1
+        assert result.errors == ["Store sync re-encryption failed"]
+
+    def test_live_sync_rotation_uses_registered_provider(self, encryption_service):
+        old_key = MagicMock(version=1)
+        new_key = MagicMock(key_id="default", version=2)
+        encryption_service._keys = {"default": old_key}
+        encryption_service._active_key_id = "default"
+        encryption_service.rotate_key.return_value = new_key
+        store = MagicMock()
+        store.list_all.return_value = []
+        register_sync_store_provider(lambda: store)
+
+        with patch(
+            "aragora.security.encryption.get_encryption_service",
+            return_value=encryption_service,
+        ):
+            result = rotate_encryption_key(dry_run=False, stores=["sync"])
+
+        assert result.success is True
+        assert result.stores_processed == 1
+        assert result.failed_records == 0
+
 
 class TestStartupMigrationConfig:
     """Tests for startup migration configuration."""

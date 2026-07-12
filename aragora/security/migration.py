@@ -719,6 +719,11 @@ def rotate_encryption_key(
             if not config_fn:
                 logger.warning("Unknown store for key rotation: %s", store_name)
                 continue
+            if store_name == "sync" and _sync_store_provider is None:
+                result.failed_records += 1
+                result.errors.append("Store sync re-encryption failed")
+                logger.error("Key rotation failed for sync: sync store provider not registered")
+                continue
 
             try:
                 config = config_fn()
