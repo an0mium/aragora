@@ -1192,7 +1192,10 @@ def _full_file_section(
     for path in ordered:
         try:
             content = fetcher(repo, head_sha, path)
-        except Exception as exc:  # noqa: BLE001 - grounding is best-effort by contract
+        except (RuntimeError, ValueError, OSError, UnicodeError) as exc:
+            # Grounding is best-effort by contract: the default fetcher raises
+            # RuntimeError/ValueError; transport/decoding surface OSError/
+            # UnicodeError. Anything else is a real bug and should propagate.
             parts.append(f"--- {path}: unavailable ({type(exc).__name__}) ---")
             continue
         if not content.strip():
