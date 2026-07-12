@@ -500,10 +500,16 @@ class TestParallelInit:
         """Test that parallel_init returns status dictionary."""
         from aragora.server.startup.parallel import parallel_init
 
-        with patch(
-            "aragora.server.startup.parallel.ParallelInitializer.run",
-            new_callable=AsyncMock,
-        ) as mock_run:
+        with (
+            patch(
+                "aragora.server.startup.parallel.ParallelInitializer.run",
+                new_callable=AsyncMock,
+            ) as mock_run,
+            patch(
+                "aragora.server.startup.parallel.init_security_edge_adapters",
+                return_value=True,
+            ) as mock_security_adapters,
+        ):
             from aragora.server.startup.parallel import ParallelInitResult
 
             mock_run.return_value = ParallelInitResult(
@@ -518,6 +524,8 @@ class TestParallelInit:
             assert "_parallel_init_success" in status
             assert "_parallel_init_duration_ms" in status
             assert status["_parallel_init_success"] is True
+            assert status["security_edge_adapters"] is True
+            mock_security_adapters.assert_called_once_with(strict=False)
 
     @pytest.mark.asyncio
     async def test_parallel_init_with_nomic_dir(self):
@@ -549,6 +557,32 @@ class TestParallelInit:
             mock_init.assert_called_once()
             call_kwargs = mock_init.call_args.kwargs
             assert call_kwargs.get("nomic_dir") == Path("/test/nomic")
+
+    @pytest.mark.asyncio
+    async def test_parallel_init_registers_adapters_strictly_in_strict_mode(self):
+        """Test strict startup is forwarded to security edge registration."""
+        from aragora.server.startup.parallel import ParallelInitResult, parallel_init
+
+        with (
+            patch.dict("os.environ", {"ARAGORA_STRICT_STARTUP": "true"}),
+            patch(
+                "aragora.server.startup.parallel.init_security_edge_adapters",
+                return_value=True,
+            ) as mock_security_adapters,
+            patch(
+                "aragora.server.startup.parallel.ParallelInitializer.run",
+                new_callable=AsyncMock,
+                return_value=ParallelInitResult(
+                    phases=[],
+                    total_duration_ms=10.0,
+                    success=True,
+                    results={},
+                ),
+            ),
+        ):
+            await parallel_init()
+
+        mock_security_adapters.assert_called_once_with(strict=True)
 
 
 class TestCleanupOnFailure:
