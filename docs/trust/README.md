@@ -19,7 +19,7 @@ Verify a production receipt offline:
 
 ```bash
 pip install 'aragora-verify>=0.1.1'
-aragora-verify receipt.json --public-key docs/trust/production-odr-signing-key.pem
+aragora-verify receipt.json --pubkey docs/trust/production-odr-signing-key.pem
 ```
 
 Cross-check this repo copy against the live endpoint before trusting either in
