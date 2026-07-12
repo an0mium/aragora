@@ -176,6 +176,20 @@ class TestServerEventSubscriberRegistration:
         second = get_registered_subscribers()["server"]
         assert first is second
 
+    def test_superset_bootstrap_registers_webhook_store_provider(self):
+        """Server composition wires durable webhook storage into events."""
+        from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+
+        with (
+            patch("aragora.events.dispatcher.register_webhook_store_provider") as register_provider,
+            patch(
+                "aragora.storage.webhook_config_store.get_webhook_config_store"
+            ) as get_webhook_config_store,
+        ):
+            bootstrap_event_subscribers()
+
+        register_provider.assert_called_once_with(get_webhook_config_store)
+
 
 class TestLegacyDelegatingSitesRemoved:
     """Structural regression guard: both pre-inversion handler methods are

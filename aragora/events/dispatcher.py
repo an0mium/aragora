@@ -32,7 +32,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 from collections.abc import Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -40,9 +40,8 @@ from urllib.request import Request, urlopen
 from aragora.server.middleware.tracing import get_trace_id
 
 if TYPE_CHECKING:
+    from aragora.events.types import EventEmitter, StreamEvent
     from aragora.storage.webhook_config_store import WebhookConfig
-    from aragora.server.stream.emitter import SyncEventEmitter
-    from aragora.events.types import StreamEvent
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +170,44 @@ class DeliveryResult:
     error: str | None = None
     retry_count: int = 0
     duration_ms: float = 0.0
+
+
+class WebhookStore(Protocol):
+    """Lower-layer contract for webhook lookup and delivery recording."""
+
+    def get_for_event(self, event_type: str) -> list[WebhookConfig]:
+        """Return active webhooks interested in an event type."""
+        ...
+
+    def record_delivery(
+        self,
+        webhook_id: str,
+        status_code: int,
+        success: bool = True,
+    ) -> None:
+        """Record a webhook delivery result."""
+        ...
+
+
+WebhookStoreProvider = Callable[[], WebhookStore | None]
+_webhook_store_provider: WebhookStoreProvider | None = None
+
+
+def register_webhook_store_provider(provider: WebhookStoreProvider | None) -> None:
+    """Register the higher-layer provider used by the webhook dispatcher."""
+    global _webhook_store_provider
+    _webhook_store_provider = provider
+
+
+def _resolve_webhook_store() -> WebhookStore | None:
+    """Resolve webhook storage without importing a server composition surface."""
+    if _webhook_store_provider is None:
+        return None
+    try:
+        return _webhook_store_provider()
+    except (ImportError, OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
+        logger.debug("Webhook store provider unavailable: %s", e)
+        return None
 
 
 def dispatch_webhook(
@@ -436,12 +473,12 @@ class WebhookDispatcher:
         self._rate_limited = 0
         self._lock = threading.Lock()
 
-    def subscribe_to_stream(self, event_emitter: SyncEventEmitter) -> None:
+    def subscribe_to_stream(self, event_emitter: EventEmitter) -> None:
         """
         Subscribe to an event emitter to receive events.
 
         Args:
-            event_emitter: SyncEventEmitter instance to subscribe to
+            event_emitter: Events-layer emitter interface to subscribe to
         """
 
         def on_event(event: StreamEvent):
@@ -471,10 +508,9 @@ class WebhookDispatcher:
                 self._rate_limited += 1
             return
 
-        # Import here to avoid circular dependency
-        from aragora.server.handlers.webhooks import get_webhook_store
-
-        store = get_webhook_store()
+        store = _resolve_webhook_store()
+        if store is None:
+            return
         webhooks = store.get_for_event(event_type)
 
         if not webhooks:
@@ -495,12 +531,16 @@ class WebhookDispatcher:
                 self._deliver_webhook,
                 webhook,
                 payload.copy(),
+                store,
             )
 
-    def _deliver_webhook(self, webhook: WebhookConfig, payload: dict) -> None:
+    def _deliver_webhook(
+        self,
+        webhook: WebhookConfig,
+        payload: dict,
+        store: WebhookStore,
+    ) -> None:
         """Deliver webhook in background thread."""
-        from aragora.server.handlers.webhooks import get_webhook_store
-
         # Import metrics (lazy to avoid circular imports)
         try:
             from aragora.observability.metrics.webhook import record_webhook_delivery
@@ -528,7 +568,6 @@ class WebhookDispatcher:
             )
 
         # Record delivery in store
-        store = get_webhook_store()
         store.record_delivery(
             webhook_id=webhook.id,
             status_code=result.status_code,
@@ -700,6 +739,7 @@ __all__ = [
     "dispatch_event",
     "dispatch_webhook",
     "dispatch_webhook_with_retry",
+    "register_webhook_store_provider",
     "shutdown_dispatcher",
     "DeliveryResult",
     # Receipt delivery helpers
