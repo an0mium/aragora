@@ -350,6 +350,13 @@ class RedisClusterClient:
                 self._client = self._create_client()
             return self._client
 
+    def _require_client(self) -> RedisClientProtocol:
+        """Return the active client or fail with the public unavailable error."""
+        client = self.get_client()
+        if client is None:
+            raise RuntimeError("Redis client not available")
+        return client
+
     @property
     def is_cluster(self) -> bool:
         """Check if connected to a cluster."""
@@ -499,8 +506,8 @@ class RedisClusterClient:
         """Set key to value with optional expiration."""
 
         def _set() -> bool:
-            client = self.get_client()
-            return client.set(key, value, ex=ex, px=px, nx=nx, xx=xx)
+            client = self._require_client()
+            return bool(client.set(key, value, ex=ex, px=px, nx=nx, xx=xx))
 
         return self._execute_with_retry(_set)
 
@@ -508,7 +515,7 @@ class RedisClusterClient:
         """Delete one or more keys."""
 
         def _delete() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.delete(*keys)
 
         return self._execute_with_retry(_delete)
@@ -517,7 +524,7 @@ class RedisClusterClient:
         """Check if keys exist."""
 
         def _exists() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.exists(*keys)
 
         return self._execute_with_retry(_exists)
@@ -526,7 +533,7 @@ class RedisClusterClient:
         """Set TTL on key."""
 
         def _expire() -> bool:
-            client = self.get_client()
+            client = self._require_client()
             return client.expire(key, seconds)
 
         return self._execute_with_retry(_expire)
@@ -535,7 +542,7 @@ class RedisClusterClient:
         """Get TTL of key."""
 
         def _ttl() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.ttl(key)
 
         return self._execute_with_retry(_ttl)
@@ -544,7 +551,7 @@ class RedisClusterClient:
         """Increment key."""
 
         def _incr() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.incr(key)
 
         return self._execute_with_retry(_incr)
@@ -553,7 +560,7 @@ class RedisClusterClient:
         """Decrement key."""
 
         def _decr() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.decr(key)
 
         return self._execute_with_retry(_decr)
@@ -566,7 +573,7 @@ class RedisClusterClient:
         """Get field from hash."""
 
         def _hget() -> str | None:
-            client = self.get_client()
+            client = self._require_client()
             return client.hget(name, key)
 
         return self._execute_with_retry(_hget)
@@ -575,7 +582,7 @@ class RedisClusterClient:
         """Set field in hash."""
 
         def _hset() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.hset(name, key, value)
 
         return self._execute_with_retry(_hset)
@@ -584,7 +591,7 @@ class RedisClusterClient:
         """Get all fields from hash."""
 
         def _hgetall() -> dict[str, str]:
-            client = self.get_client()
+            client = self._require_client()
             return client.hgetall(name)
 
         return self._execute_with_retry(_hgetall)
@@ -593,7 +600,7 @@ class RedisClusterClient:
         """Delete fields from hash."""
 
         def _hdel() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.hdel(name, *keys)
 
         return self._execute_with_retry(_hdel)
@@ -606,7 +613,7 @@ class RedisClusterClient:
         """Add members to sorted set."""
 
         def _zadd() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.zadd(name, mapping)
 
         return self._execute_with_retry(_zadd)
@@ -615,7 +622,7 @@ class RedisClusterClient:
         """Remove members from sorted set."""
 
         def _zrem() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.zrem(name, *members)
 
         return self._execute_with_retry(_zrem)
@@ -624,7 +631,7 @@ class RedisClusterClient:
         """Get sorted set cardinality."""
 
         def _zcard() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.zcard(name)
 
         return self._execute_with_retry(_zcard)
@@ -639,7 +646,7 @@ class RedisClusterClient:
         """Get members by score range."""
 
         def _zrangebyscore() -> list[Any]:
-            client = self.get_client()
+            client = self._require_client()
             return client.zrangebyscore(name, min, max, withscores=withscores)
 
         return self._execute_with_retry(_zrangebyscore)
@@ -648,7 +655,7 @@ class RedisClusterClient:
         """Remove members by score range."""
 
         def _zremrangebyscore() -> int:
-            client = self.get_client()
+            client = self._require_client()
             return client.zremrangebyscore(name, min, max)
 
         return self._execute_with_retry(_zremrangebyscore)
