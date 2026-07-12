@@ -600,11 +600,13 @@ class NotificationsHandler(SecureHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Request body must be a JSON object", 400)
 
         # Schema validation for input sanitization
         validation_result = validate_against_schema(body, EMAIL_CONFIG_SCHEMA)
         if not validation_result.is_valid:
-            return error_response(validation_result.error, 400)
+            return error_response(validation_result.error or "Invalid email configuration", 400)
 
         try:
             # Save to per-org store if org_id provided
@@ -704,11 +706,13 @@ class NotificationsHandler(SecureHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Request body must be a JSON object", 400)
 
         # Schema validation for input sanitization
         validation_result = validate_against_schema(body, TELEGRAM_CONFIG_SCHEMA)
         if not validation_result.is_valid:
-            return error_response(validation_result.error, 400)
+            return error_response(validation_result.error or "Invalid Telegram configuration", 400)
 
         bot_token = body.get("bot_token", "")
         chat_id = body.get("chat_id", "")
@@ -790,6 +794,8 @@ class NotificationsHandler(SecureHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Request body must be a JSON object", 400)
 
         recipient_email = body.get("email", "")
         if not recipient_email or "@" not in recipient_email:
@@ -942,6 +948,8 @@ class NotificationsHandler(SecureHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Request body must be a JSON object", 400)
 
         notification_type = body.get("type", "all")
         results = {}
@@ -1042,11 +1050,13 @@ class NotificationsHandler(SecureHandler):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
+        if body is None:
+            return error_response("Request body must be a JSON object", 400)
 
         # Schema validation for input sanitization
         validation_result = validate_against_schema(body, NOTIFICATION_SEND_SCHEMA)
         if not validation_result.is_valid:
-            return error_response(validation_result.error, 400)
+            return error_response(validation_result.error or "Invalid notification payload", 400)
 
         notification_type = body.get("type", "all")
         subject = body.get("subject", "Aragora Notification")

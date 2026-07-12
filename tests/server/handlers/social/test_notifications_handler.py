@@ -160,6 +160,29 @@ class TestRateLimiting:
         assert get_status_code(result) == 429
 
 
+@pytest.mark.parametrize(
+    "method_name",
+    [
+        "_configure_email",
+        "_configure_telegram",
+        "_add_email_recipient",
+        "_send_test_notification",
+        "_send_notification",
+    ],
+)
+def test_mutating_handlers_fail_closed_when_validated_body_is_absent(
+    handler, monkeypatch, method_name
+):
+    """A parser contract violation must not reach body-dependent handler logic."""
+    monkeypatch.setattr(handler, "read_json_body_validated", lambda _handler: (None, None))
+
+    result = getattr(handler, method_name)(MagicMock())
+
+    status_code, body = parse_result(result)
+    assert status_code == 400
+    assert body["error"] == "Request body must be a JSON object"
+
+
 # ===========================================================================
 # Status Endpoint Logic Tests
 # ===========================================================================
