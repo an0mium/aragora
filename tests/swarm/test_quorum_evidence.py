@@ -3917,3 +3917,32 @@ def test_full_file_grounding_is_opt_in_default_off(monkeypatch) -> None:
     prompt = qe.default_prompt_builder("o/r", 1, {"head_sha": "deadbeef" * 5})
     assert calls == ["fetched"]
     assert prompt.rstrip().endswith("SECTION")
+
+
+def test_truncated_changes_requested_is_blocking_despite_advisory_visible_findings(
+    monkeypatch,
+) -> None:
+    """#9249 round-3 claude [P2]: hidden severity fails closed — a truncated CR
+    whose visible findings are advisory-only must still block."""
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    body = f"Verdict: CHANGES-REQUESTED\n\n- [P3] visible minor nit\n{qe._TRUNCATION_MARKER}"
+    item = EvidenceItem(
+        family="claude",
+        body=body,
+        would_count=True,
+        verdict="changes_requested",
+        severity_gated=True,
+    )
+    assert item.dissenting is True  # fail-closed on hidden severity
+
+
+def test_untruncated_advisory_cr_stays_advisory(monkeypatch) -> None:
+    body = "Verdict: CHANGES-REQUESTED\n\n- [P3] complete minor nit\n"
+    item = EvidenceItem(
+        family="claude",
+        body=body,
+        would_count=False,
+        verdict="changes_requested",
+        severity_gated=True,
+    )
+    assert item.dissenting is False  # severity gating unchanged for complete reviews

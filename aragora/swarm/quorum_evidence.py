@@ -541,6 +541,13 @@ class EvidenceItem:
     def dissenting(self) -> bool:
         if self.verdict != "changes_requested":
             return False
+        # Truncated dissent fails CLOSED (claude #9249 round-3 [P2]): severity
+        # gating classifies by VISIBLE findings, so a CHANGES-REQUESTED whose
+        # first 32k chars are advisory with a [P1] in the cut tail would be
+        # downgraded to non-blocking — and a lone western-frontier PASS could
+        # then settle. Hidden severity cannot be assessed; treat it as blocking.
+        if _TRUNCATION_MARKER in self.body:
+            return True
         if not self.severity_gated:
             # Default (flag OFF): any changes_requested is a blocking dissent —
             # byte-identical to historical behavior.
