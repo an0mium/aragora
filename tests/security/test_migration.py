@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from aragora.security.migration import (
     MigrationResult,
     EncryptionMigrator,
+    register_migration_audit_provider,
+    register_sync_store_provider,
     is_field_encrypted,
     needs_migration,
     migrate_integration_store,
@@ -19,7 +21,18 @@ from aragora.security.migration import (
     StartupMigrationConfig,
     get_startup_migration_config,
     run_startup_migration,
+    rotate_encryption_key,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_migration_providers():
+    """Keep security migration provider registration isolated per test."""
+    register_sync_store_provider(None)
+    register_migration_audit_provider(None)
+    yield
+    register_sync_store_provider(None)
+    register_migration_audit_provider(None)
 
 
 class TestMigrationResult:
@@ -414,11 +427,93 @@ class TestStoreMigrations:
 
     def test_migrate_sync_store_empty(self):
         """Test migration with empty sync store."""
+        store = MagicMock()
+        store.list_all.return_value = []
+        register_sync_store_provider(lambda: store)
+
         result = migrate_sync_store(dry_run=True)
 
         assert result.store_name == "sync_store"
         # Should complete successfully even with empty store
         assert result.failed_records == 0
+
+    def test_missing_sync_provider_preserves_unavailable_result(self):
+        """An unregistered provider preserves the existing best-effort result."""
+        result = migrate_sync_store(dry_run=True)
+
+        assert result.store_name == "sync_store"
+        assert result.errors == ["Sync store not available"]
+        assert result.success is True
+
+    def test_registered_sync_provider_is_used(self):
+        """Sync migration obtains the concrete store through the provider."""
+        store = MagicMock()
+        store.list_all.return_value = []
+        provider = MagicMock(return_value=store)
+        register_sync_store_provider(provider)
+
+        result = migrate_sync_store(dry_run=True)
+
+        provider.assert_called_once_with()
+        store.list_all.assert_called_once_with()
+        assert result.success is True
+
+
+class TestMigrationAuditProvider:
+    """Tests for injected key-rotation audit emission."""
+
+    @pytest.fixture
+    def encryption_service(self):
+        service = MagicMock()
+        service._keys = {}
+        service._active_key_id = None
+        return service
+
+    def test_dry_run_emits_registered_audit_event(self, encryption_service):
+        audit = MagicMock()
+        register_migration_audit_provider(audit)
+
+        with patch(
+            "aragora.security.encryption.get_encryption_service",
+            return_value=encryption_service,
+        ):
+            result = rotate_encryption_key(dry_run=True, stores=[])
+
+        assert result.success is True
+        audit.assert_called_once_with(
+            event_type="key_rotation",
+            actor_id="system",
+            reason="dry_run_key_rotation",
+        )
+
+    def test_dry_run_missing_audit_provider_preserves_import_failure(self, encryption_service):
+        with (
+            patch(
+                "aragora.security.encryption.get_encryption_service",
+                return_value=encryption_service,
+            ),
+            pytest.raises(ImportError),
+        ):
+            rotate_encryption_key(dry_run=True, stores=[])
+
+    def test_live_audit_import_failure_remains_best_effort(self, encryption_service):
+        old_key = MagicMock(version=1)
+        new_key = MagicMock(key_id="default", version=2)
+        encryption_service._keys = {"default": old_key}
+        encryption_service._active_key_id = "default"
+        encryption_service.rotate_key.return_value = new_key
+        register_migration_audit_provider(MagicMock(side_effect=ImportError("unavailable")))
+
+        with patch(
+            "aragora.security.encryption.get_encryption_service",
+            return_value=encryption_service,
+        ):
+            result = rotate_encryption_key(dry_run=False, stores=["unknown"])
+
+        assert result.success is True
+        assert result.old_key_version == 1
+        assert result.new_key_version == 2
+        assert result.errors == []
 
 
 class TestStartupMigrationConfig:

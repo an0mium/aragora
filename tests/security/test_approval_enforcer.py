@@ -25,8 +25,11 @@ from aragora.security.approval_enforcer import (
     UnifiedApprovalEnforcer,
     enforce_action,
     get_approval_enforcer,
+    register_approval_workflow_adapter,
+    register_policy_evaluation_adapter,
     set_approval_enforcer,
 )
+from aragora.ops.security_edge_adapters import register_security_approval_adapters
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +119,15 @@ def _create_test_policy():
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def registered_security_approval_adapters():
+    """Register concrete higher-layer adapters and isolate global state."""
+    register_security_approval_adapters()
+    yield
+    register_policy_evaluation_adapter(None)
+    register_approval_workflow_adapter(None)
 
 
 @pytest.fixture
@@ -346,6 +358,18 @@ class TestPolicyEnforcement:
         assert decision.denied is True
         assert decision.matched_rule is None  # No rule matched
 
+    @pytest.mark.asyncio
+    async def test_missing_policy_adapter_preserves_allow_fallback(self, make_request):
+        register_policy_evaluation_adapter(None)
+        enforcer = UnifiedApprovalEnforcer(policy=_create_test_policy(), audit_enabled=False)
+
+        decision = await enforcer.enforce(
+            make_request(action_type="shell", details={"command": "rm -rf /"})
+        )
+
+        assert decision.approved is True
+        assert decision.reason == "Policy module unavailable; action allowed"
+
 
 # ---------------------------------------------------------------------------
 # Approval workflow integration
@@ -378,6 +402,27 @@ class TestApprovalWorkflowIntegration:
         assert decision.result == EnforcementResult.PENDING_APPROVAL
         assert decision.approval_request_id == "approval-123"
         mock_workflow.request_approval.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_missing_workflow_adapter_preserves_pending_decision(self, make_request):
+        register_approval_workflow_adapter(None)
+        workflow = AsyncMock()
+        enforcer = UnifiedApprovalEnforcer(
+            policy=_create_test_policy(),
+            approval_workflow=workflow,
+            audit_enabled=False,
+        )
+
+        decision = await enforcer.enforce(
+            make_request(
+                action_type="shell",
+                details={"command": "sudo apt install nginx"},
+            )
+        )
+
+        assert decision.result == EnforcementResult.PENDING_APPROVAL
+        assert decision.approval_request_id is None
+        workflow.request_approval.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_no_workflow_keeps_pending(self, policy_enforcer, make_request):

@@ -353,6 +353,20 @@ class TestSyncStoreE2E:
 class TestKeyRotationE2E:
     """End-to-end tests for key rotation with real data."""
 
+    @pytest.fixture(autouse=True)
+    def security_migration_adapters(self):
+        """Register the application composition adapters for direct E2E calls."""
+        from aragora.ops.security_edge_adapters import register_security_migration_adapters
+        from aragora.security.migration import (
+            register_migration_audit_provider,
+            register_sync_store_provider,
+        )
+
+        register_security_migration_adapters()
+        yield
+        register_sync_store_provider(None)
+        register_migration_audit_provider(None)
+
     @pytest.fixture
     def encryption_key(self):
         """Generate a test encryption key."""

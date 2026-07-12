@@ -22,6 +22,38 @@ from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
+SyncStoreProvider = Callable[[], Any]
+MigrationAuditProvider = Callable[..., Any]
+
+_sync_store_provider: SyncStoreProvider | None = None
+_migration_audit_provider: MigrationAuditProvider | None = None
+
+
+def register_sync_store_provider(provider: SyncStoreProvider | None) -> None:
+    """Register the higher-layer sync store provider."""
+    global _sync_store_provider
+    _sync_store_provider = provider
+
+
+def register_migration_audit_provider(provider: MigrationAuditProvider | None) -> None:
+    """Register the higher-layer security audit provider."""
+    global _migration_audit_provider
+    _migration_audit_provider = provider
+
+
+def _get_registered_sync_store() -> Any:
+    """Return the configured sync store or preserve the former import failure."""
+    if _sync_store_provider is None:
+        raise ImportError("Sync store provider not registered")
+    return _sync_store_provider()
+
+
+def _audit_security(**kwargs: Any) -> Any:
+    """Emit a security audit event through the registered provider."""
+    if _migration_audit_provider is None:
+        raise ImportError("Migration audit provider not registered")
+    return _migration_audit_provider(**kwargs)
+
 
 @dataclass
 class MigrationResult:
@@ -322,9 +354,7 @@ def migrate_gmail_token_store(dry_run: bool = False) -> MigrationResult:
 def migrate_sync_store(dry_run: bool = False) -> MigrationResult:
     """Migrate connector sync store secrets."""
     try:
-        from aragora.connectors.enterprise.sync_store import get_sync_store
-
-        store = get_sync_store()
+        store = _get_registered_sync_store()
         migrator = EncryptionMigrator(dry_run=dry_run)
 
         # Connector credentials
@@ -648,9 +678,7 @@ def rotate_encryption_key(
             old_version + 1,
         )
         # Audit log would go here
-        from aragora.audit.unified import audit_security
-
-        audit_security(
+        _audit_security(
             event_type="key_rotation",
             actor_id="system",
             reason="dry_run_key_rotation",
@@ -669,9 +697,7 @@ def rotate_encryption_key(
 
         # Audit log key rotation
         try:
-            from aragora.audit.unified import audit_security
-
-            audit_security(
+            _audit_security(
                 event_type="key_rotation",
                 actor_id="system",
                 old_version=old_version,
@@ -782,9 +808,7 @@ def _get_gmail_store_config() -> dict[str, Any] | None:
 def _get_sync_store_config() -> dict[str, Any] | None:
     """Get configuration for sync store re-encryption."""
     try:
-        from aragora.connectors.enterprise.sync_store import get_sync_store
-
-        store = get_sync_store()
+        store = _get_registered_sync_store()
 
         return {
             "list_fn": lambda: list(store.list_all()) if hasattr(store, "list_all") else [],
@@ -808,6 +832,8 @@ __all__ = [
     "MigrationResult",
     "KeyRotationResult",
     "StartupMigrationConfig",
+    "register_sync_store_provider",
+    "register_migration_audit_provider",
     "is_field_encrypted",
     "needs_migration",
     "migrate_integration_store",
