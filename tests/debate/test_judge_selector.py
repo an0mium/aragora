@@ -529,11 +529,11 @@ class TestJudgeSelectorSelectJudge:
         assert judge is not None
 
     @pytest.mark.asyncio
-    async def test_returns_none_for_empty_agents(self):
-        """Returns None when no agents are available."""
+    async def test_rejects_empty_agents(self):
+        """Fails closed when no agents are available."""
         selector = JudgeSelector(agents=[], judge_selection="random")
-        judge = await selector.select_judge({}, [])
-        assert judge is None
+        with pytest.raises(ValueError, match="without available agents"):
+            await selector.select_judge({}, [])
 
 
 # =============================================================================

@@ -729,6 +729,14 @@ class TestJudgeSelectorSelection:
 
             assert judge in mock_agents
 
+    @pytest.mark.asyncio
+    async def test_select_judge_rejects_empty_agents(self, sample_proposals):
+        """The coordinator must not return a hidden None judge."""
+        selector = JudgeSelector(agents=[], judge_selection="random")
+
+        with pytest.raises(ValueError, match="without available agents"):
+            await selector.select_judge(sample_proposals, [])
+
 
 # ============================================================================
 # JudgeSelector Candidates Tests

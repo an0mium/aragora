@@ -40,7 +40,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Protocol
 from collections.abc import Awaitable, Callable, Sequence
 
 if TYPE_CHECKING:
@@ -641,11 +641,13 @@ class JudgeSelector(JudgeScoringMixin):
 
         judge = await strategy.select(available_agents, proposals, context)
 
-        if judge is None and available_agents:
+        if judge is None:
+            if not available_agents:
+                raise ValueError("Cannot select a judge without available agents")
             logger.warning("Judge selection returned None, falling back to random")
             judge = random.choice(available_agents)  # noqa: S311 -- non-security random selection
 
-        return cast("Agent", judge)
+        return judge
 
     async def get_judge_candidates(
         self,
