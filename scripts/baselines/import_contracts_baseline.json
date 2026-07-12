@@ -82,7 +82,6 @@
         "aragora.security -> aragora.connectors",
         "aragora.security -> aragora.gateway",
         "aragora.security -> aragora.server",
-        "aragora.storage -> aragora.connectors",
         "aragora.storage -> aragora.gauntlet",
         "aragora.storage -> aragora.reasoning",
         "aragora.storage -> aragora.server",
