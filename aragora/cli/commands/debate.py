@@ -507,6 +507,13 @@ async def _shutdown_cmd_ask_resources() -> None:
         logger.debug("Ask receipt store shutdown skipped: %s", exc)
 
     try:
+        from aragora.events.dispatcher import shutdown_dispatcher
+
+        shutdown_dispatcher(wait=True)
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
+
+    try:
         from aragora.storage.webhook_config_store import reset_webhook_config_store
 
         reset_webhook_config_store()
@@ -519,13 +526,6 @@ async def _shutdown_cmd_ask_resources() -> None:
         DatabaseManager.clear_instances()
     except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
         logger.debug("Ask SQLite manager shutdown skipped: %s", exc)
-
-    try:
-        from aragora.events.dispatcher import shutdown_dispatcher
-
-        shutdown_dispatcher(wait=True)
-    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
-        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
 
     # Give async transport/connector close callbacks one loop turn before
     # asyncio.run() tears the loop down. This avoids intermittent unclosed

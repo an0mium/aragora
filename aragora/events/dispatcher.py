@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -229,7 +230,7 @@ def _resolve_webhook_store() -> WebhookStore | None:
         return None
     try:
         return provider()
-    except Exception as e:  # noqa: BLE001 - isolate arbitrary registered backend failures
+    except (ImportError, OSError, RuntimeError, ValueError, sqlite3.Error) as e:
         _warn_webhook_store_provider_failure(e)
         return None
 

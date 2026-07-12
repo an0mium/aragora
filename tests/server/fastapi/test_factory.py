@@ -27,7 +27,7 @@ def _patched_startup_dependencies():
             patch("aragora.server.startup.database.close_postgres_pool", new_callable=AsyncMock)
         )
         stack.enter_context(patch("aragora.ranking.elo.EloSystem", return_value=MagicMock()))
-        stack.enter_context(
+        mocked["get_continuum_memory"] = stack.enter_context(
             patch("aragora.memory.continuum.get_continuum_memory", return_value=MagicMock())
         )
         mock_cross_config = stack.enter_context(
@@ -57,6 +57,9 @@ def test_build_server_context_initializes_debate_storage_in_nomic_dir(tmp_path: 
         ctx = factory._build_server_context(tmp_path)
 
     mocked["storage"].assert_called_once_with(str(tmp_path / "debates.db"))
+    mocked["get_continuum_memory"].assert_called_once_with(
+        db_path=str(tmp_path / "continuum_memory.db")
+    )
     assert ctx["storage"] is mocked["storage"].return_value
 
 

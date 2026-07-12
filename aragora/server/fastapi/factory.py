@@ -169,8 +169,10 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
     try:
         from aragora.memory.continuum import get_continuum_memory
 
-        db_path = nomic_dir / "continuum_memory.db" if nomic_dir else None
-        ctx["continuum_memory"] = get_continuum_memory(db_path=str(db_path) if db_path else None)
+        continuum_db_path = nomic_dir / "continuum_memory.db" if nomic_dir else None
+        ctx["continuum_memory"] = get_continuum_memory(
+            db_path=str(continuum_db_path) if continuum_db_path else None
+        )
     except (ImportError, OSError, RuntimeError, ValueError) as e:
         logger.debug("ContinuumMemory not available: %s", e)
         ctx["continuum_memory"] = None

@@ -75,6 +75,23 @@ def test_registered_provider_failure_emits_rate_limited_warning(caplog):
     assert len(warnings) == 1
 
 
+def test_registered_provider_programming_error_propagates():
+    """Unexpected provider bugs must not be hidden as storage outages."""
+    dispatcher = WebhookDispatcher(max_workers=1)
+    register_webhook_store_provider(
+        MagicMock(side_effect=AssertionError("provider invariant failed"))
+    )
+
+    try:
+        with (
+            patch("aragora.events.dispatcher.get_event_rate_limiter", return_value=None),
+            pytest.raises(AssertionError, match="provider invariant failed"),
+        ):
+            dispatcher.dispatch_event("debates.created", {"debate_id": "d-1"})
+    finally:
+        dispatcher.shutdown(wait=False)
+
+
 def test_dispatch_event_looks_up_webhooks_through_registered_provider():
     """Dispatch lookup resolves the store exclusively through the events registry."""
     dispatcher = WebhookDispatcher(max_workers=1)

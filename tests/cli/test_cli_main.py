@@ -21,6 +21,26 @@ from aragora.cli.main import (
 )
 
 
+def test_ask_cleanup_drains_dispatcher_before_closing_webhook_store():
+    """In-flight webhook workers must finish before their lookup store closes."""
+    from aragora.cli.commands import debate as debate_cmd
+
+    order: list[str] = []
+    with (
+        patch(
+            "aragora.events.dispatcher.shutdown_dispatcher",
+            side_effect=lambda *, wait: order.append(f"dispatcher:{wait}"),
+        ),
+        patch(
+            "aragora.storage.webhook_config_store.reset_webhook_config_store",
+            side_effect=lambda: order.append("store"),
+        ),
+    ):
+        asyncio.run(debate_cmd._shutdown_cmd_ask_resources())
+
+    assert order == ["dispatcher:True", "store"]
+
+
 # =============================================================================
 # Parse Agents Tests
 # =============================================================================
