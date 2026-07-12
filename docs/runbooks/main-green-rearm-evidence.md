@@ -26,6 +26,7 @@ Set the paths once from the canonical checkout:
 
 ```bash
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd -- "$REPO_ROOT"
 HALT_FILE="$REPO_ROOT/.aragora/merge_executor.halt"
 PRISTINE_DIR="$HOME/.aragora/pristine-main"
 ```
@@ -68,7 +69,7 @@ python3 --version
 python3 -c 'import sys, pytest; print(sys.executable); print(pytest.__version__)'
 command -v mypy
 mypy --version
-rg -n '"mypy[<>=]' pyproject.toml
+grep -nE '"mypy[<>=]' "$REPO_ROOT/pyproject.toml"
 ```
 
 Classify any of these outcomes as `infra_error` and stop before running the
@@ -93,8 +94,11 @@ code, start time, and end time in an operator-owned evidence directory outside
 the repository.
 
 ```bash
-EVIDENCE_DIR="${TMPDIR:-/tmp}/aragora-main-green-$CANDIDATE_SHA"
-mkdir -p "$EVIDENCE_DIR"
+EVIDENCE_PARENT="${TMPDIR:-/tmp}"
+EVIDENCE_DIR="$(
+  umask 077
+  mktemp -d "${EVIDENCE_PARENT%/}/aragora-main-green-${CANDIDATE_SHA}.XXXXXX"
+)"
 
 python3 scripts/pristine_main_health.py \
   --repo-root "$REPO_ROOT" \
@@ -107,16 +111,23 @@ python3 scripts/pristine_main_health.py \
   2>"$EVIDENCE_DIR/required.stderr"
 REQUIRED_EXIT=$?
 
-python3 scripts/pristine_main_health.py \
-  --repo-root "$REPO_ROOT" \
-  --pristine-dir "$PRISTINE_DIR" \
-  --halt-file "$HALT_FILE" \
-  --suite full \
-  --no-halt-file \
-  --timeout-minutes 180 \
-  >"$EVIDENCE_DIR/full.stdout" \
-  2>"$EVIDENCE_DIR/full.stderr"
-FULL_EXIT=$?
+if [ "$REQUIRED_EXIT" -eq 0 ]; then
+  python3 scripts/pristine_main_health.py \
+    --repo-root "$REPO_ROOT" \
+    --pristine-dir "$PRISTINE_DIR" \
+    --halt-file "$HALT_FILE" \
+    --suite full \
+    --no-halt-file \
+    --timeout-minutes 180 \
+    >"$EVIDENCE_DIR/full.stdout" \
+    2>"$EVIDENCE_DIR/full.stderr"
+  FULL_EXIT=$?
+else
+  FULL_EXIT=not_run
+  printf 'full suite not run: required suite exited %s\n' "$REQUIRED_EXIT" \
+    >"$EVIDENCE_DIR/full.stdout"
+  : >"$EVIDENCE_DIR/full.stderr"
+fi
 
 printf 'required_exit=%s\nfull_exit=%s\n' "$REQUIRED_EXIT" "$FULL_EXIT"
 ```
@@ -192,18 +203,14 @@ unless the user explicitly waives that interval. A human must review the
 packet and authorize the exact `CANDIDATE_SHA`; generic continuation text is
 not exact-head re-arm authority.
 
-Immediately before human deletion, guard against a replaced incident marker
-and a moved main head:
+Immediately before human deletion, run the guards and deletion as one shell
+block. Do not split or continue after a failed command:
 
 ```bash
+set -eu
 test "$(shasum -a 256 "$HALT_FILE" | awk '{print $1}')" = "$HALT_SHA256"
 git fetch origin +refs/heads/main:refs/remotes/origin/main
 test "$(git rev-parse origin/main)" = "$CANDIDATE_SHA"
-```
-
-After those guards pass, the human may delete the marker:
-
-```bash
 rm -- "$HALT_FILE"
 test ! -e "$HALT_FILE"
 ```
