@@ -3811,3 +3811,46 @@ class TestFullFileGrounding:
 
     def test_empty_diff_yields_empty_section(self) -> None:
         assert qe._full_file_section("o/r", "a" * 40, "", file_fetcher=lambda *a: "x") == ""
+
+
+class TestCredentialWallClassification:
+    """#9241 B4: credential walls are classified infra states, never opaque."""
+
+    @pytest.mark.parametrize(
+        "detail",
+        [
+            "You're out of usage credits. Run /usage-credits to keep using Fable 5",
+            "ERROR: You've hit your usage limit. Visit ... or try again at 4:50 PM.",
+            "Not logged in · Please run /login",
+        ],
+    )
+    def test_live_wall_messages_classified(self, detail: str) -> None:
+        assert qe._is_credential_wall(detail) is True
+
+    def test_ordinary_errors_not_classified(self) -> None:
+        assert qe._is_credential_wall("SyntaxError: invalid syntax") is False
+        assert qe._is_credential_wall("") is False
+
+    def test_probe_prefixes_credential_unhealthy(self, monkeypatch) -> None:
+        proc = SimpleNamespace(returncode=1, stderr="You're out of usage credits.", stdout="")
+        monkeypatch.setattr(qe.subprocess, "run", lambda *a, **k: proc)
+        error = qe._cli_liveness_probe("claude", ["claude", "-p"])
+        assert error is not None
+        assert error.startswith("credential_unhealthy(claude)")
+
+    def test_walled_primary_with_disabled_fallback_is_explicit(self, monkeypatch) -> None:
+        walled = ReviewerResult(
+            "claude", "", False, "claude CLI liveness probe exit 1: out of usage credits"
+        )
+        monkeypatch.setattr(qe, "_run_claude_reviewer", lambda prompt: walled)
+        monkeypatch.setattr(
+            qe,
+            "_run_openrouter_reviewer",
+            lambda fam, prompt: ReviewerResult(
+                fam, "", False, "OpenRouter fallback disabled (set ...)"
+            ),
+        )
+        result = qe.default_reviewer_runner("claude", "prompt")
+        assert result.ok is False
+        assert result.error.startswith("credential_unhealthy(claude)")
+        assert "fallback is not configured" in result.error

@@ -1302,6 +1302,19 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
             return fallback
         # Both paths failed: keep the primary failure but record that the fallback
         # was attempted, so a stalled merge is attributable rather than opaque.
+        # A credential-walled primary with NO usable fallback is the worst case
+        # (family fully invisible) — say so explicitly instead of a silent no-op
+        # (#9241 B4: 2026-07-11 both claude and codex walled mid-settlement with
+        # nothing telling the operator the fallback was unconfigured).
+        if _is_credential_wall(result.error) and "disabled" in fallback.error:
+            return replace(
+                result,
+                error=(
+                    f"{_CREDENTIAL_UNHEALTHY_PREFIX}({fam}): primary is credential-walled "
+                    f"AND the OpenRouter fallback is not configured — family unavailable. "
+                    f"primary: {result.error}; fallback: {fallback.error}"
+                ),
+            )
         if "disabled" not in fallback.error:
             return replace(
                 result, error=f"{result.error}; openrouter fallback also failed: {fallback.error}"
@@ -1332,6 +1345,30 @@ def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
     until the full timeout when a local MCP server is wedged.
     """
     return ["claude", "-p", "--strict-mcp-config", "--mcp-config", str(mcp_config_path)]
+
+
+#: Credential-wall signatures across the subscription CLIs (issue #9241 B4). All
+#: observed live 2026-07-11: claude "out of usage credits", codex "hit your usage
+#: limit", claude "Not logged in · Please run /login". A wall is an INFRA state
+#: (family temporarily invisible), never review evidence — classifying it lets
+#: callers fast-fail the family, route fallback deliberately, and lets operators
+#: distinguish "reviewer rejected" from "reviewer unavailable" at a glance.
+_CREDENTIAL_WALL_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"out of usage credits", re.IGNORECASE),
+    re.compile(r"usage limit", re.IGNORECASE),
+    re.compile(r"usage credits", re.IGNORECASE),
+    re.compile(r"not logged in", re.IGNORECASE),
+    re.compile(r"please run /login", re.IGNORECASE),
+    re.compile(r"purchase more credits", re.IGNORECASE),
+    re.compile(r"credit balance is too low", re.IGNORECASE),
+    re.compile(r"quota exceeded", re.IGNORECASE),
+)
+
+_CREDENTIAL_UNHEALTHY_PREFIX = "credential_unhealthy"
+
+
+def _is_credential_wall(detail: str) -> bool:
+    return any(pattern.search(detail) for pattern in _CREDENTIAL_WALL_PATTERNS)
 
 
 def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
@@ -1369,6 +1406,13 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()[:200]
         suffix = f": {detail}" if detail else ""
+        if _is_credential_wall(detail):
+            # Classified wall: family is temporarily unavailable (infra), not
+            # reviewing-and-rejecting. Callers/operators can route or wait.
+            return (
+                f"{_CREDENTIAL_UNHEALTHY_PREFIX}({family}): CLI is credential-walled "
+                f"(probe exit {proc.returncode}){suffix}"
+            )
         return f"{family} CLI liveness probe exit {proc.returncode}{suffix}"
     return None
 
