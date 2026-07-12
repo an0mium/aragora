@@ -103,6 +103,30 @@ export class ReceiptsAPI {
   }
 
   /**
+   * Get the deployment's ODR signing public key (trust anchor).
+   *
+   * Public endpoint (no auth required). Also served as raw PEM at
+   * `/.well-known/aragora-odr-signing-key`.
+   *
+   * @returns Object with `algorithm`, `key_id`, and `public_key_pem`
+   */
+  async signingKey(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v2/receipts/signing-key');
+  }
+
+  /**
+   * Get the ODR signing public key as raw PEM from the well-known path.
+   *
+   * @returns PEM-encoded Ed25519 public key
+   */
+  async signingKeyPem(): Promise<string> {
+    return this.client.request<string>('GET', '/.well-known/aragora-odr-signing-key', {
+      headers: { Accept: 'application/x-pem-file' },
+      responseType: 'text',
+    });
+  }
+
+  /**
    * Export a receipt in various formats (v2 API).
    *
    * @param receiptId - Receipt identifier
