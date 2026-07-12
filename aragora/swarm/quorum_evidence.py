@@ -1999,8 +1999,15 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
         raise RuntimeError(
             f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
         )
-    # Bounded full-file grounding (#9241 B3): best-effort, never blocks the review.
-    full_files = _full_file_section(repo, live_head, diff_text)
+    # Bounded full-file grounding (#9241 B3). OPT-IN, default OFF (openai #9249
+    # [P1]): appending post-change file contents expands reviewer egress beyond
+    # the PR diff — unchanged regions of changed files reach every reviewer
+    # transport, including families the payload-jurisdiction rule may exclude.
+    # The operator enables it deliberately, per deployment, after reviewing that
+    # boundary. Best-effort when enabled; never blocks the review.
+    full_files = ""
+    if os.environ.get("ARAGORA_REVIEWER_FULL_FILE_GROUNDING", "").strip() == "1":
+        full_files = _full_file_section(repo, live_head, diff_text)
     return build_review_prompt(
         repo=repo,
         pr=pr,

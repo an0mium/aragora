@@ -3887,3 +3887,33 @@ class TestB4RoundTwoHardening:
         )
         assert len(section) < qe._FULL_FILE_SECTION_MAX_CHARS + 10_000
         assert "[file clipped for length]" in section
+
+
+def test_full_file_grounding_is_opt_in_default_off(monkeypatch) -> None:
+    """Egress boundary (#9249 openai P1): full-file contents must never reach
+    reviewer transports unless the operator explicitly enables the flag."""
+    monkeypatch.delenv("ARAGORA_REVIEWER_FULL_FILE_GROUNDING", raising=False)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        qe, "_full_file_section", lambda *a, **k: calls.append("fetched") or "SECTION"
+    )
+    monkeypatch.setattr(
+        qe.merge_quorum_io,
+        "run",
+        lambda argv, env=None, timeout=None: SimpleNamespace(
+            returncode=0,
+            stdout=("deadbeef" * 5)
+            if "headRefOid" in " ".join(argv)
+            else TestFullFileGrounding.DIFF,
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(qe, "_fetch_name_status", lambda repo, pr: "")
+    prompt = qe.default_prompt_builder("o/r", 1, {"head_sha": "deadbeef" * 5})
+    assert calls == []
+    assert "SECTION" not in prompt
+
+    monkeypatch.setenv("ARAGORA_REVIEWER_FULL_FILE_GROUNDING", "1")
+    prompt = qe.default_prompt_builder("o/r", 1, {"head_sha": "deadbeef" * 5})
+    assert calls == ["fetched"]
+    assert prompt.rstrip().endswith("SECTION")
