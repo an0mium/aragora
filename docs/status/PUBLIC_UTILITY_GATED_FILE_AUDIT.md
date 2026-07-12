@@ -68,17 +68,18 @@ multi-model review in, a verifiable Decision Receipt out.**
 
 ### Recorded exception
 
-The validation contract records the following adjudication grounds verbatim:
+The exception is grounded in the repository-visible record for
+[PR #8957](https://github.com/synaptent/aragora/pull/8957), not in a separate validation-contract
+identifier. Its PR body limits the change to mechanical `doc_stats.py --write` metric-block
+regeneration and records that protected files required operator review. The PR carried the
+`operator-review-required` label, received two independent PASS comments, and was manually merged
+by `an0mium` on `2026-07-07T17:01:39Z`. The resulting squash commit has an empty effective delta for
+`docs/CANONICAL_GOALS.md`, as reproduced below.
 
-> (a) explicitly authorized by the feature's own description (strictly mechanical `doc_stats.py --write`
-> metrics-block regeneration, no prose edits), (b) parked operator-review-required per mission design
-> instead of auto-merged, (c) MANUALLY merged by the operator (an0mium) on 2026-07-07T17:01:39Z — the
-> operator settlement act itself, and (d) an EMPTY effective delta in the merged squash commit (the file
-> on main is byte-identical across the merge; confirmed by the m10 audit).
-
-Under the amended `VAL-CROSS-005` and `VAL-CROSS-007` assertions, "modifies" is adjudicated against
-the effective merged delta while this manifest-level touch remains disclosed. Any other gated-path
-touch would still fail the audit.
+For this audit, "modifies" is evaluated at both boundaries: the GitHub manifest touch remains a
+disclosed exception, while the effective merged delta is empty. This document does not create a
+general exemption for generated metrics or operator-reviewed changes. Any other gated-path touch,
+or a non-empty effective delta for #8957, fails the audit.
 
 ### Why the PR manifest and effective merge results differ
 
@@ -159,14 +160,26 @@ from the enumerated `factory/pum-*` PR manifests and effective commit deltas.
 
 ## 4. Reproduction commands
 
-Run from a checkout containing the post snapshot. These commands require Bash, authenticated `gh`,
-`git`, `jq`, `awk`, `grep`, `paste`, `sort`, and `shasum`. The manifest commands inspect both
-`filename` and `previous_filename` so a gated path renamed away cannot disappear from the audit.
+Run sections 4.1 through 4.4 in order from the same Bash shell in a checkout containing the post
+snapshot. These commands require authenticated `gh`, `git`, `jq`, `awk`, `grep`, `paste`, `sort`,
+and `shasum`. Section 4.1 creates one bounded snapshot of the PR inventory and each PR manifest;
+the later sections reuse it. The manifest cache includes both `filename` and `previous_filename` so
+a gated path renamed away cannot disappear from the audit.
+
+GitHub's pull-request-files API returns at most 3,000 files for a pull request. The snapshot setup
+compares every fetched manifest count with the PR's `changed_files` value and fails if they differ,
+so an oversized or otherwise truncated manifest cannot be mistaken for complete evidence. None of
+the 26 audited PRs reaches that limit.
 
 ### 4.1 Inventory the exact audited PR set
 
 ```bash
+set -euo pipefail
 POST_MERGED_AT=2026-07-11T17:51:30Z
+EXPECTED_PR_COUNT=26
+AUDIT_TMP=$(mktemp -d)
+trap 'rm -rf "$AUDIT_TMP"' EXIT
+PULLS_TSV="$AUDIT_TMP/pulls.tsv"
 
 gh api --paginate \
   '/repos/synaptent/aragora/pulls?state=closed&per_page=100' \
@@ -177,7 +190,31 @@ gh api --paginate \
       .merged_at <= "'"$POST_MERGED_AT"'"
     ) |
     [.merged_at, .number, .head.ref, .merge_commit_sha] | @tsv' |
-  sort
+  sort >"$PULLS_TSV"
+
+actual_pr_count=$(wc -l <"$PULLS_TSV" | tr -d ' ')
+if [ "$actual_pr_count" -ne "$EXPECTED_PR_COUNT" ]; then
+  printf 'FAIL\tPR inventory\texpected=%s\tactual=%s\n' \
+    "$EXPECTED_PR_COUNT" "$actual_pr_count" >&2
+  exit 1
+fi
+
+while IFS=$'\t' read -r merged_at pr branch sha; do
+  manifest="$AUDIT_TMP/pr-$pr-files.tsv"
+  gh api --paginate \
+    "/repos/synaptent/aragora/pulls/$pr/files?per_page=100" \
+    --jq '.[] | [.filename, (.previous_filename // "")] | @tsv' >"$manifest"
+
+  expected_files=$(gh api "/repos/synaptent/aragora/pulls/$pr" --jq '.changed_files')
+  fetched_files=$(wc -l <"$manifest" | tr -d ' ')
+  if [ "$fetched_files" -ne "$expected_files" ]; then
+    printf 'FAIL\tPR #%s\tmanifest incomplete\texpected=%s\tfetched=%s\n' \
+      "$pr" "$expected_files" "$fetched_files" >&2
+    exit 1
+  fi
+done <"$PULLS_TSV"
+
+cat "$PULLS_TSV"
 ```
 
 Expected: 26 rows, from PR #8820 through PR #9204 by merge time.
@@ -185,18 +222,7 @@ Expected: 26 rows, from PR #8820 through PR #9204 by merge time.
 ### 4.2 Strict per-PR and aggregate manifest check
 
 ```bash
-POST_MERGED_AT=2026-07-11T17:51:30Z
-PR_LIST=$(
-  gh api --paginate \
-    '/repos/synaptent/aragora/pulls?state=closed&per_page=100' \
-    --jq '.[] |
-      select(
-        .merged_at != null and
-        (.head.ref | startswith("factory/pum-")) and
-        .merged_at <= "'"$POST_MERGED_AT"'"
-      ) |
-      .number'
-)
+set -euo pipefail
 
 is_gated='
   $0 == "docs/THESIS.md" ||
@@ -207,27 +233,33 @@ is_gated='
   index($0, ".github/workflows/") == 1
 '
 
-for pr in $PR_LIST; do
-  hits=$(
-    gh api --paginate \
-      "/repos/synaptent/aragora/pulls/$pr/files?per_page=100" \
-      --jq '.[] | .filename, (.previous_filename // empty)' |
-      awk "$is_gated"
-  )
+ALL_PATHS="$AUDIT_TMP/all-paths.txt"
+: >"$ALL_PATHS"
+
+while IFS=$'\t' read -r merged_at pr branch sha; do
+  manifest="$AUDIT_TMP/pr-$pr-files.tsv"
+  paths="$AUDIT_TMP/pr-$pr-paths.txt"
+  awk -F '\t' '{ print $1; if ($2 != "") print $2 }' "$manifest" >"$paths"
+  cat "$paths" >>"$ALL_PATHS"
+  hits=$(awk "$is_gated" "$paths")
+
   if [ -z "$hits" ]; then
     printf 'PASS\tPR #%s\n' "$pr"
+  elif [ "$pr" = 8957 ] && [ "$hits" = 'docs/CANONICAL_GOALS.md' ]; then
+    printf 'EXCEPTION\tPR #%s\tdocs/CANONICAL_GOALS.md\n' "$pr"
   else
     printf 'FAIL\tPR #%s\t%s\n' "$pr" "$(printf '%s' "$hits" | paste -sd, -)"
+    exit 1
   fi
-done
+done <"$PULLS_TSV"
 
-for pr in $PR_LIST; do
-  gh api --paginate \
-    "/repos/synaptent/aragora/pulls/$pr/files?per_page=100" \
-    --jq '.[] | .filename, (.previous_filename // empty)'
-done |
-  sort -u |
-  awk "$is_gated"
+aggregate_hits=$(sort -u "$ALL_PATHS" | awk "$is_gated")
+if [ "$aggregate_hits" != 'docs/CANONICAL_GOALS.md' ]; then
+  printf 'FAIL\taggregate manifest\texpected=docs/CANONICAL_GOALS.md\tactual=%s\n' \
+    "$(printf '%s' "$aggregate_hits" | paste -sd, -)" >&2
+  exit 1
+fi
+printf '%s\n' "$aggregate_hits"
 ```
 
 Expected aggregate output:
@@ -239,26 +271,16 @@ docs/CANONICAL_GOALS.md
 ### 4.3 Effective squash-commit union check
 
 ```bash
-set -o pipefail
-POST_MERGED_AT=2026-07-11T17:51:30Z
+set -euo pipefail
 
-gh api --paginate \
-  '/repos/synaptent/aragora/pulls?state=closed&per_page=100' \
-  --jq '.[] |
-    select(
-      .merged_at != null and
-      (.head.ref | startswith("factory/pum-")) and
-      .merged_at <= "'"$POST_MERGED_AT"'"
-    ) |
-    .merge_commit_sha' |
-while read -r sha; do
+while IFS=$'\t' read -r merged_at pr branch sha; do
   parent_count=$(git rev-list --parents -n 1 "$sha" | awk '{print NF - 1}')
   if [ "$parent_count" -ne 1 ]; then
     printf 'FAIL\t%s\tparent-count=%s\n' "$sha" "$parent_count" >&2
     exit 1
   fi
   git diff-tree --no-commit-id --name-only -r "$sha"
-done |
+done <"$PULLS_TSV" |
   sort -u |
   awk '
     $0 == "docs/THESIS.md" ||
@@ -276,28 +298,16 @@ its paths can be mistaken for an empty effective delta.
 ### 4.4 README top-line claim check
 
 ```bash
-POST_MERGED_AT=2026-07-11T17:51:30Z
-PR_LIST=$(
-  gh api --paginate \
-    '/repos/synaptent/aragora/pulls?state=closed&per_page=100' \
-    --jq '.[] |
-      select(
-        .merged_at != null and
-        (.head.ref | startswith("factory/pum-")) and
-        .merged_at <= "'"$POST_MERGED_AT"'"
-      ) |
-      .number'
-)
+set -euo pipefail
 
 README_PRS=$(
-  for pr in $PR_LIST; do
-    if gh api --paginate \
-      "/repos/synaptent/aragora/pulls/$pr/files?per_page=100" \
-      --jq '.[] | .filename, (.previous_filename // empty)' |
-      grep -Fxq 'README.md'; then
+  while IFS=$'\t' read -r merged_at pr branch sha; do
+    manifest="$AUDIT_TMP/pr-$pr-files.tsv"
+    if awk -F '\t' '$1 == "README.md" || $2 == "README.md" { found = 1 } END { exit !found }' \
+      "$manifest"; then
       printf '%s\n' "$pr"
     fi
-  done
+  done <"$PULLS_TSV"
 )
 
 actual_readme_prs=$(printf '%s\n' "$README_PRS" | sort -n | paste -sd, -)
