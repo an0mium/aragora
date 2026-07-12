@@ -556,3 +556,34 @@ class TestParallelInitializerPhases:
         assert "agent_registry" in task_names
         assert "control_plane" in task_names
         assert "background_tasks" in task_names
+
+
+async def test_parallel_entrypoint_registers_webhook_store_before_initializer_run():
+    """Durable webhook wiring must precede scheduling optional KM work."""
+    from aragora.server.startup.parallel import parallel_init
+
+    order: list[str] = []
+
+    async def run_stub(_self):
+        order.append("initializer_run")
+        return ParallelInitResult(
+            phases=[],
+            total_duration_ms=1.0,
+            success=True,
+            results={},
+        )
+
+    with (
+        patch(
+            "aragora.server.startup.event_subscribers.register_webhook_store",
+            side_effect=lambda: order.append("webhook_store"),
+        ),
+        patch(
+            "aragora.server.startup.parallel.init_security_edge_adapters",
+            return_value={},
+        ),
+        patch.object(ParallelInitializer, "run", run_stub),
+    ):
+        await parallel_init()
+
+    assert order == ["webhook_store", "initializer_run"]
