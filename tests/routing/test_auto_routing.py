@@ -371,17 +371,13 @@ class TestGetDomainLeaderboard:
 class TestCreateWithDefaults:
     """Tests for AgentSelector.create_with_defaults() factory method."""
 
-    def test_creates_selector_with_default_agents(self):
+    def test_creates_selector_with_default_agents(self, monkeypatch):
         """create_with_defaults should register default agents."""
+        monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
         selector = AgentSelector.create_with_defaults()
 
-        # Should have the default agents registered
-        assert len(selector.agent_pool) == len(DEFAULT_AGENT_EXPERTISE)
-
-        # Verify expected agents are present
-        expected_agents = ["claude", "codex", "gemini", "grok", "deepseek"]
-        for agent_name in expected_agents:
-            assert agent_name in selector.agent_pool
+        expected_agents = set(DEFAULT_AGENT_EXPERTISE) - {"kimi"}
+        assert set(selector.agent_pool) == expected_agents
 
     def test_default_agents_have_expertise(self):
         """Default agents should have expertise profiles."""
@@ -423,13 +419,21 @@ class TestCreateWithDefaults:
         # Claude's rating should be updated
         assert selector.agent_pool["claude"].elo_rating == 1700
 
-    def test_default_expertise_matches_constant(self):
+    def test_default_expertise_matches_constant(self, monkeypatch):
         """Default expertise should match DEFAULT_AGENT_EXPERTISE constant."""
+        monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
         selector = AgentSelector.create_with_defaults()
 
-        for agent_name, expected_expertise in DEFAULT_AGENT_EXPERTISE.items():
-            actual_expertise = selector.agent_pool[agent_name].expertise
-            assert actual_expertise == expected_expertise
+        for agent_name, profile in selector.agent_pool.items():
+            assert profile.expertise == DEFAULT_AGENT_EXPERTISE[agent_name]
+
+    def test_kimi_registered_when_enabled(self, monkeypatch):
+        """Kimi should join the default pool only with its explicit CLI flag."""
+        monkeypatch.setenv("ARAGORA_ENABLE_KIMI_CLI", "1")
+
+        selector = AgentSelector.create_with_defaults()
+
+        assert selector.agent_pool["kimi"].expertise == DEFAULT_AGENT_EXPERTISE["kimi"]
 
 
 # =============================================================================
@@ -499,14 +503,19 @@ class TestAutoRouteIntegration:
         assert "claude" not in agent_names
         assert "codex" not in agent_names
 
-    def test_routing_preserves_agent_types(self):
+    def test_routing_preserves_agent_types(self, monkeypatch):
         """auto_route should preserve agent type information."""
+        monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
         selector = AgentSelector.create_with_defaults()
 
         team = selector.auto_route("Test task")
 
+        expected_agent_types = {"claude", "codex", "gemini", "grok", "deepseek", "qwen"}
+        assert {
+            profile.agent_type for profile in selector.agent_pool.values()
+        } == expected_agent_types
         for agent in team.agents:
-            assert agent.agent_type in ["claude", "codex", "gemini", "grok", "deepseek"]
+            assert agent.agent_type in expected_agent_types
 
 
 # =============================================================================
