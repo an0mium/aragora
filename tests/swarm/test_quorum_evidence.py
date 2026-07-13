@@ -3980,3 +3980,37 @@ def test_untruncated_advisory_cr_stays_advisory(monkeypatch) -> None:
         severity_gated=True,
     )
     assert item.dissenting is False  # severity gating unchanged for complete reviews
+
+
+def test_truncation_marker_survives_llm_normalization(monkeypatch) -> None:
+    """openai #9249 r9 [P2]: the opt-in LLM normalizer may rewrite a truncated
+    body into clean canonical form — the marker must be re-appended so the
+    truncated-PASS demotion still fires."""
+    truncated_raw = "garbled preamble" + f"\n\n{qe._TRUNCATION_MARKER}"
+    monkeypatch.setattr(
+        qe, "normalize_reviewer_output", lambda text, family: "Verdict: PASS\n\nNo findings."
+    )
+    body = compose_evidence_comment(
+        family="openai",
+        head_sha="a" * 40,
+        head_committed_at="2026-07-13T00:00:00Z",
+        pr=1,
+        reviewer_text=truncated_raw,
+    )
+    assert qe._TRUNCATION_MARKER in body
+    lint = {"would_count": True, "counted_reviewer_ids": ["openai"], "problems": []}
+    item = EvidenceItem(
+        family="openai", body=body, would_count=True, verdict=qe._reviewer_verdict(body)
+    )
+    assert item.would_count is False  # incomplete PASS never counts
+
+
+def test_untruncated_normalization_unchanged() -> None:
+    body = compose_evidence_comment(
+        family="openai",
+        head_sha="a" * 40,
+        head_committed_at="2026-07-13T00:00:00Z",
+        pr=1,
+        reviewer_text="Verdict: PASS\n\nNo findings.",
+    )
+    assert qe._TRUNCATION_MARKER not in body

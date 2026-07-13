@@ -1043,6 +1043,21 @@ def normalize_reviewer_output(text: str, *, family: str = "") -> str:
     return normalized if normalized is not None else cleaned
 
 
+def _normalize_preserving_truncation(text: str, *, family: str) -> str:
+    """Normalize reviewer output without ever losing the truncation marker.
+
+    The opt-in LLM normalizer can rewrite a truncated body into clean canonical
+    form that drops ``_TRUNCATION_MARKER``, which would let incomplete evidence
+    evade the truncated-PASS demotion in ``EvidenceItem.__post_init__``
+    (openai #9249 r9 [P2]). Truncation is a fact about the transport, not the
+    prose: if the input was truncated, the composed body always says so.
+    """
+    normalized = normalize_reviewer_output(text, family=family)
+    if _TRUNCATION_MARKER in text and _TRUNCATION_MARKER not in normalized:
+        normalized = normalized.rstrip() + f"\n\n{_TRUNCATION_MARKER}"
+    return normalized
+
+
 def compose_evidence_comment(
     *,
     family: str,
@@ -1077,7 +1092,7 @@ def compose_evidence_comment(
         f"Head: {short} ({head_sha}){committed}.\n"
         f"PR: #{pr}.\n"
         f"Model family: {fam}\n\n"
-        f"{_neutralize_reviewer_text(normalize_reviewer_output(reviewer_text, family=family))}\n\n"
+        f"{_neutralize_reviewer_text(_normalize_preserving_truncation(reviewer_text, family=family))}\n\n"
         f"dogfood: yes\n"
     )
 
