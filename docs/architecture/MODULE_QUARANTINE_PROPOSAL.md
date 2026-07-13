@@ -384,7 +384,7 @@ A  docs/architecture/MODULE_QUARANTINE_PROPOSAL.md
 A reviewer (or `git diff --name-status origin/main...HEAD`) reading the actual diff MUST see
 exactly one `A` line on `docs/architecture/MODULE_QUARANTINE_PROPOSAL.md` plus zero lines
 under `aragora/`, `scripts/`, `pyproject.toml`, or any other boundary path. The
-`git diff --name-status origin/main...HEAD | awk '$2!="A"||$1!="docs/architecture/MODULE_QUARANTINE_PROPOSAL.md"{print}'`
+`git diff --name-status origin/main...HEAD | awk '$1!="A"||$2!="docs/architecture/MODULE_QUARANTINE_PROPOSAL.md"{print}'`
 filter is empty by construction.
 
 For the cross-feature contract pair:
