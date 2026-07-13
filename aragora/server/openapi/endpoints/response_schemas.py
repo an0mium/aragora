@@ -645,6 +645,58 @@ _RECEIPT_ENDPOINTS = {
             },
         }
     },
+    "/api/v2/receipts/signing-key": {
+        "get": {
+            "tags": ["Receipts"],
+            "summary": "Get ODR signing public key",
+            "operationId": "getReceiptSigningKey",
+            "description": (
+                "Return the Ed25519 public key (PEM) used to sign Open Decision "
+                "Receipts on this deployment, with the derived key id. Public "
+                "trust anchor for offline verification via aragora-verify; no "
+                "authentication required. Also served as raw PEM at "
+                "/.well-known/aragora-odr-signing-key. Returns 404 when no "
+                "signing key is configured."
+            ),
+            "security": AUTH_REQUIREMENTS["none"]["security"],
+            "responses": {
+                "200": _ok_response(
+                    "Signing public key",
+                    {
+                        "algorithm": {"type": "string"},
+                        "key_id": {"type": "string"},
+                        "public_key_pem": {"type": "string"},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/.well-known/aragora-odr-signing-key": {
+        "get": {
+            "tags": ["Receipts"],
+            "summary": "Get ODR signing public key (raw PEM)",
+            "operationId": "getReceiptSigningKeyWellKnown",
+            "description": (
+                "Well-known alias of /api/v2/receipts/signing-key serving the "
+                "Ed25519 public key as raw PEM (application/x-pem-file). "
+                "Unauthenticated by design. Returns 404 when no signing key is "
+                "configured."
+            ),
+            "security": AUTH_REQUIREMENTS["none"]["security"],
+            "responses": {
+                "200": {
+                    "description": "PEM-encoded Ed25519 public key",
+                    "content": {
+                        "application/x-pem-file": {"schema": {"type": "string"}},
+                    },
+                },
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
     "/api/v1/receipts/deliveries": {
         "get": {
             "tags": ["Receipts", "Delivery"],
