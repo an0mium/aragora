@@ -303,6 +303,16 @@ class ChatApprovalNotifier(ApprovalNotifier):
 class ApprovalWorkflow:
     """Manages human-in-the-loop approval workflow for computer-use."""
 
+    approval_context_type = ApprovalContext
+    approval_priority_high = ApprovalPriority.HIGH
+    approval_category_map = {
+        "gateway": ApprovalCategory.SYSTEM_MODIFICATION,
+        "device": ApprovalCategory.EXTERNAL_SYSTEM,
+        "computer_use": ApprovalCategory.DESTRUCTIVE_ACTION,
+    }
+    approval_category_unknown = ApprovalCategory.UNKNOWN
+    approval_status_approved = ApprovalStatus.APPROVED
+
     def __init__(
         self,
         config: ApprovalConfig | None = None,

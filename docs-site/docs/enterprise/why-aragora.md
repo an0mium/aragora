@@ -165,6 +165,16 @@ No well-funded competitor builds adversarial decision vetting. They build cooper
 
 ---
 
+## The oversight ring is the product
+
+Large agent-factory experiments keep surfacing the same operating constraint: agent throughput is easier to scale than review throughput -- the human ability to conceptualize what the system is doing. Scaling agents without scaling oversight just moves the queue.
+
+Aragora is built for that exact checkpoint. Decision receipts, adversarial multi-model quorums, operator decision tokens, and digest reports are instruments for human oversight -- they compress what the machine did into something a person can actually judge. Orchestras before factories: an orchestra keeps a human conductor.
+
+Autonomy then ratchets up per tier as trust accumulates (the executor arming path) -- never by removing the conductor.
+
+---
+
 ## Get Started
 
 ```bash

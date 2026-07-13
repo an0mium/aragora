@@ -43,7 +43,6 @@ from aragora.events.security_events import (
     SecurityEventEmitter,
     SecurityEventType,
     SecuritySeverity,
-    _ensure_default_security_debate_runner_registered,
     _accepted_security_debate_runner_kwargs,
     get_security_debate_runner,
     get_security_emitter,
@@ -373,9 +372,11 @@ class SecurityDispatcher:
             else:
                 runner = get_security_debate_runner()
                 if runner is None:
-                    runner = _ensure_default_security_debate_runner_registered()
-                if runner is None:
-                    raise ImportError("No security debate runner registered")
+                    raise ImportError(
+                        "No security debate runner registered; a composition root "
+                        "must call register_security_debate_runner() (importing "
+                        "aragora.debate.security_response registers the default)"
+                    )
 
                 runner_kwargs = _accepted_security_debate_runner_kwargs(
                     runner,
@@ -483,6 +484,20 @@ async def start_security_dispatcher(
     Initialize and start the global security dispatcher.
 
     Convenience function for application startup.
+
+    This starts event dispatch only; it does not register a security debate
+    runner. A composition root must separately ensure the runner is
+    registered before triggering severity thresholds are reached, or the
+    default (no-custom-callback) debate path fails soft with a logged
+    ImportError (see SecurityDispatcher._run_debate). Callers who want the
+    default auto-debate path wired up should first call one of:
+      - aragora.debate.orchestrator (import triggers registration)
+      - aragora.debate.event_subscribers.bootstrap_debate_event_subscribers()
+      - aragora.debate.security_response.ensure_registered()
+    A caller that instead supplies its own callback via
+    SecurityDispatcher.set_custom_trigger() does not need any of the above,
+    since the custom callback bypasses the registered-runner lookup
+    entirely.
 
     Args:
         config: Optional dispatcher configuration

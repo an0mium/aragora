@@ -273,6 +273,7 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     "scripts/merge_codex_automation_prs.py",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
+OPERATOR_REVIEW_REQUIRED_LABEL = "operator-review-required"
 MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
 MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
 MERGE_QUORUM_JOB_ID = "merge-quorum"
@@ -390,6 +391,8 @@ class ReviewPacket:
     check_surfaces: dict[str, Any] = field(default_factory=dict)
     protocol: dict[str, Any] = field(default_factory=dict)
     model_review_quorum: dict[str, Any] = field(default_factory=dict)
+    labels: list[str] = field(default_factory=list)
+    merge_state_status: str = ""
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
 
@@ -2455,6 +2458,7 @@ def _build_packet(
         "baseRefName",
         "isDraft",
         "mergeable",
+        "mergeStateStatus",
         "reviewDecision",
         "labels",
         "author",
@@ -2945,9 +2949,27 @@ def _build_packet(
             check_surfaces=check_surfaces,
             repo_slug=rest_fallback._repo_slug_from_pr_payload(pr, repo_override),
         ),
+        labels=labels,
+        merge_state_status=str(pr.get("mergeStateStatus") or "").strip().upper(),
     )
     packet.packet_sha = _packet_sha(packet)
     return packet
+
+
+def _admin_squash_live_gate_blockers(packet: ReviewPacket) -> list[str]:
+    blockers: list[str] = []
+    labels = {str(label).strip().lower() for label in packet.labels if str(label).strip()}
+    if OPERATOR_REVIEW_REQUIRED_LABEL in labels:
+        blockers.append("operator-review-required label present")
+
+    merge_state_status = str(packet.merge_state_status or "").strip().upper()
+    if not merge_state_status:
+        blockers.append("mergeStateStatus unavailable; admin squash requires CLEAN or BLOCKED")
+    elif merge_state_status not in {"CLEAN", "BLOCKED"}:
+        blockers.append(
+            f"mergeStateStatus={merge_state_status}; admin squash requires CLEAN or BLOCKED"
+        )
+    return blockers
 
 
 def _build_merge_authorization_packet(
@@ -2992,6 +3014,8 @@ def _build_merge_authorization_packet(
     queue_pressure_active = queue_size > MODEL_REVIEW_QUEUE_CAP
     for packet in packets:
         quorum = dict(packet.model_review_quorum)
+        admin_squash_gate_blockers = _admin_squash_live_gate_blockers(packet)
+        model_quorum_admin_squash_allowed = bool(quorum["admin_squash_allowed"])
         quorum["queue_pressure"] = {
             "current_open_prs": queue_size,
             "cap": MODEL_REVIEW_QUEUE_CAP,
@@ -3005,6 +3029,14 @@ def _build_merge_authorization_packet(
                 "merge_authorization_packet",
             ],
         }
+        entry_status = quorum["status"]
+        entry_verdict = quorum["verdict"]
+        if model_quorum_admin_squash_allowed and admin_squash_gate_blockers:
+            # The live gate flipped admin_squash_allowed to false; the quorum
+            # status/verdict ("satisfied"/"admin_squash_allowed") would be
+            # misleading in human-readable output (#8965 openai [P3]).
+            entry_status = "blocked_by_live_gate"
+            entry_verdict = "admin_squash_blocked_by_live_gate"
         entry = {
             "pr_number": packet.pr_number,
             "title": packet.title,
@@ -3014,14 +3046,23 @@ def _build_merge_authorization_packet(
             "machine_recommendation": packet.machine_recommendation,
             "tier": quorum["tier"],
             "tier_name": quorum["tier_name"],
-            "status": quorum["status"],
-            "verdict": quorum["verdict"],
-            "admin_squash_allowed": quorum["admin_squash_allowed"],
+            "status": entry_status,
+            "verdict": entry_verdict,
+            "admin_squash_allowed": (
+                model_quorum_admin_squash_allowed and not admin_squash_gate_blockers
+            ),
+            "model_quorum_admin_squash_allowed": model_quorum_admin_squash_allowed,
+            "admin_squash_gate_blockers": admin_squash_gate_blockers,
+            "merge_state_status": packet.merge_state_status,
+            "operator_review_required": OPERATOR_REVIEW_REQUIRED_LABEL
+            in {str(label).strip().lower() for label in packet.labels if str(label).strip()},
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
             "requires_human_preapproval": quorum.get("requires_human_preapproval", False),
             "human_preapproval_recorded": quorum.get("human_preapproval_recorded", False),
             "settlement_creator_pin": quorum.get("settlement_creator_pin", {}),
             "unresolved_dissent": quorum["unresolved_dissent"],
+            "operator_advisory_settlement": quorum.get("operator_advisory_settlement", False),
+            "validated_review_families": quorum.get("validated_review_families", []),
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
             "counted_reviewer_ids": quorum["counted_reviewer_ids"],
@@ -3154,10 +3195,27 @@ def _advisory_settle_review_signals(
     *,
     head_sha: str = "",
     head_committed_at: str = "",
-) -> tuple[bool, bool, bool]:
+    strict_author: bool = False,
+) -> tuple[bool, bool, bool, frozenset[str]]:
     """Single-pass classification of grounded reviews for advisory_settle.
 
-    Returns ``(has_valid_wf_review, has_valid_advisory_dissent, has_blocking_finding)``.
+    Returns ``(has_valid_wf_review, has_valid_advisory_dissent,
+    has_blocking_finding, validated_review_families)``. The final element is the
+    set of canonical model families with at least one grounded, non-bot,
+    countable-identity review at head in ANY verdict — the "models were heard"
+    accounting used by the operator-advisory-settlement relief valve.
+
+    ``strict_author=True`` (the valve's mode) additionally requires each
+    POSITIVE signal to be AUTHORED by a trusted evidence-poster login
+    (:func:`_trusted_evidence_posters`). Authorship is API-real — GitHub sets
+    it from the authenticated token — so no comment BODY (heading, ``Model
+    family:`` line, or a fabricated receipt line, all forgeable text; openai
+    #9203 round-5 P1) can establish a heard family from an untrusted account.
+    No receipt artifact is required: ``compose_evidence_comment`` never emits
+    one, so a receipt gate would make the valve unfireable against real
+    collector-posted reviews (openai #9203 round-6 P2). The blocking-finding
+    scan stays permissive in both modes (a [P0]/[P1] from ANY author still
+    blocks).
 
     Source-validation is applied UNIFORMLY so every *positive* input to the gate
     passes the SAME filters the strict quorum path uses — closing the class of
@@ -3175,6 +3233,7 @@ def _advisory_settle_review_signals(
     has_wf = False
     has_advisory_dissent = False
     has_blocking = False
+    validated_families: set[str] = set()
     for comment in comments or []:
         if not isinstance(comment, dict):
             continue
@@ -3196,13 +3255,28 @@ def _advisory_settle_review_signals(
         identity = _resolve_model_review_identity(body)
         if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
             continue
-        if str(identity.model_family or "").strip().lower() in WESTERN_FRONTIER_FAMILIES:
+        if strict_author:
+            # Valve mode: positive signals must be AUTHORED by a trusted
+            # evidence-poster login. Authorship is API-real — GitHub sets it
+            # from the authenticated token — so a drive-by account cannot
+            # fabricate a heard family no matter what its comment body claims
+            # (openai #9203 round-5 P1: any body TEXT, including a receipt
+            # line, is forgeable). Deliberately NOT gated on a receipt
+            # artifact: compose_evidence_comment never emits one, so a receipt
+            # requirement would make the valve unfireable against every real
+            # collector-posted review (openai #9203 round-6 P2).
+            if author.casefold() not in _trusted_evidence_posters():
+                continue
+        family = str(identity.model_family or "").strip().lower()
+        if family:
+            validated_families.add(family)
+        if family in WESTERN_FRONTIER_FAMILIES:
             has_wf = True
         # Genuine advisory dissent: a CHANGES-REQUESTED verdict from a validated
         # source with no blocking [P0]/[P1] finding.
         if _has_blocking_or_negative_verdict(body) and not _has_blocking_finding_or_label(body):
             has_advisory_dissent = True
-    return has_wf, has_advisory_dissent, has_blocking
+    return has_wf, has_advisory_dissent, has_blocking, frozenset(validated_families)
 
 
 def _build_model_review_quorum(
@@ -3353,10 +3427,25 @@ def _build_model_review_quorum(
         _wf_review_present,
         _genuine_advisory_dissent,
         _any_blocking_finding,
+        _validated_review_families,
     ) = _advisory_settle_review_signals(
         pr.get("comments") or [],
         head_sha=head_sha,
         head_committed_at=head_committed_at,
+    )
+    # Valve-mode strict pass (claude #9203 P2): positive signals must be
+    # receipt-backed so self-declared headings cannot manufacture "models were
+    # heard". advisory_settle (Tier 0-2) keeps the original semantics above.
+    (
+        _wf_review_present_strict,
+        _genuine_advisory_dissent_strict,
+        _,
+        _validated_review_families_strict,
+    ) = _advisory_settle_review_signals(
+        pr.get("comments") or [],
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+        strict_author=True,
     )
     advisory_settle_eligible = (
         advisory_dissent_settle_enabled()
@@ -3383,6 +3472,61 @@ def _build_model_review_quorum(
         and not unresolved_dissent
         and not _any_blocking_finding
     )
+    # Constitutional relief valve (docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md;
+    # #8933 incident, PR #8939: four evidence rounds, zero blocking findings,
+    # zero countable signals). Model quorum can be UNREACHABLE — every review
+    # severity-gated advisory — rather than merely unmet, and any fix to the
+    # gate is itself gate-blocked without this branch. The trusted settlement
+    # operator may settle over ADVISORY-ONLY dissent at Tier 3-4 when models
+    # were demonstrably heard. [P0]/[P1] findings and unresolved dissent still
+    # block everyone, including the operator; every condition fails closed.
+    # Authorization rests SOLELY on the trusted-creator commit status + the
+    # trusted-author marker comment; validated-family accounting comes from the
+    # same single validated pass advisory_settle uses, never raw comment text.
+    operator_advisory_settlement_eligible = bool(
+        _operator_advisory_settlement_enabled()
+        and tier in (3, 4)
+        and not quorum_satisfied
+        and not settlement_recorded
+        and not has_pending
+        and not checks_unavailable
+        and not blocking_workflow_state
+        # #8739: use the self-check-INDEPENDENT reachability signal, not
+        # ``quorum_only_required_failure`` — the latter is always False inside
+        # the enforcing merge-quorum job (the quorum row is the excluded
+        # self-check), which would make this valve dead code in CI. The former
+        # is True whenever no NON-quorum required check is failing/pending.
+        and advisory_settle_reachable
+        # Quorum must be UNREACHABLE, not merely unmet (claude #9203 P2): reviews
+        # actually came back (>=2 families heard) AND zero produced a countable
+        # signal — i.e. every review was severity-gated to advisory. Without the
+        # ``signal_count == 0`` bar the valve could fire on a Tier 3-4 PR that was
+        # simply never reviewed, contradicting the spec and audit annotation.
+        and signal_count == 0
+        # Quorum must be unreachable because reviews were severity-gated to
+        # ADVISORY, not because they failed to count for INFRA reasons — a
+        # reviewer CLI outage or an unrecognized heading (openai #9203 P1).
+        # ``signal_count == 0`` alone cannot make that distinction, so the
+        # valve additionally requires a DEMONSTRATED severity-gated advisory
+        # dissent (a validated-source changes_requested with no [P0]/[P1] —
+        # the same bar advisory_settle enforces). This is evidence of
+        # severity-gating, not proof that no infra failure also occurred
+        # (claude #9203 round-7 P3): infra failures that suppress counting
+        # must still be REPAIRED (re-collect, restore the reviewer), never
+        # settled over; the operator settles over the advisory dissent only.
+        # All three positive signals use the STRICT trusted-author pass; the
+        # blocking scan deliberately stays the PERMISSIVE one.
+        and _genuine_advisory_dissent_strict
+        and not unresolved_dissent
+        and not _any_blocking_finding
+        and _wf_review_present_strict
+        and len(_validated_review_families_strict) >= 2
+        and _has_operator_settlement_comment(pr, head_sha=head_sha)
+        and _human_settlement_status_creator_verified(
+            repo_slug=repo_slug or rest_fallback._repo_slug_from_pr_payload(pr, None),
+            head_sha=head_sha,
+        )[0]
+    )
     # The incomplete-quorum check only acts as an ACTIVE blocker when advisory_settle
     # is NOT rescuing this PR; otherwise the merge-quorum check is treated as resolved
     # by the advisory path (and the verdict chain reports advisory_settle instead).
@@ -3391,6 +3535,7 @@ def _build_model_review_quorum(
         and not quorum_satisfied
         and not settlement_recorded
         and not advisory_settle_eligible
+        and not operator_advisory_settlement_eligible
     )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
     human_preapproval_recorded = (
@@ -3428,6 +3573,7 @@ def _build_model_review_quorum(
         and not settlement_recorded
         and not missing_quorum_is_active_check_blocker
         and not advisory_settle_eligible
+        and not operator_advisory_settlement_eligible
     ):
         reasons.append("checks are failing; repair before settlement")
     elif missing_quorum_is_active_check_blocker:
@@ -3467,7 +3613,21 @@ def _build_model_review_quorum(
         )
         if advisory_findings:
             reasons.append(f"{len(advisory_findings)} advisory finding(s) surfaced for follow-up")
-    if not quorum_satisfied and not settlement_recorded and not advisory_settle_eligible:
+    if operator_advisory_settlement_eligible:
+        reasons.append(
+            "operator advisory settlement: model quorum is unreachable (every review "
+            f"severity-gated advisory; {len(_validated_review_families_strict)} "
+            "receipt-backed model families heard, no [P0]/[P1] blocking findings, no "
+            "unresolved dissent); the trusted settlement operator settled over "
+            "advisory-only dissent at exact head "
+            "(docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md)"
+        )
+    if (
+        not quorum_satisfied
+        and not settlement_recorded
+        and not advisory_settle_eligible
+        and not operator_advisory_settlement_eligible
+    ):
         if signal_count < requirement["required_model_signals"]:
             reasons.append(
                 "model quorum incomplete: "
@@ -3498,6 +3658,7 @@ def _build_model_review_quorum(
             has_failures
             and not missing_quorum_is_active_check_blocker
             and not advisory_settle_eligible
+            and not operator_advisory_settlement_eligible
         )
         or has_pending
         or checks_unavailable
@@ -3505,6 +3666,7 @@ def _build_model_review_quorum(
             machine_recommendation == "repair_first"
             and not missing_quorum_is_active_check_blocker
             and not advisory_settle_eligible
+            and not operator_advisory_settlement_eligible
         )
         or stale_quorum_check_after_satisfied_evidence
         or blocking_workflow_state
@@ -3517,6 +3679,14 @@ def _build_model_review_quorum(
         # advisory findings only. Tier 0-2 only; no human risk settlement required.
         status = "satisfied"
         verdict = "advisory_settle"
+        requires_human_risk_settlement = False
+        admin_squash_allowed = True
+    elif operator_advisory_settlement_eligible:
+        # Distinct, auditable verdict (mirrors advisory_settle): the audit trail
+        # records that the trusted operator settled over advisory-only dissent
+        # with quorum unreachable, not that quorum was met.
+        status = "satisfied"
+        verdict = "operator_advisory_settlement"
         requires_human_risk_settlement = False
         admin_squash_allowed = True
     elif not quorum_satisfied:
@@ -3580,6 +3750,10 @@ def _build_model_review_quorum(
         # this gate's. Mirrors ``advisory_views`` content for the eligible case.
         "advisory_findings": advisory_findings if advisory_settle_eligible else [],
         "advisory_settle": advisory_settle_eligible,
+        "operator_advisory_settlement": operator_advisory_settlement_eligible,
+        # Valve audit accounting: the STRICT (receipt-backed) family set, so the
+        # packet never overstates who was "heard" (claude #9203 P2).
+        "validated_review_families": sorted(_validated_review_families_strict),
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
     }
@@ -3779,6 +3953,24 @@ def _trusted_settlement_creator() -> str:
     )
 
 
+#: Logins whose posted comments may establish "a model was heard" for the
+#: operator-advisory-settlement valve (env-overridable, comma-separated). The
+#: defaults are the operator's own accounts: the settlement creator plus the
+#: gh login the evidence collector posts under. Authorship is API-real, so this
+#: pin cannot be satisfied by comment text (openai #9203 P1). Mirrors the
+#: DEFAULT_TRUSTED_SETTLEMENT_CREATOR precedent.
+TRUSTED_EVIDENCE_POSTERS_ENV_VAR = "ARAGORA_TRUSTED_EVIDENCE_POSTERS"
+DEFAULT_TRUSTED_EVIDENCE_POSTERS: tuple[str, ...] = ("scarmani", "an0mium")
+
+
+def _trusted_evidence_posters() -> frozenset[str]:
+    raw = str(os.environ.get(TRUSTED_EVIDENCE_POSTERS_ENV_VAR, "") or "").strip()
+    logins = (
+        [part.strip() for part in raw.split(",")] if raw else list(DEFAULT_TRUSTED_EVIDENCE_POSTERS)
+    )
+    return frozenset(login.casefold() for login in logins if login)
+
+
 def _human_settlement_status_creator_verified(
     *, repo_slug: str, head_sha: str, context: str = HUMAN_SETTLEMENT_CONTEXT
 ) -> tuple[bool, str]:
@@ -3815,6 +4007,73 @@ def _human_settlement_status_creator_verified(
             f"settlement-creator pin: '{context}' status created by trusted settlement creator '{trusted}'",
         )
     return fail(f"no '{context}' status found on head commit; failing closed")
+
+
+_OPERATOR_ADVISORY_SETTLEMENT_ENV = "ARAGORA_ENABLE_OPERATOR_ADVISORY_SETTLEMENT"
+
+
+def _operator_advisory_settlement_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in operator-advisory-settlement relief valve is active.
+
+    Default OFF, mirroring ``advisory_dissent_settle_enabled``. Defined locally
+    (rather than beside that helper in ``aragora.swarm.quorum_evidence``) to
+    avoid touching a file contested by in-flight PRs #9129/#9147; consolidation
+    is a follow-up once those land. See docs/specs/OPERATOR_ADVISORY_SETTLEMENT.md.
+    """
+    source = os.environ if env is None else env
+    return str(source.get(_OPERATOR_ADVISORY_SETTLEMENT_ENV, "")).strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _has_operator_settlement_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
+    """A Tier-4 settlement marker comment AUTHORED by the trusted operator.
+
+    Stricter than :func:`_has_tier_four_human_preapproval_comment` (which any
+    author can satisfy): the operator-advisory-settlement relief valve requires
+    the marker comment itself to come from the trusted settlement login. Note
+    (claude #9203 P3): GitHub lets any write-access collaborator EDIT an
+    existing comment while ``author.login`` is preserved, so the comment is a
+    corroborating settlement record, not an unforgeable one — the creator-pinned
+    ``aragora/human-settlement`` commit status is the sole unforgeable
+    authorization root; this check is the second factor.
+    """
+    head = str(head_sha or "").strip().lower()
+    # Format guard (claude #9203 P3): a full 40-hex SHA. A short or malformed
+    # head would make the ``head in body`` substring check dangerously loose
+    # (e.g. a 3-char value matching unrelated text). Callers pass headRefOid,
+    # so this only rejects genuinely malformed input — fail closed. Both sides
+    # are lowercased so a legitimately authorized marker citing an uppercase
+    # SHA is not silently rejected.
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
+        return False
+    trusted = _trusted_settlement_creator().casefold()
+    if not trusted:
+        return False
+    for comment in pr.get("comments") or []:
+        if not isinstance(comment, dict):
+            continue
+        author_payload = comment.get("author")
+        author = (
+            str(author_payload.get("login", "") or "") if isinstance(author_payload, dict) else ""
+        )
+        if author.casefold() != trusted:
+            continue
+        body = str(comment.get("body") or "")
+        lowered = body.lower()
+        if TIER_FOUR_SETTLEMENT_MARKER not in body:
+            continue
+        if head not in lowered:
+            continue
+        if not any(token in lowered for token in TIER_FOUR_AUTHORIZED_MERGE_TOKENS):
+            continue
+        if "human-risk settlement" not in lowered:
+            continue
+        return True
+    return False
 
 
 def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
@@ -5610,6 +5869,11 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
             f"{len(entry.get('dogfood_evidence') or [])} dogfood note(s), "
             f"{len(entry.get('counted_reviewer_ids') or [])} counted reviewer(s)"
         )
+        gate_blockers = entry.get("admin_squash_gate_blockers") or []
+        if gate_blockers:
+            print("  admin squash live-gate blockers:")
+            for blocker in gate_blockers:
+                print(f"    - {blocker}")
         for reason in entry.get("reasons") or []:
             print(f"  - {reason}")
         print()

@@ -257,6 +257,14 @@ illustrative -- it is not literally a file a live run produced -- but it comes f
 the identical emitter this action's `Emit decision receipt` step calls, so its shape
 is what `receipt-path` will point to.
 
+`aragora-verify`'s full exit-code contract is
+`0 verified / 1 failed / 2 usage / 3 signatures-present-unchecked` -- see the
+[Independent Verifier Guide](../specs/independent-verifier-guide#exit-code-contract)
+for what each of the other three codes means. This is always the standalone
+`aragora-verify`, never the in-tree `aragora verify` / `aragora receipt verify`
+commands, which check a different object (the native `DecisionReceipt`, not the
+portable ODR).
+
 ## How It Works
 
 1. The action fetches the PR diff using `gh pr diff`

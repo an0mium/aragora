@@ -293,6 +293,18 @@ def init_cross_subscriber_bridge(event_bus: Any) -> Any:
     Connects the Arena's EventBus to the CrossSubscriberManager,
     enabling cross-subsystem event handling during debates.
 
+    Runs at Arena construction time, before ``initialize_debate_context``'s
+    own bootstrap call - so this bridges to a bootstrapped manager directly
+    (via ``bootstrap_debate_event_subscribers``) rather than relying on the
+    bare ``get_cross_subscriber_manager()`` accessor that
+    ``ArenaEventBridge`` otherwise falls back to. The manager is a
+    process-wide singleton that a later bootstrap call would mutate in
+    place either way, but constructing the bridge against an
+    already-wired manager removes that ordering assumption (P4a E8
+    SCOPE #1 hardening; no confirmed production gap, since phase
+    execution - where this bridge actually dispatches - already runs
+    after that later bootstrap call within the same debate).
+
     Args:
         event_bus: The Arena's EventBus instance (may be ``None``).
 
@@ -304,8 +316,10 @@ def init_cross_subscriber_bridge(event_bus: Any) -> Any:
 
     try:
         from aragora.debate.arena_bridge import ArenaEventBridge
+        from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
 
-        bridge = ArenaEventBridge(event_bus)
+        manager = bootstrap_debate_event_subscribers()
+        bridge = ArenaEventBridge(event_bus, cross_manager=manager)
         bridge.connect_to_cross_subscribers()
         logger.debug("[arena] Cross-subscriber bridge connected")
         return bridge
