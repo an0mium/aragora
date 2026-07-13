@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 from urllib.parse import urljoin
 
 if TYPE_CHECKING:
@@ -538,6 +538,7 @@ class AragoraClient:
         self.workspaces = WorkspacesAPI(self)
         self.youtube = YouTubeAPI(self)
 
+    @overload
     def request(
         self,
         method: str,
@@ -545,7 +546,32 @@ class AragoraClient:
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
+        *,
+        response_format: Literal["json"] = "json",
+    ) -> dict[str, Any]: ...
+
+    @overload
+    def request(
+        self,
+        method: str,
+        path: str,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        *,
+        response_format: Literal["text"],
+    ) -> str: ...
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        *,
+        response_format: Literal["json", "text"] = "json",
+    ) -> dict[str, Any] | str:
         """
         Make an HTTP request to the Aragora API.
 
@@ -557,6 +583,7 @@ class AragoraClient:
             params: Query parameters
             json: JSON body for POST/PUT requests
             headers: Additional headers
+            response_format: Parse the response as JSON or return its text body
 
         Returns:
             Parsed JSON response as a dictionary.
@@ -567,7 +594,14 @@ class AragoraClient:
         if self.demo:
             from .demo import demo_request
 
-            return demo_request(method, path, params=params, json=json, headers=headers)
+            result = demo_request(method, path, params=params, json=json, headers=headers)
+            if response_format == "text":
+                if isinstance(result, str):
+                    return result
+                # Mirror the live API: a deployment without this text resource
+                # (e.g. no ODR signing key in demo mode) answers 404.
+                raise NotFoundError(f"Demo mode has no text response for '{path}'")
+            return result
 
         url = urljoin(self.base_url, path)
         request_headers = {**self._build_headers(), **(headers or {})}
@@ -585,6 +619,8 @@ class AragoraClient:
                 )
 
                 if response.is_success:
+                    if response_format == "text":
+                        return response.text
                     if response.content:
                         return cast(dict[str, Any], response.json())
                     return {}
@@ -1176,6 +1212,7 @@ class AragoraAsyncClient:
         self.workspaces = AsyncWorkspacesAPI(self)
         self.youtube = AsyncYouTubeAPI(self)
 
+    @overload
     async def request(
         self,
         method: str,
@@ -1183,7 +1220,32 @@ class AragoraAsyncClient:
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
+        *,
+        response_format: Literal["json"] = "json",
+    ) -> dict[str, Any]: ...
+
+    @overload
+    async def request(
+        self,
+        method: str,
+        path: str,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        *,
+        response_format: Literal["text"],
+    ) -> str: ...
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        *,
+        response_format: Literal["json", "text"] = "json",
+    ) -> dict[str, Any] | str:
         """
         Make an async HTTP request to the Aragora API.
 
@@ -1195,6 +1257,7 @@ class AragoraAsyncClient:
             params: Query parameters
             json: JSON body
             headers: Additional headers
+            response_format: Parse the response as JSON or return its text body
 
         Returns:
             Parsed JSON response as a dictionary.
@@ -1202,7 +1265,14 @@ class AragoraAsyncClient:
         if self.demo:
             from .demo import demo_request
 
-            return demo_request(method, path, params=params, json=json, headers=headers)
+            result = demo_request(method, path, params=params, json=json, headers=headers)
+            if response_format == "text":
+                if isinstance(result, str):
+                    return result
+                # Mirror the live API: a deployment without this text resource
+                # (e.g. no ODR signing key in demo mode) answers 404.
+                raise NotFoundError(f"Demo mode has no text response for '{path}'")
+            return result
 
         import asyncio
 
@@ -1222,6 +1292,8 @@ class AragoraAsyncClient:
                 )
 
                 if response.is_success:
+                    if response_format == "text":
+                        return response.text
                     if response.content:
                         return cast(dict[str, Any], response.json())
                     return {}
