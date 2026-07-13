@@ -3,10 +3,22 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from aragora.observability.slo_alert_bridge import SLOAlertConfig
+from aragora.control_plane.channels import (
+    NotificationEventType,
+    NotificationPriority,
+)
+from aragora.control_plane.notifications import get_default_notification_dispatcher
+from aragora.observability.slo import (
+    SLOBreach,
+    SLONotificationSink,
+    register_slo_notification_sink_provider,
+)
+from aragora.observability.slo_alert_bridge import (
+    SLOAlertConfig,
+    register_channel_alert_sink,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,16 +73,57 @@ class ControlPlaneSLOAlertSink:
         )
 
 
-def register_slo_alert_sink() -> bool:
-    """Register this adapter with the observability-owned sink contract."""
-    try:
-        from aragora.observability.slo_alert_bridge import register_channel_alert_sink
-    except ImportError as e:
-        logger.debug("Observability channel sink contract unavailable: %s", e)
-        return False
+class ControlPlaneSLONotificationSink:
+    """Deliver direct SLO notifications through the current dispatcher."""
 
+    async def notify(self, breach: SLOBreach) -> None:
+        """Dispatch one SLO breach without caching the dispatcher."""
+        dispatcher = get_default_notification_dispatcher()
+        if dispatcher is None:
+            logger.warning("Notification dispatcher not configured")
+            return
+
+        priority = (
+            NotificationPriority.CRITICAL
+            if breach.severity == "critical"
+            else NotificationPriority.HIGH
+        )
+
+        await dispatcher.dispatch(
+            event_type=NotificationEventType.SYSTEM_ALERT,
+            title=f"SLO Alert: {breach.slo_name}",
+            body=(
+                f"{breach.message}\n\n"
+                f"Current: {breach.current_value:.4f}\n"
+                f"Target: {breach.target_value:.4f}\n"
+                f"Error Budget: {breach.error_budget_remaining:.1f}%\n"
+                f"Burn Rate: {breach.burn_rate:.2f}x"
+            ),
+            priority=priority,
+            metadata=breach.to_dict(),
+        )
+
+
+_direct_notification_sink = ControlPlaneSLONotificationSink()
+
+
+def get_slo_notification_sink() -> SLONotificationSink | None:
+    """Resolve the direct sink only while a dispatcher is configured."""
+    if get_default_notification_dispatcher() is None:
+        return None
+    return _direct_notification_sink
+
+
+def register_slo_alert_sink() -> bool:
+    """Register both control-plane adapters with observability contracts."""
     register_channel_alert_sink(ControlPlaneSLOAlertSink)
+    register_slo_notification_sink_provider(get_slo_notification_sink)
     return True
 
 
-__all__ = ["ControlPlaneSLOAlertSink", "register_slo_alert_sink"]
+__all__ = [
+    "ControlPlaneSLOAlertSink",
+    "ControlPlaneSLONotificationSink",
+    "get_slo_notification_sink",
+    "register_slo_alert_sink",
+]

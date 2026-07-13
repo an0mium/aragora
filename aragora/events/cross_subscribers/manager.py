@@ -8,9 +8,9 @@ The heavy lifting is delegated to specialized mixins:
 - DispatchMixin: Event dispatch, batching, retry, circuit breaker, metrics
 - AdminMixin: Stats reporting, enable/disable, sampling, filtering, retry config
 
-The remaining built-in handlers (RLM feedback, gauntlet/cost/explainability
-notifications, culture patterns, risk/genesis feedback loops) are domain-free
-and defined directly below rather than via mixin.
+The remaining built-in handlers (RLM feedback, cost/explainability tracking,
+culture patterns, risk/genesis feedback loops) are domain-free and defined
+directly below rather than via mixin.
 """
 
 from __future__ import annotations
@@ -253,43 +253,6 @@ class CrossSubscriberManager(
             pass  # RLM module not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("RLM pattern recording failed: %s", e)
-
-    def _handle_gauntlet_complete_to_notification(self, event: StreamEvent) -> None:
-        """Gauntlet complete → Notification dispatch.
-
-        When a gauntlet stress-test finishes, notify stakeholders with
-        the verdict and finding counts.
-        """
-        data = event.data
-        gauntlet_id = data.get("gauntlet_id", "")
-        verdict = data.get("verdict", "unknown")
-        confidence = data.get("confidence", 0.0)
-        total_findings = data.get("total_findings", 0)
-        critical_count = data.get("critical_count", 0)
-
-        logger.debug("Gauntlet complete: %s verdict=%s", gauntlet_id, verdict)
-
-        try:
-            import asyncio
-
-            from aragora.notifications.service import notify_gauntlet_completed
-
-            coro = notify_gauntlet_completed(
-                gauntlet_id=gauntlet_id,
-                verdict=verdict,
-                confidence=confidence,
-                total_findings=total_findings,
-                critical_count=critical_count,
-            )
-            try:
-                loop = asyncio.get_running_loop()
-                loop.create_task(coro)
-            except RuntimeError:
-                asyncio.run(coro)
-        except ImportError:
-            pass  # Notification service not available
-        except (RuntimeError, TypeError, ValueError, OSError) as e:
-            logger.debug("Gauntlet notification failed: %s", e)
 
     def _handle_debate_end_to_cost_tracking(self, event: StreamEvent) -> None:
         """Debate end → Cost tracking record.
@@ -557,12 +520,10 @@ class CrossSubscriberManager(
         # Phase 3: Cross-Subsystem Event Bridges
         # =====================================================================
 
-        # Gauntlet Complete → Notification
-        self.register(
-            "gauntlet_to_notification",
-            StreamEventType.GAUNTLET_COMPLETE,
-            self._handle_gauntlet_complete_to_notification,
-        )
+        # Gauntlet Complete → Notification relocated to
+        # aragora.server.event_subscribers; notification delivery is an
+        # interface concern and is wired only by the interface-superset
+        # bootstrap.
 
         # Debate End → Cost Tracking
         self.register(
