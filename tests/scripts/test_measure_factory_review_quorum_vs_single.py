@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 SCRIPTS_DIR = str(Path(__file__).resolve().parents[2] / "scripts")
@@ -83,6 +85,39 @@ def test_manifest_rejects_moving_validation_url() -> None:
         assert "not pinned" in str(exc)
     else:
         raise AssertionError("moving validation URL must fail closed")
+
+
+def test_validate_pinned_pr_state_accepts_matching_base_and_head(monkeypatch: object) -> None:
+    target = SimpleNamespace(head_sha="head-sha")
+    case = {"case_id": "case-1", "base_sha": "base-sha", "head_sha": "head-sha"}
+    monkeypatch.setattr(measure_script, "_fetch_pr_base_sha", lambda _: "base-sha")
+
+    measure_script._validate_pinned_pr_state(target, case)
+
+
+def test_collect_rejects_base_drift_before_fetching_diff(monkeypatch: object) -> None:
+    target = SimpleNamespace(head_sha="head-sha")
+    case = {
+        "case_id": "case-1",
+        "repo": "owner/repo",
+        "pr_url": "https://github.com/owner/repo/pull/1",
+        "base_sha": "expected-base",
+        "head_sha": "head-sha",
+    }
+    monkeypatch.setattr(measure_script, "_fetch_pr_target", lambda *args, **kwargs: target)
+    monkeypatch.setattr(measure_script, "_fetch_pr_base_sha", lambda _: "moved-base")
+
+    def unexpected_diff_fetch(_: object) -> str:
+        raise AssertionError("diff must not be fetched after base drift")
+
+    monkeypatch.setattr(measure_script, "_fetch_pr_diff", unexpected_diff_fetch)
+
+    try:
+        asyncio.run(measure_script._collect_one("grok", case))
+    except ValueError as exc:
+        assert "PR base drifted" in str(exc)
+    else:
+        raise AssertionError("base drift must fail closed")
 
 
 def test_measure_rejects_same_family_quorum(tmp_path: Path, monkeypatch: object) -> None:

@@ -13,6 +13,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -101,6 +102,48 @@ def _manifest_cases(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return cases
 
 
+def _fetch_pr_base_sha(target: Any) -> str:
+    completed = subprocess.run(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(target.number),
+            "--repo",
+            str(target.repo),
+            "--json",
+            "baseRefOid",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or "unknown gh error"
+        raise ValueError(f"unable to resolve PR base SHA: {detail}")
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError("unable to resolve PR base SHA: gh returned invalid JSON") from exc
+    base_sha = payload.get("baseRefOid") if isinstance(payload, dict) else None
+    if not isinstance(base_sha, str) or not base_sha.strip():
+        raise ValueError("unable to resolve PR base SHA: baseRefOid is missing")
+    return base_sha.strip()
+
+
+def _validate_pinned_pr_state(target: Any, case: dict[str, Any]) -> None:
+    if target.head_sha != case["head_sha"]:
+        raise ValueError(
+            f"{case['case_id']}: PR head drifted, expected {case['head_sha']}, got {target.head_sha}"
+        )
+    base_sha = _fetch_pr_base_sha(target)
+    if base_sha != case["base_sha"]:
+        raise ValueError(
+            f"{case['case_id']}: PR base drifted, expected {case['base_sha']}, got {base_sha}"
+        )
+
+
 async def _collect_one(provider: str, case: dict[str, Any]) -> dict[str, Any]:
     if provider not in PROVIDER_FAMILIES:
         raise ValueError(f"unsupported benchmark provider: {provider}")
@@ -109,10 +152,7 @@ async def _collect_one(provider: str, case: dict[str, Any]) -> dict[str, Any]:
         repo_override=str(case["repo"]),
         repo_root=REPO_ROOT,
     )
-    if target.head_sha != case["head_sha"]:
-        raise ValueError(
-            f"{case['case_id']}: PR head drifted, expected {case['head_sha']}, got {target.head_sha}"
-        )
+    _validate_pinned_pr_state(target, case)
     diff_text = _fetch_pr_diff(target)
     prompt = _build_review_prompt(target=target, diff_text=diff_text)
     agent = create_agent(provider, name=f"m9_{provider}_reviewer", role="critic")
