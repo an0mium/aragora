@@ -90,17 +90,28 @@ and remain settlement-blocked while no matching runner is online. Fork PRs and
 draft PRs are excluded by the job-level condition.
 
 The workflow also schedules `Hetzner Offline Golden Path Shadow` with labels
-`self-hosted, aragora, Linux, X64, hetzner`. The same indefinite-queue analysis
-applies if every matching Hetzner runner is offline. At the 2026-07-13 snapshot,
-runner ids 21, 22, and 23 all matched that label set and were online and idle;
-the #9201 Hetzner shadow completed successfully.
+`self-hosted, aragora, Linux, X64, hetzner`. The same unassigned queue-wait
+analysis applies if every matching Hetzner runner is offline. At the 2026-07-13
+snapshot, runner ids 21, 22, and 23 all matched that label set and were online
+and idle; the #9201 Hetzner shadow completed successfully.
 
-## Option A: Runner-Online Preflight
+## Option A: Trusted Base-Revision Runner Preflight
 
 ### Proposed Diff
 
-Extend the existing GitHub-hosted `scope` job to query the repository runner
-inventory and emit these outputs in addition to `run_shadow`:
+Change the PR trigger to `pull_request_target` so the workflow definition is
+loaded from the trusted default branch. Split the current hosted work into two
+jobs:
+
+1. `capacity` queries runner inventory. It must not checkout any repository
+   content, invoke a local action, interpolate PR-controlled strings into a
+   shell command, or run on a self-hosted runner. It is the only job that may
+   reference the runner-inventory secret.
+2. `scope` performs path classification without receiving that secret. It must
+   be skipped for fork PRs before any checkout. For same-repository PRs, any
+   checkout of the PR merge ref must use `persist-credentials: false`.
+
+The trusted `capacity` job emits:
 
 ```yaml
 mac_online: ${{ steps.capacity.outputs.mac_online }}
@@ -108,30 +119,44 @@ hetzner_online: ${{ steps.capacity.outputs.hetzner_online }}
 inventory_ok: ${{ steps.capacity.outputs.inventory_ok }}
 ```
 
-The capacity step would compare each required label set against online runners.
-Gate the self-hosted jobs on the corresponding online output:
+The capacity step compares each required label set against online runners.
+Gate the self-hosted jobs on the corresponding online output and make both jobs
+depend on `capacity` and `scope`:
 
 ```yaml
-if: <existing-condition> && needs.scope.outputs.mac_online == 'true'
+if: <existing-condition> && needs.capacity.outputs.mac_online == 'true'
 ```
 
 and:
 
 ```yaml
-if: <existing-condition> && needs.scope.outputs.hetzner_online == 'true'
+if: <existing-condition> && needs.capacity.outputs.hetzner_online == 'true'
 ```
 
+Because `pull_request_target` normally checks out the base revision, each
+self-hosted job must explicitly checkout the PR merge ref after the capacity
+decision, with `persist-credentials: false`. Neither self-hosted job may receive
+the inventory secret. Keep the current same-repository and non-draft guards.
+
 Add an always-completing GitHub-hosted summary job that reports whether each
-shadow was run or skipped for unavailable capacity. An unavailable runner must
-produce a visible degraded receipt rather than an indefinitely queued job.
-Inventory lookup errors must fail closed and must not be reported as healthy.
+shadow was run or skipped for unavailable capacity. An unavailable runner at
+snapshot time must produce a visible degraded receipt rather than a queue wait
+that is not bounded by the job's `timeout-minutes`. Inventory lookup errors must
+fail closed and must not be reported as healthy.
 
 The repository `GITHUB_TOKEN` has previously received HTTP 403 from the runner
-inventory endpoint. This option therefore needs a dedicated read-only secret,
-such as `RUNNER_MONITOR_TOKEN`, with the minimum repository Administration or
-Actions permission that can read `repos/{owner}/{repo}/actions/runners`. The
-secret must be scoped only to the GitHub-hosted preflight and must never be
-passed to a self-hosted job or PR-controlled command.
+inventory endpoint. This option therefore needs a dedicated secret, such as
+`RUNNER_MONITOR_TOKEN`, whose fine-grained repository permission is exactly
+`Administration: read`; an `Actions`-scoped token does not grant the runner
+inventory endpoint. The secret must be referenced only by the trusted hosted
+`capacity` job. No job that checks out or executes PR-controlled content may
+receive it.
+
+This preflight reduces the known-offline case but cannot make an atomic promise
+about later capacity. A runner can go offline between the inventory snapshot
+and job assignment. Keep the existing out-of-band health monitor and add a
+hosted queue-age alert so this race is reported as a runner incident. Do not
+claim that the preflight alone makes queued self-hosted jobs impossible.
 
 ### Tier and Authority
 
@@ -142,28 +167,35 @@ Exact implementation authority sentence:
 
 > I authorize a bounded Tier 4 implementation of #9098 Option A from main
 > `a36cad1f060221bae788fd53b4885a76b022757f`, limited to
-> `.github/workflows/self-hosted-shadow.yml`, the minimum read-only runner
-> inventory secret reference, and focused workflow-policy tests. This does not
-> authorize settlement or merge of the resulting exact head.
+> `.github/workflows/self-hosted-shadow.yml`, a trusted base-revision capacity
+> job with no checkout, an `Administration: read` runner-inventory secret
+> reference isolated from every PR-code job, a queue-age alert, and focused
+> workflow-policy tests. This does not authorize settlement or merge of the
+> resulting exact head.
 
 ### Verification
 
 - Validate the workflow with the repo's workflow-policy tests and actionlint.
 - Fixture-test online, offline, unauthorized, missing-secret, and malformed
   inventory responses.
-- Prove offline Mac capacity yields a completed hosted receipt and a neutral
-  skipped Mac job, not a queued self-hosted job.
+- Prove the secret-bearing job uses the base workflow definition, performs no
+  checkout, invokes no PR-controlled code, and passes no secret or derived
+  credential to downstream jobs.
+- Prove offline Mac capacity at snapshot time yields a completed hosted receipt
+  and a neutral skipped Mac job, not a queued self-hosted job.
 - Prove online Mac capacity preserves the current exact label set and executes
-  the TypeScript SDK typecheck.
-- Prove the runner-inventory credential is unavailable to PR-controlled and
-  self-hosted steps.
+  the TypeScript SDK typecheck against the explicit PR merge ref without
+  persisted checkout credentials.
+- Prove fork PRs never checkout code in a secret-bearing context.
+- Prove a simulated post-snapshot runner outage reaches the queue-age alert and
+  remains a blocker rather than being misreported as healthy.
 - Receive fresh exact-head model review and Tier 4 human settlement.
 
 ### Rollback
 
-Revert the workflow commit and remove the dedicated secret reference. Preserve
-the #9098 issue and run artifacts. Do not delete or re-label runners as part of
-rollback.
+Revert the workflow commit, restore the `pull_request` trigger, and remove the
+dedicated secret reference. Preserve the #9098 issue and run artifacts. Do not
+delete or re-label runners as part of rollback.
 
 ## Option B: Decouple Shadow Jobs from Pull Requests
 
@@ -212,7 +244,7 @@ Exact implementation authority sentence:
 ### Rollback
 
 Revert the trigger change to restore PR execution. Before rollback, verify a
-matching Mac runner is online so the old indefinite-queue failure is not
+matching Mac runner is online so the old unassigned queue-wait failure is not
 reintroduced immediately.
 
 ## Option C: Infra-Class Settlement Predicate
@@ -324,12 +356,14 @@ labels as an improvised rollback.
 
 Authorize Option D now to restore existing capacity and convert #9201's queued
 unknown into either a real Mac test result or a green shadow result. In
-parallel, authorize Option A as the durable repair. Option A preserves pre-merge
-cross-platform signal while preventing an offline host from creating an
-indefinitely queued job; its dedicated hosted summary also makes degraded
-capacity visible. Option B discards pre-merge signal, and Option C changes merge
-authority in response to an infrastructure problem, so both should remain
-fallbacks unless Option A proves infeasible.
+parallel, authorize the repaired Option A as the preferred durable experiment.
+Its trusted, no-checkout capacity job preserves pre-merge cross-platform signal
+without exposing an Administration-read token to PR code, and its hosted
+summary makes known-offline capacity visible. Option A still has a
+post-snapshot race, which its queue-age alert must expose rather than hide.
+Option B discards pre-merge signal, and Option C changes merge authority in
+response to an infrastructure problem, so both should remain fallbacks unless
+Option A proves infeasible or fails security review.
 
 Implementation and settlement remain separate decisions. After either durable
 implementation is complete, a new exact-head Tier 4 review and human settlement
