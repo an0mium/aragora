@@ -117,6 +117,7 @@ Current source checkout:
 python3 -m pip install -e .
 aragora demo --offline --receipt aragora-demo-receipt.json
 aragora receipt verify aragora-demo-receipt.json
+aragora receipt export aragora-demo-receipt.json --format odr -o receipt.odr.json
 ```
 
 Live review with a provider key:
@@ -124,7 +125,6 @@ Live review with a provider key:
 ```bash
 export ANTHROPIC_API_KEY=...        # provider credential for live model review
 aragora review-pr 123               # multi-agent review of a GitHub PR
-aragora receipt export <id> --format odr -o receipt.odr.json   # portable receipt
 ```
 
 ## Core workflows
