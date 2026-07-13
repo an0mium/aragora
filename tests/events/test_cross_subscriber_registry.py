@@ -122,8 +122,13 @@ GOLDEN_SUBSCRIBER_NAMES = frozenset(
 # "aragora.events -> aragora.server" is NOT hand-shrunk by E6 (core-side
 # events/dispatcher.py + events/async_dispatcher.py contributors remain,
 # owned by later batches).
+# Corrective boundary: the gauntlet-complete notification reaction also lives
+# in aragora/server/event_subscribers.py because notification delivery is an
+# interface concern. It remains part of the golden superset but must not appear
+# in a bare or domain-only manager.
 RELOCATED_SUBSCRIBER_NAMES = frozenset(
     {
+        "gauntlet_to_notification",
         "memory_to_mound",
         "mound_to_memory_retrieval",
         "belief_to_mound",
@@ -191,6 +196,7 @@ APPLICATION_TIER_SUBSCRIBER_NAMES = frozenset(
 # docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.4 (P4a Batch E6).
 INTERFACE_TIER_SUBSCRIBER_NAMES = frozenset(
     {
+        "gauntlet_to_notification",
         "staleness_to_debate",
         "webhook_agent_elo_updated",
         "webhook_calibration_update",
@@ -615,6 +621,23 @@ def test_superset_bootstrap_fails_closed_when_server_home_registration_is_missin
 
     with pytest.raises(RuntimeError, match="Application event subscriber bootstrap incomplete"):
         bootstrap_event_subscribers()
+
+
+def test_events_package_owns_no_notification_delivery_reaction():
+    """Notification delivery reactions belong above infrastructure ``events``."""
+    import aragora.events as events_package
+    import aragora.events.subscribers as subscribers_package
+
+    events_root = Path(events_package.__file__).parent
+    offenders = sorted(
+        path.relative_to(events_root).as_posix()
+        for path in events_root.rglob("*.py")
+        if "aragora.notifications.service" in path.read_text(encoding="utf-8")
+    )
+
+    assert offenders == []
+    assert not (events_root / "subscribers" / "notification_handlers.py").exists()
+    assert not hasattr(subscribers_package, "NotificationHandlersMixin")
 
 
 def test_registry_module_has_zero_domain_imports():
