@@ -15,7 +15,7 @@
       "estimated_output_tokens": 10,
       "estimated_cost_usd": 0.0001,
       "actual_cost_usd": null,
-      "note": "Cost negligible; 2 of 3 providers connected. Gemini key invalid."
+      "note": "Cost negligible; 2 of 3 direct providers connected. Gemini key invalid. The separate OpenRouter HTTP-401 connectivity probe failed authentication before generation and recorded zero billable usage."
     },
     {
       "id": "m8-review-pr-9193",
