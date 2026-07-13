@@ -54,6 +54,7 @@ from aragora.server.startup.control_plane import (
     init_persistent_task_queue,
     init_shared_control_plane_state,
     init_witness_patrol,
+    register_control_plane_event_contributors,
 )
 from aragora.server.startup.knowledge_mound import (
     get_km_config_from_env,
@@ -432,6 +433,7 @@ async def _init_all_components(
     """Phase 3: Initialize all server components sequentially."""
     from aragora.server.startup.event_subscribers import register_webhook_store
 
+    register_control_plane_event_contributors()
     register_webhook_store()
 
     # PostgreSQL connection pool FIRST (event-loop bound, needed by subsystems)
@@ -735,6 +737,7 @@ __all__ = [
     "init_slack_token_refresh_scheduler",
     "init_titans_memory_sweep",
     "init_self_improvement_daemon",
+    "register_control_plane_event_contributors",
     "init_control_plane_coordinator",
     "init_shared_control_plane_state",
     "init_tts_integration",
