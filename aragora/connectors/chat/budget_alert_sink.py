@@ -62,10 +62,3 @@ def register_budget_alert_sinks() -> None:
     """Register chat adapters with the billing-owned sink registry."""
     register_budget_alert_sink("slack", SlackBudgetAlertSink())
     register_budget_alert_sink("teams", TeamsBudgetAlertSink())
-
-
-__all__ = [
-    "SlackBudgetAlertSink",
-    "TeamsBudgetAlertSink",
-    "register_budget_alert_sinks",
-]

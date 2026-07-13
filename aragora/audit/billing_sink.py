@@ -9,6 +9,3 @@ def register_billing_audit_sink() -> None:
     from aragora.billing.models import register_mfa_bypass_audit_sink
 
     register_mfa_bypass_audit_sink(audit_admin)
-
-
-__all__ = ["register_billing_audit_sink"]

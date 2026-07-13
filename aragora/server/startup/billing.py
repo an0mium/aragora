@@ -28,6 +28,3 @@ def init_billing_edge_adapters(*, strict: bool = False) -> bool:
             raise RuntimeError("Billing edge adapter registration failed") from exc
         logger.warning("Billing edge adapter registration failed: %s", exc)
         return False
-
-
-__all__ = ["init_billing_edge_adapters"]

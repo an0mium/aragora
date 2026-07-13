@@ -15,6 +15,3 @@ def register_billing_cost_adapter() -> None:
     tracker = get_cost_tracker()
     tracker.set_km_adapter(CostAdapter(enable_dual_write=True))
     logger.info("CostTracker KM adapter registered for bidirectional sync")
-
-
-__all__ = ["register_billing_cost_adapter"]

@@ -42,6 +42,13 @@ from collections.abc import Callable
 
 from aragora.utils.request_ip import extract_client_ip as _extract_client_ip
 
+warnings.warn(
+    "aragora.server.middleware.user_auth.extract_client_ip is deprecated; "
+    "import aragora.utils.request_ip.extract_client_ip instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 if TYPE_CHECKING:
     pass
 
