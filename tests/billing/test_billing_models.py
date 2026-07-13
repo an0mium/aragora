@@ -492,14 +492,26 @@ class TestUser:
         with pytest.raises(ConfigurationError, match="required to approve MFA bypasses"):
             user.approve_mfa_bypass(approved_by="admin-123")
 
+        assert user.mfa_bypass_approved_at is None
+        assert user.mfa_bypass_approved_by is None
+        assert user.mfa_bypass_expires_at is None
+        assert user.mfa_bypass_reason is None
+
     def test_user_revoke_mfa_bypass_requires_audit_capability(self):
         """Revocation fails closed when no audit sink has been registered."""
         user = User(is_service_account=True)
         user.approve_mfa_bypass(approved_by="admin-123")
+        approved_at = user.mfa_bypass_approved_at
+        expires_at = user.mfa_bypass_expires_at
         clear_mfa_bypass_audit_sink()
 
         with pytest.raises(ConfigurationError, match="required to revoke MFA bypasses"):
             user.revoke_mfa_bypass(revoked_by="admin-456")
+
+        assert user.mfa_bypass_approved_at == approved_at
+        assert user.mfa_bypass_approved_by == "admin-123"
+        assert user.mfa_bypass_expires_at == expires_at
+        assert user.mfa_bypass_reason == "service_account"
 
     def test_user_approve_mfa_bypass_propagates_audit_failure(self):
         """A configured but failing audit sink remains fail closed."""
@@ -508,6 +520,9 @@ class TestUser:
 
         with pytest.raises(RuntimeError, match="audit down"):
             user.approve_mfa_bypass(approved_by="admin-123")
+
+        assert user.mfa_bypass_approved_at is None
+        assert user.mfa_bypass_approved_by is None
 
     def test_user_revoke_mfa_bypass_not_service_account(self):
         """Test MFA bypass revocation fails for non-service accounts."""

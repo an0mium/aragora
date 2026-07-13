@@ -574,18 +574,8 @@ class User:
         if not self.is_service_account:
             raise ValueError("MFA bypass can only be approved for service accounts")
 
-        self.mfa_bypass_reason = reason
-        self.mfa_bypass_approved_by = approved_by
-        self.mfa_bypass_approved_at = datetime.now(timezone.utc)
-        self.mfa_bypass_expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
-        self.updated_at = datetime.now(timezone.utc)
-
-        logger.info(
-            "MFA bypass approved for service account %s by %s. Expires: %s",
-            self.id,
-            approved_by,
-            self.mfa_bypass_expires_at,
-        )
+        approved_at = datetime.now(timezone.utc)
+        expires_at = approved_at + timedelta(days=expires_days)
         _audit_mfa_bypass(
             component="MFA Bypass Approval Audit",
             missing_reason=(
@@ -597,11 +587,33 @@ class User:
             details={"reason": reason, "expires_days": expires_days},
         )
 
+        self.mfa_bypass_reason = reason
+        self.mfa_bypass_approved_by = approved_by
+        self.mfa_bypass_approved_at = approved_at
+        self.mfa_bypass_expires_at = expires_at
+        self.updated_at = datetime.now(timezone.utc)
+
+        logger.info(
+            "MFA bypass approved for service account %s by %s. Expires: %s",
+            self.id,
+            approved_by,
+            self.mfa_bypass_expires_at,
+        )
+
     def revoke_mfa_bypass(self, revoked_by: str, reason: str = "manual_revocation") -> None:
         """Revoke MFA bypass for this service account."""
         if not self.is_service_account:
             raise ValueError("MFA bypass can only be revoked for service accounts")
         previous_approved_by = self.mfa_bypass_approved_by
+        _audit_mfa_bypass(
+            component="MFA Bypass Revocation Audit",
+            missing_reason=("aragora.audit.unified.audit_admin is required to revoke MFA bypasses"),
+            admin_id=revoked_by,
+            action="mfa_bypass_revoked",
+            target_id=str(self.id),
+            details={"reason": reason, "previous_approved_by": previous_approved_by},
+        )
+
         self.mfa_bypass_approved_at = None
         self.mfa_bypass_approved_by = None
         self.mfa_bypass_expires_at = None
@@ -613,14 +625,6 @@ class User:
             revoked_by,
             reason,
             previous_approved_by,
-        )
-        _audit_mfa_bypass(
-            component="MFA Bypass Revocation Audit",
-            missing_reason=("aragora.audit.unified.audit_admin is required to revoke MFA bypasses"),
-            admin_id=revoked_by,
-            action="mfa_bypass_revoked",
-            target_id=str(self.id),
-            details={"reason": reason, "previous_approved_by": previous_approved_by},
         )
 
     def to_dict(self, include_sensitive: bool = False) -> dict[str, Any]:
