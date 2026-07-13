@@ -65,7 +65,7 @@ def get_redis_client(redis_url: str | None = None) -> RedisClientProtocol | None
     cluster_nodes = os.getenv("ARAGORA_REDIS_CLUSTER_NODES", "")
     if cluster_nodes:
         try:
-            from aragora.server.redis_cluster import get_cluster_client
+            from aragora.storage.redis_cluster import get_cluster_client
 
             client = get_cluster_client()
             if client and client.is_available:
@@ -117,7 +117,7 @@ def reset_redis_client() -> None:
 def is_cluster_mode() -> bool:
     """Check if running in Redis Cluster mode."""
     try:
-        from aragora.server.redis_cluster import get_cluster_client
+        from aragora.storage.redis_cluster import get_cluster_client
 
         client = get_cluster_client()
         return client is not None and client.is_cluster
