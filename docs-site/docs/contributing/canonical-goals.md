@@ -32,7 +32,7 @@ Other canonical claims (manually maintained):
 
 | Metric | Value | Source |
 |--------|-------|--------|
-| Agent types | 43 across 6+ LLM providers | agent registry |
+| Agent types | 46 registered / 35 allowlisted across 6+ LLM providers | `aragora.agents.list_available_agents()` (registered) and `ALLOWED_AGENT_TYPES` in `aragora/config/settings.py` (allowlisted); also surfaced in `docs/METRICS.md` |
 | Workflow templates | 50+ across 6 categories | template registry |
 | Handler modules | 580+ | handlers directory |
 | GA readiness | Pre-GA; remaining launch work is tracked in `GA_CHECKLIST.md` | `GA_CHECKLIST.md` |
