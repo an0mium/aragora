@@ -162,3 +162,104 @@ def test_fetch_pr_tier_none_on_timeout(monkeypatch) -> None:
 
     monkeypatch.setattr(m, "run", _boom)
     assert m.fetch_pr_tier("o/r", 1) is None
+
+
+# --- lint_comment: infra failures are explicit and retried once, never {} ---
+
+
+_LINT_ARGS = (9073, "a" * 40, "2026-07-09T22:44:49Z", "an0mium", "## body", {})
+
+
+def test_lint_comment_timeout_returns_explicit_infra_failure(monkeypatch) -> None:
+    calls = []
+
+    def _boom(*a, **k):
+        calls.append(1)
+        raise subprocess.TimeoutExpired(cmd="lint", timeout=1)
+
+    monkeypatch.setattr(m, "run", _boom)
+    lint = m.lint_comment(*_LINT_ARGS)
+    assert lint["would_count"] is False
+    assert lint["counted_reviewer_ids"] == []
+    assert len(lint["problems"]) == 1
+    assert lint["problems"][0].startswith("evidence_lint_infra_failure:")
+    assert len(calls) == 1 + m._EVIDENCE_LINT_INFRA_RETRIES  # retried, then explicit
+
+
+def test_lint_comment_retries_infra_failure_then_returns_parsed_result(monkeypatch) -> None:
+    calls = []
+    good = {"would_count": True, "problems": [], "counted_reviewer_ids": ["claude"]}
+
+    def _flaky(*a, **k):
+        calls.append(1)
+        if len(calls) == 1:
+            return _proc("", returncode=1)
+        return _proc(json.dumps(good))
+
+    monkeypatch.setattr(m, "run", _flaky)
+    assert m.lint_comment(*_LINT_ARGS) == good
+    assert len(calls) == 2
+
+
+def test_lint_comment_never_retries_a_parsed_rejection(monkeypatch) -> None:
+    calls = []
+    rejection = {"would_count": False, "problems": ["blocking_or_negative_verdict"]}
+
+    def _reject(*a, **k):
+        calls.append(1)
+        return _proc(json.dumps(rejection))
+
+    monkeypatch.setattr(m, "run", _reject)
+    assert m.lint_comment(*_LINT_ARGS) == rejection
+    assert len(calls) == 1  # a substantive rejection is final, never retried
+
+
+def test_lint_comment_bad_json_returns_explicit_infra_failure(monkeypatch) -> None:
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc("not json"))
+    lint = m.lint_comment(*_LINT_ARGS)
+    assert lint["would_count"] is False
+    assert lint["problems"] == [
+        "evidence_lint_infra_failure: evidence-lint emitted undecodable JSON"
+    ]
+
+
+def test_lint_comment_enforces_reason_invariant_on_parsed_rejection(monkeypatch) -> None:
+    """would_count == False must ALWAYS carry a reason: a parsed rejection with
+    an empty problems list would still render as 'DOES NOT count ()'."""
+    bare = {"would_count": False, "problems": [], "counted_reviewer_ids": []}
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(bare)))
+    lint = m.lint_comment(*_LINT_ARGS)
+    assert lint["would_count"] is False
+    assert lint["problems"] == ["evidence_lint_rejection_without_reason"]
+
+
+def test_lint_comment_reason_invariant_leaves_counting_results_alone(monkeypatch) -> None:
+    counting = {"would_count": True, "problems": [], "counted_reviewer_ids": ["claude"]}
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(counting)))
+    assert m.lint_comment(*_LINT_ARGS) == counting
+
+
+def test_lint_comment_exit1_with_json_is_a_verdict_not_infra_failure(monkeypatch) -> None:
+    """The evidence-lint CLI exits 1 BY DESIGN on substantive rejections while
+    printing the parsed JSON (review_queue: 'return 0 if would_count else 1').
+    The exit code must never be treated as a health signal (#9129 claude P1)."""
+    calls = []
+    rejection = {"would_count": False, "problems": ["blocking_or_negative_verdict"]}
+
+    def _exit1(*a, **k):
+        calls.append(1)
+        return _proc(json.dumps(rejection), returncode=1)
+
+    monkeypatch.setattr(m, "run", _exit1)
+    assert m.lint_comment(*_LINT_ARGS) == rejection
+    assert len(calls) == 1  # a verdict, even at exit 1, is final: no retry
+
+
+def test_lint_comment_non_dict_json_is_infra_failure(monkeypatch) -> None:
+    for payload in ("null", "[]", '"oops"'):
+        monkeypatch.setattr(m, "run", lambda *a, _p=payload, **k: _proc(_p))
+        lint = m.lint_comment(*_LINT_ARGS)
+        assert lint["would_count"] is False
+        assert lint["problems"][0].startswith(
+            "evidence_lint_infra_failure: evidence-lint emitted non-dict JSON"
+        )
