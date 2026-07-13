@@ -15,17 +15,30 @@ existing diagnostic worktree. Fetch the exact target and create a new detached
 worktree:
 
 ```bash
-REPO="$(git rev-parse --show-toplevel)"
-git -C "$REPO" fetch origin --prune
-MAIN_SHA="$(git -C "$REPO" rev-parse origin/main)"
+SOURCE_ROOT="$(git rev-parse --show-toplevel)"
+COMMON_GIT_DIR="$(
+  git -C "$SOURCE_ROOT" rev-parse --path-format=absolute --git-common-dir
+)"
+SHARED_ROOT="$(dirname "$COMMON_GIT_DIR")"
+
+test -d "$COMMON_GIT_DIR"
+test -d "$SHARED_ROOT/.git"
+
+git -C "$SOURCE_ROOT" fetch origin --prune
+MAIN_SHA="$(git -C "$SOURCE_ROOT" rev-parse origin/main)"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 TMP_ROOT="${TMPDIR:-/tmp}"
 TMP_ROOT="${TMP_ROOT%/}"
 WT="$TMP_ROOT/aragora-main-first-error-$TS"
 
-git -C "$REPO" worktree add --detach "$WT" "$MAIN_SHA"
-mkdir -p "$WT/logs" "$REPO/.aragora/main-red"
+git -C "$SOURCE_ROOT" worktree add --detach "$WT" "$MAIN_SHA"
+mkdir -p "$WT/logs" "$SHARED_ROOT/.aragora/main-red"
 ```
+
+`SOURCE_ROOT` may itself be a linked or disposable worktree. `SHARED_ROOT` is
+derived from Git's common directory and therefore names the primary checkout
+that owns the worktree registry. Stop as `infra_error` if either directory
+check fails; do not fall back to storing the durable receipt in `SOURCE_ROOT`.
 
 Do not silently retarget the worktree if `origin/main` moves. Finish or stop
 the run against `MAIN_SHA`, then start a new worktree for the new commit.
@@ -54,13 +67,30 @@ does not make an unexpired marker safe to reclaim.
 ## 3. Stream Output To A Durable Log
 
 Use the interpreter, scope, and exclusions from the incident being reproduced.
-Save the example as a Bash driver and execute that driver; do not paste its
-`exit` paths into an interactive shell. Bound the process group with
-`gtimeout` on macOS or `timeout` elsewhere, and preserve the pytest side of
-the pipeline:
+Save the example as `<worktree>/logs/run-first-error.sh` and execute that
+driver; do not paste its `exit` paths into an interactive shell. The driver
+derives its worktree, exact SHA, timestamp, and durable shared root from its
+own location, so it does not depend on variables left in the setup shell.
+Bound the process group with `gtimeout` on macOS or `timeout` elsewhere, and
+preserve the pytest side of the pipeline:
 
 ```bash
 #!/usr/bin/env bash
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+WT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+MAIN_SHA="$(git -C "$WT" rev-parse HEAD)"
+COMMON_GIT_DIR="$(
+  git -C "$WT" rev-parse --path-format=absolute --git-common-dir
+)"
+SHARED_ROOT="$(dirname "$COMMON_GIT_DIR")"
+TS="${FIRST_ERROR_TS:-$(date -u +%Y%m%dT%H%M%SZ)}"
+
+test -d "$COMMON_GIT_DIR"
+test -d "$SHARED_ROOT/.git"
+mkdir -p "$WT/logs" "$SHARED_ROOT/.aragora/main-red"
 
 cd "$WT"
 LOG="logs/first-error-$TS.log"
@@ -82,6 +112,10 @@ PYTHONUNBUFFERED=1 "$TIMEOUT_BIN" --signal=TERM --kill-after=30s "$TEST_TIMEOUT"
 TEST_RC="${PIPESTATUS[0]}"
 set -e
 ```
+
+Run the saved driver with `bash "$WT/logs/run-first-error.sh"`. A caller may
+set `FIRST_ERROR_TS` to coordinate related receipt filenames, but no setup
+variable is required for a correct run.
 
 `PIPESTATUS` is intentionally Bash-specific, which is why the example is a
 driver script rather than an interactive-shell fragment. Set `TEST_TIMEOUT`
@@ -122,11 +156,13 @@ Store the report in both locations before the driver exits:
 
 ```text
 <worktree>/logs/first-error-report-<timestamp>.md
-<shared-root>/.aragora/main-red/first-error-report-<timestamp>.md
+<shared-checkout-root>/.aragora/main-red/first-error-report-<timestamp>.md
 ```
 
-The worktree copy travels with the diagnostic context. The shared `.aragora`
-copy survives later helper-mediated worktree cleanup.
+The worktree copy travels with the diagnostic context. The shared checkout is
+the `SHARED_ROOT` resolved from Git's common directory, not whichever linked
+worktree launched the diagnostic. Its `.aragora` copy therefore survives later
+helper-mediated cleanup of the diagnostic or source worktree.
 
 ## 5. Reclaim Conservatively
 
