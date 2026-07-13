@@ -1150,6 +1150,27 @@ class TestPolicyStoreSyncAdvanced:
         assert "sla_requirements" in sync.FRAMEWORK_MAPPINGS
         assert "task_restrictions" in sync.FRAMEWORK_MAPPINGS
 
+    def test_sla_policy_defaults_missing_min_agents(self, sync):
+        """An SLA rule without a minimum keeps the runtime default."""
+        rule = MagicMock(enabled=True, metadata={"max_execution_seconds": 30})
+        policy = MagicMock(
+            id="sla-policy",
+            name="SLA policy",
+            description="",
+            framework_id="sla_requirements",
+            workspace_id="default",
+            level="mandatory",
+            enabled=True,
+            created_by="test",
+            rules=[rule],
+        )
+
+        converted = sync._convert_sla_policy(policy)
+
+        assert converted is not None
+        assert converted.sla is not None
+        assert converted.sla.min_agents_available == 1
+
 
 # =============================================================================
 # Factory Functions Tests

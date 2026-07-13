@@ -6,7 +6,7 @@ Bridges compliance policies to control plane.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 from aragora.observability import get_logger
 from aragora.exceptions import REDIS_CONNECTION_ERRORS
@@ -257,7 +257,7 @@ class PolicyStoreSync:
             sla=SLARequirements(
                 max_execution_seconds=max_execution or 300.0,
                 max_queue_seconds=max_queue or 60.0,
-                min_agents_available=cast(int, min_agents),
+                min_agents_available=min_agents if min_agents is not None else 1,
             ),
             enforcement_level=(
                 EnforcementLevel.HARD if policy.level == "mandatory" else EnforcementLevel.WARN
