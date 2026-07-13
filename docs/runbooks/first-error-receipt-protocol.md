@@ -77,7 +77,7 @@ preserve the pytest side of the pipeline:
 ```bash
 #!/usr/bin/env bash
 
-set -uo pipefail
+set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 WT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
