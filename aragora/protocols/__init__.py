@@ -53,18 +53,18 @@ Usage:
     from aragora.protocols import A2AClient, A2AServer
 """
 
+import importlib
+
 # =============================================================================
 # A2A Protocol
 # =============================================================================
 from aragora.protocols.a2a import (
     A2AClient,
-    A2AServer,
     AgentCard,
     TaskRequest,
     TaskResult,
     TaskStatus,
 )
-from aragora.protocols.bridge import ProtocolBridge
 
 # =============================================================================
 # Backend Protocols (sync, simple interfaces for storage)
@@ -265,3 +265,16 @@ __all__ = [
     # Result types
     "Result",
 ]
+
+
+def __getattr__(name: str):
+    if name == "A2AServer":
+        runtime = importlib.import_module("aragora.server.a2a_runtime")
+        value = runtime.A2AServer
+    elif name == "ProtocolBridge":
+        bridge = importlib.import_module("aragora.server.protocol_bridge")
+        value = bridge.ProtocolBridge
+    else:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = value
+    return value
