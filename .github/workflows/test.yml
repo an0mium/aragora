@@ -1243,12 +1243,16 @@ jobs:
         id: rotating-seed
         run: echo "seed=$(( ${{ github.run_number }} % 100000 ))" >> $GITHUB_OUTPUT
 
+      # SCOPE NOTE: slices run in separate pytest processes, so CROSS-SLICE
+      # pollution (e.g. tests/debate state leaking into tests/workflow) is
+      # structurally out of this guard's scope — a green guard certifies
+      # within-slice order-independence only. Cross-domain leaks are the full
+      # matrix / nightly lanes' concern.
       - name: Prepare artifact directory
         run: mkdir -p artifacts/pollution-guard
 
       - name: Run randomized-order guard (${{ matrix.slice }}, fixed seed=${{ matrix.fixed_seed }})
         id: fixed-seed-run
-        continue-on-error: true
         run: |
           set +e
           pytest ${{ matrix.paths }} \
@@ -1268,7 +1272,6 @@ jobs:
 
       - name: Run randomized-order guard (${{ matrix.slice }}, rotating seed=${{ steps.rotating-seed.outputs.seed }})
         id: rotating-seed-run
-        continue-on-error: true
         run: |
           set +e
           pytest ${{ matrix.paths }} \
@@ -1317,12 +1320,20 @@ jobs:
                       continue
                   classname = tc.get("classname", "")
                   testname = tc.get("name", "")
-                  # pytest JUnit encodes node id as <classname>::<testname>,
-                  # where classname already contains file path with dots.
-                  node_id = (
-                      f"{classname.replace('.', '/')}.py::{testname}"
-                      if classname else testname
-                  )
+                  # JUnit classname is the dotted MODULE path plus optional
+                  # CLASS segments (tests.foo.test_mod.TestBar): a blind
+                  # dot->slash replace yields invalid IDs for class-based
+                  # tests. Find the longest prefix that is a real module file;
+                  # remaining segments are class names.
+                  node_id = testname
+                  if classname:
+                      parts = classname.split(".")
+                      node_id = f"{classname.replace('.', '/')}.py::{testname}"
+                      for i in range(len(parts), 0, -1):
+                          candidate = "/".join(parts[:i]) + ".py"
+                          if Path(candidate).exists():
+                              node_id = "::".join([candidate, *parts[i:], testname])
+                              break
                   failing.append(
                       {
                           "slice": slice_,
@@ -1341,7 +1352,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pollution-guard-${{ matrix.slice }}-${{ github.run_number }}
+          name: pollution-guard-${{ matrix.slice }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: artifacts/pollution-guard/
           if-no-files-found: warn
           retention-days: 14
@@ -1354,7 +1365,7 @@ jobs:
           echo "fixed seed=${{ matrix.fixed_seed }} rc=$fixed_rc"
           echo "rotating seed=${{ steps.rotating-seed.outputs.seed }} rc=$rotating_rc"
           if [[ "$fixed_rc" != "0" || "$rotating_rc" != "0" ]]; then
-            echo "::error::Randomized pollution guard slice ${{ matrix.slice }} failed. Failing node IDs uploaded to pollution-guard-${{ matrix.slice }}-${{ github.run_number }}."
+            echo "::error::Randomized pollution guard slice ${{ matrix.slice }} failed. Failing node IDs uploaded to pollution-guard-${{ matrix.slice }}-${{ github.run_number }}-${{ github.run_attempt }}."
             exit 1
           fi
 
