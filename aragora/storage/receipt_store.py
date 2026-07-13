@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import atexit
+import hashlib
 import json
 import logging
 import os
@@ -46,6 +47,23 @@ logger = logging.getLogger(__name__)
 
 # Default configuration
 DEFAULT_RETENTION_DAYS = int(os.environ.get("ARAGORA_RECEIPT_RETENTION_DAYS", "2555"))  # ~7 years
+
+
+def _compute_receipt_checksum(receipt_data: dict[str, Any]) -> str:
+    """Compute the canonical decision-receipt integrity checksum."""
+    content = json.dumps(
+        {
+            "receipt_id": receipt_data.get("receipt_id", ""),
+            "verdict": receipt_data.get("verdict", "NEEDS_REVIEW"),
+            "confidence": receipt_data.get("confidence", 0.0),
+            "findings_count": len(receipt_data.get("findings") or []),
+            "critical_count": receipt_data.get("critical_count", 0),
+            "timestamp": receipt_data.get("timestamp"),
+            "audit_trail_id": receipt_data.get("audit_trail_id"),
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
 def _linked_worktree_shared_receipt_db_path() -> Path | None:
@@ -1257,7 +1275,7 @@ class ReceiptStore:
             )
 
         try:
-            from aragora.gauntlet.signing import (
+            from aragora.storage.receipt_signing import (
                 ReceiptSigner,
                 SignatureMetadata,
                 SignedReceipt,
@@ -1363,11 +1381,7 @@ class ReceiptStore:
             }
 
         try:
-            from aragora.export.decision_receipt import DecisionReceipt
-
-            # Recompute checksum from data
-            loaded_receipt = DecisionReceipt.from_dict(receipt.data)
-            computed_checksum = loaded_receipt._compute_checksum()
+            computed_checksum = _compute_receipt_checksum(receipt.data)
 
             is_valid = computed_checksum == receipt.checksum
 
