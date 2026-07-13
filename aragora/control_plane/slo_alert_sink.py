@@ -6,10 +6,7 @@ import logging
 from typing import Any
 
 from aragora.control_plane.channels import (
-    ChannelConfig,
-    NotificationChannel,
     NotificationEventType,
-    NotificationManager,
     NotificationPriority,
 )
 from aragora.control_plane.notifications import get_default_notification_dispatcher
@@ -35,6 +32,12 @@ class ControlPlaneSLOAlertSink:
 
     def _get_manager(self) -> Any:
         if self._manager is None:
+            from aragora.control_plane.channels import (
+                ChannelConfig,
+                NotificationChannel,
+                NotificationManager,
+            )
+
             manager = NotificationManager()
             manager.add_channel(
                 ChannelConfig(
@@ -56,6 +59,11 @@ class ControlPlaneSLOAlertSink:
         metadata: dict[str, Any],
     ) -> Any:
         """Deliver an observability alert through the channel manager."""
+        from aragora.control_plane.channels import (
+            NotificationEventType,
+            NotificationPriority,
+        )
+
         return await self._get_manager().notify(
             event_type=NotificationEventType(event_type),
             title=title,
