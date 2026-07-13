@@ -97,7 +97,7 @@ standalone verifier's hand-rolled schema mirror.
 
 | Proposed slot | Current path(s) | Notes |
 |---|---|---|
-| native receipt model | `aragora/gauntlet/receipt_models.py`, `aragora/gauntlet/receipt.py`, `aragora/receipts/__init__.py` (`from aragora.gauntlet.receipt import DecisionReceipt`) | `schema_version="1.1"`; SHA-256 over 6-field subset → `artifact_hash` |
+| native receipt model + receipt helpers | `aragora/gauntlet/receipt_models.py`, `aragora/gauntlet/receipt.py`, `aragora/receipts/` (`__init__.py` re-exports `DecisionReceipt`; `lane.py` and `provenance.py` hold receipt-adjacent runtime metadata) | `schema_version="1.1"`; SHA-256 over 6-field subset → `artifact_hash`; the standalone verifier does not import the runtime helpers |
 | ODR export + signing | `aragora/gauntlet/odr_export.py` (`decision_receipt_to_odr`, `jcs_canonicalize`, `odr_content_digest`), `aragora/gauntlet/odr_signing.py` (`generate_signing_key`, `sign_odr_receipt`, `public_key_pem`) | the only CLI producer is `aragora receipt export --format odr` |
 | ODR verifier engine (in-tree) | `aragora/gauntlet/odr_verify.py` (landed #8389) | module docstring softened in #8871 — **not yet wired to any shipped CLI/HTTP entry point**; kept lockstep with `aragora-verify` |
 | ODR schema (canonical) | `aragora/gauntlet/odr_schema.json` | byte-identical mirror at `aragora-verify/src/aragora_verify/odr_schema.json`; `diff` empty drift-check |
@@ -227,7 +227,7 @@ of this boundary is **fence-and-disclosure, not promotion**: a module in this bo
 
 | Proposed slot | Current path(s) | Notes |
 |---|---|---|
-| experimental modules | `aragora/<pkg>` for the 29 `tier: experimental` rows in `aragora/module_tiers.yaml` (advocates, approvals, brief_engine, codex, embeddings, factory, fixtures, maintenance, moderation, monitoring, onboarding, performance, playbooks, prediction, prompts, receipts (except `aragora/receipts/__init__.py` — Boundary 2 receipts+verifier re-export surface), reports, shared, sync, tasks, telemetry, tools, tournaments, trail, transcription, types, uncertainty, webhooks, work) | most have ≤7 importers and ≤4 test files; no current charter pressure to graduate. `aragora/receipts/` is tier:experimental as a package, but its `__init__.py` is the DecisionReceipt re-export claimed by Boundary 2; only `aragora/receipts/lane.py` and `aragora/receipts/provenance.py` (operational lane/provenance helpers) remain in this boundary |
+| experimental modules | `aragora/<pkg>` for the 29 `tier: experimental` rows in `aragora/module_tiers.yaml` (advocates, approvals, brief_engine, codex, embeddings, factory, fixtures, maintenance, moderation, monitoring, onboarding, performance, playbooks, prediction, prompts, reports, shared, sync, tasks, telemetry, tools, tournaments, trail, transcription, types, uncertainty, webhooks, work; `aragora/receipts/` is classified wholly in Boundary 2 despite its generated maturity tier) | most have ≤7 importers and ≤4 test files; no current charter pressure to graduate. Boundary ownership stays package-granular even when the generated maturity tier and proposed mission boundary differ |
 | standalone contrib wedge | `aragora-debate/` (a sibling package, `pip install aragora-debate` for the legacy receipt story; cf. `docs/architecture/PACKAGING_AND_DISTRIBUTION.md` §1, §7) | the only currently-shipped contrib slice |
 | dep-installed extras (DO NOT IMPORT ARAGORA-MAIN) | the `[blockchain]`, `[gateway]`, `[experimental]`, `[connectors]`, `[enterprise]` optional-dependency slices — each adds an opt-in dependency set | base install omits these by design |
 | deprecated modules | the 3 `tier: deprecated` rows in `aragora/module_tiers.yaml` (`aragora/metrics/`, `aragora/operations/`, `aragora/schedulers/`); plus past movers under `docs/archive/` and `docs/deprecated/` | removal-candidate zone; `aragora/metrics` has a soft-shim `DeprecationWarning` per CHR-X-007 (the only entry binding while INTENDED_ARCHITECTURE is DRAFT) |
@@ -273,8 +273,8 @@ extras* and prevents accidental coupling to experimental/deprecated paths.
 | 2 `receipts+verifier` | ✓ (receipts import core) | yes | — | — | — | — |
 | 3 `action+CI-gate` | ✓ (Action uses core types) | ✓ (Action imports ODR machinery) | yes | — | — | — |
 | 4 `debate+quorum` | ✓ (debate uses core types) | ✓ (writes receipts after verdict) | — | yes | — | — |
-| 5 `SDK+API` | ✓ (SDK/CLI uses core types) | ✓ (verifier callable from CLI) | ✓ (Action exposed via SDK façade) | ✓ (CLI/API surface) | yes | — |
-| 6 `experimental+contrib+archive` | limited (the legacy bridge) | limited (only for external `aragora-debate` HMAC) | — | — | — | yes (opt-in) |
+| 5 `SDK+API` | ✓ (SDK/CLI uses core types) | ✓ (verifier callable from CLI) | — (invoke the Action externally; never import its scripts) | ✓ (CLI/API surface) | yes | — |
+| 6 `experimental+contrib+archive` | limited (the legacy bridge) | limited (only for external `aragora-debate` HMAC) | — | limited (opt-in extensions may consume debate APIs) | limited (opt-in modules may consume public SDK/API) | yes (opt-in) |
 
 **What this table does NOT do:**
 - It does **not** add a CI script that rejects any of these import edges. The current
@@ -429,8 +429,6 @@ For the cross-feature contract pair:
   touch precedent that this proposal deliberately avoids.
 - `docs/status/PUBLIC_UTILITY_MISSION_BASELINE.md` — milestone M7 baseline and the bounded-PR
   sequence this proposal belongs to.
-- `docs/architecture/ARCHITECTURE.md` — the descriptive layer model that this proposal slots under.
-
 ---
 
 ## 8. Changelog (this doc)
@@ -438,12 +436,13 @@ For the cross-feature contract pair:
 - **2026-07-10** — Initial PROPOSE-ONLY draft authored by docs-worker (M7
   legibility). No `aragora/**`, `scripts/**`, or operator-gated doc touched. Diff
   contract: single `A` on this file only.
-- **2026-07-10 (round 4)** — Fixed the last boundary-ownership conflict surfaced by
-  scrutiny round 3: Boundary 6's templated `aragora/<pkg>` enumerated row claimed the
-  parent `aragora/receipts/` wholesale (it is one of the 29 `tier: experimental`
-  packages), while Boundary 2 claims the child `aragora/receipts/__init__.py` (the
-  DecisionReceipt re-export). Added an explicit `(except aragora/receipts/__init__.py)`
-  exclusion to the Boundary 6 `receipts` member so the child resolves to exactly one
-  owner (Boundary 2, per its receipts+verifier charter); `aragora/receipts/lane.py` and
-  `aragora/receipts/provenance.py` (operational helpers) remain in Boundary 6. No other
-  boundary, matrix cell, or section restructured.
+- **2026-07-10 (round 4)** — Resolved the original parent/child ownership conflict
+  by assigning `aragora/receipts/__init__.py` to Boundary 2 and the remaining
+  receipt helpers to Boundary 6. Round 5 supersedes that split so ownership is
+  package-granular.
+- **2026-07-13 (round 5)** — Kept boundary ownership package-granular by assigning all
+  of `aragora/receipts/` to Boundary 2, while noting that its runtime helpers are not
+  standalone-verifier dependencies. Corrected the import matrix so SDK/API code invokes
+  Action tooling externally rather than importing unpackaged scripts, and so opt-in
+  modules may consume the stable debate and SDK/API surfaces. Removed a duplicate
+  architecture reference.
