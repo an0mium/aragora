@@ -1146,7 +1146,11 @@ def build_review_prompt(
         "bullet list of concrete findings, each tagged [P1]/[P2]/[P3] with a location. Include "
         "ONLY priority levels that have a real finding: if a level has none, OMIT it entirely "
         "-- never write a '[P1] None', '[P2] N/A', or similar no-finding line (it is misread as "
-        "a blocking finding). If there are no findings at all, write 'No findings.' Be concise.\n\n"
+        "a blocking finding). Severity contract: [P1] and [P2] findings are BLOCKING -- if you "
+        "report any [P1] or [P2], your verdict MUST be 'Verdict: CHANGES-REQUESTED' (a PASS "
+        "carrying a [P1]/[P2] line is self-contradictory and will not be counted). Use [P3] for "
+        "non-blocking observations; [P3]-only findings may accompany a PASS. "
+        "If there are no findings at all, write 'No findings.' Be concise.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
         f"{body_header}\n{bounded}\n"
     )
