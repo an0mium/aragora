@@ -51,7 +51,7 @@ dependencies = [
     # [enterprise], ...). The aiohttp floor matches the [blockchain]/[all]
     # extras for one consistent pin.
     "aiohttp>=3.14.1,<4.0",
-    "websockets>=13.0,<15.1",
+    "websockets>=13.0,<16.2",
 ]
 
 [project.scripts]
