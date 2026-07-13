@@ -75,8 +75,8 @@ sees it.
 | Proposed slot | Current path(s) | Notes |
 |---|---|---|
 | type hierarchy | `aragora/core/`, `aragora/core_types.py`, `aragora/errors.py`, `aragora/exceptions.py` | root type bundle; the "load bearing" override_reason row in `aragora/module_tiers.yaml` |
-| agent factory | `aragora/agents/` (cli_agents, api_agents/, fallback, airlock, personas, laboratory; (except `aragora/agents/calibration.py`)) | the registry of 46+ agent types; `calibration.py` is Boundary 4 (debate calibration) |
-| persistent state | `aragora/memory/` (CritiqueStore, continuum/; (except `aragora/memory/consensus.py`, `aragora/memory/coordinator.py`)) | the persistent substrate for debates; `consensus.py` and `coordinator.py` are Boundary 4 (post-debate consensus bookkeeping) |
+| agent factory | `aragora/agents/` (including `calibration.py`) | the registry of 46+ agent types; Boundary 4 consumes calibration data without splitting ownership of the package |
+| persistent state | `aragora/memory/` (including `consensus.py` and `coordinator.py`) | the persistent substrate for debates; Boundary 4 consumes post-debate bookkeeping without splitting ownership of the package |
 | knowledge substrate | `aragora/knowledge/` (bridges, mound/, adapters/) | the unified knowledge management plane |
 | settings/allowlist | `aragora/config/` | Pydantic settings + agent-type allowlist — load-bearing |
 | store layer | `aragora/storage/`, `aragora/db/`, `aragora/persistence/` | persistence layer |
@@ -171,9 +171,8 @@ certifies it is the most common mental-model error an adopter hits.
 | Arena + DebateProtocol | `aragora/debate/orchestrator.py`, `aragora/debate/protocol.py`, `aragora/debate/consensus.py`, `aragora/debate/phases/` | the mainline engine itself |
 | team selection | `aragora/debate/team_selector.py`, `aragora/ranking/elo.py` | ELO + calibration feeds team selection |
 | belief/claim primitives | `aragora/reasoning/belief.py`, `aragora/reasoning/provenance.py`, `aragora/reasoning/claims.py` | ingested by debate and by receipt `cruxes`, `quorum.dissent`, `claim` blocks |
-| dissent + calibration | `aragora/debate/traces.py`, `aragora/agents/calibration.py` | heterogeneous-family independence, dissent-bearing trace capture, calibration scoring |
+| dissent trace capture | `aragora/debate/traces.py` | heterogeneous-family independence and dissent-bearing trace capture; calibration remains package-owned by Boundary 1 under `aragora/agents/` |
 | quorum evidence (NOT a public CLI) | `aragora/swarm/quorum_evidence.py`, `aragora/swarm/merge_quorum_io.py` | the merge-gate machinery; **operator-gated Tier-4** surface; do NOT co-edit during dogfood (VAL-DOGFOOD-010) |
-| consensus bookkeeping | `aragora/memory/consensus.py` (Historical debate outcomes), `aragora/memory/coordinator.py` (atomic cross-system writes) | durable post-debate records |
 | judge-based consensus helper | `aragora/heterogeneity/judge.py` | judge role + family-diversity consensus |
 
 **Owed contract:**
@@ -184,6 +183,9 @@ certifies it is the most common mental-model error an adopter hits.
   (VAL-RECON-001/003; ODR spec §6).
 - The quorum machinery's surfaced families must be **disclosed**; absent disclosure flips
   the ODR to attestation: autonomous (weak-bar WARN, not FAIL — VAL-RECON-009).
+- Boundary 4 consumes `aragora/agents/calibration.py` and the consensus/coordinator helpers
+  under `aragora/memory/`, but those files remain package-owned by Boundary 1. Consumption
+  does not create file-level ownership exceptions.
 - Merge-gate / quorum-evidence code (`aragora/swarm/quorum_*`) is **Tier-4 operator-gated**.
   Workers do not self-modify this surface during dogfood (VAL-DOGFOOD-006/010).
 **NOT in this boundary:** the receipts that certify a verdict (Boundary 2); the Action that
@@ -260,9 +262,10 @@ boundaries 1-5 by definition).
 
 ## 3. Boundary cross-talk: who can import whom (proposal rules, not enforcement)
 
-Each boundary in §2 lists what it owes its adopters. The minimum coupling rule is **no
-backwards imports** — a module in a *lower-numbered* boundary never imports from a
-*higher-numbered* one. The table below is read as **"row MAY import column"** (the row
+Each boundary in §2 lists what it owes its adopters. The default coupling rule is **no
+backwards imports** — a module in a *lower-numbered* boundary does not import from a
+*higher-numbered* one unless the table marks a named, narrow adapter edge with **✓**. The
+table below is read as **"row MAY import column"** (the row
 boundary is the importer, the column boundary is the importee). A cell is marked **yes** for
 always-allowed self/lower-boundary imports, **✓** for an important allowed cross-boundary
 edge that the prose calls out, and **—** for edges that the no-backwards-import rule forbids.
@@ -273,7 +276,7 @@ extras* and prevents accidental coupling to experimental/deprecated paths.
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | 1 `core` | yes | — | — | — | — | — |
 | 2 `receipts+verifier` | ✓ (receipts import core) | yes | — | — | — | — |
-| 3 `action+CI-gate` | ✓ (Action uses core types) | ✓ (Action imports ODR machinery) | yes | — | — | — |
+| 3 `action+CI-gate` | ✓ (Action uses core types) | ✓ (Action imports ODR machinery) | yes | ✓ (evidence collector invokes quorum adapter) | — | — |
 | 4 `debate+quorum` | ✓ (debate uses core types) | ✓ (writes receipts after verdict) | — | yes | — | — |
 | 5 `SDK+API` | ✓ (SDK/CLI uses core types) | ✓ (verifier callable from CLI) | — (invoke the Action externally; never import its scripts) | ✓ (CLI/API surface) | yes | — |
 | 6 `experimental+contrib+archive` | limited (the legacy bridge) | limited (only for external `aragora-debate` HMAC) | — | limited (opt-in extensions may consume debate APIs) | limited (opt-in modules may consume public SDK/API) | yes (opt-in) |
@@ -391,7 +394,7 @@ filter is empty by construction.
 
 For the cross-feature contract pair:
 - **VAL-LEGIB-004** (user's main checkout untouched) — verified by
-  `git -C \${ARAGORA_REPO_ROOT:-<repo root>} status --porcelain` (or `git status --porcelain`
+  `git -C "${ARAGORA_REPO_ROOT:-/path/to/aragora}" status --porcelain` (or `git status --porcelain`
   run from the user's main checkout on `main`) returning empty; this proposal does NOT add
   `untracked` files, `git mv`s, or rename staging to the user's working tree.
 - **VAL-LEGIB-002** (tracked clutter git-renamed) — owned by the sibling
@@ -448,3 +451,6 @@ For the cross-feature contract pair:
   Action tooling externally rather than importing unpackaged scripts, and so opt-in
   modules may consume the stable debate and SDK/API surfaces. Removed a duplicate
   architecture reference.
+- **2026-07-13 (round 6)** — Removed the remaining file-level ownership splits under
+  `aragora/agents/` and `aragora/memory/`. Documented the Action evidence collector's
+  narrow adapter edge into quorum machinery and corrected the copy-paste checkout command.
