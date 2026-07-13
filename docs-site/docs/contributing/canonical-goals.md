@@ -12,7 +12,7 @@ description: "Aragora: Canonical Goals & Foundational Thesis"
 
 ## Canonical Metrics
 
-Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
+Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
 
 <!-- metrics:begin canonical-goals-metrics -->
 | Metric | Value | Source |
