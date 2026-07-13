@@ -95,6 +95,7 @@ from aragora.server.startup.security import (
     init_secrets_rotation_scheduler,
     validate_required_secrets,
 )
+from aragora.server.startup.billing import init_billing_edge_adapters
 from aragora.server.startup.database import (  # noqa: F401
     close_postgres_pool,
     init_postgres_pool,
@@ -684,6 +685,7 @@ async def run_startup_sequence(
         graceful_degradation = False
 
     security_edge_adapters = init_security_edge_adapters(strict=strict_startup)
+    billing_edge_adapters = init_billing_edge_adapters(strict=strict_startup)
 
     # Phase 1: Configuration validation
     await _validate_config(graceful_degradation)
@@ -693,12 +695,14 @@ async def run_startup_sequence(
     if prereqs is None:
         status = _get_degraded_status()
         status["security_edge_adapters"] = security_edge_adapters
+        status["billing_edge_adapters"] = billing_edge_adapters
         return status
 
     # Phase 3: Initialize all components
     structured_logging = init_structured_logging()
     status = _build_initial_status(prereqs, structured_logging, time_mod.time())
     status["security_edge_adapters"] = security_edge_adapters
+    status["billing_edge_adapters"] = billing_edge_adapters
     await _init_all_components(status, nomic_dir, stream_emitter)
 
     # Phase 4: Generate startup report
@@ -755,6 +759,7 @@ __all__ = [
     "init_access_review_scheduler",
     "init_rbac_distributed_cache",
     "init_security_edge_adapters",
+    "init_billing_edge_adapters",
     "init_approval_gate_recovery",
     "init_notification_worker",
     "init_inbox_debate_router",
