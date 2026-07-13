@@ -582,6 +582,10 @@ async def test_parallel_entrypoint_registers_webhook_store_before_initializer_ru
             "aragora.server.startup.parallel.init_security_edge_adapters",
             return_value={},
         ),
+        patch(
+            "aragora.server.startup.parallel.init_billing_edge_adapters",
+            return_value={},
+        ),
         patch.object(ParallelInitializer, "run", run_stub),
     ):
         await parallel_init()

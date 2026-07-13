@@ -46,6 +46,7 @@ def _get_degraded_status() -> dict[str, Any]:
         "settlement_review_scheduler": False,
         "redis_state_backend": False,
         "security_edge_adapters": False,
+        "billing_edge_adapters": False,
         "key_rotation_scheduler": False,
         "access_review_scheduler": False,
         "rbac_distributed_cache": False,
