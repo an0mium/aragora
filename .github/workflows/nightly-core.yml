@@ -115,6 +115,7 @@ jobs:
         shell: bash
         env:
           RUN_RC: ${{ steps.nightly-core-run.outputs.rc }}
+          RUN_OUTCOME: ${{ steps.nightly-core-run.outcome }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
           SHA: ${{ github.sha }}
@@ -131,7 +132,13 @@ jobs:
           out_dir.mkdir(parents=True, exist_ok=True)
 
           rc_raw = os.environ.get("RUN_RC", "")
-          timed_out = rc_raw.strip() == ""
+          outcome = os.environ.get("RUN_OUTCOME", "").strip().lower()
+          # rc missing + step skipped = a PRE-RUN step failed (checkout/setup/
+          # install): infra failure, not a budget fact. rc missing + step ran =
+          # the 50-min step timeout killed pytest.
+          no_rc = rc_raw.strip() == ""
+          skipped = outcome == "skipped"
+          timed_out = no_rc and not skipped
           try:
               rc = int(rc_raw)
           except ValueError:
@@ -173,7 +180,10 @@ jobs:
                                   break
                       failing_nodes.append(node_id)
 
-          if timed_out:
+          if skipped:
+              # Pre-run step failed; pytest never started. Infra fact.
+              verdict = "infra"
+          elif timed_out:
               # Step timeout killed pytest before rc was written: budget fact,
               # not product-health evidence. Counted neither green nor red by
               # the >=12/14 tracker.
@@ -219,7 +229,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nightly-core-${{ github.run_number }}
+          name: nightly-core-${{ github.run_number }}-${{ github.run_attempt }}
           path: artifacts/nightly-core/
           if-no-files-found: warn
           retention-days: 30
@@ -227,9 +237,18 @@ jobs:
       - name: Report verdict as job status
         shell: bash
         run: |
-          rc="${{ steps.nightly-core-run.outputs.rc }}"
-          if [[ "$rc" != "0" ]]; then
-            echo "::error::nightly-core verdict=red (rc=$rc). See artifact nightly-core-${{ github.run_number }} for junit + verdict.json."
-            exit 1
-          fi
-          echo "nightly-core verdict=green"
+          # Job conclusion must tell the SAME story as verdict.json: red means
+          # product-health failure; timeout/infra fail the job as an attention
+          # flag but are labeled as what they are (counted neither green nor
+          # red by the >=12/14 tracker).
+          verdict=$(python -c "import json; print(json.load(open('artifacts/nightly-core/verdict.json'))['verdict'])" 2>/dev/null || echo "infra")
+          case "$verdict" in
+            green)
+              echo "nightly-core verdict=green" ;;
+            red)
+              echo "::error::nightly-core verdict=red. See artifact nightly-core-${{ github.run_number }}-${{ github.run_attempt }} for junit + verdict.json."
+              exit 1 ;;
+            *)
+              echo "::error::nightly-core verdict=$verdict (not a product-health signal; excluded from the green/red night count). See the uploaded artifact."
+              exit 1 ;;
+          esac
