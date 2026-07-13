@@ -56,6 +56,13 @@ stops in
 mergeStateStatus=UNSTABLE; admin squash requires CLEAN or BLOCKED
 ```
 
+GitHub's
+[self-hosted runner reference](https://docs.github.com/en/actions/reference/runners/self-hosted-runners)
+imposes a separate 24-hour platform limit on jobs waiting for a matching
+self-hosted runner. That bound is still far outside a useful PR settlement
+horizon, and repeated workflow events can leave multiple runs pending
+concurrently unless the workflow also bounds its own concurrency.
+
 The three other non-green surfaces on #9201 were classified separately:
 Metrics Drift, Module Tier Drift, and Portability Lint had each cancelled in
 checkout before its verifier ran. Each verifier passed one exact-head rerun.
@@ -100,8 +107,12 @@ and idle; the #9201 Hetzner shadow completed successfully.
 ### Proposed Diff
 
 Change the PR trigger to `pull_request_target` so the workflow definition is
-loaded from the trusted default branch. Split the current hosted work into two
-jobs:
+loaded from the trusted default branch. GitHub's
+[`pull_request_target` security guidance](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target)
+requires least-privilege token and secret handling for this privileged trigger.
+Retain an explicit workflow-level `permissions: contents: read` block; this
+workflow needs no write-capable `GITHUB_TOKEN`. Split the current hosted work
+into two jobs:
 
 1. `capacity` queries runner inventory. It must not checkout any repository
    content, invoke a local action, interpolate PR-controlled strings into a
@@ -138,6 +149,13 @@ self-hosted job must explicitly checkout the PR merge ref after the capacity
 decision, with `persist-credentials: false`. Neither self-hosted job may receive
 the inventory secret. Keep the current same-repository and non-draft guards.
 
+The trusted-base trigger also means a PR change to
+`.github/workflows/self-hosted-shadow.yml` does not exercise its proposed
+workflow definition before merge: the base revision still supplies the running
+workflow. Preserve the workflow path filter so the trusted check still runs,
+but treat this as an explicit testability loss and require separate static
+workflow-policy fixtures for changes to the workflow itself.
+
 Add an always-completing GitHub-hosted summary job that reports whether each
 shadow was run or skipped for unavailable capacity. An unavailable runner at
 snapshot time must produce a visible degraded receipt rather than a queue wait
@@ -168,16 +186,19 @@ Exact implementation authority sentence:
 > I authorize a bounded Tier 4 implementation of #9098 Option A from main
 > `a36cad1f060221bae788fd53b4885a76b022757f`, limited to
 > `.github/workflows/self-hosted-shadow.yml`, a trusted base-revision capacity
-> job with no checkout, an `Administration: read` runner-inventory secret
-> reference isolated from every PR-code job, a queue-age alert, and focused
-> workflow-policy tests. This does not authorize settlement or merge of the
-> resulting exact head.
+> job with no checkout, workflow-level `permissions: contents: read`, an
+> `Administration: read` runner-inventory secret reference isolated from every
+> PR-code job, a queue-age alert, and focused workflow-policy tests that cover
+> the base-workflow testability gap. This does not authorize settlement or
+> merge of the resulting exact head.
 
 ### Verification
 
 - Validate the workflow with the repo's workflow-policy tests and actionlint.
 - Fixture-test online, offline, unauthorized, missing-secret, and malformed
   inventory responses.
+- Assert the workflow-level `GITHUB_TOKEN` permissions remain exactly
+  `contents: read` and no job broadens them.
 - Prove the secret-bearing job uses the base workflow definition, performs no
   checkout, invokes no PR-controlled code, and passes no secret or derived
   credential to downstream jobs.
@@ -189,6 +210,8 @@ Exact implementation authority sentence:
 - Prove fork PRs never checkout code in a secret-bearing context.
 - Prove a simulated post-snapshot runner outage reaches the queue-age alert and
   remains a blocker rather than being misreported as healthy.
+- Prove static policy fixtures reject an unsafe proposed workflow even though
+  `pull_request_target` executes the base workflow definition.
 - Receive fresh exact-head model review and Tier 4 human settlement.
 
 ### Rollback
@@ -214,8 +237,29 @@ on:
   workflow_dispatch:
 ```
 
-Remove PR-only conditions and concurrency expressions that no longer apply.
-Keep the exact runner labels and test commands.
+Add a GitHub-hosted `capacity` job before either self-hosted job on every
+trigger. It must query the runner inventory using an `Administration: read`
+credential, emit the same per-label-set online outputs as Option A, and pass no
+secret or derived credential to downstream jobs. Unknown, unauthorized, or
+missing inventory must fail closed. If a label set has no online match, skip
+that self-hosted job and emit a completed degraded-capacity summary instead of
+creating a queued self-hosted job.
+
+Replace PR-only concurrency with a trigger-appropriate group that bounds push
+bursts and repeated dispatches:
+
+```yaml
+concurrency:
+  group: self-hosted-shadow-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+```
+
+Remove other PR-only conditions that no longer apply. Keep the exact runner
+labels and test commands. The hosted preflight has the same post-snapshot race
+as Option A, so retain the queue-age alert and do not claim that this option
+eliminates every possible queue wait. GitHub's 24-hour unmatched-runner limit
+remains the outer platform bound; the capacity gate and concurrency group are
+what prevent a known outage from accumulating a day-long run per main push.
 
 This preserves cross-platform regression signal but moves it after merge. It
 eliminates the PR live-gate wall at the cost of losing pre-merge shadow signal.
@@ -230,20 +274,30 @@ Exact implementation authority sentence:
 > I authorize a bounded Tier 4 implementation of #9098 Option B from main
 > `a36cad1f060221bae788fd53b4885a76b022757f`, limited to moving Self-Hosted
 > Shadow CI from pull requests to path-filtered main pushes, nightly schedule,
-> and manual dispatch, with focused workflow-policy tests. This does not
-> authorize settlement or merge of the resulting exact head.
+> and manual dispatch, with a hosted runner-capacity preflight, an isolated
+> `Administration: read` inventory credential, bounded concurrency, a degraded
+> capacity summary, a queue-age alert, and focused workflow-policy tests. This
+> does not authorize settlement or merge of the resulting exact head.
 
 ### Verification
 
 - Validate trigger, path-filter, concurrency, and job-condition shapes.
 - Prove a matching draft or ready PR does not schedule either shadow job.
 - Prove a matching main push schedules both shadows when capacity exists.
+- Prove offline, unauthorized, missing, and malformed capacity states schedule
+  no self-hosted job and complete with a visible degraded receipt.
+- Prove repeated matching pushes and manual dispatches cannot accumulate
+  multiple active runs in the same concurrency group.
+- Prove the inventory credential is unavailable to every self-hosted step.
+- Prove a post-snapshot outage reaches the queue-age alert rather than being
+  reported as healthy.
 - Prove the nightly and manual paths remain available.
 - Receive fresh exact-head model review and Tier 4 human settlement.
 
 ### Rollback
 
-Revert the trigger change to restore PR execution. Before rollback, verify a
+Revert the trigger, capacity, summary, and concurrency changes and remove the
+inventory-secret reference to restore PR execution. Before rollback, verify a
 matching Mac runner is online so the old unassigned queue-wait failure is not
 reintroduced immediately.
 
@@ -361,9 +415,11 @@ Its trusted, no-checkout capacity job preserves pre-merge cross-platform signal
 without exposing an Administration-read token to PR code, and its hosted
 summary makes known-offline capacity visible. Option A still has a
 post-snapshot race, which its queue-age alert must expose rather than hide.
-Option B discards pre-merge signal, and Option C changes merge authority in
-response to an infrastructure problem, so both should remain fallbacks unless
-Option A proves infeasible or fails security review.
+Option B's capacity gate and concurrency bound prevent known-offline main-push
+bursts from recreating the queue-accumulation failure, but it still discards
+pre-merge signal. Option C changes merge authority in response to an
+infrastructure problem, so both should remain fallbacks unless Option A proves
+infeasible or fails security review.
 
 Implementation and settlement remain separate decisions. After either durable
 implementation is complete, a new exact-head Tier 4 review and human settlement
