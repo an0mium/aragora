@@ -41,10 +41,12 @@ or *which contract it owes*:
    by `aragora/server/handlers/*`, and by `aragora-debate`. None of those consumers is itself a
    "receipt boundary" — they merely *depend on* one. Cross-tier coupling is invisible from
    `aragora/module_tiers.yaml` alone.
-3. **The 145→50 module-reduction goal is parked.** Earlier strategy notes flag "Reducing the
-   145 top-level modules to ~50 (M3 quarantines behind a boundary; full re-architecture is
-   deferred)" as out of scope. That target is *the destination state* this proposal hand-waves
-   toward; we are **not** proposing to execute it.
+3. **The historical 145→50 module-reduction goal is parked.** Earlier strategy notes used
+   the then-current 145 top-level modules as the baseline for "Reducing the 145 top-level
+   modules to ~50 (M3 quarantines behind a boundary; full re-architecture is deferred)."
+   The generated inventory is now 144; the quoted 145 remains the historical goal label,
+   not a competing current count. That target is *the destination state* this proposal
+   hand-waves toward; we are **not** proposing to execute it.
 4. **Adopters cannot navigate by boundary.** The current maps — `CLAUDE.md` module index,
    `EXTENDED_README.md`, `STATUS.md`, `module_tiers.yaml`, `charters.yaml` — describe modules
    by *name* and *tier*, not by *what an adopter has to know to depend on them*. A reader who
@@ -353,7 +355,7 @@ that the operator should weigh in on before ANY boundary-relocation PR is opened
 | Q1 | Post-`aragora-verify` schema pin | When `aragora-verify` requires a schema bump, do we keep two byte-identical `odr_schema.json` copies in lockstep (current `diff`-guarded state), or move aragora-verify to dynamically load from a shared root? | operator |
 | Q2 | Action signing path | `signatures: []` is reserved for future Ed25519 wiring per #8225; what is the operator-approved signing key distribution mechanism once `aragora-verify --pubkey` is the no-trust default? (Current `--pubkey` path is manual and per-receipt; pubkey endpoints `/.well-known/aragora-odr-signing-key` / `/api/v2/receipts/signing-key` do NOT exist.) | operator + #8804 |
 | Q3 | Tier pre-publish hook | `MODULE_TIER_DRIFT_GUARDIAN.md` lists five guardian options; option (B) — `stages: [pre-push]` tier-only mirror — is the only one reviewers have not rejected. Operator should signal whether to fund (B), or stay on CI-only with the documented cancellation noise. | operator |
-| Q4 | 145→50 module reduction | Out-of-scope per `docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md` §"Out of scope (YAGNI)"; confirm the deferral is the intended status while this proposal is the legibility-only deliverable. | operator |
+| Q4 | historical 145→50 module reduction | Out-of-scope per `docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md` §"Out of scope (YAGNI)"; confirm the deferral is the intended status while this proposal is the legibility-only deliverable. The current generated inventory is 144. | operator |
 | Q5 | Boundary enforcement | The cross-talk rules (§3) are anti-pattern avoided by current importlint config. If operator wants ANY automatic enforcement, the right shape is a pre-push hook that REPORTS without mutating (mirrors the existing tier-drift pattern). Funding would need a separate feature. | operator |
 | Q6 | SDK + API versioning cadence | The SDK and the API share `pyproject.toml` `[project].version`. After a feature that touches only the SDK (e.g. `sdk/python/`), should the API also bump by patch/minor? Currently the answer is no (semver only), but the boundary separation is implicit. | operator |
 | Q7 | Archived content manifests | `docs/archive/`, `docs/status/`, `docs/deprecated/` have grown without a unified manifest. Worth funding an audit (preferably machine-checked) before `m6`/`m7` further archive churn? | operator |
