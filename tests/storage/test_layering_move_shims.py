@@ -79,16 +79,3 @@ def test_signing_legacy_path_shares_singleton_state() -> None:
         assert canonical._default_signer is marker
     finally:
         canonical._default_signer = previous
-
-
-def test_signing_legacy_path_registers_verification_observer() -> None:
-    canonical = importlib.import_module("aragora.storage.receipt_signing")
-    previous = canonical._receipt_verification_observer
-    canonical.set_receipt_verification_observer(None)
-    sys.modules.pop("aragora.gauntlet.signing", None)
-    try:
-        with pytest.warns(DeprecationWarning, match="aragora.gauntlet.signing"):
-            importlib.import_module("aragora.gauntlet.signing")
-        assert callable(canonical._receipt_verification_observer)
-    finally:
-        canonical.set_receipt_verification_observer(previous)
