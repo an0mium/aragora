@@ -95,22 +95,139 @@ mkdir -p "$WT/logs" "$SHARED_ROOT/.aragora/main-red"
 cd "$WT"
 LOG="logs/first-error-$TS.log"
 TEST_TIMEOUT="${TEST_TIMEOUT:-1800s}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
+PYTEST_ARGS=(
+  -m pytest tests/ -x -v -p no:cacheprovider
+  --ignore=tests/connectors
+)
+STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+START_EPOCH="$(date +%s)"
+PRECHECK_ERROR=""
 
 if command -v gtimeout >/dev/null 2>&1; then
   TIMEOUT_BIN=gtimeout
 elif command -v timeout >/dev/null 2>&1; then
   TIMEOUT_BIN=timeout
 else
-  echo "No supported timeout binary; stop as infra_error" >&2
-  exit 2
+  TIMEOUT_BIN=""
+  PRECHECK_ERROR="no supported timeout binary"
 fi
 
-set +e
-PYTHONUNBUFFERED=1 "$TIMEOUT_BIN" --signal=TERM --kill-after=30s "$TEST_TIMEOUT" \
-  python -m pytest tests/ -x -v -p no:cacheprovider \
-  --ignore=tests/connectors 2>&1 | tee "$LOG"
-TEST_RC="${PIPESTATUS[0]}"
-set -e
+if [[ -n "$PRECHECK_ERROR" ]]; then
+  TEST_RC=2
+  printf '%s\n' "$PRECHECK_ERROR" | tee "$LOG"
+  COMMAND="unavailable: $PRECHECK_ERROR"
+else
+  COMMAND="PYTHONUNBUFFERED=1 $TIMEOUT_BIN --signal=TERM --kill-after=30s"
+  COMMAND+=" $TEST_TIMEOUT $PYTHON_BIN ${PYTEST_ARGS[*]}"
+  set +e
+  PYTHONUNBUFFERED=1 "$TIMEOUT_BIN" --signal=TERM --kill-after=30s \
+    "$TEST_TIMEOUT" "$PYTHON_BIN" "${PYTEST_ARGS[@]}" 2>&1 | tee "$LOG"
+  TEST_RC="${PIPESTATUS[0]}"
+  set -e
+fi
+
+ENDED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+END_EPOCH="$(date +%s)"
+WALL_SECONDS="$((END_EPOCH - START_EPOCH))"
+
+if [[ -n "$PRECHECK_ERROR" ]]; then
+  OUTCOME=infra_error
+  NEXT_ACTION="install a supported timeout command, then start a new diagnostic"
+else
+  case "$TEST_RC" in
+    0)
+      OUTCOME=green
+      NEXT_ACTION="record the bounded green scope; do not generalize beyond it"
+      ;;
+    1)
+      OUTCOME=test_failure
+      NEXT_ACTION="repair or isolate the first failing node before rerunning"
+      ;;
+    124|137)
+      OUTCOME=timeout_only_no_failure
+      NEXT_ACTION="narrow the scope or extend the timeout without declaring main red"
+      ;;
+    2|3|4|5)
+      OUTCOME=collection_error
+      NEXT_ACTION="repair the pytest collection or invocation error"
+      ;;
+    *)
+      OUTCOME=infra_error
+      NEXT_ACTION="diagnose the unexpected runner exit before retrying"
+      ;;
+  esac
+fi
+
+if [[ ! -s "$LOG" ]]; then
+  OUTCOME=infra_error
+  NEXT_ACTION="repair logging before retrying the diagnostic"
+fi
+
+FIRST_NODEID="$({
+  awk '/::/ && ($0 ~ / FAILED / || $0 ~ / ERROR /) {print $1; exit}' "$LOG"
+} || true)"
+TRACEBACK_HEAD="$({
+  awk '
+    /^=+ (FAILURES|ERRORS) =+$/ {capture=1; next}
+    capture && count < 40 {print; count++}
+  ' "$LOG"
+} || true)"
+PROGRESS="$({
+  grep -E '^[^[:space:]]+::[^[:space:]]+[[:space:]]+(PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)' \
+    "$LOG" | tail -n 5
+} || true)"
+
+if command -v shasum >/dev/null 2>&1; then
+  LOG_SHA256="$(shasum -a 256 "$LOG" | awk '{print $1}')"
+elif command -v sha256sum >/dev/null 2>&1; then
+  LOG_SHA256="$(sha256sum "$LOG" | awk '{print $1}')"
+else
+  LOG_SHA256=unavailable
+  OUTCOME=infra_error
+  NEXT_ACTION="install a SHA-256 utility before retrying the diagnostic"
+fi
+
+REPORT_WORKTREE="logs/first-error-report-$TS.md"
+REPORT_SHARED="$SHARED_ROOT/.aragora/main-red/first-error-report-$TS.md"
+REPORT_TMP="logs/.first-error-report-$TS.tmp"
+{
+  printf '# First-Error Diagnostic Receipt\n\n'
+  printf -- '- schema: `aragora.main_first_error_receipt.v1`\n'
+  printf -- '- main_sha: `%s`\n' "$MAIN_SHA"
+  printf -- '- started_utc: `%s`\n' "$STARTED_UTC"
+  printf -- '- ended_utc: `%s`\n' "$ENDED_UTC"
+  printf -- '- wall_seconds: `%s`\n' "$WALL_SECONDS"
+  printf -- '- command: `%s`\n' "$COMMAND"
+  printf -- '- exit_code: `%s`\n' "$TEST_RC"
+  printf -- '- outcome: `%s`\n' "$OUTCOME"
+  printf -- '- first_nodeid: `%s`\n' "${FIRST_NODEID:-null}"
+  printf -- '- log_path: `%s`\n' "$LOG"
+  printf -- '- log_sha256: `%s`\n' "$LOG_SHA256"
+  printf -- '- next_action: %s\n' "$NEXT_ACTION"
+  printf '\n## Traceback head\n\n'
+  if [[ -n "$TRACEBACK_HEAD" ]]; then
+    printf '```text\n%s\n```\n' "$TRACEBACK_HEAD"
+  else
+    printf 'null\n'
+  fi
+  printf '\n## Progress\n\n'
+  if [[ -n "$PROGRESS" ]]; then
+    printf '```text\n%s\n```\n' "$PROGRESS"
+  else
+    printf 'null\n'
+  fi
+} > "$REPORT_TMP"
+
+cp "$REPORT_TMP" "$REPORT_WORKTREE"
+cp "$REPORT_TMP" "$REPORT_SHARED"
+rm -f "$REPORT_TMP"
+
+DRIVER_RC="$TEST_RC"
+if [[ "$OUTCOME" == infra_error ]]; then
+  DRIVER_RC=2
+fi
+exit "$DRIVER_RC"
 ```
 
 Run the saved driver with `bash "$WT/logs/run-first-error.sh"`. A caller may
