@@ -53,8 +53,8 @@ All GitHub reads used the GitHub App token.
 
 ```bash
 git status --short --branch --untracked-files=all
-git fetch origin refs/heads/main:refs/remotes/origin/main
-git merge --ff-only origin/main
+REMOTE_MAIN=$(git ls-remote --exit-code origin refs/heads/main | cut -f1)
+test "$(git rev-parse HEAD)" = "$REMOTE_MAIN"
 ${PY:-python3} scripts/publisher_freshness_check.py --json
 ${PY:-python3} scripts/fleet_sentinel.py --json --no-ledger
 env GH_TOKEN="$(${PY:-python3} scripts/gh_app_env.py --print-token --quiet)" \
