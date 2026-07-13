@@ -2979,6 +2979,20 @@ def test_build_review_prompt_keeps_all_added_paths_when_deletion_sorts_first() -
         assert path in prompt
 
 
+def test_build_review_prompt_states_severity_verdict_contract() -> None:
+    """The prompt must teach reviewers the linter's counting contract: [P1]/[P2]
+    findings are blocking, so they require CHANGES-REQUESTED; [P3]-only may
+    accompany PASS. Without this, reviewers emit 'Verdict: PASS' + [P2] bodies
+    that has_blocking_or_negative_verdict rejects and the family never counts
+    (observed live on every claude review of 2026-07-09)."""
+    prompt = qe.build_review_prompt(
+        repo="o/r", pr=9073, head_sha=HEAD, diff_text="diff", name_status="M\tf.py"
+    )
+    assert "Severity contract" in prompt
+    assert "MUST be 'Verdict: CHANGES-REQUESTED'" in prompt
+    assert "[P3]-only findings may accompany a PASS" in prompt
+
+
 def test_build_review_prompt_never_truncates_complete_file_list_header() -> None:
     diff, name_status, added = _diff_with_deletion_before_additions()
     prompt = qe.build_review_prompt(
