@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+import sqlite3
+import subprocess
 import time
+import uuid
+from datetime import timedelta
+from pathlib import Path
+from typing import Any
 
-from . import dev_coordination as _dev
+from .dev_coordination import _get_lane_telemetry
+from .dev_coordination import core as _dev
+from .dev_coordination.models import (
+    CompletionReceipt,
+    FileScopeViolationError,
+    IntegrationDecision,
+    IntegrationDecisionType,
+    LeaseStatus,
+    WorkLease,
+)
 
-Any = _dev.Any
-CompletionReceipt = _dev.CompletionReceipt
-FileScopeViolationError = _dev.FileScopeViolationError
-IntegrationDecision = _dev.IntegrationDecision
-IntegrationDecisionType = _dev.IntegrationDecisionType
-LeaseStatus = _dev.LeaseStatus
-Path = _dev.Path
-WorkLease = _dev.WorkLease
 _CLEAN_EXIT_NO_DELIVERABLE_ARCHIVE_GRACE_HOURS = _dev._CLEAN_EXIT_NO_DELIVERABLE_ARCHIVE_GRACE_HOURS
 _DUPLICATE_BRANCH_DELIVERABLE_ARCHIVE_GRACE_HOURS = (
     _dev._DUPLICATE_BRANCH_DELIVERABLE_ARCHIVE_GRACE_HOURS
@@ -44,7 +51,6 @@ _duplicate_waiting_conflict_priority = _dev._duplicate_waiting_conflict_priority
 _duplicate_work_order_leasing_failed_priority = _dev._duplicate_work_order_leasing_failed_priority
 _extract_pr_number = _dev._extract_pr_number
 _find_work_order = _dev._find_work_order
-_get_lane_telemetry = _dev._get_lane_telemetry
 _has_wildcard = _dev._has_wildcard
 _inferred_expected_tests_for_work_order = _dev._inferred_expected_tests_for_work_order
 _json_dump = _dev._json_dump
@@ -161,10 +167,6 @@ _work_order_should_replay_targeted_merge_gate_failure = (
     _dev._work_order_should_replay_targeted_merge_gate_failure
 )
 _work_orders_overlap_by_scope = _dev._work_orders_overlap_by_scope
-sqlite3 = _dev.sqlite3
-subprocess = _dev.subprocess
-timedelta = _dev.timedelta
-uuid = _dev.uuid
 
 
 def backfill_missing_blocker_metadata(self) -> int:
