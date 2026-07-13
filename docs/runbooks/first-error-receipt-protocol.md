@@ -178,6 +178,17 @@ PROGRESS="$({
     "$LOG" | tail -n 5
 } || true)"
 
+inline_receipt_field() {
+  if [[ -z "$1" ]]; then
+    printf 'null'
+  else
+    printf '%s' "$1" | tr '\n' ' '
+  fi
+}
+
+TRACEBACK_FIELD="$(inline_receipt_field "$TRACEBACK_HEAD")"
+PROGRESS_FIELD="$(inline_receipt_field "$PROGRESS")"
+
 if command -v shasum >/dev/null 2>&1; then
   LOG_SHA256="$(shasum -a 256 "$LOG" | awk '{print $1}')"
 elif command -v sha256sum >/dev/null 2>&1; then
@@ -205,6 +216,8 @@ REPORT_TMP="logs/.first-error-report-$TS.tmp"
   printf -- '- log_path: `%s`\n' "$LOG"
   printf -- '- log_sha256: `%s`\n' "$LOG_SHA256"
   printf -- '- next_action: %s\n' "$NEXT_ACTION"
+  printf -- '- traceback_head: %s\n' "$TRACEBACK_FIELD"
+  printf -- '- progress: %s\n' "$PROGRESS_FIELD"
   printf '\n## Traceback head\n\n'
   if [[ -n "$TRACEBACK_HEAD" ]]; then
     printf '```text\n%s\n```\n' "$TRACEBACK_HEAD"
