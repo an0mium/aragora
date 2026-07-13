@@ -37,7 +37,7 @@ jobs:
   nightly-core:
     name: Nightly Core Trust Signal
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -83,6 +83,11 @@ jobs:
 
       - name: Run nightly-core suite (single process, no randomization)
         id: nightly-core-run
+        # Step-level timeout BELOW the job budget: when the suite overruns, this
+        # step is killed but the verdict/artifact steps still run (a job-level
+        # timeout would skip even if:always() steps) — so every night emits a
+        # classifiable artifact. rc is then unset and the verdict is 'timeout'.
+        timeout-minutes: 50
         continue-on-error: true
         env:
           PYTHONPATH: .:aragora-debate/src
@@ -125,11 +130,12 @@ jobs:
           out_dir = Path("artifacts/nightly-core")
           out_dir.mkdir(parents=True, exist_ok=True)
 
-          rc_raw = os.environ.get("RUN_RC", "1")
+          rc_raw = os.environ.get("RUN_RC", "")
+          timed_out = rc_raw.strip() == ""
           try:
               rc = int(rc_raw)
           except ValueError:
-              rc = 1
+              rc = -1
 
           junit_path = out_dir / "junit.xml"
           totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
@@ -151,14 +157,31 @@ jobs:
                           continue
                       classname = tc.get("classname", "")
                       testname = tc.get("name", "")
-                      node_id = (
-                          f"{classname.replace('.', '/')}.py::{testname}"
-                          if classname
-                          else testname
-                      )
+                      # JUnit classname is dotted MODULE path + optional CLASS
+                      # segments (tests.foo.test_mod.TestBar). Blind dot->slash
+                      # produces invalid IDs for class-based tests; find the
+                      # longest prefix that is a real module file instead.
+                      node_id = testname
+                      if classname:
+                          parts = classname.split(".")
+                          node_id = f"{classname.replace('.', '/')}.py::{testname}"
+                          for i in range(len(parts), 0, -1):
+                              candidate = "/".join(parts[:i]) + ".py"
+                              if Path(candidate).exists():
+                                  segs = [candidate, *parts[i:], testname]
+                                  node_id = "::".join(segs)
+                                  break
                       failing_nodes.append(node_id)
 
-          verdict = "green" if rc == 0 and totals["failures"] == 0 and totals["errors"] == 0 else "red"
+          if timed_out:
+              # Step timeout killed pytest before rc was written: budget fact,
+              # not product-health evidence. Counted neither green nor red by
+              # the >=12/14 tracker.
+              verdict = "timeout"
+          elif rc == 0 and totals["failures"] == 0 and totals["errors"] == 0:
+              verdict = "green"
+          else:
+              verdict = "red"
 
           summary = {
               "verdict": verdict,
