@@ -173,6 +173,44 @@ def test_collection_redacts_secrets_and_leaves_input_unchanged(tmp_path: Path) -
     assert "[REDACTED_SECRET]" in entries[0].text
 
 
+@pytest.mark.parametrize(
+    "secret",
+    [
+        '"password": "quoted-json-secret"',
+        '"api_key": "quoted-json-key"',
+        "'token': 'quoted-python-token'",
+    ],
+)
+def test_redact_matches_quoted_generic_secret_keys(secret: str) -> None:
+    redacted = ace_curator.redact(secret)
+
+    assert "quoted-" not in redacted
+    assert "[REDACTED_SECRET]" in redacted
+
+
+def test_collection_applies_source_limit_after_deduplication(tmp_path: Path) -> None:
+    first = tmp_path / "first.jsonl"
+    first.write_text(
+        "\n".join(
+            [
+                json.dumps({"summary": "duplicate lesson"}),
+                json.dumps({"summary": "duplicate lesson"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    second = tmp_path / "second.jsonl"
+    second.write_text(json.dumps({"summary": "unique lesson"}) + "\n", encoding="utf-8")
+
+    entries = ace_curator.collect_sources([first, second], max_sources=2)
+
+    assert [entry.text for entry in entries] == [
+        "summary: duplicate lesson",
+        "summary: unique lesson",
+    ]
+
+
 def test_playbook_round_trip_and_noop_write(tmp_path: Path) -> None:
     lesson = ace_curator.Lesson(
         id=ace_curator.lesson_id("stable"),
@@ -188,6 +226,42 @@ def test_playbook_round_trip_and_noop_write(tmp_path: Path) -> None:
     assert ace_curator.write_playbook(path, rendered) is True
     assert ace_curator.load_playbook(path) == [lesson]
     assert ace_curator.write_playbook(path, rendered) is False
+
+
+def test_playbook_rejects_malformed_block_after_valid_block(tmp_path: Path) -> None:
+    lesson = ace_curator.Lesson(
+        id=ace_curator.lesson_id("stable"),
+        stable_key="stable",
+        lesson="Keep stable lessons stable.",
+        sources=("SRC-A@fixture.jsonl:1",),
+        change_reason="Fixture.",
+        updated_at="2026-07-11T00:00:00Z",
+    )
+    path = tmp_path / "playbook.md"
+    path.write_text(
+        ace_curator.render_playbook([lesson])
+        + "\n<!-- ACE-CURATOR:LESSON\n{}\n-->\n- malformed block\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="malformed ACE curator block"):
+        ace_curator.load_playbook(path)
+
+
+def test_write_playbook_disables_platform_newline_translation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_fdopen = ace_curator.os.fdopen
+    observed: dict[str, object] = {}
+
+    def recording_fdopen(fd: int, mode: str, **kwargs):
+        observed.update(kwargs)
+        return real_fdopen(fd, mode, **kwargs)
+
+    monkeypatch.setattr(ace_curator.os, "fdopen", recording_fdopen)
+
+    assert ace_curator.write_playbook(tmp_path / "playbook.md", "line one\nline two\n")
+    assert observed["newline"] == "\n"
 
 
 def test_cli_uses_offline_model_decisions_without_live_api(tmp_path: Path) -> None:

@@ -40,7 +40,8 @@ SECRET_PATTERNS = (
     re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{8,}\b"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(
-        r"(?ix)\b[A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\b"
+        r"(?ix)(?<![A-Z0-9_])[\"']?[A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)"
+        r"[\"']?(?![A-Z0-9_])"
         r"\s*[:=]\s*(?:\"[^\"\r\n]*\"|'[^'\r\n]*'|[^\s,}]+)"
     ),
 )
@@ -207,26 +208,23 @@ def _markdown_entries(path: Path) -> list[SourceEntry]:
 
 
 def collect_sources(paths: Sequence[Path], *, max_sources: int) -> list[SourceEntry]:
-    entries: list[SourceEntry] = []
+    deduplicated: list[SourceEntry] = []
+    seen_text: set[str] = set()
     for path in paths:
         _check_readable_file(path)
         if path.suffix == ".jsonl":
-            entries.extend(_jsonl_entries(path))
+            entries = _jsonl_entries(path)
         elif path.suffix == ".json":
-            entries.extend(_json_entries(path))
+            entries = _json_entries(path)
         else:
-            entries.extend(_markdown_entries(path))
-        if len(entries) >= max_sources:
-            break
-    deduplicated: list[SourceEntry] = []
-    seen_text: set[str] = set()
-    for entry in entries:
-        if entry.text in seen_text:
-            continue
-        seen_text.add(entry.text)
-        deduplicated.append(entry)
-        if len(deduplicated) >= max_sources:
-            break
+            entries = _markdown_entries(path)
+        for entry in entries:
+            if entry.text in seen_text:
+                continue
+            seen_text.add(entry.text)
+            deduplicated.append(entry)
+            if len(deduplicated) >= max_sources:
+                return deduplicated
     return deduplicated
 
 
@@ -251,10 +249,13 @@ def load_playbook(path: Path) -> list[Lesson]:
     if not path.exists():
         return []
     text = path.read_text(encoding="utf-8")
-    if "ACE-CURATOR:LESSON" in text and not LESSON_BLOCK_RE.search(text):
+    matches = list(LESSON_BLOCK_RE.finditer(text))
+    if text.count("ACE-CURATOR:LESSON") != len(matches) or text.count("ACE-CURATOR:END") != len(
+        matches
+    ):
         raise ValueError(f"malformed ACE curator block in {path}")
     lessons: list[Lesson] = []
-    for match in LESSON_BLOCK_RE.finditer(text):
+    for match in matches:
         metadata = json.loads(match.group("meta"))
         identifier = str(metadata.get("id") or match.group("id"))
         if identifier != match.group("id"):
@@ -482,7 +483,7 @@ def write_playbook(path: Path, content: str) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(content)
         os.replace(temp_name, path)
     finally:
