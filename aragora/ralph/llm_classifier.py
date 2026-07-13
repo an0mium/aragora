@@ -10,12 +10,10 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from aragora.agents.base import AgentType
 from aragora.ralph.classifier import BlockerKind
-
-if TYPE_CHECKING:
-    from aragora.agents.base import AgentType
 
 logger = logging.getLogger(__name__)
 
