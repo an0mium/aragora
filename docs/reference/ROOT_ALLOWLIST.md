@@ -18,6 +18,14 @@ serve as compatibility pointers to the canonical
 `docs/status/NEXT_STEPS_CANONICAL.md`). No binary assets remain tracked at the
 repo root.
 
+The relocation audit also checked the content being moved, not only inbound
+references. The three archived Markdown files contain no Markdown links, so
+changing their directory depth cannot alter a relative target. A repository-wide
+tracked-file scan found no product or documentation references to either PNG;
+the remaining basename matches are this inventory and synthetic allowlist tests.
+`scripts/validate_doc_links.py` and `scripts/check_docs_consistency.py` both pass
+after the moves.
+
 ## Root clutter inventory (tracked vs gitignored)
 
 The root is cleaned by distinguishing two categories:
@@ -49,9 +57,10 @@ what can appear at the root.
 | `aragora_logo.png` | `docs/archive/aragora_logo.png` |
 | `favicon.png` | `docs/archive/favicon.png` |
 
-The brand PNGs had zero references in tracked `*.md` or docs-site config
-(docusaurus uses its own `img/logo.svg` / `img/favicon.ico`), so the move
-leaves no dangling image links.
+The brand PNGs had zero product or documentation references in tracked files
+(Docusaurus uses its own `img/logo.svg` / `img/favicon.ico`), so the move leaves
+no dangling image links. Basename matches in `tests/ci/test_check_root_allowlist.py`
+are synthetic fixture inputs, not consumers of either asset.
 
 ## How to update
 
