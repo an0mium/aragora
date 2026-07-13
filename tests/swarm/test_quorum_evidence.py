@@ -3734,6 +3734,19 @@ class TestTruncationAndContradictionNeverCount:
         assert item.would_count is False
         assert any("contradicted" in p for p in item.problems)
 
+    def test_pass_with_p2_finding_never_counts_under_severity_gate(self) -> None:
+        body = "Verdict: PASS\n\n- [P2] `aragora/x.py:10` — prepared apply bypasses proof\n"
+        item = EvidenceItem(
+            family="openai",
+            body=body,
+            would_count=True,
+            verdict="pass",
+            severity_gated=True,
+        )
+        assert item.would_count is False
+        assert item.supportive is False
+        assert any("[P0]/[P1]/[P2]" in p for p in item.problems)
+
     def test_pass_with_advisory_finding_still_counts(self) -> None:
         body = "Verdict: PASS\n\n- [P3] `aragora/x.py:10` — minor naming nit\n"
         item = EvidenceItem(family="openai", body=body, would_count=True, verdict="pass")

@@ -51,7 +51,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
+from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_finding_or_label,
+    has_blocking_or_negative_verdict,
+)
 from aragora.cli.commands.review_queue_transport import (
     GITHUB_TRANSPORT_BLOCKED_STATUS,
     _is_github_transport_error,
@@ -519,15 +522,20 @@ class EvidenceItem:
         if self.would_count and self.verdict == "pass" and _TRUNCATION_MARKER in self.body:
             self.would_count = False
             self.problems.append("reviewer output was truncated — an incomplete PASS never counts")
-        # Contradiction contract (#9241 B2): a PASS that itself carries a blocking
-        # [P0]/[P1] finding (or a populated Blocker label) is self-contradictory
-        # reviewer output. Uses the SAME helper the severity-gated dissent check
-        # uses, so "what blocks" stays in lockstep across both halves of the gate.
-        if self.would_count and self.verdict == "pass" and has_blocking_finding_or_label(self.body):
+        # Contradiction contract (#9241 B2): a PASS that itself carries a real
+        # [P0]/[P1]/[P2] finding (or another negative decision) is
+        # self-contradictory reviewer output. P2-only CHANGES-REQUESTED remains
+        # advisory under the severity gate, but a P2 can never support quorum by
+        # hiding under PASS; this matches the reviewer prompt's verdict contract.
+        if (
+            self.would_count
+            and self.verdict == "pass"
+            and has_blocking_or_negative_verdict(self.body)
+        ):
             self.would_count = False
             self.problems.append(
-                "PASS verdict contradicted by a blocking [P0]/[P1] finding in the "
-                "same review — contradictory review never counts"
+                "PASS verdict contradicted by a blocking [P0]/[P1]/[P2] finding or "
+                "negative decision in the same review — contradictory review never counts"
             )
 
     @property
