@@ -355,7 +355,7 @@ that the operator should weigh in on before ANY boundary-relocation PR is opened
 
 | # | Slot | Question | Owner |
 |---|---|---|---|
-| Q1 | Post-`aragora-verify` schema pin | When `aragora-verify` requires a schema bump, do we keep two byte-identical `odr_schema.json` copies in lockstep (current `diff`-guarded state), or move aragora-verify to dynamically load from a shared root? | operator |
+| Q1 | Post-`aragora-verify` schema pin | When `aragora-verify` requires a schema bump, do we keep two byte-identical `odr_schema.json` copies in lockstep (current `diff`-guarded state), or generate both package-local copies from one versioned source during release? Either option must preserve standalone offline verification; runtime loading from a shared checkout is not valid. | operator |
 | Q2 | Action signing path | `signatures: []` is reserved for future Ed25519 wiring per #8225; what is the operator-approved signing key distribution mechanism once `aragora-verify --pubkey` is the no-trust default? (Current `--pubkey` path is manual and per-receipt; pubkey endpoints `/.well-known/aragora-odr-signing-key` / `/api/v2/receipts/signing-key` do NOT exist.) | operator + #8804 |
 | Q3 | Tier pre-publish hook | `MODULE_TIER_DRIFT_GUARDIAN.md` lists five guardian options; option (B) — `stages: [pre-push]` tier-only mirror — is the only one reviewers have not rejected. Operator should signal whether to fund (B), or stay on CI-only with the documented cancellation noise. | operator |
 | Q4 | historical 145→50 module reduction | Out-of-scope per `docs/superpowers/specs/2026-06-26-strategy-as-bounded-mission-cadence-design.md` §"Out of scope (YAGNI)"; confirm the deferral is the intended status while this proposal is the legibility-only deliverable. The current generated inventory is 144. | operator |
@@ -454,3 +454,5 @@ For the cross-feature contract pair:
 - **2026-07-13 (round 6)** — Removed the remaining file-level ownership splits under
   `aragora/agents/` and `aragora/memory/`. Documented the Action evidence collector's
   narrow adapter edge into quorum machinery and corrected the copy-paste checkout command.
+- **2026-07-13 (round 7)** — Removed a schema-source option that would have violated the
+  standalone verifier's offline contract; both alternatives now ship package-local schemas.
