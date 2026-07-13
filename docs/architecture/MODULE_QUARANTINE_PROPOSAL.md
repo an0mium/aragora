@@ -423,13 +423,13 @@ For the cross-feature contract pair:
   them.
 - `docs/specs/OPEN_DECISION_RECEIPT.md` + `docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md` — the
   ODR v0.1 public profile and the canonical-internal vs public-canonical reconciliation.
+  The reconciliation also records that `odr_verify.py` is not yet wired to a shipped
+  CLI/HTTP entry point and disambiguates the two verifier paths.
   `docs/specs/**` is mirrored by `docs-site/scripts/sync-docs.js` (PR #8953) with deliberate
   exclusions (e.g. `docs/RECEIPT_CONTRACT.md`, allowlisted operator-only packets).
 - `docs/reference/ROOT_ALLOWLIST.md` + `scripts/ci/check_root_allowlist.py` — the
   repo-root hygiene guard (#8258). Companion PR #9091 (`factory/pum-m7-root-clutter-relocation`)
   expands the allowlist disposition with a tracked-vs-gitignored inventory.
-- `docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md` — the `odr_verify.py` wiring status
-  (not yet wired to any shipped CLI/HTTP entry point) and the two-verifier disambiguation.
 - `docs/AGENT_OPERATING_CONTRACT.md` — merge-policy tiers, path-freeze, and the `scripts/**`
   touch precedent that this proposal deliberately avoids.
 - `docs/status/PUBLIC_UTILITY_MISSION_BASELINE.md` — milestone M7 baseline and the bounded-PR
