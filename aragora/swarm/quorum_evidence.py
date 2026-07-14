@@ -486,10 +486,18 @@ def _bounded_cli_failure_detail(
             suppress_payload = True
             omitted_payload = True
             continue
+        credential_wall = _is_credential_wall(line)
+        prompt_fragment = _looks_like_prompt_fragment(line, redact)
         if suppress_payload:
-            if _looks_like_prompt_fragment(line, redact) or not _CLI_DIAGNOSTIC_SIGNAL.search(line):
+            if credential_wall:
+                suppress_payload = False
+            elif prompt_fragment or not _CLI_DIAGNOSTIC_SIGNAL.search(line):
                 continue
-            suppress_payload = False
+            else:
+                suppress_payload = False
+        elif prompt_fragment and not credential_wall:
+            omitted_payload = True
+            continue
         filtered_lines.append(line)
     if suppress_payload and omitted_payload:
         filtered_lines.append(_CLI_OMITTED_DIAGNOSTIC)

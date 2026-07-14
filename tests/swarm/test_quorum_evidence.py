@@ -679,6 +679,47 @@ def test_cli_failure_detail_does_not_resume_on_prompt_fragment_with_error_word()
 
 
 @pytest.mark.parametrize(
+    "wall",
+    [
+        "Not logged in - Please run /login",
+        "purchase more credits",
+        "credit balance is too low",
+    ],
+)
+def test_cli_failure_detail_preserves_credential_wall_after_role_marker(wall: str) -> None:
+    prompt = "review a private diff without exposing it"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\nuser\n{prompt}\n{wall}",
+        redact=prompt,
+    )
+
+    assert prompt not in detail
+    assert wall in detail
+    assert qe._is_credential_wall(detail) is True
+
+
+@pytest.mark.parametrize(
+    "prompt_output",
+    [
+        "review the private authentication error han",
+        "review the private authentication\nerror handling in this diff",
+    ],
+)
+def test_cli_failure_detail_redacts_prompt_fragments_outside_role_marker(
+    prompt_output: str,
+) -> None:
+    prompt = "review the private authentication error handling in this diff"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\n{prompt_output}\nERROR: provider failed",
+        redact=prompt,
+    )
+
+    for fragment in prompt_output.splitlines():
+        assert fragment not in detail
+    assert "ERROR: provider failed" in detail
+
+
+@pytest.mark.parametrize(
     ("exc", "expected_error"),
     [
         (
