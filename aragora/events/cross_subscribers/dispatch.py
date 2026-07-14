@@ -265,9 +265,9 @@ class DispatchMixin:
         """Synchronously deliver an event once to one required named handler.
 
         Unlike ordinary cross-subscriber dispatch, this safety-critical path
-        never samples, retries, or suppresses failures. The named handler must
-        be registered exactly once, enabled, available, and explicitly confirm
-        delivery by returning ``True``.
+        never samples, retries, or suppresses attempts. The named handler must
+        be registered exactly once, enabled, and explicitly confirm delivery
+        by returning ``True``.
 
         Args:
             event: The event to deliver.
@@ -296,11 +296,6 @@ class DispatchMixin:
         if not stats.enabled:
             stats.events_skipped += 1
             raise RuntimeError(f"Required cross-subscriber '{handler_name}' is disabled")
-        if not self._circuit_breaker.is_available(handler_name):
-            stats.events_skipped += 1
-            raise RuntimeError(
-                f"Required cross-subscriber '{handler_name}' circuit breaker is open"
-            )
 
         filter_func = self._filters.get(handler_name)
         if filter_func is not None:
