@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import re
-import tomllib
 from pathlib import Path
 
 import pytest
 import yaml
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as tomllib
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -45,7 +49,8 @@ def test_yaml_hook_excludes_only_helm_template_trees() -> None:
 def test_documentation_does_not_embed_pem_markers() -> None:
     guide = (REPO_ROOT / "docs/guides/GITHUB_APP_SETUP.md").read_text(encoding="utf-8")
     assert "BEGIN RSA PRIVATE KEY" not in guide
-    assert "GITHUB_APP_PRIVATE_KEY_PATH=/run/secrets/github-app.pem" in guide
+    assert re.search(r'^GITHUB_APP_PRIVATE_KEY="[^"]+"$', guide, re.MULTILINE)
+    assert "GITHUB_APP_PRIVATE_KEY_PATH=" not in guide
     assert "$(cat " not in guide
 
 
