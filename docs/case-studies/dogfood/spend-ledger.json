@@ -15,7 +15,7 @@
       "estimated_output_tokens": 10,
       "estimated_cost_usd": 0.0001,
       "actual_cost_usd": null,
-      "note": "Cost negligible; 2 of 3 providers connected. Gemini key invalid."
+      "note": "Cost negligible; 2 of 3 direct providers connected. Gemini key invalid. The separate OpenRouter HTTP-401 connectivity probe failed authentication before generation and recorded zero billable usage."
     },
     {
       "id": "m8-review-pr-9193",
@@ -91,11 +91,76 @@
       "estimated_cost_usd": 0.03,
       "actual_cost_usd": null,
       "note": "Both: PASS. Grok no findings. Mistral 1 P2 (path traversal edge case)."
+    },
+    {
+      "id": "m9-connectivity-probe",
+      "feature": "m9-benchmark",
+      "milestone": "m9-proof",
+      "timestamp": "2026-07-11T17:18Z",
+      "description": "Tiny connectivity probe: grok + mistral-api, each instructed to reply OK.",
+      "providers": ["xai/grok-4-latest", "mistral/mistral-large-2512"],
+      "estimated_input_tokens": 20,
+      "estimated_output_tokens": 2,
+      "estimated_cost_usd": 0.0001,
+      "actual_cost_usd": null,
+      "note": "Both direct provider calls succeeded. The preceding strict-secrets attempt failed before agent construction and made no provider call."
+    },
+    {
+      "id": "m9-smoke-grok-baseline",
+      "feature": "m9-benchmark",
+      "milestone": "m9-proof",
+      "timestamp": "2026-07-11T17:19Z",
+      "description": "Three no-publish review-pr smoke calls on the SHA-pinned Factory cases with grok.",
+      "providers": ["xai/grok-4-latest"],
+      "estimated_input_tokens": 21900,
+      "estimated_output_tokens": 891,
+      "estimated_cost_usd": 0.13,
+      "actual_cost_usd": null,
+      "note": "All three completed with CHANGES_REQUESTED. Estimate rounds the published-price token proxy upward to the next cent."
+    },
+    {
+      "id": "m9-smoke-mistral-route-blocked",
+      "feature": "m9-benchmark",
+      "milestone": "m9-proof",
+      "timestamp": "2026-07-11T17:20Z",
+      "description": "Attempted three review-pr smoke cases with mistral-api; routing stopped at the non-Codex guard before model generation.",
+      "providers": [],
+      "estimated_input_tokens": 0,
+      "estimated_output_tokens": 0,
+      "estimated_cost_usd": 0.0,
+      "actual_cost_usd": 0.0,
+      "note": "Zero billable model usage. The benchmark collector then used the direct Mistral agent path."
+    },
+    {
+      "id": "m9-quorum-benchmark-live",
+      "feature": "m9-benchmark",
+      "milestone": "m9-proof",
+      "timestamp": "2026-07-11T17:24Z",
+      "description": "Six no-publish calls: grok + direct mistral-api on each of the three SHA-pinned defect cases.",
+      "providers": ["xai/grok-4-latest", "mistral/mistral-large-2512"],
+      "estimated_input_tokens": 43800,
+      "estimated_output_tokens": 3439,
+      "estimated_cost_usd": 0.2,
+      "actual_cost_usd": null,
+      "note": "Input estimate is bounded-diff characters / 4 plus prompt overhead; output estimate is measured characters / 4. Published-price estimate rounds upward to the next cent."
+    },
+    {
+      "id": "m9-offline-measure-and-receipt-replay",
+      "feature": "m9-benchmark",
+      "milestone": "m9-proof",
+      "timestamp": "2026-07-11T17:31Z",
+      "description": "Offline measurement plus emit_pr_receipt.py and aragora-verify replay from committed CollectOutcome fixtures.",
+      "providers": [],
+      "estimated_input_tokens": 0,
+      "estimated_output_tokens": 0,
+      "estimated_cost_usd": 0.0,
+      "actual_cost_usd": 0.0,
+      "note": "No model calls and no network required; this is the zero-spend validator path."
     }
   ],
-  "cumulative_usd": 0.2301,
+  "cumulative_usd": 0.5602,
   "cumulative_m8_usd": 0.2301,
-  "cumulative_m9_usd": 0.0,
-  "rounding_policy": "No rounding: cumulative fields store the exact arithmetic sum of the per-entry estimated_cost_usd values (0.0001 + 0.05 + 0.07 + 0.03 + 0.05 + 0.03 = 0.2301).",
-  "note": "Costs are estimates based on published per-token pricing (xai grok-4 ~$5/$15 per 1M in/out; mistral-large ~$2/$6 per 1M in/out). Actual provider invoices not available in-session. All estimates are conservative upper bounds. Cumulative is the exact sum of entries (no rounding). Well under $100 cap."
+  "cumulative_m9_usd": 0.3301,
+  "rounding_policy": "Each non-negligible review batch is conservatively rounded upward to the next USD cent after a characters/4 token proxy is priced; cumulative fields are the exact arithmetic sum of the stored per-entry estimated_cost_usd values. M8=0.2301; M9=0.0001+0.13+0.0+0.2+0.0=0.3301; total=0.5602.",
+  "note": "Costs are estimates based on published per-token pricing (xai grok-4 ~$5/$15 per 1M in/out; mistral-large ~$2/$6 per 1M in/out). Actual provider invoices were not available in-session. Stored estimates are conservative upper bounds. Cumulative is the exact sum of entries and remains well under the $100 cap."
 }
