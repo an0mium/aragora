@@ -64,9 +64,7 @@ GITHUB_WEBHOOK_SECRET=your-webhook-secret-here
 
 # Optional (for API access)
 GITHUB_APP_ID=12345
-GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----
-...
------END RSA PRIVATE KEY-----"
+GITHUB_APP_PRIVATE_KEY="$(cat /run/secrets/github-app.pem)"
 
 # Optional (use personal token instead of App)
 GITHUB_TOKEN=ghp_xxxxxxxxxxxx

@@ -194,6 +194,9 @@ ignore = ["E402", "E501", "E731", "E741", "E712", "C401", "C405", "C408", "C416"
 "tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004", "S101"]
 "aragora/**/test_*.py" = ["S101"]
 "aragora/**/tests/*" = ["S101"]
+# Benchmarks intentionally assert SLOs; Liftmode is an operational CLI with an optional-secrets fallback.
+"benchmarks/*.py" = ["S101"]
+"deploy/liftmode/briefing.py" = ["T201", "BLE001"]
 "examples/*" = ["T201", "BLE001"]
 "sdk/cookbook/*" = ["T201", "BLE001", "F841"]
 "deprecated/*" = ["UP"]
