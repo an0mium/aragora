@@ -231,7 +231,7 @@ created **no `module_tiers.yaml` drift** (§9).
 | `aragora/memory/event_subscribers.py` | domain | The three live memory reactions from `handlers.basic`: `knowledge_to_memory`, `evidence_to_insight`, and `mound_to_memory`. |
 | `aragora/debate/event_subscribers.py` | domain | The six live debate reactions from `handlers.{basic,strategic}`: ELO, calibration, consensus learning, rhetorical analysis, budget alert, and meta-learning. Security composition and `arena_bridge` moved to separate debate modules (§5.1). |
 | `aragora/reasoning/event_subscribers.py` | domain | `vote_to_belief` from `handlers.basic`. |
-| `aragora/workflow/event_subscribers.py` | application | The live alert-escalation workflow brake plus the relocated, directly callable `PostDebateWorkflowSubscriber`. The obsolete unregistered `basic._handle_debate_end_to_workflow` delegate was deleted rather than re-wired. |
+| `aragora/workflow/event_subscribers.py` | application | The live alert-escalation workflow brake plus one keyed `debate_end_to_workflow` reaction backed by the persistent `PostDebateWorkflowSubscriber`. The obsolete unregistered `basic._handle_debate_end_to_workflow` delegate was deleted rather than re-wired. |
 | `aragora/server/event_subscribers.py` | interface | Webhook delivery, knowledge-staleness-to-debate, and gauntlet-notification reactions. The deleted `execution_handlers` and `notification_handlers` modules are not final-main contributors. |
 
 No `aragora/ranking/event_subscribers.py` or
@@ -447,15 +447,19 @@ The design-time census found two lazy delegates to
 `subscribers.debate_handlers.py` before E5 landed. The sole remaining delegate,
 `handlers.basic._handle_debate_end_to_workflow`, was unregistered dead code. E5
 therefore removed that delegate and relocated `PostDebateWorkflowSubscriber` to
-`aragora.workflow.event_subscribers` without activating a new production path.
-Its `_trigger_workflow` implementation remains a no-op construction seam, so final
-main deliberately does not register it for `debate_end`.
+`aragora.workflow.event_subscribers`. The application home registers exactly one
+keyed `debate_end_to_workflow` reaction. The interface-superset
+`bootstrap_event_subscribers()` applies that home once per manager, so one
+`DEBATE_END` dispatch invokes `PostDebateWorkflowSubscriber.handle_debate_end`
+exactly once even after repeated bootstrap calls.
 
 This preserves the general rule: **handlers communicate through the domain-free
-event bus, never by importing each other across layers.** If post-debate workflow
-execution is activated in a future feature, it must be registered only in the
-application home and an invocation-count test must prove exactly one execution per
-event; registration-count parity alone cannot detect a double-fire.
+event bus, never by importing each other across layers.** The
+`PostDebateWorkflowSubscriber._trigger_workflow` method remains a
+construction-only seam, but outcome classification and fail-soft handling are now
+reached through the production composition root. Invocation-count tests patch the
+handler itself because registration-count parity alone cannot detect a
+double-fire.
 
 > Note: the design-time `handlers.strategic` control-plane import and
 > `notification_handlers` notification import were unlayered. Final main moved the
@@ -779,7 +783,7 @@ cap and carry a noted split point. **`events.dispatcher`/`async_dispatcher` ->
 | E2 | knowledge-domain home | Move KM reactions from `handlers.{knowledge_mound,validation}` (+ knowledge bits of `basic`/`culture`/`strategic`, `subscribers.mound_handlers`) -> `aragora/knowledge/event_subscribers.py`; self-register; NO shim; repoint `test_e2e_debate_km_flow`, `test_consensus_ingestion`. **Split E2a(knowledge_mound)/E2b(validation) if >800.** | contributes `events->{knowledge,memory}` | ~750 |
 | E3 | memory + reasoning homes; ranking cleanup | Move the three live `handlers.basic` memory reactions to `aragora/memory/event_subscribers.py` and `vote_to_belief` to `aragora/reasoning/event_subscribers.py`. Ranking was already a no-code stale edge after E2c, so no ranking home was created. | clears `events->{memory,reasoning,ranking}` | ~600 |
 | E4 | debate-domain home | Move the six live debate reactions from `handlers.{basic,strategic}` to `aragora/debate/event_subscribers.py`. `subscribers.debate_handlers` had already been deleted by E2c. | removes the handler share of `events->debate` | ~700 |
-| E5 | workflow application home + stale nomic cleanup | Move `subscribers.workflow_automation` and the live strategic workflow brake to `aragora/workflow/event_subscribers.py`; remove the unregistered `basic._handle_debate_end_to_workflow` delegate. Nomic was already a no-code stale edge after E2c, so no nomic event-subscriber home was created. | clears `events->{workflow,nomic}` | ~700 |
+| E5 | workflow application home + stale nomic cleanup | Move `subscribers.workflow_automation` and the live strategic workflow brake to `aragora/workflow/event_subscribers.py`; register one keyed `debate_end_to_workflow` reaction in that application home; remove the unregistered `basic._handle_debate_end_to_workflow` delegate. Nomic was already a no-code stale edge after E2c, so no nomic event-subscriber home was created. | clears `events->{workflow,nomic}` | ~700 |
 | E6 | interface home (server-coupled reactions) | Move the live basic webhook and culture state-manager reactions to `aragora/server/event_subscribers.py`; relocate gauntlet notification for interface cohesion. `execution_handlers` was already deleted, and later notification/channel plus dispatcher-boundary features removed the remaining real `events->server` contributors. | removes the subscriber-side share of `events->server` | ~700 |
 | E7a | security split (events + dispatcher) + emitter callback inversion | SPLIT `security_events`: move `trigger_security_debate` + `_get_security_debate_agents` + `build_security_debate_question` -> `aragora/debate/security_response.py`; add the domain-free `register_security_debate_runner`/`get_security_debate_runner` hook and INVERT `SecurityEventEmitter._trigger_security_debate` to the callback (§5.1); KEEP the domain-free results store in events. SPLIT `security_dispatcher` (move the single Arena-runner fn). DROP `trigger_security_debate` + `build_security_debate_question` from `events/__init__.py` (§6.3 table). Repoint `debate/security_debate.py`, `tests/debate/test_security_debate.py` (8 `@patch`), `tests/events/test_security_events.py`, `tests/events/test_security_dispatcher.py`. | `events->agents` + `security_events`/`security_dispatcher` share of `events->debate` | ~650 |
 | E7b | arena_bridge relocate + manager de-mixin | Relocate `arena_bridge` -> `aragora/debate/arena_bridge.py` (preferred option (a); or the drop-TYPE_CHECKING fallback (b), §5.1); DROP the `arena_bridge` trio from `events/__init__.py` (§6.3 table); finalize `manager.py` domain-free (remove the last mixin imports). Repoint `server/handlers/cross_pollination.py:156` (`EVENT_TYPE_MAP`), `debate/orchestrator_memory.py:306` (`ArenaEventBridge`), `tests/events/test_arena_bridge.py`. | `arena_bridge` share of `events->debate` | ~400 |
@@ -813,10 +817,10 @@ cross-layer import of an application/interface home, e.g. `debate -> workflow`, 
 guards that each worker's new home is at/above its highest import); (3) NO re-export
 shim at any moved path; (4) all repointed consumers/tests pass; (5)
 `get_cross_subscriber_manager()` import path unchanged; (6) **E5-specific:** both
-legacy delegates are absent, and the relocated `PostDebateWorkflowSubscriber`
-remains directly callable/testable but intentionally unwired while its trigger is
-a no-op. Any future activation must add an invocation-count test proving exactly
-one execution per `debate_end`; registration-count parity is insufficient.
+legacy delegates are absent, the application home registers one keyed
+`debate_end_to_workflow` reaction, and production invocation-count tests prove
+one `PostDebateWorkflowSubscriber.handle_debate_end` call per event before and
+after repeated idempotent bootstrap. Registration-count parity is insufficient.
 
 ## 11. References
 
