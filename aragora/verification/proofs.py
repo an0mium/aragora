@@ -946,7 +946,9 @@ class ClaimVerifier:
                 "status": "no_proofs",
             }
 
-        results = [self.results[pid] for pid in proof_ids if pid in self.results]
+        results = [
+            result for proof_id in proof_ids if (result := self.results.get(proof_id)) is not None
+        ]
 
         if not results:
             return {
