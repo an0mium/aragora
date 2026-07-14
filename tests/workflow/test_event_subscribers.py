@@ -96,6 +96,18 @@ class TestWorkflowEventSubscriberHandlers:
             subscriber._handle_alert_escalated_to_workflow_brake(event)
         pause_all.assert_called_once()
 
+    def test_alert_escalated_to_workflow_brake_handles_none_reason(self):
+        subscriber = WorkflowEventSubscriber()
+        event = make_stream_event(
+            StreamEventType.ALERT_ESCALATED,
+            data={"severity": "critical", "alert_id": "alert_3", "reason": None},
+        )
+        with patch("aragora.workflow.engine.WorkflowEngine.pause_all") as pause_all:
+            delivered = subscriber._handle_alert_escalated_to_workflow_brake(event)
+
+        assert delivered is True
+        pause_all.assert_called_once_with(reason="Emergency brake: ")
+
 
 class TestWorkflowEventSubscriberRegistration:
     """Registration + self-registration surface tests."""

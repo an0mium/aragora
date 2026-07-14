@@ -306,7 +306,7 @@ class DispatchMixin:
         if filter_func is not None:
             try:
                 accepted = filter_func(event)
-            except Exception as exc:  # noqa: BLE001 - fail closed on any filter failure
+            except (RuntimeError, TypeError, AttributeError, ValueError, KeyError) as exc:
                 stats.events_failed += 1
                 raise RuntimeError(
                     f"Required cross-subscriber '{handler_name}' filter failed"

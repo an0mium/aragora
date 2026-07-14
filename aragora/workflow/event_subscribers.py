@@ -232,7 +232,7 @@ class WorkflowEventSubscriber:
         data = event.data
         severity = data.get("new_severity", data.get("severity", ""))
         alert_id = data.get("alert_id", "")
-        reason = data.get("reason", data.get("message", ""))[:200]
+        reason = str(data.get("reason", data.get("message", "")) or "")[:200]
 
         # Only brake on critical/emergency escalations
         if severity not in ("critical", "emergency", "fatal"):
@@ -256,10 +256,8 @@ class WorkflowEventSubscriber:
         except ImportError:
             return False
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("Workflow emergency brake failed: %s", e)
+            logger.error("Workflow emergency brake failed: %s", e, exc_info=True)
             return False
-
-        return False
 
     def register(self, manager: "CrossSubscriberManager") -> None:
         """Wire the workflow-domain reactions into ``manager`` (keyed/idempotent).
