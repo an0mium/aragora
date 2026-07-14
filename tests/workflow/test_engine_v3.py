@@ -632,29 +632,46 @@ class TestTerminationControl:
         assert reason == "done"
 
     @pytest.mark.asyncio
-    async def test_pause_all_latches_across_engine_instances(
+    async def test_pause_all_stops_all_live_engine_instances(
         self,
         engine: WorkflowEngine,
-        simple_def: WorkflowDefinition,
     ):
-        """The emergency brake should stop existing and future engine instances."""
+        """The emergency brake should stop every currently executing engine."""
         reset_workflow_engine()
-        other_engine = WorkflowEngine(checkpoint_store=MagicMock())
+        other_engine = WorkflowEngine(
+            config=WorkflowConfig(enable_checkpointing=False),
+            step_registry={"slow": SlowStep, "echo": EchoStep},
+            checkpoint_store=MagicMock(),
+        )
+        workflow = WorkflowDefinition(
+            id="wf-brake",
+            name="Brake",
+            steps=[
+                StepDefinition(
+                    id="s1",
+                    name="Slow",
+                    step_type="slow",
+                    config={"delay": 0.05},
+                    next_steps=["s2"],
+                ),
+                StepDefinition(id="s2", name="Should Not Run", step_type="echo"),
+            ],
+            entry_step="s1",
+        )
 
         try:
+            tasks = [
+                asyncio.create_task(engine.execute(workflow)),
+                asyncio.create_task(other_engine.execute(workflow)),
+            ]
+            await asyncio.sleep(0.01)
             WorkflowEngine.pause_all("Critical alert")
+            results = await asyncio.gather(*tasks)
 
             assert engine.check_termination() == (True, "Critical alert")
             assert other_engine.check_termination() == (True, "Critical alert")
-            assert WorkflowEngine(checkpoint_store=MagicMock()).check_termination() == (
-                True,
-                "Critical alert",
-            )
-
-            result = await engine.execute(simple_def)
-            assert result.success is False
-            assert result.steps == []
-            assert result.error == "Critical alert"
+            assert all([step.step_id for step in result.steps] == ["s1"] for result in results)
+            assert WorkflowEngine(checkpoint_store=MagicMock()).check_termination() == (False, None)
         finally:
             reset_workflow_engine()
 

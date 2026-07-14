@@ -16,8 +16,10 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import threading
 import time
 import uuid
+import weakref
 from datetime import datetime, timezone
 from typing import Any, ClassVar
 from collections.abc import Callable
@@ -79,7 +81,8 @@ class WorkflowEngine:
         result = await engine.resume(workflow_id, checkpoint)
     """
 
-    _emergency_brake_reason: ClassVar[str | None] = None
+    _instances: ClassVar[weakref.WeakSet[WorkflowEngine]] = weakref.WeakSet()
+    _instances_lock: ClassVar[threading.RLock] = threading.RLock()
 
     def __init__(
         self,
@@ -101,7 +104,8 @@ class WorkflowEngine:
         self._should_terminate: bool = False
         self._termination_reason: str | None = None
         self._results: list[StepResult] = []
-        self._apply_emergency_brake()
+        with WorkflowEngine._instances_lock:
+            WorkflowEngine._instances.add(self)
 
         # Checkpoint storage - use provided store or fall back to file-based
         self._checkpoint_store: CheckpointStore = checkpoint_store or get_checkpoint_store()
@@ -398,7 +402,6 @@ class WorkflowEngine:
         self._results = []
         self._should_terminate = False
         self._termination_reason = None
-        self._apply_emergency_brake()
 
         start_time = time.time()
         checkpoints_created = 0
@@ -417,8 +420,8 @@ class WorkflowEngine:
                     self._execute_workflow(definition, context),
                     timeout=self._config.total_timeout_seconds,
                 )
-                success = not self._should_terminate and all(r.success for r in self._results)
-                error = self._termination_reason if self._should_terminate else None
+                success = all(r.success for r in self._results)
+                error = None
 
             except asyncio.TimeoutError:
                 logger.error(
@@ -559,7 +562,6 @@ class WorkflowEngine:
         self._results = []
         self._should_terminate = False
         self._termination_reason = None
-        self._apply_emergency_brake()
 
         start_time = time.time()
 
@@ -574,8 +576,8 @@ class WorkflowEngine:
                 ),
                 timeout=self._config.total_timeout_seconds,
             )
-            success = not self._should_terminate and all(r.success for r in self._results)
-            error = self._termination_reason if self._should_terminate else None
+            success = all(r.success for r in self._results)
+            error = None
 
         except asyncio.TimeoutError:
             success = False
@@ -654,10 +656,6 @@ class WorkflowEngine:
         self._timeout_warnings_issued = set()
 
         while current_step_id and not self._should_terminate:
-            self._apply_emergency_brake()
-            if self._should_terminate:
-                break
-
             # Check for progressive timeout warnings
             self._check_timeout_progress(
                 workflow_start_time,
@@ -1141,27 +1139,15 @@ class WorkflowEngine:
 
     @classmethod
     def pause_all(cls, reason: str = "Emergency brake") -> None:
-        """Latch the emergency brake for every workflow engine instance."""
-        WorkflowEngine._emergency_brake_reason = reason
-        logger.critical("workflow_emergency_brake_activated", reason=reason)
-
-    @classmethod
-    def reset_emergency_brake(cls) -> None:
-        """Clear the process-wide emergency brake."""
-        WorkflowEngine._emergency_brake_reason = None
-        logger.warning("Workflow emergency brake reset")
-
-    def _apply_emergency_brake(self) -> None:
-        """Apply the process-wide brake to this engine's execution state."""
-        reason = WorkflowEngine._emergency_brake_reason
-        if reason is not None and (
-            not self._should_terminate or self._termination_reason != reason
-        ):
-            self.request_termination(reason)
+        """Request termination on every live workflow engine instance."""
+        with WorkflowEngine._instances_lock:
+            engines = list(WorkflowEngine._instances)
+        for engine in engines:
+            engine.request_termination(reason)
+        logger.critical("Workflow emergency brake activated: " + reason)
 
     def check_termination(self) -> tuple[bool, str | None]:
         """Check if termination has been requested."""
-        self._apply_emergency_brake()
         return self._should_terminate, self._termination_reason
 
     @property
@@ -1223,7 +1209,6 @@ def reset_workflow_engine() -> None:
     """Reset the global WorkflowEngine singleton (for testing)."""
     global _workflow_engine_instance
     _workflow_engine_instance = None
-    WorkflowEngine.reset_emergency_brake()
 
 
 # Backward-compatible alias

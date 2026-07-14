@@ -187,7 +187,11 @@ def emit_alert_event(
     title: str,
     **kwargs: Any,
 ) -> None:
-    """Emit an alert event."""
+    """Emit an alert event.
+
+    Raises:
+        RuntimeError: If a critical escalation cannot confirm workflow-brake delivery.
+    """
     emitter = get_autonomous_emitter()
 
     type_map = {

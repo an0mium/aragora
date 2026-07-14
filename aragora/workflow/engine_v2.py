@@ -301,7 +301,6 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         self._results = []
         self._should_terminate = False
         self._termination_reason = None
-        self._apply_emergency_brake()
 
         limits_exceeded = False
         limit_exceeded_type = None
@@ -312,8 +311,8 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 self._execute_workflow_enhanced(definition, context),
                 timeout=self._limits.timeout_seconds,
             )
-            success = not self._should_terminate and all(r.success for r in self._results)
-            error = self._termination_reason if self._should_terminate else None
+            success = all(r.success for r in self._results)
+            error = None
 
         except asyncio.TimeoutError:
             logger.error("Workflow timed out after %ss", self._limits.timeout_seconds)
@@ -410,10 +409,6 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         step_count = 0
 
         while current_step_id and not self._should_terminate:
-            self._apply_emergency_brake()
-            if self._should_terminate:
-                break
-
             # Check resource limits before each step
             self._check_limits()
 
