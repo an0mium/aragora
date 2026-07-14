@@ -78,6 +78,9 @@ def _file_letter(name: str) -> str:
 
 _DEBATE_PHASES_REBALANCED_FILES = frozenset(
     {
+        "test_autonomic_executor.py",
+        "test_convergence_comprehensive.py",
+        "test_counterfactual_root.py",
         "test_context_gatherer.py",
         "test_context_gatherer_root.py",
         "test_e2e_flow.py",
@@ -111,10 +114,9 @@ def shard_debate_nz() -> list[str]:
 def shard_debate_phases() -> list[str]:
     """Debate subdirectories plus measured heavy top-level files.
 
-    The selected top-level files repeatedly contributed about 82-93 seconds
-    of loadscope occupancy on the busiest debate-am worker. Moving them here
-    gives the saturated shard headroom while debate-phases remains far below
-    its 30-minute cap.
+    The selected files contributed about 604 aggregate worker-seconds in the
+    measured saturated run. Moving them here gives debate-am bounded headroom
+    while debate-phases remains far below its 30-minute cap.
     """
     parent = TESTS_ROOT / "debate"
     subdirs, files = _entries(parent)

@@ -108,6 +108,9 @@ def test_debate_partition_is_complete_and_disjoint() -> None:
 def test_debate_runtime_balanced_files_are_in_phases_shard() -> None:
     """Measured heavy top-level files run in the debate shard with ample headroom."""
     rebalanced = {
+        "tests/debate/test_autonomic_executor.py",
+        "tests/debate/test_convergence_comprehensive.py",
+        "tests/debate/test_counterfactual_root.py",
         "tests/debate/test_context_gatherer.py",
         "tests/debate/test_context_gatherer_root.py",
         "tests/debate/test_e2e_flow.py",
