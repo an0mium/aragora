@@ -76,17 +76,28 @@ def _file_letter(name: str) -> str:
 # Per-shard resolvers
 # ---------------------------------------------------------------------------
 
+_DEBATE_PHASES_REBALANCED_FILES = frozenset(
+    {
+        "test_context_gatherer.py",
+        "test_context_gatherer_root.py",
+        "test_e2e_flow.py",
+    }
+)
+
 
 def _under(parent: Path, names: Iterable[str]) -> list[str]:
     return [str((parent / name).relative_to(REPO_ROOT)) for name in names]
 
 
 def shard_debate_am() -> list[str]:
-    """Top-level debate test files starting a-m, no subdir tests."""
+    """Top-level debate test files starting a-m, excluding rebalanced files."""
     parent = TESTS_ROOT / "debate"
     _, files = _entries(parent)
     in_am = _alpha_range("a", "m")
-    return _under(parent, [f for f in files if in_am(_file_letter(f))])
+    chosen = [
+        f for f in files if in_am(_file_letter(f)) and f not in _DEBATE_PHASES_REBALANCED_FILES
+    ]
+    return _under(parent, chosen)
 
 
 def shard_debate_nz() -> list[str]:
@@ -98,10 +109,17 @@ def shard_debate_nz() -> list[str]:
 
 
 def shard_debate_phases() -> list[str]:
-    """All subdirectories under tests/debate/."""
+    """Debate subdirectories plus measured heavy top-level files.
+
+    The selected top-level files repeatedly contributed about 82-93 seconds
+    of loadscope occupancy on the busiest debate-am worker. Moving them here
+    gives the saturated shard headroom while debate-phases remains far below
+    its 30-minute cap.
+    """
     parent = TESTS_ROOT / "debate"
-    subdirs, _ = _entries(parent)
-    return _under(parent, subdirs)
+    subdirs, files = _entries(parent)
+    rebalanced = [f for f in files if f in _DEBATE_PHASES_REBALANCED_FILES]
+    return _under(parent, [*subdirs, *rebalanced])
 
 
 def _server_handlers_root() -> Path:
