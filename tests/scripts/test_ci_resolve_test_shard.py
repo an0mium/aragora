@@ -105,6 +105,25 @@ def test_debate_partition_is_complete_and_disjoint() -> None:
     )
 
 
+def test_debate_runtime_balanced_files_are_in_phases_shard() -> None:
+    """Measured heavy top-level files run in the debate shard with ample headroom."""
+    rebalanced = {
+        "tests/debate/test_autonomic_executor.py",
+        "tests/debate/test_convergence_comprehensive.py",
+        "tests/debate/test_counterfactual_root.py",
+        "tests/debate/test_context_gatherer.py",
+        "tests/debate/test_context_gatherer_root.py",
+        "tests/debate/test_e2e_flow.py",
+    }
+    debate_am = _expand_to_files(shard_mod.shard_debate_am())
+    debate_nz = _expand_to_files(shard_mod.shard_debate_nz())
+    debate_phases = _expand_to_files(shard_mod.shard_debate_phases())
+
+    assert rebalanced <= debate_phases
+    assert rebalanced.isdisjoint(debate_am)
+    assert rebalanced.isdisjoint(debate_nz)
+
+
 def test_resolver_emits_relative_paths() -> None:
     """All resolver outputs are repo-relative paths that exist or are pytest options."""
     for name, fn in shard_mod.SHARDS.items():
