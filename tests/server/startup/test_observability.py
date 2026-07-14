@@ -22,9 +22,11 @@ class TestRegisterObservabilitySinks:
         from aragora.connectors.devops import slo_alert_sink as pagerduty_adapter
         from aragora.control_plane import slo_alert_sink as channel_adapter
         from aragora.integrations import webhooks as webhook_adapter
+        from aragora.observability import slo
         from aragora.observability import slo_alert_bridge
         from aragora.observability.metrics import slo as slo_metrics
 
+        slo.register_slo_notification_sink_provider(None)
         slo_alert_bridge.register_pagerduty_alert_sink(None)
         slo_alert_bridge.register_channel_alert_sink(None)
         slo_metrics.register_slo_event_sink_provider(None)
@@ -33,6 +35,7 @@ class TestRegisterObservabilitySinks:
         importlib.reload(channel_adapter)
         importlib.reload(webhook_adapter)
 
+        assert slo._slo_notification_sink_provider is None
         assert slo_alert_bridge._pagerduty_alert_sink_factory is None
         assert slo_alert_bridge._channel_alert_sink_factory is None
         assert slo_metrics._slo_event_sink_provider is None
@@ -40,20 +43,24 @@ class TestRegisterObservabilitySinks:
     def test_registers_all_external_sink_providers(self) -> None:
         from aragora.observability.metrics import km as km_metrics
         from aragora.observability.metrics import slo as slo_metrics
+        from aragora.observability import slo
         from aragora.observability import slo_alert_bridge
         from aragora.server.startup.observability import register_observability_sinks
 
+        slo.register_slo_notification_sink_provider(None)
         slo_alert_bridge.register_pagerduty_alert_sink(None)
         slo_alert_bridge.register_channel_alert_sink(None)
         slo_metrics.register_slo_event_sink_provider(None)
         km_metrics.register_km_health_provider(None)
         try:
             assert register_observability_sinks() is True
+            assert slo._slo_notification_sink_provider is not None
             assert slo_alert_bridge._pagerduty_alert_sink_factory is not None
             assert slo_alert_bridge._channel_alert_sink_factory is not None
             assert slo_metrics._slo_event_sink_provider is not None
             assert km_metrics._km_health_provider is not None
         finally:
+            slo.register_slo_notification_sink_provider(None)
             slo_alert_bridge.register_pagerduty_alert_sink(None)
             slo_alert_bridge.register_channel_alert_sink(None)
             slo_metrics.register_slo_event_sink_provider(None)
