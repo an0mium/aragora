@@ -246,22 +246,13 @@ class WorkflowEventSubscriber:
         )
 
         try:
-            from aragora.workflow.engine import get_workflow_engine
+            from aragora.workflow.engine import WorkflowEngine
 
-            engine = get_workflow_engine()
-            if engine is None:
-                return False
-
-            if hasattr(engine, "pause_all"):
-                engine.pause_all(
-                    reason=f"Emergency brake: {reason}",
-                )
-                logger.warning("Paused all workflows due to critical alert %s", alert_id)
-                return True
-            elif hasattr(engine, "emergency_stop"):
-                engine.emergency_stop(reason=f"Alert escalation: {reason}")
-                logger.warning("Emergency stopped workflows due to critical alert %s", alert_id)
-                return True
+            WorkflowEngine.pause_all(
+                reason=f"Emergency brake: {reason}",
+            )
+            logger.warning("Paused all workflows due to critical alert %s", alert_id)
+            return True
         except ImportError:
             return False
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:

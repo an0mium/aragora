@@ -631,6 +631,33 @@ class TestTerminationControl:
         assert terminated is True
         assert reason == "done"
 
+    @pytest.mark.asyncio
+    async def test_pause_all_latches_across_engine_instances(
+        self,
+        engine: WorkflowEngine,
+        simple_def: WorkflowDefinition,
+    ):
+        """The emergency brake should stop existing and future engine instances."""
+        reset_workflow_engine()
+        other_engine = WorkflowEngine(checkpoint_store=MagicMock())
+
+        try:
+            WorkflowEngine.pause_all("Critical alert")
+
+            assert engine.check_termination() == (True, "Critical alert")
+            assert other_engine.check_termination() == (True, "Critical alert")
+            assert WorkflowEngine(checkpoint_store=MagicMock()).check_termination() == (
+                True,
+                "Critical alert",
+            )
+
+            result = await engine.execute(simple_def)
+            assert result.success is False
+            assert result.steps == []
+            assert result.error == "Critical alert"
+        finally:
+            reset_workflow_engine()
+
 
 # ---------------------------------------------------------------------------
 # Metrics

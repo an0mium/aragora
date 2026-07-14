@@ -621,13 +621,14 @@ class TestEmitAlertEvent:
         set_autonomous_emitter(emitter)
 
         async def check():
-            emit_alert_event(
-                event_type="escalated",
-                alert_id="alert-004",
-                severity="critical",
-                title="Escalated",
-                new_severity="critical",
-            )
+            with patch("aragora.workflow.engine.WorkflowEngine.pause_all"):
+                emit_alert_event(
+                    event_type="escalated",
+                    alert_id="alert-004",
+                    severity="critical",
+                    title="Escalated",
+                    new_severity="critical",
+                )
             await asyncio.sleep(0.1)
             event = emitter._event_history[0]
             assert event.type == StreamEventType.ALERT_ESCALATED
@@ -640,13 +641,14 @@ class TestEmitAlertEvent:
     ):
         """Critical production escalations brake once before broadcast."""
         delivery_order = []
-        engine = MagicMock(spec=["pause_all"])
-        engine.pause_all.side_effect = lambda **kwargs: delivery_order.append("brake")
         emitter = MagicMock(spec=AutonomousStreamEmitter)
         emitter.emit_sync.side_effect = lambda event: delivery_order.append("broadcast")
         set_autonomous_emitter(emitter)
 
-        with patch("aragora.workflow.engine.get_workflow_engine", return_value=engine):
+        with patch(
+            "aragora.workflow.engine.WorkflowEngine.pause_all",
+            side_effect=lambda **kwargs: delivery_order.append("brake"),
+        ) as pause_all:
             emit_alert_event(
                 event_type="escalated",
                 alert_id="alert-critical",
@@ -656,7 +658,7 @@ class TestEmitAlertEvent:
                 reason="Database connection pool exhausted",
             )
 
-        engine.pause_all.assert_called_once_with(
+        pause_all.assert_called_once_with(
             reason="Emergency brake: Database connection pool exhausted"
         )
         emitter.emit_sync.assert_called_once()

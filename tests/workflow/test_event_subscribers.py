@@ -92,10 +92,9 @@ class TestWorkflowEventSubscriberHandlers:
             StreamEventType.ALERT_ESCALATED,
             data={"severity": "critical", "alert_id": "alert_2", "reason": "test reason"},
         )
-        mock_engine = MagicMock()
-        with patch("aragora.workflow.engine.get_workflow_engine", return_value=mock_engine):
+        with patch("aragora.workflow.engine.WorkflowEngine.pause_all") as pause_all:
             subscriber._handle_alert_escalated_to_workflow_brake(event)
-        mock_engine.pause_all.assert_called_once()
+        pause_all.assert_called_once()
 
 
 class TestWorkflowEventSubscriberRegistration:
