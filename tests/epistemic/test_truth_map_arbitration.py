@@ -70,7 +70,7 @@ class TestFlagOff:
         monkeypatch.delenv("ARAGORA_CRUX_ARBITRATION_ENABLED", raising=False)
         d = build_truth_map(claim_results=[], arbitration_inputs=[_arb()]).to_dict()
         assert "arbitrations" not in d
-        assert d["summary"]["active_arbitrations"] == 0
+        assert "active_arbitrations" not in d["summary"]
 
     def test_none_inputs_produces_no_rows_flag_on(self, flag_on):
         report = build_truth_map(claim_results=[], arbitration_inputs=None)

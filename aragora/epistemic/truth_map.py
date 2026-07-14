@@ -153,21 +153,24 @@ class OrgTruthMapReport:
     active_arbitration_count: int = 0
 
     def to_dict(self) -> dict[str, Any]:
+        summary = {
+            "total_claims": self.total_claims,
+            "passing": self.passing_claims,
+            "failing": self.failing_claims,
+            "stale": self.stale_claims,
+            "unsupported": self.unsupported_claims,
+            "error": self.error_claims,
+            "open_crux_count": self.open_crux_count,
+        }
+        if _arbitration_enabled():
+            summary["active_arbitrations"] = self.active_arbitration_count
+
         d: dict[str, Any] = {
             "generated_at": self.generated_at,
             "claims": [c.to_dict() for c in self.claims],
             "crux_summaries": [cs.to_dict() for cs in self.crux_summaries],
             "genealogies": [g.to_dict() for g in self.genealogies],
-            "summary": {
-                "total_claims": self.total_claims,
-                "passing": self.passing_claims,
-                "failing": self.failing_claims,
-                "stale": self.stale_claims,
-                "unsupported": self.unsupported_claims,
-                "error": self.error_claims,
-                "open_crux_count": self.open_crux_count,
-                "active_arbitrations": self.active_arbitration_count,
-            },
+            "summary": summary,
         }
         if self.arbitrations:
             d["arbitrations"] = [a.to_dict() for a in self.arbitrations]
