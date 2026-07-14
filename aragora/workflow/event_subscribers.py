@@ -218,22 +218,25 @@ class WorkflowEventSubscriber:
         """
         self.post_debate_workflow.handle_debate_end(event)
 
-    def _handle_alert_escalated_to_workflow_brake(self, event: "StreamEvent") -> None:
+    def _handle_alert_escalated_to_workflow_brake(self, event: "StreamEvent") -> bool:
         """Alert escalated → Workflow emergency brake.
 
         When an alert escalates to critical severity, pause all
         active workflows to prevent cascading failures. This is
         the safety valve that stops automated processes when
         something goes seriously wrong.
+
+        Returns:
+            True only when the workflow engine confirms a brake method ran.
         """
         data = event.data
-        severity = data.get("severity", data.get("new_severity", ""))
+        severity = data.get("new_severity", data.get("severity", ""))
         alert_id = data.get("alert_id", "")
         reason = data.get("reason", data.get("message", ""))[:200]
 
         # Only brake on critical/emergency escalations
         if severity not in ("critical", "emergency", "fatal"):
-            return
+            return False
 
         logger.warning(
             "Alert escalated → workflow brake: alert=%s severity=%s reason=%s",
@@ -247,20 +250,25 @@ class WorkflowEventSubscriber:
 
             engine = get_workflow_engine()
             if engine is None:
-                return
+                return False
 
             if hasattr(engine, "pause_all"):
                 engine.pause_all(
                     reason=f"Emergency brake: {reason}",
                 )
                 logger.warning("Paused all workflows due to critical alert %s", alert_id)
+                return True
             elif hasattr(engine, "emergency_stop"):
                 engine.emergency_stop(reason=f"Alert escalation: {reason}")
                 logger.warning("Emergency stopped workflows due to critical alert %s", alert_id)
+                return True
         except ImportError:
-            pass  # Workflow engine not available
+            return False
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("Workflow emergency brake failed: %s", e)
+            return False
+
+        return False
 
     def register(self, manager: "CrossSubscriberManager") -> None:
         """Wire the workflow-domain reactions into ``manager`` (keyed/idempotent).

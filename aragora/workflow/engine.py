@@ -1129,6 +1129,10 @@ class WorkflowEngine:
         self._termination_reason = reason
         logger.info("Workflow termination requested: %s", reason)
 
+    def pause_all(self, reason: str = "Emergency brake") -> None:
+        """Stop active workflow execution through the emergency-brake API."""
+        self.request_termination(reason)
+
     def check_termination(self) -> tuple[bool, str | None]:
         """Check if termination has been requested."""
         return self._should_terminate, self._termination_reason

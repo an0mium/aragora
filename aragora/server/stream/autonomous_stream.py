@@ -206,6 +206,13 @@ def emit_alert_event(
             **kwargs,
         },
     )
+    brake_severity = event.data.get("new_severity", severity)
+    if event_type == "escalated" and brake_severity in ("critical", "emergency", "fatal"):
+        from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+
+        manager = bootstrap_event_subscribers()
+        manager.dispatch_required(event, "alert_escalated_to_workflow_brake")
+
     emitter.emit_sync(event)
 
 
