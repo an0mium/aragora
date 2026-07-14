@@ -5,7 +5,7 @@ description: B0 Benchmark Truth Status
 
 # B0 Benchmark Truth Status
 
-Last updated: 2026-06-14T03:52:10Z
+Last updated: 2026-07-11T16:05:22Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
 
@@ -53,18 +53,22 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 
 | Metric | Value |
 | --- | --- |
-| Proxy no-rescue success rate | 92.3% |
+| Proxy no-rescue success rate | 0.0% |
 | Unique issues attempted | 13 |
-| Unique issues succeeded | 12 |
-| Unique issues failed | 1 |
-| Unique issues neutral | 0 |
-| Total ticks | 30 |
+| Unique issues succeeded | 0 |
+| Unique issues failed | 0 |
+| Unique issues neutral | 13 |
+| Total ticks | 13 |
+
+Proxy note: neutral issue outcomes are current-corpus rows that were neither fresh success nor failure, such as `issue_already_resolved`.
+
+## Proxy Neutral Class Distribution
+
+- `issue_already_resolved`: 13
 
 ## Failure Class Distribution
 
-- `blocked_auth_failure`: 5
-- `blocked_not_dispatch_bounded`: 12
-- `blocked_sanitation_failed`: 1
+- none
 
 ## Rescue Counts By Type
 
@@ -72,13 +76,13 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 
 ## Previous Published Artifact
 
-- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260606T114257Z.json`
-- Previous generated_at: `2026-06-06T11:42:57Z`
+- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260614T035210Z.json`
+- Previous generated_at: `2026-06-14T03:52:10Z`
 
 ## Deltas
 
-- Merged-only rate (`merged_only_rate`): 0.3077
-- No-rescue truth success rate (`no_rescue_truth_success_rate`): 0.3077
-- Proxy no-rescue success rate (`proxy_no_rescue_success_rate`): 0.0000
-- Full-corpus truth success rate (legacy/context) (`truth_success_rate`): 0.3077
+- Merged-only rate (`merged_only_rate`): 0.0000
+- No-rescue truth success rate (`no_rescue_truth_success_rate`): 0.0000
+- Proxy no-rescue success rate (`proxy_no_rescue_success_rate`): -0.9230
+- Full-corpus truth success rate (legacy/context) (`truth_success_rate`): 0.0000
 - Unique issues attempted (`unique_issues_attempted`): 0.0000
