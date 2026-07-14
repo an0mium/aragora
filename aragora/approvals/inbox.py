@@ -6,7 +6,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -200,11 +200,16 @@ def collect_pending_approvals(
             if hasattr(gateway_store, "list_approvals"):
                 gateway_approvals, _total = gateway_store.list_approvals(limit=limit, offset=0)
                 for gateway_req in gateway_approvals:
-                    req_dict = cast(
-                        dict[str, Any],
-                        gateway_req.to_dict() if hasattr(gateway_req, "to_dict") else gateway_req,
+                    req_dict = (
+                        gateway_req.to_dict() if hasattr(gateway_req, "to_dict") else gateway_req
                     )
-                    created_at = req_dict.get("created_at") if isinstance(req_dict, dict) else None
+                    if not isinstance(req_dict, dict):
+                        logger.debug(
+                            "Skipping malformed gateway approval of type %s",
+                            type(req_dict).__name__,
+                        )
+                        continue
+                    created_at = req_dict.get("created_at")
                     items.append(
                         UnifiedApprovalItem(
                             id=req_dict.get("id", ""),
@@ -214,7 +219,7 @@ def collect_pending_approvals(
                             description=req_dict.get("description", ""),
                             requested_at=_iso_timestamp(created_at),
                             requested_by=req_dict.get("requested_by"),
-                            metadata=req_dict if isinstance(req_dict, dict) else {},
+                            metadata=req_dict,
                             actions={
                                 "approve": {
                                     "method": "POST",
