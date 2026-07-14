@@ -45,7 +45,8 @@ def test_yaml_hook_excludes_only_helm_template_trees() -> None:
 def test_documentation_does_not_embed_pem_markers() -> None:
     guide = (REPO_ROOT / "docs/guides/GITHUB_APP_SETUP.md").read_text(encoding="utf-8")
     assert "BEGIN RSA PRIVATE KEY" not in guide
-    assert 'GITHUB_APP_PRIVATE_KEY="$(cat /run/secrets/github-app.pem)"' in guide
+    assert "GITHUB_APP_PRIVATE_KEY_PATH=/run/secrets/github-app.pem" in guide
+    assert "$(cat " not in guide
 
 
 def test_ruff_exceptions_are_narrow_and_explicit() -> None:
