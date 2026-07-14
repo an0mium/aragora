@@ -32,10 +32,10 @@ than relocated. The application home owns the single production route:
 idempotent, so repeating it does not duplicate that reaction.
 
 ``_trigger_workflow`` remains a construction-only seam: it builds the workflow
-definition and engine without executing or queuing them. Production dispatch
-still invokes ``handle_debate_end`` exactly once so outcome classification and
-the existing fail-soft behavior remain observable while workflow execution is
-implemented separately.
+definition without creating an engine or executing or queuing the definition.
+Production dispatch still invokes ``handle_debate_end`` exactly once so outcome
+classification and the existing fail-soft behavior remain observable while
+workflow execution is implemented separately.
 
 Handles:
 - Debate end -> Post-debate workflow outcome classification
@@ -90,16 +90,11 @@ class PostDebateWorkflowSubscriber:
             "errors": 0,
         }
 
-    def _get_workflow_runtime(self) -> tuple[Any, Any, Any, Any]:
-        """Load workflow runtime classes behind a unit-testable seam."""
-        from aragora.workflow.engine import WorkflowEngine
-        from aragora.workflow.types import (
-            StepDefinition,
-            WorkflowConfig,
-            WorkflowDefinition,
-        )
+    def _get_workflow_runtime(self) -> tuple[Any, Any]:
+        """Load workflow definition classes behind a unit-testable seam."""
+        from aragora.workflow.types import StepDefinition, WorkflowDefinition
 
-        return WorkflowEngine, StepDefinition, WorkflowConfig, WorkflowDefinition
+        return StepDefinition, WorkflowDefinition
 
     def handle_debate_end(self, event: Any) -> None:
         """Handle a DEBATE_END event and trigger appropriate workflow."""
@@ -162,12 +157,7 @@ class PostDebateWorkflowSubscriber:
         not completed workflow runs.
         """
         try:
-            (
-                WorkflowEngine,
-                StepDefinition,
-                WorkflowConfig,
-                WorkflowDefinition,
-            ) = self._get_workflow_runtime()
+            StepDefinition, WorkflowDefinition = self._get_workflow_runtime()
 
             # Create a minimal workflow definition
             debate_id_short = context.get("debate_id", "unknown")[:8]
@@ -187,7 +177,6 @@ class PostDebateWorkflowSubscriber:
                 ],
             )
 
-            WorkflowEngine(config=WorkflowConfig())
             logger.debug(
                 "Built post-debate workflow definition (stub, not queued or "
                 "executed): template=%s debate=%s outcome=%s",

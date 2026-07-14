@@ -202,6 +202,25 @@ class TestPostDebateWorkflowSubscriberInvocationCount:
         mock_handle.assert_called_once()
         assert manager.get_stats()["debate_end_to_workflow"]["events_processed"] == 1
 
+    def test_superset_dispatch_does_not_probe_workflow_infrastructure(self):
+        """The construction stub handles production events without creating an engine."""
+        from aragora.server.startup.event_subscribers import bootstrap_event_subscribers
+
+        manager = bootstrap_event_subscribers()
+        subscriber = get_workflow_event_subscriber()
+        event = make_stream_event(
+            StreamEventType.DEBATE_END,
+            data={"debate_id": "d4", "consensus_reached": True, "confidence": 0.9},
+        )
+
+        with patch("aragora.workflow.engine.WorkflowEngine") as mock_engine:
+            manager._dispatch_event(event)
+
+        mock_engine.assert_not_called()
+        assert subscriber.post_debate_workflow.stats["events_processed"] == 1
+        assert subscriber.post_debate_workflow.stats["workflows_triggered"] == 1
+        assert manager.get_stats()["debate_end_to_workflow"]["events_processed"] == 1
+
 
 class TestLegacyDelegatingSitesRemoved:
     """Structural regression guard: both pre-inversion delegating call sites

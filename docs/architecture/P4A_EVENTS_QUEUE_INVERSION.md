@@ -456,9 +456,10 @@ exactly once even after repeated bootstrap calls.
 This preserves the general rule: **handlers communicate through the domain-free
 event bus, never by importing each other across layers.** The
 `PostDebateWorkflowSubscriber._trigger_workflow` method remains a
-construction-only seam, but outcome classification and fail-soft handling are now
-reached through the production composition root. Invocation-count tests patch the
-handler itself because registration-count parity alone cannot detect a
+definition-construction-only seam and deliberately avoids creating a workflow
+engine or probing checkpoint infrastructure. Outcome classification and fail-soft
+handling are now reached through the production composition root. Invocation-count
+tests patch the handler itself because registration-count parity alone cannot detect a
 double-fire.
 
 > Note: the design-time `handlers.strategic` control-plane import and
