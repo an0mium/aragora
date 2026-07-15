@@ -683,6 +683,10 @@ jobs:
   # Sub-sharding history:
   #   2026-04-25: Heavy shards split to fit within 30-min runner cap.
   #     - debate (1 shard, 30+ min) -> debate-am, debate-nz, debate-phases
+  #   2026-07-15: debate-am re-saturated (28-30+ min, cancelled on main sched
+  #     run 29390230325 and PR #9245 run 29293412959 despite the #9280
+  #     rebalance). Re-split into 4 balanced shards: debate-phases + debate-1/2/3
+  #     (~11.5 min pytest each). Boundaries in scripts/ci_resolve_test_shard.py.
   #     - server (1 shard, 23 min)  -> server-handlers-am, server-handlers-nz, server-rest
   #     - handlers (1 shard, 26 min) -> handlers-features, handlers-amk-no-features, handlers-lz
   #   Path-filter (test-shard-scope) added: PRs touching only docs/CI/integration
@@ -723,23 +727,28 @@ jobs:
             scope: infra
             timeout: 30
 
-          # debate (was 1 shard hitting 30-min cap, now 3 sub-shards by alphabet)
-          # Top-level debate test files a-m (~5500 tests)
-          - name: debate-am
-            pytest_args: ""
-            resolver: debate-am
-            scope: debate
-            timeout: 30
-          # Top-level debate test files n-z (~5600 tests)
-          - name: debate-nz
-            pytest_args: ""
-            resolver: debate-nz
-            scope: debate
-            timeout: 30
-          # Subdirectories under tests/debate/ (~3000 tests)
+          # debate: 4 balanced sub-shards (~11.5 min pytest each, measured
+          # 2026-07-15). debate-phases = tests/debate/ subdirs + first range
+          # of top-level files; debate-1/2/3 = remaining contiguous ranges.
+          # Boundaries live in scripts/ci_resolve_test_shard.py.
           - name: debate-phases
             pytest_args: ""
             resolver: debate-phases
+            scope: debate
+            timeout: 30
+          - name: debate-1
+            pytest_args: ""
+            resolver: debate-1
+            scope: debate
+            timeout: 30
+          - name: debate-2
+            pytest_args: ""
+            resolver: debate-2
+            scope: debate
+            timeout: 30
+          - name: debate-3
+            pytest_args: ""
+            resolver: debate-3
             scope: debate
             timeout: 30
 
