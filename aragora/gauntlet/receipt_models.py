@@ -16,6 +16,8 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+
+from aragora.agents.failure_semantics import all_responses_are_failures
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html import escape
@@ -1460,8 +1462,21 @@ class DecisionReceipt:
         if live_explainability is not None:
             explainability = {"live_explainability": live_explainability}
 
+        # Zero-evidence gate (issue #9303): if every agent response is an error
+        # placeholder (autonomic/chaos-theater text) — or there are none — no
+        # deliberation happened. A decision-integrity receipt must say so
+        # instead of asserting PASS on top of provider failures.
+        response_texts = [
+            getattr(msg, "content", "") for msg in getattr(result, "messages", []) or []
+        ]
+        zero_evidence = all_responses_are_failures(response_texts) and all_responses_are_failures(
+            [result.final_answer]
+        )
+
         # Determine verdict from consensus
-        if result.consensus_reached and result.confidence >= 0.7:
+        if zero_evidence:
+            verdict = "NO_EVIDENCE"
+        elif result.consensus_reached and result.confidence >= 0.7:
             verdict = "PASS"
         elif result.consensus_reached:
             verdict = "CONDITIONAL"
@@ -1472,6 +1487,8 @@ class DecisionReceipt:
         robustness_score = result.confidence * (0.8 if result.consensus_reached else 0.5)
         if hasattr(result, "convergence_similarity"):
             robustness_score = (robustness_score + result.convergence_similarity) / 2
+        if zero_evidence:
+            robustness_score = 0.0
 
         # Build verdict reasoning
         reasoning_parts = []
@@ -1487,6 +1504,11 @@ class DecisionReceipt:
             reasoning_parts.append(f"Winner: {result.winner}")
 
         verdict_reasoning = ". ".join(reasoning_parts)
+        if zero_evidence:
+            verdict_reasoning = (
+                "NO EVIDENCE: every agent response was a provider/error placeholder; "
+                "no substantive deliberation occurred. " + verdict_reasoning
+            )
 
         agent_responses = cls._build_agent_responses(result, cost_summary=cost_summary)
 
@@ -1505,7 +1527,7 @@ class DecisionReceipt:
             probes_run=result.rounds_used,  # Map rounds to probes
             vulnerabilities_found=len(dissenting_views),
             verdict=verdict,
-            confidence=result.confidence,
+            confidence=0.0 if zero_evidence else result.confidence,
             robustness_score=robustness_score,
             vulnerability_details=[],  # No vulnerability details for debates
             verdict_reasoning=verdict_reasoning,
