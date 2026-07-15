@@ -8,6 +8,7 @@ performance monitoring, phases, and consensus outcomes.
 from __future__ import annotations
 
 import logging
+from threading import Lock
 import time
 from contextlib import contextmanager
 from typing import Any
@@ -34,6 +35,7 @@ DEBATE_EARLY_TERMINATION_TOTAL: Any = None
 DEBATE_STABILITY_SCORE: Any = None
 
 _initialized = False
+_active_debates_collector_lock = Lock()
 
 
 class _ActiveDebatesCollector:
@@ -54,12 +56,13 @@ class _ActiveDebatesCollector:
 
 def _ensure_active_debates_collector(registry: Any) -> None:
     """Register one read-only Prometheus view of the canonical gauge."""
-    existing = registry._names_to_collectors.get(_CANONICAL_ACTIVE_DEBATES.name)
-    if getattr(existing, "_canonical_gauge", None) is _CANONICAL_ACTIVE_DEBATES:
-        return
-    if existing is not None:
-        registry.unregister(existing)
-    registry.register(_ActiveDebatesCollector())
+    with _active_debates_collector_lock:
+        existing = registry._names_to_collectors.get(_CANONICAL_ACTIVE_DEBATES.name)
+        if getattr(existing, "_canonical_gauge", None) is _CANONICAL_ACTIVE_DEBATES:
+            return
+        if existing is not None:
+            registry.unregister(existing)
+        registry.register(_ActiveDebatesCollector())
 
 
 def init_debate_metrics() -> None:

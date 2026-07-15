@@ -25,9 +25,11 @@ def reset_active_debates() -> None:
 
 
 def _exported_active_debate_values() -> list[float]:
+    exposition = generate_metrics()
+    assert exposition.endswith("\n")
     return [
         float(line.split()[-1])
-        for line in generate_metrics().splitlines()
+        for line in exposition.splitlines()
         if line.startswith("aragora_active_debates ")
     ]
 
@@ -66,11 +68,14 @@ async def test_lifecycle_alerting_and_export_share_canonical_state() -> None:
     assert _exported_active_debate_values() == [0.0]
 
 
-def test_observability_initialization_registers_single_collector() -> None:
+def test_observability_initialization_registers_single_collector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Initializing compatibility namespaces never duplicates the collector."""
     from prometheus_client import Gauge as PrometheusGauge
     from prometheus_client import REGISTRY, generate_latest
 
+    monkeypatch.setattr(debate_metrics, "get_metrics_enabled", lambda: True)
     stale_collector = PrometheusGauge(
         "aragora_active_debates",
         "Stale active debate storage",
