@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Enforce week-over-week contract drift ratchet targets."""
+"""Enforce week-over-week contract drift ratchet targets.
+
+With ``weekly_reduction: 0.0`` the program runs in hold-the-line mode: the
+target stays at ``start_total_items`` and the check fails only when the
+aggregate baseline count grows (no-regression gate). Re-baselining rules
+live in scripts/baselines/README.md.
+"""
 
 from __future__ import annotations
 
@@ -68,8 +74,8 @@ def build_ratchet_result(
         raise ValueError("Program baseline must include 'start_date'")
     if start_total < 0:
         raise ValueError("Program baseline has invalid 'start_total_items'")
-    if not (0.0 < weekly_reduction < 1.0):
-        raise ValueError("Program baseline 'weekly_reduction' must be between 0 and 1")
+    if not (0.0 <= weekly_reduction < 1.0):
+        raise ValueError("Program baseline 'weekly_reduction' must be in [0, 1)")
 
     start_date = date.fromisoformat(start_date_raw)
     days_elapsed = max(0, (as_of - start_date).days)

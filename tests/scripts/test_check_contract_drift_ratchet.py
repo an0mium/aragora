@@ -76,6 +76,79 @@ def test_strict_passes_on_program_start(monkeypatch, tmp_path: Path):
     assert ratchet.main() == 0
 
 
+def test_zero_reduction_holds_line_indefinitely(monkeypatch, tmp_path: Path):
+    verify, routes, parity, program = _seed_files(tmp_path)
+    today = date.today()
+    as_of = (today + timedelta(days=365)).isoformat()
+
+    _write_json(
+        program,
+        {
+            "start_date": today.isoformat(),
+            "start_total_items": 10,
+            "weekly_reduction": 0.0,
+            "grace_weeks": 0,
+        },
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_contract_drift_ratchet.py",
+            "--strict",
+            "--program-baseline",
+            str(program),
+            "--verify-baseline",
+            str(verify),
+            "--routes-baseline",
+            str(routes),
+            "--parity-baseline",
+            str(parity),
+            "--as-of",
+            as_of,
+        ],
+    )
+
+    assert ratchet.main() == 0
+
+
+def test_zero_reduction_fails_when_baselines_grow(monkeypatch, tmp_path: Path):
+    verify, routes, parity, program = _seed_files(tmp_path)
+    today = date.today()
+
+    _write_json(
+        program,
+        {
+            "start_date": today.isoformat(),
+            "start_total_items": 9,
+            "weekly_reduction": 0.0,
+            "grace_weeks": 0,
+        },
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_contract_drift_ratchet.py",
+            "--strict",
+            "--program-baseline",
+            str(program),
+            "--verify-baseline",
+            str(verify),
+            "--routes-baseline",
+            str(routes),
+            "--parity-baseline",
+            str(parity),
+            "--as-of",
+            today.isoformat(),
+        ],
+    )
+
+    assert ratchet.main() == 1
+
+
 def test_strict_fails_when_above_target(monkeypatch, tmp_path: Path):
     verify, routes, parity, program = _seed_files(tmp_path)
     today = date.today()
