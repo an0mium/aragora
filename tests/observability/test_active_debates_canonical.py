@@ -72,6 +72,7 @@ def test_observability_initialization_registers_single_collector(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Initializing compatibility namespaces never duplicates the collector."""
+    pytest.importorskip("prometheus_client")
     from prometheus_client import Gauge as PrometheusGauge
     from prometheus_client import REGISTRY, generate_latest
 
