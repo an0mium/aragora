@@ -80,11 +80,14 @@ gh api repos/synaptent/aragora/branches/main/protection/required_status_checks \
 
 `make ci-required` is a local proxy for most, but not all, protected contexts.
 It is fail-fast, so later rows are `not reached` when an earlier command fails.
+Match contexts by the exact branch-protection name. In particular, the protected
+`typecheck` context is the fail-closed job in the Lint workflow; it is not the
+separate `Tests / Type Check` job, whose mypy command is currently advisory.
 
 | Required context | Local command | Notes |
 | --- | --- | --- |
 | `lint` | `ruff check aragora/ tests/ scripts/` | Runs first in `make ci-required`. |
-| `typecheck` | `mypy aragora/ --ignore-missing-imports` | Runs second and currently fails on the 2026-07-08 snapshot below. |
+| `typecheck` | `mypy aragora/ --ignore-missing-imports` | Proxies the protected Lint workflow context, which runs the full `scripts/test_tiers.sh typecheck` tier on `main` and fails on mypy errors. Do not substitute the non-required `Tests / Type Check` job, which currently truncates diagnostics and exits successfully. |
 | `sdk-parity` | `python scripts/check_version_alignment.py`; `python scripts/check_sdk_parity.py --strict --baseline scripts/baselines/check_sdk_parity.json --budget scripts/baselines/check_sdk_parity_budget.json`; `python scripts/check_sdk_namespace_parity.py --strict --baseline scripts/baselines/check_sdk_namespace_parity.json`; `python scripts/check_cross_sdk_parity.py --strict --baseline scripts/baselines/cross_sdk_parity.json` | Not reached if lint or typecheck fails. |
 | `Generate & Validate` | `python scripts/generate_openapi.py --output /tmp/openapi_ci_required.json --format json --quiet`; `python scripts/add_openapi_operation_ids.py --spec /tmp/openapi_ci_required.json`; `python scripts/add_openapi_param_descriptions.py --spec /tmp/openapi_ci_required.json`; `python scripts/add_openapi_descriptions.py --spec /tmp/openapi_ci_required.json`; `python scripts/verify_sdk_contracts.py --strict --baseline scripts/baselines/verify_sdk_contracts.json --extra-spec /tmp/openapi_ci_required.json`; `python scripts/validate_openapi_routes.py --spec /tmp/openapi_ci_required.json --fail-on-missing --baseline scripts/baselines/validate_openapi_routes.json` | Not reached if any earlier command fails. |
 | `TypeScript SDK Type Check` | Not covered by `make ci-required` at this head. Use the dedicated SDK workflow or an explicitly authorized local command such as `cd sdk/typescript && npm ci && npx tsc --noEmit` when that context is the target. | This gap should not be interpreted as a pass. |
