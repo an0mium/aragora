@@ -117,6 +117,7 @@ Current source checkout:
 python3 -m pip install -e .
 aragora demo --offline --receipt aragora-demo-receipt.json
 aragora receipt verify aragora-demo-receipt.json
+aragora receipt export aragora-demo-receipt.json --format odr -o receipt.odr.json
 ```
 
 Live review with a provider key:
@@ -124,7 +125,6 @@ Live review with a provider key:
 ```bash
 export ANTHROPIC_API_KEY=...        # provider credential for live model review
 aragora review-pr 123               # multi-agent review of a GitHub PR
-aragora receipt export <id> --format odr -o receipt.odr.json   # portable receipt
 ```
 
 ## Core workflows
@@ -337,7 +337,7 @@ proves. *(docs/CANONICAL_GOALS.md, docs/vision/MAXIMALIST_VISION.md)*
 <!-- metrics:begin readme-scale -->
 > Scale (canonical counts in [`docs/METRICS.md`](docs/METRICS.md), rounded):
 > **~4,200 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test
-> functions across ~5,400 files · 3,297 API operations across 2,870 paths ·
+> functions across ~5,400 files · 3,299 API operations across 2,872 paths ·
 > 35+ allowlisted agent types across 12+ providers · 41 Knowledge Mound adapter specs
 > (46 files) · 360+ RBAC permissions · Python + TypeScript SDKs · v2.9.0.**
 > (Practical real-time debate uses 2–6 agents; the value is *heterogeneity*, not raw

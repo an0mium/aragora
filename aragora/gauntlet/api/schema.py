@@ -281,7 +281,7 @@ DECISION_RECEIPT_SCHEMA: dict[str, Any] = {
         # Verdict
         "verdict": {
             "type": "string",
-            "enum": ["PASS", "CONDITIONAL", "FAIL"],
+            "enum": ["PASS", "CONDITIONAL", "FAIL", "NO_EVIDENCE"],
             "description": "Final validation verdict",
         },
         "confidence": {
@@ -564,8 +564,8 @@ def validate_receipt(data: dict[str, Any]) -> tuple[bool, list[str]]:
                 errors.append("confidence must be a number between 0 and 1")
 
         if "verdict" in data:
-            if data["verdict"] not in ["PASS", "CONDITIONAL", "FAIL"]:
-                errors.append("verdict must be PASS, CONDITIONAL, or FAIL")
+            if data["verdict"] not in ["PASS", "CONDITIONAL", "FAIL", "NO_EVIDENCE"]:
+                errors.append("verdict must be PASS, CONDITIONAL, FAIL, or NO_EVIDENCE")
 
         return len(errors) == 0, errors
 
