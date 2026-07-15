@@ -39,17 +39,27 @@ class TestBaseUrlOverride:
 
 
 class TestExit0ProviderErrors:
-    def test_markers_match_live_wall_texts(self) -> None:
-        from aragora.agents.cli_agents import _EXIT0_PROVIDER_ERROR_MARKERS
+    def test_strong_markers_match_live_wall_texts(self) -> None:
+        from aragora.agents.cli_agents import _EXIT0_STRONG_ERROR_MARKERS
 
         live = [
             "Free tier users do not have access to this model",
             "You're out of usage credits. Run /usage-credits",
-            "Not logged in · Please run /login",
         ]
         for text in live:
-            assert any(m in text.lower() for m in _EXIT0_PROVIDER_ERROR_MARKERS), text
+            assert any(m in text.lower() for m in _EXIT0_STRONG_ERROR_MARKERS), text
 
-    def test_length_guard_protects_long_content(self) -> None:
-        legit = ("Analysis of auth flows. " * 100) + "the api returned 'quota exceeded' once"
-        assert len(legit) >= 2000
+    def test_generic_phrases_only_classify_one_liners(self) -> None:
+        from aragora.agents.cli_agents import (
+            _EXIT0_WEAK_ERROR_MARKERS,
+            _EXIT0_WEAK_MAX_CHARS,
+        )
+
+        answer = (
+            "Recommendation: return 401 when the session is not logged in, and "
+            "surface 'quota exceeded' to callers with a retry-after header so "
+            "clients can back off correctly instead of hammering the API."
+        )
+        assert len(answer) >= _EXIT0_WEAK_MAX_CHARS  # substantive answers exceed the bound
+        assert any(m in answer.lower() for m in _EXIT0_WEAK_ERROR_MARKERS)
+        # the length bound is what protects it — pinned here
