@@ -1433,9 +1433,17 @@ class DecisionReceipt:
         # empty messages but substantive proposals is NOT zero-evidence.
         proposals = getattr(result, "proposals", None) or {}
         proposal_texts = list(proposals.values()) if isinstance(proposals, dict) else []
+        # agent_responses is the third evidence source _build_agent_responses
+        # reads (openai #9306 r6 [P2]) — detection now mirrors that method's
+        # sources exactly: messages, proposals, agent_responses, final_answer.
+        agent_response_texts = [
+            getattr(r, "response", "") or str(getattr(r, "content", "") or "")
+            for r in getattr(result, "agent_responses", []) or []
+        ]
         zero_evidence = (
             all_responses_are_failures(response_texts)
             and all_responses_are_failures(proposal_texts)
+            and all_responses_are_failures(agent_response_texts)
             and all_responses_are_failures([result.final_answer])
         )
 

@@ -149,3 +149,13 @@ class TestRoundTwoHardening:
         }
         receipt = DecisionReceipt.from_debate_result(result)
         assert receipt.verdict != "NO_EVIDENCE"
+
+    def test_substantive_agent_responses_prevent_zero_evidence(self) -> None:
+        from types import SimpleNamespace
+
+        result = _placeholder_result()
+        result.agent_responses = [
+            SimpleNamespace(response="Real analysis: adopt the monorepo for atomic refactors.")
+        ]
+        receipt = DecisionReceipt.from_debate_result(result)
+        assert receipt.verdict != "NO_EVIDENCE"
