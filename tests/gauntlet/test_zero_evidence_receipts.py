@@ -165,3 +165,21 @@ class TestRoundTwoHardening:
         result.agent_responses = [{"agent": "claude", "response": "Real monorepo analysis."}]
         receipt = DecisionReceipt.from_debate_result(result)
         assert receipt.verdict != "NO_EVIDENCE"
+
+    def test_all_chaos_theater_families_classified(self) -> None:
+        # claude #9306 terminal [P2]: TIMEOUT and CONNECTION families were
+        # unrecognized. Fragments now derive from chaos_theater's own
+        # templates — every family, current and future.
+        samples = [
+            "claude is wrestling with the complexity of your question.",
+            "gpt's signal has faded into the digital ether.",
+            "codex is taking longer than expected to respond...",
+            "[claude stares into the abyss of computation for 90 seconds...]",
+        ]
+        for text in samples:
+            assert looks_like_agent_failure_response(text), text
+
+    def test_real_answer_mentioning_wrestling_is_not_classified(self) -> None:
+        assert not looks_like_agent_failure_response(
+            "Our analysis: the wrestling industry monorepo should be split."
+        )

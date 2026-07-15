@@ -17,6 +17,8 @@ instrument run):
 
 from __future__ import annotations
 
+import re
+from functools import lru_cache as _lru_cache
 from typing import Any, Iterable
 
 #: Substrings that mark a response as an error placeholder rather than
@@ -69,6 +71,49 @@ _WEAK_MARKERS: tuple[str, ...] = (
 _WEAK_MARKER_MAX_CHARS = 120
 
 
+def _chaos_theater_fragments() -> tuple[str, ...]:
+    """Derive placeholder fragments from chaos_theater's OWN templates.
+
+    claude #9306 terminal-round [P2]: the static marker list covered only one
+    of chaos_theater's message families, so an all-timeouts debate ("X is
+    wrestling with the complexity...") still minted PASS. Deriving fragments
+    from the source templates closes the family by construction — new
+    templates are recognized automatically. Soft import: on any failure the
+    static lists still apply.
+    """
+    try:
+        from aragora.debate import chaos_theater as ct
+    except Exception:  # noqa: BLE001 - marker derivation must never break callers
+        return ()
+    fragments: list[str] = []
+    for attr in dir(ct.ChaosDirector):
+        if not attr.endswith("_MESSAGES"):
+            continue
+        families = getattr(ct.ChaosDirector, attr, None)
+        templates = []
+        if isinstance(families, dict):
+            for family in families.values():
+                templates.extend(family)
+        elif isinstance(families, (list, tuple)):
+            templates.extend(families)
+        for template in templates:
+            if not isinstance(template, str):
+                continue
+            # Longest static run without format fields, lowercased.
+            parts = [part for part in re.split(r"\{[^}]*\}", template) if part]
+            best = max(parts, key=len, default="").strip(" .!?[]⚡🌀🔌⚠️️")
+            if len(best) >= 12:
+                fragments.append(best.lower())
+    return tuple(dict.fromkeys(fragments))
+
+
+@_lru_cache(maxsize=1)
+def _chaos_fragments_cached() -> tuple[str, ...]:
+    # Lazy: import-time derivation hits circular imports (agents <-> debate);
+    # by first classification call the debate package is loaded.
+    return _chaos_theater_fragments()
+
+
 #: Placeholders are short, single-sentence stubs. A response longer than this
 #: is substantive content even when it QUOTES an error string (a review
 #: discussing "connection failed" is an answer, not a failure).
@@ -97,6 +142,10 @@ def looks_like_agent_failure_response(text: Any) -> bool:
     if len(lowered) >= _MAX_PLACEHOLDER_CHARS:
         return False
     if any(marker in lowered for marker in _STRONG_MARKERS):
+        return True
+    # Chaos-theater templates (all families, derived from source) are
+    # unmistakable placeholders regardless of which family emitted them.
+    if any(fragment in lowered for fragment in _chaos_fragments_cached()):
         return True
     # Weak/generic phrases classify only one-liners: a concise real answer
     # ABOUT an outage must never mint NO_EVIDENCE.
