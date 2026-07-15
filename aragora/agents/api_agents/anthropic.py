@@ -58,14 +58,6 @@ WEB_SEARCH_INDICATORS = [
 ]
 
 
-@AgentRegistry.register(
-    "anthropic-api",
-    default_model="claude-opus-4-8",
-    default_name="claude-api",
-    agent_type="API",
-    env_vars="ANTHROPIC_API_KEY",
-    accepts_api_key=True,
-)
 def _resolve_base_url(env_name: str, default: str) -> str:
     """Resolve the API base URL from the environment (issue #9304).
 
@@ -80,6 +72,14 @@ def _resolve_base_url(env_name: str, default: str) -> str:
     return raw if raw.endswith("/v1") else raw + "/v1"
 
 
+@AgentRegistry.register(
+    "anthropic-api",
+    default_model="claude-opus-4-8",
+    default_name="claude-api",
+    agent_type="API",
+    env_vars="ANTHROPIC_API_KEY",
+    accepts_api_key=True,
+)
 class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     """Agent that uses Anthropic API directly (without CLI).
 

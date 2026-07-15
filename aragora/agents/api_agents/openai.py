@@ -33,14 +33,6 @@ _WEB_SEARCH_PATTERNS = [
 ]
 
 
-@AgentRegistry.register(
-    "openai-api",
-    default_model="gpt-5.5",
-    default_name="openai-api",
-    agent_type="API",
-    env_vars="OPENAI_API_KEY",
-    accepts_api_key=True,
-)
 def _resolve_openai_base_url() -> str:
     """OPENAI_BASE_URL override for gateways/proxies (issue #9304)."""
     import os
@@ -51,6 +43,14 @@ def _resolve_openai_base_url() -> str:
     return raw if raw.endswith("/v1") else raw + "/v1"
 
 
+@AgentRegistry.register(
+    "openai-api",
+    default_model="gpt-5.5",
+    default_name="openai-api",
+    agent_type="API",
+    env_vars="OPENAI_API_KEY",
+    accepts_api_key=True,
+)
 class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     """Agent that uses OpenAI API directly.
 
