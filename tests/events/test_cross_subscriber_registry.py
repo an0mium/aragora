@@ -110,8 +110,9 @@ GOLDEN_SUBSCRIBER_NAMES = frozenset(
 # contributed by E7a security_dispatcher and E7b arena_bridge); only the last of
 # the three batches to land hand-shrinks the frozen baseline string.
 # E5: the workflow-coupled alert-escalation reaction embedded in the strategic
-# mixin -> aragora/workflow/event_subscribers.py (application-tier home, see
-# APPLICATION_TIER_SUBSCRIBER_NAMES below - it is wired only via the
+# mixin and the post-debate workflow subscriber ->
+# aragora/workflow/event_subscribers.py (application-tier home, see
+# APPLICATION_TIER_SUBSCRIBER_NAMES below - both are wired only via the
 # interface-superset bootstrap, unlike E2-E4's domain-tier relocations).
 # E6: the server-coupled webhook-delivery reaction embedded in the basic mixin
 # and the staleness-to-debate reaction embedded in the culture mixin ->
@@ -162,6 +163,7 @@ RELOCATED_SUBSCRIBER_NAMES = frozenset(
         "budget_alert_to_team_selection",
         "meta_learning_to_team_selection",
         "alert_escalated_to_workflow_brake",
+        "debate_end_to_workflow",
         "staleness_to_debate",
         "webhook_agent_elo_updated",
         "webhook_calibration_update",
@@ -184,6 +186,7 @@ RELOCATED_SUBSCRIBER_NAMES = frozenset(
 APPLICATION_TIER_SUBSCRIBER_NAMES = frozenset(
     {
         "alert_escalated_to_workflow_brake",
+        "debate_end_to_workflow",
     }
 )
 
@@ -474,10 +477,11 @@ def test_relocated_reactions_registered_via_home_bootstrap():
     slice, so a silently dropped home import is caught here and not only in the
     superset test). APPLICATION_TIER_SUBSCRIBER_NAMES and
     INTERFACE_TIER_SUBSCRIBER_NAMES are excluded: those reactions (e.g.
-    alert_escalated_to_workflow_brake, P4a Batch E5; staleness_to_debate /
-    webhook_*, P4a Batch E6) wire only via the interface-superset bootstrap -
-    see ``test_application_tier_reactions_registered_via_superset_bootstrap``
-    and ``test_interface_tier_reactions_registered_via_superset_bootstrap``.
+    alert_escalated_to_workflow_brake / debate_end_to_workflow, P4a Batch E5;
+    staleness_to_debate / webhook_*, P4a Batch E6) wire only via the
+    interface-superset bootstrap - see
+    ``test_application_tier_reactions_registered_via_superset_bootstrap`` and
+    ``test_interface_tier_reactions_registered_via_superset_bootstrap``.
     """
     from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
 
