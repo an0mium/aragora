@@ -1,0 +1,47 @@
+{
+  "receipt_id": "ctl-b6-cleanup-batch1",
+  "gauntlet_id": "close-the-loop-20260701/B6",
+  "timestamp": "2026-07-01T23:53:49.083983+00:00",
+  "input_summary": "Queue-drain cleanup batch 1 per plan 2026-06-30 (G1/G2 operator sign-off). Part B: 44 patch-equivalent branches deleted (1 excluded, open PR). Part C: 80 orphans deleted of 124 qualified; 44-branch March memo cluster VALUE-FLAGGED and excluded. Part A: 4 confident churn closes (#8128 #8143 #8405 #8406) of 30 cap. Manifests committed+pushed before every delete (PR #8769).",
+  "input_hash": "5e65d3115bd83b874360f9e5d85f889ee8c2a29ebdbd3d6b9968101e2bc67c81",
+  "risk_summary": {
+    "tier": 4,
+    "authorization": "operator G1/G2 pre-approval",
+    "reversibility": "closes reopenable; deletes recoverable via manifest branch->SHA + surviving local remote-tracking refs"
+  },
+  "attacks_attempted": 0,
+  "attacks_successful": 0,
+  "probes_run": 10,
+  "vulnerabilities_found": 0,
+  "vulnerability_details": [
+    {
+      "note": "10-branch pre-delete spot-check: 5 verified harvested; 5 value-flagged -> entire 44-branch memo cluster excluded from deletion"
+    }
+  ],
+  "verdict": "PASS",
+  "confidence": 0.85,
+  "robustness_score": 0.9,
+  "verdict_reasoning": "Executed batch 1 only, reversible-first, manifests-before-delete, conservative filters (4/30 close cap used). This PASS records operator-preapproved cleanup execution, not model-quorum approval of destructive deletion. DISCREPANCY RECORDED: #8405/#8406 closed as settle-substrate churn though B1 had queued them as Tier-4 packets; closes are reversible and rationale comments invite reopening.",
+  "dissenting_views": [],
+  "consensus_proof": null,
+  "provenance_chain": [],
+  "agent_responses": [],
+  "cost_summary": null,
+  "settlement_metadata": {
+    "run": "close-the-loop-20260701",
+    "batch": "B6",
+    "manifest_pr": 8769,
+    "operator_authorization": "https://github.com/synaptent/aragora/issues/8762#issuecomment-4860561852",
+    "remaining": {
+      "partB": "~250 small-ahead branches un-cherry-checked",
+      "partC": "44 flagged memo-cluster branches (operator review)",
+      "partA": "0 further qualified under deterministic filter"
+    }
+  },
+  "settlement_status": "executed_tier4_operator_preapproved",
+  "explainability": null,
+  "thinking_traces": null,
+  "schema_version": "1.1",
+  "artifact_hash": "99cf80893156b8e88e76be445789f4657efb225fb635fc2b75c2da38e3d3f8f3",
+  "config_used": {}
+}

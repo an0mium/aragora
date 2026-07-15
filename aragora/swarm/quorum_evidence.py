@@ -27,6 +27,7 @@ all network/process I/O is injected so the orchestrator
 from __future__ import annotations
 
 import asyncio
+import base64
 import concurrent.futures
 import inspect
 import json
@@ -40,6 +41,7 @@ import secrets
 import signal
 import subprocess
 import tempfile
+import urllib.parse
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -49,7 +51,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
+from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_finding_or_label,
+    has_blocking_or_negative_verdict,
+)
 from aragora.cli.commands.review_queue_transport import (
     GITHUB_TRANSPORT_BLOCKED_STATUS,
     _is_github_transport_error,
@@ -349,6 +354,7 @@ _MAX_DIFF_CHARS = 60_000
 _PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
+_TRUNCATION_MARKER = "[reviewer output truncated]"
 # Claude CLI startup can legitimately take longer on large reviews, especially
 # when subscription auth and local MCP state are cold. Keep only that path at a
 # generous ceiling; reviewer transports without the Claude-specific probe stay
@@ -424,7 +430,7 @@ def _run_reviewer_with_infra_retry(
 def _cap_text(text: str) -> str:
     text = text.strip()
     if len(text) > _MAX_REVIEWER_CHARS:
-        return text[:_MAX_REVIEWER_CHARS].rstrip() + "\n\n[reviewer output truncated]"
+        return text[:_MAX_REVIEWER_CHARS].rstrip() + f"\n\n{_TRUNCATION_MARKER}"
     return text
 
 
@@ -485,6 +491,53 @@ class EvidenceItem:
     # ``severity_gated_dissent_enabled`` here vs ``tiered_merge_gate_enabled`` there).
     severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
+    def __post_init__(self) -> None:
+        # Verdict contract (issue #9241 B1): a review without a valid parsed verdict
+        # is malformed reviewer output and must NEVER count toward quorum — counting
+        # feeds counting_families, "families heard", and relief-valve conditions,
+        # so a verdict-less item with would_count=True is an integrity hole
+        # (observed live 2026-07-11: grok CLI returned preamble-only bodies with
+        # verdict=unknown yet would_count=True). Membership in the CLOSED canonical
+        # set, not `== "unknown"`: `_evidence_item_from_dict` passes prepared-artifact
+        # verdict strings verbatim, so a forged/corrupt artifact could otherwise
+        # smuggle `"approved"`/`"UNKNOWN "` past an equality check (claude+openai
+        # #9249 review). No normalization — only the parser emits canonical values,
+        # so anything non-canonical is untrusted and fails closed. Enforced here, at
+        # the single choke point every construction path shares (fresh collect,
+        # from_raw, prepared-apply relint).
+        if self.would_count and self.verdict not in ("pass", "changes_requested"):
+            self.would_count = False
+            self.problems.append(
+                "no valid parsed verdict in reviewer output "
+                f"(got {self.verdict!r}) — malformed review never counts"
+            )
+        # Truncation contract (#9241 B2): findings conventionally follow the
+        # verdict line, so tail truncation (_cap_text) can hide blocking findings
+        # below an intact PASS — incomplete evidence must never count.
+        # Direction-aware (claude #9249 B4-round [P2]): demotion applies to PASS
+        # only — incomplete evidence must never SUPPORT a merge. A truncated
+        # CHANGES-REQUESTED keeps counting: the cut tail can only contain MORE
+        # severity, and demoting it would erase a stated veto from the heard
+        # set (fail-open under the tiered gate).
+        if self.would_count and self.verdict == "pass" and _TRUNCATION_MARKER in self.body:
+            self.would_count = False
+            self.problems.append("reviewer output was truncated — an incomplete PASS never counts")
+        # Contradiction contract (#9241 B2): a PASS that itself carries a real
+        # [P0]/[P1]/[P2] finding (or another negative decision) is
+        # self-contradictory reviewer output. P2-only CHANGES-REQUESTED remains
+        # advisory under the severity gate, but a P2 can never support quorum by
+        # hiding under PASS; this matches the reviewer prompt's verdict contract.
+        if (
+            self.would_count
+            and self.verdict == "pass"
+            and has_blocking_or_negative_verdict(self.body)
+        ):
+            self.would_count = False
+            self.problems.append(
+                "PASS verdict contradicted by a blocking [P0]/[P1]/[P2] finding or "
+                "negative decision in the same review — contradictory review never counts"
+            )
+
     @property
     def supportive(self) -> bool:
         # Unchanged by the severity gate: advisory ≠ supportive. A downgraded
@@ -496,6 +549,13 @@ class EvidenceItem:
     def dissenting(self) -> bool:
         if self.verdict != "changes_requested":
             return False
+        # Truncated dissent fails CLOSED (claude #9249 round-3 [P2]): severity
+        # gating classifies by VISIBLE findings, so a CHANGES-REQUESTED whose
+        # first 32k chars are advisory with a [P1] in the cut tail would be
+        # downgraded to non-blocking — and a lone western-frontier PASS could
+        # then settle. Hidden severity cannot be assessed; treat it as blocking.
+        if _TRUNCATION_MARKER in self.body:
+            return True
         if not self.severity_gated:
             # Default (flag OFF): any changes_requested is a blocking dissent —
             # byte-identical to historical behavior.
@@ -983,6 +1043,21 @@ def normalize_reviewer_output(text: str, *, family: str = "") -> str:
     return normalized if normalized is not None else cleaned
 
 
+def _normalize_preserving_truncation(text: str, *, family: str) -> str:
+    """Normalize reviewer output without ever losing the truncation marker.
+
+    The opt-in LLM normalizer can rewrite a truncated body into clean canonical
+    form that drops ``_TRUNCATION_MARKER``, which would let incomplete evidence
+    evade the truncated-PASS demotion in ``EvidenceItem.__post_init__``
+    (openai #9249 r9 [P2]). Truncation is a fact about the transport, not the
+    prose: if the input was truncated, the composed body always says so.
+    """
+    normalized = normalize_reviewer_output(text, family=family)
+    if _TRUNCATION_MARKER in text and _TRUNCATION_MARKER not in normalized:
+        normalized = normalized.rstrip() + f"\n\n{_TRUNCATION_MARKER}"
+    return normalized
+
+
 def compose_evidence_comment(
     *,
     family: str,
@@ -1017,7 +1092,7 @@ def compose_evidence_comment(
         f"Head: {short} ({head_sha}){committed}.\n"
         f"PR: #{pr}.\n"
         f"Model family: {fam}\n\n"
-        f"{_neutralize_reviewer_text(normalize_reviewer_output(reviewer_text, family=family))}\n\n"
+        f"{_neutralize_reviewer_text(_normalize_preserving_truncation(reviewer_text, family=family))}\n\n"
         f"dogfood: yes\n"
     )
 
@@ -1098,6 +1173,115 @@ def _file_list_from_diff(diff: str) -> str:
     return "\n".join(paths)
 
 
+#: Bounded full-file grounding (issue #9241 B3): reviewers judging hunks without
+#: module context fabricate import-existence findings (observed live 2026-07-11:
+#: three consecutive false "X is never imported" [P1]s on #8809 — the import
+#: blocks sat outside the hunks). Bounds keep the prompt affordable.
+_FULL_FILE_MAX_FILES = 6
+_FULL_FILE_MAX_LINES = 400
+_FULL_FILE_MAX_CHARS = 20_000
+_FULL_FILE_SECTION_MAX_CHARS = 80_000
+
+
+def _full_file_section(
+    repo: str,
+    head_sha: str,
+    diff_text: str,
+    *,
+    file_fetcher: Callable[[str, str, str], str] | None = None,
+) -> str:
+    """Bounded post-change contents of the changed files, largest diff first.
+
+    Best-effort by design: grounding is an enhancement — any per-file fetch
+    failure skips that file with a note and NEVER blocks the review. Returns ""
+    when nothing could be fetched.
+    """
+    fetcher = file_fetcher or _fetch_file_at_ref
+    sizes: dict[str, int] = {}
+    current: str | None = None
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git "):
+            rest = line[len("diff --git ") :].strip()
+            marker = rest.rfind(" b/")
+            current = rest[marker + len(" b/") :].strip() if marker != -1 else None
+            if current is not None:
+                sizes.setdefault(current, 0)
+        elif current is not None:
+            sizes[current] = sizes[current] + 1
+    ordered = sorted(sizes, key=lambda p: sizes[p], reverse=True)[:_FULL_FILE_MAX_FILES]
+    if not ordered:
+        return ""
+    parts: list[str] = []
+    for path in ordered:
+        try:
+            content = fetcher(repo, head_sha, path)
+        except (RuntimeError, ValueError, OSError, UnicodeError, subprocess.SubprocessError) as exc:
+            # Grounding is best-effort by contract: the default fetcher raises
+            # RuntimeError/ValueError; transport/decoding surface OSError,
+            # SubprocessError, or UnicodeError. Anything else is a real bug.
+            parts.append(f"--- {path}: unavailable ({type(exc).__name__}) ---")
+            continue
+        if not content.strip():
+            # Deleted or empty at head: nothing to ground on.
+            continue
+        lines = content.splitlines()
+        clipped = lines[:_FULL_FILE_MAX_LINES]
+        note = (
+            f" (first {_FULL_FILE_MAX_LINES} of {len(lines)} lines)"
+            if len(lines) > _FULL_FILE_MAX_LINES
+            else ""
+        )
+        body_text = "\n".join(clipped)
+        # Char caps (openai #9249 [P2]): line/file counts alone don't bound the
+        # prompt — a file of very long lines could append megabytes and stall
+        # every reviewer CLI. Cap per file and for the whole section.
+        if len(body_text) > _FULL_FILE_MAX_CHARS:
+            body_text = body_text[:_FULL_FILE_MAX_CHARS].rstrip() + "\n[file clipped for length]"
+            note = note or " (clipped for length)"
+        parts.append(f"--- {path}{note} ---\n" + body_text)
+        if sum(len(part) for part in parts) > _FULL_FILE_SECTION_MAX_CHARS:
+            break
+    if not any(part for part in parts if not part.endswith("---")):
+        return ""
+    return (
+        f"=== FULL CHANGED FILES (post-change contents at head {head_sha[:7]}; "
+        f"bounded to {_FULL_FILE_MAX_FILES} files x {_FULL_FILE_MAX_LINES} lines — use these "
+        "to VERIFY claims about imports/definitions before reporting them missing) ===\n"
+        + "\n\n".join(parts)
+        + "\n"
+    )
+
+
+def _fetch_file_at_ref(repo: str, ref: str, path: str) -> str:
+    """Fetch one file's contents at a ref via the GitHub contents API (REST).
+
+    ``path`` originates from the PR diff (author-controlled): reject traversal
+    and URL-encode it so a crafted filename cannot smuggle query parameters or
+    escape the contents endpoint (claude #9249 [P2]).
+    """
+    if (
+        path.startswith(("/", "~"))
+        or ".." in path.split("/")
+        or any(ch in path for ch in ("?", "#", "\\", "\n", "\r"))
+    ):
+        raise ValueError(f"suspicious changed-file path rejected: {path!r}")
+    encoded = urllib.parse.quote(path, safe="/")
+    proc = merge_quorum_io.run(
+        [
+            "gh",
+            "api",
+            f"repos/{repo}/contents/{encoded}?ref={urllib.parse.quote(ref, safe='')}",
+            "--jq",
+            ".content",
+        ],
+        env=merge_quorum_io.aragora_env(),
+        timeout=30,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or "contents fetch failed").strip()[:120])
+    return base64.b64decode((proc.stdout or "").strip()).decode("utf-8", errors="replace")
+
+
 def build_review_prompt(
     *,
     repo: str,
@@ -1105,6 +1289,7 @@ def build_review_prompt(
     head_sha: str,
     diff_text: str,
     name_status: str = "",
+    full_files: str = "",
 ) -> str:
     """Adversarial review prompt grounded on the exact head.
 
@@ -1134,9 +1319,13 @@ def build_review_prompt(
         "bullet list of concrete findings, each tagged [P1]/[P2]/[P3] with a location. Include "
         "ONLY priority levels that have a real finding: if a level has none, OMIT it entirely "
         "-- never write a '[P1] None', '[P2] N/A', or similar no-finding line (it is misread as "
-        "a blocking finding). If there are no findings at all, write 'No findings.' Be concise.\n\n"
+        "a blocking finding). Severity contract: [P1] and [P2] findings are BLOCKING -- if you "
+        "report any [P1] or [P2], your verdict MUST be 'Verdict: CHANGES-REQUESTED' (a PASS "
+        "carrying a [P1]/[P2] line is self-contradictory and will not be counted). Use [P3] for "
+        "non-blocking observations; [P3]-only findings may accompany a PASS. "
+        "If there are no findings at all, write 'No findings.' Be concise.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
-        f"{body_header}\n{bounded}\n"
+        f"{body_header}\n{bounded}\n" + (f"\n{full_files}" if full_files else "")
     )
 
 
@@ -1179,6 +1368,19 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
             return fallback
         # Both paths failed: keep the primary failure but record that the fallback
         # was attempted, so a stalled merge is attributable rather than opaque.
+        # A credential-walled primary with NO usable fallback is the worst case
+        # (family fully invisible) — say so explicitly instead of a silent no-op
+        # (#9241 B4: 2026-07-11 both claude and codex walled mid-settlement with
+        # nothing telling the operator the fallback was unconfigured).
+        if _is_credential_wall(result.error) and "disabled" in fallback.error:
+            return replace(
+                result,
+                error=(
+                    f"{_CREDENTIAL_UNHEALTHY_PREFIX}({fam}): primary is credential-walled "
+                    f"AND the OpenRouter fallback is not configured — family unavailable. "
+                    f"primary: {result.error}; fallback: {fallback.error}"
+                ),
+            )
         if "disabled" not in fallback.error:
             return replace(
                 result, error=f"{result.error}; openrouter fallback also failed: {fallback.error}"
@@ -1209,6 +1411,30 @@ def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
     until the full timeout when a local MCP server is wedged.
     """
     return ["claude", "-p", "--strict-mcp-config", "--mcp-config", str(mcp_config_path)]
+
+
+#: Credential-wall signatures across the subscription CLIs (issue #9241 B4). All
+#: observed live 2026-07-11: claude "out of usage credits", codex "hit your usage
+#: limit", claude "Not logged in · Please run /login". A wall is an INFRA state
+#: (family temporarily invisible), never review evidence — classifying it lets
+#: callers fast-fail the family, route fallback deliberately, and lets operators
+#: distinguish "reviewer rejected" from "reviewer unavailable" at a glance.
+_CREDENTIAL_WALL_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"out of usage credits", re.IGNORECASE),
+    re.compile(r"usage limit", re.IGNORECASE),
+    re.compile(r"usage credits", re.IGNORECASE),
+    re.compile(r"not logged in", re.IGNORECASE),
+    re.compile(r"please run /login", re.IGNORECASE),
+    re.compile(r"purchase more credits", re.IGNORECASE),
+    re.compile(r"credit balance is too low", re.IGNORECASE),
+    re.compile(r"quota exceeded", re.IGNORECASE),
+)
+
+_CREDENTIAL_UNHEALTHY_PREFIX = "credential_unhealthy"
+
+
+def _is_credential_wall(detail: str) -> bool:
+    return any(pattern.search(detail) for pattern in _CREDENTIAL_WALL_PATTERNS)
 
 
 def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
@@ -1246,6 +1472,13 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()[:200]
         suffix = f": {detail}" if detail else ""
+        if _is_credential_wall(detail):
+            # Classified wall: family is temporarily unavailable (infra), not
+            # reviewing-and-rejecting. Callers/operators can route or wait.
+            return (
+                f"{_CREDENTIAL_UNHEALTHY_PREFIX}({family}): CLI is credential-walled "
+                f"(probe exit {proc.returncode}){suffix}"
+            )
         return f"{family} CLI liveness probe exit {proc.returncode}{suffix}"
     return None
 
@@ -1803,8 +2036,22 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
         raise RuntimeError(
             f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
         )
+    # Bounded full-file grounding (#9241 B3). OPT-IN, default OFF (openai #9249
+    # [P1]): appending post-change file contents expands reviewer egress beyond
+    # the PR diff — unchanged regions of changed files reach every reviewer
+    # transport, including families the payload-jurisdiction rule may exclude.
+    # The operator enables it deliberately, per deployment, after reviewing that
+    # boundary. Best-effort when enabled; never blocks the review.
+    full_files = ""
+    if os.environ.get("ARAGORA_REVIEWER_FULL_FILE_GROUNDING", "").strip() == "1":
+        full_files = _full_file_section(repo, live_head, diff_text)
     return build_review_prompt(
-        repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text, name_status=name_status
+        repo=repo,
+        pr=pr,
+        head_sha=head_sha,
+        diff_text=diff_text,
+        name_status=name_status,
+        full_files=full_files,
     )
 
 
@@ -2114,7 +2361,12 @@ def collect_evidence(
                 family=family,
                 body=body,
                 would_count=bool(lint.get("would_count")),
-                verdict=_reviewer_verdict(result.text),
+                # Parse the COMPOSED body, not the raw reviewer text: composition
+                # normalizes messy output (thinking traces, preamble) into a
+                # canonical verdict line, and the prepared-apply relint path
+                # already parses item.body — raw-text parsing here could demote
+                # a successfully normalized review (openai #9249 [P2]).
+                verdict=_reviewer_verdict(body),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
             )

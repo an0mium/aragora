@@ -51,6 +51,7 @@ SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
 SAFE_CONTEXT_SUBDIRS = (
     SAFE_CONTEXT_SUBDIR,
     Path(".aragora") / "conductor_cycles",
+    Path(".aragora") / "operator-context",
 )
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
@@ -70,13 +71,13 @@ ACTIVE_PROCESS_SCRIPT_NAMES = frozenset(
         "settle_tier4_pr.py",
     }
 )
-ACTIVE_PROCESS_COMMAND_PATTERNS = (
+ACTIVE_PROCESS_COMMAND_PATTERNS: tuple[tuple[str, ...], ...] = (
     ("aragora", "review-queue", "collect-evidence"),
     ("aragora", "review-queue", "merge-packet"),
     ("gh", "pr", "merge"),
     ("droid", "exec"),
 )
-ACTIVE_PROCESS_TOKEN_PATTERNS = (
+ACTIVE_PROCESS_TOKEN_PATTERNS: tuple[str, ...] = (
     "claude-fable",
     "overnight-conductor",
     "overnight_conductor",
@@ -261,14 +262,17 @@ def _active_process_label(command: str) -> str | None:
             return f"{executable} {basename}"
 
     lowered = [word.lower() for word in words]
-    for pattern in ACTIVE_PROCESS_COMMAND_PATTERNS:
-        if len(lowered) >= len(pattern) and tuple(lowered[: len(pattern)]) == pattern:
-            return " ".join(pattern)
+    for command_pattern in ACTIVE_PROCESS_COMMAND_PATTERNS:
+        if (
+            len(lowered) >= len(command_pattern)
+            and tuple(lowered[: len(command_pattern)]) == command_pattern
+        ):
+            return " ".join(command_pattern)
 
     command_lower = " ".join(lowered)
-    for pattern in ACTIVE_PROCESS_TOKEN_PATTERNS:
-        if pattern in command_lower:
-            return pattern
+    for token_pattern in ACTIVE_PROCESS_TOKEN_PATTERNS:
+        if token_pattern in command_lower:
+            return token_pattern
 
     return None
 
@@ -534,8 +538,17 @@ def extract_next_prompt(response: str) -> str | None:
     return section.strip() or None
 
 
-def run_consult(consult_script: Path, packet_path: Path, model: str, timeout: float) -> dict:
-    overall_timeout = timeout * 2
+def run_consult(
+    consult_script: Path,
+    packet_path: Path,
+    model: str,
+    timeout: float,
+    *,
+    openrouter_fallback: bool = False,
+    openrouter_model: str | None = None,
+) -> dict:
+    enabled_attempts = 2 + int(openrouter_fallback)
+    overall_timeout = timeout * enabled_attempts
     command = [
         sys.executable,
         str(consult_script),
@@ -549,6 +562,10 @@ def run_consult(consult_script: Path, packet_path: Path, model: str, timeout: fl
         str(overall_timeout),
         "--json",
     ]
+    if openrouter_fallback:
+        command.append("--openrouter-fallback")
+        if openrouter_model:
+            command.extend(["--openrouter-model", openrouter_model])
     # Outer bound gives the consult helper a small cleanup/reporting grace
     # around its own overall timeout.
     ok, out = _run(command, overall_timeout + 60)
@@ -587,6 +604,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-prs", type=int, default=30)
     parser.add_argument("--skip-digest", action="store_true", help="Skip the session digest step")
+    parser.add_argument(
+        "--openrouter-fallback",
+        action="store_true",
+        help=(
+            "Opt in to consult_claude.py OpenRouter fallback when Claude CLI attempts fail "
+            "(requires OPENROUTER_API_KEY and may use paid API credits)"
+        ),
+    )
+    parser.add_argument(
+        "--openrouter-model",
+        default=None,
+        help="OpenRouter model id for --openrouter-fallback (defaults to consult_claude.py)",
+    )
     parser.add_argument(
         "--output-dir",
         default=None,
@@ -633,7 +663,14 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2) if args.json else result["error"], file=sys.stderr)
         return EXIT_CONSULT_FAILED
 
-    consult = run_consult(consult_script, packet_path, args.model, args.timeout)
+    consult = run_consult(
+        consult_script,
+        packet_path,
+        args.model,
+        args.timeout,
+        openrouter_fallback=args.openrouter_fallback,
+        openrouter_model=args.openrouter_model,
+    )
     result["consult"] = {
         k: consult.get(k) for k in ("ok", "model", "backend", "elapsed_s", "error")
     }
