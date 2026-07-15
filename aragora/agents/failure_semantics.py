@@ -83,7 +83,9 @@ def _chaos_theater_fragments() -> tuple[str, ...]:
     """
     try:
         from aragora.debate import chaos_theater as ct
-    except Exception:  # noqa: BLE001 - marker derivation must never break callers
+    except (ImportError, AttributeError, RuntimeError):
+        # Marker derivation must never break callers; these cover circular
+        # imports, moved/renamed classes, and partially initialized packages.
         return ()
     fragments: list[str] = []
     for attr in dir(ct.ChaosDirector):
