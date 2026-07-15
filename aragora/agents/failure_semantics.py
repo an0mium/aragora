@@ -40,6 +40,34 @@ AGENT_FAILURE_RESPONSE_MARKERS: tuple[str, ...] = (
     "error 418:",
 )
 
+#: UNMISTAKABLE placeholder signatures — never appear in real answers.
+_STRONG_MARKERS: tuple[str, ...] = (
+    "[system: agent ",
+    "[error generating proposal:",
+    "[no proposals available",
+    "needs to restart their thought process",
+    "tripped over an edge case",
+    "experienced a minor cognitive hiccup",
+    "got confused and needs to recalibrate",
+    "a wild bug appeared",
+    "has achieved unexpected behavior",
+    "error 418:",
+)
+
+#: Generic phrases that also occur in real technical content ("the outage
+#: happened because connection failed"). These only classify as placeholders
+#: when the text is a one-liner (openai #9306 r2 [P2]).
+_WEAK_MARKERS: tuple[str, ...] = (
+    "agent timed out",
+    "connection failed",
+    "encountered an error",
+    "encountered an unexpected situation",
+    "something went wrong with",
+    "fatal exception in",
+)
+
+_WEAK_MARKER_MAX_CHARS = 120
+
 
 #: Placeholders are short, single-sentence stubs. A response longer than this
 #: is substantive content even when it QUOTES an error string (a review
@@ -61,7 +89,13 @@ def looks_like_agent_failure_response(text: Any) -> bool:
         return True
     if len(lowered) >= _MAX_PLACEHOLDER_CHARS:
         return False
-    return any(marker in lowered for marker in AGENT_FAILURE_RESPONSE_MARKERS)
+    if any(marker in lowered for marker in _STRONG_MARKERS):
+        return True
+    # Weak/generic phrases classify only one-liners: a concise real answer
+    # ABOUT an outage must never mint NO_EVIDENCE.
+    if len(lowered) <= _WEAK_MARKER_MAX_CHARS:
+        return any(marker in lowered for marker in _WEAK_MARKERS)
+    return False
 
 
 def all_responses_are_failures(texts: Iterable[Any]) -> bool:

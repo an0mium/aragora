@@ -97,3 +97,22 @@ class TestRoundTwoHardening:
         )
         assert len(text) >= 500
         assert not looks_like_agent_failure_response(text)
+
+    def test_short_real_outage_answer_not_a_placeholder(self) -> None:
+        text = (
+            "Root cause: the LB health check failed after the pool's connection "
+            "failed during cert rotation; fix is to pin the CA bundle and retry."
+        )
+        assert 120 < len(text) < 500
+        assert not looks_like_agent_failure_response(text)
+
+    def test_strong_placeholder_still_classified(self) -> None:
+        assert looks_like_agent_failure_response(
+            "claude tripped over an edge case and is recovering"
+        )
+
+    def test_schema_accepts_no_evidence(self) -> None:
+        from aragora.gauntlet.api.schema import validate_receipt
+
+        _ok, errors = validate_receipt({"verdict": "NO_EVIDENCE", "confidence": 0.0})
+        assert not any("verdict must be" in e for e in errors)
