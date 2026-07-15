@@ -88,6 +88,9 @@ _VALID_VERDICTS = frozenset(
         "pass",
         "fail",
         "conditional",
+        # Zero-evidence receipts (issue #9303): a valid receipt that truthfully
+        # asserts no deliberation occurred. Integrity-valid, never supportive.
+        "no_evidence",
     }
 )
 
