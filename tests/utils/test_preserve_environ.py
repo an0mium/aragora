@@ -11,6 +11,10 @@ mutation is rolled back.
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
+
+import pytest
 
 from aragora.utils.env import preserve_environ
 
@@ -56,3 +60,54 @@ def test_untouched_environment_is_unchanged() -> None:
     with preserve_environ():
         pass
     assert dict(os.environ) == before
+
+
+_SENTINEL = "ARAGORA_TEST_DOTENV_SENTINEL_8277"
+
+
+def _probe(module: str, cwd, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    # python -c gives __main__ no __file__, so python-dotenv's find_dotenv()
+    # treats the process as interactive and searches from cwd upward —
+    # the same condition pytest-xdist execnet workers run under.
+    code = f"import {module}, os; print('LEAK::' + os.environ.get('{_SENTINEL}', '<unset>'))"
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+
+
+def test_bridge_import_does_not_inject_repo_dotenv(tmp_path) -> None:
+    """Guard the import *site*, not just the utility (#8277 regression).
+
+    The utility tests above pass even if the ``preserve_environ()`` wrapper is
+    dropped from aragora/rlm/bridge.py again (as happened when the original
+    fix commit was orphaned by a history rewrite). This test reproduces the
+    real failure mode end to end.
+    """
+    pytest.importorskip("rlm")
+    (tmp_path / ".env").write_text(f"{_SENTINEL}=leaked\n")
+    env = {k: v for k, v in os.environ.items() if k != _SENTINEL}
+
+    # Pin the subprocess to the tree under test: an editable install's .pth
+    # may otherwise resolve `aragora` to a different checkout.
+    import aragora
+
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(aragora.__file__)))
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (repo_root, env.get("PYTHONPATH")) if p)
+
+    # Control: prove the official rlm package still injects dotenv from cwd
+    # under these conditions; otherwise the main assertion proves nothing.
+    control = _probe("rlm.clients", tmp_path, env)
+    if "LEAK::leaked" not in control.stdout:
+        pytest.skip("rlm import no longer injects dotenv from cwd; nothing to guard against")
+
+    result = _probe("aragora.rlm.bridge", tmp_path, env)
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "LEAK::<unset>" in result.stdout, (
+        "repo .env leaked into os.environ via aragora.rlm.bridge import; "
+        "is the preserve_environ() guard still wrapping the official-rlm import?"
+    )
