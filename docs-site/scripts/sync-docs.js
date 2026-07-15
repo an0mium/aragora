@@ -621,6 +621,9 @@ const REPO_BLOB_BASE = 'https://github.com/synaptent/aragora/blob/main';
 const REPO_MARKDOWN_LINKS = {
   '../README.md': `${REPO_BLOB_BASE}/README.md`,
   'README.md': `${REPO_BLOB_BASE}/docs/README.md`,
+  // METRICS.md is auto-regenerated and not published to docs-site; repo-relative
+  // links from any docs/ page must resolve to the canonical repo copy.
+  'METRICS.md': `${REPO_BLOB_BASE}/docs/METRICS.md`,
   '../aragora/mcp/README.md': `${REPO_BLOB_BASE}/aragora/mcp/README.md`,
   'algorithms/README.md': `${REPO_BLOB_BASE}/docs/algorithms/README.md`,
   '../deploy/README.md': `${REPO_BLOB_BASE}/deploy/README.md`,
