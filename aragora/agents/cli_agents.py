@@ -194,20 +194,29 @@ def terminate_tracked_cli_processes(grace_seconds: float = 0.2) -> dict[str, int
     }
 
 
-#: Provider-wall / auth-error signatures that some CLIs print to STDOUT with
-#: exit 0 (issue #9304). Bounded to short outputs so a legitimate proposal
-#: QUOTING an error message is never misclassified.
-_EXIT0_PROVIDER_ERROR_MARKERS: tuple[str, ...] = (
+#: UNMISTAKABLE provider-wall signatures printed to STDOUT with exit 0
+#: (issue #9304): phrases that never occur as ordinary debate content.
+_EXIT0_STRONG_ERROR_MARKERS: tuple[str, ...] = (
     "do not have access to this model",
     "out of usage credits",
+    "run /usage-credits",
     "hit your usage limit",
-    "not logged in",
     "please run /login",
-    "quota exceeded",
-    "credit balance is too low",
     "invalid x-api-key",
+    "credit balance is too low",
+)
+
+#: Generic phrases ("quota exceeded", "not logged in") appear in legitimate
+#: answers ABOUT auth/quota topics — this repo's own debates discuss them.
+#: They only classify one-line outputs (#9315 round 1, both families).
+_EXIT0_WEAK_ERROR_MARKERS: tuple[str, ...] = (
+    "not logged in",
+    "quota exceeded",
     "authentication_error",
 )
+
+_EXIT0_STRONG_MAX_CHARS = 2000
+_EXIT0_WEAK_MAX_CHARS = 160
 
 
 class CLIAgent(CritiqueMixin, Agent):
@@ -475,11 +484,14 @@ class CLIAgent(CritiqueMixin, Agent):
                 # proposal. Without this, error text enters the debate as
                 # content ('Round 1: Low novelty 0.00') and rots memory.
                 lowered_stdout = stdout_text.lower()
-                if (
-                    stdout_text
-                    and any(marker in lowered_stdout for marker in _EXIT0_PROVIDER_ERROR_MARKERS)
-                    and len(stdout_text) < 2000
-                ):
+                is_wall = (
+                    len(stdout_text) < _EXIT0_STRONG_MAX_CHARS
+                    and any(m in lowered_stdout for m in _EXIT0_STRONG_ERROR_MARKERS)
+                ) or (
+                    len(stdout_text) < _EXIT0_WEAK_MAX_CHARS
+                    and any(m in lowered_stdout for m in _EXIT0_WEAK_ERROR_MARKERS)
+                )
+                if stdout_text and is_wall:
                     if self._circuit_breaker is not None:
                         self._circuit_breaker.record_failure()
                     raise CLISubprocessError(
