@@ -1422,13 +1422,26 @@ class DecisionReceipt:
                 if agent_name:
                     dissenting_agents.append(agent_name)
 
+        # Zero-evidence gate (issue #9303): if every agent response is an error
+        # placeholder (autonomic/chaos-theater text) — or there are none — no
+        # deliberation happened. A decision-integrity receipt must say so
+        # instead of asserting PASS on top of provider failures.
+        response_texts = [
+            getattr(msg, "content", "") for msg in getattr(result, "messages", []) or []
+        ]
+        zero_evidence = all_responses_are_failures(response_texts) and all_responses_are_failures(
+            [result.final_answer]
+        )
+
         # Supporting agents = participants minus dissenters
         supporting_agents = [p for p in participants if p not in dissenting_agents]
 
+        # A zero-evidence run cannot claim consensus: the 'agreement' is between
+        # error placeholders (openai #9306 r3 [P2]).
         consensus = ConsensusProof(
-            reached=result.consensus_reached,
-            confidence=result.confidence,
-            supporting_agents=supporting_agents,
+            reached=False if zero_evidence else result.consensus_reached,
+            confidence=0.0 if zero_evidence else result.confidence,
+            supporting_agents=[] if zero_evidence else supporting_agents,
             dissenting_agents=dissenting_agents,
             method=getattr(result, "consensus_strength", "majority") or "majority",
             evidence_hash=(
@@ -1461,17 +1474,6 @@ class DecisionReceipt:
         live_explainability = normalize_live_explainability(metadata.get("live_explainability"))
         if live_explainability is not None:
             explainability = {"live_explainability": live_explainability}
-
-        # Zero-evidence gate (issue #9303): if every agent response is an error
-        # placeholder (autonomic/chaos-theater text) — or there are none — no
-        # deliberation happened. A decision-integrity receipt must say so
-        # instead of asserting PASS on top of provider failures.
-        response_texts = [
-            getattr(msg, "content", "") for msg in getattr(result, "messages", []) or []
-        ]
-        zero_evidence = all_responses_are_failures(response_texts) and all_responses_are_failures(
-            [result.final_answer]
-        )
 
         # Determine verdict from consensus
         if zero_evidence:
@@ -1507,7 +1509,7 @@ class DecisionReceipt:
         if zero_evidence:
             verdict_reasoning = (
                 "NO EVIDENCE: every agent response was a provider/error placeholder; "
-                "no substantive deliberation occurred. " + verdict_reasoning
+                "no substantive deliberation occurred."
             )
 
         agent_responses = cls._build_agent_responses(result, cost_summary=cost_summary)

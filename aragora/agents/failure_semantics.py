@@ -87,6 +87,13 @@ def looks_like_agent_failure_response(text: Any) -> bool:
     lowered = str(text).strip().lower()
     if not lowered:
         return True
+    # Bracket-prefixed placeholders embed arbitrarily long error bodies
+    # (e.g. proposal_phase emits "[Error generating proposal: <traceback>]"),
+    # so PREFIX matches classify regardless of length (claude #9306 r3 [P2]).
+    if lowered.startswith(
+        ("[system: agent ", "[error generating proposal:", "[no proposals available")
+    ):
+        return True
     if len(lowered) >= _MAX_PLACEHOLDER_CHARS:
         return False
     if any(marker in lowered for marker in _STRONG_MARKERS):

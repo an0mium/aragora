@@ -116,3 +116,16 @@ class TestRoundTwoHardening:
 
         _ok, errors = validate_receipt({"verdict": "NO_EVIDENCE", "confidence": 0.0})
         assert not any("verdict must be" in e for e in errors)
+
+    def test_long_bracketed_error_body_is_still_a_placeholder(self) -> None:
+        text = "[Error generating proposal: " + "traceback line\n" * 100 + "]"
+        assert len(text) > 500
+        assert looks_like_agent_failure_response(text)
+
+    def test_zero_evidence_receipt_has_no_supportive_consensus(self) -> None:
+        receipt = DecisionReceipt.from_debate_result(_placeholder_result())
+        assert receipt.consensus_proof.reached is False
+        assert receipt.consensus_proof.confidence == 0.0
+        assert receipt.consensus_proof.supporting_agents == []
+        assert "Winner" not in receipt.verdict_reasoning
+        assert "Consensus reached" not in receipt.verdict_reasoning
