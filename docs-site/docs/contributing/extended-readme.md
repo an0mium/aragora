@@ -36,11 +36,11 @@ Aragora works for a 5-person startup on day one and scales to regulated enterpri
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with its registered adapters (canonical count in [METRICS.md](METRICS.md)) give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system gives models programmatic access to context as REPL variables -- it is **not** prompt compression (compression exists only as a fallback path) -- enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with its registered adapters (canonical count in [METRICS.md](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md)) give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system gives models programmatic access to context as REPL variables -- it is **not** prompt compression (compression exists only as a fallback path) -- enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
-Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript. A REST/WebSocket API surface with thousands of operations (exact counts in [METRICS.md](METRICS.md)) and 270+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
+Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript. A REST/WebSocket API surface with thousands of operations (exact counts in [METRICS.md](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md)) and 270+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
 
 ### 4. Multi-Agent Robustness
 
@@ -342,7 +342,7 @@ aragora/
 ```
 
 <!-- metrics:begin extended-readme-scale -->
-**Scale:** 4,286 tracked Python files | 144 top-level modules | 223,783 test functions across 5,469 test files | canonical counts in [METRICS.md](METRICS.md)
+**Scale:** 4,286 tracked Python files | 144 top-level modules | 223,783 test functions across 5,469 test files | canonical counts in [METRICS.md](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md)
 <!-- metrics:end -->
 
 ---

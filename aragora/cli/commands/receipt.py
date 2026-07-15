@@ -5,7 +5,7 @@ Commands for managing decision receipts:
 - view: Open receipt in browser (converts JSON to HTML automatically)
 - verify: Verify a receipt's artifact hash and cryptographic signature
 - inspect: Display receipt details in terminal
-- export: Export receipt to different formats (html, md, json, sarif, pdf, csv)
+- export: Export receipt to different formats (html, md, json, sarif, pdf, csv, odr)
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ Subcommands:
   view    <file>             Open receipt in browser (JSON auto-converts to HTML)
   verify  <file>             Check artifact hash and signature integrity
   inspect <file>             Display receipt details in terminal
-  export  <file> --format X  Convert between html, md, json, sarif, pdf, csv
+  export  <file> --format X  Convert between html, md, json, sarif, pdf, csv, odr
 
 Examples:
   aragora receipt view receipt.json

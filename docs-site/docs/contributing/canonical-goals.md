@@ -12,7 +12,7 @@ description: "Aragora: Canonical Goals & Foundational Thesis"
 
 ## Canonical Metrics
 
-Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
+Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
 
 <!-- metrics:begin canonical-goals-metrics -->
 | Metric | Value | Source |
@@ -32,7 +32,8 @@ Other canonical claims (manually maintained):
 
 | Metric | Value | Source |
 |--------|-------|--------|
-| Agent types | 43 across 6+ LLM providers | agent registry |
+| Agent types (registered) | 46 across 6+ LLM providers | `list_available_agents()` in `aragora/agents/base.py` |
+| Agent types (allowlisted) | 35 (see `docs/METRICS.md`) | `ALLOWED_AGENT_TYPES` in `aragora/config/settings.py` |
 | Workflow templates | 50+ across 6 categories | template registry |
 | Handler modules | 580+ | handlers directory |
 | GA readiness | Pre-GA; remaining launch work is tracked in `GA_CHECKLIST.md` | `GA_CHECKLIST.md` |
