@@ -12,6 +12,75 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+_NON_NOMIC_ADAPTERS = (
+    pytest.param(
+        "pagerduty",
+        "aragora.connectors.devops.slo_alert_sink",
+        "register_slo_alert_sink",
+        "PagerDuty",
+        id="pagerduty",
+    ),
+    pytest.param(
+        "channel",
+        "aragora.control_plane.slo_alert_sink",
+        "register_slo_alert_sink",
+        "Channel",
+        id="channel",
+    ),
+    pytest.param(
+        "webhook",
+        "aragora.integrations.webhooks",
+        "register_slo_event_sink",
+        "Webhook",
+        id="webhook",
+    ),
+    pytest.param(
+        "knowledge_mound",
+        "aragora.knowledge.mound.metrics",
+        "register_prometheus_health_provider",
+        "Knowledge Mound",
+        id="knowledge-mound",
+    ),
+)
+
+_ALL_ADAPTERS = (
+    (
+        "pagerduty",
+        "aragora.connectors.devops.slo_alert_sink",
+        "register_slo_alert_sink",
+    ),
+    (
+        "channel",
+        "aragora.control_plane.slo_alert_sink",
+        "register_slo_alert_sink",
+    ),
+    (
+        "webhook",
+        "aragora.integrations.webhooks",
+        "register_slo_event_sink",
+    ),
+    (
+        "knowledge_mound",
+        "aragora.knowledge.mound.metrics",
+        "register_prometheus_health_provider",
+    ),
+    (
+        "nomic",
+        "aragora.nomic.metrics",
+        "register_prometheus_metrics_provider",
+    ),
+)
+
+
+def _mock_observability_adapters() -> dict[str, MagicMock]:
+    modules: dict[str, MagicMock] = {}
+    for _name, module_path, register_name in _ALL_ADAPTERS:
+        adapter = MagicMock()
+        getattr(adapter, register_name).return_value = True
+        modules[module_path] = adapter
+    return modules
+
+
 class TestRegisterObservabilitySinks:
     """Tests for higher-layer sink composition."""
 
@@ -107,6 +176,71 @@ class TestRegisterObservabilitySinks:
         webhook_adapter.register_slo_event_sink.assert_called_once_with()
         km_adapter.register_prometheus_health_provider.assert_called_once_with()
         assert "Nomic observability adapter not available" in caplog.text
+
+    @pytest.mark.parametrize(
+        ("failed_adapter", "failed_module", "register_name", "log_name"),
+        _NON_NOMIC_ADAPTERS,
+    )
+    def test_non_nomic_import_failure_does_not_skip_sibling_adapters(
+        self,
+        failed_adapter: str,
+        failed_module: str,
+        register_name: str,
+        log_name: str,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Every adapter import has its own fail-soft boundary."""
+        adapters = _mock_observability_adapters()
+        adapters_with_failure: dict[str, MagicMock | None] = dict(adapters)
+        adapters_with_failure[failed_module] = None
+
+        with (
+            patch.dict("sys.modules", adapters_with_failure),
+            caplog.at_level("DEBUG", logger="aragora.server.startup.observability"),
+        ):
+            from aragora.server.startup.observability import register_observability_sinks
+
+            result = register_observability_sinks()
+
+        assert result is False
+        for adapter_name, module_path, sibling_register_name in _ALL_ADAPTERS:
+            if adapter_name == failed_adapter:
+                continue
+            getattr(adapters[module_path], sibling_register_name).assert_called_once_with()
+        getattr(adapters[failed_module], register_name).assert_not_called()
+        assert f"{log_name} observability adapter not available" in caplog.text
+
+    @pytest.mark.parametrize(
+        ("failed_adapter", "failed_module", "register_name", "log_name"),
+        _NON_NOMIC_ADAPTERS,
+    )
+    def test_non_nomic_registration_failure_does_not_skip_sibling_adapters(
+        self,
+        failed_adapter: str,
+        failed_module: str,
+        register_name: str,
+        log_name: str,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Every adapter registration has its own fail-soft boundary."""
+        adapters = _mock_observability_adapters()
+        getattr(adapters[failed_module], register_name).side_effect = RuntimeError("boom")
+
+        with (
+            patch.dict("sys.modules", adapters),
+            caplog.at_level("WARNING", logger="aragora.server.startup.observability"),
+        ):
+            from aragora.server.startup.observability import register_observability_sinks
+
+            result = register_observability_sinks()
+
+        assert result is False
+        for adapter_name, module_path, sibling_register_name in _ALL_ADAPTERS:
+            if adapter_name == failed_adapter:
+                continue
+            getattr(adapters[module_path], sibling_register_name).assert_called_once_with()
+        getattr(adapters[failed_module], register_name).assert_called_once_with()
+        assert f"Failed to register {log_name} observability adapter" in caplog.text
 
 
 # =============================================================================
