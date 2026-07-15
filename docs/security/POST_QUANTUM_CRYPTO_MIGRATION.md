@@ -38,7 +38,7 @@ Aragora that is:
 ### 🔴 Quantum-vulnerable — migration targets (risk-ranked)
 | Pri | Surface | Algorithm today | Key files | Notes |
 |-----|---------|-----------------|-----------|-------|
-| **P0** | **DecisionReceipt / ODR signing** | Ed25519 (planned, [#8225](https://github.com/synaptent/aragora/issues/8225)) | `gauntlet/odr_export.py`, `nomic/cycle_receipt.py`, `storage/receipt_store.py` | **HNDL-critical.** Course-correct #8225 to hybrid. |
+| **P0** | **DecisionReceipt / ODR signing** | Ed25519 (implemented in `gauntlet/odr_signing.py`, [#8225](https://github.com/synaptent/aragora/issues/8225) open) | `gauntlet/odr_signing.py`, `gauntlet/odr_export.py`, `nomic/cycle_receipt.py`, `storage/receipt_store.py` | **HNDL-critical.** Course-correct #8225 to hybrid. |
 | P1 | Key-wrapping / KEK | RSA | `scheduler/rotation_handlers/encryption.py` | HNDL for at-rest data |
 | P1 | Transparency log | ECDSA | `trail/rekor.py` (Sigstore/Rekor) | gated on Sigstore PQC roadmap |
 | P2 | JWT / OIDC / SSO | RS256 (RSA) | `auth/oidc.py`, `auth/teams_sso.py`, `auth/saml.py` | **validates external IdP tokens** — algo is the IdP's choice; make us able to *accept* PQC |
