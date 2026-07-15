@@ -70,6 +70,44 @@ class TestRegisterObservabilitySinks:
             km_metrics.register_km_health_provider(None)
             server_metrics_export.register_nomic_metrics_provider(None)
 
+    def test_nomic_import_failure_does_not_skip_other_adapters(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Optional Nomic import failure cannot short-circuit other adapters."""
+        pagerduty_adapter = MagicMock()
+        pagerduty_adapter.register_slo_alert_sink.return_value = True
+        channel_adapter = MagicMock()
+        channel_adapter.register_slo_alert_sink.return_value = True
+        webhook_adapter = MagicMock()
+        webhook_adapter.register_slo_event_sink.return_value = True
+        km_adapter = MagicMock()
+        km_adapter.register_prometheus_health_provider.return_value = True
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.connectors.devops.slo_alert_sink": pagerduty_adapter,
+                    "aragora.control_plane.slo_alert_sink": channel_adapter,
+                    "aragora.integrations.webhooks": webhook_adapter,
+                    "aragora.knowledge.mound.metrics": km_adapter,
+                    "aragora.nomic.metrics": None,
+                },
+            ),
+            caplog.at_level("DEBUG", logger="aragora.server.startup.observability"),
+        ):
+            from aragora.server.startup.observability import register_observability_sinks
+
+            result = register_observability_sinks()
+
+        assert result is False
+        pagerduty_adapter.register_slo_alert_sink.assert_called_once_with()
+        channel_adapter.register_slo_alert_sink.assert_called_once_with()
+        webhook_adapter.register_slo_event_sink.assert_called_once_with()
+        km_adapter.register_prometheus_health_provider.assert_called_once_with()
+        assert "Nomic observability adapter not available" in caplog.text
+
 
 # =============================================================================
 # init_structured_logging Tests
