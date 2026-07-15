@@ -158,7 +158,8 @@ class DecisionStakesRouter:
         # choice was made among — the "models considered" the audit record needs.
         try:
             frontier = self._optimizer.get_pareto_frontier()
-        except Exception:  # noqa: BLE001 - never let metric gaps break routing
+        except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError):
+            # Never let metric gaps break routing — record an empty frontier.
             frontier = []
         models_considered = [
             {
