@@ -141,3 +141,11 @@ class TestRoundTwoHardening:
         gate = src[src.index("if zero_evidence:") :]
         assert "robustness_score = 0.0" in gate[:600]
         assert "coverage_score = 0.0" in gate[:600]
+
+    def test_substantive_proposals_prevent_zero_evidence(self) -> None:
+        result = _placeholder_result()
+        result.proposals = {
+            "claude": "Monorepo: one CI surface, atomic refactors, single review gate."
+        }
+        receipt = DecisionReceipt.from_debate_result(result)
+        assert receipt.verdict != "NO_EVIDENCE"

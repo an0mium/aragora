@@ -1429,8 +1429,14 @@ class DecisionReceipt:
         response_texts = [
             getattr(msg, "content", "") for msg in getattr(result, "messages", []) or []
         ]
-        zero_evidence = all_responses_are_failures(response_texts) and all_responses_are_failures(
-            [result.final_answer]
+        # Proposals are evidence too (openai #9306 r5 [P2]): a result with
+        # empty messages but substantive proposals is NOT zero-evidence.
+        proposals = getattr(result, "proposals", None) or {}
+        proposal_texts = list(proposals.values()) if isinstance(proposals, dict) else []
+        zero_evidence = (
+            all_responses_are_failures(response_texts)
+            and all_responses_are_failures(proposal_texts)
+            and all_responses_are_failures([result.final_answer])
         )
 
         # Supporting agents = participants minus dissenters
