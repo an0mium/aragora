@@ -1437,7 +1437,11 @@ class DecisionReceipt:
         # reads (openai #9306 r6 [P2]) — detection now mirrors that method's
         # sources exactly: messages, proposals, agent_responses, final_answer.
         agent_response_texts = [
-            getattr(r, "response", "") or str(getattr(r, "content", "") or "")
+            (
+                r.get("response") or r.get("content") or ""
+                if isinstance(r, dict)
+                else getattr(r, "response", "") or str(getattr(r, "content", "") or "")
+            )
             for r in getattr(result, "agent_responses", []) or []
         ]
         zero_evidence = (

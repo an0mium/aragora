@@ -159,3 +159,9 @@ class TestRoundTwoHardening:
         ]
         receipt = DecisionReceipt.from_debate_result(result)
         assert receipt.verdict != "NO_EVIDENCE"
+
+    def test_dict_backed_agent_responses_prevent_zero_evidence(self) -> None:
+        result = _placeholder_result()
+        result.agent_responses = [{"agent": "claude", "response": "Real monorepo analysis."}]
+        receipt = DecisionReceipt.from_debate_result(result)
+        assert receipt.verdict != "NO_EVIDENCE"
