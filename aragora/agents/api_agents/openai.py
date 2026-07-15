@@ -41,6 +41,16 @@ _WEB_SEARCH_PATTERNS = [
     env_vars="OPENAI_API_KEY",
     accepts_api_key=True,
 )
+def _resolve_openai_base_url() -> str:
+    """OPENAI_BASE_URL override for gateways/proxies (issue #9304)."""
+    import os
+
+    raw = os.environ.get("OPENAI_BASE_URL", "").strip().rstrip("/")
+    if not raw:
+        return "https://api.openai.com/v1"
+    return raw if raw.endswith("/v1") else raw + "/v1"
+
+
 class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     """Agent that uses OpenAI API directly.
 
@@ -95,7 +105,8 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             timeout=timeout,
             api_key=api_key
             or get_primary_api_key("OPENAI_API_KEY", allow_openrouter_fallback=True),
-            base_url="https://api.openai.com/v1",
+            # OPENAI_BASE_URL supports BYOK gateways/proxies (issue #9304).
+            base_url=_resolve_openai_base_url(),
         )
         self.agent_type = "openai"
         # Use config setting if not explicitly provided

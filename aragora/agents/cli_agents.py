@@ -194,6 +194,22 @@ def terminate_tracked_cli_processes(grace_seconds: float = 0.2) -> dict[str, int
     }
 
 
+#: Provider-wall / auth-error signatures that some CLIs print to STDOUT with
+#: exit 0 (issue #9304). Bounded to short outputs so a legitimate proposal
+#: QUOTING an error message is never misclassified.
+_EXIT0_PROVIDER_ERROR_MARKERS: tuple[str, ...] = (
+    "do not have access to this model",
+    "out of usage credits",
+    "hit your usage limit",
+    "not logged in",
+    "please run /login",
+    "quota exceeded",
+    "credit balance is too low",
+    "invalid x-api-key",
+    "authentication_error",
+)
+
+
 class CLIAgent(CritiqueMixin, Agent):
     """Base class for CLI-based agents.
 
@@ -453,6 +469,25 @@ class CLIAgent(CritiqueMixin, Agent):
 
                 stdout_text = stdout.decode("utf-8", errors="replace").strip()
                 stderr_text = stderr.decode("utf-8", errors="replace").strip()
+
+                # Provider walls/errors printed to STDOUT with exit 0 (issue
+                # #9304): a proxy's 403 body or a subscription wall is not a
+                # proposal. Without this, error text enters the debate as
+                # content ('Round 1: Low novelty 0.00') and rots memory.
+                lowered_stdout = stdout_text.lower()
+                if (
+                    stdout_text
+                    and any(marker in lowered_stdout for marker in _EXIT0_PROVIDER_ERROR_MARKERS)
+                    and len(stdout_text) < 2000
+                ):
+                    if self._circuit_breaker is not None:
+                        self._circuit_breaker.record_failure()
+                    raise CLISubprocessError(
+                        message=f"CLI returned a provider error as output: {stdout_text[:200]}",
+                        agent_name=self.name,
+                        returncode=0,
+                        stderr=stderr_text or None,
+                    )
 
                 # Some CLIs (e.g., Kilo) emit errors on stderr but return code 0.
                 # Treat "no stdout + non-empty stderr" as a failure to enable fallback.
