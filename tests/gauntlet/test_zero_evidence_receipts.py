@@ -129,3 +129,15 @@ class TestRoundTwoHardening:
         assert receipt.consensus_proof.supporting_agents == []
         assert "Winner" not in receipt.verdict_reasoning
         assert "Consensus reached" not in receipt.verdict_reasoning
+
+    def test_zero_work_result_reports_zero_robustness(self) -> None:
+        # Pin the orchestrator constants: the zero-evidence branch must zero
+        # robustness/coverage (defaults are 1.0/derived when redteam is None).
+        import inspect
+
+        from aragora.gauntlet import orchestrator as go
+
+        src = inspect.getsource(go)
+        gate = src[src.index("if zero_evidence:") :]
+        assert "robustness_score = 0.0" in gate[:600]
+        assert "coverage_score = 0.0" in gate[:600]

@@ -992,6 +992,11 @@ class GauntletOrchestrator:
         # Determine verdict
         if zero_evidence:
             verdict, confidence = Verdict.NEEDS_REVIEW, 0.0
+            # No redteam ran, so robustness defaulted to a perfect 1.0 —
+            # 100% robustness on a path where nothing executed is the same
+            # hollow-receipt lie in a different field (claude #9306 r4 [P2]).
+            robustness_score = 0.0
+            coverage_score = 0.0
         else:
             verdict, confidence = self._determine_verdict(
                 critical, high, medium, risk_score, robustness_score, dissenting_views
