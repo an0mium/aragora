@@ -84,9 +84,9 @@ def test_bridge_import_does_not_inject_repo_dotenv(tmp_path) -> None:
     """Guard the import *site*, not just the utility (#8277 regression).
 
     The utility tests above pass even if the ``preserve_environ()`` wrapper is
-    dropped from aragora/rlm/bridge.py again (as happened when the original
-    fix commit was orphaned by a history rewrite). This test reproduces the
-    real failure mode end to end.
+    dropped from aragora/rlm/bridge.py again (the original fix commit sat
+    stranded on an unmerged branch for a month while believed merged). This
+    test reproduces the real failure mode end to end.
     """
     pytest.importorskip("rlm")
     (tmp_path / ".env").write_text(f"{_SENTINEL}=leaked\n")
