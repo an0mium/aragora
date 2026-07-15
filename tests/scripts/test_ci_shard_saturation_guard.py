@@ -106,6 +106,57 @@ class TestCollectShardDurations:
         assert len(durations["debate-am"]) == 2
 
 
+class TestLoadActiveShards:
+    _WORKFLOW = """\
+jobs:
+  lint:
+    steps:
+      - name: not-a-shard
+  test-fast:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        category:
+          - name: agents
+            pytest_args: tests/agents
+            scope: agents
+            timeout: 30
+          - name: debate-1
+            pytest_args: ""
+            resolver: debate-1
+            scope: debate
+            timeout: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+  test-summary:
+    steps:
+      - name: also-not-a-shard
+"""
+
+    def test_parses_matrix_shard_names(self, tmp_path):
+        wf = tmp_path / "test.yml"
+        wf.write_text(self._WORKFLOW)
+        assert guard.load_active_shards(wf) == frozenset({"agents", "debate-1"})
+
+    def test_missing_file_fails_open(self, tmp_path):
+        assert guard.load_active_shards(tmp_path / "nope.yml") is None
+
+    def test_unrecognized_structure_fails_open(self, tmp_path):
+        wf = tmp_path / "test.yml"
+        wf.write_text("jobs:\n  other-job:\n    steps: []\n")
+        assert guard.load_active_shards(wf) is None
+
+    def test_parses_real_repo_workflow(self):
+        shards = guard.load_active_shards(_SCRIPT.parents[1] / ".github" / "workflows" / "test.yml")
+        assert shards is not None
+        assert "agents" in shards
+        assert "infra" in shards
+        # No step names should leak in.
+        assert "Checkout" not in shards
+
+
 class TestAnalyze:
     def test_breach_and_cap_hits(self):
         durations = {
@@ -122,6 +173,20 @@ class TestAnalyze:
     def test_no_breach_at_threshold(self):
         stats = guard.analyze({"agents": [20.0]}, threshold_minutes=20.0, cap_minutes=30.0)
         assert not stats[0].breach
+
+    def test_retired_shard_reported_but_never_breaches(self):
+        durations = {"debate-am": [29.0] * 5, "debate-1": [25.0] * 5}
+        stats = guard.analyze(
+            durations, 20.0, 30.0, active_shards=frozenset({"debate-1", "agents"})
+        )
+        by_shard = {s.shard: s for s in stats}
+        assert not by_shard["debate-am"].breach
+        assert not by_shard["debate-am"].active
+        assert by_shard["debate-1"].breach
+
+    def test_unknown_layout_fails_open(self):
+        stats = guard.analyze({"debate-am": [29.0] * 5}, 20.0, 30.0, active_shards=None)
+        assert stats[0].breach and stats[0].active
 
 
 class TestEmitOutputs:
@@ -147,6 +212,24 @@ class TestEmitOutputs:
         assert "breach=1" in out_text
         assert "breach_shards=debate-am" in out_text
         assert "CI_SHARD_REPORT_EOF" in out_text
+
+    def test_retired_breach_is_informational_only(self, tmp_path, capsys, monkeypatch):
+        output = tmp_path / "output.txt"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+
+        stats = guard.analyze(
+            {"debate-am": [29.0] * 5},
+            threshold_minutes=20.0,
+            cap_minutes=30.0,
+            active_shards=frozenset({"debate-1"}),
+        )
+        guard.emit_outputs(stats, 20.0, 30.0, runs_analyzed=5, days=14)
+
+        stdout = capsys.readouterr().out
+        assert "::warning" not in stdout
+        assert "retired (aging out)" in stdout
+        assert "breach=0" in output.read_text()
 
     def test_clean_run_reports_no_breach(self, tmp_path, capsys, monkeypatch):
         output = tmp_path / "output.txt"

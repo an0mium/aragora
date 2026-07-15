@@ -26,6 +26,14 @@ What it does (read-only against the GitHub API):
    to ``$GITHUB_OUTPUT`` so a wrapping workflow can open/update a
    tracking issue.
 
+Retired shards: after a re-split, the lookback window still contains
+samples from shards that no longer exist (e.g. ``debate-am`` after the
+#9307 re-split). The current shard layout is read from the ``test-fast``
+matrix in the checked-out workflow file; shards absent from it are shown
+in the report as "retired (aging out)" but never trigger warnings or
+issue creation. If the matrix cannot be parsed, all shards are treated
+as active (fail open — a stale warning beats a silent miss).
+
 When a shard breaches, rebalance it *before* it hits the cap. Shard
 sizing methodology: per-file pytest test counts multiplied by measured
 seconds-per-test for that area, with the resulting alphabetic/directory
@@ -53,6 +61,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 # Matrix jobs render as e.g.
 #   "test-fast (debate-am, debate-am, debate, 30)"
@@ -66,6 +75,7 @@ _RUN_STEP_RE = re.compile(r"^Run .* tests$")
 
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_WORKFLOW = "test.yml"
+DEFAULT_WORKFLOW_FILE = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "test.yml"
 DEFAULT_DAYS = 14
 DEFAULT_MAX_RUNS = 80
 DEFAULT_THRESHOLD_MINUTES = 20.0
@@ -81,6 +91,7 @@ class ShardStats:
     max_minutes: float
     cap_hits: int
     breach: bool
+    active: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +151,31 @@ def fetch_run_jobs(repo: str, run_id: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def load_active_shards(workflow_file: Path) -> frozenset[str] | None:
+    """Shard names in the current test-fast matrix, or None if unparsable.
+
+    Stdlib-only on purpose (no PyYAML dependency in CI): slices the
+    ``test-fast`` job block out of the workflow text, then the matrix
+    ``category:`` list up to ``steps:``, and collects each entry's
+    ``- name: <shard>``. Returns None (= treat every shard as active)
+    when the file or the expected structure is missing.
+    """
+    try:
+        text = workflow_file.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    # Job block: from "  test-fast:" to the next 2-space-indented key.
+    job_match = re.search(r"^  test-fast:\n(.*?)(?=^  \S|\Z)", text, re.M | re.S)
+    if not job_match:
+        return None
+    block = job_match.group(1)
+    category_match = re.search(r"^\s+category:\n(.*?)(?=^\s{4,6}steps:|\Z)", block, re.M | re.S)
+    if not category_match:
+        return None
+    shards = frozenset(re.findall(r"^\s+- name: (\S+)\s*$", category_match.group(1), re.M))
+    return shards or None
+
+
 def parse_shard_name(job_name: str) -> str | None:
     """Extract the shard name from a ``test-fast (<shard>, ...)`` job name."""
     match = _JOB_NAME_RE.match(job_name)
@@ -192,11 +228,19 @@ def analyze(
     durations_by_shard: dict[str, list[float]],
     threshold_minutes: float,
     cap_minutes: float,
+    active_shards: frozenset[str] | None = None,
 ) -> list[ShardStats]:
-    """Per-shard stats, sorted by p95 descending so the hottest shard leads."""
+    """Per-shard stats, sorted by p95 descending so the hottest shard leads.
+
+    Shards absent from ``active_shards`` (retired by a re-split, still in
+    the lookback window) never breach — they appear in the report only.
+    ``active_shards=None`` means the current layout is unknown; fail open
+    and treat every shard as active.
+    """
     stats = []
     for shard, durations in durations_by_shard.items():
         p95 = percentile(durations, 95)
+        active = active_shards is None or shard in active_shards
         stats.append(
             ShardStats(
                 shard=shard,
@@ -206,7 +250,8 @@ def analyze(
                 max_minutes=round(max(durations), 1),
                 # Jobs killed at the cap report durations a hair under it.
                 cap_hits=sum(1 for d in durations if d >= cap_minutes - 1.0),
-                breach=p95 > threshold_minutes,
+                breach=active and p95 > threshold_minutes,
+                active=active,
             )
         )
     return sorted(stats, key=lambda s: s.p95_minutes, reverse=True)
@@ -218,7 +263,12 @@ def render_markdown_table(stats: list[ShardStats], threshold_minutes: float) -> 
         "|---|---|---|---|---|---|---|",
     ]
     for s in stats:
-        status = f"⚠️ p95 > {threshold_minutes:g}m" if s.breach else "OK"
+        if s.breach:
+            status = f"⚠️ p95 > {threshold_minutes:g}m"
+        elif not s.active:
+            status = "retired (aging out)"
+        else:
+            status = "OK"
         lines.append(
             f"| {s.shard} | {s.samples} | {s.p50_minutes} | {s.p95_minutes} "
             f"| {s.max_minutes} | {s.cap_hits} | {status} |"
@@ -285,6 +335,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--threshold-minutes", type=float, default=DEFAULT_THRESHOLD_MINUTES)
     parser.add_argument("--cap-minutes", type=float, default=DEFAULT_CAP_MINUTES)
     parser.add_argument(
+        "--workflow-file",
+        type=Path,
+        default=DEFAULT_WORKFLOW_FILE,
+        help="checked-out workflow to read the current shard layout from "
+        "(retired shards report but never breach)",
+    )
+    parser.add_argument(
         "--fail-on-breach",
         action="store_true",
         help="exit 2 when any shard breaches (default: annotate only, exit 0)",
@@ -308,7 +365,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    stats = analyze(durations, args.threshold_minutes, args.cap_minutes)
+    active_shards = load_active_shards(args.workflow_file)
+    if active_shards is None:
+        print(
+            f"::notice::Could not parse the test-fast matrix from {args.workflow_file}; "
+            f"treating all shards as active."
+        )
+
+    stats = analyze(durations, args.threshold_minutes, args.cap_minutes, active_shards)
     emit_outputs(stats, args.threshold_minutes, args.cap_minutes, len(run_ids), args.days)
 
     if args.fail_on_breach and any(s.breach for s in stats):
