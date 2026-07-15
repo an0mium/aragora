@@ -26,9 +26,12 @@ Create a fresh environment outside an Aragora checkout:
 
 ```bash
 python3 -m venv /tmp/aragora-outsider-verify
-/tmp/aragora-outsider-verify/bin/pip install aragora 'aragora-verify>=0.1.1'
+/tmp/aragora-outsider-verify/bin/pip install 'aragora==2.9.0' 'aragora-verify==0.1.1'
 /tmp/aragora-outsider-verify/bin/pip show aragora aragora-verify
 ```
+
+These pins reproduce the observation recorded below. Use the current public
+installation docs for a latest-release smoke test.
 
 Observed package versions:
 
@@ -83,10 +86,10 @@ key, then verify them with the standalone package:
 ```bash
 curl --fail-with-body --silent --show-error --location \
   --output example-signed.odr.json \
-  https://raw.githubusercontent.com/synaptent/aragora/main/docs/specs/examples/example-signed.odr.json
+  https://raw.githubusercontent.com/synaptent/aragora/3fe2e5cf561fc094221008d064040ac84625bd4e/docs/specs/examples/example-signed.odr.json
 curl --fail-with-body --silent --show-error --location \
   --output example-signed.pubkey.pem \
-  https://raw.githubusercontent.com/synaptent/aragora/main/docs/specs/examples/example-signed.pubkey.pem
+  https://raw.githubusercontent.com/synaptent/aragora/3fe2e5cf561fc094221008d064040ac84625bd4e/docs/specs/examples/example-signed.pubkey.pem
 /tmp/aragora-outsider-verify/bin/aragora-verify \
   example-signed.odr.json --pubkey example-signed.pubkey.pem
 ```
