@@ -195,6 +195,15 @@ def generate_metrics() -> str:
         from prometheus_client import REGISTRY, generate_latest
 
         observability_metrics = generate_latest(REGISTRY).decode("utf-8")
+        observability_metrics = "\n".join(
+            line
+            for line in observability_metrics.splitlines()
+            if not (
+                line.startswith("# HELP aragora_active_debates ")
+                or line == "# TYPE aragora_active_debates gauge"
+                or line.startswith("aragora_active_debates ")
+            )
+        )
         if observability_metrics.strip():
             lines.append("# Observability metrics (from prometheus_client)")
             lines.append(observability_metrics)
