@@ -125,6 +125,72 @@ def get_handler_routes() -> set[str]:
     return routes
 
 
+def filter_served_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
+    """Split orphan candidates into (truly orphaned, served via can_handle).
+
+    Handlers may serve literal paths through ``can_handle`` logic without
+    declaring them in ROUTES. Such spec entries are not orphaned: the server
+    routes them. Probe every registered handler's ``can_handle`` against each
+    candidate (both /api/v1/ and unversioned /api/ forms, all common methods)
+    and drop candidates that a handler accepts.
+    """
+    if not candidates:
+        return set(), set()
+
+    try:
+        from aragora.server.handler_registry import HANDLER_REGISTRY
+    except ImportError:
+        return set(candidates), set()
+
+    probes = []
+    for _attr_name, handler_ref in HANDLER_REGISTRY:
+        handler_class = handler_ref
+        resolve = getattr(handler_ref, "resolve", None)
+        if callable(resolve):
+            try:
+                handler_class = resolve()
+            except Exception:  # noqa: BLE001 - import failures are non-fatal here
+                continue
+        if handler_class is None:
+            continue
+        try:
+            instance = handler_class.__new__(handler_class)
+        except Exception:  # noqa: BLE001 - exotic metaclasses; skip
+            continue
+        can_handle = getattr(instance, "can_handle", None)
+        if callable(can_handle):
+            probes.append(can_handle)
+
+    methods = ("GET", "POST", "PUT", "PATCH", "DELETE")
+    served: set[str] = set()
+    for candidate in candidates:
+        variants = {candidate}
+        if candidate.startswith("/api/v1/"):
+            variants.add(candidate.replace("/api/v1/", "/api/", 1))
+        for can_handle in probes:
+            accepted = False
+            for variant in variants:
+                for method in methods:
+                    try:
+                        accepted = bool(can_handle(variant, method))
+                    except TypeError:
+                        try:
+                            accepted = bool(can_handle(variant))
+                        except Exception:  # noqa: BLE001 - probing must never fail the gate
+                            accepted = False
+                    except Exception:  # noqa: BLE001 - probing must never fail the gate
+                        accepted = False
+                    if accepted:
+                        break
+                if accepted:
+                    break
+            if accepted:
+                served.add(candidate)
+                break
+
+    return set(candidates) - served, served
+
+
 def _iter_spec_paths(spec_path: str) -> list[Path]:
     """Return the primary spec path plus any supplemental generated snapshots."""
     primary = Path(spec_path)
@@ -267,7 +333,11 @@ def validate_coverage(
     }
 
     # Routes that are truly orphaned in OpenAPI
-    orphaned_in_spec = missing_handlers - known_dynamic_patterns
+    orphan_candidates = missing_handlers - known_dynamic_patterns
+
+    # A spec path is only orphaned if no registered handler routes it; handlers
+    # frequently serve literal paths via can_handle without declaring them.
+    orphaned_in_spec, served_undeclared = filter_served_orphans(orphan_candidates)
 
     baseline_missing: set[str] = set()
     baseline_orphaned: set[str] = set()
@@ -290,6 +360,8 @@ def validate_coverage(
         "new_missing_in_spec_count": len(new_missing_in_spec),
         "orphaned_in_spec": sorted(orphaned_in_spec),
         "orphaned_in_spec_count": len(orphaned_in_spec),
+        "served_undeclared": sorted(served_undeclared),
+        "served_undeclared_count": len(served_undeclared),
         "new_orphaned_in_spec": new_orphaned_in_spec,
         "new_orphaned_in_spec_count": len(new_orphaned_in_spec),
         "dynamic_routes_skipped": len(known_dynamic_patterns),

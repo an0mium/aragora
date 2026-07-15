@@ -175,3 +175,63 @@ def test_validate_coverage_counts_prompt_engine_registry_routes() -> None:
 
     assert "/api/v1/prompt-engine/run" not in results["orphaned_in_spec"]
     assert "/api/v1/prompt-engine/decompose" not in results["orphaned_in_spec"]
+
+
+def test_filter_served_orphans_drops_can_handle_routes(monkeypatch):
+    class ServingHandler:
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            return path in ("/api/v1/served/route", "/api/served/route")
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", ServingHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    orphaned, served = validate_openapi_routes.filter_served_orphans(
+        {"/api/v1/served/route", "/api/v1/dark/route"}
+    )
+
+    assert served == {"/api/v1/served/route"}
+    assert orphaned == {"/api/v1/dark/route"}
+
+
+def test_filter_served_orphans_survives_broken_can_handle(monkeypatch):
+    class BrokenHandler:
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            raise AttributeError("uninitialized state")
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_broken", BrokenHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/v1/x"})
+
+    assert orphaned == {"/api/v1/x"}
+    assert served == set()
+
+
+def test_validate_coverage_excludes_served_orphans(monkeypatch, tmp_path: Path):
+    class ServingHandler:
+        ROUTES = ["/api/v1/declared"]
+
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            return path == "/api/v1/served-only"
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", ServingHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_openapi_routes",
+        lambda _spec: {"/api/v1/declared", "/api/v1/served-only", "/api/v1/dark"},
+    )
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        fail_on_missing=False,
+        output_json=True,
+        baseline_path=str(baseline),
+        include_internal=True,
+    )
+
+    assert results["orphaned_in_spec"] == ["/api/v1/dark"]
+    assert results["served_undeclared"] == ["/api/v1/served-only"]
