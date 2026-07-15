@@ -45,6 +45,7 @@ class TestRegisterObservabilitySinks:
         from aragora.observability.metrics import slo as slo_metrics
         from aragora.observability import slo
         from aragora.observability import slo_alert_bridge
+        from aragora.observability.server_metrics import export as server_metrics_export
         from aragora.server.startup.observability import register_observability_sinks
 
         slo.register_slo_notification_sink_provider(None)
@@ -52,6 +53,7 @@ class TestRegisterObservabilitySinks:
         slo_alert_bridge.register_channel_alert_sink(None)
         slo_metrics.register_slo_event_sink_provider(None)
         km_metrics.register_km_health_provider(None)
+        server_metrics_export.register_nomic_metrics_provider(None)
         try:
             assert register_observability_sinks() is True
             assert slo._slo_notification_sink_provider is not None
@@ -59,12 +61,14 @@ class TestRegisterObservabilitySinks:
             assert slo_alert_bridge._channel_alert_sink_factory is not None
             assert slo_metrics._slo_event_sink_provider is not None
             assert km_metrics._km_health_provider is not None
+            assert server_metrics_export._nomic_metrics_provider is not None
         finally:
             slo.register_slo_notification_sink_provider(None)
             slo_alert_bridge.register_pagerduty_alert_sink(None)
             slo_alert_bridge.register_channel_alert_sink(None)
             slo_metrics.register_slo_event_sink_provider(None)
             km_metrics.register_km_health_provider(None)
+            server_metrics_export.register_nomic_metrics_provider(None)
 
 
 # =============================================================================
