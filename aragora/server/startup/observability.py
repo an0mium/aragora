@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 def register_observability_sinks() -> bool:
     """Register higher-layer adapters with observability contracts."""
+    results: list[bool] = []
+
     try:
         from aragora.connectors.devops.slo_alert_sink import (
             register_slo_alert_sink as register_pagerduty_sink,
@@ -26,23 +28,36 @@ def register_observability_sinks() -> bool:
         from aragora.knowledge.mound.metrics import (
             register_prometheus_health_provider as register_km_health_provider,
         )
+
+        results.extend(
+            (
+                register_pagerduty_sink(),
+                register_channel_sink(),
+                register_webhook_sink(),
+                register_km_health_provider(),
+            )
+        )
+    except ImportError as e:
+        logger.debug("Observability adapters not available: %s", e)
+        results.append(False)
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.warning("Failed to register observability adapters: %s", e)
+        results.append(False)
+
+    try:
         from aragora.nomic.metrics import (
             register_prometheus_metrics_provider as register_nomic_metrics_provider,
         )
 
-        results = (
-            register_pagerduty_sink(),
-            register_channel_sink(),
-            register_webhook_sink(),
-            register_km_health_provider(),
-            register_nomic_metrics_provider(),
-        )
-        return all(results)
+        results.append(register_nomic_metrics_provider())
     except ImportError as e:
-        logger.debug("Observability adapters not available: %s", e)
+        logger.debug("Nomic observability adapter not available: %s", e)
+        results.append(False)
     except (OSError, RuntimeError, ValueError) as e:
-        logger.warning("Failed to register observability adapters: %s", e)
-    return False
+        logger.warning("Failed to register Nomic observability adapter: %s", e)
+        results.append(False)
+
+    return all(results)
 
 
 def init_structured_logging() -> bool:
