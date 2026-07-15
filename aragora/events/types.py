@@ -10,12 +10,10 @@ This module is part of the shared events layer, accessible to all packages
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
-
-if TYPE_CHECKING:
-    pass
+from typing import Protocol, runtime_checkable
 
 
 class StreamEventType(Enum):
@@ -523,6 +521,10 @@ class EventEmitter(Protocol):
 
     def set_loop_id(self, loop_id: str) -> None:
         """Set the current loop ID for emitted events."""
+        ...
+
+    def subscribe(self, callback: Callable[[StreamEvent], None]) -> None:
+        """Subscribe a callback for synchronously emitted events."""
         ...
 
 
