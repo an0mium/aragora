@@ -35,9 +35,27 @@ permissions:
 
 jobs:
   nightly-core:
-    name: Nightly Core Trust Signal
+    name: Nightly Core Trust Signal (${{ matrix.scope_name }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      # One single-process job PER DIRECTORY: both first nights proved the
+      # combined scope cannot finish single-process inside any sane budget
+      # (verdict=timeout, 0 tests). Splitting keeps the lane's core design
+      # property — no xdist, so the verdict measures product health, never
+      # worker-distribution pollution (#8277 class) — while a slow directory
+      # degrades only its own verdict instead of blanking the whole night.
+      fail-fast: false
+      matrix:
+        include:
+          - scope_name: debate
+            scope_path: tests/debate
+          - scope_name: agents
+            scope_path: tests/agents
+          - scope_name: memory
+            scope_path: tests/memory
+          - scope_name: knowledge
+            scope_path: tests/knowledge
 
     steps:
       - name: Checkout
@@ -97,10 +115,7 @@ jobs:
         run: |
           set +e
           pytest \
-            tests/debate \
-            tests/agents \
-            tests/memory \
-            tests/knowledge \
+            ${{ matrix.scope_path }} \
             -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
             --timeout=60 \
             --tb=short \
@@ -116,6 +131,8 @@ jobs:
         env:
           RUN_RC: ${{ steps.nightly-core-run.outputs.rc }}
           RUN_OUTCOME: ${{ steps.nightly-core-run.outcome }}
+          SCOPE_PATH: ${{ matrix.scope_path }}
+          SCOPE_NAME: ${{ matrix.scope_name }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
           SHA: ${{ github.sha }}
@@ -203,12 +220,8 @@ jobs:
               "sha": os.environ.get("SHA", ""),
               "recorded_at": datetime.now(timezone.utc).isoformat(),
               "workflow": "nightly-core",
-              "scope": [
-                  "tests/debate",
-                  "tests/agents",
-                  "tests/memory",
-                  "tests/knowledge",
-              ],
+              "scope": [os.environ.get("SCOPE_PATH", "")],
+              "scope_name": os.environ.get("SCOPE_NAME", ""),
               "notes": "Isolated single-process run; pytest-randomly disabled.",
           }
 
@@ -229,7 +242,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nightly-core-${{ github.run_number }}-${{ github.run_attempt }}
+          name: nightly-core-${{ matrix.scope_name }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: artifacts/nightly-core/
           if-no-files-found: warn
           retention-days: 30
@@ -246,7 +259,7 @@ jobs:
             green)
               echo "nightly-core verdict=green" ;;
             red)
-              echo "::error::nightly-core verdict=red. See artifact nightly-core-${{ github.run_number }}-${{ github.run_attempt }} for junit + verdict.json."
+              echo "::error::nightly-core verdict=red. See artifact nightly-core-${{ matrix.scope_name }}-${{ github.run_number }}-${{ github.run_attempt }} for junit + verdict.json."
               exit 1 ;;
             *)
               echo "::error::nightly-core verdict=$verdict (not a product-health signal; excluded from the green/red night count). See the uploaded artifact."
