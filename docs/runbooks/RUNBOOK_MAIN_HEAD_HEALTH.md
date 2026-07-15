@@ -42,6 +42,9 @@ PYTHON_BIN="${PYTHON_BIN:-$HOME/.pyenv/versions/3.12.12/bin/python3}"
 export PATH="$(dirname "$PYTHON_BIN"):$PATH"
 
 "$PYTHON_BIN" --version
+python --version
+test "$(python -c 'import os, sys; print(os.path.realpath(sys.executable))')" = \
+  "$("$PYTHON_BIN" -c 'import os, sys; print(os.path.realpath(sys.executable))')"
 "$PYTHON_BIN" -m mypy --version
 MYPY_BIN=$(command -v mypy)
 test "$(dirname "$MYPY_BIN")" = "$(dirname "$PYTHON_BIN")"
@@ -56,11 +59,14 @@ make ci-required
 ```
 
 The declared mypy range is `>=2.1.0,<3.0`. A missing mypy, a mypy below that
-floor, or a `mypy` executable that does not belong to `PYTHON_BIN` is an
-environment failure, not evidence that `main` is red (the mismatch observed in
-#9175). For the current #9099 campaign, comparable identity counts additionally
-require the campaign's exact environment: Python 3.12.12, mypy 2.2.0,
-mypy-baseline 0.7.4, and PyJWT 2.13.0. Record all four versions with the result.
+floor, a `mypy` executable that does not belong to `PYTHON_BIN`, or a bare
+`python` that resolves to a different interpreter is an environment failure,
+not evidence that `main` is red (the mismatch observed in #9175). The bare
+`python` check is load-bearing because `make ci-required` uses it for parity and
+OpenAPI commands. For the current #9099 campaign, comparable identity counts
+additionally require the campaign's exact environment: Python 3.12.12, mypy
+2.2.0, mypy-baseline 0.7.4, and PyJWT 2.13.0. Record all four versions with the
+result.
 
 Capture the full log outside the worktree, for example:
 
@@ -68,6 +74,11 @@ Capture the full log outside the worktree, for example:
 LOG=/tmp/aragora-main-health-ci-required-$(date -u +%Y%m%dT%H%M%SZ).log
 make ci-required >"$LOG" 2>&1
 ```
+
+`/tmp` is only a staging location. Before using the log as settlement or re-arm
+evidence, record its SHA-256 digest, copy it to an append-only retained artifact
+store, and record that store's immutable artifact identifier. A mutable local
+path by itself is not durable evidence.
 
 ## Local Context Map
 
@@ -204,7 +215,8 @@ The re-arm packet must include:
 - `TESTED_SHA` and commit summary
 - UTC start/end timestamps and elapsed time for each suite
 - Python, mypy, mypy-baseline, and PyJWT versions
-- exact commands, exit codes, and immutable log paths
+- exact commands, exit codes, SHA-256 log digests, and immutable retained
+  artifact identifiers (`/tmp` staging paths alone do not qualify)
 - any skipped/ignored surfaces and why they do not weaken the claim
 - final clean-worktree and `LIVE_SHA == TESTED_SHA` proof
 - classification: `infra_error`, `product_red`, `inconclusive`, or
