@@ -81,3 +81,19 @@ class TestGauntletZeroWork:
         assert _no_adversarial_work(None, None, object(), [], [], []) is False
         assert _no_adversarial_work(None, None, None, ["claim"], [], []) is False
         assert _no_adversarial_work(None, None, None, [], [], ["finding"]) is False
+
+
+class TestRoundTwoHardening:
+    def test_no_evidence_verdict_is_verify_valid(self) -> None:
+        from aragora.cli.commands.verify import _is_valid_verdict
+
+        assert _is_valid_verdict("NO_EVIDENCE")
+        assert _is_valid_verdict("no_evidence")
+
+    def test_long_answer_quoting_error_is_not_a_placeholder(self) -> None:
+        text = (
+            "The root cause is that the retry loop swallows 'connection failed' "
+            "errors from the pool. " + "Detailed analysis follows. " * 30
+        )
+        assert len(text) >= 500
+        assert not looks_like_agent_failure_response(text)

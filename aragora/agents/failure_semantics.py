@@ -41,13 +41,26 @@ AGENT_FAILURE_RESPONSE_MARKERS: tuple[str, ...] = (
 )
 
 
+#: Placeholders are short, single-sentence stubs. A response longer than this
+#: is substantive content even when it QUOTES an error string (a review
+#: discussing "connection failed" is an answer, not a failure).
+_MAX_PLACEHOLDER_CHARS = 500
+
+
 def looks_like_agent_failure_response(text: Any) -> bool:
-    """True when ``text`` is empty or reads as an error placeholder."""
+    """True when ``text`` is empty or reads as an error placeholder.
+
+    Marker matching applies only to short texts (< _MAX_PLACEHOLDER_CHARS):
+    real placeholders are one-liners, and the length bound prevents
+    misclassifying substantive answers that merely mention an error.
+    """
     if text is None:
         return True
     lowered = str(text).strip().lower()
     if not lowered:
         return True
+    if len(lowered) >= _MAX_PLACEHOLDER_CHARS:
+        return False
     return any(marker in lowered for marker in AGENT_FAILURE_RESPONSE_MARKERS)
 
 
