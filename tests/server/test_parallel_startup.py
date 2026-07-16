@@ -509,6 +509,10 @@ class TestParallelInit:
                 "aragora.server.startup.parallel.init_security_edge_adapters",
                 return_value=True,
             ) as mock_security_adapters,
+            patch(
+                "aragora.server.startup.parallel.init_billing_edge_adapters",
+                return_value=True,
+            ) as mock_billing_adapters,
         ):
             from aragora.server.startup.parallel import ParallelInitResult
 
@@ -525,7 +529,9 @@ class TestParallelInit:
             assert "_parallel_init_duration_ms" in status
             assert status["_parallel_init_success"] is True
             assert status["security_edge_adapters"] is True
+            assert status["billing_edge_adapters"] is True
             mock_security_adapters.assert_called_once_with(strict=False)
+            mock_billing_adapters.assert_called_once_with(strict=False)
 
     @pytest.mark.asyncio
     async def test_parallel_init_with_nomic_dir(self):
@@ -541,6 +547,10 @@ class TestParallelInit:
                 "aragora.server.startup.parallel.ParallelInitializer.run",
                 new_callable=AsyncMock,
             ) as mock_run,
+            patch(
+                "aragora.server.startup.parallel.init_billing_edge_adapters",
+                return_value=True,
+            ),
         ):
             from aragora.server.startup.parallel import ParallelInitResult
 
@@ -570,6 +580,10 @@ class TestParallelInit:
                 return_value=True,
             ) as mock_security_adapters,
             patch(
+                "aragora.server.startup.parallel.init_billing_edge_adapters",
+                return_value=True,
+            ) as mock_billing_adapters,
+            patch(
                 "aragora.server.startup.parallel.ParallelInitializer.run",
                 new_callable=AsyncMock,
                 return_value=ParallelInitResult(
@@ -583,6 +597,7 @@ class TestParallelInit:
             await parallel_init()
 
         mock_security_adapters.assert_called_once_with(strict=True)
+        mock_billing_adapters.assert_called_once_with(strict=True)
 
 
 class TestCleanupOnFailure:

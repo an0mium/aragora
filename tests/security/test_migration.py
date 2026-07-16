@@ -549,9 +549,7 @@ class TestMigrationAuditProvider:
             {"api_key": "decrypted-secret"},
         )
 
-    def test_default_rotation_resolves_unregistered_storage_store(
-        self, encryption_service, monkeypatch
-    ):
+    def test_optional_store_absence_remains_best_effort(self, encryption_service, monkeypatch):
         old_key = MagicMock(version=1)
         new_key = MagicMock(key_id="default", version=2)
         encryption_service._keys = {"default": old_key}
@@ -577,6 +575,8 @@ class TestMigrationAuditProvider:
 
         assert result.success is True
         assert result.stores_processed == 1
+        assert result.failed_records == 0
+        assert result.errors == []
         get_sync_store.assert_awaited_once_with()
         store.list_connectors.assert_awaited_once_with()
 
@@ -604,6 +604,35 @@ class TestMigrationAuditProvider:
         assert result.failed_records == 1
         assert result.errors == ["Store sync re-encryption failed"]
         get_sync_store.assert_awaited_once_with()
+
+    def test_live_sync_rotation_fails_closed_when_connector_list_fails(
+        self, encryption_service, monkeypatch
+    ):
+        old_key = MagicMock(version=1)
+        new_key = MagicMock(key_id="default", version=2)
+        encryption_service._keys = {"default": old_key}
+        encryption_service._active_key_id = "default"
+        encryption_service.rotate_key.return_value = new_key
+        store = MagicMock()
+        store.list_connectors = AsyncMock(side_effect=RuntimeError("credential=secret-value"))
+        get_sync_store = AsyncMock(return_value=store)
+        sync_store_module = ModuleType("aragora.storage.sync_store")
+        sync_store_module.get_sync_store = get_sync_store
+        monkeypatch.setitem(sys.modules, "aragora.storage.sync_store", sync_store_module)
+
+        with patch(
+            "aragora.security.encryption.get_encryption_service",
+            return_value=encryption_service,
+        ):
+            result = rotate_encryption_key(dry_run=False, stores=["sync"])
+
+        assert result.success is False
+        assert result.stores_processed == 1
+        assert result.failed_records >= 1
+        assert result.errors == ["Re-encryption failed due to an internal error"]
+        assert "secret-value" not in " ".join(result.errors)
+        get_sync_store.assert_awaited_once_with()
+        store.list_connectors.assert_awaited_once_with()
 
     def test_live_sync_rotation_fails_closed_when_connector_save_fails(
         self, encryption_service, monkeypatch

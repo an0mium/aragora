@@ -115,6 +115,16 @@ from aragora.protocols.event_protocols import (
     EventEmitterProtocol,
     HandlerProtocol,
 )
+from aragora.protocols.legacy_protocols import (
+    AgentProtocol as LegacyAgentProtocol,
+    CacheProtocol,
+    EventData,
+    EventEmitterProtocol as LegacyEventEmitterProtocol,
+    EventHandlerProtocol,
+    MemoryProtocol as LegacyMemoryProtocol,
+    StorageProtocol,
+    SyncEventHandlerProtocol,
+)
 from aragora.protocols.debate_protocols import (
     ConsensusDetectorProtocol,
     ConsensusMemoryProtocol,
@@ -215,6 +225,15 @@ __all__ = [
     # Domain protocols - Events
     "EventEmitterProtocol",
     "AsyncEventEmitterProtocol",
+    # Compatibility protocols from aragora.types.protocols
+    "LegacyAgentProtocol",
+    "LegacyMemoryProtocol",
+    "LegacyEventEmitterProtocol",
+    "CacheProtocol",
+    "StorageProtocol",
+    "EventData",
+    "EventHandlerProtocol",
+    "SyncEventHandlerProtocol",
     # Domain protocols - Handlers
     "HandlerProtocol",
     "BaseHandlerProtocol",
