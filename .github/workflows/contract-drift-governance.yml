@@ -81,6 +81,12 @@ jobs:
             --markdown-out /tmp/CONTRACT_DRIFT_ISSUE_PLAN.md \
             --json-out /tmp/CONTRACT_DRIFT_ISSUE_PLAN.json
 
+      - name: Fetch drift cohort commit
+        run: |
+          # 2026-04-17 program cohort commit: the ratchet derives cohort
+          # membership from it (git show) and fails closed if unavailable.
+          git fetch --no-tags --depth=1 origin 5cc7a81b77aeb6680613d441f74d72c435c8443c
+
       - name: Fetch PR base ref
         if: github.event_name == 'pull_request'
         env:

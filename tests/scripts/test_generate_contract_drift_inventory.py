@@ -174,3 +174,17 @@ def test_check_mode(monkeypatch, tmp_path: Path):
     verify = dict(VERIFY, python_sdk_drift=["GET /a"])
     _write_baselines(repo, verify, ROUTES, PARITY)
     assert _run(monkeypatch, repo, sha, "--check") == 1
+
+
+def test_check_fails_on_tampered_cohort_classification(monkeypatch, tmp_path: Path):
+    """--check must reject a committed inventory whose cohort items were
+    reclassified (derivable-metadata invariant)."""
+    repo, sha = _init_repo(tmp_path)
+    assert _run(monkeypatch, repo, sha) == 0
+
+    inventory = _inventory(repo)
+    inventory["items"][0]["class"] = "discovered"
+    inventory["items"][0]["discovered_on"] = "2026-07-01"
+    (repo / gen.DEFAULT_INVENTORY).write_text(json.dumps(inventory))
+
+    assert _run(monkeypatch, repo, sha, "--check") == 1

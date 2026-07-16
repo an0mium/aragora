@@ -147,6 +147,31 @@ def _evaluate_classes(
     return classes
 
 
+def _append_only_issues(
+    base_items: dict[str, dict[str, Any]], head_items: dict[str, dict[str, Any]]
+) -> list[str]:
+    """Append-only invariants for pr mode: history is immutable.
+
+    For every item present in the inventory at the base ref: ``class``,
+    ``discovered_on``, and ``provenance`` may not change (so reopening a
+    resolved item cannot reset its burn-down clock), and the item may not be
+    deleted. Status transitions (open<->resolved) remain allowed.
+    """
+    issues: list[str] = []
+    for item_id, base_item in base_items.items():
+        head_item = head_items.get(item_id)
+        if head_item is None:
+            issues.append(f"Inventory item deleted (inventory is append-only): {item_id}")
+            continue
+        for field in ("class", "discovered_on", "provenance"):
+            if head_item.get(field) != base_item.get(field):
+                issues.append(
+                    f"Immutable inventory field {field!r} changed for {item_id}: "
+                    f"{base_item.get(field)!r} -> {head_item.get(field)!r}"
+                )
+    return issues
+
+
 def build_ratchet_result(
     *,
     mode: str,
@@ -158,6 +183,7 @@ def build_ratchet_result(
     repo_root: Path,
     as_of: date,
     base_ref: str | None = None,
+    cohort_commit: str = inventory_mod.COHORT_COMMIT,
 ) -> dict[str, Any]:
     integrity_issues: list[str] = []
 
@@ -180,6 +206,17 @@ def build_ratchet_result(
             docs[alias] = {}
     counts = _counts_from_docs(docs)
 
+    cohort_ids: dict[str, str] | None = None
+    try:
+        cohort_ids = inventory_mod.collect_ids(
+            inventory_mod.load_git_docs(repo_root, cohort_commit)
+        )
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        integrity_issues.append(
+            f"Cohort commit {cohort_commit} unavailable in this checkout "
+            "(fetch it before running); cannot verify derivable metadata"
+        )
+
     inventory: dict[str, Any] = {"items": []}
     try:
         inventory = _load_json_strict(inventory_path, "Contract drift inventory")
@@ -188,6 +225,14 @@ def build_ratchet_result(
     else:
         current_ids = inventory_mod.collect_ids(docs)
         integrity_issues.extend(inventory_mod.find_sync_issues(inventory, current_ids))
+        if cohort_ids is not None:
+            integrity_issues.extend(
+                inventory_mod.find_metadata_issues(
+                    [i for i in inventory.get("items", []) if isinstance(i, dict)],
+                    cohort_ids,
+                    as_of=as_of,
+                )
+            )
 
     items = [i for i in inventory.get("items", []) if isinstance(i, dict)]
     classes: list[dict[str, Any]] = []
@@ -240,6 +285,20 @@ def build_ratchet_result(
             "parity": _git_doc(repo_root, base_ref, parity_baseline),
         }
         base_counts = _counts_from_docs(base_docs)
+
+        base_inventory = _git_doc(repo_root, base_ref, inventory_path)
+        base_items = {
+            i["id"]: i for i in base_inventory.get("items", []) if isinstance(i, dict) and "id" in i
+        }
+        head_items = {i["id"]: i for i in items if "id" in i}
+        append_only = _append_only_issues(base_items, head_items)
+        integrity_issues.extend(append_only)
+        result["integrity"] = {
+            "passing": not integrity_issues,
+            "issues": integrity_issues,
+        }
+        result["program_passing"] = result["program_passing"] and not integrity_issues
+
         deltas = {
             key: {
                 "base": base_counts[key],
@@ -344,6 +403,11 @@ def main() -> int:
         help="Canonical provenance-classified inventory path",
     )
     parser.add_argument(
+        "--cohort-commit",
+        default=inventory_mod.COHORT_COMMIT,
+        help="Commit whose baselines define the start cohort (derivable metadata)",
+    )
+    parser.add_argument(
         "--as-of",
         default=date.today().isoformat(),
         help="Date for ratchet evaluation (YYYY-MM-DD, default: today)",
@@ -363,6 +427,7 @@ def main() -> int:
             repo_root=args.repo_root,
             as_of=date.fromisoformat(args.as_of),
             base_ref=args.base_ref,
+            cohort_commit=args.cohort_commit,
         )
     except (ValueError, subprocess.CalledProcessError) as exc:
         print(f"FAIL (closed): {exc}", file=sys.stderr)

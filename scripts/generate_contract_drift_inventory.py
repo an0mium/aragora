@@ -34,6 +34,7 @@ COHORT_DATE = "2026-04-17"
 COHORT_PROVENANCE = "2026-04-17 program baseline cohort"
 DEFAULT_INVENTORY = "scripts/baselines/contract_drift_inventory.json"
 VALID_CLASSES = frozenset({"start_cohort", "discovered"})
+VALID_STATUSES = frozenset({"open", "resolved"})
 PROVENANCE_REF = re.compile(r"#\d+|https?://\S+")
 
 # alias -> (repo-relative baseline path, tracked list keys)
@@ -171,6 +172,53 @@ def find_sync_issues(inventory: dict[str, Any], current_ids: dict[str, str]) -> 
     return issues
 
 
+def find_metadata_issues(
+    items: list[dict[str, Any]], cohort_ids: dict[str, str], *, as_of: date
+) -> list[str]:
+    """Derivable-metadata invariants (fail closed on forged classification).
+
+    - Any item whose id is in the cohort set MUST be class=start_cohort with
+      discovered_on=COHORT_DATE (cohort reclassification is impossible).
+    - No item may claim start_cohort unless its id is in the cohort set.
+    - ``discovered`` items must have discovered_on within [COHORT_DATE, as_of].
+    - Unknown status values, and resolved items without resolved_on, fail.
+    """
+    issues: list[str] = []
+    cohort_start = date.fromisoformat(COHORT_DATE)
+    for item in items:
+        item_id = item.get("id", "<missing id>")
+        status = item.get("status")
+        if status not in VALID_STATUSES:
+            issues.append(f"Unknown status {status!r} for inventory item {item_id}")
+        elif status == "resolved" and not item.get("resolved_on"):
+            issues.append(f"Resolved item missing resolved_on: {item_id}")
+
+        klass = item.get("class")
+        raw_discovered = item.get("discovered_on")
+        try:
+            discovered = date.fromisoformat(raw_discovered or "")
+        except ValueError:
+            issues.append(f"Invalid discovered_on {raw_discovered!r} for inventory item {item_id}")
+            continue
+
+        if item_id in cohort_ids:
+            if klass != "start_cohort" or raw_discovered != COHORT_DATE:
+                issues.append(
+                    f"Cohort item reclassified (must be start_cohort @ {COHORT_DATE}): "
+                    f"{item_id} (class={klass!r}, discovered_on={raw_discovered!r})"
+                )
+        elif klass == "start_cohort":
+            issues.append(
+                f"Item claims start_cohort but is not in the {COHORT_DATE} cohort: {item_id}"
+            )
+        elif klass == "discovered" and not (cohort_start <= discovered <= as_of):
+            issues.append(
+                f"discovered_on out of bounds [{COHORT_DATE}, {as_of.isoformat()}]: "
+                f"{item_id} ({raw_discovered})"
+            )
+    return issues
+
+
 def render_inventory(items: list[dict[str, Any]], cohort_commit: str) -> str:
     doc = {
         "version": 1,
@@ -223,6 +271,7 @@ def main() -> int:
             print(f"FAIL: inventory missing: {inventory_path}")
             return 1
         issues = find_sync_issues(existing, current_ids)
+        issues += find_metadata_issues(existing.get("items", []), cohort_ids, as_of=as_of)
         if issues:
             print("FAIL: inventory out of sync with baselines:")
             for issue in issues:
@@ -244,6 +293,13 @@ def main() -> int:
         )
         for item_id in unexplained:
             print(f"  - {item_id}")
+        return 1
+
+    metadata_issues = find_metadata_issues(items, cohort_ids, as_of=as_of)
+    if metadata_issues:
+        print("FAIL: inventory metadata invariants violated (refusing to write):")
+        for issue in metadata_issues:
+            print(f"  - {issue}")
         return 1
 
     inventory_path.write_text(render_inventory(items, args.cohort_commit))
