@@ -1,40 +1,78 @@
 #!/usr/bin/env python3
-"""Enforce week-over-week contract drift ratchet targets."""
+"""Enforce contract drift governance: program burn-down and per-PR delta ratchet.
+
+Two modes:
+
+- ``program`` (cron / dispatch / main): per-class scheduled targets over OPEN
+  items in the canonical provenance-classified inventory. ``start_cohort``
+  burns down from the 2026-04-17 program baseline (655 items, -10%/week,
+  read ONLY from scripts/baselines/contract_drift_program.json); each
+  ``discovered`` batch burns down from its own batch size and discovery date
+  on the same weekly reduction. Fails closed on missing/unparseable inputs,
+  inventory desync, unexplained baseline entries, or unknown classes.
+
+- ``pr``: strict non-worsening delta ratchet. Compares the five baseline-file
+  counts at HEAD against the merge base (``--base-ref``); FAILS if any count
+  increased or any integrity condition holds, PASSES on equal-or-lower counts
+  even while the program schedule is red. The program status is still
+  reported (informational) so PR authors see the burn-down state.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
+from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts import generate_contract_drift_inventory as inventory_mod
+except ImportError:  # executed directly: script dir is on sys.path
+    import generate_contract_drift_inventory as inventory_mod  # type: ignore[no-redef]
 
-def _load_json(path: Path) -> dict[str, Any]:
+COUNT_KEYS: tuple[tuple[str, str, str], ...] = (
+    ("verify_python_sdk_drift", "verify", "python_sdk_drift"),
+    ("verify_typescript_sdk_drift", "verify", "typescript_sdk_drift"),
+    ("routes_missing_in_spec", "routes", "missing_in_spec"),
+    ("routes_orphaned_in_spec", "routes", "orphaned_in_spec"),
+    ("sdk_missing_from_both", "parity", "missing_from_both_sdks"),
+)
+
+
+def _load_json_strict(path: Path, label: str) -> dict[str, Any]:
     if not path.exists():
-        return {}
-    return json.loads(path.read_text())
+        raise ValueError(f"{label} missing: {path}")
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{label} unparseable: {path} ({exc})") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"{label} malformed (expected object): {path}")
+    return data
 
 
-def _count_current_total(
-    verify_baseline: Path,
-    routes_baseline: Path,
-    parity_baseline: Path,
-) -> dict[str, int]:
-    verify = _load_json(verify_baseline)
-    routes = _load_json(routes_baseline)
-    parity = _load_json(parity_baseline)
-
+def _counts_from_docs(docs: dict[str, dict[str, Any]]) -> dict[str, int]:
     counts = {
-        "verify_python_sdk_drift": len(verify.get("python_sdk_drift", [])),
-        "verify_typescript_sdk_drift": len(verify.get("typescript_sdk_drift", [])),
-        "routes_missing_in_spec": len(routes.get("missing_in_spec", [])),
-        "routes_orphaned_in_spec": len(routes.get("orphaned_in_spec", [])),
-        "sdk_missing_from_both": len(parity.get("missing_from_both_sdks", [])),
+        count_key: len(docs.get(alias, {}).get(list_key, []) or [])
+        for count_key, alias, list_key in COUNT_KEYS
     }
     counts["total_items"] = sum(counts.values())
     return counts
+
+
+def _git_doc(repo_root: Path, ref: str, path: Path) -> dict[str, Any]:
+    """Baseline file content at a git ref; missing at the ref means empty."""
+    rel = path.resolve().relative_to(repo_root.resolve()).as_posix()
+    proc = subprocess.run(
+        ["git", "-C", str(repo_root), "show", f"{ref}:{rel}"],
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(proc.stdout) if proc.returncode == 0 else {}
 
 
 def _target_after_weeks(start_total: int, weekly_reduction: float, weeks: int) -> int:
@@ -44,142 +82,305 @@ def _target_after_weeks(start_total: int, weekly_reduction: float, weeks: int) -
     return current
 
 
-def build_ratchet_result(
-    *,
-    program_baseline: Path,
-    verify_baseline: Path,
-    routes_baseline: Path,
-    parity_baseline: Path,
-    as_of: date,
-) -> dict[str, Any]:
-    program = _load_json(program_baseline)
-    if not program:
-        raise ValueError(
-            f"Program baseline missing or empty: {program_baseline}. "
-            "Create scripts/baselines/contract_drift_program.json first."
-        )
-
+def _load_program(program_baseline: Path) -> dict[str, Any]:
+    program = _load_json_strict(program_baseline, "Program baseline")
     start_date_raw = program.get("start_date")
-    start_total = int(program.get("start_total_items", 0))
-    weekly_reduction = float(program.get("weekly_reduction", 0.1))
+    start_total = int(program.get("start_total_items", -1))
+    weekly_reduction = float(program.get("weekly_reduction", -1.0))
     grace_weeks = int(program.get("grace_weeks", 0))
-
     if not start_date_raw:
         raise ValueError("Program baseline must include 'start_date'")
     if start_total < 0:
         raise ValueError("Program baseline has invalid 'start_total_items'")
     if not (0.0 < weekly_reduction < 1.0):
         raise ValueError("Program baseline 'weekly_reduction' must be between 0 and 1")
+    return {
+        "start_date": date.fromisoformat(start_date_raw),
+        "start_total_items": start_total,
+        "weekly_reduction": weekly_reduction,
+        "grace_weeks": grace_weeks,
+    }
 
-    start_date = date.fromisoformat(start_date_raw)
-    days_elapsed = max(0, (as_of - start_date).days)
-    weeks_elapsed = days_elapsed // 7
-    effective_weeks = max(0, weeks_elapsed - grace_weeks)
 
-    counts = _count_current_total(verify_baseline, routes_baseline, parity_baseline)
-    target_max = _target_after_weeks(start_total, weekly_reduction, effective_weeks)
-    current_total = counts["total_items"]
+def _evaluate_classes(
+    program: dict[str, Any], items: list[dict[str, Any]], as_of: date
+) -> list[dict[str, Any]]:
+    """Per-class scheduled targets over OPEN inventory items."""
+    weekly_reduction = program["weekly_reduction"]
+    weeks_elapsed = max(0, (as_of - program["start_date"]).days) // 7
+    effective_weeks = max(0, weeks_elapsed - program["grace_weeks"])
 
-    result = {
+    cohort_open = sum(1 for i in items if i["class"] == "start_cohort" and i["status"] == "open")
+    classes = [
+        {
+            "name": "start_cohort",
+            "batch_start": program["start_date"].isoformat(),
+            "batch_size": program["start_total_items"],
+            "weeks_elapsed": effective_weeks,
+            "open_items": cohort_open,
+            "target_max": _target_after_weeks(
+                program["start_total_items"], weekly_reduction, effective_weeks
+            ),
+        }
+    ]
+
+    batches: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for item in items:
+        if item["class"] == "discovered":
+            batches[item["discovered_on"]].append(item)
+    for discovered_on in sorted(batches):
+        batch = batches[discovered_on]
+        weeks = max(0, (as_of - date.fromisoformat(discovered_on)).days) // 7
+        classes.append(
+            {
+                "name": f"discovered:{discovered_on}",
+                "batch_start": discovered_on,
+                "batch_size": len(batch),
+                "weeks_elapsed": weeks,
+                "open_items": sum(1 for i in batch if i["status"] == "open"),
+                "target_max": _target_after_weeks(len(batch), weekly_reduction, weeks),
+            }
+        )
+
+    for cls in classes:
+        cls["passing"] = cls["open_items"] <= cls["target_max"]
+    return classes
+
+
+def build_ratchet_result(
+    *,
+    mode: str,
+    program_baseline: Path,
+    verify_baseline: Path,
+    routes_baseline: Path,
+    parity_baseline: Path,
+    inventory_path: Path,
+    repo_root: Path,
+    as_of: date,
+    base_ref: str | None = None,
+) -> dict[str, Any]:
+    integrity_issues: list[str] = []
+
+    program: dict[str, Any] | None = None
+    try:
+        program = _load_program(program_baseline)
+    except ValueError as exc:
+        integrity_issues.append(str(exc))
+
+    docs: dict[str, dict[str, Any]] = {}
+    for label, alias, path in (
+        ("verify_sdk_contracts baseline", "verify", verify_baseline),
+        ("validate_openapi_routes baseline", "routes", routes_baseline),
+        ("check_sdk_parity baseline", "parity", parity_baseline),
+    ):
+        try:
+            docs[alias] = _load_json_strict(path, label)
+        except ValueError as exc:
+            integrity_issues.append(str(exc))
+            docs[alias] = {}
+    counts = _counts_from_docs(docs)
+
+    inventory: dict[str, Any] = {"items": []}
+    try:
+        inventory = _load_json_strict(inventory_path, "Contract drift inventory")
+    except ValueError as exc:
+        integrity_issues.append(str(exc))
+    else:
+        current_ids = inventory_mod.collect_ids(docs)
+        integrity_issues.extend(inventory_mod.find_sync_issues(inventory, current_ids))
+
+    items = [i for i in inventory.get("items", []) if isinstance(i, dict)]
+    classes: list[dict[str, Any]] = []
+    if program is not None and not integrity_issues:
+        classes = _evaluate_classes(program, items, as_of)
+
+    total_open = sum(cls["open_items"] for cls in classes)
+    total_target = sum(cls["target_max"] for cls in classes)
+    program_passing = bool(classes) and all(cls["passing"] for cls in classes)
+
+    result: dict[str, Any] = {
+        "mode": mode,
         "program": {
-            "start_date": start_date.isoformat(),
+            "start_date": program["start_date"].isoformat() if program else None,
             "as_of": as_of.isoformat(),
-            "days_elapsed": days_elapsed,
-            "weeks_elapsed": weeks_elapsed,
-            "effective_weeks": effective_weeks,
-            "grace_weeks": grace_weeks,
-            "weekly_reduction": weekly_reduction,
-            "start_total_items": start_total,
+            "days_elapsed": max(0, (as_of - program["start_date"]).days) if program else 0,
+            "weeks_elapsed": (max(0, (as_of - program["start_date"]).days) // 7 if program else 0),
+            "effective_weeks": (
+                max(
+                    0,
+                    max(0, (as_of - program["start_date"]).days) // 7 - program["grace_weeks"],
+                )
+                if program
+                else 0
+            ),
+            "grace_weeks": program["grace_weeks"] if program else 0,
+            "weekly_reduction": program["weekly_reduction"] if program else None,
+            "start_total_items": program["start_total_items"] if program else None,
         },
         "current": counts,
-        "target": {
-            "max_open_items": target_max,
-        },
-        "delta_to_target": current_total - target_max,
-        "passing": current_total <= target_max,
+        "target": {"max_open_items": total_target},
+        "delta_to_target": total_open - total_target,
+        "classes": classes,
+        "integrity": {"passing": not integrity_issues, "issues": integrity_issues},
+        "program_passing": program_passing and not integrity_issues,
     }
+
+    if mode == "pr":
+        if not base_ref:
+            raise ValueError("--base-ref is required in pr mode")
+        subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--verify", f"{base_ref}^{{commit}}"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        base_docs = {
+            "verify": _git_doc(repo_root, base_ref, verify_baseline),
+            "routes": _git_doc(repo_root, base_ref, routes_baseline),
+            "parity": _git_doc(repo_root, base_ref, parity_baseline),
+        }
+        base_counts = _counts_from_docs(base_docs)
+        deltas = {
+            key: {
+                "base": base_counts[key],
+                "head": counts[key],
+                "delta": counts[key] - base_counts[key],
+            }
+            for key, _alias, _list in COUNT_KEYS
+        }
+        increased = sorted(k for k, d in deltas.items() if d["delta"] > 0)
+        result["pr_delta"] = {
+            "base_ref": base_ref,
+            "counts": deltas,
+            "increased": increased,
+        }
+        result["passing"] = not increased and not integrity_issues
+    else:
+        result["passing"] = result["program_passing"]
+
     return result
 
 
+def _print_text(result: dict[str, Any]) -> None:
+    program = result["program"]
+    current = result["current"]
+    print(f"Contract Drift Ratchet [{result['mode']} mode]")
+    print("=" * 60)
+    print(
+        f"As of: {program['as_of']}  |  Start: {program['start_date']}  |  "
+        f"Weeks elapsed: {program['weeks_elapsed']} "
+        f"(effective: {program['effective_weeks']})"
+    )
+    print(
+        f"Start total: {program['start_total_items']}  |  "
+        f"Current total: {current['total_items']}  |  "
+        f"Target max: {result['target']['max_open_items']}"
+    )
+    print("-" * 60)
+    print(
+        "Source counts: "
+        f"py={current['verify_python_sdk_drift']} "
+        f"ts={current['verify_typescript_sdk_drift']} "
+        f"missing={current['routes_missing_in_spec']} "
+        f"orphaned={current['routes_orphaned_in_spec']} "
+        f"both={current['sdk_missing_from_both']}"
+    )
+    for cls in result["classes"]:
+        status = "PASS" if cls["passing"] else "FAIL"
+        print(
+            f"  class {cls['name']}: open={cls['open_items']} "
+            f"target<={cls['target_max']} (batch {cls['batch_size']} @ "
+            f"{cls['batch_start']}, {cls['weeks_elapsed']}w) [{status}]"
+        )
+    print(f"Delta to target: {result['delta_to_target']:+d}")
+    if result["mode"] == "pr":
+        pr_delta = result["pr_delta"]
+        print("-" * 60)
+        print(f"PR delta vs {pr_delta['base_ref']}:")
+        for key, d in pr_delta["counts"].items():
+            print(f"  {key}: {d['base']} -> {d['head']} ({d['delta']:+d})")
+        print(
+            "Program status (informational): " + ("PASS" if result["program_passing"] else "FAIL")
+        )
+    if not result["integrity"]["passing"]:
+        print("Integrity issues (fail closed):")
+        for issue in result["integrity"]["issues"]:
+            print(f"  - {issue}")
+    print("PASS" if result["passing"] else "FAIL")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check contract drift weekly ratchet target")
+    parser = argparse.ArgumentParser(description="Check contract drift ratchet")
+    parser.add_argument("--mode", choices=("program", "pr"), default="program")
+    parser.add_argument(
+        "--base-ref", default=None, help="Merge base ref for pr mode (e.g. origin/main)"
+    )
+    parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument(
         "--program-baseline",
         type=Path,
         default=Path("scripts/baselines/contract_drift_program.json"),
-        help="Program baseline config path",
+        help="Program baseline config path (sole source of schedule numbers)",
     )
     parser.add_argument(
         "--verify-baseline",
         type=Path,
         default=Path("scripts/baselines/verify_sdk_contracts.json"),
-        help="verify_sdk_contracts baseline path",
     )
     parser.add_argument(
         "--routes-baseline",
         type=Path,
         default=Path("scripts/baselines/validate_openapi_routes.json"),
-        help="validate_openapi_routes baseline path",
     )
     parser.add_argument(
         "--parity-baseline",
         type=Path,
         default=Path("scripts/baselines/check_sdk_parity.json"),
-        help="check_sdk_parity baseline path",
+    )
+    parser.add_argument(
+        "--inventory",
+        type=Path,
+        default=Path(inventory_mod.DEFAULT_INVENTORY),
+        help="Canonical provenance-classified inventory path",
     )
     parser.add_argument(
         "--as-of",
         default=date.today().isoformat(),
         help="Date for ratchet evaluation (YYYY-MM-DD, default: today)",
     )
-    parser.add_argument("--strict", action="store_true", help="Exit 1 when above ratchet target")
+    parser.add_argument("--strict", action="store_true", help="Exit 1 when failing")
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
     args = parser.parse_args()
 
-    as_of = date.fromisoformat(args.as_of)
-    result = build_ratchet_result(
-        program_baseline=args.program_baseline,
-        verify_baseline=args.verify_baseline,
-        routes_baseline=args.routes_baseline,
-        parity_baseline=args.parity_baseline,
-        as_of=as_of,
-    )
+    try:
+        result = build_ratchet_result(
+            mode=args.mode,
+            program_baseline=args.program_baseline,
+            verify_baseline=args.verify_baseline,
+            routes_baseline=args.routes_baseline,
+            parity_baseline=args.parity_baseline,
+            inventory_path=args.inventory,
+            repo_root=args.repo_root,
+            as_of=date.fromisoformat(args.as_of),
+            base_ref=args.base_ref,
+        )
+    except (ValueError, subprocess.CalledProcessError) as exc:
+        print(f"FAIL (closed): {exc}", file=sys.stderr)
+        return 1
 
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        program = result["program"]
-        current = result["current"]
-        target = result["target"]
-        print("Contract Drift Ratchet")
-        print("=" * 60)
-        print(
-            f"As of: {program['as_of']}  |  Start: {program['start_date']}  |  "
-            f"Weeks elapsed: {program['weeks_elapsed']} (effective: {program['effective_weeks']})"
-        )
-        print(
-            f"Start total: {program['start_total_items']}  |  "
-            f"Current total: {current['total_items']}  |  "
-            f"Target max: {target['max_open_items']}"
-        )
-        print("-" * 60)
-        print(
-            "Source counts: "
-            f"py={current['verify_python_sdk_drift']} "
-            f"ts={current['verify_typescript_sdk_drift']} "
-            f"missing={current['routes_missing_in_spec']} "
-            f"orphaned={current['routes_orphaned_in_spec']} "
-            f"both={current['sdk_missing_from_both']}"
-        )
-        print(f"Delta to target: {result['delta_to_target']:+d}")
-        print("PASS" if result["passing"] else "FAIL")
+        _print_text(result)
+
+    if not result["integrity"]["passing"]:
+        # Integrity violations always fail closed, independent of --strict.
+        print("\nFAIL: contract drift integrity violation (fail closed).", file=sys.stderr)
+        return 1
 
     if args.strict and not result["passing"]:
-        message = "\nFAIL: Contract drift is above ratchet target."
-        if args.json:
-            print(message, file=sys.stderr)
-        else:
-            print(message)
+        message = "\nFAIL: Contract drift ratchet is failing."
+        print(message, file=sys.stderr if args.json else sys.stdout)
         return 1
 
     return 0
