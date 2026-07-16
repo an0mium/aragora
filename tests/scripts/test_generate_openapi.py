@@ -251,6 +251,47 @@ def test_handler_routes_supplement_derives_verbs_from_handler_methods(monkeypatc
     assert "requestBody" not in supplement["/api/v1/dummy/multiverb"]["get"]
 
 
+def test_handler_routes_supplement_bounds_verb_derivation_to_single_route(monkeypatch) -> None:
+    """A multi-route handler must NOT get its class-level verb union per path.
+
+    SandboxHandler-style: the class overrides handle/handle_post/handle_put/
+    handle_delete, but each verb belongs to a different ROUTES path. Applying
+    the full set to every path would advertise nonexistent operations, so
+    multi-route handlers fall back to the per-path segment heuristic.
+    """
+    import sys
+    import types
+
+    class SandboxStyleHandler:
+        ROUTES = [
+            "/api/v1/sandbox-style/execute",
+            "/api/v1/sandbox-style/config",
+            "/api/v1/sandbox-style/pool/status",
+        ]
+
+        def handle(self, path, query_params, handler):
+            return None
+
+        def handle_post(self, path, query_params, handler):
+            return None
+
+        def handle_put(self, path, query_params, handler):
+            return None
+
+        def handle_delete(self, path, query_params, handler):
+            return None
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", SandboxStyleHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    supplement = generate_openapi._collect_handler_routes_supplement({})
+
+    # Per-path heuristic, not the class verb union {get,post,put,delete}
+    assert set(supplement["/api/v1/sandbox-style/execute"]) == {"post"}
+    assert set(supplement["/api/v1/sandbox-style/config"]) == {"get"}
+    assert set(supplement["/api/v1/sandbox-style/pool/status"]) == {"get"}
+
+
 def test_implemented_handler_verbs_ignores_base_no_op_defaults() -> None:
     from aragora.server.handlers.autonomous.improve import AutonomousImproveHandler
     from aragora.server.handlers.base import BaseHandler

@@ -880,6 +880,10 @@ def _collect_handler_routes_supplement(
         doc_summary = doc.split("\n")[0].strip() if doc else ""
         tag = getattr(handler_class, "__name__", "Handler").removesuffix("Handler") or "Handler"
 
+        # First pass: collect supplement-eligible entries for this handler so
+        # verb attribution can be bounded by how many generic (method-unknown)
+        # paths the handler declares.
+        entries: list[tuple[str | None, str, str]] = []
         for attr, declared_method in method_attrs:
             routes = getattr(handler_class, attr, None)
             if not isinstance(routes, (list, tuple)):
@@ -906,54 +910,65 @@ def _collect_handler_routes_supplement(
                     continue
                 if any(comparison_key.startswith(p.rstrip("/")) for p in internal_prefixes):
                     continue
+                entries.append((method, spec_path, comparison_key))
 
-                method_inferred = method is None
-                if method is not None:
-                    methods = [method]
-                else:
-                    # Derive the verb set from which handle_* methods the
-                    # handler implements (GET -> handle, POST -> handle_post,
-                    # ...), so multi-verb handlers get a complete contract.
-                    # A bare ["get"] means only generic handle() is overridden;
-                    # dispatcher-style handlers serve any verb through it, so
-                    # in that case (and when nothing can be derived) fall back
-                    # to inferring a single verb from the last path segment.
-                    methods = _implemented_handler_verbs(handler_class)
-                    if not methods or methods == ["get"]:
-                        last_segment = spec_path.rsplit("/", 1)[-1]
-                        methods = ["post" if last_segment in _ACTION_SEGMENTS else "get"]
+        # Class-level verb derivation (handle -> GET, handle_post -> POST,
+        # ...) is only unambiguous when the handler contributes exactly ONE
+        # generic path: with several paths, the class verb set is the union
+        # across all of them and would advertise nonexistent operations
+        # (e.g. SandboxHandler serves POST /execute but only GET /pool/status).
+        # A bare ["get"] result is also skipped: it means only generic
+        # handle() is overridden, and dispatcher-style handlers serve any
+        # verb through it.
+        generic_count = sum(1 for method, _, _ in entries if method is None)
+        derived_verbs: list[str] = []
+        if generic_count == 1:
+            derived_verbs = _implemented_handler_verbs(handler_class)
+            if derived_verbs == ["get"]:
+                derived_verbs = []
 
-                covered.add(comparison_key)
-                target_path = supplement_keys.setdefault(comparison_key, spec_path)
-                for op_method in methods:
-                    operation: dict[str, Any] = {
-                        "summary": f"{op_method.upper()} {spec_path}",
-                        "description": (
-                            (doc_summary + " " if doc_summary else "")
-                            + "Auto-generated from handler ROUTES; detailed contract pending."
-                        ),
-                        "tags": [tag],
-                        "responses": {
-                            "200": {
-                                "description": "Success",
-                                "content": {
-                                    "application/json": {"schema": {"type": "object"}},
-                                },
+        for method, spec_path, comparison_key in entries:
+            method_inferred = method is None
+            if method is not None:
+                methods = [method]
+            elif derived_verbs:
+                methods = derived_verbs
+            else:
+                # Fallback: infer a single verb from the last segment.
+                last_segment = spec_path.rsplit("/", 1)[-1]
+                methods = ["post" if last_segment in _ACTION_SEGMENTS else "get"]
+
+            covered.add(comparison_key)
+            target_path = supplement_keys.setdefault(comparison_key, spec_path)
+            for op_method in methods:
+                operation: dict[str, Any] = {
+                    "summary": f"{op_method.upper()} {spec_path}",
+                    "description": (
+                        (doc_summary + " " if doc_summary else "")
+                        + "Auto-generated from handler ROUTES; detailed contract pending."
+                    ),
+                    "tags": [tag],
+                    "responses": {
+                        "200": {
+                            "description": "Success",
+                            "content": {
+                                "application/json": {"schema": {"type": "object"}},
                             },
                         },
-                        "security": [{"bearerAuth": []}],
-                        "x-autogenerated": True,
-                        "x-method-inferred": method_inferred,
-                        "x-aragora-stability": "experimental",
+                    },
+                    "security": [{"bearerAuth": []}],
+                    "x-autogenerated": True,
+                    "x-method-inferred": method_inferred,
+                    "x-aragora-stability": "experimental",
+                }
+                params = _extract_path_params(spec_path)
+                if params:
+                    operation["parameters"] = params
+                if op_method in ("post", "put", "patch"):
+                    operation["requestBody"] = {
+                        "content": {"application/json": {"schema": {"type": "object"}}},
                     }
-                    params = _extract_path_params(spec_path)
-                    if params:
-                        operation["parameters"] = params
-                    if op_method in ("post", "put", "patch"):
-                        operation["requestBody"] = {
-                            "content": {"application/json": {"schema": {"type": "object"}}},
-                        }
-                    supplement.setdefault(target_path, {}).setdefault(op_method, operation)
+                supplement.setdefault(target_path, {}).setdefault(op_method, operation)
 
     return supplement
 
