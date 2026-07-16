@@ -21,6 +21,7 @@ Related to the ODR epic (#8223): the routing decision is decision-semantics.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -50,6 +51,8 @@ TierClass = str  # COST_EFFICIENT | FRONTIER
 # IS that wiring for execution routing, so its record reuses the same schema and
 # flips the flag to ``True``.
 ROUTING_RATIONALE_SCHEMA = "aragora.routing_rationale/v1"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -189,6 +192,9 @@ class DecisionStakesRouter:
         # caller's budget, and caller exclusions — the set the choice was
         # really made among. ``get_candidates`` applies the exact filter
         # ``select_provider`` uses.
+        # select_provider does its own fresh metrics read, so it sits inside
+        # the same guard: a store that flakes between reads must still yield
+        # the recorded no-selection rationale, never escape route().
         try:
             frontier = self._optimizer.get_pareto_frontier()
             candidates = self._optimizer.get_candidates(
@@ -196,24 +202,21 @@ class DecisionStakesRouter:
                 budget_remaining=budget_remaining,
                 exclude_providers=exclude_providers,
             )
-            metrics_available = True
-        except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError):
-            # Never let metric gaps break routing — record empty sets and skip
-            # selection (it reads the same metrics store and would fail too).
-            frontier = []
-            candidates = []
-            metrics_available = False
-
-        selected = (
-            self._optimizer.select_provider(
+            selected = self._optimizer.select_provider(
                 strategy=policy.strategy,
                 budget_remaining=budget_remaining,
                 min_quality=policy.min_quality,
                 exclude_providers=exclude_providers,
             )
-            if metrics_available
-            else None
-        )
+            metrics_available = True
+        except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError) as e:
+            # Never let metric gaps break routing — record empty sets and no
+            # selection, with the rationale naming the metrics gap.
+            logger.warning("provider metrics unavailable; routing without selection: %s", e)
+            frontier = []
+            candidates = []
+            selected = None
+            metrics_available = False
 
         constraints = (
             f"strategy={policy.strategy.value}, min_quality={policy.min_quality}"

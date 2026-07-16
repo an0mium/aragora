@@ -217,3 +217,26 @@ def test_broken_metrics_store_yields_recorded_no_selection_not_crash() -> None:
     assert rationale.models_considered == []
     assert rationale.frontier_before_constraints == []
     assert "metrics unavailable" in rationale.selection_reason
+
+
+def test_store_flaking_on_selection_read_yields_recorded_no_selection_not_crash() -> None:
+    # get_pareto_frontier, get_candidates, and select_provider each do their
+    # own fresh get_all_metrics read. A transient failure that hits only the
+    # select_provider read (e.g. a network-backed store) must still produce
+    # the honest no-selection rationale, not escape route().
+    class _FlakyStore(_Store):
+        def __init__(self, metrics: list[ProviderMetrics], succeed_reads: int) -> None:
+            super().__init__(metrics)
+            self._reads_left = succeed_reads
+
+        def get_all_metrics(self) -> dict[str, ProviderMetrics]:
+            if self._reads_left <= 0:
+                raise OSError("metrics backend connection reset")
+            self._reads_left -= 1
+            return super().get_all_metrics()
+
+    store = _FlakyStore(list(_METRICS.values()), succeed_reads=2)
+    router = DecisionStakesRouter(CostQualityOptimizer(store))
+    rationale = router.route(2)
+    assert rationale.selected_provider is None
+    assert "metrics unavailable" in rationale.selection_reason
