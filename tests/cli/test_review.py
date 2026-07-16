@@ -29,6 +29,7 @@ from aragora.cli.review import (
     get_shareable_url,
     save_review_for_sharing,
 )
+from aragora.cli.parser import build_parser
 
 
 # ===========================================================================
@@ -730,6 +731,8 @@ class TestCreateReviewParser:
                 "json",
                 "--output-dir",
                 "./output",
+                "--emit-odr",
+                "./output/custom-review.odr.json",
                 "--demo",
                 "--share",
             ]
@@ -741,8 +744,26 @@ class TestCreateReviewParser:
         assert args.focus == "security"
         assert args.output_format == "json"
         assert args.output_dir == "./output"
+        assert args.emit_odr == "./output/custom-review.odr.json"
         assert args.demo is True
         assert args.share is True
+
+    def test_parser_emit_odr_uses_default_path(self):
+        """--emit-odr accepts an omitted path for the ergonomic default."""
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        create_review_parser(subparsers)
+
+        args = parser.parse_args(["review", "--emit-odr", "--demo"])
+
+        assert args.emit_odr == ""
+
+    def test_top_level_parser_registers_emit_odr(self):
+        """The installed aragora entrypoint exposes the same ODR option."""
+        args = build_parser().parse_args(["review", "--emit-odr", "/tmp/review.odr.json", "--demo"])
+
+        assert args.emit_odr == "/tmp/review.odr.json"
+        assert args.func.__name__ == "cmd_review"
 
 
 # ===========================================================================
@@ -766,6 +787,7 @@ class TestCmdReview:
         args.output_dir = None
         args.demo = False
         args.share = False
+        args.emit_odr = None
         return args
 
     def test_demo_mode_github_output(self, review_args, capsys, monkeypatch):
@@ -805,6 +827,45 @@ class TestCmdReview:
 
         assert result == 0
         assert (tmp_path / "comment.md").exists()
+
+    def test_demo_mode_emits_odr_to_output_dir(self, review_args, tmp_path, monkeypatch):
+        """The default ODR path follows --output-dir in demo mode."""
+        review_args.demo = True
+        review_args.output_dir = str(tmp_path)
+        review_args.emit_odr = ""
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+        result = cmd_review(review_args)
+
+        assert result == 0
+        odr = json.loads((tmp_path / "review.odr.json").read_text())
+        assert odr["claim"]["verdict"] == "FAIL"
+        assert odr["quorum"]["method"] == "multi_agent_review"
+
+    def test_real_review_emits_odr_to_explicit_path(self, review_args, tmp_path, monkeypatch):
+        """A standard review can produce its portable receipt in one invocation."""
+        diff_file = tmp_path / "test.diff"
+        diff_file.write_text("diff --git a/test.py b/test.py\n+new line")
+        odr_path = tmp_path / "artifacts" / "result.odr.json"
+        review_args.diff_file = str(diff_file)
+        review_args.agents = "anthropic-api,openai-api"
+        review_args.emit_odr = str(odr_path)
+
+        findings = get_demo_findings()
+        with (
+            patch(
+                "aragora.cli.review.run_review_debate",
+                new=AsyncMock(return_value=MockDebateResult()),
+            ),
+            patch("aragora.cli.review.extract_review_findings", return_value=findings),
+            patch("aragora.cli.review._persist_review_to_km", return_value=True),
+        ):
+            result = cmd_review(review_args)
+
+        assert result == 0
+        odr = json.loads(odr_path.read_text())
+        assert odr["claim"]["verdict"] == "FAIL"
+        assert odr["quorum"]["participants"]
 
     def test_error_no_diff_provided(self, review_args, capsys, monkeypatch):
         """Test error when no diff provided."""

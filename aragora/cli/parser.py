@@ -1952,6 +1952,15 @@ def _add_review_parser(subparsers) -> None:
     )
     parser.add_argument("--output-dir", help="Directory to save output artifacts")
     parser.add_argument(
+        "--emit-odr",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="PATH",
+        help="Emit a verifiable Open Decision Receipt (default: review.odr.json, "
+        "or inside --output-dir when set)",
+    )
+    parser.add_argument(
         "--sarif",
         nargs="?",
         const="review-results.sarif",

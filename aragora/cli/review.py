@@ -865,6 +865,60 @@ def _persist_review_to_km(
         return False
 
 
+def _write_review_odr(
+    findings: dict[str, Any],
+    *,
+    pr_url: str | None,
+    output_dir: Path | None,
+    output_path: str,
+) -> Path:
+    """Export review findings as an Open Decision Receipt."""
+    from aragora.gauntlet.odr_export import decision_receipt_to_odr
+    from aragora.gauntlet.receipt_models import DecisionReceipt
+
+    agents_used = list(findings.get("agents_used", []))
+    receipt = DecisionReceipt.from_review_result(
+        findings,
+        pr_url=pr_url,
+        reviewer_agents=agents_used or None,
+    )
+    odr = decision_receipt_to_odr(receipt)
+
+    path = Path(output_path) if output_path else (output_dir or Path.cwd()) / "review.odr.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(odr, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _emit_requested_odr(
+    args: argparse.Namespace,
+    findings: dict[str, Any],
+    output_dir: Path | None,
+) -> bool:
+    """Write the requested ODR artifact and report failures to the CLI caller."""
+    output_path = getattr(args, "emit_odr", None)
+    if output_path is None:
+        return True
+
+    try:
+        path = _write_review_odr(
+            findings,
+            pr_url=getattr(args, "pr_url", None),
+            output_dir=output_dir,
+            output_path=output_path,
+        )
+    except (ImportError, KeyError, OSError, TypeError, ValueError) as e:
+        logger.warning("ODR export failed: %s", e)
+        print(f"Error: Could not emit review ODR: {e}", file=sys.stderr)
+        return False
+
+    print(f"ODR receipt written to: {path}", file=sys.stderr)
+    return True
+
+
 def cmd_review(args: argparse.Namespace) -> int:
     """Handle 'review' command."""
 
@@ -914,6 +968,9 @@ def cmd_review(args: argparse.Namespace) -> int:
                 print(f"SARIF output written to: {sarif_path}", file=sys.stderr)
             except (OSError, ValueError, KeyError) as e:
                 print(f"Warning: SARIF export failed: {e}", file=sys.stderr)
+
+        if not _emit_requested_odr(args, findings, output_dir):
+            return 1
 
         print("\n---", file=sys.stderr)
         print("This was a demo. To run a real review, configure API keys:", file=sys.stderr)
@@ -1124,6 +1181,9 @@ def cmd_review(args: argparse.Namespace) -> int:
             print(f"Warning: Gauntlet stress-test failed: {e}", file=sys.stderr)
             logger.debug("Gauntlet error details", exc_info=True)
 
+    if not _emit_requested_odr(args, findings, output_dir):
+        return 1
+
     # Generate SARIF output if requested
     sarif_output = getattr(args, "sarif", None)
     if sarif_output is not None:
@@ -1247,6 +1307,16 @@ def create_review_parser(subparsers) -> None:
     parser.add_argument(
         "--output-dir",
         help="Directory to save output artifacts",
+    )
+
+    parser.add_argument(
+        "--emit-odr",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="PATH",
+        help="Emit a verifiable Open Decision Receipt (default: review.odr.json, "
+        "or inside --output-dir when set)",
     )
 
     parser.add_argument(
