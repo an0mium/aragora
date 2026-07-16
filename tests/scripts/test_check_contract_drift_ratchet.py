@@ -947,6 +947,135 @@ def test_pr_mode_increase_without_new_entries_fails(tmp_path: Path):
     assert not result["passing"]
 
 
+def test_pr_mode_duplicate_bundled_with_valid_intake_fails(tmp_path: Path):
+    """Round-1 review P2 on #9352 (both reviewers): a duplicate-entry increase
+    must not ride along with a legitimate discovered entry in the SAME list —
+    every unit of count increase needs its own distinct new inventoried entry."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    routes = json.loads(paths["routes"].read_text())
+    routes["orphaned_in_spec"] += ["o1", "probe1"]  # dup of existing o1 + real probe1
+    _write_json(paths["routes"], routes)
+    _edit_inventory(paths, lambda inv: inv["items"].append(_discovered_route_item("probe1")))
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["counts"]["routes_orphaned_in_spec"]["delta"] == 2
+    assert any(
+        "routes_orphaned_in_spec" in reason for reason in result["pr_delta"]["unexplained_increase"]
+    )
+    assert not result["integrity"]["passing"]  # duplicated entry fails closed
+    assert any("duplicated" in i for i in result["integrity"]["issues"])
+    assert not result["passing"]
+
+
+def test_pr_mode_cross_list_duplicate_masking_fails(tmp_path: Path):
+    """Round-1 review P2 variant: a pure duplicate increase in one list must
+    not be masked by the only new id coming from a net-zero swap in ANOTHER
+    list — the explained-intake bound is per list, not repo-wide."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    routes = json.loads(paths["routes"].read_text())
+    routes["orphaned_in_spec"].append("o1")  # duplicate: +1 with zero new route ids
+    _write_json(paths["routes"], routes)
+
+    verify = json.loads(paths["verify"].read_text())
+    verify["python_sdk_drift"].remove("b")
+    verify["python_sdk_drift"].append("swap1")  # net-zero swap: the sole new id
+    _write_json(paths["verify"], verify)
+
+    def mutate(inv):
+        for item in inv["items"]:
+            if item["id"] == "python_sdk_drift:b":
+                item["status"] = "resolved"
+                item["resolved_on"] = "2026-07-16"
+        inv["items"].append(
+            {
+                "id": "python_sdk_drift:swap1",
+                "source": "python_sdk_drift",
+                "class": "discovered",
+                "discovered_on": "2026-07-16",
+                "provenance": "swap tracked in #4242",
+                "status": "open",
+            }
+        )
+
+    _edit_inventory(paths, mutate)
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["increased"] == ["routes_orphaned_in_spec"]
+    assert any(
+        "routes_orphaned_in_spec" in reason for reason in result["pr_delta"]["unexplained_increase"]
+    )
+    assert not result["passing"]
+
+
+def test_pr_mode_delta_neutral_duplicate_smuggle_fails(tmp_path: Path):
+    """Remove one entry and duplicate another in the same list: deltas are
+    all zero, but the minted duplicate is slack a later PR could cash in as
+    fake burn-down — must fail via integrity, independent of the delta gate."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    routes = json.loads(paths["routes"].read_text())
+    routes["missing_in_spec"] = ["m1", "m1"]  # m2 removed, m1 duplicated: count still 2
+    _write_json(paths["routes"], routes)
+
+    def resolve_m2(inv):
+        for item in inv["items"]:
+            if item["id"] == "missing_in_spec:m2":
+                item["status"] = "resolved"
+                item["resolved_on"] = "2026-07-16"
+
+    _edit_inventory(paths, resolve_m2)
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["increased"] == []  # the smuggle is delta-neutral
+    assert not result["integrity"]["passing"]
+    assert any(
+        "duplicated" in i and "missing_in_spec:m1" in i for i in result["integrity"]["issues"]
+    )
+    assert not result["passing"]
+
+
+def test_pr_mode_preexisting_base_duplicate_tolerated(tmp_path: Path):
+    """A duplicate already present at the base ref (e.g. the live
+    verify_sdk_contracts dup) must NOT fail PRs that don't touch it; removing
+    one copy must pass as a decrease."""
+    routes = {"missing_in_spec": ["m1", "m1", "m2"], "orphaned_in_spec": ["o1"]}
+    paths, repo, base = _seed(tmp_path, routes=routes, program=RED_PROGRAM)
+
+    # Untouched: same duplicate at head as at base -> no new duplication issue.
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["integrity"]["passing"], result["integrity"]["issues"]
+    assert result["passing"]
+
+    # Deduping one copy is a pure decrease -> passes.
+    dedup = dict(routes, missing_in_spec=["m1", "m2"])
+    _write_json(paths["routes"], dedup)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["integrity"]["passing"], result["integrity"]["issues"]
+    assert result["pr_delta"]["counts"]["routes_missing_in_spec"]["delta"] == -1
+    assert result["passing"]
+
+
+def test_pr_mode_non_string_discovered_on_fails_closed_without_crash(tmp_path: Path):
+    """Round-1 review P3 on #9352: a non-string discovered_on (e.g. a JSON
+    number) must produce integrity/unexplained failures, not a TypeError."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    routes = json.loads(paths["routes"].read_text())
+    routes["orphaned_in_spec"].append("probe1")
+    _write_json(paths["routes"], routes)
+    item = _discovered_route_item("probe1")
+    item["discovered_on"] = 20260716  # number, not an ISO date string
+    _edit_inventory(paths, lambda inv: inv["items"].append(item))
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert not result["integrity"]["passing"]
+    assert any("discovered_on" in i for i in result["integrity"]["issues"])
+    assert any("discovered_on" in reason for reason in result["pr_delta"]["unexplained_increase"])
+    assert not result["passing"]
+
+
 def test_pr_mode_reopen_is_regression_not_intake(tmp_path: Path):
     """An item with base-inventory history regressing back into the baseline
     is a regression, not newly discovered debt: honest reopen (original clock)
