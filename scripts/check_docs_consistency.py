@@ -87,7 +87,18 @@ def markdown_files(root: Path) -> list[Path]:
         check=False,
     )
     if result.returncode == 0:
-        return [root / line for line in result.stdout.splitlines() if line.strip()]
+        seen: set[Path] = set()
+        files: list[Path] = []
+        for line in result.stdout.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            path = root / stripped
+            if path in seen:
+                continue
+            seen.add(path)
+            files.append(path)
+        return files
 
     files: list[Path] = []
     for top in ("README.md", "CLAUDE.md", "AGENTS.md"):

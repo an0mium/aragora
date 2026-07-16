@@ -25,7 +25,7 @@ def test_run_demo_debate_falls_back_without_aragora_debate(tmp_path, monkeypatch
     assert (tmp_path / "aragora-demo-receipt.json").exists()
 
     captured = capsys.readouterr()
-    assert "Built-in mock fallback" in captured.out
+    assert "Built-in offline demo agents" in captured.out
     assert "DECISION RECEIPT" in captured.out
 
 
@@ -52,5 +52,5 @@ def test_starter_uses_demo_fallback_when_aragora_debate_is_missing(tmp_path, mon
     assert receipt["verdict"] == "PASS"
 
     captured = capsys.readouterr()
-    assert "Built-in mock fallback" in captured.out
+    assert "Built-in offline demo agents" in captured.out
     assert "Receipt saved:" in captured.out
