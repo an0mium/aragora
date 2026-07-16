@@ -46,9 +46,9 @@ what can appear at the root.
 
 | Former root path | New location | Stub at root? |
 |------------------|--------------|---------------|
-| `Idea-to-Execution-Pipeline-Research.md` | `docs/archive/Idea-to-Execution-Pipeline-Research.md` | no (zero referrers; archived) |
-| `SECURITY_AUDIT_INPUT_VALIDATION.md` | `docs/archive/SECURITY_AUDIT_INPUT_VALIDATION.md` | no (zero referrers; archived) |
-| `NEXT_STEPS.md` | `docs/archive/NEXT_STEPS.md` | no (redundant; `docs/status/NEXT_STEPS_CANONICAL.md` is canonical) |
+| `Idea-to-Execution-Pipeline-Research.md` | `docs/archive/2026-03-18-Idea-to-Execution-Pipeline-Research.md` | no (zero referrers; archived) |
+| `SECURITY_AUDIT_INPUT_VALIDATION.md` | `docs/archive/2026-06-04-SECURITY_AUDIT_INPUT_VALIDATION.md` | no (zero referrers; archived) |
+| `NEXT_STEPS.md` | `docs/archive/2026-02-11-NEXT_STEPS.md` | no (redundant; `docs/status/NEXT_STEPS_CANONICAL.md` is canonical) |
 
 **Tracked binary assets relocated via `git mv` (no stub -- binary, unreferenced):**
 
