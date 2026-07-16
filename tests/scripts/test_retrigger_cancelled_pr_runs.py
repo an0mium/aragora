@@ -273,3 +273,25 @@ def test_ttl_anchors_to_cancellation_time_not_run_creation(mod) -> None:
         [long_runner], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
     assert [r["run_id"] for r in reruns] == [1]
+
+
+def test_keep_list_names_block_also_matches_manifest(mod) -> None:
+    """Both canceller keep-lists are drift-guarded: names too, read straight
+    from the manifest JSON since the script consumes only paths (#9133 r8)."""
+    import json as _json
+    import re as _re
+
+    workflow = (
+        Path(__file__).resolve().parents[2]
+        / ".github"
+        / "workflows"
+        / "required-check-priority.yml"
+    ).read_text(encoding="utf-8")
+    manifest = _json.loads(mod.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
+    manifest_names = set(manifest.get("workflow_names", []))
+    block = _re.search(r"alwaysKeepWorkflowNames\s*=\s*new Set\(\[(.*?)\]\)", workflow, _re.DOTALL)
+    assert block, "names drift guard is vacuous: keep-list names block not found"
+    names = _re.findall(r"'([^']+)'", block.group(1))
+    assert len(names) >= 1
+    for name in names:
+        assert name in manifest_names, f"keep-list name missing from manifest: {name}"

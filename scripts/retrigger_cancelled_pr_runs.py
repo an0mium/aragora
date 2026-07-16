@@ -46,7 +46,9 @@ DEFAULT_MANIFEST = Path(__file__).resolve().parent / "ci" / "required_workflow_m
 
 
 def load_protected_manifest(path: Path = DEFAULT_MANIFEST) -> set[str]:
-    """Load the protected workflow paths/names. Fail CLOSED on any problem:
+    """Load the protected workflow PATHS (names in the manifest are consumed
+    only by the future required-check-priority.yml migration). Fail CLOSED on
+    any problem:
     an unreadable or empty manifest yields empty sets, and with empty sets no
     run is rerun-eligible — the guardian then does nothing rather than risk
     re-running intentionally cancelled advisory runs."""
@@ -164,10 +166,13 @@ class GitHubClient:
         # Filter server-side to PR-event runs: without it, push/schedule/
         # dispatch runs consume the bounded window and eligible cancelled PR
         # runs can fall outside it in a high-churn repo (#9133 openai P2 r5).
+        # Fetch one page BEYOND max_runs so truncation is detectable even
+        # when max_runs lands exactly on a page boundary (#9133 r8: with
+        # capacity == max_runs the flag could never fire).
         runs = self.paginate(
             f"/repos/{self.repo}/actions/runs",
             query={"per_page": 100, "event": "pull_request"},
-            max_pages=max(1, (max_runs + 99) // 100),
+            max_pages=max(1, (max_runs + 99) // 100) + 1,
         )
         normalized = [r for r in runs if isinstance(r, dict)]
         truncated = len(normalized) > max_runs
@@ -272,6 +277,12 @@ def compute_reruns(
             # TTL anchors to CANCELLATION time (updated_at), not run creation:
             # the motivating incidents were long-running shards cancelled
             # hours after they started (#9133 claude P3 r7).
+            continue
+        # Supersession compares run CREATION times — parse THIS run's own
+        # created_at here (#9133 r8 convergent P1: a stale `created` leaking
+        # from the newest_by_group loop skewed the comparison).
+        created = _parse_created_at(str(run.get("created_at", "")))
+        if created is None:
             continue
         group = (run.get("workflow_id"), branch, sha)
         newest = newest_by_group.get(group)
