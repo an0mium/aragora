@@ -51,7 +51,10 @@ receipt is structurally OK but carries signatures that were **not** checked
 not reported as `0`/VERIFIED.
 
 The public key for receipts emitted by an Aragora deployment is published at
-`GET /.well-known/aragora-odr-signing-key` and `GET /api/v2/receipts/signing-key`.
+`GET /.well-known/aragora-odr-signing-key` and `GET /api/v2/receipts/signing-key`
+(both endpoints are live in the Aragora unified server; see #8804/#8809). Verify
+that a specific deployment actually serves the key at those paths before relying
+on them for automated verification.
 
 ### Weakening vs. failing
 
