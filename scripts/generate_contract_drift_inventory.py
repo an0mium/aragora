@@ -230,7 +230,9 @@ def find_metadata_issues(
         raw_discovered = item.get("discovered_on")
         try:
             discovered = date.fromisoformat(raw_discovered or "")
-        except ValueError:
+        except (TypeError, ValueError):
+            # TypeError: non-string JSON values (numbers, objects) must fail
+            # closed as invalid dates, not escape as a traceback.
             issues.append(f"Invalid discovered_on {raw_discovered!r} for inventory item {item_id}")
             continue
 
