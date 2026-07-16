@@ -88,9 +88,14 @@ FAMILY_PROVIDERS: dict[str, str] = {
 # every other recognized family; they always post and remain readable but are
 # advisory-only (not counted) at Tier 3-4 and do not satisfy the at-least-one-Western
 # condition at Tier 2.
-WESTERN_FAMILIES: frozenset[str] = frozenset(
-    ("claude", "openai", "gemini", "grok", "mistral", "hermes")
-)
+# 2026-07-16 founder directive (reviewer-reliability record
+# .aragora/operator-context/20260716T2200Z-gemini-reviewer-reliability-record.md):
+# gemini is REMOVED from the counting set after a repeat fabricated-claim
+# pattern in merge-quorum reviews (invented model release dates, false
+# METRICS-drift claims, nonexistent route ids). Its reviews still post and
+# remain readable as advisory evidence; reinstatement requires a founder
+# Tier-4 settlement reversing this entry.
+WESTERN_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok", "mistral", "hermes"))
 
 # Western-FRONTIER families: a strict SUBSET of WESTERN_FAMILIES (the frontier labs).
 # Under the tiered gate, a Tier 1-2 PR may settle on a single supportive signal, which
@@ -1663,7 +1668,9 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
     "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
-    "kimi": "moonshotai/kimi-k2.6",
+    # Upgraded k2.6 -> K3 per the 2026-07-16 founder roster directive
+    # (live-verified 2026-07-16: $3/$15 per MTok, 1M context).
+    "kimi": "moonshotai/kimi-k3",
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter

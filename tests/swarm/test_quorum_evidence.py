@@ -4014,3 +4014,24 @@ def test_untruncated_normalization_unchanged() -> None:
         reviewer_text="Verdict: PASS\n\nNo findings.",
     )
     assert qe._TRUNCATION_MARKER not in body
+
+
+class TestFounderRosterDirective20260716:
+    """Pins the 2026-07-16 founder roster directive: gemini out of the
+    counting set (repeat fabricated-claim pattern, see the reviewer-
+    reliability record in operator-context); kimi advisory lane on K3."""
+
+    def test_gemini_family_does_not_count(self):
+        from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
+
+        assert "gemini" not in WESTERN_FAMILIES
+
+    def test_counting_set_retains_two_plus_families(self):
+        from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
+
+        assert {"claude", "openai", "grok"} <= WESTERN_FAMILIES
+
+    def test_kimi_advisory_lane_runs_k3(self):
+        from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS
+
+        assert _OPENROUTER_REVIEWER_MODELS["kimi"] == "moonshotai/kimi-k3"
