@@ -219,11 +219,11 @@ def test_broken_metrics_store_yields_recorded_no_selection_not_crash() -> None:
     assert "metrics unavailable" in rationale.selection_reason
 
 
-def test_store_flaking_on_selection_read_yields_recorded_no_selection_not_crash() -> None:
-    # get_pareto_frontier, get_candidates, and select_provider each do their
-    # own fresh get_all_metrics read. A transient failure that hits only the
-    # select_provider read (e.g. a network-backed store) must still produce
-    # the honest no-selection rationale, not escape route().
+def test_store_flaking_mid_route_yields_recorded_no_selection_not_crash() -> None:
+    # get_pareto_frontier and get_candidates each do their own fresh
+    # get_all_metrics read. A transient failure that hits only a later read
+    # (e.g. a network-backed store) must still produce the honest
+    # no-selection rationale, not escape route().
     class _FlakyStore(_Store):
         def __init__(self, metrics: list[ProviderMetrics], succeed_reads: int) -> None:
             super().__init__(metrics)
@@ -235,8 +235,55 @@ def test_store_flaking_on_selection_read_yields_recorded_no_selection_not_crash(
             self._reads_left -= 1
             return super().get_all_metrics()
 
-    store = _FlakyStore(list(_METRICS.values()), succeed_reads=2)
+    store = _FlakyStore(list(_METRICS.values()), succeed_reads=1)
     router = DecisionStakesRouter(CostQualityOptimizer(store))
     rationale = router.route(2)
     assert rationale.selected_provider is None
     assert "metrics unavailable" in rationale.selection_reason
+
+
+def test_selection_is_made_from_the_recorded_candidate_snapshot() -> None:
+    # The audit rationale must never claim the selection was made from a
+    # candidate set it wasn't: if the store's metrics change between the
+    # get_candidates read and selection, the selection must still come from
+    # the recorded models_considered snapshot, not a fresh read.
+    class _MutatingStore(_Store):
+        def __init__(self) -> None:
+            super().__init__([_METRICS["cheap"], _METRICS["mid"]])
+            self._reads = 0
+
+        def get_all_metrics(self) -> dict[str, ProviderMetrics]:
+            self._reads += 1
+            if self._reads >= 3:  # any read after the recorded snapshot
+                return {
+                    "newcheap": ProviderMetrics(
+                        provider_name="newcheap",
+                        avg_cost_per_debate=0.001,
+                        avg_quality_score=0.9,
+                        failure_rate=0.0,
+                    )
+                }
+            return super().get_all_metrics()
+
+    rationale = DecisionStakesRouter(CostQualityOptimizer(_MutatingStore())).route(0)
+    considered = {m["provider"] for m in rationale.models_considered}
+    assert rationale.selected_provider in considered
+    assert rationale.selected_provider == "cheap"  # tier 0 = cost-optimized
+
+
+def test_stale_optimizer_cache_cannot_leak_into_the_rationale() -> None:
+    # A prior select_provider call caches its result; route() must not
+    # return that cached selection against a freshly-recorded candidate set
+    # from a newer snapshot.
+    store = _Store([_METRICS["cheap"], _METRICS["mid"]])
+    optimizer = CostQualityOptimizer(store)
+    # Warm the cache with the same constraint key tier 0 uses.
+    assert optimizer.select_provider(strategy=SelectionStrategy.COST_OPTIMIZED) == "cheap"
+    # Metrics move on: "cheap" disappears from the store.
+    store._m = {"mid": _METRICS["mid"], "frontier": _METRICS["frontier"]}
+
+    rationale = DecisionStakesRouter(optimizer).route(0)
+    considered = {m["provider"] for m in rationale.models_considered}
+    assert considered == {"mid", "frontier"}
+    assert rationale.selected_provider in considered
+    assert rationale.selected_provider == "mid"  # cheapest in the recorded snapshot

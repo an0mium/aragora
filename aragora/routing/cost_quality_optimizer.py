@@ -242,6 +242,25 @@ class CostQualityOptimizer:
             exclude_providers=exclude_providers,
         )
 
+        result = self.select_from_candidates(candidates, strategy)
+        if result is None:
+            return None
+
+        self._cache.put(strategy.value, budget_remaining, min_quality, frozen_exclude, result)
+        return result
+
+    def select_from_candidates(
+        self,
+        candidates: list[ProviderMetrics],
+        strategy: SelectionStrategy = SelectionStrategy.BALANCED,
+    ) -> str | None:
+        """Apply ``strategy`` to an already-filtered candidate list.
+
+        Pure selection: no store read, no cache. Callers that must keep the
+        selection consistent with an audited candidate set (e.g. the
+        decision-stakes router's rationale) pass the exact list they
+        recorded, guaranteeing both come from the same metrics snapshot.
+        """
         if not candidates:
             return None
 
@@ -267,9 +286,7 @@ class CostQualityOptimizer:
                 key=lambda m: m.avg_quality_score / (m.avg_cost_per_debate + epsilon),
             )
 
-        result = best.provider_name
-        self._cache.put(strategy.value, budget_remaining, min_quality, frozen_exclude, result)
-        return result
+        return best.provider_name
 
     def invalidate_cache(self) -> None:
         """Clear the routing decision cache."""

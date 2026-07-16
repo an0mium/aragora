@@ -189,12 +189,10 @@ class DecisionStakesRouter:
         # The audit record needs two sets: the unconstrained Pareto frontier
         # (context: the non-dominated cost/quality options that existed) and
         # the actual candidate set after the tier's quality floor, the
-        # caller's budget, and caller exclusions — the set the choice was
-        # really made among. ``get_candidates`` applies the exact filter
-        # ``select_provider`` uses.
-        # select_provider does its own fresh metrics read, so it sits inside
-        # the same guard: a store that flakes between reads must still yield
-        # the recorded no-selection rationale, never escape route().
+        # caller's budget, and caller exclusions — the set the choice is
+        # made among. Selection applies the policy strategy to that exact
+        # recorded list (no second store read, no cache), so the rationale
+        # can never claim a candidate set the choice wasn't made from.
         try:
             frontier = self._optimizer.get_pareto_frontier()
             candidates = self._optimizer.get_candidates(
@@ -202,12 +200,7 @@ class DecisionStakesRouter:
                 budget_remaining=budget_remaining,
                 exclude_providers=exclude_providers,
             )
-            selected = self._optimizer.select_provider(
-                strategy=policy.strategy,
-                budget_remaining=budget_remaining,
-                min_quality=policy.min_quality,
-                exclude_providers=exclude_providers,
-            )
+            selected = self._optimizer.select_from_candidates(candidates, policy.strategy)
             metrics_available = True
         except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError) as e:
             # Never let metric gaps break routing — record empty sets and no
