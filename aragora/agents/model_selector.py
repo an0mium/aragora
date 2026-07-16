@@ -216,7 +216,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.95,
             ModelCapability.FACTUAL_ACCURACY: 0.91,
         },
-        max_context_tokens=1000000,
+        max_context_tokens=1050000,  # catalog ctx for gpt-5.6-sol
         max_output_tokens=32768,
         # Live catalog 2026-07-16: Sol is $5/$30 per MTok.
         cost_input_per_1k=0.005,
