@@ -34,6 +34,7 @@ from aragora.agents.errors import (
 )
 from aragora.agents.registry import AgentRegistry
 from aragora.config import get_api_key
+from aragora.config.model_pins import GEMINI_31_PRO_VIA_OPENROUTER
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
 from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
@@ -251,10 +252,10 @@ class CLIAgent(CritiqueMixin, Agent):
         "gpt-4-turbo": "openai/gpt-5.5",
         "gpt-4": "openai/gpt-5.5",
         # Gemini models
-        "gemini-3.1-pro-preview": "google/gemini-3.1-pro",
-        "gemini-3.1-pro": "google/gemini-3.1-pro",
-        "gemini-3-pro-preview": "google/gemini-3.1-pro",
-        "gemini-3-pro": "google/gemini-3.1-pro",
+        "gemini-3.1-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3.1-pro": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
+        "gemini-3-pro": GEMINI_31_PRO_VIA_OPENROUTER,
         "gemini-3-flash-preview": "google/gemini-3-flash-preview",
         "gemini-3-flash": "google/gemini-3-flash-preview",
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
@@ -914,13 +915,13 @@ class KiloCodeAgent(CLIAgent):
     via direct API or OpenRouter.
 
     Provider IDs should be in provider/model format for the `kilo run` CLI.
-    Example: google/gemini-3.1-pro
+    Example: google/gemini-3.1-pro-preview
     """
 
     def __init__(
         self,
         name: str,
-        provider_id: str = "google/gemini-3.1-pro",
+        provider_id: str = GEMINI_31_PRO_VIA_OPENROUTER,
         model: str | None = None,
         role: AgentRole = "proposer",
         timeout: int = 600,
