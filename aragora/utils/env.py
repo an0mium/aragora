@@ -7,8 +7,11 @@ Centralizes environment-variable parsing to avoid scattered ad-hoc checks.
 from __future__ import annotations
 
 import os
+import sys
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Any
 
 _TRUTHY = {"1", "true", "yes", "y", "on"}
 _FALSY = {"0", "false", "no", "n", "off"}
@@ -54,4 +57,31 @@ def preserve_environ() -> Iterator[None]:
                 os.environ[key] = value
 
 
-__all__ = ["is_truthy_env", "is_offline_mode", "preserve_environ"]
+_RLM_IMPORT_LOCK = threading.Lock()
+
+
+def import_rlm_guarded() -> Any:
+    """Import the optional ``rlm`` package exactly once, environ-safely.
+
+    ``preserve_environ`` alone is not thread-safe: two concurrent first-calls
+    snapshot/restore the whole environ and their interleaved restores can
+    persist the very pollution the guard exists to prevent. This helper
+    serializes the one import that actually runs rlm's ``load_dotenv()`` side
+    effect; every later call is a lock-free ``sys.modules`` hit.
+
+    Raises ImportError when the package is not installed.
+    """
+    cached = sys.modules.get("rlm")
+    if cached is not None:
+        return cached
+    with _RLM_IMPORT_LOCK:
+        cached = sys.modules.get("rlm")
+        if cached is not None:
+            return cached
+        with preserve_environ():
+            import rlm  # noqa: PLC0415
+
+        return rlm
+
+
+__all__ = ["is_truthy_env", "is_offline_mode", "preserve_environ", "import_rlm_guarded"]

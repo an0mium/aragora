@@ -115,3 +115,62 @@ def test_bridge_import_does_not_inject_repo_dotenv(tmp_path) -> None:
         "repo .env leaked into os.environ via aragora.rlm.bridge import; "
         "is the preserve_environ() guard still wrapping the official-rlm import?"
     )
+
+
+def test_import_rlm_guarded_returns_cached_module_without_reimport(monkeypatch) -> None:
+    """A sys.modules hit must be returned as-is, with no environ snapshot."""
+    from aragora.utils import env as env_mod
+
+    sentinel_module = object()
+    monkeypatch.setitem(sys.modules, "rlm", sentinel_module)
+    calls = []
+    monkeypatch.setattr(env_mod, "preserve_environ", lambda: calls.append(1))
+    assert env_mod.import_rlm_guarded() is sentinel_module
+    assert calls == []
+
+
+def test_import_rlm_guarded_serializes_concurrent_first_calls(monkeypatch) -> None:
+    """Concurrent first-calls must run the guarded import exactly once (review
+    P2 on #9319: interleaved preserve_environ restores can persist pollution)."""
+    import threading
+    from contextlib import contextmanager
+
+    from aragora.utils import env as env_mod
+
+    monkeypatch.delitem(sys.modules, "rlm", raising=False)
+    guard_entries = []
+    real_guard = env_mod.preserve_environ
+
+    @contextmanager
+    def counting_guard():
+        guard_entries.append(threading.get_ident())
+        with real_guard():
+            yield
+
+    monkeypatch.setattr(env_mod, "preserve_environ", counting_guard)
+
+    results: list[object] = []
+
+    def call():
+        try:
+            results.append(env_mod.import_rlm_guarded())
+        except ImportError:
+            results.append(ImportError)
+
+    threads = [threading.Thread(target=call) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(results) == 8
+    if ImportError in results:
+        # rlm not installed: every thread got ImportError; the guarded import
+        # ran at most once per thread but never concurrently interleaved —
+        # each failed attempt leaves sys.modules unset, so entries may be >1;
+        # what matters is that all results agree.
+        assert all(r is ImportError for r in results)
+    else:
+        # rlm installed: exactly one guarded import; all threads share it.
+        assert len(guard_entries) == 1
+        assert all(r is results[0] for r in results)

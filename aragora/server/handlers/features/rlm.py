@@ -772,14 +772,14 @@ class RLMHandler(BaseHandler):
         """
         try:
             # Check if official RLM is available.
-            # preserve_environ: importing rlm triggers a load_dotenv() side
-            # effect that can inject a repository .env process-wide (#8277).
+            # import_rlm_guarded: importing rlm triggers a load_dotenv() side
+            # effect that can inject a repository .env process-wide (#8277);
+            # the helper serializes the one real import so concurrent request
+            # threads cannot interleave environ snapshots/restores.
             try:
-                from aragora.utils.env import preserve_environ
+                from aragora.utils.env import import_rlm_guarded
 
-                with preserve_environ():
-                    import rlm
-
+                rlm = import_rlm_guarded()
                 provider = "rlm-library"
                 version = getattr(rlm, "__version__", "unknown")
             except ImportError:
