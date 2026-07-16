@@ -48,12 +48,26 @@ class TestFallbackModelChain:
             OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-v4-pro"
         )
 
+    def test_legacy_default_keys_keep_fallback(self):
+        """Renamed defaults keep their legacy keys as aliases (#9073 P2):
+        callers still pinning the old ids must not lose retry fallback."""
+        from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
+
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3-max"] == "deepseek/deepseek-v4-pro"
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3.7-max"] == "deepseek/deepseek-v4-pro"
+        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.6"] == "anthropic/claude-opus-4.8"
+        assert (
+            OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.7-code"] == "anthropic/claude-opus-4.8"
+        )
+
     def test_kimi_has_fallback(self):
         """Test Kimi models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-        assert "moonshotai/kimi-k2.6" in OPENROUTER_FALLBACK_MODELS
-        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.6"] == "anthropic/claude-opus-4.8"
+        assert "moonshotai/kimi-k2.7-code" in OPENROUTER_FALLBACK_MODELS
+        assert (
+            OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.7-code"] == "anthropic/claude-opus-4.8"
+        )
 
     def test_llama_has_fallback(self):
         """Test Llama models have fallbacks."""

@@ -125,32 +125,30 @@ runs (Module Tier Drift / Metrics Drift already run Monday) plus `push`-to-main 
 ## How to run in the transport loop
 
 Use the Python guardian manually from a conductor or executor lane before treating
-cancelled advisory checks as a human transport task. Start with a dry run scoped to
-the target PR and a 24-hour TTL. In `--pr` mode the tool queries workflow runs for
-that PR branch/event and verifies the run's PR association before considering it
-eligible:
+cancelled protected checks as a human transport task. The tool is repo-scoped (it
+inspects recent workflow runs and open PR heads itself) and is **dry-run by
+default**:
 
 ```bash
-python scripts/retrigger_cancelled_pr_runs.py \
+python3 scripts/retrigger_cancelled_pr_runs.py \
   --repo synaptent/aragora \
-  --pr <PR_NUMBER> \
-  --ttl-minutes 1440 \
-  --marker-file .aragora/retrigger_cancelled/marker.json
+  --max-runs 300 \
+  --ttl-hours 6
 ```
 
-The helper uses `GITHUB_TOKEN` when set, otherwise it falls back to
-`gh auth token`; run `gh auth status` first if the local credential state is
-unclear.
+The helper uses `GITHUB_TOKEN` (or `GH_TOKEN`); run `gh auth status` first if the
+local credential state is unclear.
 
-If every eligible run is a current-head cancelled PR run and the conductor lane is
-allowed to spend one rerun per run id, repeat with `--apply`. The tool writes a
-per-invocation JSON receipt under
-`.aragora/retrigger_cancelled/receipts/` recording the scope, dry-run/apply mode,
-eligible run ids, rerun ids, and head SHAs. Receipts older than seven days are
-pruned by default (`--receipt-retention-hours 168`). The marker file remains the
-loop guard: a run id recorded there is not retriggered again. If receipt writing
-fails after an otherwise successful rerun attempt, the tool reports `receipt_error`
-in its JSON output instead of treating the rerun as failed.
+Eligibility is provenance-aware: a cancelled run is rerun-eligible ONLY when its
+workflow **path** is in `scripts/ci/required_workflow_manifest.json` (the versioned
+protected manifest mirroring required-check-priority.yml's keep-list — advisory
+cancellations are that system working and stay cancelled), its head SHA equals the
+PR's current head, no newer run of the same workflow+branch+head exists, the PR is
+open and non-draft, the cancellation is younger than `--ttl-hours`, and
+`run_attempt == 1`. The attempt counter is the loop guard: a rerun bumps it, so a
+run is never retriggered twice. Repeat with `--apply` to perform the reruns; the
+JSON report lists every candidate with its applied/detail status, and any rerun
+API failure exits 1 so a scheduled invocation cannot fail silently.
 
 Do not use this tool to bypass real failures. A rerun that comes back failed, such
 as a docs-sync/build failure, is a repair packet for the PR branch.
