@@ -24,7 +24,7 @@ from aragora.reasoning.provenance import (
     SourceType,
     TransformationType,
 )
-from aragora.storage.provenance_store import ProvenanceStore
+from aragora.reasoning.provenance_store import ProvenanceStore
 
 
 # ===========================================================================
