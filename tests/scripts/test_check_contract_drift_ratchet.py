@@ -503,6 +503,48 @@ def test_pr_mode_passes_on_decrease_via_legitimate_resolution(tmp_path: Path):
 # "pr mode: discovered intake" section.
 
 
+def test_duplicate_baseline_entry_fails_integrity_program_mode(tmp_path: Path):
+    """A duplicated baseline entry inflates the count-based ratchet while the
+    id-deduped inventory holds one item — fail closed rather than let the
+    duplicate sit as a count-decrease freebie."""
+    verify = {"python_sdk_drift": ["a", "a", "b"], "typescript_sdk_drift": [], "missing_stable": []}
+    paths, repo, cohort = _seed(tmp_path, verify=verify, program=RED_PROGRAM)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=cohort)
+    assert not result["integrity"]["passing"]
+    assert any(
+        "Duplicate baseline entry: python_sdk_drift:a" in i for i in result["integrity"]["issues"]
+    )
+    assert not result["passing"]
+
+
+def test_pr_mode_inherited_duplicate_fails_despite_equal_counts(tmp_path: Path):
+    """A duplicate present at base AND head leaves every count delta at zero —
+    only the duplicate integrity check catches it."""
+    verify = {"python_sdk_drift": ["a", "a", "b"], "typescript_sdk_drift": [], "missing_stable": []}
+    paths, repo, base = _seed(tmp_path, verify=verify, program=RED_PROGRAM)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["increased"] == []
+    assert not result["integrity"]["passing"]
+    assert not result["passing"]
+
+
+def test_pr_mode_passes_on_duplicate_removal(tmp_path: Path):
+    """Removing a duplicated baseline entry is a pure dedup: count decreases by
+    one, the inventory (already deduped by id) needs no change, and pr mode
+    passes."""
+    verify = {"python_sdk_drift": ["a", "a", "b"], "typescript_sdk_drift": [], "missing_stable": []}
+    paths, repo, base = _seed(tmp_path, verify=verify, program=RED_PROGRAM)
+
+    deduped = json.loads(paths["verify"].read_text())
+    deduped["python_sdk_drift"] = ["a", "b"]
+    _write_json(paths["verify"], deduped)
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["integrity"]["passing"]
+    assert result["pr_delta"]["counts"]["verify_python_sdk_drift"]["delta"] == -1
+    assert result["passing"]
+
+
 def test_pr_mode_fails_on_integrity_violation(monkeypatch, tmp_path: Path):
     paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
 
@@ -964,7 +1006,7 @@ def test_pr_mode_duplicate_bundled_with_valid_intake_fails(tmp_path: Path):
         "routes_orphaned_in_spec" in reason for reason in result["pr_delta"]["unexplained_increase"]
     )
     assert not result["integrity"]["passing"]  # duplicated entry fails closed
-    assert any("duplicated" in i for i in result["integrity"]["issues"])
+    assert any("Duplicate baseline entry" in i for i in result["integrity"]["issues"])
     assert not result["passing"]
 
 
@@ -1012,7 +1054,8 @@ def test_pr_mode_cross_list_duplicate_masking_fails(tmp_path: Path):
 def test_pr_mode_delta_neutral_duplicate_smuggle_fails(tmp_path: Path):
     """Remove one entry and duplicate another in the same list: deltas are
     all zero, but the minted duplicate is slack a later PR could cash in as
-    fake burn-down — must fail via integrity, independent of the delta gate."""
+    fake burn-down — must fail via integrity, independent of the delta gate.
+    (#9354's unconditional duplicate check is what catches it.)"""
     paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
 
     routes = json.loads(paths["routes"].read_text())
@@ -1031,30 +1074,10 @@ def test_pr_mode_delta_neutral_duplicate_smuggle_fails(tmp_path: Path):
     assert result["pr_delta"]["increased"] == []  # the smuggle is delta-neutral
     assert not result["integrity"]["passing"]
     assert any(
-        "duplicated" in i and "missing_in_spec:m1" in i for i in result["integrity"]["issues"]
+        "Duplicate baseline entry" in i and "missing_in_spec:m1" in i
+        for i in result["integrity"]["issues"]
     )
     assert not result["passing"]
-
-
-def test_pr_mode_preexisting_base_duplicate_tolerated(tmp_path: Path):
-    """A duplicate already present at the base ref (e.g. the live
-    verify_sdk_contracts dup) must NOT fail PRs that don't touch it; removing
-    one copy must pass as a decrease."""
-    routes = {"missing_in_spec": ["m1", "m1", "m2"], "orphaned_in_spec": ["o1"]}
-    paths, repo, base = _seed(tmp_path, routes=routes, program=RED_PROGRAM)
-
-    # Untouched: same duplicate at head as at base -> no new duplication issue.
-    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
-    assert result["integrity"]["passing"], result["integrity"]["issues"]
-    assert result["passing"]
-
-    # Deduping one copy is a pure decrease -> passes.
-    dedup = dict(routes, missing_in_spec=["m1", "m2"])
-    _write_json(paths["routes"], dedup)
-    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
-    assert result["integrity"]["passing"], result["integrity"]["issues"]
-    assert result["pr_delta"]["counts"]["routes_missing_in_spec"]["delta"] == -1
-    assert result["passing"]
 
 
 def test_pr_mode_non_string_discovered_on_fails_closed_without_crash(tmp_path: Path):

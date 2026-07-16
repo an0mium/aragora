@@ -26,9 +26,9 @@ Two modes:
   weekly burn-down clock in program mode. Increases with any new entry
   missing from the inventory or failing those checks, and increases that
   reopen an item with base-inventory history (a regression, not intake),
-  still FAIL. Growing any baseline entry's multiplicity above 1 vs the base
-  ref is an integrity failure regardless of deltas (a minted duplicate is
-  slack a later PR could cash in as fake burn-down), as is any other
+  still FAIL. Any duplicated baseline entry is an integrity failure in both
+  modes regardless of deltas (#9354: a minted duplicate is slack a later PR
+  could cash in as fake burn-down, even delta-neutrally), as is any other
   integrity violation. The program status is still reported (informational)
   so PR authors see the burn-down state.
 """
@@ -207,39 +207,6 @@ def _append_only_issues(
 _LIST_KEY_BY_COUNT_KEY = {count_key: list_key for count_key, _alias, list_key in COUNT_KEYS}
 
 
-def _entry_multiset(docs: dict[str, dict[str, Any]]) -> dict[str, int]:
-    """Per-entry multiplicities across all baseline lists (id -> raw count)."""
-    counts: dict[str, int] = {}
-    for alias, (_path, list_keys) in inventory_mod.BASELINE_SPECS.items():
-        doc = docs.get(alias) or {}
-        for list_key in list_keys:
-            for entry in doc.get(list_key, []) or []:
-                item_id = f"{list_key}:{inventory_mod.normalize_key(entry)}"
-                counts[item_id] = counts.get(item_id, 0) + 1
-    return counts
-
-
-def _duplicate_entry_issues(
-    base_docs: dict[str, dict[str, Any]], head_docs: dict[str, dict[str, Any]]
-) -> list[str]:
-    """Fail closed on any baseline entry whose multiplicity GREW above 1 vs the
-    base ref (round-1 review P2 on #9352). Duplicates collapse to one id in
-    ``collect_ids``, so the sync/inventory invariants cannot see them, yet they
-    inflate the raw counts — a minted duplicate is slack a later PR could cash
-    in as fake burn-down, even when the minting PR itself is delta-neutral
-    (remove one entry, duplicate another). Duplicates already present at the
-    base ref are tolerated (pre-existing debt; removing a copy is an ordinary
-    decrease), but multiplicity may never grow.
-    """
-    base_counts = _entry_multiset(base_docs)
-    return [
-        f"Baseline entry duplicated (x{n} at head vs x{base_counts.get(item_id, 0)} "
-        f"at base): {item_id}"
-        for item_id, n in sorted(_entry_multiset(head_docs).items())
-        if n > 1 and n > base_counts.get(item_id, 0)
-    ]
-
-
 def _unexplained_increase_reasons(
     deltas: dict[str, dict[str, int]],
     new_ids: dict[str, str],
@@ -333,6 +300,10 @@ def build_ratchet_result(
             integrity_issues.append(str(exc))
             docs[alias] = {}
     counts = _counts_from_docs(docs)
+    # Duplicated baseline entries inflate the raw counts above while the
+    # id-deduped inventory sees one item; fail closed (head docs only —
+    # history at the base ref or cohort commit is never re-judged).
+    integrity_issues.extend(inventory_mod.find_duplicate_entry_issues(docs))
 
     cohort_ids: dict[str, str] | None = None
     try:
@@ -434,7 +405,6 @@ def build_ratchet_result(
         }
         head_items = {i["id"]: i for i in items if "id" in i}
         integrity_issues.extend(_append_only_issues(base_items, head_items))
-        integrity_issues.extend(_duplicate_entry_issues(base_docs, docs))
         result["integrity"] = {
             "passing": not integrity_issues,
             "issues": integrity_issues,
