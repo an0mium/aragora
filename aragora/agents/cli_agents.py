@@ -194,6 +194,31 @@ def terminate_tracked_cli_processes(grace_seconds: float = 0.2) -> dict[str, int
     }
 
 
+#: UNMISTAKABLE provider-wall signatures printed to STDOUT with exit 0
+#: (issue #9304): phrases that never occur as ordinary debate content.
+_EXIT0_STRONG_ERROR_MARKERS: tuple[str, ...] = (
+    "do not have access to this model",
+    "out of usage credits",
+    "run /usage-credits",
+    "hit your usage limit",
+    "please run /login",
+    "invalid x-api-key",
+    "credit balance is too low",
+)
+
+#: Generic phrases ("quota exceeded", "not logged in") appear in legitimate
+#: answers ABOUT auth/quota topics — this repo's own debates discuss them.
+#: They only classify one-line outputs (#9315 round 1, both families).
+_EXIT0_WEAK_ERROR_MARKERS: tuple[str, ...] = (
+    "not logged in",
+    "quota exceeded",
+    "authentication_error",
+)
+
+_EXIT0_STRONG_MAX_CHARS = 2000
+_EXIT0_WEAK_MAX_CHARS = 160
+
+
 class CLIAgent(CritiqueMixin, Agent):
     """Base class for CLI-based agents.
 
@@ -453,6 +478,28 @@ class CLIAgent(CritiqueMixin, Agent):
 
                 stdout_text = stdout.decode("utf-8", errors="replace").strip()
                 stderr_text = stderr.decode("utf-8", errors="replace").strip()
+
+                # Provider walls/errors printed to STDOUT with exit 0 (issue
+                # #9304): a proxy's 403 body or a subscription wall is not a
+                # proposal. Without this, error text enters the debate as
+                # content ('Round 1: Low novelty 0.00') and rots memory.
+                lowered_stdout = stdout_text.lower()
+                is_wall = (
+                    len(stdout_text) < _EXIT0_STRONG_MAX_CHARS
+                    and any(m in lowered_stdout for m in _EXIT0_STRONG_ERROR_MARKERS)
+                ) or (
+                    len(stdout_text) < _EXIT0_WEAK_MAX_CHARS
+                    and any(m in lowered_stdout for m in _EXIT0_WEAK_ERROR_MARKERS)
+                )
+                if stdout_text and is_wall:
+                    if self._circuit_breaker is not None:
+                        self._circuit_breaker.record_failure()
+                    raise CLISubprocessError(
+                        message=f"CLI returned a provider error as output: {stdout_text[:200]}",
+                        agent_name=self.name,
+                        returncode=0,
+                        stderr=stderr_text or None,
+                    )
 
                 # Some CLIs (e.g., Kilo) emit errors on stderr but return code 0.
                 # Treat "no stdout + non-empty stderr" as a failure to enable fallback.

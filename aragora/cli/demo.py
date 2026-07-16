@@ -604,7 +604,8 @@ async def _run_demo_debate(topic: str) -> tuple[DebateResult, float]:
         agent_names = [name for name, _ in _AGENT_CONFIGS]
         _print_banner(topic, agent_names)
         print()
-        print("  Note: Built-in mock fallback (aragora-debate package unavailable)")
+        print("  Mode: Built-in offline demo agents (no API keys required)")
+        print("        (aragora-debate package unavailable; using built-in fallback)")
         print()
         result = _build_builtin_demo_result(topic)
         elapsed = 0.0
