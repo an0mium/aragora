@@ -472,6 +472,13 @@ async def _shutdown_cmd_ask_resources() -> None:
         logger.debug("Ask spam moderation shutdown skipped: %s", exc)
 
     try:
+        from aragora.events.dispatcher import shutdown_dispatcher
+
+        shutdown_dispatcher(wait=True)
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
+
+    try:
         from aragora.server.startup.database import close_postgres_pool
 
         await close_postgres_pool()
@@ -519,13 +526,6 @@ async def _shutdown_cmd_ask_resources() -> None:
         DatabaseManager.clear_instances()
     except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
         logger.debug("Ask SQLite manager shutdown skipped: %s", exc)
-
-    try:
-        from aragora.events.dispatcher import shutdown_dispatcher
-
-        shutdown_dispatcher(wait=True)
-    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
-        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
 
     # Give async transport/connector close callbacks one loop turn before
     # asyncio.run() tears the loop down. This avoids intermittent unclosed
@@ -2998,6 +2998,15 @@ def cmd_ask(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
     if _result_has_only_agent_failure_outputs(result):
+        # Surface a substantive final answer if one exists (issue #9304): the
+        # engine can synthesize a real answer even when round messages were
+        # placeholders — hiding it behind a bare exit-1 buries user value.
+        final = str(getattr(result, "final_answer", "") or "")
+        if final and not _looks_like_agent_failure_response(final):
+            print("\n" + "=" * 60)
+            print("FINAL ANSWER (degraded run — agent rounds reported errors):")
+            print("=" * 60)
+            print(final)
         print(
             "Debate failed: all selected agents returned provider/error placeholders. "
             f"Run 'aragora validate-env --smoke --agents {agents} --verbose' and retry.",
