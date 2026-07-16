@@ -260515,6 +260515,226 @@
         ],
         "x-aragora-stability": "experimental"
       }
+    },
+    "/api/v2/receipts/signing-key": {
+      "get": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Get ODR signing public key",
+        "operationId": "getReceiptSigningKey",
+        "description": "Return the Ed25519 public key (PEM) used to sign Open Decision Receipts on this deployment, with the derived key id. Public trust anchor for offline verification via aragora-verify; no authentication required. Also served as raw PEM at /.well-known/aragora-odr-signing-key. Returns 404 when no signing key is configured.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Signing public key",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "algorithm": {
+                      "type": "string"
+                    },
+                    "key_id": {
+                      "type": "string"
+                    },
+                    "public_key_pem": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/.well-known/aragora-odr-signing-key": {
+      "get": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Get ODR signing public key (raw PEM)",
+        "operationId": "getReceiptSigningKeyWellKnown",
+        "description": "Well-known alias of /api/v2/receipts/signing-key serving the Ed25519 public key as raw PEM (application/x-pem-file). Unauthenticated by design. Returns 404 when no signing key is configured.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "PEM-encoded Ed25519 public key",
+            "content": {
+              "application/x-pem-file": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
     }
   },
   "components": {

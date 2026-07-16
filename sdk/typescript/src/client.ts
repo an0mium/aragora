@@ -320,6 +320,7 @@ interface RequestOptions {
   params?: Record<string, unknown>;
   headers?: Record<string, string>;
   timeout?: number;
+  responseType?: 'json' | 'text';
 }
 
 /**
@@ -1293,8 +1294,15 @@ export class AragoraClient {
           throw AragoraError.fromResponse(response.status, body);
         }
 
-        // Handle empty responses
         const text = await response.text();
+
+        // Text responses keep their contract even when the body is empty:
+        // '' is a valid string result, never coerced to {}.
+        if (options.responseType === 'text') {
+          return text as T;
+        }
+
+        // Handle empty JSON responses
         if (!text) {
           return {} as T;
         }

@@ -728,6 +728,10 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     "kimi": frozenset(
         {
             "moonshotai/kimi-k2.7-code",
+            # Legacy id kept as an accepted alias (same keep-legacy principle
+            # as OPENROUTER_FALLBACK_MODELS in this PR); real_invoker still
+            # prices it for stored configs that pin it.
+            "moonshotai/kimi-k2.6",
             "moonshotai/kimi-k2.5",
             "moonshotai/kimi-k2-0905",
             "moonshotai/kimi-k2",

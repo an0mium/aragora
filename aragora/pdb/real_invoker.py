@@ -237,7 +237,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "deepseek-v3.2-exp": (0.27, 1.10),
     "deepseek-r1": (0.55, 2.19),
     "deepseek-reasoner": (0.55, 2.19),
-    "kimi-k2.7-code": (0.72, 3.50),
+    "kimi-k2.7-code": (0.75, 3.50),
     "kimi-k2.6": (0.7448, 4.655),
     "kimi-k2.5": (0.44, 2.00),
     "kimi-k2": (0.57, 2.30),
@@ -246,7 +246,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "moonshot-v1-128k": (0.57, 2.30),
     "qwen3-235b-a22b": (0.14, 0.28),
     "qwen3-max": (0.60, 1.80),
-    "qwen3.7-max": (1.25, 3.75),
+    "qwen3.7-max": (1.475, 4.425),
     "qwen3.5-plus-02-15": (0.60, 1.80),
     "qwen-2.5-72b-instruct": (0.30, 0.80),
     # Mistral (direct API)

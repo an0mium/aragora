@@ -184,91 +184,6 @@ def direct_model_for_role(role: Role = "default") -> str:
     return pin.direct
 
 
-# -----------------------------------------------------------------------------
-# Legacy aliases mapped to the new frontier
-# -----------------------------------------------------------------------------
-#
-# Any code that still references an older Claude/GPT/Gemini ID can pass it
-# through :func:`upgrade_legacy_pin` to transparently get the frontier.
-# This is the migration handle for the ~400 hardcoded IDs across the codebase
-# without doing a risky global sed.
-
-_LEGACY_UPGRADES: Final[dict[str, tuple[str, str]]] = {
-    # Claude family -> Opus 4.8
-    "claude-opus-4-7": (OPUS_48_DIRECT, OPUS_48_VIA_OPENROUTER),
-    "anthropic/claude-opus-4.7": (OPUS_48_DIRECT, OPUS_48_VIA_OPENROUTER),
-    "claude-opus-4-5-20251101": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-opus-4-5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-opus-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-sonnet-4-6": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-sonnet-4.6": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-sonnet-4-20250514": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-sonnet-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-haiku-4-5-20251001": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-haiku-4.5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-haiku-4-20250514": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-haiku-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-5-sonnet-20241022": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-5-sonnet": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-opus-20240229": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-opus": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-haiku-20240307": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-haiku": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    # GPT family -> GPT-5.5
-    "gpt-4.1": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4.1-mini": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4.1-nano": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4o": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4o-mini": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4-turbo": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5.3": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5.3-codex": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5.4": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5.4-pro": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    # OpenRouter-style legacy -> OpenRouter-style frontier
-    "anthropic/claude-opus-4.5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "anthropic/claude-sonnet-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "anthropic/claude-sonnet-4.6": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "anthropic/claude-haiku-4.5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "anthropic/claude-3.5-sonnet": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "openai/gpt-4o": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "openai/gpt-4-turbo": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "openai/gpt-5.4": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    # Gemini family -> Gemini 3.1 Pro
-    "gemini-2.5-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "gemini-2.5-flash": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "gemini-1.5-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "gemini-1.5-flash": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "gemini-3.1-pro-preview": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "openrouter/google/gemini-3.1-pro-preview": (
-        GEMINI_31_PRO_DIRECT,
-        GEMINI_31_PRO_VIA_OPENROUTER,
-    ),
-    "google/gemini-2.5-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "google/gemini-2.5-flash": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    # Broken OpenRouter slugs repaired in #9073: stored pins/receipts that
-    # carry the dead ids must upgrade to the corrected catalog slugs.
-    "google/gemini-3.1-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "mistralai/mistral-large": (MISTRAL_LARGE_DIRECT, MISTRAL_LARGE_VIA_OPENROUTER),
-}
-
-
-def upgrade_legacy_pin(model_id: str) -> str:
-    """Upgrade a legacy model ID to the current frontier.
-
-    Returns the OpenRouter alias when OpenRouter routing is active, otherwise
-    the direct-provider ID. Unknown IDs are returned unchanged so this can be
-    called on any string without risk.
-    """
-    hit = _LEGACY_UPGRADES.get(model_id)
-    if hit is None:
-        return model_id
-    direct, via_or = hit
-    return via_or if route_through_openrouter() else direct
-
-
 __all__ = [
     "OPUS_48_DIRECT",
     "OPUS_48_VIA_OPENROUTER",
@@ -293,5 +208,4 @@ __all__ = [
     "frontier_model_for_role",
     "openrouter_alias_for_role",
     "direct_model_for_role",
-    "upgrade_legacy_pin",
 ]
