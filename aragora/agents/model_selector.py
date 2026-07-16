@@ -168,8 +168,9 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         },
         max_context_tokens=1000000,
         max_output_tokens=128000,
-        cost_input_per_1k=0.005,
-        cost_output_per_1k=0.025,
+        # Live catalog 2026-07-16: Fable 5 is $10/$50 per MTok (2x Opus 4.8).
+        cost_input_per_1k=0.010,
+        cost_output_per_1k=0.050,
         avg_latency_ms=1200,
         reliability_score=0.97,
         supports_vision=True,
@@ -201,7 +202,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     # OpenAI
     "gpt4": ModelProfile(
         model_id="gpt-5.6-sol",
-        display_name="GPT-5.5",
+        display_name="GPT-5.6 Sol",
         provider="openai",
         capabilities={
             ModelCapability.REASONING: 0.94,
@@ -217,8 +218,9 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         },
         max_context_tokens=1000000,
         max_output_tokens=32768,
-        cost_input_per_1k=0.002,
-        cost_output_per_1k=0.008,
+        # Live catalog 2026-07-16: Sol is $5/$30 per MTok.
+        cost_input_per_1k=0.005,
+        cost_output_per_1k=0.030,
         avg_latency_ms=900,
         reliability_score=0.97,
         supports_vision=True,

@@ -61,8 +61,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
     "openai": {
         "gpt-5.6-sol": Decimal("5.00"),
         "gpt-5.6-sol-output": Decimal("30.00"),
-        "gpt-5.5": Decimal("2.50"),
-        "gpt-5.5-output": Decimal("10.00"),
+        "gpt-5.5": Decimal("5.00"),  # live catalog 2026-07-16
+        "gpt-5.5-output": Decimal("30.00"),
         "gpt-4.1": Decimal("2.00"),
         "gpt-4.1-output": Decimal("8.00"),
         "gpt-4.1-mini": Decimal("0.40"),
@@ -107,8 +107,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("8.00"),
         "openai/gpt-5.6-sol": Decimal("5.00"),
         "openai/gpt-5.6-sol-output": Decimal("30.00"),
-        "openai/gpt-5.5": Decimal("2.50"),
-        "openai/gpt-5.5-output": Decimal("10.00"),
+        "openai/gpt-5.5": Decimal("5.00"),
+        "openai/gpt-5.5-output": Decimal("30.00"),
         "google/gemini-3.5-flash": Decimal("1.50"),
         "google/gemini-3.5-flash-output": Decimal("9.00"),
         "anthropic/claude-fable-5": Decimal("10.00"),

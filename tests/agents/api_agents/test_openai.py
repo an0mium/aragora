@@ -32,7 +32,7 @@ class TestOpenAIAgentInitialization:
         spec = AgentRegistry.get_spec("openai-api")
 
         assert agent.name == "openai-api"
-        assert agent.model == "gpt-5.5"
+        assert agent.model == "gpt-5.6-sol"
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "openai"
@@ -75,7 +75,7 @@ class TestOpenAIAgentInitialization:
         spec = AgentRegistry.get_spec("openai-api")
 
         assert spec is not None
-        assert spec.default_model == "gpt-5.5"
+        assert spec.default_model == "gpt-5.6-sol"
         assert spec.agent_type == "API"
 
 
@@ -388,7 +388,7 @@ class TestOpenAICompatibleMixin:
 
         payload = agent._build_payload(messages, stream=False)
 
-        assert payload["model"] == "gpt-5.5"
+        assert payload["model"] == "gpt-5.6-sol"
         assert payload["messages"] == messages
         assert "max_tokens" in payload
         assert "stream" not in payload or payload.get("stream") is False
@@ -534,7 +534,7 @@ class TestOpenAIModelMapping:
         assert "gpt-4o-mini" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
         assert "gpt-4" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
         assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-4o"] == "openai/gpt-5.5"
-        assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-5.4"] == "openai/gpt-5.5"
+        assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-5.4"] == "openai/gpt-5.6-sol"
 
     def test_has_default_fallback_model(self, mock_env_with_api_keys):
         """Should have default fallback model."""

@@ -59,6 +59,16 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
         output_cost_per_1k=0.05,
         context_window=1_000_000,
     ),
+    # Keyed by BOTH id spellings: the direct pin is dash-form
+    # (claude-opus-4-8, OPUS_48_DIRECT) while provider docs use the dotted
+    # form — an exact-dict get_estimated_cost must never 0.0 on either.
+    "claude-opus-4-8": ProviderPricing(
+        provider_name="anthropic",
+        model_name="claude-opus-4-8",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.025,
+        context_window=1_000_000,
+    ),
     "claude-opus-4.8": ProviderPricing(
         provider_name="anthropic",
         model_name="claude-opus-4-8",

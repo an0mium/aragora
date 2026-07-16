@@ -129,7 +129,10 @@ _ROLE_TO_PIN: Final[dict[Role, _RolePin]] = {
     "synthesizer": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "devils_advocate": _RolePin(GROK_4_DIRECT, GROK_4_VIA_OPENROUTER),
     "researcher": _RolePin(GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "reviewer": _RolePin(GPT56_SOL_DIRECT, GPT56_SOL_VIA_OPENROUTER),
+    # Reviewer routing holds gpt-5.5 until Sol clears the 14-day availability
+    # rule (public Jul 9 -> eligible Jul 23); flipping this pin early was a
+    # convergent review finding on #9075.
+    "reviewer": _RolePin(GPT55_DIRECT, GPT55_VIA_OPENROUTER),
     "quality_reviewer": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "security_auditor": _RolePin(FABLE_5_DIRECT, FABLE_5_VIA_OPENROUTER),
     "compliance_auditor": _RolePin(FABLE_5_DIRECT, FABLE_5_VIA_OPENROUTER),
