@@ -105,7 +105,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/accounting/callback",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -113,7 +113,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/accounting/gusto/callback",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -121,7 +121,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/accounting/gusto/connect",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -129,7 +129,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/accounting/gusto/disconnect",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -154,7 +154,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/calibration/curve",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -162,7 +162,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/calibration/history",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -170,7 +170,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/chat/knowledge/channel",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -178,7 +178,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/codebase/quick-scan",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -186,7 +186,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/codebase/quick-scans",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -257,7 +257,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/debates/public",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -265,7 +265,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/devices/apple/shortcuts",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -273,7 +273,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/inbox/mentions",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -343,7 +343,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/knowledge/mound/graph",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -359,7 +359,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/memory",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -367,7 +367,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/memory/tier",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -375,7 +375,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/patterns",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -383,7 +383,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/patterns/hive-mind",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -391,7 +391,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/patterns/map-reduce",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -399,7 +399,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/patterns/review-cycle",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -407,7 +407,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/ralph/blockers",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -415,7 +415,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/ralph/campaigns",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -423,7 +423,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/ralph/overview",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -431,7 +431,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/review-queue",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -439,7 +439,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/review-queue/triage-metrics",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -447,7 +447,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/shared",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -455,7 +455,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/slos",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -463,7 +463,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v2/marketplace/categories",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -471,7 +471,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v2/marketplace/status",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -479,7 +479,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v2/marketplace/templates",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -487,7 +487,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v2/marketplace/templates/import",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -495,7 +495,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v2/orchestration/deliberate",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -503,7 +503,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v2/orchestration/deliberate/sync",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -511,7 +511,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v2/orchestration/templates",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -519,7 +519,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/verification/proofs",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -527,7 +527,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/verification/validate",
-      "provenance": "Discovered by OpenAPI route-gate re-arm (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
+      "provenance": "Discovered by OpenAPI route-gate re-arm #9360 (recut of #9332): Tier-4 handler-ROUTES supplement + can_handle orphan probe exposed dark spec routes needing wire-or-remove decisions",
       "source": "orphaned_in_spec",
       "status": "open"
     },
