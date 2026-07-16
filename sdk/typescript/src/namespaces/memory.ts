@@ -316,12 +316,17 @@ interface MemoryClientInterface {
     tier?: MemoryTierType;
   }): Promise<{ value: unknown; tier: string; metadata?: Record<string, unknown> } | null>;
   deleteMemory(key: string, tier?: MemoryTierType): Promise<{ deleted: boolean }>;
+  storeMemoryEntry(content: string, options?: {
+    tier?: MemoryTierType;
+    importance?: number;
+  }): Promise<{ id: string; tier: string }>;
+  deleteMemoryEntry(memoryId: string): Promise<{ success: boolean; message: string }>;
   getMemoryStats(): Promise<MemoryStats>;
   searchMemory(params: MemorySearchParams): Promise<{ entries: MemoryEntry[] }>;
   getMemoryTiers(): Promise<{ tiers: MemoryTierStats[] }>;
   getMemoryCritiques(options?: PaginationParams): Promise<{ critiques: CritiqueEntry[] }>;
   storeToContinuum(content: string, options?: ContinuumStoreOptions): Promise<ContinuumStoreResult>;
-  retrieveFromContinuum(query: string, options?: ContinuumRetrieveOptions): Promise<{ entries: MemoryEntry[] }>;
+  retrieveFromContinuum(query: string, options?: ContinuumRetrieveOptions): Promise<{ memories: MemoryEntry[]; count: number }>;
   getContinuumStats(): Promise<MemoryStats>;
   consolidateMemory(): Promise<{ success: boolean }>;
   request<T = unknown>(
@@ -345,10 +350,10 @@ interface MemoryClientInterface {
  * const client = createClient({ baseUrl: 'https://api.aragora.ai' });
  *
  * // Store a memory entry
- * await client.memory.store('user-preference', { theme: 'dark' });
+ * const { id } = await client.memory.storeEntry('User prefers dark theme', { tier: 'fast' });
  *
- * // Retrieve memory
- * const entry = await client.memory.retrieve('user-preference');
+ * // Retrieve memories by query
+ * const { memories } = await client.memory.retrieveContinuum('user preferences');
  *
  * // Search memory
  * const results = await client.memory.search('theme settings');
@@ -362,6 +367,10 @@ export class MemoryAPI {
 
   /**
    * Store a value in memory.
+   *
+   * @deprecated The server does not implement a key/value memory API;
+   * POST /api/v1/memory/store rejects this payload with 400. Use
+   * {@link storeEntry} instead.
    */
   async store(
     key: string,
@@ -377,7 +386,27 @@ export class MemoryAPI {
   }
 
   /**
+   * Store a new memory entry in continuum memory.
+   *
+   * Matches the server contract for POST /api/v1/memory/store
+   * ({ content, tier?, importance? } -> { id, tier }).
+   */
+  async storeEntry(
+    content: string,
+    options?: {
+      tier?: 'fast' | 'medium' | 'slow' | 'glacial';
+      importance?: number;
+    }
+  ): Promise<{ id: string; tier: string }> {
+    return this.client.storeMemoryEntry(content, options);
+  }
+
+  /**
    * Retrieve a value from memory by key.
+   *
+   * @deprecated The server does not implement GET /api/v1/memory/retrieve,
+   * so this always resolves to `null`. Use {@link retrieveContinuum} to
+   * query continuum memory instead.
    */
   async retrieve(
     key: string,
@@ -388,12 +417,26 @@ export class MemoryAPI {
 
   /**
    * Delete a memory entry by key.
+   *
+   * @deprecated The server does not implement DELETE /api/v1/memory/delete,
+   * so this always rejects with a 404. Use {@link deleteEntry} with the
+   * entry ID returned by {@link storeEntry} instead.
    */
   async delete(
     key: string,
     tier?: 'fast' | 'medium' | 'slow' | 'glacial'
   ): Promise<{ deleted: boolean }> {
     return this.client.deleteMemory(key, tier);
+  }
+
+  /**
+   * Delete a continuum memory entry by ID.
+   *
+   * Matches the server contract for DELETE /api/v1/memory/continuum/{id}
+   * ({ success, message }; 404 if the entry does not exist).
+   */
+  async deleteEntry(memoryId: string): Promise<{ success: boolean; message: string }> {
+    return this.client.deleteMemoryEntry(memoryId);
   }
 
   /**
@@ -440,7 +483,7 @@ export class MemoryAPI {
   async retrieveFromContinuum(
     query: string,
     options?: ContinuumRetrieveOptions
-  ): Promise<{ entries: MemoryEntry[] }> {
+  ): Promise<{ memories: MemoryEntry[]; count: number }> {
     return this.client.retrieveFromContinuum(query, options);
   }
 
@@ -687,7 +730,7 @@ export class MemoryAPI {
       limit?: number;
       min_importance?: number;
     }
-  ): Promise<{ entries: MemoryEntry[]; total: number }> {
+  ): Promise<{ memories: MemoryEntry[]; count: number }> {
     const params: Record<string, unknown> = {
       query,
       limit: options?.limit ?? 10,
