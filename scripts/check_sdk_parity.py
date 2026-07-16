@@ -246,9 +246,11 @@ def extract_openapi_routes(spec_path: Path | None = None) -> set[str]:
 try:
     # Direct script execution (python scripts/check_sdk_parity.py)
     from sdk_path_normalize import normalize_sdk_path
+    from validate_openapi_routes import load_internal_prefixes
 except ModuleNotFoundError:
     # Module import context (pytest importing scripts.check_sdk_parity)
     from scripts.sdk_path_normalize import normalize_sdk_path
+    from scripts.validate_openapi_routes import load_internal_prefixes
 
 
 def normalize_route(route: str) -> str:
@@ -258,6 +260,28 @@ def normalize_route(route: str) -> str:
     validation scripts use a single normalization algorithm.
     """
     return normalize_sdk_path(route)
+
+
+_INTERNAL_PREFIX_CACHE: tuple[str, ...] | None = None
+
+
+def _internal_prefix_families() -> tuple[str, ...]:
+    """Internal-route policy prefixes, normalized like every route here.
+
+    Internal route families (control-plane, SSO, SME, emergency admin, ...)
+    are excluded from the public OpenAPI spec by policy
+    (scripts/baselines/internal_route_prefixes.json), so SDK methods that
+    call them cannot be validated against public-contract route sources.
+    Fails closed (SystemExit) when the policy file is unusable.
+    """
+    global _INTERNAL_PREFIX_CACHE
+    if _INTERNAL_PREFIX_CACHE is None:
+        _INTERNAL_PREFIX_CACHE = tuple(normalize_route(p) for p in load_internal_prefixes())
+    return _INTERNAL_PREFIX_CACHE
+
+
+def _is_internal_family(normalized_path: str) -> bool:
+    return any(normalized_path.startswith(p.rstrip("/")) for p in _internal_prefix_families())
 
 
 # ---------------------------------------------------------------------------
@@ -449,8 +473,17 @@ def build_parity_report(
                 return True
         return False
 
-    stale_py = {p for p in all_py_paths if not _covered_by_handler(p)}
-    stale_ts = {p for p in all_ts_paths if not _covered_by_handler(p)}
+    # Internal-family SDK paths are excluded: the internal-route policy keeps
+    # those families out of the public spec (documented_routes), so their
+    # only route source is handler ROUTES — and several internal handlers are
+    # dispatch-based without ROUTES. Staleness of internal SDK surface is not
+    # a public-contract question this gate can answer.
+    stale_py = {
+        p for p in all_py_paths if not _covered_by_handler(p) and not _is_internal_family(p)
+    }
+    stale_ts = {
+        p for p in all_ts_paths if not _covered_by_handler(p) and not _is_internal_family(p)
+    }
     if not handler_routes_available:
         stale_py = set()
         stale_ts = set()

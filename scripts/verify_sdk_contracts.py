@@ -39,13 +39,33 @@ TS_DIRECT_RE = re.compile(
 try:
     # Direct script execution (python scripts/verify_sdk_contracts.py)
     from sdk_path_normalize import normalize_sdk_path
+    from validate_openapi_routes import load_internal_prefixes
 except ModuleNotFoundError:
     # Module import context (pytest importing scripts.verify_sdk_contracts)
     from scripts.sdk_path_normalize import normalize_sdk_path
+    from scripts.validate_openapi_routes import load_internal_prefixes
 
 
 def _normalize(path: str) -> str:
     return normalize_sdk_path(path)
+
+
+def _normalized_internal_prefixes() -> tuple[str, ...]:
+    """Internal-route policy prefixes in SDK-normalized (version-stripped) form.
+
+    Internal route families (control-plane, SSO, emergency admin, ...) are
+    excluded from the public OpenAPI spec by generate_openapi.py, and the
+    route-coverage gate excludes them from both sides of its comparison.
+    SDK namespaces and the stability manifest may still reference those
+    served-but-internal endpoints; they cannot be verified against the
+    public spec, so this checker excludes them under the same policy file.
+    Fails closed (SystemExit) when the policy is unusable.
+    """
+    return tuple(_normalize(p) for p in load_internal_prefixes())
+
+
+def _is_internal(normalized_path: str, internal_prefixes: tuple[str, ...]) -> bool:
+    return any(normalized_path.startswith(p.rstrip("/")) for p in internal_prefixes)
 
 
 def _load_openapi_endpoints(spec_path: Path) -> set[tuple[str, str]]:
@@ -147,6 +167,9 @@ def main() -> int:
     spec_labels = ", ".join(_label(p) for p in spec_paths)
     print(f"OpenAPI spec (union: {spec_labels}): {len(openapi_eps)} endpoints")
 
+    internal_prefixes = _normalized_internal_prefixes()
+    internal_skipped = 0
+
     # Check Python SDK
     py_dir = repo / "sdk/python/aragora_sdk/namespaces"
     py_ns = sorted(p.stem for p in py_dir.glob("*.py") if not p.stem.startswith("_"))
@@ -158,6 +181,9 @@ def main() -> int:
         eps = _extract_py(content)
         py_total += len(eps)
         for ep in sorted(eps - openapi_eps):
+            if _is_internal(ep[1], internal_prefixes):
+                internal_skipped += 1
+                continue
             py_drift.append((ns, ep[0].upper(), ep[1]))
 
     # Check TypeScript SDK
@@ -179,7 +205,16 @@ def main() -> int:
         eps = _extract_ts(content)
         ts_total += len(eps)
         for ep in sorted(eps - openapi_eps):
+            if _is_internal(ep[1], internal_prefixes):
+                internal_skipped += 1
+                continue
             ts_drift.append((ns, ep[0].upper(), ep[1]))
+
+    if internal_skipped:
+        print(
+            f"\nInternal-route policy: {internal_skipped} SDK endpoint reference(s) in "
+            "internal families excluded from public-spec drift"
+        )
 
     # Parity check
     py_ns_set = set(py_ns)
@@ -220,14 +255,22 @@ def main() -> int:
         manifest = json.loads(manifest_path.read_text())
         stable = manifest.get("stable", [])
         missing_stable = []
+        stable_internal = 0
         for entry in stable:
             parts = entry.split(" ", 1)
             if len(parts) == 2:
                 method, path = parts[0].lower(), _normalize(parts[1])
+                if _is_internal(path, internal_prefixes):
+                    # Internal families are excluded from the public spec by
+                    # policy; served-but-internal stable entries cannot be
+                    # verified against it.
+                    stable_internal += 1
+                    continue
                 if (method, path) not in openapi_eps:
                     missing_stable.append(entry)
         print(
             f"\nStability manifest: {len(stable)} stable, {len(missing_stable)} missing from spec"
+            + (f", {stable_internal} internal (excluded by policy)" if stable_internal else "")
         )
         if missing_stable:
             for entry in missing_stable[:10]:

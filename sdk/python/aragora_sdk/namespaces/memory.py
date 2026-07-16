@@ -194,6 +194,29 @@ class MemoryAPI:
         """
         return self.list_critiques(agent=agent, limit=limit, offset=offset)
 
+    def store_entry(
+        self,
+        content: str,
+        *,
+        tier: str = "fast",
+        importance: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Store a new memory entry in the continuum memory system.
+
+        Args:
+            content: The memory content to store
+            tier: Target memory tier (fast, medium, slow, glacial)
+            importance: Optional importance score (0.0-1.0)
+
+        Returns:
+            Dict with the stored entry ID and tier
+        """
+        body: dict[str, Any] = {"content": content, "tier": tier}
+        if importance is not None:
+            body["importance"] = importance
+        return self._client.request("POST", "/api/v1/memory/store", json=body)
+
     def store_critique(
         self,
         critique: str,
