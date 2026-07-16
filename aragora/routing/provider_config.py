@@ -59,6 +59,36 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
         output_cost_per_1k=0.05,
         context_window=1_000_000,
     ),
+    # OpenRouter alias forms: runtime fallback paths pass these exact ids to
+    # get_estimated_cost, which is an exact-dict lookup (gemini review #9075).
+    "anthropic/claude-fable-5": ProviderPricing(
+        provider_name="openrouter",
+        model_name="anthropic/claude-fable-5",
+        input_cost_per_1k=0.01,
+        output_cost_per_1k=0.05,
+        context_window=1_000_000,
+    ),
+    "openai/gpt-5.6-sol": ProviderPricing(
+        provider_name="openrouter",
+        model_name="openai/gpt-5.6-sol",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.03,
+        context_window=1_050_000,
+    ),
+    "qwen/qwen3.7-max": ProviderPricing(
+        provider_name="openrouter",
+        model_name="qwen/qwen3.7-max",
+        input_cost_per_1k=0.001475,
+        output_cost_per_1k=0.004425,
+        context_window=262_144,
+    ),
+    "moonshotai/kimi-k2.7-code": ProviderPricing(
+        provider_name="openrouter",
+        model_name="moonshotai/kimi-k2.7-code",
+        input_cost_per_1k=0.00075,
+        output_cost_per_1k=0.0035,
+        context_window=262_144,
+    ),
     # Keyed by BOTH id spellings: the direct pin is dash-form
     # (claude-opus-4-8, OPUS_48_DIRECT) while provider docs use the dotted
     # form — an exact-dict get_estimated_cost must never 0.0 on either.
