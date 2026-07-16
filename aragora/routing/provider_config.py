@@ -47,8 +47,12 @@ class ProviderPricing:
         )
 
 
-# Current pricing as of March 2026, per 1K tokens.
-# Source: provider pricing pages. Prices in USD.
+from aragora.models import CATALOG, by_any_id
+
+# Legacy hand-maintained rows (models not yet in the canonical catalog).
+# Cataloged models are PROJECTED from aragora.models.CATALOG below — do not
+# hand-edit rows for cataloged ids here; edit the catalog instead
+# (docs/architecture/MODEL_CATALOG.md).
 PROVIDER_PRICING: dict[str, ProviderPricing] = {
     "claude-opus-4": ProviderPricing(
         provider_name="anthropic",
@@ -117,6 +121,31 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
 }
 
 
+def _catalog_projection() -> dict[str, ProviderPricing]:
+    """Phase-2 catalog consumer (first projection, founder-directed):
+    every catalog model prices identically here and in aragora.models.
+
+    Before this projection, the Pareto/decision-stakes router saw $0 for
+    every frontier pin because this table's hand-maintained rows had gone
+    stale — a real routing bug, not hygiene (#9355 follow-up)."""
+    rows: dict[str, ProviderPricing] = {}
+    for spec in CATALOG.values():
+        pricing = ProviderPricing(
+            provider_name=spec.provider,
+            model_name=spec.direct_id,
+            input_cost_per_1k=spec.input_per_mtok / 1000.0,
+            output_cost_per_1k=spec.output_per_mtok / 1000.0,
+            context_window=spec.context_window,
+        )
+        for model_id in spec.all_ids():
+            rows[model_id] = pricing
+    return rows
+
+
+# The projection OVERRIDES any hand row for cataloged ids: single source.
+PROVIDER_PRICING.update(_catalog_projection())
+
+
 def get_estimated_cost(
     provider: str,
     input_tokens: int,
@@ -134,7 +163,12 @@ def get_estimated_cost(
     """
     pricing = PROVIDER_PRICING.get(provider)
     if pricing is None:
-        return 0.0
+        spec = by_any_id(provider)
+        if spec is None:
+            return 0.0
+        return (input_tokens / 1_000_000.0) * spec.input_per_mtok + (
+            output_tokens / 1_000_000.0
+        ) * spec.output_per_mtok
 
     input_cost = (input_tokens / 1000.0) * pricing.input_cost_per_1k
     output_cost = (output_tokens / 1000.0) * pricing.output_cost_per_1k
