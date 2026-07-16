@@ -75,8 +75,8 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("15.00"),
     },
     "openai": {
-        "gpt-5.5": Decimal("2.50"),
-        "gpt-5.5-output": Decimal("10.00"),
+        "gpt-5.5": Decimal("5.00"),  # repriced by provider ~2026-07-14
+        "gpt-5.5-output": Decimal("30.00"),
         "gpt-4o": Decimal("2.50"),
         "gpt-4o-output": Decimal("10.00"),
         "gpt-4o-mini": Decimal("0.15"),
@@ -123,8 +123,8 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("6.00"),
     },
     "openrouter": {
-        "openai/gpt-5.5": Decimal("2.50"),
-        "openai/gpt-5.5-output": Decimal("10.00"),
+        "openai/gpt-5.5": Decimal("5.00"),
+        "openai/gpt-5.5-output": Decimal("30.00"),
         "google/gemini-3.5-flash": Decimal("1.50"),
         "google/gemini-3.5-flash-output": Decimal("9.00"),
         "anthropic/claude-opus-4-8": Decimal("5.00"),

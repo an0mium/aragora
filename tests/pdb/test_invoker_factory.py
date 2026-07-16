@@ -622,7 +622,7 @@ class TestHeterodoxKeyWiring:
                 GROK_MODEL_ENV: "grok-4-fast",
                 DEEPSEEK_MODEL_ENV: "deepseek/deepseek-v4-pro",
                 KIMI_MODEL_ENV: "moonshotai/kimi-k2-thinking",
-                QWEN_MODEL_ENV: "qwen/qwen3-max",
+                QWEN_MODEL_ENV: "qwen/qwen3.7-max",
                 MISTRAL_MODEL_ENV: "mistral-medium-latest",
             },
             anthropic_agent_factory=_fake_claude,
@@ -639,7 +639,7 @@ class TestHeterodoxKeyWiring:
         assert openrouter_models == {
             "deepseek/deepseek-v4-pro",
             "moonshotai/kimi-k2-thinking",
-            "qwen/qwen3-max",
+            "qwen/qwen3.7-max",
         }
         assert calls["mistral"] == [("mistral-medium-latest", "mi")]
 
@@ -728,6 +728,10 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "kimi": frozenset(
         {
+            "moonshotai/kimi-k2.7-code",
+            # Legacy id kept as an accepted alias (same keep-legacy principle
+            # as OPENROUTER_FALLBACK_MODELS in this PR); real_invoker still
+            # prices it for stored configs that pin it.
             "moonshotai/kimi-k2.6",
             "moonshotai/kimi-k2.5",
             "moonshotai/kimi-k2-0905",
@@ -738,7 +742,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     "qwen": frozenset(
         {
             "qwen/qwen3-235b-a22b",
-            "qwen/qwen3-max",
+            "qwen/qwen3.7-max",
             "qwen/qwen3.5-plus-02-15",
             "qwen/qwen-2.5-72b-instruct",
         }

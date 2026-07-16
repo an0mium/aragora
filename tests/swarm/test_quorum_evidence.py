@@ -2979,6 +2979,20 @@ def test_build_review_prompt_keeps_all_added_paths_when_deletion_sorts_first() -
         assert path in prompt
 
 
+def test_build_review_prompt_states_severity_verdict_contract() -> None:
+    """The prompt must teach reviewers the linter's counting contract: [P1]/[P2]
+    findings are blocking, so they require CHANGES-REQUESTED; [P3]-only may
+    accompany PASS. Without this, reviewers emit 'Verdict: PASS' + [P2] bodies
+    that has_blocking_or_negative_verdict rejects and the family never counts
+    (observed live on every claude review of 2026-07-09)."""
+    prompt = qe.build_review_prompt(
+        repo="o/r", pr=9073, head_sha=HEAD, diff_text="diff", name_status="M\tf.py"
+    )
+    assert "Severity contract" in prompt
+    assert "MUST be 'Verdict: CHANGES-REQUESTED'" in prompt
+    assert "[P3]-only findings may accompany a PASS" in prompt
+
+
 def test_build_review_prompt_never_truncates_complete_file_list_header() -> None:
     diff, name_status, added = _diff_with_deletion_before_additions()
     prompt = qe.build_review_prompt(
@@ -3604,3 +3618,410 @@ def test_advisory_dissent_settle_enabled_accepts_injected_env() -> None:
         qe.advisory_dissent_settle_enabled({"ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE": "0"}) is False
     )
     assert qe.advisory_dissent_settle_enabled({}) is False
+
+
+# ---------------------------------------------------------------------------
+# Verdict contract (issue #9241 B1): malformed reviews never count
+# ---------------------------------------------------------------------------
+
+
+class TestNoVerdictNeverCounts:
+    """A review with no parseable verdict is malformed and must never count.
+
+    Observed live 2026-07-11: the grok CLI harness returned preamble-only
+    bodies ("I'll review the PR ... Pulling the full implementation ...") with
+    verdict=unknown yet would_count=True — a no-verdict review feeding
+    counting_families and 'families heard' conditions.
+    """
+
+    def test_unknown_verdict_demotes_would_count_at_construction(self) -> None:
+        item = EvidenceItem(
+            family="grok",
+            body="I'll review the PR diff for correctness. Pulling files now.",
+            would_count=True,
+            verdict="unknown",
+        )
+        assert item.would_count is False
+        assert any("never counts" in p for p in item.problems)
+        assert item.supportive is False
+
+    def test_unknown_verdict_excluded_from_counting_families(self) -> None:
+        outcome = CollectOutcome(
+            repo="synaptent/aragora",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=3,
+            action="prepare",
+            action_reason="test",
+            items=[
+                EvidenceItem(family="grok", body="preamble only", would_count=True),
+                EvidenceItem(
+                    family="openai", body="Verdict: PASS", would_count=True, verdict="pass"
+                ),
+            ],
+        )
+        assert outcome.counting_families == ["openai"]
+
+    def test_grok_style_preamble_parses_to_unknown_verdict(self) -> None:
+        body = (
+            "## Grok independent model review\n\n"
+            "I'll review the PR #8809 diff at head 5899700 for correctness, "
+            "security, and regressions. Reading the full prompt and the "
+            "implementation files.\n\ndogfood: yes\n"
+        )
+        assert qe._reviewer_verdict(body) == "unknown"
+        item = EvidenceItem(family="grok", body=body, would_count=True)
+        assert item.would_count is False
+
+    @pytest.mark.parametrize("forged", ["approved", "UNKNOWN", "unknown ", "not_a_verdict", ""])
+    def test_forged_noncanonical_verdicts_never_count(self, forged: str) -> None:
+        """Prepared artifacts pass verdict strings verbatim: anything outside the
+        closed canonical set is untrusted and fails closed (#9249 review P2)."""
+        raw = {
+            "family": "grok",
+            "body": "body text",
+            "would_count": True,
+            "verdict": forged,
+        }
+        item = qe._evidence_item_from_dict(raw)
+        assert item.would_count is False
+        assert any("never counts" in problem for problem in item.problems)
+
+    def test_pass_and_changes_requested_verdicts_unaffected(self) -> None:
+        passing = EvidenceItem(
+            family="claude", body="Verdict: PASS", would_count=True, verdict="pass"
+        )
+        assert passing.would_count is True
+        assert passing.supportive is True
+
+        dissenting = EvidenceItem(
+            family="gemini",
+            body="Verdict: CHANGES-REQUESTED\n- [P1] real blocker",
+            would_count=False,
+            verdict="changes_requested",
+        )
+        assert dissenting.would_count is False
+        assert dissenting.problems == []
+
+    def test_from_raw_prepared_artifact_cannot_smuggle_unknown_count(self) -> None:
+        raw = {
+            "family": "grok",
+            "body": "preamble with no verdict line",
+            "would_count": True,
+            "verdict": "unknown",
+        }
+        item = qe._evidence_item_from_dict(raw)
+        assert item.would_count is False
+        assert any("never counts" in problem for problem in item.problems)
+
+
+class TestTruncationAndContradictionNeverCount:
+    """#9241 B2: incomplete or self-contradictory reviews are not evidence."""
+
+    def test_truncated_review_never_counts(self) -> None:
+        body = "Verdict: PASS\n\nlooks good" + "x" * 10 + f"\n\n{qe._TRUNCATION_MARKER}"
+        item = EvidenceItem(family="claude", body=body, would_count=True, verdict="pass")
+        assert item.would_count is False
+        assert any("truncated" in p for p in item.problems)
+
+    def test_cap_text_marker_matches_the_guard(self) -> None:
+        capped = qe._cap_text("y" * (qe._MAX_REVIEWER_CHARS + 10))
+        assert qe._TRUNCATION_MARKER in capped
+        item = EvidenceItem(
+            family="claude",
+            body=f"Verdict: PASS\n{capped}",
+            would_count=True,
+            verdict="pass",
+        )
+        assert item.would_count is False
+
+    def test_pass_with_blocking_finding_never_counts(self) -> None:
+        body = (
+            "Verdict: PASS\n\n"
+            "- [P1] `aragora/x.py:10` — unauthenticated endpoint allows fund transfers\n"
+        )
+        item = EvidenceItem(family="openai", body=body, would_count=True, verdict="pass")
+        assert item.would_count is False
+        assert any("contradicted" in p for p in item.problems)
+
+    def test_pass_with_p2_finding_never_counts_under_severity_gate(self) -> None:
+        body = "Verdict: PASS\n\n- [P2] `aragora/x.py:10` — prepared apply bypasses proof\n"
+        item = EvidenceItem(
+            family="openai",
+            body=body,
+            would_count=True,
+            verdict="pass",
+            severity_gated=True,
+        )
+        assert item.would_count is False
+        assert item.supportive is False
+        assert any("[P0]/[P1]/[P2]" in p for p in item.problems)
+
+    def test_pass_with_advisory_finding_still_counts(self) -> None:
+        body = "Verdict: PASS\n\n- [P3] `aragora/x.py:10` — minor naming nit\n"
+        item = EvidenceItem(family="openai", body=body, would_count=True, verdict="pass")
+        assert item.would_count is True
+        assert item.supportive is True
+
+    def test_clean_pass_still_counts(self) -> None:
+        item = EvidenceItem(
+            family="claude",
+            body="Verdict: PASS\n\nNo findings.\n",
+            would_count=True,
+            verdict="pass",
+        )
+        assert item.would_count is True
+
+
+def test_fresh_collect_verdict_parsed_from_composed_body(monkeypatch) -> None:
+    """A raw output whose verdict only becomes parseable after normalization
+    (e.g. wrapped in a thinking trace) must count via the composed body —
+    parsing raw text would over-reject (#9249 openai P2)."""
+    raw = "<think>deliberating at length</think>\nVerdict: PASS\n\nNo findings.\n"
+    assert qe._reviewer_verdict(qe._strip_thinking_traces(raw)) == "pass"
+
+    fakes, _posted = _fakes(tier=3)
+    fakes["reviewer_runner"] = lambda family, prompt: ReviewerResult(
+        family, raw, True, harness="test"
+    )
+    fakes["linter"] = lambda pr, head, committed, author, body, env: {
+        "would_count": True,
+        "counted_reviewer_ids": ["claude"],
+        "problems": [],
+    }
+    outcome = collect_evidence(
+        repo="synaptent/aragora", pr=1, families=["claude"], author="tester", apply=False, **fakes
+    )
+    (item,) = outcome.items
+    assert item.verdict == "pass"
+    assert item.would_count is True
+
+
+class TestFullFileGrounding:
+    """#9241 B3: reviewers get bounded post-change file contents so
+    import-existence claims are verifiable (the gemini false-P1 class)."""
+
+    DIFF = (
+        "diff --git a/aragora/x.py b/aragora/x.py\n"
+        "index 111..222 100644\n--- a/aragora/x.py\n+++ b/aragora/x.py\n"
+        "@@ -10,1 +10,2 @@\n+    use(NotFoundError)\n"
+        "diff --git a/aragora/y.py b/aragora/y.py\n"
+        "index 333..444 100644\n--- a/aragora/y.py\n+++ b/aragora/y.py\n"
+        "@@ -1,1 +1,1 @@\n-old\n+new\n"
+    )
+
+    def test_section_contains_import_block(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            return "from .exceptions import NotFoundError\n\ndef use(x): ...\n"
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        assert "from .exceptions import NotFoundError" in section
+        assert "VERIFY claims about imports" in section
+
+    def test_bounds_respected(self) -> None:
+        big = "\n".join(f"line {i}" for i in range(1000))
+
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            return big
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        assert f"first {qe._FULL_FILE_MAX_LINES} of 1000 lines" in section
+        assert "line 999" not in section
+
+    def test_fetch_failure_never_blocks(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            raise RuntimeError("api down")
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        # All files unavailable -> empty section (grounding silently absent)
+        assert section == ""
+
+    def test_fetch_timeout_never_blocks(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            raise subprocess.TimeoutExpired(cmd=["gh", "api"], timeout=30)
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        assert section == ""
+
+    def test_prompt_appends_section(self) -> None:
+        prompt = qe.build_review_prompt(
+            repo="o/r",
+            pr=1,
+            head_sha="a" * 40,
+            diff_text=self.DIFF,
+            full_files="=== FULL CHANGED FILES ... ===\ncontent",
+        )
+        assert prompt.rstrip().endswith("content")
+
+    def test_empty_diff_yields_empty_section(self) -> None:
+        assert qe._full_file_section("o/r", "a" * 40, "", file_fetcher=lambda *a: "x") == ""
+
+
+class TestCredentialWallClassification:
+    """#9241 B4: credential walls are classified infra states, never opaque."""
+
+    @pytest.mark.parametrize(
+        "detail",
+        [
+            "You're out of usage credits. Run /usage-credits to keep using Fable 5",
+            "ERROR: You've hit your usage limit. Visit ... or try again at 4:50 PM.",
+            "Not logged in · Please run /login",
+        ],
+    )
+    def test_live_wall_messages_classified(self, detail: str) -> None:
+        assert qe._is_credential_wall(detail) is True
+
+    def test_ordinary_errors_not_classified(self) -> None:
+        assert qe._is_credential_wall("SyntaxError: invalid syntax") is False
+        assert qe._is_credential_wall("") is False
+
+    def test_probe_prefixes_credential_unhealthy(self, monkeypatch) -> None:
+        proc = SimpleNamespace(returncode=1, stderr="You're out of usage credits.", stdout="")
+        monkeypatch.setattr(qe.subprocess, "run", lambda *a, **k: proc)
+        error = qe._cli_liveness_probe("claude", ["claude", "-p"])
+        assert error is not None
+        assert error.startswith("credential_unhealthy(claude)")
+
+    def test_walled_primary_with_disabled_fallback_is_explicit(self, monkeypatch) -> None:
+        walled = ReviewerResult(
+            "claude", "", False, "claude CLI liveness probe exit 1: out of usage credits"
+        )
+        monkeypatch.setattr(qe, "_run_claude_reviewer", lambda prompt: walled)
+        monkeypatch.setattr(
+            qe,
+            "_run_openrouter_reviewer",
+            lambda fam, prompt: ReviewerResult(
+                fam, "", False, "OpenRouter fallback disabled (set ...)"
+            ),
+        )
+        result = qe.default_reviewer_runner("claude", "prompt")
+        assert result.ok is False
+        assert result.error.startswith("credential_unhealthy(claude)")
+        assert "fallback is not configured" in result.error
+
+
+class TestB4RoundTwoHardening:
+    """Direction-aware truncation, path safety, and byte caps (#9249 round-2 P2s)."""
+
+    def test_truncated_changes_requested_still_counts(self) -> None:
+        body = f"Verdict: CHANGES-REQUESTED\n\n- [P2] partial finding\n{qe._TRUNCATION_MARKER}"
+        item = EvidenceItem(
+            family="claude", body=body, would_count=True, verdict="changes_requested"
+        )
+        assert item.would_count is True  # dissent survives truncation
+
+    def test_truncated_pass_still_demoted(self) -> None:
+        body = f"Verdict: PASS\n\nfine so far\n{qe._TRUNCATION_MARKER}"
+        item = EvidenceItem(family="claude", body=body, would_count=True, verdict="pass")
+        assert item.would_count is False
+
+    @pytest.mark.parametrize(
+        "bad", ["../../etc/passwd", "/abs/path.py", "a?b.py", "a#b.py", "a\\b.py", "x/../y.py"]
+    )
+    def test_suspicious_paths_rejected(self, bad: str) -> None:
+        with pytest.raises(ValueError):
+            qe._fetch_file_at_ref("o/r", "a" * 40, bad)
+
+    def test_long_line_file_is_char_capped(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            return "x" * 500_000  # one enormous line
+
+        section = qe._full_file_section(
+            "o/r", "a" * 40, TestFullFileGrounding.DIFF, file_fetcher=fetcher
+        )
+        assert len(section) < qe._FULL_FILE_SECTION_MAX_CHARS + 10_000
+        assert "[file clipped for length]" in section
+
+
+def test_full_file_grounding_is_opt_in_default_off(monkeypatch) -> None:
+    """Egress boundary (#9249 openai P1): full-file contents must never reach
+    reviewer transports unless the operator explicitly enables the flag."""
+    monkeypatch.delenv("ARAGORA_REVIEWER_FULL_FILE_GROUNDING", raising=False)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        qe, "_full_file_section", lambda *a, **k: calls.append("fetched") or "SECTION"
+    )
+    monkeypatch.setattr(
+        qe.merge_quorum_io,
+        "run",
+        lambda argv, env=None, timeout=None: SimpleNamespace(
+            returncode=0,
+            stdout=("deadbeef" * 5)
+            if "headRefOid" in " ".join(argv)
+            else TestFullFileGrounding.DIFF,
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(qe, "_fetch_name_status", lambda repo, pr: "")
+    prompt = qe.default_prompt_builder("o/r", 1, {"head_sha": "deadbeef" * 5})
+    assert calls == []
+    assert "SECTION" not in prompt
+
+    monkeypatch.setenv("ARAGORA_REVIEWER_FULL_FILE_GROUNDING", "1")
+    prompt = qe.default_prompt_builder("o/r", 1, {"head_sha": "deadbeef" * 5})
+    assert calls == ["fetched"]
+    assert prompt.rstrip().endswith("SECTION")
+
+
+def test_truncated_changes_requested_is_blocking_despite_advisory_visible_findings(
+    monkeypatch,
+) -> None:
+    """#9249 round-3 claude [P2]: hidden severity fails closed — a truncated CR
+    whose visible findings are advisory-only must still block."""
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    body = f"Verdict: CHANGES-REQUESTED\n\n- [P3] visible minor nit\n{qe._TRUNCATION_MARKER}"
+    item = EvidenceItem(
+        family="claude",
+        body=body,
+        would_count=True,
+        verdict="changes_requested",
+        severity_gated=True,
+    )
+    assert item.dissenting is True  # fail-closed on hidden severity
+
+
+def test_untruncated_advisory_cr_stays_advisory(monkeypatch) -> None:
+    body = "Verdict: CHANGES-REQUESTED\n\n- [P3] complete minor nit\n"
+    item = EvidenceItem(
+        family="claude",
+        body=body,
+        would_count=False,
+        verdict="changes_requested",
+        severity_gated=True,
+    )
+    assert item.dissenting is False  # severity gating unchanged for complete reviews
+
+
+def test_truncation_marker_survives_llm_normalization(monkeypatch) -> None:
+    """openai #9249 r9 [P2]: the opt-in LLM normalizer may rewrite a truncated
+    body into clean canonical form — the marker must be re-appended so the
+    truncated-PASS demotion still fires."""
+    truncated_raw = "garbled preamble" + f"\n\n{qe._TRUNCATION_MARKER}"
+    monkeypatch.setattr(
+        qe, "normalize_reviewer_output", lambda text, family: "Verdict: PASS\n\nNo findings."
+    )
+    body = compose_evidence_comment(
+        family="openai",
+        head_sha="a" * 40,
+        head_committed_at="2026-07-13T00:00:00Z",
+        pr=1,
+        reviewer_text=truncated_raw,
+    )
+    assert qe._TRUNCATION_MARKER in body
+    lint = {"would_count": True, "counted_reviewer_ids": ["openai"], "problems": []}
+    item = EvidenceItem(
+        family="openai", body=body, would_count=True, verdict=qe._reviewer_verdict(body)
+    )
+    assert item.would_count is False  # incomplete PASS never counts
+
+
+def test_untruncated_normalization_unchanged() -> None:
+    body = compose_evidence_comment(
+        family="openai",
+        head_sha="a" * 40,
+        head_committed_at="2026-07-13T00:00:00Z",
+        pr=1,
+        reviewer_text="Verdict: PASS\n\nNo findings.",
+    )
+    assert qe._TRUNCATION_MARKER not in body
