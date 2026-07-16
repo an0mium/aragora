@@ -10,30 +10,31 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+if __package__:
+    from scripts import contract_drift_inventory as drift
+else:
+    import contract_drift_inventory as drift  # type: ignore[no-redef]
+
 
 def _load_json(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text())
+    return drift._object(path, "JSON input")
 
 
-def _count_current_total(
-    verify_baseline: Path,
-    routes_baseline: Path,
-    parity_baseline: Path,
-) -> dict[str, int]:
-    verify = _load_json(verify_baseline)
-    routes = _load_json(routes_baseline)
-    parity = _load_json(parity_baseline)
-
+def _count_current_total(inventory: dict[str, Any]) -> dict[str, Any]:
+    summary = inventory.get("summary", {})
+    raw = summary.get("raw_category_counts", {})
     counts = {
-        "verify_python_sdk_drift": len(verify.get("python_sdk_drift", [])),
-        "verify_typescript_sdk_drift": len(verify.get("typescript_sdk_drift", [])),
-        "routes_missing_in_spec": len(routes.get("missing_in_spec", [])),
-        "routes_orphaned_in_spec": len(routes.get("orphaned_in_spec", [])),
-        "sdk_missing_from_both": len(parity.get("missing_from_both_sdks", [])),
+        "verify_python_sdk_drift": int(raw.get("python_sdk_drift", 0)),
+        "verify_typescript_sdk_drift": int(raw.get("typescript_sdk_drift", 0)),
+        "routes_missing_in_spec": int(raw.get("routes_missing_in_spec", 0)),
+        "routes_orphaned_in_spec": int(raw.get("routes_orphaned_in_spec", 0)),
+        "sdk_missing_from_both": int(raw.get("sdk_missing_from_both", 0)),
+        "raw_total_items": int(summary.get("raw_live_total", sum(raw.values()))),
+        "deduplicated_live_items": int(summary.get("deduplicated_live_total", 0)),
+        "classification_counts": summary.get("classification_counts", {}),
+        "judgment_sensitive_items": int(summary.get("judgment_sensitive_count", 0)),
+        "total_items": int(summary.get("open_item_count", 0)),
     }
-    counts["total_items"] = sum(counts.values())
     return counts
 
 
@@ -51,6 +52,8 @@ def build_ratchet_result(
     routes_baseline: Path,
     parity_baseline: Path,
     as_of: date,
+    inventory: dict[str, Any],
+    coverage_errors: list[str] | None = None,
 ) -> dict[str, Any]:
     program = _load_json(program_baseline)
     if not program:
@@ -76,9 +79,10 @@ def build_ratchet_result(
     weeks_elapsed = days_elapsed // 7
     effective_weeks = max(0, weeks_elapsed - grace_weeks)
 
-    counts = _count_current_total(verify_baseline, routes_baseline, parity_baseline)
+    counts = _count_current_total(inventory)
     target_max = _target_after_weeks(start_total, weekly_reduction, effective_weeks)
     current_total = counts["total_items"]
+    uncovered = coverage_errors or []
 
     result = {
         "program": {
@@ -96,7 +100,11 @@ def build_ratchet_result(
             "max_open_items": target_max,
         },
         "delta_to_target": current_total - target_max,
-        "passing": current_total <= target_max,
+        "inventory": {
+            "source_sha": inventory.get("provenance", {}).get("source_sha"),
+            "uncovered_items": uncovered,
+        },
+        "passing": current_total <= target_max and not uncovered,
     }
     return result
 
@@ -136,14 +144,31 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
     args = parser.parse_args()
 
-    as_of = date.fromisoformat(args.as_of)
-    result = build_ratchet_result(
-        program_baseline=args.program_baseline,
-        verify_baseline=args.verify_baseline,
-        routes_baseline=args.routes_baseline,
-        parity_baseline=args.parity_baseline,
-        as_of=as_of,
-    )
+    try:
+        as_of = date.fromisoformat(args.as_of)
+        repo = Path(__file__).resolve().parent.parent
+        live_inventory = drift.build_live_inventory(
+            repo,
+            verify_baseline=args.verify_baseline,
+            routes_baseline=args.routes_baseline,
+            parity_baseline=args.parity_baseline,
+        )
+        accepted_inventory = drift.load_inventory(
+            repo / "scripts/baselines/contract_drift_inventory.json"
+        )
+        coverage_errors = drift.inventory_coverage_errors(live_inventory, accepted_inventory)
+        result = build_ratchet_result(
+            program_baseline=args.program_baseline,
+            verify_baseline=args.verify_baseline,
+            routes_baseline=args.routes_baseline,
+            parity_baseline=args.parity_baseline,
+            as_of=as_of,
+            inventory=live_inventory,
+            coverage_errors=coverage_errors,
+        )
+    except (drift.InventoryError, OSError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
     if args.json:
         print(json.dumps(result, indent=2))

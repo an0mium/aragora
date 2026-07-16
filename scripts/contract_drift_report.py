@@ -12,8 +12,8 @@ from typing import Any
 
 import check_sdk_parity
 import check_sdk_namespace_parity
-import validate_openapi_routes
-import verify_sdk_contracts
+from contract_drift_inventory import InventoryError, build_live_inventory
+import contract_drift_inventory as drift
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -34,33 +34,19 @@ def _load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
-def _verify_counts() -> tuple[dict[str, int], dict[str, int]]:
+def _inventory_counts(inventory: dict[str, Any] | None = None) -> dict[str, int]:
+    measured = inventory if inventory is not None else build_live_inventory(PROJECT_ROOT)
+    raw = measured["summary"]["raw_category_counts"]
+    return {key: int(value) for key, value in raw.items()}
+
+
+def _verify_counts(inventory: dict[str, Any]) -> tuple[dict[str, int], dict[str, int]]:
     baseline_path = PROJECT_ROOT / "scripts/baselines/verify_sdk_contracts.json"
     baseline = _load_json(baseline_path)
-
-    spec_paths = [PROJECT_ROOT / "docs/api/openapi.json"]
-    generated = PROJECT_ROOT / "docs/api/openapi_generated.json"
-    if generated.exists():
-        spec_paths.append(generated)
-    openapi_eps = verify_sdk_contracts._load_openapi_endpoints_multi(spec_paths)
-
-    py_drift: set[str] = set()
-    for p in sorted((PROJECT_ROOT / "sdk/python/aragora_sdk/namespaces").glob("*.py")):
-        if p.stem.startswith("_"):
-            continue
-        for method, path in sorted(verify_sdk_contracts._extract_py(p.read_text()) - openapi_eps):
-            py_drift.add(f"{method.upper()} {path}")
-
-    ts_drift: set[str] = set()
-    for p in sorted((PROJECT_ROOT / "sdk/typescript/src/namespaces").glob("*.ts")):
-        if p.stem.startswith("_"):
-            continue
-        for method, path in sorted(verify_sdk_contracts._extract_ts(p.read_text()) - openapi_eps):
-            ts_drift.add(f"{method.upper()} {path}")
-
+    counts = _inventory_counts(inventory)
     current = {
-        "python_sdk_drift": len(py_drift),
-        "typescript_sdk_drift": len(ts_drift),
+        "python_sdk_drift": counts["python_sdk_drift"],
+        "typescript_sdk_drift": counts["typescript_sdk_drift"],
         "missing_stable": 0,
     }
     base = {
@@ -71,51 +57,44 @@ def _verify_counts() -> tuple[dict[str, int], dict[str, int]]:
     return base, current
 
 
-def _route_counts() -> tuple[dict[str, int], dict[str, int]]:
+def _route_counts(inventory: dict[str, Any]) -> tuple[dict[str, int], dict[str, int]]:
     baseline_path = PROJECT_ROOT / "scripts/baselines/validate_openapi_routes.json"
     baseline = _load_json(baseline_path)
-    result = validate_openapi_routes.validate_coverage(
-        "docs/api/openapi.json",
-        fail_on_missing=False,
-        output_json=False,
-        baseline_path=str(baseline_path),
-        include_internal=False,
-        internal_prefixes_path="scripts/baselines/internal_route_prefixes.json",
-    )
+    counts = _inventory_counts(inventory)
     base = {
         "missing_in_spec": len(baseline.get("missing_in_spec", [])),
         "orphaned_in_spec": len(baseline.get("orphaned_in_spec", [])),
     }
     current = {
-        "missing_in_spec": result["missing_in_spec_count"],
-        "orphaned_in_spec": result["orphaned_in_spec_count"],
+        "missing_in_spec": counts["routes_missing_in_spec"],
+        "orphaned_in_spec": counts["routes_orphaned_in_spec"],
     }
     return base, current
 
 
-def _parity_counts() -> tuple[dict[str, int], dict[str, int]]:
+def _parity_counts(inventory: dict[str, Any]) -> tuple[dict[str, int], dict[str, int]]:
     baseline_path = PROJECT_ROOT / "scripts/baselines/check_sdk_parity.json"
     baseline = _load_json(baseline_path)
-    report = check_sdk_parity.build_parity_report(
-        check_sdk_parity.extract_handler_routes(),
-        check_sdk_parity.extract_sdk_paths_python(),
-        check_sdk_parity.extract_sdk_paths_typescript(),
-        check_sdk_parity.extract_openapi_routes(),
-    )
+    counts = _inventory_counts(inventory)
     base = {
         "missing_from_both_sdks": len(baseline.get("missing_from_both_sdks", [])),
     }
-    current = {"missing_from_both_sdks": report["summary"]["routes_missing_from_both_sdks"]}
+    current = {"missing_from_both_sdks": counts["sdk_missing_from_both"]}
     return base, current
 
 
 def _namespace_counts() -> tuple[dict[str, int], dict[str, int]]:
     baseline_path = PROJECT_ROOT / "scripts/baselines/check_sdk_namespace_parity.json"
     baseline = _load_json(baseline_path).get("namespaces", {})
+    sdk_root = PROJECT_ROOT / "sdk"
+    py = drift._scan(
+        sdk_root / "python/aragora_sdk/namespaces", drift.extract_python_endpoints, "py"
+    )
+    ts, _ = drift.scan_typescript_sdk_by_namespace(sdk_root / "typescript/src/namespaces")
     report = check_sdk_parity.build_parity_report(
         check_sdk_parity.extract_handler_routes(),
-        check_sdk_parity.extract_sdk_paths_python(),
-        check_sdk_parity.extract_sdk_paths_typescript(),
+        {name: {path for _, path in endpoints} for name, endpoints in py.items()},
+        {name: {path for _, path in endpoints} for name, endpoints in ts.items()},
         check_sdk_parity.extract_openapi_routes(),
     )
     current = check_sdk_namespace_parity.build_namespace_counts(report)
@@ -129,9 +108,10 @@ def _delta(base: int, current: int) -> int:
 
 
 def build_summary() -> dict[str, Any]:
-    verify_base, verify_current = _verify_counts()
-    route_base, route_current = _route_counts()
-    parity_base, parity_current = _parity_counts()
+    inventory = build_live_inventory(PROJECT_ROOT)
+    verify_base, verify_current = _verify_counts(inventory)
+    route_base, route_current = _route_counts(inventory)
+    parity_base, parity_current = _parity_counts(inventory)
     ns_base, ns_current = _namespace_counts()
 
     sections = {
@@ -205,7 +185,7 @@ def main() -> int:
 
     try:
         summary = build_summary()
-    except BaselineJsonError as exc:
+    except (BaselineJsonError, InventoryError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     md = to_markdown(summary)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -40,7 +41,15 @@ def _seed_files(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     return verify, routes, parity, program
 
 
+def _mock_inventory(monkeypatch) -> None:
+    summary = defaultdict(int, total_items=10)
+    monkeypatch.setattr(ratchet.drift, "build_live_inventory", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(ratchet.drift, "inventory_coverage_errors", lambda *_args: [])
+    monkeypatch.setattr(ratchet, "_count_current_total", lambda _value: summary)
+
+
 def test_strict_passes_on_program_start(monkeypatch, tmp_path: Path):
+    _mock_inventory(monkeypatch)
     verify, routes, parity, program = _seed_files(tmp_path)
     today = date.today().isoformat()
 
@@ -77,6 +86,7 @@ def test_strict_passes_on_program_start(monkeypatch, tmp_path: Path):
 
 
 def test_strict_fails_when_above_target(monkeypatch, tmp_path: Path):
+    _mock_inventory(monkeypatch)
     verify, routes, parity, program = _seed_files(tmp_path)
     today = date.today()
     as_of = (today + timedelta(days=8)).isoformat()

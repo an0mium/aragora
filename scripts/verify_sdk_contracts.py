@@ -21,7 +21,6 @@ import sys
 from pathlib import Path
 
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head"}
-
 PY_REQUEST_RE = re.compile(
     r'self\._client\._request\(\s*["\'](?P<method>GET|POST|PUT|PATCH|DELETE)["\']'
     r'\s*,\s*(?:f?["\'])(?P<path>/api/[^"\']+)["\']'
@@ -35,13 +34,12 @@ TS_DIRECT_RE = re.compile(
     r"\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")"
 )
 
-
-try:
-    # Direct script execution (python scripts/verify_sdk_contracts.py)
-    from sdk_path_normalize import normalize_sdk_path
-except ModuleNotFoundError:
-    # Module import context (pytest importing scripts.verify_sdk_contracts)
+if __package__:
+    from scripts import contract_drift_inventory as drift
     from scripts.sdk_path_normalize import normalize_sdk_path
+else:
+    import contract_drift_inventory as drift  # type: ignore[no-redef]
+    from sdk_path_normalize import normalize_sdk_path  # type: ignore[no-redef]
 
 
 def _normalize(path: str) -> str:
@@ -49,39 +47,19 @@ def _normalize(path: str) -> str:
 
 
 def _load_openapi_endpoints(spec_path: Path) -> set[tuple[str, str]]:
-    spec = json.loads(spec_path.read_text())
-    endpoints: set[tuple[str, str]] = set()
-    for path, ops in spec.get("paths", {}).items():
-        for method in ops:
-            if method.lower() in HTTP_METHODS:
-                endpoints.add((method.lower(), _normalize(path)))
-    return endpoints
+    return drift.load_openapi_endpoints([spec_path])
 
 
 def _load_openapi_endpoints_multi(spec_paths: list[Path]) -> set[tuple[str, str]]:
-    endpoints: set[tuple[str, str]] = set()
-    for path in spec_paths:
-        if path.exists():
-            endpoints |= _load_openapi_endpoints(path)
-    return endpoints
+    return drift.load_openapi_endpoints(spec_paths)
 
 
 def _extract_py(content: str) -> set[tuple[str, str]]:
-    eps: set[tuple[str, str]] = set()
-    for m in PY_REQUEST_RE.finditer(content):
-        path = _normalize(m.group("path"))
-        if path.startswith("/api/"):
-            eps.add((m.group("method").lower(), path))
-    return eps
+    return drift.extract_python_endpoints(content)
 
 
 def _extract_ts(content: str) -> set[tuple[str, str]]:
-    eps: set[tuple[str, str]] = set()
-    for m in TS_REQUEST_RE.finditer(content):
-        eps.add((m.group("method").lower(), _normalize(m.group("path")[1:-1])))
-    for m in TS_DIRECT_RE.finditer(content):
-        eps.add((m.group("method").lower(), _normalize(m.group("path")[1:-1])))
-    return eps
+    return drift.extract_typescript_endpoints(content)
 
 
 def _entry(method: str, path: str) -> str:
@@ -92,8 +70,7 @@ def _load_baseline(path: Path | None) -> dict[str, set[str]]:
     if path is None:
         return {"python_sdk_drift": set(), "typescript_sdk_drift": set(), "missing_stable": set()}
     if not path.exists():
-        print(f"WARNING: Baseline file not found: {path}")
-        return {"python_sdk_drift": set(), "typescript_sdk_drift": set(), "missing_stable": set()}
+        raise ValueError(f"Baseline file not found: {path}")
 
     data = json.loads(path.read_text())
     return {
@@ -118,6 +95,12 @@ def main() -> int:
         default=[],
         help="Additional OpenAPI JSON spec path(s) to union for drift comparison",
     )
+    parser.add_argument(
+        "--inventory",
+        type=Path,
+        default=Path("scripts/baselines/contract_drift_inventory.json"),
+        help="Itemized accepted contract-drift inventory",
+    )
     args = parser.parse_args()
 
     repo = Path(__file__).resolve().parent.parent
@@ -137,6 +120,17 @@ def main() -> int:
         spec_paths.append(p)
 
     openapi_eps = _load_openapi_endpoints_multi(spec_paths)
+    extra_specs = spec_paths[2:]
+    live_inventory = drift.build_live_inventory(
+        repo,
+        verify_baseline=args.baseline,
+        extra_specs=extra_specs,
+    )
+    accepted_inventory_path = args.inventory
+    if not accepted_inventory_path.is_absolute():
+        accepted_inventory_path = repo / accepted_inventory_path
+    accepted_inventory = drift.load_inventory(accepted_inventory_path)
+    coverage_errors = drift.inventory_coverage_errors(live_inventory, accepted_inventory)
 
     def _label(path: Path) -> str:
         try:
@@ -202,13 +196,13 @@ def main() -> int:
     ts_drift_entries = {_entry(m, p) for _, m, p in ts_drift}
     baseline = _load_baseline(args.baseline)
     if py_drift:
-        print(f"\nPython SDK drift ({len(py_drift)} endpoints not in spec):")
+        print(f"\nPython SDK drift ({len(py_drift_entries)} unique endpoints not in spec):")
         for ns, method, path in py_drift[:20]:
             print(f"  {ns}: {method} {path}")
         has_drift = True
 
     if ts_drift:
-        print(f"\nTypeScript SDK drift ({len(ts_drift)} endpoints not in spec):")
+        print(f"\nTypeScript SDK drift ({len(ts_drift_entries)} unique endpoints not in spec):")
         for ns, method, path in ts_drift[:20]:
             print(f"  {ns}: {method} {path}")
         has_drift = True
@@ -253,15 +247,21 @@ def main() -> int:
             for entry in sorted(new_missing_stable)[:10]:
                 print(f"  NEW STABLE MISSING: {entry}")
 
+    print(f"\nItemized inventory coverage: uncovered={len(coverage_errors)}")
+    if coverage_errors:
+        for error in coverage_errors[:20]:
+            print(f"  UNCOVERED: {error}")
+        has_drift = True
+
     if not has_drift:
         print("\nAll SDK contracts verified!")
         return 0
 
     if args.strict:
-        if new_py or new_ts or new_missing_stable:
+        if coverage_errors or new_missing_stable:
             print("\nFAILED: SDK/API drift regression detected (--strict mode)")
             return 1
-        print("\nPASS: No new SDK/API drift relative to baseline (--strict mode)")
+        print("\nPASS: Live SDK/API drift is covered by the itemized inventory (--strict mode)")
         return 0
 
     print("\nWARNING: SDK/API drift detected (use --strict to fail)")
