@@ -194,7 +194,7 @@ class MemoryAPI:
         """
         return self.list_critiques(agent=agent, limit=limit, offset=offset)
 
-    def store(
+    def store_entry(
         self,
         content: str,
         *,

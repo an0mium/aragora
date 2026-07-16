@@ -524,13 +524,13 @@ export class MemoryAPI {
    *
    * @example
    * ```typescript
-   * const stored = await client.memory.store('User prefers dark mode', {
+   * const stored = await client.memory.storeEntry('User prefers dark mode', {
    *   tier: 'slow',
    *   importance: 0.8,
    * });
    * ```
    */
-  async store(
+  async storeEntry(
     content: string,
     options: { tier?: string; importance?: number } = {},
   ): Promise<{ id: string; tier: string }> {
