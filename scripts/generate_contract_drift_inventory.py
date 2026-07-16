@@ -155,8 +155,15 @@ def find_sync_issues(inventory: dict[str, Any], current_ids: dict[str, str]) -> 
         return ["Inventory has no 'items' list"]
 
     open_ids = set()
+    seen_ids: set[str] = set()
     for item in items:
         item_id = item.get("id", "<missing id>")
+        # Duplicate ids would inflate a discovered batch's size (and thus its
+        # scheduled target) while dict-collapsed append-only checks see only
+        # one row — every id must be unique.
+        if item_id in seen_ids:
+            issues.append(f"Duplicate inventory id: {item_id}")
+        seen_ids.add(item_id)
         klass = item.get("class")
         if klass not in VALID_CLASSES:
             issues.append(f"Unknown class {klass!r} for inventory item {item_id}")

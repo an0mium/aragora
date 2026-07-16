@@ -9,6 +9,7 @@ on:
       - 'sdk/**'
       - 'docs/api/openapi*.json'
       - 'scripts/check_contract_drift_ratchet.py'
+      - 'scripts/generate_contract_drift_inventory.py'
       - 'scripts/contract_drift_report.py'
       - 'scripts/generate_contract_drift_backlog.py'
       - 'scripts/generate_contract_drift_issue_plan.py'

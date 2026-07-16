@@ -200,3 +200,22 @@ def test_generator_never_mints_resolved(monkeypatch, tmp_path: Path):
     items = _inventory(repo)["items"]
     assert all(item["status"] == "open" for item in items)
     assert "python_sdk_drift:GET /b" not in {item["id"] for item in items}
+
+
+def test_duplicate_inventory_ids_fail_sync(tmp_path):
+    """Round-4 review P2: duplicated rows (especially resolved duplicates of a
+
+    discovered item) would inflate batch_size past dict-collapsed append-only
+    checks; every inventory id must be unique.
+    """
+    item = {
+        "id": "python_sdk_drift:GET /api/x",
+        "class": "discovered",
+        "discovered_on": "2026-06-01",
+        "provenance": "found via #9999",
+        "status": "open",
+    }
+    dup_resolved = dict(item, status="resolved", resolved_on="2026-07-01")
+    inventory = {"items": [item, dup_resolved]}
+    issues = gen.find_sync_issues(inventory, {"python_sdk_drift:GET /api/x": "python_sdk_drift"})
+    assert any("Duplicate inventory id" in i for i in issues)
