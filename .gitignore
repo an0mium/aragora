@@ -120,6 +120,7 @@ artifacts/
 docs/artifacts/*
 !docs/artifacts/2026-07-decision-integrity-dogfooding.md
 !docs/artifacts/2026-07-reviewer-failure-taxonomy.md
+!docs/artifacts/2026-07-10-stranger-sim-run-1.md
 smoke_output/
 replays/*.mp3
 
