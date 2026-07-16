@@ -42,8 +42,10 @@ OPUS_48_DIRECT: Final = "claude-opus-4-8"
 OPUS_48_VIA_OPENROUTER: Final = "anthropic/claude-opus-4.8"
 
 # Anthropic Claude Fable 5 - Mythos-class flagship at 2x Opus 4.8 price
-# ($10/$50 vs $5/$25). Pinned only where quality-per-call dominates volume:
-# judge and audit roles. Bulk debate roles stay on Opus 4.8 by design.
+# ($10/$50 vs $5/$25). Pinned where quality-per-call dominates volume: judge
+# and audit roles here, plus the claude CLI agent default (subscription-priced
+# on that surface, so the 2x API rate does not multiply across bulk rounds).
+# API-billed bulk debate roles stay on Opus 4.8 by design.
 FABLE_5_DIRECT: Final = "claude-fable-5"
 FABLE_5_VIA_OPENROUTER: Final = "anthropic/claude-fable-5"
 # Backwards-compatible constant names for callers that have not migrated yet.

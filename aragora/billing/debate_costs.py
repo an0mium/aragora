@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # These mirror PROVIDER_PRICING from usage.py but can be overridden per-instance.
 DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     "anthropic": {
+        "claude-fable-5": (Decimal("10.00"), Decimal("50.00")),
         "claude-opus-4-8": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4-7": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4.8": (Decimal("5.00"), Decimal("25.00")),
@@ -40,6 +41,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "claude-haiku-4.5": (Decimal("1.00"), Decimal("5.00")),
     },
     "openai": {
+        "gpt-5.6-sol": (Decimal("5.00"), Decimal("30.00")),
         "gpt-5.5": (Decimal("5.00"), Decimal("30.00")),  # live 2026-07-16
         "gpt-4.1": (Decimal("2.00"), Decimal("8.00")),
         "gpt-4.1-mini": (Decimal("0.40"), Decimal("1.60")),
@@ -71,6 +73,8 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     },
     "openrouter": {
         "default": (Decimal("2.00"), Decimal("8.00")),
+        "anthropic/claude-fable-5": (Decimal("10.00"), Decimal("50.00")),
+        "openai/gpt-5.6-sol": (Decimal("5.00"), Decimal("30.00")),
         "openai/gpt-5.5": (Decimal("5.00"), Decimal("30.00")),  # live 2026-07-16
         "google/gemini-3.5-flash": (Decimal("1.50"), Decimal("9.00")),
         "anthropic/claude-opus-4-8": (Decimal("5.00"), Decimal("25.00")),

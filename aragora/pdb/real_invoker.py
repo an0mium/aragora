@@ -168,7 +168,6 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # Anthropic
     # Live catalog 2026-07-16 for the #9075 frontier defaults.
     "claude-fable-5": (10.00, 50.00),
-    "gpt-5.6-sol": (5.00, 30.00),
     "claude-opus-4-8": (5.00, 25.00),
     "claude-opus-4.8": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
@@ -182,6 +181,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "claude-haiku-4.5": (1.00, 5.00),
     "claude-haiku-4-5-20251001": (1.00, 5.00),
     # OpenAI
+    "gpt-5.6-sol": (5.00, 30.00),
     "gpt-5.5": (5.00, 30.00),  # live catalog 2026-07-16
     "gpt-5.4": (2.50, 10.00),
     "gpt-5.4-pro": (5.00, 20.00),
