@@ -825,7 +825,7 @@ class TestNewFamilyCostTracking:
                 tokens_in=1_000_000,
                 tokens_out=1_000_000,
             )
-            == pytest.approx(4.22)  # 0.72 + 3.50 (k2.7-code)
+            == pytest.approx(4.25)  # 0.75 + 3.50 (k2.7-code, live catalog 2026-07-16)
         )
 
     def test_qwen3_235b_cost(self) -> None:
