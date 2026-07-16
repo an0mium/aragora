@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 import scripts.generate_openapi as generate_openapi
 from aragora.server.handlers.openapi_decorator import (
     api_endpoint,
@@ -182,3 +184,81 @@ def test_handler_routes_supplement_merges_multiple_methods(monkeypatch) -> None:
     supplement = generate_openapi._collect_handler_routes_supplement({})
 
     assert set(supplement["/api/v1/dummy/item"]) == {"get", "delete"}
+
+
+def test_handler_routes_supplement_fails_closed_without_route_policy(
+    monkeypatch, tmp_path: Path
+) -> None:
+    import sys
+    import types
+
+    class DummyHandler:
+        ROUTES = ["/api/v1/dummy/things"]
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+    # No scripts/baselines/internal_route_prefixes.json under tmp_path.
+    monkeypatch.setattr(generate_openapi, "PROJECT_ROOT", tmp_path)
+
+    with pytest.raises(SystemExit) as excinfo:
+        generate_openapi._collect_handler_routes_supplement({})
+    assert "internal_route_prefixes.json" in str(excinfo.value)
+
+
+def test_handler_routes_supplement_fails_closed_on_unparseable_policy(
+    monkeypatch, tmp_path: Path
+) -> None:
+    import sys
+    import types
+
+    class DummyHandler:
+        ROUTES = ["/api/v1/dummy/things"]
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+    policy = tmp_path / "scripts" / "baselines" / "internal_route_prefixes.json"
+    policy.parent.mkdir(parents=True)
+    policy.write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(generate_openapi, "PROJECT_ROOT", tmp_path)
+
+    with pytest.raises(SystemExit) as excinfo:
+        generate_openapi._collect_handler_routes_supplement({})
+    assert "internal_route_prefixes.json" in str(excinfo.value)
+
+
+def test_handler_routes_supplement_derives_verbs_from_handler_methods(monkeypatch) -> None:
+    import sys
+    import types
+
+    class MultiVerbHandler:
+        """Handler implementing both GET and POST for the same route."""
+
+        ROUTES = ["/api/v1/dummy/multiverb"]
+
+        def handle(self, path, query_params, handler):
+            return None
+
+        def handle_post(self, path, query_params, handler):
+            return None
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", MultiVerbHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    supplement = generate_openapi._collect_handler_routes_supplement({})
+
+    assert set(supplement["/api/v1/dummy/multiverb"]) == {"get", "post"}
+    assert "requestBody" in supplement["/api/v1/dummy/multiverb"]["post"]
+    assert "requestBody" not in supplement["/api/v1/dummy/multiverb"]["get"]
+
+
+def test_implemented_handler_verbs_ignores_base_no_op_defaults() -> None:
+    from aragora.server.handlers.autonomous.improve import AutonomousImproveHandler
+    from aragora.server.handlers.base import BaseHandler
+
+    # Base handler defaults are no-ops and must not count as implementations.
+    assert generate_openapi._implemented_handler_verbs(BaseHandler) == []
+    # The motivating example: /api/autonomous/improve serves GET and POST.
+    assert generate_openapi._implemented_handler_verbs(AutonomousImproveHandler) == [
+        "get",
+        "post",
+    ]

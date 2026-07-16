@@ -33,34 +33,41 @@ if str(_REPO_ROOT) not in sys.path:
 # environments when no secrets are actually needed.
 os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
 
-DEFAULT_EXCLUDED_PREFIXES = (
-    "/api/v1/control-plane/",
-    "/api/v1/sme/",
-    "/api/v1/agent-dashboard/",
-    "/api/v1/sso/",
-    "/api/v1/admin/emergency/",
-)
-
 
 def load_internal_prefixes(path: str | None = None) -> tuple[str, ...]:
-    """Load internal/private route prefixes from a policy file."""
+    """Load internal/private route prefixes from a policy file.
+
+    Fails CLOSED: if the policy file is missing or unparseable, exit with an
+    error instead of silently falling back — a silent fallback would let
+    internal route families drift into (or mask leaks in) the public spec.
+    """
     if path is None:
-        path = "scripts/baselines/internal_route_prefixes.json"
+        path = str(_REPO_ROOT / "scripts" / "baselines" / "internal_route_prefixes.json")
     p = Path(path)
-    if not p.exists():
-        return DEFAULT_EXCLUDED_PREFIXES
     try:
         data = json.loads(p.read_text())
-    except (json.JSONDecodeError, OSError):
-        return DEFAULT_EXCLUDED_PREFIXES
-    prefixes = data.get("prefixes")
+    except (json.JSONDecodeError, OSError) as exc:
+        print(
+            f"Error: cannot load internal route policy {p}: {exc}. "
+            "Refusing to validate without it (fail closed).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    prefixes = data.get("prefixes") if isinstance(data, dict) else None
     if not isinstance(prefixes, list):
-        return DEFAULT_EXCLUDED_PREFIXES
-    normalized = []
-    for item in prefixes:
-        if isinstance(item, str) and item.startswith("/api/"):
-            normalized.append(item)
-    return tuple(normalized) if normalized else DEFAULT_EXCLUDED_PREFIXES
+        print(
+            f"Error: internal route policy {p} must contain a 'prefixes' list.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    normalized = [item for item in prefixes if isinstance(item, str) and item.startswith("/api/")]
+    if not normalized:
+        print(
+            f"Error: internal route policy {p} contains no valid '/api/' prefixes.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return tuple(normalized)
 
 
 def get_handler_routes() -> set[str]:
@@ -125,6 +132,24 @@ def get_handler_routes() -> set[str]:
     return routes
 
 
+# Deliberately bogus tail segment: no real handler route ends in this, so a
+# can_handle that claims it is prefix-matching rather than route-matching.
+_CANARY_SEGMENT = "zz-nonexistent-canary-zz"
+
+
+def _probe_can_handle(can_handle: Any, path: str, method: str) -> bool:
+    """Call can_handle(path, method), falling back to the single-arg form."""
+    try:
+        return bool(can_handle(path, method))
+    except TypeError:
+        try:
+            return bool(can_handle(path))
+        except Exception:  # noqa: BLE001 - probing must never fail the gate
+            return False
+    except Exception:  # noqa: BLE001 - probing must never fail the gate
+        return False
+
+
 def filter_served_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
     """Split orphan candidates into (truly orphaned, served via can_handle).
 
@@ -133,6 +158,13 @@ def filter_served_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
     routes them. Probe every registered handler's ``can_handle`` against each
     candidate (both /api/v1/ and unversioned /api/ forms, all common methods)
     and drop candidates that a handler accepts.
+
+    Specificity guard: a handler only suppresses a candidate if it rejects a
+    canary path derived from the same candidate (a clearly nonexistent tail
+    segment). Handlers whose ``can_handle`` also claims the canary are broad
+    prefix matchers — accepting their claim would let bogus spec paths hide
+    behind them. Every suppression is logged (path + handler class) so it is
+    never silent.
     """
     if not candidates:
         return set(), set()
@@ -142,7 +174,7 @@ def filter_served_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
     except ImportError:
         return set(candidates), set()
 
-    probes = []
+    probes: list[tuple[str, Any]] = []
     for _attr_name, handler_ref in HANDLER_REGISTRY:
         handler_class = handler_ref
         resolve = getattr(handler_ref, "resolve", None)
@@ -159,34 +191,46 @@ def filter_served_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
             continue
         can_handle = getattr(instance, "can_handle", None)
         if callable(can_handle):
-            probes.append(can_handle)
+            handler_name = getattr(handler_class, "__name__", repr(handler_class))
+            probes.append((handler_name, can_handle))
 
     methods = ("GET", "POST", "PUT", "PATCH", "DELETE")
     served: set[str] = set()
-    for candidate in candidates:
+    suppressions: list[tuple[str, str]] = []
+    for candidate in sorted(candidates):
         variants = {candidate}
         if candidate.startswith("/api/v1/"):
             variants.add(candidate.replace("/api/v1/", "/api/", 1))
-        for can_handle in probes:
-            accepted = False
+        serving_handler: str | None = None
+        for handler_name, can_handle in probes:
+            non_specific = False
             for variant in variants:
                 for method in methods:
-                    try:
-                        accepted = bool(can_handle(variant, method))
-                    except TypeError:
-                        try:
-                            accepted = bool(can_handle(variant))
-                        except Exception:  # noqa: BLE001 - probing must never fail the gate
-                            accepted = False
-                    except Exception:  # noqa: BLE001 - probing must never fail the gate
-                        accepted = False
-                    if accepted:
+                    if not _probe_can_handle(can_handle, variant, method):
+                        continue
+                    canary = variant.rstrip("/") + "/" + _CANARY_SEGMENT
+                    if _probe_can_handle(can_handle, canary, method):
+                        # Claims the canary too: prefix-matching can_handle,
+                        # not evidence this specific path is served.
+                        non_specific = True
                         break
-                if accepted:
+                    serving_handler = handler_name
                     break
-            if accepted:
-                served.add(candidate)
+                if serving_handler is not None or non_specific:
+                    break
+            if serving_handler is not None:
                 break
+        if serving_handler is not None:
+            served.add(candidate)
+            suppressions.append((candidate, serving_handler))
+
+    if suppressions:
+        print(
+            f"Spec-orphan suppressions via can_handle ({len(suppressions)}):",
+            file=sys.stderr,
+        )
+        for path, handler_name in suppressions:
+            print(f"  - {path} (served by {handler_name})", file=sys.stderr)
 
     return set(candidates) - served, served
 

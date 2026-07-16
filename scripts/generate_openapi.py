@@ -755,6 +755,60 @@ def _route_to_spec_path(route: str) -> str:
     return "/".join(segments)
 
 
+_HANDLER_VERB_METHODS = (
+    ("handle", "get"),
+    ("handle_get", "get"),
+    ("handle_post", "post"),
+    ("handle_put", "put"),
+    ("handle_patch", "patch"),
+    ("handle_delete", "delete"),
+)
+
+
+def _implemented_handler_verbs(handler_class: Any) -> list[str]:
+    """Derive the HTTP verb set a handler actually implements.
+
+    The dispatch layer (handler_registry) tries the method-specific handler
+    first (POST -> handle_post(), DELETE -> handle_delete(), ...) and falls
+    through to the generic handle() when it returns None, while GET goes
+    straight to handle(). So overridden handle_* methods are definitive verb
+    evidence, and an overridden handle() adds GET. No-op defaults inherited
+    from the shared base handler do not count as implementations. Returns an
+    empty list when nothing can be derived (the caller falls back to the
+    path-segment heuristic).
+
+    Note: a handler that overrides ONLY generic handle() may still serve any
+    verb through the dispatch fall-through (dispatcher-style handlers branch
+    on the request method inside handle()), so callers must not treat a bare
+    ["get"] result as proof the route is GET-only.
+    """
+    base_funcs: dict[str, Any] = {}
+    try:
+        from aragora.server.handlers.base import BaseHandler
+
+        for attr, _verb in _HANDLER_VERB_METHODS:
+            base = getattr(BaseHandler, attr, None)
+            if base is not None:
+                base_funcs[attr] = getattr(base, "__func__", base)
+    except Exception:  # noqa: BLE001 - fall back to presence-based detection
+        pass
+
+    verbs: list[str] = []
+    for attr, verb in _HANDLER_VERB_METHODS:
+        try:
+            method = getattr(handler_class, attr, None)
+        except Exception:  # noqa: BLE001 - exotic descriptors; skip attribute
+            continue
+        if not callable(method):
+            continue
+        func = getattr(method, "__func__", method)
+        if attr in base_funcs and func is base_funcs[attr]:
+            continue  # inherited no-op default, not an implementation
+        if verb not in verbs:
+            verbs.append(verb)
+    return verbs
+
+
 def _collect_handler_routes_supplement(
     existing_paths: dict[str, dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
@@ -771,15 +825,30 @@ def _collect_handler_routes_supplement(
         print(f"Warning: handler ROUTES supplement skipped: {exc}", file=sys.stderr)
         return {}
 
-    internal_prefixes: tuple[str, ...] = ()
+    # Fail CLOSED on the internal-route policy: without it, internal route
+    # families (control-plane, SSO, emergency admin, ...) would silently
+    # publish into the public spec.
     prefixes_file = PROJECT_ROOT / "scripts" / "baselines" / "internal_route_prefixes.json"
     try:
         data = json.loads(prefixes_file.read_text())
-        internal_prefixes = tuple(
-            p for p in data.get("prefixes", []) if isinstance(p, str) and p.startswith("/api/")
+        prefixes_raw = data.get("prefixes")
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
+        raise SystemExit(
+            f"Error: cannot load internal route policy {prefixes_file}: {exc}. "
+            "Refusing to build the handler ROUTES supplement without it — internal "
+            "route families would be published into the public spec."
+        ) from exc
+    if not isinstance(prefixes_raw, list):
+        raise SystemExit(
+            f"Error: internal route policy {prefixes_file} must contain a 'prefixes' list."
         )
-    except (OSError, json.JSONDecodeError, AttributeError):
-        pass
+    internal_prefixes: tuple[str, ...] = tuple(
+        p for p in prefixes_raw if isinstance(p, str) and p.startswith("/api/")
+    )
+    if not internal_prefixes:
+        raise SystemExit(
+            f"Error: internal route policy {prefixes_file} contains no valid '/api/' prefixes."
+        )
 
     covered = {_normalize_for_comparison(p) for p in existing_paths}
     supplement: dict[str, dict[str, Any]] = {}
@@ -839,41 +908,52 @@ def _collect_handler_routes_supplement(
                     continue
 
                 method_inferred = method is None
-                if method is None:
-                    last_segment = spec_path.rsplit("/", 1)[-1]
-                    method = "post" if last_segment in _ACTION_SEGMENTS else "get"
-
-                operation: dict[str, Any] = {
-                    "summary": f"{method.upper()} {spec_path}",
-                    "description": (
-                        (doc_summary + " " if doc_summary else "")
-                        + "Auto-generated from handler ROUTES; detailed contract pending."
-                    ),
-                    "tags": [tag],
-                    "responses": {
-                        "200": {
-                            "description": "Success",
-                            "content": {
-                                "application/json": {"schema": {"type": "object"}},
-                            },
-                        },
-                    },
-                    "security": [{"bearerAuth": []}],
-                    "x-autogenerated": True,
-                    "x-method-inferred": method_inferred,
-                    "x-aragora-stability": "experimental",
-                }
-                params = _extract_path_params(spec_path)
-                if params:
-                    operation["parameters"] = params
-                if method in ("post", "put", "patch"):
-                    operation["requestBody"] = {
-                        "content": {"application/json": {"schema": {"type": "object"}}},
-                    }
+                if method is not None:
+                    methods = [method]
+                else:
+                    # Derive the verb set from which handle_* methods the
+                    # handler implements (GET -> handle, POST -> handle_post,
+                    # ...), so multi-verb handlers get a complete contract.
+                    # A bare ["get"] means only generic handle() is overridden;
+                    # dispatcher-style handlers serve any verb through it, so
+                    # in that case (and when nothing can be derived) fall back
+                    # to inferring a single verb from the last path segment.
+                    methods = _implemented_handler_verbs(handler_class)
+                    if not methods or methods == ["get"]:
+                        last_segment = spec_path.rsplit("/", 1)[-1]
+                        methods = ["post" if last_segment in _ACTION_SEGMENTS else "get"]
 
                 covered.add(comparison_key)
                 target_path = supplement_keys.setdefault(comparison_key, spec_path)
-                supplement.setdefault(target_path, {}).setdefault(method, operation)
+                for op_method in methods:
+                    operation: dict[str, Any] = {
+                        "summary": f"{op_method.upper()} {spec_path}",
+                        "description": (
+                            (doc_summary + " " if doc_summary else "")
+                            + "Auto-generated from handler ROUTES; detailed contract pending."
+                        ),
+                        "tags": [tag],
+                        "responses": {
+                            "200": {
+                                "description": "Success",
+                                "content": {
+                                    "application/json": {"schema": {"type": "object"}},
+                                },
+                            },
+                        },
+                        "security": [{"bearerAuth": []}],
+                        "x-autogenerated": True,
+                        "x-method-inferred": method_inferred,
+                        "x-aragora-stability": "experimental",
+                    }
+                    params = _extract_path_params(spec_path)
+                    if params:
+                        operation["parameters"] = params
+                    if op_method in ("post", "put", "patch"):
+                        operation["requestBody"] = {
+                            "content": {"application/json": {"schema": {"type": "object"}}},
+                        }
+                    supplement.setdefault(target_path, {}).setdefault(op_method, operation)
 
     return supplement
 

@@ -22763,7 +22763,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * GET /api/v1/autonomous/improve
+         * @description Handler for autonomous self-improvement run management. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        get: operations["listAutonomousImprove"];
         put?: never;
         /**
          * POST /api/v1/autonomous/improve
@@ -23649,8 +23653,16 @@ export interface paths {
          */
         get: operations["getBindingsBybindingid"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/bindings/{binding_id}
+         * @description Handler for message bindings management endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createBindingsBybindingid"];
+        /**
+         * DELETE /api/v1/bindings/{binding_id}
+         * @description Handler for message bindings management endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteBindingsBybindingid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -23890,7 +23902,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * GET /api/v1/bots/email/webhook/mailgun
+         * @description Handler for email inbound webhook endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        get: operations["listBotsEmailWebhookMailgun"];
         put?: never;
         /**
          * POST /api/v1/bots/email/webhook/mailgun
@@ -34444,7 +34460,11 @@ export interface paths {
          */
         get: operations["getDecisionsPlansByplanid"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/decisions/plans/{plan_id}
+         * @description HTTP handlers for the decision pipeline (gold path). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createDecisionsPlansByplanid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -35353,8 +35373,16 @@ export interface paths {
          */
         get: operations["getDocumentsBydocumentid"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/documents/{document_id}
+         * @description Handler for document-related endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createDocumentsBydocumentid"];
+        /**
+         * DELETE /api/v1/documents/{document_id}
+         * @description Handler for document-related endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteDocumentsBydocumentid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -36910,8 +36938,16 @@ export interface paths {
          */
         get: operations["getExternalAgentsTasksBytaskid"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/external-agents/tasks/{task_id}
+         * @description Handler for external agent gateway endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createExternalAgentsTasksBytaskid"];
+        /**
+         * DELETE /api/v1/external-agents/tasks/{task_id}
+         * @description Handler for external agent gateway endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteExternalAgentsTasksBytaskid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -37603,8 +37639,16 @@ export interface paths {
          */
         get: operations["getGatewayAgentsByagentid"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/gateway/agents/{agent_id}
+         * @description HTTP request handler for external agent registration endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createGatewayAgentsByagentid"];
+        /**
+         * DELETE /api/v1/gateway/agents/{agent_id}
+         * @description HTTP request handler for external agent registration endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteGatewayAgentsByagentid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -37731,8 +37775,16 @@ export interface paths {
          */
         get: operations["getGatewayCredentialsBycredentialid"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/gateway/credentials/{credential_id}
+         * @description HTTP request handler for gateway credential management endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createGatewayCredentialsBycredentialid"];
+        /**
+         * DELETE /api/v1/gateway/credentials/{credential_id}
+         * @description HTTP request handler for gateway credential management endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteGatewayCredentialsBycredentialid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -39925,7 +39977,11 @@ export interface paths {
          */
         get: operations["listHarnesses"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/harnesses
+         * @description Handler for external harness integration endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createHarnesses"];
         delete?: never;
         options?: never;
         head?: never;
@@ -46907,8 +46963,16 @@ export interface paths {
          */
         get: operations["getMemorySnapshotsBysnapshotid"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/memory/snapshots/{snapshot_id}
+         * @description Handler for memory-related endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createMemorySnapshotsBysnapshotid"];
+        /**
+         * DELETE /api/v1/memory/snapshots/{snapshot_id}
+         * @description Handler for memory-related endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteMemorySnapshotsBysnapshotid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -47041,8 +47105,16 @@ export interface paths {
          */
         get: operations["getMemoryTierBytierid"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/memory/tier/{tier_id}
+         * @description Handler for memory-related endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createMemoryTierBytierid"];
+        /**
+         * DELETE /api/v1/memory/tier/{tier_id}
+         * @description Handler for memory-related endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteMemoryTierBytierid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -47075,7 +47147,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * GET /api/v1/memory/unified/dedup
+         * @description HTTP handler for Unified Memory Gateway endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        get: operations["listMemoryUnifiedDedup"];
         put?: never;
         /**
          * POST /api/v1/memory/unified/dedup
@@ -47095,7 +47171,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * GET /api/v1/memory/unified/query
+         * @description HTTP handler for Unified Memory Gateway endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        get: operations["listMemoryUnifiedQuery"];
         put?: never;
         /**
          * POST /api/v1/memory/unified/query
@@ -47121,7 +47201,11 @@ export interface paths {
          */
         get: operations["listMemoryUnifiedRetention"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/memory/unified/retention
+         * @description HTTP handler for Unified Memory Gateway endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createMemoryUnifiedRetention"];
         delete?: never;
         options?: never;
         head?: never;
@@ -47141,7 +47225,11 @@ export interface paths {
          */
         get: operations["listMemoryUnifiedSources"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/memory/unified/sources
+         * @description HTTP handler for Unified Memory Gateway endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createMemoryUnifiedSources"];
         delete?: never;
         options?: never;
         head?: never;
@@ -47205,8 +47293,16 @@ export interface paths {
          */
         get: operations["getMemoryBymemoryid"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/memory/{memory_id}
+         * @description Handler for memory-related endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createMemoryBymemoryid"];
+        /**
+         * DELETE /api/v1/memory/{memory_id}
+         * @description Handler for memory-related endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteMemoryBymemoryid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -50753,7 +50849,11 @@ export interface paths {
          */
         get: operations["listPipeline"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/pipeline
+         * @description Handler for pipeline execution via self-improvement pipeline. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createPipeline"];
         delete?: never;
         options?: never;
         head?: never;
@@ -54077,8 +54177,16 @@ export interface paths {
          */
         get: operations["getRepositoryByrepositoryid"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/repository/{repository_id}
+         * @description Handler for repository indexing endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createRepositoryByrepositoryid"];
+        /**
+         * DELETE /api/v1/repository/{repository_id}
+         * @description Handler for repository indexing endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteRepositoryByrepositoryid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -54808,9 +54916,21 @@ export interface paths {
          * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
          */
         get: operations["listSandboxConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * PUT /api/v1/sandbox/config
+         * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        put: operations["updateSandboxConfig"];
+        /**
+         * POST /api/v1/sandbox/config
+         * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createSandboxConfig"];
+        /**
+         * DELETE /api/v1/sandbox/config
+         * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteSandboxConfig"];
         options?: never;
         head?: never;
         patch?: never;
@@ -54823,14 +54943,26 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
+        /**
+         * GET /api/v1/sandbox/execute
+         * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        get: operations["listSandboxExecute"];
+        /**
+         * PUT /api/v1/sandbox/execute
+         * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        put: operations["updateSandboxExecute"];
         /**
          * POST /api/v1/sandbox/execute
          * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
          */
         post: operations["createSandboxExecute"];
-        delete?: never;
+        /**
+         * DELETE /api/v1/sandbox/execute
+         * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteSandboxExecute"];
         options?: never;
         head?: never;
         patch?: never;
@@ -54848,9 +54980,21 @@ export interface paths {
          * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
          */
         get: operations["listSandboxPoolStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * PUT /api/v1/sandbox/pool/status
+         * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        put: operations["updateSandboxPoolStatus"];
+        /**
+         * POST /api/v1/sandbox/pool/status
+         * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createSandboxPoolStatus"];
+        /**
+         * DELETE /api/v1/sandbox/pool/status
+         * @description Handler for sandbox code execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteSandboxPoolStatus"];
         options?: never;
         head?: never;
         patch?: never;
@@ -55369,7 +55513,11 @@ export interface paths {
          */
         get: operations["getSelfImproveRunsByrunid"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/self-improve/runs/{run_id}
+         * @description Handler for self-improvement run management. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createSelfImproveRunsByrunid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -55789,7 +55937,11 @@ export interface paths {
          */
         get: operations["getSharedBysharedid"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/shared/{shared_id}
+         * @description Handler for debate sharing endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createSharedBysharedid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -55985,7 +56137,11 @@ export interface paths {
          */
         get: operations["getSkillsByskillid"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/skills/{skill_id}
+         * @description Handler for skills system endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createSkillsByskillid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -59947,7 +60103,11 @@ export interface paths {
          */
         get: operations["listVisualizationDebates"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/visualization/debates
+         * @description Handler for argument visualization and replay endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createVisualizationDebates"];
         delete?: never;
         options?: never;
         head?: never;
@@ -62209,7 +62369,11 @@ export interface paths {
          */
         get: operations["getLearningKnowledgeByknowledgeid"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v2/learning/knowledge/{knowledge_id}
+         * @description HTTP handler for autonomous learning operations. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createLearningKnowledgeByknowledgeid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -62249,7 +62413,11 @@ export interface paths {
          */
         get: operations["getLearningMetricsBymetricid"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v2/learning/metrics/{metric_id}
+         * @description HTTP handler for autonomous learning operations. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createLearningMetricsBymetricid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -62289,7 +62457,11 @@ export interface paths {
          */
         get: operations["getLearningPatternsBypatternid"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v2/learning/patterns/{pattern_id}
+         * @description HTTP handler for autonomous learning operations. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createLearningPatternsBypatternid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -62369,7 +62541,11 @@ export interface paths {
          */
         get: operations["getLearningSessionsBysessionid"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v2/learning/sessions/{session_id}
+         * @description HTTP handler for autonomous learning operations. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createLearningSessionsBysessionid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -63025,7 +63201,11 @@ export interface paths {
          */
         get: operations["getTasksBytaskid"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v2/tasks/{task_id}
+         * @description HTTP handler for task execution endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createTasksBytaskid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -110575,6 +110755,26 @@ export interface operations {
             };
         };
     };
+    listAutonomousImprove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     createAutonomousImprove: {
         parameters: {
             query?: never;
@@ -111790,6 +111990,56 @@ export interface operations {
             };
         };
     };
+    createBindingsBybindingid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: binding_id */
+                binding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteBindingsBybindingid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: binding_id */
+                binding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listBlockchainAgents: {
         parameters: {
             query?: never;
@@ -112221,6 +112471,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBotsEmailWebhookMailgun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -136216,6 +136486,33 @@ export interface operations {
             };
         };
     };
+    createDecisionsPlansByplanid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: plan_id */
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     getDecision: {
         parameters: {
             query?: never;
@@ -137729,6 +138026,56 @@ export interface operations {
         };
     };
     getDocumentsBydocumentid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: document_id */
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createDocumentsBydocumentid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: document_id */
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteDocumentsBydocumentid: {
         parameters: {
             query?: never;
             header?: never;
@@ -140675,6 +141022,56 @@ export interface operations {
             };
         };
     };
+    createExternalAgentsTasksBytaskid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: task_id */
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteExternalAgentsTasksBytaskid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: task_id */
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listFacts: {
         parameters: {
             query?: never;
@@ -141631,6 +142028,56 @@ export interface operations {
             };
         };
     };
+    createGatewayAgentsByagentid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: agent_id */
+                agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteGatewayAgentsByagentid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: agent_id */
+                agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     getGatewayAgentsByparamHealth: {
         parameters: {
             query?: never;
@@ -141917,6 +142364,56 @@ export interface operations {
         };
     };
     getGatewayCredentialsBycredentialid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: credential_id */
+                credential_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createGatewayCredentialsBycredentialid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: credential_id */
+                credential_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteGatewayCredentialsBycredentialid: {
         parameters: {
             query?: never;
             header?: never;
@@ -148105,6 +148602,30 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createHarnesses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
         responses: {
             /** @description Success */
             200: {
@@ -161643,6 +162164,56 @@ export interface operations {
             };
         };
     };
+    createMemorySnapshotsBysnapshotid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: snapshot_id */
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteMemorySnapshotsBysnapshotid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: snapshot_id */
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listMemoryStats1: {
         parameters: {
             query?: never;
@@ -161852,6 +162423,56 @@ export interface operations {
             };
         };
     };
+    createMemoryTierBytierid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: tier_id */
+                tier_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteMemoryTierBytierid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: tier_id */
+                tier_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listMemoryTiers: {
         parameters: {
             query?: never;
@@ -161880,6 +162501,26 @@ export interface operations {
             };
         };
     };
+    listMemoryUnifiedDedup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     createMemoryUnifiedDedup: {
         parameters: {
             query?: never;
@@ -161892,6 +162533,26 @@ export interface operations {
                 "application/json": Record<string, never>;
             };
         };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    listMemoryUnifiedQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Success */
             200: {
@@ -161948,6 +162609,30 @@ export interface operations {
             };
         };
     };
+    createMemoryUnifiedRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listMemoryUnifiedSources: {
         parameters: {
             query?: never;
@@ -161956,6 +162641,30 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createMemoryUnifiedSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
         responses: {
             /** @description Success */
             200: {
@@ -162035,6 +162744,56 @@ export interface operations {
         };
     };
     getMemoryBymemoryid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: memory_id */
+                memory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createMemoryBymemoryid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: memory_id */
+                memory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteMemoryBymemoryid: {
         parameters: {
             query?: never;
             header?: never;
@@ -170362,6 +171121,30 @@ export interface operations {
             };
         };
     };
+    createPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     getPipelineDagBygraphid: {
         parameters: {
             query?: never;
@@ -177308,6 +178091,56 @@ export interface operations {
             };
         };
     };
+    createRepositoryByrepositoryid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: repository_id */
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteRepositoryByrepositoryid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: repository_id */
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listReputationAll1: {
         parameters: {
             query?: never;
@@ -178784,6 +179617,118 @@ export interface operations {
             };
         };
     };
+    updateSandboxConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createSandboxConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteSandboxConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    listSandboxExecute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    updateSandboxExecute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     createSandboxExecute: {
         parameters: {
             query?: never;
@@ -178808,7 +179753,95 @@ export interface operations {
             };
         };
     };
+    deleteSandboxExecute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listSandboxPoolStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    updateSandboxPoolStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createSandboxPoolStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteSandboxPoolStatus: {
         parameters: {
             query?: never;
             header?: never;
@@ -179826,6 +180859,33 @@ export interface operations {
             };
         };
     };
+    createSelfImproveRunsByrunid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: run_id */
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     createSelfImproveStart1: {
         parameters: {
             query?: never;
@@ -180383,6 +181443,33 @@ export interface operations {
             };
         };
     };
+    createSharedBysharedid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: shared_id */
+                shared_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listSkills1: {
         parameters: {
             query?: never;
@@ -180694,6 +181781,33 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createSkillsByskillid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: skill_id */
+                skill_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
         responses: {
             /** @description Success */
             200: {
@@ -186779,6 +187893,30 @@ export interface operations {
             };
         };
     };
+    createVisualizationDebates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listVoiceConfig: {
         parameters: {
             query?: never;
@@ -192606,6 +193744,33 @@ export interface operations {
             };
         };
     };
+    createLearningKnowledgeByknowledgeid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: knowledge_id */
+                knowledge_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     createLearningMetrics: {
         parameters: {
             query?: never;
@@ -192653,6 +193818,33 @@ export interface operations {
             };
         };
     };
+    createLearningMetricsBymetricid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: metric_id */
+                metric_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     createLearningPatterns: {
         parameters: {
             query?: never;
@@ -192688,6 +193880,33 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createLearningPatternsBypatternid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: pattern_id */
+                pattern_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
         responses: {
             /** @description Success */
             200: {
@@ -192783,6 +194002,33 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createLearningSessionsBysessionid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: session_id */
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
         responses: {
             /** @description Success */
             200: {
@@ -195168,6 +196414,33 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createTasksBytaskid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: task_id */
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
         responses: {
             /** @description Success */
             200: {
