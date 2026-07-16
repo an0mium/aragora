@@ -190,6 +190,10 @@ def direct_model_for_role(role: Role = "default") -> str:
 
 
 __all__ = [
+    "FABLE_5_DIRECT",
+    "FABLE_5_VIA_OPENROUTER",
+    "GPT56_SOL_DIRECT",
+    "GPT56_SOL_VIA_OPENROUTER",
     "OPUS_48_DIRECT",
     "OPUS_48_VIA_OPENROUTER",
     "OPUS_47_DIRECT",

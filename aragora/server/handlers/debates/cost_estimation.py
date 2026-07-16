@@ -21,6 +21,7 @@ SYSTEM_PROMPT_TOKENS = 500  # one-time system prompt overhead per agent
 
 # Model -> (provider, model_key) mapping for cost lookup
 MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
+    "claude-fable-5": ("anthropic", "claude-fable-5"),
     "claude-opus-4": ("anthropic", "claude-opus-4"),
     "claude-opus-4.8": ("anthropic", "claude-opus-4.8"),
     "claude-opus-4-8": ("anthropic", "claude-opus-4.8"),
@@ -29,6 +30,8 @@ MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "claude-sonnet-4": ("anthropic", "claude-sonnet-4"),
     "claude-sonnet-4.6": ("anthropic", "claude-sonnet-4.6"),
     "claude-sonnet-4-6": ("anthropic", "claude-sonnet-4.6"),
+    "gpt-5.6-sol": ("openai", "gpt-5.6-sol"),
+    "gpt-5.5": ("openai", "gpt-5.5"),
     "gpt-4o": ("openai", "gpt-4o"),
     "gpt-4o-mini": ("openai", "gpt-4o-mini"),
     "gemini-pro": ("google", "gemini-pro"),
