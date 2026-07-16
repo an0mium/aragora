@@ -50,7 +50,6 @@
     "DELETE /api/media/audio/{param}",
     "GET /api/media/audio/{param}",
     "GET /api/media/audio/{param}/transcription",
-    "GET /api/podcast/episodes/{param}",
     "POST /api/media/audio",
     "POST /api/media/audio/{param}/convert",
     "GET /api/personas/options",
