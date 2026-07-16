@@ -11,11 +11,22 @@ Two modes:
   on the same weekly reduction. Fails closed on missing/unparseable inputs,
   inventory desync, unexplained baseline entries, or unknown classes.
 
-- ``pr``: strict non-worsening delta ratchet. Compares the five baseline-file
-  counts at HEAD against the merge base (``--base-ref``); FAILS if any count
-  increased or any integrity condition holds, PASSES on equal-or-lower counts
-  even while the program schedule is red. The program status is still
-  reported (informational) so PR authors see the burn-down state.
+- ``pr``: non-worsening delta ratchet with an explained-intake path. Compares
+  the five baseline-file counts at HEAD against the merge base (``--base-ref``);
+  equal-or-lower counts PASS even while the program schedule is red. A count
+  increase PASSES only when EVERY baseline entry that is new vs the base ref
+  is born in this PR as an inventory item with ``class=discovered``, a
+  provenance containing a PR/issue reference, and a valid ``discovered_on``
+  date. The #9325 ruling bans UNEXPLAINED debt absorption; explained intake
+  of newly VISIBLE debt (e.g. the canary-probe-exposed orphan routes in
+  #9332) is the designed mechanism, and each intake batch immediately starts
+  its own weekly burn-down clock in program mode. Increases with any new
+  entry missing from the inventory or failing those checks, increases that
+  reopen an item with base-inventory history (a regression, not intake), and
+  increases with no new entries at all (duplicate list entries) still FAIL.
+  Any integrity violation fails closed regardless of deltas. The program
+  status is still reported (informational) so PR authors see the burn-down
+  state.
 """
 
 from __future__ import annotations
@@ -189,6 +200,57 @@ def _append_only_issues(
     return issues
 
 
+def _unexplained_increase_reasons(
+    increased: list[str],
+    new_ids: list[str],
+    base_items: dict[str, dict[str, Any]],
+    head_items: dict[str, dict[str, Any]],
+) -> list[str]:
+    """Explained-intake gate for pr-mode count increases.
+
+    An increase is explained iff EVERY baseline entry that is new vs the base
+    ref was born in this PR as an inventory item with ``class=discovered``, a
+    provenance containing a PR/issue reference, and a valid ``discovered_on``
+    date. Reopening an item that already has base-inventory history is a
+    regression, not intake (its batch clock has already been burning, so it
+    may not be re-absorbed as fresh debt). An increase with no new entries at
+    all (duplicate list entries) can never be explained — the EVERY-quantifier
+    must not pass vacuously. Backdating a genuinely new item is self-defeating
+    (it joins an older batch whose scheduled target has already decayed) and
+    the metadata invariants bound the date to [cohort, as_of].
+    """
+    if not increased:
+        return []
+    reasons: list[str] = []
+    if not new_ids:
+        reasons.append(
+            "Counts increased with no new baseline entries "
+            f"({', '.join(increased)}); duplicate entries are not intake"
+        )
+    for item_id in new_ids:
+        item = head_items.get(item_id)
+        if item is None:
+            reasons.append(f"New baseline entry has no inventory record: {item_id}")
+            continue
+        if item_id in base_items:
+            reasons.append(f"Reopened item is a regression, not discovered intake: {item_id}")
+            continue
+        if item.get("class") != "discovered":
+            reasons.append(
+                f"New baseline entry must be class=discovered, not {item.get('class')!r}: {item_id}"
+            )
+        if not inventory_mod.PROVENANCE_REF.search(item.get("provenance") or ""):
+            reasons.append(f"New baseline entry provenance lacks a PR/issue reference: {item_id}")
+        try:
+            date.fromisoformat(item.get("discovered_on") or "")
+        except ValueError:
+            reasons.append(
+                f"New baseline entry has invalid discovered_on "
+                f"{item.get('discovered_on')!r}: {item_id}"
+            )
+    return reasons
+
+
 def build_ratchet_result(
     *,
     mode: str,
@@ -339,12 +401,18 @@ def build_ratchet_result(
             for key, _alias, _list in COUNT_KEYS
         }
         increased = sorted(k for k, d in deltas.items() if d["delta"] > 0)
+        new_ids = sorted(
+            set(inventory_mod.collect_ids(docs)) - set(inventory_mod.collect_ids(base_docs))
+        )
+        unexplained = _unexplained_increase_reasons(increased, new_ids, base_items, head_items)
         result["pr_delta"] = {
             "base_ref": base_ref,
             "counts": deltas,
             "increased": increased,
+            "new_entries": new_ids,
+            "unexplained_increase": unexplained,
         }
-        result["passing"] = not increased and not integrity_issues
+        result["passing"] = not unexplained and not integrity_issues
     else:
         result["passing"] = result["program_passing"]
 
@@ -389,6 +457,13 @@ def _print_text(result: dict[str, Any]) -> None:
         print(f"PR delta vs {pr_delta['base_ref']}:")
         for key, d in pr_delta["counts"].items():
             print(f"  {key}: {d['base']} -> {d['head']} ({d['delta']:+d})")
+        if pr_delta["increased"] and not pr_delta["unexplained_increase"]:
+            print(
+                f"Increase explained as discovered intake "
+                f"({len(pr_delta['new_entries'])} new inventoried entries)"
+            )
+        for reason in pr_delta["unexplained_increase"]:
+            print(f"  UNEXPLAINED: {reason}")
         print(
             "Program status (informational): " + ("PASS" if result["program_passing"] else "FAIL")
         )

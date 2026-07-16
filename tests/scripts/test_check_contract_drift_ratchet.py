@@ -494,31 +494,13 @@ def test_pr_mode_passes_on_decrease_via_legitimate_resolution(tmp_path: Path):
     assert result["passing"]
 
 
-def test_pr_mode_fails_on_any_single_list_increase(tmp_path: Path):
-    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
-
-    routes = json.loads(paths["routes"].read_text())
-    routes["orphaned_in_spec"].append("o-new")
-    _write_json(paths["routes"], routes)
-    _edit_inventory(
-        paths,
-        lambda inv: inv["items"].append(
-            {
-                "id": "orphaned_in_spec:o-new",
-                "source": "orphaned_in_spec",
-                "class": "discovered",
-                "discovered_on": "2026-07-16",
-                "provenance": "explained in #4242",
-                "status": "open",
-            }
-        ),
-    )
-
-    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
-    # Inventory is in sync (provenance recorded) yet the delta gate still fails.
-    assert result["integrity"]["passing"]
-    assert result["pr_delta"]["increased"] == ["routes_orphaned_in_spec"]
-    assert not result["passing"]
+# NOTE: the original test_pr_mode_fails_on_any_single_list_increase asserted
+# that even a fully inventoried discovered entry fails pr mode. That design
+# had no intake path for legitimately discovered debt (first contact: #9332)
+# and was amended: its exact scenario is now the designed PASS path, covered
+# by test_pr_mode_increase_with_inventoried_discovered_intake_passes below.
+# Increases that are NOT explained intake still fail — see the
+# "pr mode: discovered intake" section.
 
 
 def test_pr_mode_fails_on_integrity_violation(monkeypatch, tmp_path: Path):
@@ -631,7 +613,8 @@ def test_pr_mode_reopen_with_new_date_fails(tmp_path: Path):
     )
 
     # Reopening with the ORIGINAL date keeps integrity clean; the PR still
-    # fails, but only via the count-increase delta gate (the regression).
+    # fails via the increase gate — a reopen is a regression, never intake
+    # (see test_pr_mode_reopen_is_regression_not_intake).
     def reopen_honest(inv):
         for item in inv["items"]:
             if item["id"] == "typescript_sdk_drift:x1":
@@ -684,8 +667,16 @@ def test_pr_mode_missing_file_at_base_treated_as_empty(tmp_path: Path):
     }
     assert result["passing"]
 
-    # HEAD grows an entry: increase vs empty base -> FAIL (with inventory synced).
+    # HEAD grows an entry: the increase is computed against the EMPTY base
+    # (0 -> 1), proving a file missing at the ref hides nothing. Uninventoried,
+    # the increase is unexplained and fails.
     _write_json(paths["parity"], {"missing_from_both_sdks": ["p-new"]})
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["increased"] == ["sdk_missing_from_both"]
+    assert result["pr_delta"]["unexplained_increase"] != []
+    assert not result["passing"]
+
+    # Fully inventoried, the same increase is explained discovered intake.
     _edit_inventory(
         paths,
         lambda inv: inv["items"].append(
@@ -701,7 +692,8 @@ def test_pr_mode_missing_file_at_base_treated_as_empty(tmp_path: Path):
     )
     result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
     assert result["pr_delta"]["increased"] == ["sdk_missing_from_both"]
-    assert not result["passing"]
+    assert result["pr_delta"]["unexplained_increase"] == []
+    assert result["passing"]
 
 
 def test_target_decay_has_no_fixed_points_and_reaches_zero():
@@ -853,6 +845,148 @@ def test_pr_mode_legitimate_lifecycle_two_generations(monkeypatch, tmp_path: Pat
     assert result["integrity"]["passing"], result["integrity"]["issues"]
     assert result["pr_delta"]["counts"]["verify_python_sdk_drift"]["delta"] == -1
     assert result["passing"]
+
+
+# ------------------------------------------------- pr mode: discovered intake
+# Amendment after first contact (#9332): newly VISIBLE debt with clear
+# provenance must have an intake path. A count increase is allowed iff EVERY
+# baseline entry new vs the base ref is born in this PR as class=discovered
+# with a PR/issue-referenced provenance and a valid discovered_on date.
+
+
+def _discovered_route_item(name: str, *, provenance: str = "canary probe #9332") -> dict:
+    return {
+        "id": f"orphaned_in_spec:{name}",
+        "source": "orphaned_in_spec",
+        "class": "discovered",
+        "discovered_on": "2026-07-16",
+        "provenance": provenance,
+        "status": "open",
+    }
+
+
+def test_pr_mode_increase_with_inventoried_discovered_intake_passes(tmp_path: Path):
+    """The #9332 shape: canary-probe-exposed orphan routes land as a fully
+    inventoried discovered batch -> explained intake, pr mode PASSES, and the
+    batch starts its own program-mode burn-down clock."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    routes = json.loads(paths["routes"].read_text())
+    routes["orphaned_in_spec"] += ["probe1", "probe2", "probe3"]
+    _write_json(paths["routes"], routes)
+    _edit_inventory(
+        paths,
+        lambda inv: inv["items"].extend(_discovered_route_item(f"probe{i}") for i in (1, 2, 3)),
+    )
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["integrity"]["passing"], result["integrity"]["issues"]
+    assert result["pr_delta"]["increased"] == ["routes_orphaned_in_spec"]
+    assert result["pr_delta"]["unexplained_increase"] == []
+    assert result["passing"]
+
+    # The intake batch gets its own clock in program mode (already implemented).
+    batch = {c["name"]: c for c in result["classes"]}["discovered:2026-07-16"]
+    assert batch["batch_size"] == 3
+    assert batch["target_max"] == 3  # week 0 of its own -10%/week schedule
+
+
+def test_pr_mode_increase_with_one_uninventoried_entry_fails(tmp_path: Path):
+    """A batch where even one new baseline entry lacks an inventory record is
+    NOT explained intake: the increase fails (and sync integrity fails too)."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    routes = json.loads(paths["routes"].read_text())
+    routes["orphaned_in_spec"] += ["probe1", "probe2"]
+    _write_json(paths["routes"], routes)
+    _edit_inventory(paths, lambda inv: inv["items"].append(_discovered_route_item("probe1")))
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert any(
+        "orphaned_in_spec:probe2" in reason for reason in result["pr_delta"]["unexplained_increase"]
+    )
+    assert not result["integrity"]["passing"]  # sync: probe2 is unexplained debt
+    assert not result["passing"]
+
+
+def test_pr_mode_increase_with_free_text_provenance_fails(tmp_path: Path):
+    """Provenance without a PR/issue reference is not intake-grade: the
+    increase stays unexplained and the provenance-format invariant fires."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    routes = json.loads(paths["routes"].read_text())
+    routes["orphaned_in_spec"].append("probe1")
+    _write_json(paths["routes"], routes)
+    _edit_inventory(
+        paths,
+        lambda inv: inv["items"].append(
+            _discovered_route_item("probe1", provenance="found during a canary sweep")
+        ),
+    )
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert any(
+        "orphaned_in_spec:probe1" in reason for reason in result["pr_delta"]["unexplained_increase"]
+    )
+    assert not result["integrity"]["passing"]  # provenance-reference invariant
+    assert not result["passing"]
+
+
+def test_pr_mode_increase_without_new_entries_fails(tmp_path: Path):
+    """A count can increase with ZERO new ids (duplicate list entries). The
+    'every new entry is explained' rule must not pass vacuously."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    routes = json.loads(paths["routes"].read_text())
+    routes["orphaned_in_spec"].append("o1")  # duplicate of an existing entry
+    _write_json(paths["routes"], routes)
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["increased"] == ["routes_orphaned_in_spec"]
+    assert result["pr_delta"]["unexplained_increase"] != []
+    assert not result["passing"]
+
+
+def test_pr_mode_reopen_is_regression_not_intake(tmp_path: Path):
+    """An item with base-inventory history regressing back into the baseline
+    is a regression, not newly discovered debt: honest reopen (original clock)
+    must NOT ride the discovered-intake allowance."""
+    paths, repo, cohort = _seed(tmp_path, program=RED_PROGRAM)
+
+    _edit_inventory(
+        paths,
+        lambda inv: inv["items"].append(
+            {
+                "id": "typescript_sdk_drift:x1",
+                "source": "typescript_sdk_drift",
+                "class": "discovered",
+                "discovered_on": "2026-06-01",
+                "provenance": "tracked in #77",
+                "status": "resolved",
+                "resolved_on": "2026-06-10",
+            }
+        ),
+    )
+    base = _commit(repo, "base with resolved x1")
+
+    verify = json.loads(paths["verify"].read_text())
+    verify["typescript_sdk_drift"].append("x1")
+    _write_json(paths["verify"], verify)
+
+    def reopen_honest(inv):
+        for item in inv["items"]:
+            if item["id"] == "typescript_sdk_drift:x1":
+                item["status"] = "open"
+                item.pop("resolved_on", None)
+
+    _edit_inventory(paths, reopen_honest)
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=cohort, mode="pr", base_ref=base)
+    assert result["integrity"]["passing"], result["integrity"]["issues"]
+    assert any(
+        "typescript_sdk_drift:x1" in reason for reason in result["pr_delta"]["unexplained_increase"]
+    )
+    assert not result["passing"]
 
 
 def test_pr_mode_program_parameter_change_fails(tmp_path: Path):
