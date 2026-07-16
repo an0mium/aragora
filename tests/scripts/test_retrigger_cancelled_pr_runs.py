@@ -31,8 +31,8 @@ NOW = datetime(2026, 7, 10, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def _protected(mod) -> dict:
-    paths, names = mod.load_protected_manifest()
-    assert paths and names  # the committed manifest must never be empty
+    paths = mod.load_protected_manifest()
+    assert paths  # the committed manifest must never be empty
     return {"protected_paths": paths}
 
 
@@ -48,6 +48,7 @@ def _run(
     event: str = "pull_request",
     attempt: int = 1,
     age_hours: float = 1.0,
+    cancelled_age_hours: float | None = None,
 ) -> dict:
     return {
         "id": run_id,
@@ -60,6 +61,11 @@ def _run(
         "event": event,
         "run_attempt": attempt,
         "created_at": (NOW - timedelta(hours=age_hours)).isoformat().replace("+00:00", "Z"),
+        "updated_at": (
+            NOW - timedelta(hours=age_hours if cancelled_age_hours is None else cancelled_age_hours)
+        )
+        .isoformat()
+        .replace("+00:00", "Z"),
     }
 
 
@@ -87,7 +93,7 @@ def test_superseded_head_is_skipped(mod) -> None:
 
 
 def test_draft_or_closed_pr_branch_is_skipped(mod) -> None:
-    # compute_active_head_map excludes drafts, so an absent branch == draft/closed.
+    # compute_active_head_pairs excludes drafts, so an absent pair == draft/closed.
     reruns = mod.compute_reruns(
         [_run(branch="gone")], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
     )
@@ -155,8 +161,8 @@ def test_advisory_cancellation_is_intentional_and_never_rerun(mod) -> None:
 
 
 def test_empty_manifest_fails_closed(mod, tmp_path) -> None:
-    paths, names = mod.load_protected_manifest(tmp_path / "missing.json")
-    assert paths == set() and names == set()
+    paths = mod.load_protected_manifest(tmp_path / "missing.json")
+    assert paths == set()
     reruns = mod.compute_reruns(
         [_run()],
         active_head_pairs=_heads(),
@@ -177,10 +183,17 @@ def test_manifest_matches_priority_keep_list(mod) -> None:
         / "workflows"
         / "required-check-priority.yml"
     ).read_text(encoding="utf-8")
-    paths, names = mod.load_protected_manifest()
+    paths = mod.load_protected_manifest()
     import re as _re
 
-    matches = _re.findall(r"'(\.github/workflows/[^']+\.yml)'", workflow)
+    # Scope the scan to the alwaysKeepWorkflowPaths block only (#9133 P3 r7):
+    # matching any quoted workflow path anywhere in the file would silently
+    # track unrelated strings if the workflow gains other path literals.
+    block_match = _re.search(
+        r"alwaysKeepWorkflowPaths\s*=\s*new Set\(\[(.*?)\]\)", workflow, _re.DOTALL
+    )
+    assert block_match, "drift guard is vacuous: keep-list block not found"
+    matches = _re.findall(r"'(\.github/workflows/[^']+\.yml)'", block_match.group(1))
     assert len(matches) >= 1, "drift guard is vacuous: keep-list regex matched nothing"
     for path in matches:
         assert path in paths, f"keep-list path missing from manifest: {path}"
@@ -250,3 +263,13 @@ def test_run_scan_filters_pull_request_events_server_side(mod, monkeypatch) -> N
 
     _Client("o/r", "tok").list_recent_workflow_runs(300)
     assert seen.get("event") == "pull_request"
+
+
+def test_ttl_anchors_to_cancellation_time_not_run_creation(mod) -> None:
+    """A shard that STARTED 8h ago but was cancelled 1h ago is eligible: the
+    motivating incidents were long-running shards killed mid-run (#9133 P3)."""
+    long_runner = _run(age_hours=8.0, cancelled_age_hours=1.0)
+    reruns = mod.compute_reruns(
+        [long_runner], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
+    )
+    assert [r["run_id"] for r in reruns] == [1]

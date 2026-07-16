@@ -45,7 +45,7 @@ PR_EVENTS = {"pull_request"}
 DEFAULT_MANIFEST = Path(__file__).resolve().parent / "ci" / "required_workflow_manifest.json"
 
 
-def load_protected_manifest(path: Path = DEFAULT_MANIFEST) -> tuple[set[str], set[str]]:
+def load_protected_manifest(path: Path = DEFAULT_MANIFEST) -> set[str]:
     """Load the protected workflow paths/names. Fail CLOSED on any problem:
     an unreadable or empty manifest yields empty sets, and with empty sets no
     run is rerun-eligible — the guardian then does nothing rather than risk
@@ -53,10 +53,8 @@ def load_protected_manifest(path: Path = DEFAULT_MANIFEST) -> tuple[set[str], se
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return set(), set()
-    paths = {str(p).strip() for p in data.get("workflow_paths", []) if str(p).strip()}
-    names = {str(n).strip() for n in data.get("workflow_names", []) if str(n).strip()}
-    return paths, names
+        return set()
+    return {str(p).strip() for p in data.get("workflow_paths", []) if str(p).strip()}
 
 
 class GitHubApiError(RuntimeError):
@@ -160,7 +158,9 @@ class GitHubClient:
         truncated = len(normalized) >= max_pages * 100
         return normalized, truncated
 
-    def list_recent_workflow_runs(self, max_runs: int) -> list[dict[str, Any]]:
+    def list_recent_workflow_runs(self, max_runs: int) -> tuple[list[dict[str, Any]], bool]:
+        """Return (runs, scan_truncated) — truncation is LOUD, mirroring the
+        open-PR scan: it can only cause missed reruns, never wrong ones."""
         # Filter server-side to PR-event runs: without it, push/schedule/
         # dispatch runs consume the bounded window and eligible cancelled PR
         # runs can fall outside it in a high-churn repo (#9133 openai P2 r5).
@@ -170,7 +170,8 @@ class GitHubClient:
             max_pages=max(1, (max_runs + 99) // 100),
         )
         normalized = [r for r in runs if isinstance(r, dict)]
-        return normalized[:max_runs]
+        truncated = len(normalized) > max_runs
+        return normalized[:max_runs], truncated
 
     def rerun_workflow_run(self, run_id: int) -> tuple[bool, str]:
         try:
@@ -264,8 +265,13 @@ def compute_reruns(
         sha = str(run.get("head_sha", "")).strip()
         if (branch, sha) not in active_head_pairs:
             continue  # superseded head, closed PR, or draft
-        created = _parse_created_at(str(run.get("created_at", "")))
-        if created is None or created < cutoff:
+        cancelled_at = _parse_created_at(
+            str(run.get("updated_at", "")) or str(run.get("created_at", ""))
+        )
+        if cancelled_at is None or cancelled_at < cutoff:
+            # TTL anchors to CANCELLATION time (updated_at), not run creation:
+            # the motivating incidents were long-running shards cancelled
+            # hours after they started (#9133 claude P3 r7).
             continue
         group = (run.get("workflow_id"), branch, sha)
         newest = newest_by_group.get(group)
@@ -321,13 +327,22 @@ def main(argv: list[str] | None = None) -> int:
     if not token:
         print("GITHUB_TOKEN (or GH_TOKEN) is required", file=sys.stderr)
         return 2
-    protected_paths, _protected_names = load_protected_manifest()
+    protected_paths = load_protected_manifest()
     if not protected_paths:
+        # Fail closed AND loud: a permanently disarmed guardian must never
+        # look green on the schedule (#9133 claude P3 r7).
         print("protected manifest empty/unreadable; failing closed (no reruns)", file=sys.stderr)
         print(json.dumps({"repo": args.repo, "rerun_count": 0, "reruns": []}, indent=2))
-        return 0
+        return 2
     client = GitHubClient(args.repo, token)
     open_pulls, pr_scan_truncated = client.list_open_pulls()
+    runs, run_scan_truncated = client.list_recent_workflow_runs(args.max_runs)
+    if run_scan_truncated:
+        print(
+            "warning: workflow-run scan hit --max-runs; some protected "
+            "cancelled runs may be missed this pass",
+            file=sys.stderr,
+        )
     if pr_scan_truncated:
         print(
             "warning: open-PR scan hit the pagination cap; some protected "
@@ -335,7 +350,6 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
     active_head_pairs = compute_active_head_pairs(open_pulls)
-    runs = client.list_recent_workflow_runs(args.max_runs)
     reruns = compute_reruns(
         runs,
         active_head_pairs=active_head_pairs,
@@ -360,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
                 "repo": args.repo,
                 "rerun_count": len(reruns),
                 "open_pr_scan_truncated": pr_scan_truncated,
+                "run_scan_truncated": run_scan_truncated,
                 "apply_failures": apply_failures,
                 "reruns": reruns,
             },
