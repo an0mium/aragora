@@ -221,6 +221,39 @@ def test_duplicate_inventory_ids_fail_sync(tmp_path):
     assert any("Duplicate inventory id" in i for i in issues)
 
 
+def test_duplicate_baseline_entries_fail_closed(monkeypatch, tmp_path: Path, capsys):
+    """A duplicate baseline entry inflates count-based ratchet totals while the
+    id-deduped inventory sees one item — a latent count-decrease freebie. The
+    generator refuses to run (check or write) over duplicated baselines."""
+    repo, sha = _init_repo(tmp_path)
+    assert _run(monkeypatch, repo, sha) == 0
+    assert _run(monkeypatch, repo, sha, "--check") == 0
+
+    verify = dict(VERIFY, python_sdk_drift=[*VERIFY["python_sdk_drift"], "GET /a"])
+    _write_baselines(repo, verify, ROUTES, PARITY)
+    assert _run(monkeypatch, repo, sha, "--check") == 1
+    assert "Duplicate baseline entry: python_sdk_drift:GET /a" in capsys.readouterr().out
+
+    before = (repo / gen.DEFAULT_INVENTORY).read_bytes()
+    assert _run(monkeypatch, repo, sha) == 1  # write mode refuses too
+    assert (repo / gen.DEFAULT_INVENTORY).read_bytes() == before
+
+
+def test_find_duplicate_entry_issues_unit():
+    docs = {
+        "verify": {
+            "python_sdk_drift": ["GET /a", "GET /a", "GET /b"],
+            "typescript_sdk_drift": ["ts1"],
+        },
+        "routes": {"missing_in_spec": ["m1"], "orphaned_in_spec": []},
+        "parity": {"missing_from_both_sdks": []},
+    }
+    issues = gen.find_duplicate_entry_issues(docs)
+    assert issues == ["Duplicate baseline entry: python_sdk_drift:GET /a"]
+    docs["verify"]["python_sdk_drift"] = ["GET /a", "GET /b"]
+    assert gen.find_duplicate_entry_issues(docs) == []
+
+
 def test_discovered_provenance_requires_reference_in_committed_inventory():
     """Round-5 review P2: hand-edited committed inventories must meet the
 

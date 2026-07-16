@@ -494,6 +494,48 @@ def test_pr_mode_passes_on_decrease_via_legitimate_resolution(tmp_path: Path):
     assert result["passing"]
 
 
+def test_duplicate_baseline_entry_fails_integrity_program_mode(tmp_path: Path):
+    """A duplicated baseline entry inflates the count-based ratchet while the
+    id-deduped inventory holds one item — fail closed rather than let the
+    duplicate sit as a count-decrease freebie."""
+    verify = {"python_sdk_drift": ["a", "a", "b"], "typescript_sdk_drift": [], "missing_stable": []}
+    paths, repo, cohort = _seed(tmp_path, verify=verify, program=RED_PROGRAM)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=cohort)
+    assert not result["integrity"]["passing"]
+    assert any(
+        "Duplicate baseline entry: python_sdk_drift:a" in i for i in result["integrity"]["issues"]
+    )
+    assert not result["passing"]
+
+
+def test_pr_mode_inherited_duplicate_fails_despite_equal_counts(tmp_path: Path):
+    """A duplicate present at base AND head leaves every count delta at zero —
+    only the duplicate integrity check catches it."""
+    verify = {"python_sdk_drift": ["a", "a", "b"], "typescript_sdk_drift": [], "missing_stable": []}
+    paths, repo, base = _seed(tmp_path, verify=verify, program=RED_PROGRAM)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["increased"] == []
+    assert not result["integrity"]["passing"]
+    assert not result["passing"]
+
+
+def test_pr_mode_passes_on_duplicate_removal(tmp_path: Path):
+    """Removing a duplicated baseline entry is a pure dedup: count decreases by
+    one, the inventory (already deduped by id) needs no change, and pr mode
+    passes."""
+    verify = {"python_sdk_drift": ["a", "a", "b"], "typescript_sdk_drift": [], "missing_stable": []}
+    paths, repo, base = _seed(tmp_path, verify=verify, program=RED_PROGRAM)
+
+    deduped = json.loads(paths["verify"].read_text())
+    deduped["python_sdk_drift"] = ["a", "b"]
+    _write_json(paths["verify"], deduped)
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["integrity"]["passing"]
+    assert result["pr_delta"]["counts"]["verify_python_sdk_drift"]["delta"] == -1
+    assert result["passing"]
+
+
 def test_pr_mode_fails_on_any_single_list_increase(tmp_path: Path):
     paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
 

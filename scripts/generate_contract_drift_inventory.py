@@ -71,6 +71,27 @@ def collect_ids(docs: dict[str, dict[str, Any]]) -> dict[str, str]:
     return ids
 
 
+def find_duplicate_entry_issues(docs: dict[str, dict[str, Any]]) -> list[str]:
+    """Duplicate entries within a baseline list (fail closed on hand edits).
+
+    The inventory dedupes by normalized id, but the ratchet counts raw list
+    lengths — a duplicated entry inflates the count-based ratchet by one and
+    becomes a count-decrease freebie when later removed. Every baseline entry
+    must be unique.
+    """
+    issues: list[str] = []
+    for alias, (_path, list_keys) in BASELINE_SPECS.items():
+        doc = docs.get(alias) or {}
+        for list_key in list_keys:
+            seen: set[str] = set()
+            for entry in doc.get(list_key, []) or []:
+                item_id = f"{list_key}:{normalize_key(entry)}"
+                if item_id in seen:
+                    issues.append(f"Duplicate baseline entry: {item_id}")
+                seen.add(item_id)
+    return issues
+
+
 def load_working_docs(repo_root: Path) -> dict[str, dict[str, Any]]:
     docs: dict[str, dict[str, Any]] = {}
     for alias, (rel_path, _keys) in BASELINE_SPECS.items():
@@ -268,10 +289,18 @@ def main() -> int:
         return 1
 
     try:
-        current_ids = collect_ids(load_working_docs(repo_root))
+        working_docs = load_working_docs(repo_root)
+        current_ids = collect_ids(working_docs)
         cohort_ids = collect_ids(load_git_docs(repo_root, args.cohort_commit))
     except (ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as exc:
         print(f"ERROR: {exc}")
+        return 1
+
+    duplicate_issues = find_duplicate_entry_issues(working_docs)
+    if duplicate_issues:
+        print("FAIL: duplicate baseline entries (dedupe the baseline lists first):")
+        for issue in duplicate_issues:
+            print(f"  - {issue}")
         return 1
 
     existing: dict[str, Any] = {"items": []}
