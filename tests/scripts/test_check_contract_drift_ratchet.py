@@ -702,3 +702,19 @@ def test_pr_mode_missing_file_at_base_treated_as_empty(tmp_path: Path):
     result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
     assert result["pr_delta"]["increased"] == ["sdk_missing_from_both"]
     assert not result["passing"]
+
+
+def test_target_decay_has_no_fixed_points_and_reaches_zero():
+    """Regression: iterative int(round(n*0.9)) stuck at 1-4 forever (review P2
+
+    on #9346); the one-shot floored decay must be monotonic to zero so small
+    discovered batches cannot satisfy their clocks indefinitely.
+    """
+    for start in (1, 2, 3, 4, 10, 655):
+        prev = ratchet._target_after_weeks(start, 0.1, 0)
+        assert prev == start
+        for weeks in range(1, 120):
+            cur = ratchet._target_after_weeks(start, 0.1, weeks)
+            assert cur <= prev
+            prev = cur
+        assert ratchet._target_after_weeks(start, 0.1, 120) == 0

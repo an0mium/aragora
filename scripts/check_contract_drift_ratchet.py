@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import subprocess
 import sys
 from collections import defaultdict
@@ -76,10 +77,12 @@ def _git_doc(repo_root: Path, ref: str, path: Path) -> dict[str, Any]:
 
 
 def _target_after_weeks(start_total: int, weekly_reduction: float, weeks: int) -> int:
-    current = start_total
-    for _ in range(max(0, weeks)):
-        current = max(0, int(round(current * (1.0 - weekly_reduction))))
-    return current
+    # One-shot floored decay. The previous iterative int(round(n * 0.9)) had
+    # fixed points at 1-4 (e.g. round(4 * 0.9) == 4), so small per-batch
+    # clocks would never be required to reach zero and larger ones stalled
+    # at 4. floor(start * factor**weeks) is monotonic to 0.
+    factor = (1.0 - weekly_reduction) ** max(0, weeks)
+    return max(0, math.floor(start_total * factor))
 
 
 def _load_program(program_baseline: Path) -> dict[str, Any]:
