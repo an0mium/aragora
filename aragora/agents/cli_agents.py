@@ -232,6 +232,7 @@ class CLIAgent(CritiqueMixin, Agent):
     OPENROUTER_MODEL_MAP: dict[str, str] = {
         # Claude models
         "claude": "anthropic/claude-opus-4.8",  # Default claude CLI
+        "claude-fable-5": "anthropic/claude-fable-5",
         "claude-opus-4-8": "anthropic/claude-opus-4.8",
         "claude-opus-4-7": "anthropic/claude-opus-4.8",
         "claude-sonnet-4-6": "anthropic/claude-opus-4.8",
