@@ -377,6 +377,24 @@ export class MemoryAPI {
   }
 
   /**
+   * Store a new memory entry in continuum memory.
+   *
+   * Matches the server contract for POST /api/v1/memory/store
+   * ({ content, tier?, importance? } -> { id, tier }).
+   */
+  async storeEntry(
+    content: string,
+    options?: {
+      tier?: 'fast' | 'medium' | 'slow' | 'glacial';
+      importance?: number;
+    }
+  ): Promise<{ id: string; tier: string }> {
+    return this.client.request('POST', '/api/v1/memory/store', {
+      body: { content, ...options },
+    });
+  }
+
+  /**
    * Retrieve a value from memory by key.
    */
   async retrieve(
