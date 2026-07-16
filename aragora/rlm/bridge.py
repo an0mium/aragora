@@ -76,16 +76,16 @@ def _secret_configured(name: str) -> bool:
 
 
 # Check if official RLM is available.
-# preserve_environ: importing rlm triggers a load_dotenv() side effect that
-# can inject a repository .env into os.environ process-wide (#8277).
-from aragora.utils.env import preserve_environ
+# import_rlm_guarded: importing rlm triggers a load_dotenv() side effect that
+# can inject a repository .env into os.environ process-wide (#8277); the
+# helper serializes the one real import so no concurrent caller can
+# interleave environ snapshots/restores.
+from aragora.utils.env import import_rlm_guarded
 
 try:
-    with preserve_environ():
-        from rlm import RLM as OfficialRLM
-
+    OfficialRLM = import_rlm_guarded().RLM
     HAS_OFFICIAL_RLM = True
-except ImportError:
+except (ImportError, AttributeError):
     HAS_OFFICIAL_RLM = False
     OfficialRLM = None
 
