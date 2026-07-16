@@ -605,6 +605,7 @@ async def _run_demo_debate(topic: str) -> tuple[DebateResult, float]:
         _print_banner(topic, agent_names)
         print()
         print("  Mode: Built-in offline demo agents (no API keys required)")
+        print("        (aragora-debate package unavailable; using built-in fallback)")
         print()
         result = _build_builtin_demo_result(topic)
         elapsed = 0.0
