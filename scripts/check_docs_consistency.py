@@ -21,6 +21,8 @@ ARCHIVE_REFERENCE_WHITELIST = {
     "docs/ARAGORA_BUSINESS_SUMMARY.md": "redirect stub to the archived business snapshot",
     "docs/OMNIVOROUS_ROADMAP.md": "redirect stub to the archived roadmap snapshot",
     "docs/STRATEGY_INDEX.md": "canonical map from retired docs to live replacements",
+    "docs/ROADMAP_EVOLUTION.md": "tombstone that explicitly points readers to the archived brief that motivated its retirement",
+    "docs/STATUS.md": "compatibility mirror that intentionally links to the archived thesis-settlement ledger for continuity",
     "docs/archive/README.md": "archive policy and inventory",
 }
 # Files/patterns where metric numbers are intentionally historical, local-suite scoped,
@@ -87,7 +89,18 @@ def markdown_files(root: Path) -> list[Path]:
         check=False,
     )
     if result.returncode == 0:
-        return [root / line for line in result.stdout.splitlines() if line.strip()]
+        seen: set[Path] = set()
+        files: list[Path] = []
+        for line in result.stdout.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            path = root / stripped
+            if path in seen:
+                continue
+            seen.add(path)
+            files.append(path)
+        return files
 
     files: list[Path] = []
     for top in ("README.md", "CLAUDE.md", "AGENTS.md"):
