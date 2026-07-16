@@ -61,6 +61,20 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
     ),
     # OpenRouter alias forms: runtime fallback paths pass these exact ids to
     # get_estimated_cost, which is an exact-dict lookup (gemini review #9075).
+    "anthropic/claude-opus-4.8": ProviderPricing(
+        provider_name="openrouter",
+        model_name="anthropic/claude-opus-4.8",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.025,
+        context_window=1_000_000,
+    ),
+    "openai/gpt-5.5": ProviderPricing(
+        provider_name="openrouter",
+        model_name="openai/gpt-5.5",
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.03,
+        context_window=1_050_000,
+    ),
     "anthropic/claude-fable-5": ProviderPricing(
         provider_name="openrouter",
         model_name="anthropic/claude-fable-5",
