@@ -80,8 +80,11 @@ currently published package.
 ## Path B: Standalone signed ODR verification
 
 The demo receipt is a native decision receipt, not an Open Decision Receipt.
-For the no-trust ODR path, download the public signed fixture and its public
-key, then verify them with the standalone package:
+For a fixture self-consistency check, download the public signed fixture and
+its co-located public key, then verify them with the standalone package. This
+proves that the fixture matches that key and exercises signature verification;
+it does not establish issuer authenticity. That stronger claim requires a key
+pinned or obtained independently from a trusted issuer source.
 
 ```bash
 curl --fail-with-body --silent --show-error --location \
@@ -113,6 +116,9 @@ Open Decision Receipt — VERIFIED
 
   => VERIFIED
 ```
+
+Because the receipt and key came from the same pinned repository commit, this
+result is fixture self-consistency evidence, not issuer-authenticity evidence.
 
 ## Failure modes and interpretation
 
@@ -151,9 +157,9 @@ returned HTTP `401`:
 ```
 
 No authentication mutation was attempted. The public signed fixture therefore
-remains the verified no-account ODR path. This does not block the README's
-documented local demo or public-fixture paths, so this run records the mismatch
-without broadening #8858 into an API access-policy change.
+remains the no-account fixture self-consistency path. This does not block the
+README's documented local demo or public-fixture paths, so this run records the
+mismatch without broadening #8858 into an API access-policy change.
 
 ## Gap ledger
 
@@ -161,7 +167,7 @@ without broadening #8858 into an API access-policy change.
 | --- | --- | --- |
 | Real cold-eyes observation | Not run. This was a maintainer preflight. | [#8858](https://github.com/synaptent/aragora/issues/8858) still requires one human with no repo context, timed steps, and uncoached feedback. |
 | Public demo round trip | Passed with `aragora==2.9.0`. | Earlier blockers [#8877](https://github.com/synaptent/aragora/issues/8877) and [#7401](https://github.com/synaptent/aragora/issues/7401) are closed; no new repair is justified by this run. |
-| Public signed ODR verification | Passed with `aragora-verify==0.1.1` and an explicitly downloaded public key. | No core verification blocker. Automatic issuer-key discovery remains dependent on [#8809](https://github.com/synaptent/aragora/pull/8809). |
+| Public signed ODR verification | Passed as a fixture self-consistency check with `aragora-verify==0.1.1` and a co-located public key; issuer authenticity was not established. | No core signature-verification blocker. Authentic issuer-key discovery or independent pinning remains dependent on [#8809](https://github.com/synaptent/aragora/pull/8809). |
 | Production live-receipt discovery without an account | The list endpoint returned HTTP `401`. | Not required by the current no-account README path. Record as a no-action rationale for this unit; review the API access contract separately before claiming public live-receipt discovery. |
 | Human-oversight attestation in the signed sample | Verifier surfaced `attestation: autonomous` as a weakening signal. | Human-oversight attestation and the evidence-pack path remain tracked by [#8230](https://github.com/synaptent/aragora/issues/8230). |
 
