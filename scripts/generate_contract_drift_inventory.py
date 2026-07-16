@@ -167,8 +167,13 @@ def find_sync_issues(inventory: dict[str, Any], current_ids: dict[str, str]) -> 
         klass = item.get("class")
         if klass not in VALID_CLASSES:
             issues.append(f"Unknown class {klass!r} for inventory item {item_id}")
-        if not item.get("provenance"):
+        provenance = item.get("provenance") or ""
+        if not provenance:
             issues.append(f"Inventory item missing provenance: {item_id}")
+        elif klass == "discovered" and not PROVENANCE_REF.search(provenance):
+            # Hand-edited committed inventories must meet the same bar the
+            # generator enforces: discovered items need a PR/issue reference.
+            issues.append(f"Discovered item provenance lacks a PR/issue reference: {item_id}")
         if item.get("status") == "open":
             open_ids.add(item_id)
 

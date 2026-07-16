@@ -303,6 +303,20 @@ def build_ratchet_result(
         }
         base_counts = _counts_from_docs(base_docs)
 
+        # The schedule parameters themselves are immutable in pr mode: a PR
+        # that edits contract_drift_program.json is threshold inflation by
+        # definition (the #9325 ruling's banned move) and must be settled as
+        # its own operator-approved change over a red gate, never slipped in.
+        base_program = _git_doc(repo_root, base_ref, program_baseline)
+        head_program = _load_json_strict(program_baseline, "Program baseline")
+        for field in ("start_date", "start_total_items", "weekly_reduction", "grace_weeks"):
+            if base_program.get(field) != head_program.get(field):
+                integrity_issues.append(
+                    "Program baseline parameter changed in PR "
+                    f"({field}: {base_program.get(field)!r} -> {head_program.get(field)!r}); "
+                    "schedule changes require operator settlement, not a PR-mode pass"
+                )
+
         base_inventory = _git_doc(repo_root, base_ref, inventory_path)
         base_items = {
             i["id"]: i for i in base_inventory.get("items", []) if isinstance(i, dict) and "id" in i

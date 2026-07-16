@@ -219,3 +219,22 @@ def test_duplicate_inventory_ids_fail_sync(tmp_path):
     inventory = {"items": [item, dup_resolved]}
     issues = gen.find_sync_issues(inventory, {"python_sdk_drift:GET /api/x": "python_sdk_drift"})
     assert any("Duplicate inventory id" in i for i in issues)
+
+
+def test_discovered_provenance_requires_reference_in_committed_inventory():
+    """Round-5 review P2: hand-edited committed inventories must meet the
+
+    generator's bar — discovered items need a PR/issue reference in
+    provenance, not free text.
+    """
+    item = {
+        "id": "python_sdk_drift:GET /api/y",
+        "class": "discovered",
+        "discovered_on": "2026-06-01",
+        "provenance": "we decided this is fine",
+        "status": "open",
+    }
+    issues = gen.find_sync_issues(
+        {"items": [item]}, {"python_sdk_drift:GET /api/y": "python_sdk_drift"}
+    )
+    assert any("lacks a PR/issue reference" in i for i in issues)

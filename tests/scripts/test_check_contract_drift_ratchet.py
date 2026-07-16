@@ -853,3 +853,22 @@ def test_pr_mode_legitimate_lifecycle_two_generations(monkeypatch, tmp_path: Pat
     assert result["integrity"]["passing"], result["integrity"]["issues"]
     assert result["pr_delta"]["counts"]["verify_python_sdk_drift"]["delta"] == -1
     assert result["passing"]
+
+
+def test_pr_mode_program_parameter_change_fails(tmp_path: Path):
+    """Round-5 review P2: editing contract_drift_program.json in a PR is
+
+    threshold inflation by definition and must fail pr-mode integrity even
+    though counts and inventory are untouched.
+    """
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    program = json.loads(paths["program"].read_text())
+    program["start_total_items"] = 5000
+    _write_json(paths["program"], program)
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["increased"] == []
+    assert not result["integrity"]["passing"]
+    assert any("Program baseline parameter changed" in i for i in result["integrity"]["issues"])
+    assert not result["passing"]
