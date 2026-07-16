@@ -1433,9 +1433,10 @@ class TestCLIAgentModelMapping:
         assert agent.OPENROUTER_MODEL_MAP.get("gpt-4.1-codex") == "openai/gpt-5.5"
 
     def test_gemini_model_mapping(self):
-        """Should map Gemini models correctly."""
+        """Should map Gemini models to the LIVE catalog slug (#9073: the
+        unsuffixed google/gemini-3.1-pro id does not exist on OpenRouter)."""
         agent = GeminiCLIAgent(name="test", model="gemini-3-pro")
-        assert agent.OPENROUTER_MODEL_MAP.get("gemini-3-pro") == "google/gemini-3.1-pro"
+        assert agent.OPENROUTER_MODEL_MAP.get("gemini-3-pro") == "google/gemini-3.1-pro-preview"
 
     def test_grok_model_mapping(self):
         """Should map Grok models correctly."""
