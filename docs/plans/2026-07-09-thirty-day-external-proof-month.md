@@ -50,13 +50,19 @@ at 0%.
 
 ### W1 (Jul 9–16): "A (simulated) stranger verifies a signed production receipt"
 
-> **Founder amendment (2026-07-10, formal replan):** no external human is
-> recruited for #8858 until the project measures **≥8/10 on every dimension of
-> [`docs/status/QUALITY_BAR.md`](../status/QUALITY_BAR.md)** (founder assessment
-> at decision time: ~4/10). A real stranger's first impression is scarce and
-> unrepeatable; until the bar is met, the outsider run is replaced by
-> **simulated stranger runs** — clean VM, public docs only, adversarial
-> persona, every failure recorded before anything is fixed.
+> **Founder amendment (2026-07-10, formal replan; amended 2026-07-16 to a
+> graduated ladder):** external exposure is gated by the ladder in
+> [`docs/status/QUALITY_BAR.md`](../status/QUALITY_BAR.md) (founder assessment
+> at decision time: ~4/10). Rung 0: adversarial **simulated stranger runs**
+> (clean VM, public docs only, failures recorded before fixes) move the
+> scores. Rung 1: a **founder cold-run** of the public path on a clean
+> machine, uncoached, due **Jul 22**. Rung 2: the single diagnostic **#8858
+> outsider run** — decision point **Jul 30** with the W3 bundle, gated only on
+> the rung-1 result (zero blocking failures on the bounded path in <30 min),
+> with any deferral recorded, named, and re-reviewed at each weekly digest.
+> Rung 3: **broad outreach** stays behind the full ≥8/10 bar after founder
+> rubric calibration. Simulated and founder runs never satisfy the
+> external-artifact kill-switch metric.
 
 - **Instrument outcome (amended):** first simulated stranger run executes the
   public quickstart and every receipt-verification path available to a clean
@@ -64,8 +70,10 @@ at 0%.
   obtainable, and converts each failure to an issue. The baseline run found
   the signing-key endpoint returning 404 and available receipts unsigned;
   signed production verification remains an unresolved W1 target, not a
-  prerequisite for running the baseline instrument. #8858 stays open, blocked
-  on the quality bar, not on a date.
+  prerequisite for running the baseline instrument. #8858 stays open behind
+  the ladder's rung-2 gate — bounded by the Jul 22 founder cold-run and the
+  Jul 30 decision point, never deferred without a named blocker and a next
+  review date.
 - Merge #8809 (`/.well-known` signing-key endpoints; precondition). Enable Ed25519
   on production receipts (closes the #8801 "unsigned" limitation). Fix stranger-test
   frictions #8877, #7401. Close main-red #8930.
@@ -78,9 +86,10 @@ at 0%.
   the remaining proof target is prod receipts signed + one verified offline;
   #8809/#9048/#9058 merged; ≥4/9 stuck PRs dispositioned (round 1 — the W2
   round-2 tail takes the cumulative count to ≥8/9); #8930 closed.
-- **Founder:** calibrate the QUALITY_BAR.md rubric (replaces the outsider
-  recruit); settle Tier-4 #8406; approve prod signing-key deployment; pentest
-  vendor shortlist.
+- **Founder:** calibrate the QUALITY_BAR.md rubric and run the rung-1 cold-run
+  by **Jul 22** (replaces the outsider recruit; the cold-run is the readiness
+  evidence for the Jul 30 #8858 decision); settle Tier-4 #8406; approve prod
+  signing-key deployment; pentest vendor shortlist.
 
 ### W2 (Jul 16–23): "Human oversight is attestable — compliance chain complete"
 - **External outcome:** #8230 (Art.14 human-oversight attestation) shipped: schema +
@@ -99,9 +108,9 @@ at 0%.
 
 ### W3 (Jul 23–30): "Publish the bundle; flip the gate to enforcing"
 - **External outcome:** EU AI Act GPAI/Art-50 bundle **published by Jul 30** (3-day
-  buffer): signed prod receipt + verification artifact (simulated-stranger run
-  per the 2026-07-10 QUALITY_BAR amendment; upgraded to a real outsider's
-  artifact only if the ≥8/10 gate clears first) + Art.14 pack +
+  buffer): signed prod receipt + verification artifact (founder cold-run per
+  the QUALITY_BAR ladder; upgraded to the real outsider's artifact if the
+  rung-2 gate clears at the Jul 30 decision point) + Art.14 pack +
   Rekor note. Close ODR-2 #8225 (PQC hybrid explicitly deferred with rationale).
 - Jul 25: record T4 kill-switch proof; #8762 review Jul 29 (T2 re-scope if #8766
   didn't demo).
@@ -134,19 +143,25 @@ at 0%.
 
 1. **Product share of merges (7-day):** ≥40% ramping to ≥50%. Trip: <20% two
    consecutive weeks → substrate freeze, drain-only.
-2. **External artifacts:** ≥1 per 14 days (W1 stranger-sim run → W3 bundle →
-   W4 demo; a real outsider only after the QUALITY_BAR gate clears).
-   Trip: 0 in 30 days → demote to Phase 1 + human review.
+2. **External artifacts:** ≥1 per 14 days (W3 bundle → W4 demo → #8858
+   outsider run when its rung-2 gate clears). **Simulated stranger runs and
+   founder cold-runs are internal instruments and never count here** — an
+   external artifact must be visible to or produced with someone outside the
+   project. Trip: 0 in 30 days → demote to Phase 1 + human review.
 3. **Settlement latency (ready→merged, Tier 0-2, p50):** ≤48h. Trip: >7 days →
    drain-only, no new feature PRs.
 
 ## 4. Mid-month replan triggers (any one forces a replan session, never a silent slip)
 
 - ~~#8858 not done by **Jul 16** → W2 collapses to outsider-proof only.~~
-  Superseded by the 2026-07-10 founder amendment: #8858 is gated on
-  `docs/status/QUALITY_BAR.md` (≥8/10 all dimensions), not on a date. The
-  replacement trigger: no simulated stranger run executed by **Jul 16** → W2
-  collapses to stranger-sim + quality-bar work only.
+  Superseded by the 2026-07-10 founder amendment (graduated 2026-07-16):
+  #8858 is gated on the `docs/status/QUALITY_BAR.md` **rung-2 gate** with
+  bounded dates. Replacement triggers: no simulated stranger run by **Jul 16**
+  → W2 collapses to stranger-sim + quality-bar work only (satisfied by run 1,
+  Jul 10). Founder cold-run not executed by **Jul 22** → the Jul 30 #8858
+  decision point defaults to *deferred with the cold-run itself as the named
+  blocker*, and the deferral question goes to the weekly digest — the date may
+  slip only by recorded decision, never silently.
 - #8230 not merged by **Jul 23** or bundle not 100% draft → W3 goes
   compliance-only; the demo dies for the month.
 - Main red >24h → all lanes to repair; plan resumes at last checkpoint.
