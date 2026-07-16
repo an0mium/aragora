@@ -51,6 +51,16 @@ class TestModelProfiles:
         assert claude.max_context_tokens == 200000
         assert claude.supports_vision is True
 
+    def test_kimi_profile_tracks_k3_catalog(self):
+        """Kimi selection metadata should match the current OpenRouter K3 listing."""
+        kimi = MODEL_PROFILES["kimi"]
+        assert kimi.model_id == "kimi-k3"
+        assert kimi.display_name == "Kimi K3"
+        assert kimi.max_context_tokens == 1048576
+        assert kimi.cost_input_per_1k == 0.003
+        assert kimi.cost_output_per_1k == 0.015
+        assert kimi.supports_vision is True
+
     def test_all_profiles_have_required_fields(self):
         """Verify all profiles have required fields populated."""
         for name, profile in MODEL_PROFILES.items():

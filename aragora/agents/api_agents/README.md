@@ -77,7 +77,7 @@ Agent (core.py)
     │   ├── DeepSeekAgent     # DeepSeek V3/R1
     │   ├── LlamaAgent        # Meta Llama 3.3/4
     │   ├── QwenAgent         # Alibaba Qwen 2.5/3
-    │   ├── KimiK2Agent       # Moonshot Kimi K2.6
+    │   ├── KimiK3Agent       # Moonshot Kimi K3
     │   ├── SonarAgent        # Perplexity Sonar
     │   ├── CommandRAgent     # Cohere Command R+
     │   ├── JambaAgent        # AI21 Jamba
@@ -113,8 +113,8 @@ Agent (core.py)
 | `QwenMaxAgent` | qwen3-max | Trillion-parameter frontier |
 | `MistralAgent` | mistral-large-2411 | Via OpenRouter |
 | `YiAgent` | yi-large | 01.AI flagship |
-| `KimiK2Agent` | kimi-k2.6 | Latest frontier Kimi model on OpenRouter |
-| `KimiThinkingAgent` | kimi-k2-thinking | Reasoning model |
+| `KimiK3Agent` | kimi-k3 | Latest frontier Kimi model on OpenRouter |
+| `KimiThinkingAgent` | kimi-k3 | Compatibility alias for Kimi K3 reasoning |
 | `SonarAgent` | sonar-reasoning | DeepSeek R1 + web search |
 | `CommandRAgent` | command-r-plus | RAG-optimized |
 | `JambaAgent` | jamba-1.6-large | SSM-Transformer hybrid |
@@ -202,7 +202,7 @@ agent = AnthropicAPIAgent(enable_fallback=True)
 OPENROUTER_FALLBACK_MODELS = {
     "qwen/qwen3-235b-a22b": "deepseek/deepseek-v4-pro",
     "deepseek/deepseek-v4-pro": "openai/gpt-5.3-chat",
-    "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.8",
+    "moonshotai/kimi-k3": "anthropic/claude-opus-4.8",
     "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4o-mini",
     # ... more mappings
 }

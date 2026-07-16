@@ -565,7 +565,7 @@ class TestKimiCLIAgent:
 
         agent = KimiCLIAgent(
             name="kimi-test",
-            model="kimi-k2",
+            model="kimi-k3",
             enable_fallback=False,
             enable_circuit_breaker=False,
         )

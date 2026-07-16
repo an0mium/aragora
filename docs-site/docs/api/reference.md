@@ -1522,7 +1522,7 @@ API (direct):
 | `codestral` | codestral-latest | Mistral code model |
 | `ollama` | llama3.2 | Local Ollama |
 | `lm-studio` | local-model | Local LM Studio |
-| `kimi` | moonshot-v1-8k | Moonshot API |
+| `kimi-legacy` | moonshot-v1-8k | Legacy Moonshot API contract |
 
 OpenRouter:
 | Type | Default Model | Notes |
@@ -1535,6 +1535,8 @@ OpenRouter:
 | `qwen` | qwen/qwen3-max | Qwen3 Max |
 | `qwen-max` | qwen/qwen3-max | Qwen3 Max |
 | `yi` | 01-ai/yi-large | Yi Large |
+| `kimi` | moonshotai/kimi-k3 | Moonshot Kimi K3 |
+| `kimi-thinking` | moonshotai/kimi-k3 | Kimi K3 reasoning alias |
 
 CLI:
 

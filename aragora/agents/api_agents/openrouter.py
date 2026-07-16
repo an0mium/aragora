@@ -33,6 +33,7 @@ from aragora.agents.api_agents.common import (
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config.model_pins import KIMI_K3_VIA_OPENROUTER
 from aragora.exceptions import ExternalServiceError
 from aragora.observability.metrics.agents import (
     ErrorType,
@@ -76,6 +77,8 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "deepseek/deepseek-r1": "openai/gpt-5.5",
     "deepseek/deepseek-reasoner": "openai/gpt-5.5",
     # Kimi -> Claude Opus 4.8
+    KIMI_K3_VIA_OPENROUTER: "anthropic/claude-opus-4.8",
+    # Legacy keys remain so explicit older pins retain a safe fallback.
     "moonshotai/kimi-k2.7-code": "anthropic/claude-opus-4.8",
     "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.8",
     "moonshotai/kimi-k2.5": "anthropic/claude-opus-4.8",
@@ -115,7 +118,7 @@ class OpenRouterAgent(APIAgent):
     - mistralai/mistral-large-2512 (Mistral Large 3)
     - qwen/qwen3.7-max (Qwen3.7 Max)
     - qwen/qwen3.5-plus-02-15 (Qwen3.5 Plus)
-    - moonshotai/kimi-k2.7-code (Kimi K2.7 Code)
+    - moonshotai/kimi-k3 (Kimi K3)
     - google/gemini-3.1-pro-preview (Gemini 3.1 Pro)
     - anthropic/claude-opus-4.8
     - openai/gpt-5.5
@@ -804,19 +807,19 @@ class YiAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "kimi",
-    default_model="moonshotai/kimi-k2.7-code",
+    default_model=KIMI_K3_VIA_OPENROUTER,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Kimi K2.7 Code - Moonshot AI's latest frontier Kimi model on OpenRouter",
+    description="Kimi K3 - Moonshot AI's multimodal reasoning model on OpenRouter",
 )
-class KimiK2Agent(OpenRouterAgent):
-    """Moonshot AI Kimi K2.7 Code via OpenRouter - latest frontier Kimi model."""
+class KimiK3Agent(OpenRouterAgent):
+    """Moonshot AI Kimi K3 via OpenRouter."""
 
     def __init__(
         self,
         name: str = "kimi",
         role: AgentRole = "analyst",
-        model: str = "moonshotai/kimi-k2.7-code",
+        model: str = KIMI_K3_VIA_OPENROUTER,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -828,21 +831,25 @@ class KimiK2Agent(OpenRouterAgent):
         self.agent_type = "kimi"
 
 
+# Public compatibility for callers that imported the pre-K3 class name.
+KimiK2Agent = KimiK3Agent
+
+
 @AgentRegistry.register(
     "kimi-thinking",
-    default_model="moonshotai/kimi-k2-thinking",
+    default_model=KIMI_K3_VIA_OPENROUTER,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Kimi K2 Thinking - reasoning model that outperforms GPT-5 on agentic tasks",
+    description="Kimi K3 reasoning alias - mandatory-reasoning Moonshot model on OpenRouter",
 )
 class KimiThinkingAgent(OpenRouterAgent):
-    """Moonshot AI Kimi K2 Thinking via OpenRouter - reasoning model with chain-of-thought."""
+    """Compatibility agent type routed to Kimi K3's mandatory reasoning mode."""
 
     def __init__(
         self,
         name: str = "kimi-thinking",
         role: AgentRole = "analyst",
-        model: str = "moonshotai/kimi-k2-thinking",
+        model: str = KIMI_K3_VIA_OPENROUTER,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -854,7 +861,9 @@ class KimiThinkingAgent(OpenRouterAgent):
         self.agent_type = "kimi-thinking"
 
 
-# Legacy Kimi agent using direct Moonshot API (requires KIMI_API_KEY)
+# Legacy Kimi agent using the old direct Moonshot API contract. Its v1 pin is
+# intentionally retained for compatibility; current Kimi traffic uses K3 via
+# the registered OpenRouter-backed ``kimi`` and ``kimi-thinking`` agent types.
 @AgentRegistry.register(
     "kimi-legacy",
     default_model="moonshot-v1-8k",
@@ -877,7 +886,7 @@ class KimiLegacyAgent(APIAgent):
         api_key: str | None = None,
     ):
         super().__init__(name=name, model=model, role=role)
-        self.system_prompt = system_prompt
+        self.system_prompt = system_prompt or ""
         self.api_key = api_key or get_api_key("KIMI_API_KEY")
         self.base_url = "https://api.moonshot.cn/v1"
         self.agent_type = "kimi"
@@ -1158,6 +1167,7 @@ __all__ = [
     "QwenMaxAgent",
     "Qwen35PlusAgent",
     "YiAgent",
+    "KimiK3Agent",
     "KimiK2Agent",
     "KimiThinkingAgent",
     "KimiLegacyAgent",

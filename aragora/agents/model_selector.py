@@ -446,8 +446,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # Kimi (Moonshot AI)
     "kimi": ModelProfile(
-        model_id="kimi-k2.6",
-        display_name="Kimi K2.6",
+        model_id="kimi-k3",
+        display_name="Kimi K3",
         provider="moonshot",
         capabilities={
             ModelCapability.REASONING: 0.91,
@@ -462,12 +462,13 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.90,
             ModelCapability.FACTUAL_ACCURACY: 0.82,
         },
-        max_context_tokens=256000,
+        max_context_tokens=1048576,
         max_output_tokens=8192,
-        cost_input_per_1k=0.0007448,
-        cost_output_per_1k=0.004655,
+        cost_input_per_1k=0.003,
+        cost_output_per_1k=0.015,
         avg_latency_ms=800,
         reliability_score=0.91,
+        supports_vision=True,
     ),
     # Llama 4
     "llama4-maverick": ModelProfile(

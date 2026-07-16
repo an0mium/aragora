@@ -354,16 +354,16 @@ async def create_agents():
         )
         logger.info("Added Qwen 3 235B (integrator/synthesizer) via OpenRouter")
 
-        # Kimi K2 - Challenger perspective, fresh takes
+        # Kimi K3 - Challenger perspective, fresh takes
         agents.append(
             AgentRegistry.create(
                 "openrouter",
                 name="kimi_challenger",
                 role="devil_advocate",
-                model="moonshotai/kimi-k2-instruct",
+                model="moonshotai/kimi-k3",
             )
         )
-        logger.info("Added Kimi K2 (challenger/devil's advocate) via OpenRouter")
+        logger.info("Added Kimi K3 (challenger/devil's advocate) via OpenRouter")
     else:
         logger.warning(
             "OpenRouter not available - skipping frontier models (Mistral, Qwen, Kimi, DeepSeek)"

@@ -563,18 +563,25 @@ class TestYiAgent:
         assert agent.agent_type == "yi"
 
 
-class TestKimiK2Agent:
+class TestKimiK3Agent:
     """Tests for the default Kimi frontier agent."""
 
     def test_init_with_defaults(self, mock_env_with_api_keys):
-        """Should initialize with Kimi K2.6 defaults."""
-        from aragora.agents.api_agents.openrouter import KimiK2Agent
+        """Should initialize with Kimi K3 defaults."""
+        from aragora.agents.api_agents.openrouter import KimiK3Agent
 
-        agent = KimiK2Agent()
+        agent = KimiK3Agent()
 
         assert agent.name == "kimi"
-        assert agent.model == "moonshotai/kimi-k2.7-code"
+        assert agent.model == "moonshotai/kimi-k3"
         assert agent.agent_type == "kimi"
+
+    def test_kimi_k2_class_name_remains_compatible(self, mock_env_with_api_keys):
+        """The pre-K3 public import remains an alias without retaining a K2 default."""
+        from aragora.agents.api_agents.openrouter import KimiK2Agent, KimiK3Agent
+
+        assert KimiK2Agent is KimiK3Agent
+        assert KimiK2Agent().model == "moonshotai/kimi-k3"
 
     def test_agent_registry_registration(self, mock_env_with_api_keys):
         """Should be registered in agent registry."""
@@ -595,7 +602,7 @@ class TestKimiThinkingAgent:
         agent = KimiThinkingAgent()
 
         assert agent.name == "kimi-thinking"
-        assert "thinking" in agent.model
+        assert agent.model == "moonshotai/kimi-k3"
         assert agent.agent_type == "kimi-thinking"
 
 

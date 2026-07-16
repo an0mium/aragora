@@ -63,6 +63,10 @@ GROK_4_VIA_OPENROUTER: Final = "x-ai/grok-4"
 MISTRAL_LARGE_DIRECT: Final = "mistral-large-2512"
 MISTRAL_LARGE_VIA_OPENROUTER: Final = "mistralai/mistral-large-2512"
 
+# Moonshot Kimi K3 - multimodal reasoning and long-horizon agentic work.
+# K3 is currently consumed through OpenRouter's Moonshot-hosted endpoint.
+KIMI_K3_VIA_OPENROUTER: Final = "moonshotai/kimi-k3"
+
 
 # -----------------------------------------------------------------------------
 # Canonical-metrics + legacy underscored aliases
@@ -185,6 +189,7 @@ __all__ = [
     "GROK_4_VIA_OPENROUTER",
     "MISTRAL_LARGE_DIRECT",
     "MISTRAL_LARGE_VIA_OPENROUTER",
+    "KIMI_K3_VIA_OPENROUTER",
     "OPUS_4_7",
     "OPUS_4_8",
     "GPT_5_4",

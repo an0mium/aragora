@@ -60,6 +60,25 @@ class TestValidateAgentCredentials:
         assert validate_agent_credentials("llama") is True
         assert validate_agent_credentials("qwen") is True
 
+    @patch.dict(
+        os.environ,
+        {
+            "OPENROUTER_API_KEY": "",
+            "KIMI_API_KEY": "legacy-key",
+            "ARAGORA_USE_SECRETS_MANAGER": "false",
+        },
+        clear=False,
+    )
+    def test_current_kimi_requires_openrouter_but_legacy_accepts_kimi_key(self):
+        """A direct legacy key must not make the OpenRouter-backed K3 agent available."""
+        from aragora.config.secrets import reset_secret_manager
+
+        reset_secret_manager()
+        assert validate_agent_credentials("kimi") is False
+        assert validate_agent_credentials("kimi-k3") is False
+        assert validate_agent_credentials("kimi-thinking") is False
+        assert validate_agent_credentials("kimi-legacy") is True
+
 
 class TestGetCredentialStatus:
     """Tests for get_credential_status function."""

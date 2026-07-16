@@ -750,7 +750,7 @@ from aragora.agents.api_agents import (
     DeepSeekV3Agent,
     MistralAgent,
     QwenAgent,
-    KimiK2Agent,
+    KimiK3Agent,
     OpenAIAPIAgent,
     OpenRouterAgent,
 )
@@ -3369,7 +3369,7 @@ The most valuable proposals combine deep analysis with actionable implementation
         )
         self.qwen.system_prompt = self.deepseek.system_prompt
 
-        self.kimi = KimiK2Agent(
+        self.kimi = KimiK3Agent(
             name="kimi-frontier",
             role="proposer",
         )

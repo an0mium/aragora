@@ -287,7 +287,7 @@ class AgentSpec:
     #
     # These factories pin a specific model on a specific CLI surface
     # so a single round can dispatch e.g. claude-opus, claude-sonnet,
-    # gpt-5.4, gemini-3.1-pro, kimi-k2.5 in parallel.
+    # gpt-5.4, gemini-3.1-pro, and Factory's currently available kimi-k2.5 in parallel.
 
     @classmethod
     def with_model(
@@ -369,7 +369,11 @@ class AgentSpec:
 
     @classmethod
     def droid_kimi(cls, timeout_seconds: int = DEFAULT_MODEL_TIMEOUT) -> "AgentSpec":
-        """Kimi K2.5 (Chinese frontier) via the ``droid`` CLI."""
+        """Latest Kimi exposed by the installed ``droid`` CLI (currently K2.5).
+
+        OpenRouter-backed Kimi paths use K3. Keep this transport-specific pin
+        until ``droid exec --help`` advertises a K3 model id.
+        """
         return cls.with_model(
             "droid", "kimi-k2.5", name="droid-kimi", timeout_seconds=timeout_seconds
         )

@@ -161,7 +161,7 @@ OPENROUTER_BACKED_FAMILIES: frozenset[str] = frozenset({FAMILY_DEEPSEEK, FAMILY_
 # - OpenAI pricing page (GPT-5 / GPT-4.1 family)
 # - Google Gemini API pricing (Gemini 3.1 Pro / 3 Flash)
 # - xAI docs (Grok 4 / 4.2 pricing)
-# - OpenRouter model catalog (DeepSeek chat, Moonshot Kimi K2.6,
+# - OpenRouter model catalog (DeepSeek chat, Moonshot Kimi K3,
 #   Qwen3-235B-A22B and Qwen3 Max variants)
 # - Mistral La Plateforme pricing (Mistral Large 2411 / 2512)
 _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
@@ -237,6 +237,8 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "deepseek-v3.2-exp": (0.27, 1.10),
     "deepseek-r1": (0.55, 2.19),
     "deepseek-reasoner": (0.55, 2.19),
+    "kimi-k3": (3.00, 15.00),
+    # Legacy Kimi aliases remain for explicit env overrides and old receipts.
     "kimi-k2.7-code": (0.75, 3.50),
     "kimi-k2.6": (0.7448, 4.655),
     "kimi-k2.5": (0.44, 2.00),

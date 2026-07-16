@@ -1230,7 +1230,7 @@ class KimiCLIAgent(CLIAgent):
 if os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
     AgentRegistry.register(
         "kimi-cli",
-        default_model="kimi-k2",
+        default_model="kimi-k3",
         agent_type="CLI",
         requires="Kimi CLI (pip install kimi-cli); ACP-based, headless `-p` unverified",
     )(KimiCLIAgent)

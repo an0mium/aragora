@@ -64,10 +64,8 @@ class TestFallbackModelChain:
         """Test Kimi models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-        assert "moonshotai/kimi-k2.7-code" in OPENROUTER_FALLBACK_MODELS
-        assert (
-            OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.7-code"] == "anthropic/claude-opus-4.8"
-        )
+        assert "moonshotai/kimi-k3" in OPENROUTER_FALLBACK_MODELS
+        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k3"] == "anthropic/claude-opus-4.8"
 
     def test_llama_has_fallback(self):
         """Test Llama models have fallbacks."""
@@ -305,10 +303,11 @@ class TestProviderSpecificAgents:
         assert QwenAgent is not None
 
     def test_kimi_agent_exists(self):
-        """Test KimiK2Agent class exists."""
-        from aragora.agents.api_agents.openrouter import KimiK2Agent
+        """Test KimiK3Agent and its compatibility alias exist."""
+        from aragora.agents.api_agents.openrouter import KimiK2Agent, KimiK3Agent
 
-        assert KimiK2Agent is not None
+        assert KimiK3Agent is not None
+        assert KimiK2Agent is KimiK3Agent
 
     def test_yi_agent_exists(self):
         """Test YiAgent class exists."""
@@ -406,7 +405,7 @@ class TestModuleExports:
         """Test all provider agents can be imported."""
         from aragora.agents.api_agents.openrouter import (
             DeepSeekAgent,
-            KimiK2Agent,
+            KimiK3Agent,
             LlamaAgent,
             MistralAgent,
             QwenAgent,
@@ -414,7 +413,7 @@ class TestModuleExports:
         )
 
         assert DeepSeekAgent is not None
-        assert KimiK2Agent is not None
+        assert KimiK3Agent is not None
         assert LlamaAgent is not None
         assert MistralAgent is not None
         assert QwenAgent is not None

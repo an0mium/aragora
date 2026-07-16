@@ -1663,7 +1663,7 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
     "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
-    "kimi": "moonshotai/kimi-k2.6",
+    "kimi": "moonshotai/kimi-k3",
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter

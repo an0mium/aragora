@@ -48,6 +48,10 @@ class TestAliasesInAll:
         required = {"OPUS_4_8", "OPUS_4_7", "GPT_5_4", "GEMINI_3_1_PRO"}
         assert required <= set(model_pins.__all__)
 
+    def test_kimi_k3_openrouter_pin_is_exported(self) -> None:
+        assert model_pins.KIMI_K3_VIA_OPENROUTER == "moonshotai/kimi-k3"
+        assert "KIMI_K3_VIA_OPENROUTER" in model_pins.__all__
+
 
 class TestCanonicalMetricsRegex:
     """Mirror the exact regex that ``check_canonical_metrics.py`` uses

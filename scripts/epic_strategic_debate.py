@@ -63,7 +63,7 @@ FALLBACK_MODELS = {
     "gemini": "google/gemini-3.1-pro-preview",
     "grok": "x-ai/grok-2-1212",
     "mistral-api": "mistralai/mistral-large-2411",
-    "kimi": "moonshot/moonshot-v1-8k",
+    "kimi": "moonshotai/kimi-k3",
 }
 
 # Agent timeout configuration (seconds)

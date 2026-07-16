@@ -142,8 +142,8 @@ All OpenRouter agents require `OPENROUTER_API_KEY`.
 | `qwen-max` | qwen/qwen3-max | Qwen3 Max |
 | `qwen-3.5` | qwen/qwen3.5-plus-02-15 | Qwen 3.5 Plus |
 | `yi` | 01-ai/yi-large | Yi Large |
-| `kimi` | moonshotai/kimi-k2-0905 | Kimi K2 |
-| `kimi-thinking` | moonshotai/kimi-k2-thinking | Kimi K2 Thinking |
+| `kimi` | moonshotai/kimi-k3 | Kimi K3 |
+| `kimi-thinking` | moonshotai/kimi-k3 | Kimi K3 reasoning alias |
 | `sonar` | perplexity/sonar-reasoning | Sonar (reasoning + web search) |
 | `command-r` | cohere/command-r-plus | Command R+ (RAG-optimized) |
 | `jamba` | ai21/jamba-1.6-large | Jamba (SSM-Transformer hybrid) |
