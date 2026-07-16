@@ -88,7 +88,11 @@ def test_bridge_import_does_not_inject_repo_dotenv(tmp_path) -> None:
     stranded on an unmerged branch for a month while believed merged). This
     test reproduces the real failure mode end to end.
     """
-    pytest.importorskip("rlm")
+    # Guarded: a bare importorskip("rlm") would itself run rlm's load_dotenv()
+    # side effect and pollute this xdist worker's environ — the exact failure
+    # mode this test exists to prevent (review P2 on #9319).
+    with preserve_environ():
+        pytest.importorskip("rlm")
     (tmp_path / ".env").write_text(f"{_SENTINEL}=leaked\n")
     env = {k: v for k, v in os.environ.items() if k != _SENTINEL}
 
