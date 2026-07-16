@@ -18,6 +18,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -73,6 +74,13 @@ def _manifest_cases(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     rows = manifest.get("smoke_cases")
     if not isinstance(rows, list) or not rows:
         raise ValueError("manifest smoke_cases must be a non-empty list")
+    source = manifest.get("source")
+    if not isinstance(source, dict):
+        raise ValueError("manifest source must be an object")
+    benchmark_head_sha = source.get("benchmark_head_sha")
+    if not isinstance(benchmark_head_sha, str) or not benchmark_head_sha.strip():
+        raise ValueError("manifest source.benchmark_head_sha must be non-empty")
+    benchmark_head_sha = benchmark_head_sha.strip()
     cases: dict[str, dict[str, Any]] = {}
     required = {
         "case_id",
@@ -94,8 +102,13 @@ def _manifest_cases(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
         case_id = str(raw["case_id"])
         if case_id in cases:
             raise ValueError(f"duplicate manifest case: {case_id}")
-        if str(manifest.get("source", {}).get("benchmark_head_sha", "")) not in str(
-            raw["validation_url"]
+        validation_url = urlsplit(str(raw["validation_url"]))
+        path_parts = [part for part in validation_url.path.split("/") if part]
+        if (
+            validation_url.scheme != "https"
+            or validation_url.netloc != "raw.githubusercontent.com"
+            or len(path_parts) < 4
+            or path_parts[2] != benchmark_head_sha
         ):
             raise ValueError(f"{case_id}: validation_url is not pinned to benchmark_head_sha")
         cases[case_id] = raw

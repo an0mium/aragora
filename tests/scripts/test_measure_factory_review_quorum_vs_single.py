@@ -87,6 +87,35 @@ def test_manifest_rejects_moving_validation_url() -> None:
         raise AssertionError("moving validation URL must fail closed")
 
 
+def test_manifest_rejects_sha_outside_raw_github_ref_segment() -> None:
+    manifest, _, _ = _inputs()
+    benchmark_head_sha = manifest["source"]["benchmark_head_sha"]
+    validation_url = manifest["smoke_cases"][0]["validation_url"]
+    manifest["smoke_cases"][0]["validation_url"] = (
+        validation_url.replace(f"/{benchmark_head_sha}/", "/main/")
+        + f"?expected_ref={benchmark_head_sha}"
+    )
+
+    try:
+        measure_script._manifest_cases(manifest)
+    except ValueError as exc:
+        assert "not pinned" in str(exc)
+    else:
+        raise AssertionError("SHA outside the raw GitHub ref segment must fail closed")
+
+
+def test_manifest_rejects_missing_benchmark_head_sha() -> None:
+    manifest, _, _ = _inputs()
+    manifest["source"]["benchmark_head_sha"] = ""
+
+    try:
+        measure_script._manifest_cases(manifest)
+    except ValueError as exc:
+        assert "benchmark_head_sha must be non-empty" in str(exc)
+    else:
+        raise AssertionError("empty benchmark_head_sha must fail closed")
+
+
 def test_validate_pinned_pr_state_accepts_matching_base_and_head(monkeypatch: object) -> None:
     target = SimpleNamespace(head_sha="head-sha")
     case = {"case_id": "case-1", "base_sha": "base-sha", "head_sha": "head-sha"}
