@@ -106,6 +106,7 @@ def _run_decide_demo_builtin_fallback(
     }
 
     print("  Mode: Built-in offline demo agents (no API keys required)")
+    print("        (aragora-debate package unavailable; using built-in fallback)")
     print()
     print("=" * 60)
     print("DECISION SUMMARY")
