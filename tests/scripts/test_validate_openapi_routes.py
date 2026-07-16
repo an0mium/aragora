@@ -301,3 +301,14 @@ def test_validate_coverage_excludes_served_orphans(monkeypatch, tmp_path: Path):
 
     assert results["orphaned_in_spec"] == ["/api/v1/dark"]
     assert results["served_undeclared"] == ["/api/v1/served-only"]
+
+
+def test_is_internal_route_matches_exact_family_not_sibling_names():
+    """Round-1 review P2 on #9360: startswith on the prefix without its
+    trailing slash overmatches — /api/v1/smear must NOT fall under the
+    /api/v1/sme/ internal family."""
+    prefixes = ("/api/v1/sme/",)
+    assert validate_openapi_routes.is_internal_route("/api/v1/sme/dashboard", prefixes)
+    assert validate_openapi_routes.is_internal_route("/api/v1/sme", prefixes)
+    assert not validate_openapi_routes.is_internal_route("/api/v1/smear", prefixes)
+    assert not validate_openapi_routes.is_internal_route("/api/v1/smear/x", prefixes)

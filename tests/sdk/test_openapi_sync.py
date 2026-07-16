@@ -122,7 +122,9 @@ def _internal_prefixes() -> tuple[str, ...]:
 
 
 def _is_internal(normalized_path: str, internal_prefixes: tuple[str, ...]) -> bool:
-    return any(normalized_path.startswith(p.rstrip("/")) for p in internal_prefixes)
+    from scripts.validate_openapi_routes import is_internal_route
+
+    return is_internal_route(normalized_path, internal_prefixes)
 
 
 # ---------------------------------------------------------------------------

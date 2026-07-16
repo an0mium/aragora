@@ -39,11 +39,11 @@ TS_DIRECT_RE = re.compile(
 try:
     # Direct script execution (python scripts/verify_sdk_contracts.py)
     from sdk_path_normalize import normalize_sdk_path
-    from validate_openapi_routes import load_internal_prefixes
+    from validate_openapi_routes import is_internal_route, load_internal_prefixes
 except ModuleNotFoundError:
     # Module import context (pytest importing scripts.verify_sdk_contracts)
     from scripts.sdk_path_normalize import normalize_sdk_path
-    from scripts.validate_openapi_routes import load_internal_prefixes
+    from scripts.validate_openapi_routes import is_internal_route, load_internal_prefixes
 
 
 def _normalize(path: str) -> str:
@@ -65,7 +65,7 @@ def _normalized_internal_prefixes() -> tuple[str, ...]:
 
 
 def _is_internal(normalized_path: str, internal_prefixes: tuple[str, ...]) -> bool:
-    return any(normalized_path.startswith(p.rstrip("/")) for p in internal_prefixes)
+    return is_internal_route(normalized_path, internal_prefixes)
 
 
 def _load_openapi_endpoints(spec_path: Path) -> set[tuple[str, str]]:

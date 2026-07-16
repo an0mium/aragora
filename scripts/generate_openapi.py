@@ -624,8 +624,7 @@ def generate_schema(
                 f"Tier 4 (handler ROUTES supplement): {len(supplement)} paths",
                 file=sys.stderr,
             )
-            for path, methods in supplement.items():
-                merged_paths.setdefault(path, methods)
+            _merge_supplement(merged_paths, supplement)
 
     # Deduplicate paths that differ only by parameter names (e.g.
     # /api/v1/agent/{name}/introspect vs /api/v1/agent/{param}/introspect).
@@ -749,10 +748,14 @@ def _is_internal_route(comparison_key: str, internal_prefixes: tuple[str, ...]) 
     """Whether a normalized comparison key falls in an internal route family.
 
     Matching semantics deliberately mirror validate_openapi_routes.py
-    (startswith on the prefix without its trailing slash) so the generator
+    (exact family root, or under it with the slash intact) so the generator
     excludes exactly the set the route-coverage gate excludes.
     """
-    return any(comparison_key.startswith(p.rstrip("/")) for p in internal_prefixes)
+    for prefix in internal_prefixes:
+        base = prefix.rstrip("/")
+        if comparison_key == base or comparison_key.startswith(base + "/"):
+            return True
+    return False
 
 
 def _filter_internal_paths(paths: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -882,6 +885,21 @@ def _implemented_handler_verbs(handler_class: Any) -> list[str]:
     return verbs
 
 
+def _merge_supplement(
+    merged_paths: dict[str, dict[str, Any]], supplement: dict[str, dict[str, Any]]
+) -> None:
+    """Merge supplement operations method-wise into the spec paths.
+
+    A path-level setdefault dropped every supplement whose path already
+    existed (review P2 on #9360) — documented operations are never
+    overwritten, and missing-method supplements land beside them.
+    """
+    for path, methods in supplement.items():
+        target = merged_paths.setdefault(path, {})
+        for op_method, operation in methods.items():
+            target.setdefault(op_method, operation)
+
+
 def _collect_handler_routes_supplement(
     existing_paths: dict[str, dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
@@ -904,6 +922,20 @@ def _collect_handler_routes_supplement(
     internal_prefixes = _load_internal_route_prefixes()
 
     covered = {_normalize_for_comparison(p) for p in existing_paths}
+    # Method-level spec coverage: a path documented for GET must still accept
+    # supplements for its OTHER declared methods (review P2 on #9360 — the
+    # path-level skip silently swallowed POST_ROUTES on GET-documented paths).
+    covered_methods: dict[str, set[str]] = {}
+    # comparison key -> exact spec path string, so covered-path supplements
+    # merge into the existing path item instead of minting a {param} twin.
+    spec_path_by_key: dict[str, str] = {}
+    for existing_path, path_item in existing_paths.items():
+        key = _normalize_for_comparison(existing_path)
+        spec_path_by_key.setdefault(key, existing_path)
+        if isinstance(path_item, dict):
+            covered_methods.setdefault(key, set()).update(
+                m.lower() for m in path_item if isinstance(m, str)
+            )
     supplement: dict[str, dict[str, Any]] = {}
     # Maps comparison key -> supplement path, so a route declared with several
     # methods (e.g. "GET /x" and "POST /x") merges into one path item.
@@ -970,7 +1002,13 @@ def _collect_handler_routes_supplement(
 
                 spec_path = _route_to_spec_path(route)
                 comparison_key = _normalize_for_comparison(spec_path)
-                if comparison_key in covered and comparison_key not in supplement_keys:
+                if method is None:
+                    # Generic ROUTES on an already-covered path: the served
+                    # verb set is unknowable, so never re-derive ops for it.
+                    if comparison_key in covered and comparison_key not in supplement_keys:
+                        continue
+                elif method in covered_methods.get(comparison_key, set()):
+                    # This exact operation is already documented in the spec.
                     continue
                 if _is_internal_route(comparison_key, internal_prefixes):
                     continue
@@ -1002,7 +1040,9 @@ def _collect_handler_routes_supplement(
                 methods = ["post" if last_segment in _ACTION_SEGMENTS else "get"]
 
             covered.add(comparison_key)
-            target_path = supplement_keys.setdefault(comparison_key, spec_path)
+            target_path = supplement_keys.setdefault(
+                comparison_key, spec_path_by_key.get(comparison_key, spec_path)
+            )
             for op_method in methods:
                 operation: dict[str, Any] = {
                     "summary": f"{op_method.upper()} {spec_path}",

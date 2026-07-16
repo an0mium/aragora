@@ -370,3 +370,64 @@ def test_implemented_handler_verbs_ignores_base_no_op_defaults() -> None:
         "get",
         "post",
     ]
+
+
+def test_handler_routes_supplement_adds_missing_method_on_covered_path(monkeypatch) -> None:
+    """Round-1 review P2 on #9360: a path already documented for one method
+    must still receive supplements for OTHER declared methods, targeted at the
+    exact existing spec path string so they merge into its path item."""
+    import sys
+    import types
+
+    class DummyHandler:
+        POST_ROUTES = ["/api/v1/dummy/things"]
+        DELETE_ROUTES = ["/api/v1/dummy/things/*"]
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    existing = {
+        "/api/v1/dummy/things": {"get": {"summary": "documented"}},
+        "/api/v1/dummy/things/{thing_id}": {"get": {"summary": "documented"}},
+    }
+    supplement = generate_openapi._collect_handler_routes_supplement(existing)
+
+    # Undocumented POST on a GET-documented path is supplemented...
+    assert "post" in supplement["/api/v1/dummy/things"]
+    # ...without re-emitting the documented GET.
+    assert "get" not in supplement["/api/v1/dummy/things"]
+    # Wildcard route resolves to the EXISTING spec path string (named param),
+    # not a parallel {param} duplicate.
+    assert "delete" in supplement["/api/v1/dummy/things/{thing_id}"]
+    assert not any("{param}" in p for p in supplement)
+
+
+def test_handler_routes_supplement_skips_method_already_documented(monkeypatch) -> None:
+    """A method-declared route whose method IS documented adds nothing."""
+    import sys
+    import types
+
+    class DummyHandler:
+        GET_ROUTES = ["/api/v1/dummy/things"]
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    existing = {"/api/v1/dummy/things": {"get": {"summary": "documented"}}}
+    supplement = generate_openapi._collect_handler_routes_supplement(existing)
+    assert supplement == {}
+
+
+def test_merge_supplement_adds_methods_without_overwriting(monkeypatch) -> None:
+    """Supplement ops merge method-wise into existing path items: documented
+    operations are never overwritten, and same-path supplements land beside
+    them instead of being dropped by a path-level setdefault."""
+    merged = {"/api/v1/dummy/things": {"get": {"summary": "documented"}}}
+    supplement = {
+        "/api/v1/dummy/things": {"post": {"summary": "auto"}},
+        "/api/v1/dummy/new": {"get": {"summary": "auto"}},
+    }
+    generate_openapi._merge_supplement(merged, supplement)
+    assert merged["/api/v1/dummy/things"]["get"] == {"summary": "documented"}
+    assert merged["/api/v1/dummy/things"]["post"] == {"summary": "auto"}
+    assert merged["/api/v1/dummy/new"]["get"] == {"summary": "auto"}

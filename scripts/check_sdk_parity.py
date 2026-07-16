@@ -246,11 +246,11 @@ def extract_openapi_routes(spec_path: Path | None = None) -> set[str]:
 try:
     # Direct script execution (python scripts/check_sdk_parity.py)
     from sdk_path_normalize import normalize_sdk_path
-    from validate_openapi_routes import load_internal_prefixes
+    from validate_openapi_routes import is_internal_route, load_internal_prefixes
 except ModuleNotFoundError:
     # Module import context (pytest importing scripts.check_sdk_parity)
     from scripts.sdk_path_normalize import normalize_sdk_path
-    from scripts.validate_openapi_routes import load_internal_prefixes
+    from scripts.validate_openapi_routes import is_internal_route, load_internal_prefixes
 
 
 def normalize_route(route: str) -> str:
@@ -281,7 +281,7 @@ def _internal_prefix_families() -> tuple[str, ...]:
 
 
 def _is_internal_family(normalized_path: str) -> bool:
-    return any(normalized_path.startswith(p.rstrip("/")) for p in _internal_prefix_families())
+    return is_internal_route(normalized_path, _internal_prefix_families())
 
 
 # ---------------------------------------------------------------------------

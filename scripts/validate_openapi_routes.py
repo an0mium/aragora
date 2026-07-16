@@ -70,6 +70,23 @@ def load_internal_prefixes(path: str | None = None) -> tuple[str, ...]:
     return tuple(normalized)
 
 
+def is_internal_route(route: str, prefixes: tuple[str, ...] | list[str]) -> bool:
+    """Whether a route falls inside an internal route family.
+
+    Matches the exact family root or anything under it with the slash intact:
+    ``/api/v1/sme`` and ``/api/v1/sme/dashboard`` are internal under
+    ``/api/v1/sme/``, but sibling names like ``/api/v1/smear`` are NOT
+    (round-1 review P2 on #9360: a bare ``startswith(prefix.rstrip("/"))``
+    overmatched). Canonical matcher — every checker that applies the
+    internal-route policy must delegate here so exclusions stay identical.
+    """
+    for prefix in prefixes:
+        base = prefix.rstrip("/")
+        if route == base or route.startswith(base + "/"):
+            return True
+    return False
+
+
 def get_handler_routes() -> set[str]:
     """Extract all routes from handler ROUTES attributes.
 
@@ -341,14 +358,10 @@ def validate_coverage(
     internal_prefixes = load_internal_prefixes(internal_prefixes_path)
     if not include_internal:
         normalized_handler = {
-            r
-            for r in normalized_handler
-            if not any(r.startswith(prefix.rstrip("/")) for prefix in internal_prefixes)
+            r for r in normalized_handler if not is_internal_route(r, internal_prefixes)
         }
         normalized_openapi = {
-            r
-            for r in normalized_openapi
-            if not any(r.startswith(prefix.rstrip("/")) for prefix in internal_prefixes)
+            r for r in normalized_openapi if not is_internal_route(r, internal_prefixes)
         }
 
     # Find discrepancies
