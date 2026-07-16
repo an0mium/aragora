@@ -1,7 +1,7 @@
 # Public Utility Mission Scorecard (M10)
 
-**Re-audit date:** 2026-07-11, with the external-proof dimension re-audited
-on 2026-07-16
+**Re-audit date:** 2026-07-11, with the external-proof and repo-legibility
+dimensions re-audited on 2026-07-16
 
 **Baseline:** [`PUBLIC_UTILITY_MISSION_BASELINE.md`](PUBLIC_UTILITY_MISSION_BASELINE.md),
 captured at `d780bd4898` on 2026-07-02
@@ -9,8 +9,11 @@ captured at `d780bd4898` on 2026-07-02
 **Re-audit commit:** `258fb97b82` (`origin/main` when this re-audit began)
 
 **External-proof delta commit:** `26f24acb40` (`origin/main` for the
-2026-07-16 reproduction). Other dimension scores remain at their 2026-07-11
-values pending their own current-main re-audits.
+2026-07-16 reproduction).
+
+**Repo-legibility delta commit:** `7e151c13fc` (`origin/main` for the
+2026-07-16 archive and boundary re-audit). Other dimension scores remain at
+their 2026-07-11 values pending their own current-main re-audits.
 
 **Target:** at least **8/10 (grade B)** in each dimension
 
@@ -42,10 +45,10 @@ requests. Open pull requests discussed later are blockers, not score evidence.
 | Action usability | 7 | C | Below | [`action.yml`](../../action.yml), [`GITHUB_ACTION_SETUP.md`](../GITHUB_ACTION_SETUP.md); merged [PR #8669](https://github.com/synaptent/aragora/pull/8669), [PR #8955](https://github.com/synaptent/aragora/pull/8955) | The root Action can emit, verify, and upload an ODR and the guide has a copy-paste workflow. It remains below target because receipts are unsigned, default reviewers are not universally reachable, and the review CLI does not directly emit an ODR. Follow-ups: [#8544](https://github.com/synaptent/aragora/issues/8544), [#9209](https://github.com/synaptent/aragora/issues/9209). |
 | Installability | 7 | C | Below | [`INSTALL_MATRIX.md`](../reference/INSTALL_MATRIX.md), [`README.md`](../../README.md), [`sdk/python/pyproject.toml`](../../sdk/python/pyproject.toml); merged [PR #8967](https://github.com/synaptent/aragora/pull/8967), [PR #8985](https://github.com/synaptent/aragora/pull/8985) | Root Aragora 2.9.0 and `aragora-verify` 0.1.1 are live, and the matrix separates end-user, verifier, SDK, and contributor paths. It remains below target because live `aragora-sdk` is 2.8.0 while the tree declares 2.9.0, and the verifier cryptography-floor alignment remains unlanded. Follow-up: [#9234](https://github.com/synaptent/aragora/issues/9234). |
 | Docs/onboarding | 8 | B | Met | [`docs/README.md`](../README.md), [`docs/INDEX.md`](../INDEX.md), [`quickstart.md`](../quickstart.md), [`GITHUB_ACTION_SETUP.md`](../GITHUB_ACTION_SETUP.md), [`guides/GETTING_STARTED.md`](../guides/GETTING_STARTED.md); merged [PR #8991](https://github.com/synaptent/aragora/pull/8991), [PR #9001](https://github.com/synaptent/aragora/pull/9001), [PR #9003](https://github.com/synaptent/aragora/pull/9003), [PR #9059](https://github.com/synaptent/aragora/pull/9059) | The canonical route is quickstart → receipt → verifier → Action, verifier verbs and exit codes are reconciled, and stale material has a redirect route. The overall corpus is still large, but the public-utility path is singular. |
-| Repo legibility | 6 | D | Below | [`ROOT_ALLOWLIST.md`](../reference/ROOT_ALLOWLIST.md), [`README.md`](../../README.md#the-load-bearing-core), [`docs/README.md`](../README.md); merged [PR #9001](https://github.com/synaptent/aragora/pull/9001) | The load-bearing core and root policy are documented, but the mission's root-clutter relocation and module-quarantine proposal are still parked. Archive-metadata follow-up: [#9229](https://github.com/synaptent/aragora/issues/9229). |
+| Repo legibility | 7 | C | Below | [`ROOT_ALLOWLIST.md`](../reference/ROOT_ALLOWLIST.md), [`MODULE_QUARANTINE_PROPOSAL.md`](../architecture/MODULE_QUARANTINE_PROPOSAL.md); merged [PR #9001](https://github.com/synaptent/aragora/pull/9001), [PR #9091](https://github.com/synaptent/aragora/pull/9091), [PR #9118](https://github.com/synaptent/aragora/pull/9118), [PR #9349](https://github.com/synaptent/aragora/pull/9349) | Root clutter is relocated, the six-boundary quarantine proposal is published, and archive metadata is normalized. A pristine `7e151c13fc` current-main audit left both documentation generators byte-clean, found no stale pre-rename archive paths, and passed the root allowlist, both link validators, and 40 focused tests. This remains below target because `MODULE_QUARANTINE_PROPOSAL.md` is explicitly proposal-only: no boundary inventory is mechanically enforced, and [#8851](https://github.com/synaptent/aragora/issues/8851)'s adopt-or-retire dispositions remain open. |
 | External proof | 7 | C | Below | [`2026-07-DOGFOOD.md`](../case-studies/dogfood/2026-07-DOGFOOD.md), [`2026-07-factory-review-quorum-vs-single.md`](../benchmarks/2026-07-factory-review-quorum-vs-single.md), [`factory_review_quorum_vs_single_results.json`](../benchmarks/factory_review_quorum_vs_single_results.json), [`2026-07-PUBLIC-PROOF.md`](../case-studies/dogfood/2026-07-PUBLIC-PROOF.md); merged [PR #9204](https://github.com/synaptent/aragora/pull/9204), [PR #9225](https://github.com/synaptent/aragora/pull/9225), [PR #9228](https://github.com/synaptent/aragora/pull/9228) | The M9 benchmark and public report are merged, and a pristine current-main replay reproduced all three fixtures, receipt digests, and the canonical live-collection hash. This is substantial proof, but it remains below target because no real uncoached outsider has independently run the public path, the receipts are unsigned, and the three-PR smoke slice does not beat its strongest member. Follow-ups: [#8858](https://github.com/synaptent/aragora/issues/8858), [#9231](https://github.com/synaptent/aragora/issues/9231). |
 
-**Total:** **61/80 (76.25%)**. Four dimensions meet the 8/10 target; four remain below target.
+**Total:** **62/80 (77.5%)**. Four dimensions meet the 8/10 target; four remain below target.
 
 ## External-proof gate
 
