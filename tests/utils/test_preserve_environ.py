@@ -117,16 +117,15 @@ def test_bridge_import_does_not_inject_repo_dotenv(tmp_path) -> None:
     )
 
 
-def test_import_rlm_guarded_returns_cached_module_without_reimport(monkeypatch) -> None:
-    """A sys.modules hit must be returned as-is, with no environ snapshot."""
+def test_import_rlm_guarded_returns_cached_module(monkeypatch) -> None:
+    """An already-imported rlm is returned as-is via the import machinery."""
+    import types
+
     from aragora.utils import env as env_mod
 
-    sentinel_module = object()
+    sentinel_module = types.ModuleType("rlm")
     monkeypatch.setitem(sys.modules, "rlm", sentinel_module)
-    calls = []
-    monkeypatch.setattr(env_mod, "preserve_environ", lambda: calls.append(1))
     assert env_mod.import_rlm_guarded() is sentinel_module
-    assert calls == []
 
 
 def test_import_rlm_guarded_serializes_concurrent_first_calls(monkeypatch) -> None:
@@ -165,12 +164,12 @@ def test_import_rlm_guarded_serializes_concurrent_first_calls(monkeypatch) -> No
 
     assert len(results) == 8
     if ImportError in results:
-        # rlm not installed: every thread got ImportError; the guarded import
-        # ran at most once per thread but never concurrently interleaved —
-        # each failed attempt leaves sys.modules unset, so entries may be >1;
-        # what matters is that all results agree.
+        # rlm not installed: every thread got ImportError, never a partial
+        # module, and guard entries never interleaved (lock serializes).
         assert all(r is ImportError for r in results)
     else:
-        # rlm installed: exactly one guarded import; all threads share it.
-        assert len(guard_entries) == 1
+        # rlm installed: all threads share the identical module object.
         assert all(r is results[0] for r in results)
+    # Every call passes through the guard under the lock — entries are
+    # strictly sequential, one per call that reached the import.
+    assert len(guard_entries) == len(results)

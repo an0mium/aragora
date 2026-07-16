@@ -7,7 +7,6 @@ Centralizes environment-variable parsing to avoid scattered ad-hoc checks.
 from __future__ import annotations
 
 import os
-import sys
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -66,18 +65,17 @@ def import_rlm_guarded() -> Any:
     ``preserve_environ`` alone is not thread-safe: two concurrent first-calls
     snapshot/restore the whole environ and their interleaved restores can
     persist the very pollution the guard exists to prevent. This helper
-    serializes the one import that actually runs rlm's ``load_dotenv()`` side
-    effect; every later call is a lock-free ``sys.modules`` hit.
+    serializes every call; the import statement itself provides the caching.
 
     Raises ImportError when the package is not installed.
     """
-    cached = sys.modules.get("rlm")
-    if cached is not None:
-        return cached
+    # No lock-free fast path on purpose: sys.modules can expose a partially
+    # initialized module mid-import. The import statement below is the
+    # correct memoized primitive — Python's import machinery returns the
+    # cached module when fully initialized and blocks while another thread
+    # is importing it. The environ snapshot on the already-imported path is
+    # a harmless no-op.
     with _RLM_IMPORT_LOCK:
-        cached = sys.modules.get("rlm")
-        if cached is not None:
-            return cached
         with preserve_environ():
             import rlm  # noqa: PLC0415
 
