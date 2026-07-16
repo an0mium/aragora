@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from aragora.routing.cost_quality_optimizer import CostQualityOptimizer, SelectionStrategy
 from aragora.routing.decision_stakes_router import (
     COST_EFFICIENT,
@@ -25,31 +23,31 @@ class _Store:
         return dict(self._m)
 
 
-def _optimizer() -> CostQualityOptimizer:
-    return CostQualityOptimizer(
-        _Store(
-            [
-                ProviderMetrics(
-                    provider_name="cheap",
-                    avg_cost_per_debate=0.01,
-                    avg_quality_score=0.40,
-                    failure_rate=0.0,
-                ),
-                ProviderMetrics(
-                    provider_name="mid",
-                    avg_cost_per_debate=0.10,
-                    avg_quality_score=0.75,
-                    failure_rate=0.0,
-                ),
-                ProviderMetrics(
-                    provider_name="frontier",
-                    avg_cost_per_debate=1.00,
-                    avg_quality_score=0.95,
-                    failure_rate=0.0,
-                ),
-            ]
-        )
-    )
+_METRICS = {
+    "cheap": ProviderMetrics(
+        provider_name="cheap",
+        avg_cost_per_debate=0.01,
+        avg_quality_score=0.40,
+        failure_rate=0.0,
+    ),
+    "mid": ProviderMetrics(
+        provider_name="mid",
+        avg_cost_per_debate=0.10,
+        avg_quality_score=0.75,
+        failure_rate=0.0,
+    ),
+    "frontier": ProviderMetrics(
+        provider_name="frontier",
+        avg_cost_per_debate=1.00,
+        avg_quality_score=0.95,
+        failure_rate=0.0,
+    ),
+}
+
+
+def _optimizer(*providers: str) -> CostQualityOptimizer:
+    names = providers or tuple(_METRICS)
+    return CostQualityOptimizer(_Store([_METRICS[n] for n in names]))
 
 
 def test_policy_for_tier_classes() -> None:
@@ -88,20 +86,85 @@ def test_high_tier_escalates_to_frontier_model() -> None:
 
 
 def test_min_quality_floor_excludes_low_quality_at_high_tier() -> None:
-    # Tier 4 requires min_quality 0.8; only "frontier" (0.95) qualifies.
+    # Tier 4 requires min_quality 0.8; without "frontier" in the store,
+    # nothing qualifies — and the reason blames the policy, not exclusions.
+    rationale = DecisionStakesRouter(_optimizer("cheap", "mid")).route(4)
+    assert rationale.selected_provider is None
+    assert "no provider satisfied" in rationale.selection_reason
+    assert "min_quality=0.8" in rationale.selection_reason
+    assert rationale.excluded_providers == []
+    assert rationale.models_considered == []  # nothing survived the floor
+
+
+def test_exclusions_are_recorded_in_rationale() -> None:
+    # Tier 4's floor (0.8) is met only by "frontier" (0.95); excluding it is
+    # a caller constraint, and the audit record must say so — not blame the
+    # policy alone.
     rationale = DecisionStakesRouter(_optimizer()).route(4, exclude_providers={"frontier"})
     assert rationale.selected_provider is None
-    assert "no provider met" in rationale.selection_reason
+    assert rationale.excluded_providers == ["frontier"]
+    assert "excluded=['frontier']" in rationale.selection_reason
+    assert "frontier" not in {m["provider"] for m in rationale.models_considered}
 
 
-def test_models_considered_records_the_pareto_frontier() -> None:
+def test_exclusions_recorded_on_success_path_too() -> None:
+    rationale = DecisionStakesRouter(_optimizer()).route(0, exclude_providers={"cheap"})
+    assert rationale.selected_provider == "mid"  # cheapest remaining
+    assert rationale.excluded_providers == ["cheap"]
+    assert "excluded=['cheap']" in rationale.selection_reason
+    assert "cheap" not in {m["provider"] for m in rationale.models_considered}
+
+
+def test_no_exclusions_yields_empty_recorded_list() -> None:
+    rationale = DecisionStakesRouter(_optimizer()).route(0)
+    assert rationale.excluded_providers == []
+    assert "excluded" not in rationale.selection_reason
+
+
+def test_models_considered_is_the_post_constraint_candidate_set() -> None:
+    # Tier 2 has min_quality 0.5 → "cheap" (0.40) was never in the choice set.
     rationale = DecisionStakesRouter(_optimizer()).route(2)
-    providers = {m["provider"] for m in rationale.models_considered}
-    assert providers == {"cheap", "mid", "frontier"}
+    assert {m["provider"] for m in rationale.models_considered} == {"mid", "frontier"}
     for entry in rationale.models_considered:
         assert {"provider", "avg_cost_per_debate", "avg_quality_score", "failure_rate"} <= set(
             entry
         )
+    # The unconstrained Pareto frontier is still recorded, distinctly named.
+    assert {m["provider"] for m in rationale.frontier_before_constraints} == {
+        "cheap",
+        "mid",
+        "frontier",
+    }
+
+
+def test_models_considered_excludes_over_budget_providers() -> None:
+    # Budget 0.05 rules out mid (0.10) and frontier (1.00).
+    rationale = DecisionStakesRouter(_optimizer()).route(0, budget_remaining=0.05)
+    assert {m["provider"] for m in rationale.models_considered} == {"cheap"}
+
+
+def test_selected_provider_is_always_in_models_considered() -> None:
+    for tier in range(5):
+        rationale = DecisionStakesRouter(_optimizer()).route(tier)
+        assert rationale.selected_provider in {m["provider"] for m in rationale.models_considered}
+
+
+def test_out_of_range_tier_records_effective_and_requested_tier() -> None:
+    rationale = DecisionStakesRouter(_optimizer()).route(99)
+    assert rationale.decision_tier == 4  # the tier whose policy was applied
+    assert rationale.requested_tier == 99  # the raw caller value
+    assert rationale.tier_class == FRONTIER
+    assert "tier 4" in rationale.selection_reason
+
+    low = DecisionStakesRouter(_optimizer()).route(-3)
+    assert low.decision_tier == 0
+    assert low.requested_tier == -3
+
+
+def test_in_range_tier_requested_equals_effective() -> None:
+    rationale = DecisionStakesRouter(_optimizer()).route(3)
+    assert rationale.decision_tier == 3
+    assert rationale.requested_tier == 3
 
 
 def test_budget_constraint_is_recorded_and_applied() -> None:
@@ -123,8 +186,12 @@ def test_to_dict_is_receipt_routing_block_shaped() -> None:
     assert payload["selector"] == "decision_stakes_pareto"
     assert payload["pareto_optimizer_consulted"] is True
     assert payload["decision_tier"] == 3
+    assert payload["requested_tier"] == 3
     assert payload["tier_class"] == FRONTIER
     assert "selection_reason" in payload
+    assert payload["excluded_providers"] == []
+    assert "models_considered" in payload
+    assert "frontier_before_constraints" in payload
     # Cost stays honestly absent (metrics expectation, not observed spend).
     assert payload["cost"]["recorded"] is False
     assert payload["cost"]["total_usd"] is None
@@ -137,3 +204,16 @@ def test_empty_metrics_store_yields_no_selection_not_crash() -> None:
     assert isinstance(rationale, RoutingRationale)
     assert rationale.selected_provider is None
     assert rationale.models_considered == []
+
+
+def test_broken_metrics_store_yields_recorded_no_selection_not_crash() -> None:
+    class _BrokenStore:
+        def get_all_metrics(self) -> dict[str, ProviderMetrics]:
+            raise RuntimeError("metrics backend down")
+
+    router = DecisionStakesRouter(CostQualityOptimizer(_BrokenStore()))
+    rationale = router.route(2)
+    assert rationale.selected_provider is None
+    assert rationale.models_considered == []
+    assert rationale.frontier_before_constraints == []
+    assert "metrics unavailable" in rationale.selection_reason

@@ -75,13 +75,18 @@ TIER_POLICY: dict[int, RoutingPolicy] = {
 _MAX_TIER = max(TIER_POLICY)
 
 
+def _clamp_tier(decision_tier: int) -> int:
+    """Clamp ``decision_tier`` into the known policy range."""
+    if decision_tier < 0:
+        return 0
+    if decision_tier > _MAX_TIER:
+        return _MAX_TIER
+    return decision_tier
+
+
 def policy_for_tier(decision_tier: int) -> RoutingPolicy:
     """Return the :class:`RoutingPolicy` for ``decision_tier`` (clamped to 0-4)."""
-    if decision_tier < 0:
-        decision_tier = 0
-    elif decision_tier > _MAX_TIER:
-        decision_tier = _MAX_TIER
-    return TIER_POLICY[decision_tier]
+    return TIER_POLICY[_clamp_tier(decision_tier)]
 
 
 @dataclass
@@ -92,6 +97,20 @@ class RoutingRationale:
     selected model to the *stakes* of the decision and the cost/quality inputs
     that justified it. ``to_dict()`` is the payload shape for the ODR receipt
     ``routing`` block.
+
+    Field semantics (audit-critical):
+
+    - ``decision_tier`` is the *effective* tier whose policy was applied —
+      out-of-range requests are clamped; the raw caller value is preserved in
+      ``requested_tier`` so ``route(99)`` never emits ``decision_tier: 99``
+      while silently applying Tier-4 policy.
+    - ``models_considered`` is the *post-constraint* candidate set — the
+      providers that survived the tier's quality floor, the caller's budget,
+      and caller exclusions, i.e. the set the choice was actually made among.
+      The unconstrained Pareto frontier is recorded separately (and named
+      distinctly) as ``frontier_before_constraints`` for context.
+    - ``excluded_providers`` records caller-requested exclusions so an
+      exclusion-caused non-selection is never misattributed to the policy.
     """
 
     decision_tier: int
@@ -100,7 +119,10 @@ class RoutingRationale:
     min_quality: float
     selected_provider: str | None
     selection_reason: str
+    requested_tier: int | None = None
+    excluded_providers: list[str] = field(default_factory=list)
     models_considered: list[dict[str, Any]] = field(default_factory=list)
+    frontier_before_constraints: list[dict[str, Any]] = field(default_factory=list)
     budget_remaining: float | None = None
     escalated_to_frontier: bool = False
 
@@ -151,54 +173,90 @@ class DecisionStakesRouter:
         budget_remaining: float | None = None,
         exclude_providers: set[str] | None = None,
     ) -> RoutingRationale:
-        """Select a provider for a decision of ``decision_tier`` and record why."""
-        policy = policy_for_tier(decision_tier)
+        """Select a provider for a decision of ``decision_tier`` and record why.
 
-        # Pareto frontier is the set of non-dominated cost/quality options the
-        # choice was made among — the "models considered" the audit record needs.
+        Out-of-range tiers are clamped for policy selection; the rationale
+        records the clamped tier it actually applied as ``decision_tier`` and
+        the raw caller value as ``requested_tier``.
+        """
+        effective_tier = _clamp_tier(decision_tier)
+        policy = TIER_POLICY[effective_tier]
+        excluded = sorted(exclude_providers) if exclude_providers else []
+
+        # The audit record needs two sets: the unconstrained Pareto frontier
+        # (context: the non-dominated cost/quality options that existed) and
+        # the actual candidate set after the tier's quality floor, the
+        # caller's budget, and caller exclusions — the set the choice was
+        # really made among. ``get_candidates`` applies the exact filter
+        # ``select_provider`` uses.
         try:
             frontier = self._optimizer.get_pareto_frontier()
+            candidates = self._optimizer.get_candidates(
+                min_quality=policy.min_quality,
+                budget_remaining=budget_remaining,
+                exclude_providers=exclude_providers,
+            )
+            metrics_available = True
         except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError):
-            # Never let metric gaps break routing — record an empty frontier.
+            # Never let metric gaps break routing — record empty sets and skip
+            # selection (it reads the same metrics store and would fail too).
             frontier = []
-        models_considered = [
-            {
-                "provider": m.provider_name,
-                "avg_cost_per_debate": m.avg_cost_per_debate,
-                "avg_quality_score": m.avg_quality_score,
-                "failure_rate": m.failure_rate,
-            }
-            for m in frontier
-        ]
+            candidates = []
+            metrics_available = False
 
-        selected = self._optimizer.select_provider(
-            strategy=policy.strategy,
-            budget_remaining=budget_remaining,
-            min_quality=policy.min_quality,
-            exclude_providers=exclude_providers,
+        selected = (
+            self._optimizer.select_provider(
+                strategy=policy.strategy,
+                budget_remaining=budget_remaining,
+                min_quality=policy.min_quality,
+                exclude_providers=exclude_providers,
+            )
+            if metrics_available
+            else None
         )
 
-        if selected is None:
+        constraints = (
+            f"strategy={policy.strategy.value}, min_quality={policy.min_quality}"
+            + (f", budget={budget_remaining}" if budget_remaining is not None else "")
+            + (f", excluded={excluded}" if excluded else "")
+        )
+        if not metrics_available:
             reason = (
-                f"no provider met tier-{decision_tier} {policy.tier_class} policy "
-                f"(strategy={policy.strategy.value}, min_quality={policy.min_quality}"
-                + (f", budget={budget_remaining}" if budget_remaining is not None else "")
-                + ")"
+                f"provider metrics unavailable; no selection for tier-{effective_tier} "
+                f"{policy.tier_class} policy ({constraints})"
+            )
+        elif selected is None:
+            reason = (
+                f"no provider satisfied tier-{effective_tier} {policy.tier_class} policy "
+                f"and caller constraints ({constraints})"
             )
         else:
             reason = (
-                f"tier {decision_tier} ({policy.tier_class}) selects '{selected}' via "
-                f"{policy.strategy.value} at min_quality={policy.min_quality}"
+                f"tier {effective_tier} ({policy.tier_class}) selects '{selected}' ({constraints})"
             )
 
+        def _describe(metrics: list[Any]) -> list[dict[str, Any]]:
+            return [
+                {
+                    "provider": m.provider_name,
+                    "avg_cost_per_debate": m.avg_cost_per_debate,
+                    "avg_quality_score": m.avg_quality_score,
+                    "failure_rate": m.failure_rate,
+                }
+                for m in metrics
+            ]
+
         return RoutingRationale(
-            decision_tier=decision_tier,
+            decision_tier=effective_tier,
             tier_class=policy.tier_class,
             strategy=policy.strategy.value,
             min_quality=policy.min_quality,
             selected_provider=selected,
             selection_reason=reason,
-            models_considered=models_considered,
+            requested_tier=decision_tier,
+            excluded_providers=excluded,
+            models_considered=_describe(candidates),
+            frontier_before_constraints=_describe(frontier),
             budget_remaining=budget_remaining,
             escalated_to_frontier=policy.tier_class == FRONTIER,
         )

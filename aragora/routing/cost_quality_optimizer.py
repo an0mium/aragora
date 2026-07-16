@@ -136,6 +136,29 @@ def pareto_frontier(providers: list[ProviderMetrics]) -> list[ProviderMetrics]:
     return frontier
 
 
+def filter_candidates(
+    providers: list[ProviderMetrics],
+    *,
+    min_quality: float = 0.0,
+    budget_remaining: float | None = None,
+    exclude_providers: set[str] | None = None,
+) -> list[ProviderMetrics]:
+    """Apply selection constraints, returning the actual candidate set.
+
+    This is the exact filter :meth:`CostQualityOptimizer.select_provider`
+    chooses among: the quality floor, the total-failure exclusion
+    (``failure_rate < 1.0``), caller exclusions, and the budget ceiling.
+    """
+    candidates = [
+        m for m in providers if m.avg_quality_score >= min_quality and m.failure_rate < 1.0
+    ]
+    if exclude_providers:
+        candidates = [m for m in candidates if m.provider_name not in exclude_providers]
+    if budget_remaining is not None:
+        candidates = [m for m in candidates if m.avg_cost_per_debate <= budget_remaining]
+    return candidates
+
+
 class CostQualityOptimizer:
     """Selects providers using Pareto-optimal cost/quality analysis.
 
@@ -155,6 +178,26 @@ class CostQualityOptimizer:
         """Return the current Pareto frontier across all providers."""
         all_metrics = list(self._store.get_all_metrics().values())
         return pareto_frontier(all_metrics)
+
+    def get_candidates(
+        self,
+        min_quality: float = 0.0,
+        budget_remaining: float | None = None,
+        exclude_providers: set[str] | None = None,
+    ) -> list[ProviderMetrics]:
+        """Return the providers :meth:`select_provider` would choose among.
+
+        Applies the same constraint filter as :meth:`select_provider`
+        (via :func:`filter_candidates`) so callers can audit the actual
+        post-constraint choice set.
+        """
+        all_metrics = list(self._store.get_all_metrics().values())
+        return filter_candidates(
+            all_metrics,
+            min_quality=min_quality,
+            budget_remaining=budget_remaining,
+            exclude_providers=exclude_providers,
+        )
 
     def select_provider(
         self,
@@ -192,15 +235,12 @@ class CostQualityOptimizer:
             return None
 
         # Filter by constraints
-        candidates = [
-            m for m in all_metrics if m.avg_quality_score >= min_quality and m.failure_rate < 1.0
-        ]
-
-        if exclude_providers:
-            candidates = [m for m in candidates if m.provider_name not in exclude_providers]
-
-        if budget_remaining is not None:
-            candidates = [m for m in candidates if m.avg_cost_per_debate <= budget_remaining]
+        candidates = filter_candidates(
+            all_metrics,
+            min_quality=min_quality,
+            budget_remaining=budget_remaining,
+            exclude_providers=exclude_providers,
+        )
 
         if not candidates:
             return None
@@ -241,5 +281,6 @@ __all__ = [
     "DEFAULT_CACHE_TTL",
     "RoutingCache",
     "SelectionStrategy",
+    "filter_candidates",
     "pareto_frontier",
 ]
