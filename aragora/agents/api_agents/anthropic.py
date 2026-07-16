@@ -58,6 +58,20 @@ WEB_SEARCH_INDICATORS = [
 ]
 
 
+def _resolve_base_url(env_name: str, default: str) -> str:
+    """Resolve the API base URL from the environment (issue #9304).
+
+    Gateway values may omit the /v1 suffix the client paths expect; normalize
+    so both "https://gw.example" and "https://gw.example/v1" work.
+    """
+    import os
+
+    raw = os.environ.get(env_name, "").strip().rstrip("/")
+    if not raw:
+        return default
+    return raw if raw.endswith("/v1") else raw + "/v1"
+
+
 @AgentRegistry.register(
     "anthropic-api",
     default_model="claude-opus-4-8",
@@ -109,7 +123,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             timeout=timeout,
             api_key=api_key
             or get_primary_api_key("ANTHROPIC_API_KEY", allow_openrouter_fallback=True),
-            base_url="https://api.anthropic.com/v1",
+            # ANTHROPIC_BASE_URL supports BYOK gateways/proxies (LiteLLM,
+            # enterprise API gateways, local proxies) — issue #9304: the
+            # hardcoded endpoint made secured providers architecturally
+            # unsupported. Accepts values with or without a trailing /v1.
+            base_url=_resolve_base_url("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"),
         )
         self.agent_type = "anthropic"
         # Use config setting if not explicitly provided
