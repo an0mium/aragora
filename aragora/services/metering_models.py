@@ -79,7 +79,7 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
     "openai": {
         "gpt-5.6-sol": Decimal("5.00"),  # live catalog 2026-07-16
         "gpt-5.6-sol-output": Decimal("30.00"),
-        "gpt-5.5": Decimal("5.00"),  # live catalog 2026-07-16
+        "gpt-5.5": Decimal("5.00"),  # repriced by provider ~2026-07-14
         "gpt-5.5-output": Decimal("30.00"),
         "gpt-4o": Decimal("2.50"),
         "gpt-4o-output": Decimal("10.00"),
@@ -127,15 +127,15 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("6.00"),
     },
     "openrouter": {
-        "qwen/qwen3.7-max": Decimal("1.475"),
-        "qwen/qwen3.7-max-output": Decimal("4.425"),
-        "moonshotai/kimi-k2.7-code": Decimal("0.75"),
-        "moonshotai/kimi-k2.7-code-output": Decimal("3.50"),
         "anthropic/claude-fable-5": Decimal("10.00"),
         "anthropic/claude-fable-5-output": Decimal("50.00"),
         "openai/gpt-5.6-sol": Decimal("5.00"),
         "openai/gpt-5.6-sol-output": Decimal("30.00"),
-        "openai/gpt-5.5": Decimal("5.00"),  # live 2026-07-16
+        "qwen/qwen3.7-max": Decimal("1.475"),
+        "qwen/qwen3.7-max-output": Decimal("4.425"),
+        "moonshotai/kimi-k2.7-code": Decimal("0.75"),
+        "moonshotai/kimi-k2.7-code-output": Decimal("3.50"),
+        "openai/gpt-5.5": Decimal("5.00"),
         "openai/gpt-5.5-output": Decimal("30.00"),
         "google/gemini-3.5-flash": Decimal("1.50"),
         "google/gemini-3.5-flash-output": Decimal("9.00"),

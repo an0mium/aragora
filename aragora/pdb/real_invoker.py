@@ -166,7 +166,7 @@ OPENROUTER_BACKED_FAMILIES: frozenset[str] = frozenset({FAMILY_DEEPSEEK, FAMILY_
 # - Mistral La Plateforme pricing (Mistral Large 2411 / 2512)
 _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # Anthropic
-    # Live catalog 2026-07-16 for the #9075 frontier defaults.
+    # Live catalog 2026-07-16 (enforced by tests/models/test_catalog.py).
     "claude-fable-5": (10.00, 50.00),
     "claude-opus-4-8": (5.00, 25.00),
     "claude-opus-4.8": (5.00, 25.00),
@@ -182,7 +182,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "claude-haiku-4-5-20251001": (1.00, 5.00),
     # OpenAI
     "gpt-5.6-sol": (5.00, 30.00),
-    "gpt-5.5": (5.00, 30.00),  # live catalog 2026-07-16
+    "gpt-5.5": (5.00, 30.00),  # repriced by provider ~2026-07-14
     "gpt-5.4": (2.50, 10.00),
     "gpt-5.4-pro": (5.00, 20.00),
     "gpt-5.3": (2.50, 10.00),
@@ -211,6 +211,8 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # fast-reasoning tier is $0.20/$0.50. ``grok-4.2`` is NOT a valid
     # model id — it is retained only as a legacy alias for callers that
     # still reference the old default.
+    "grok-4.5": (2.00, 6.00),
+    "grok-4.3": (1.25, 2.50),
     "grok-4.20-0309-reasoning": (2.00, 6.00),
     "grok-4.20-0309-non-reasoning": (2.00, 6.00),
     "grok-4.20-multi-agent-0309": (2.00, 6.00),
