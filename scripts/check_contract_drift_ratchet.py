@@ -222,6 +222,10 @@ def build_ratchet_result(
             integrity_issues.append(str(exc))
             docs[alias] = {}
     counts = _counts_from_docs(docs)
+    # Duplicated baseline entries inflate the raw counts above while the
+    # id-deduped inventory sees one item; fail closed (head docs only —
+    # history at the base ref or cohort commit is never re-judged).
+    integrity_issues.extend(inventory_mod.find_duplicate_entry_issues(docs))
 
     cohort_ids: dict[str, str] | None = None
     try:
