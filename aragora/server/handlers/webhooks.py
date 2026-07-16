@@ -18,12 +18,13 @@ multi-instance deployments. This ensures webhooks survive server restarts.
 
 from __future__ import annotations
 
-import hashlib
 import hmac
 import logging
 import time
-from typing import Any
+import warnings
+from typing import TYPE_CHECKING, Any, TypeAlias
 
+from aragora.security.webhook_signing import generate_signature as _generate_signature
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
     error_response,
@@ -37,15 +38,24 @@ from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.url_security import validate_webhook_url
 from aragora.server.validation.query_params import safe_query_int
 
-# RBAC imports - graceful fallback if not available
-try:
-    from aragora.rbac import AuthorizationContext, check_permission
+if TYPE_CHECKING:
+    from aragora.rbac import AuthorizationContext
 
-    RBAC_AVAILABLE = True
+# RBAC imports - graceful fallback if not available
+_AuthorizationContext: Any = None
+check_permission: Any = None
+try:
+    import aragora.rbac as _rbac
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext: Any = None
-    check_permission = None
+else:
+    try:
+        _AuthorizationContext = _rbac.AuthorizationContext
+        check_permission = _rbac.check_permission
+    except AttributeError:
+        RBAC_AVAILABLE = False
+    else:
+        RBAC_AVAILABLE = True
 
 from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
 
@@ -68,6 +78,13 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+warnings.warn(
+    "aragora.server.handlers.webhooks.generate_signature is deprecated; "
+    "use aragora.security.webhook_signing.generate_signature instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 # Rate limits for webhook operations
 WEBHOOK_REGISTER_RPM = 10  # Max 10 webhook registrations per minute
 WEBHOOK_TEST_RPM = 5  # Max 5 test deliveries per minute
@@ -80,7 +97,7 @@ _list_limiter = RateLimiter(requests_per_minute=WEBHOOK_LIST_RPM)
 
 # Backward compatibility alias - the old WebhookStore interface is now provided
 # by WebhookConfigStoreBackend from aragora.storage.webhook_config_store
-WebhookStore = WebhookConfigStoreBackend
+WebhookStore: TypeAlias = WebhookConfigStoreBackend
 
 
 def get_webhook_store() -> WebhookConfigStoreBackend:
@@ -103,20 +120,14 @@ def get_webhook_store() -> WebhookConfigStoreBackend:
 
 
 def generate_signature(payload: str, secret: str) -> str:
-    """
-    Generate HMAC-SHA256 signature for webhook payload.
-
-    Args:
-        payload: JSON string payload
-        secret: Webhook secret key
-
-    Returns:
-        Hex-encoded signature with sha256= prefix
-    """
-    signature = hmac.new(
-        secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
-    ).hexdigest()
-    return f"sha256={signature}"
+    """Deprecated compatibility wrapper for the shared webhook signer."""
+    warnings.warn(
+        "aragora.server.handlers.webhooks.generate_signature is deprecated; "
+        "use aragora.security.webhook_signing.generate_signature instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _generate_signature(payload, secret)
 
 
 def verify_signature(payload: str, signature: str, secret: str) -> bool:
@@ -131,7 +142,7 @@ def verify_signature(payload: str, signature: str, secret: str) -> bool:
     Returns:
         True if signature is valid
     """
-    expected = generate_signature(payload, secret)
+    expected = _generate_signature(payload, secret)
     return hmac.compare_digest(signature, expected)
 
 
@@ -204,7 +215,7 @@ class WebhookHandler(SecureHandler):
 
     def _get_auth_context(self, handler) -> AuthorizationContext | None:
         """Build RBAC authorization context from request."""
-        if not RBAC_AVAILABLE or AuthorizationContext is None:
+        if not RBAC_AVAILABLE or _AuthorizationContext is None:
             return None
 
         user = self.get_current_user(handler)
@@ -212,7 +223,7 @@ class WebhookHandler(SecureHandler):
             return None
 
         # User context has user_id and potentially role info
-        return AuthorizationContext(
+        return _AuthorizationContext(
             user_id=user.user_id,
             roles=set([user.role]) if hasattr(user, "role") and user.role else set(),
             org_id=getattr(user, "org_id", None),
