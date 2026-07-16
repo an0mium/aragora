@@ -188,3 +188,15 @@ def test_check_fails_on_tampered_cohort_classification(monkeypatch, tmp_path: Pa
     (repo / gen.DEFAULT_INVENTORY).write_text(json.dumps(inventory))
 
     assert _run(monkeypatch, repo, sha, "--check") == 1
+
+
+def test_generator_never_mints_resolved(monkeypatch, tmp_path: Path):
+    """An entry that vanished before the FIRST generation is simply absent —
+    the generator never fabricates resolved history for items it never saw."""
+    repo, sha = _init_repo(tmp_path)
+    _write_baselines(repo, dict(VERIFY, python_sdk_drift=["GET /a"]), ROUTES, PARITY)
+
+    assert _run(monkeypatch, repo, sha) == 0
+    items = _inventory(repo)["items"]
+    assert all(item["status"] == "open" for item in items)
+    assert "python_sdk_drift:GET /b" not in {item["id"] for item in items}

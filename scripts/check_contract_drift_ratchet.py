@@ -153,12 +153,20 @@ def _evaluate_classes(
 def _append_only_issues(
     base_items: dict[str, dict[str, Any]], head_items: dict[str, dict[str, Any]]
 ) -> list[str]:
-    """Append-only invariants for pr mode: history is immutable.
+    """Append-only lifecycle invariants for pr mode: history is immutable.
 
     For every item present in the inventory at the base ref: ``class``,
     ``discovered_on``, and ``provenance`` may not change (so reopening a
     resolved item cannot reset its burn-down clock), and the item may not be
-    deleted. Status transitions (open<->resolved) remain allowed.
+    deleted. Status transitions (open<->resolved) remain allowed for items
+    with base history.
+
+    Birth-state invariant: an item NEW at head (absent from the base
+    inventory) must be born ``open``. Resolution requires history — a
+    fabricated ``resolved`` item would otherwise inflate its batch_size and
+    pad that batch's scheduled target while leaving PR count deltas at zero.
+    (New open items are additionally required to be baseline-backed by the
+    global sync check, so a fabricated open item fails too.)
     """
     issues: list[str] = []
     for item_id, base_item in base_items.items():
@@ -172,6 +180,12 @@ def _append_only_issues(
                     f"Immutable inventory field {field!r} changed for {item_id}: "
                     f"{base_item.get(field)!r} -> {head_item.get(field)!r}"
                 )
+    for item_id, head_item in head_items.items():
+        if item_id not in base_items and head_item.get("status") != "open":
+            issues.append(
+                "New inventory item must be born open, not "
+                f"{head_item.get('status')!r} (resolution requires history): {item_id}"
+            )
     return issues
 
 

@@ -718,3 +718,138 @@ def test_target_decay_has_no_fixed_points_and_reaches_zero():
             assert cur <= prev
             prev = cur
         assert ratchet._target_after_weeks(start, 0.1, 120) == 0
+
+
+def test_pr_mode_new_resolved_item_fails_birth_state(tmp_path: Path):
+    """An item absent from the base inventory must be born open; a fabricated
+    resolved item (delta-neutral by construction) is an integrity failure."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    _edit_inventory(
+        paths,
+        lambda inv: inv["items"].append(
+            {
+                "id": "typescript_sdk_drift:fake1",
+                "source": "typescript_sdk_drift",
+                "class": "discovered",
+                "discovered_on": "2026-06-01",
+                "provenance": "padding #666",
+                "status": "resolved",
+                "resolved_on": "2026-06-15",
+            }
+        ),
+    )
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["increased"] == []  # counts untouched by the fake
+    assert not result["integrity"]["passing"]
+    assert any("born open" in i for i in result["integrity"]["issues"])
+    assert not result["passing"]
+
+    # The sibling case: a new OPEN item without a baseline entry fails the
+    # global sync check (open items must be baseline-backed, new ones too).
+    def swap_to_ghost(inv):
+        inv["items"] = [i for i in inv["items"] if i["id"] != "typescript_sdk_drift:fake1"]
+        inv["items"].append(
+            {
+                "id": "typescript_sdk_drift:ghost",
+                "source": "typescript_sdk_drift",
+                "class": "discovered",
+                "discovered_on": "2026-07-16",
+                "provenance": "padding #666",
+                "status": "open",
+            }
+        )
+
+    _edit_inventory(paths, swap_to_ghost)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert not result["integrity"]["passing"]
+    assert any("absent from baselines" in i for i in result["integrity"]["issues"])
+
+
+def test_pr_mode_batch_inflation_attack_fails(tmp_path: Path):
+    """Fake resolved items padding a batch's size + real new drift hidden in
+    the same list (net-zero open delta) must fail on the birth-state rule."""
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+
+    # Real new drift swapped in for a legitimately resolved item: same list,
+    # count unchanged, so the delta gate alone would pass.
+    verify = json.loads(paths["verify"].read_text())
+    verify["python_sdk_drift"].remove("b")
+    verify["python_sdk_drift"].append("evil1")
+    _write_json(paths["verify"], verify)
+
+    def mutate(inv):
+        for item in inv["items"]:
+            if item["id"] == "python_sdk_drift:b":
+                item["status"] = "resolved"
+                item["resolved_on"] = "2026-07-16"
+        inv["items"].append(
+            {
+                "id": "python_sdk_drift:evil1",
+                "source": "python_sdk_drift",
+                "class": "discovered",
+                "discovered_on": "2026-06-01",
+                "provenance": "explained in #666",
+                "status": "open",
+            }
+        )
+        # Batch padding: five fabricated resolved items in the same batch
+        # inflate batch_size 1 -> 6 and raise its scheduled target.
+        for i in range(5):
+            inv["items"].append(
+                {
+                    "id": f"python_sdk_drift:fake{i}",
+                    "source": "python_sdk_drift",
+                    "class": "discovered",
+                    "discovered_on": "2026-06-01",
+                    "provenance": "padding #666",
+                    "status": "resolved",
+                    "resolved_on": "2026-06-15",
+                }
+            )
+
+    _edit_inventory(paths, mutate)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["pr_delta"]["increased"] == []  # the attack is delta-neutral
+    assert not result["integrity"]["passing"]
+    born_open_issues = [i for i in result["integrity"]["issues"] if "born open" in i]
+    assert len(born_open_issues) == 5  # every fabricated item rejected
+    assert not result["passing"]
+
+
+def test_pr_mode_legitimate_lifecycle_two_generations(monkeypatch, tmp_path: Path):
+    """born open -> resolved with history -> retained: two real generator runs
+    bracketing a fix must pass pr mode end-to-end."""
+    paths, repo, cohort = _seed(tmp_path, program=RED_PROGRAM)
+
+    def run_gen(*extra: str) -> int:
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "generate_contract_drift_inventory.py",
+                "--repo-root",
+                str(repo),
+                "--cohort-commit",
+                cohort,
+                *extra,
+            ],
+        )
+        return gen.main()
+
+    assert run_gen("--as-of", "2026-07-10") == 0  # generation 1: all born open
+    base = _commit(repo, "generation 1")
+
+    verify = json.loads(paths["verify"].read_text())
+    verify["python_sdk_drift"].remove("b")  # the item gets fixed
+    _write_json(paths["verify"], verify)
+    assert run_gen("--as-of", "2026-07-16") == 0  # generation 2: resolves it
+
+    items = {i["id"]: i for i in json.loads(paths["inventory"].read_text())["items"]}
+    assert items["python_sdk_drift:b"]["status"] == "resolved"
+    assert items["python_sdk_drift:b"]["resolved_on"] == "2026-07-16"
+
+    result = _result(paths, "2026-07-16", repo=repo, cohort=cohort, mode="pr", base_ref=base)
+    assert result["integrity"]["passing"], result["integrity"]["issues"]
+    assert result["pr_delta"]["counts"]["verify_python_sdk_drift"]["delta"] == -1
+    assert result["passing"]

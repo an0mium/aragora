@@ -296,6 +296,15 @@ def main() -> int:
         return 1
 
     metadata_issues = find_metadata_issues(items, cohort_ids, as_of=as_of)
+    # Birth-state guard: the generator must never mint a resolved item that
+    # was not already present in the existing inventory file. Resolution is
+    # only ever a transition of recorded history, never a creation.
+    existing_ids = {i.get("id") for i in existing.get("items", []) if isinstance(i, dict)}
+    metadata_issues += [
+        f"Resolved item minted without prior history (must be born open): {item['id']}"
+        for item in items
+        if item.get("status") == "resolved" and item["id"] not in existing_ids
+    ]
     if metadata_issues:
         print("FAIL: inventory metadata invariants violated (refusing to write):")
         for issue in metadata_issues:
