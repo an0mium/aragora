@@ -14,12 +14,12 @@ import logging
 import sqlite3
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.insights.database import InsightsDatabase
 from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.utils.datetime_helpers import utc_now_iso_naive
 
 if TYPE_CHECKING:
     from aragora.debate.similarity.backends import SimilarityBackend
@@ -45,7 +45,7 @@ class FlipEvent:
     similarity_score: float  # How similar the claims are (high = contradiction likely)
     flip_type: str  # "contradiction", "refinement", "retraction", "qualification"
     domain: str | None = None
-    detected_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    detected_at: str = field(default_factory=utc_now_iso_naive)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
