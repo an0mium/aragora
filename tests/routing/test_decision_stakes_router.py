@@ -73,7 +73,6 @@ def test_low_tier_routes_to_cost_efficient_model() -> None:
     rationale = DecisionStakesRouter(_optimizer()).route(0)
     assert rationale.selected_provider == "cheap"
     assert rationale.tier_class == COST_EFFICIENT
-    assert rationale.escalated_to_frontier is False
     assert rationale.strategy == SelectionStrategy.COST_OPTIMIZED.value
 
 
@@ -81,7 +80,6 @@ def test_high_tier_escalates_to_frontier_model() -> None:
     rationale = DecisionStakesRouter(_optimizer()).route(4)
     assert rationale.selected_provider == "frontier"
     assert rationale.tier_class == FRONTIER
-    assert rationale.escalated_to_frontier is True
     assert rationale.strategy == SelectionStrategy.QUALITY_OPTIMIZED.value
 
 
@@ -196,6 +194,18 @@ def test_to_dict_is_receipt_routing_block_shaped() -> None:
     assert payload["cost"]["recorded"] is False
     assert payload["cost"]["total_usd"] is None
     json.dumps(payload)  # must be JSON-serializable for the receipt
+
+
+def test_rationale_makes_no_unenforced_escalation_claim() -> None:
+    # Tier 3-4 policy raises the quality floor and prefers quality-optimized
+    # selection, but applies no frontier-model-family constraint — any
+    # provider clearing the floor can be selected. The receipt must not
+    # carry an outcome-shaped "escalated_to_frontier" claim the router
+    # doesn't enforce; the applied policy class is already recorded
+    # truthfully as tier_class.
+    payload = DecisionStakesRouter(_optimizer()).route(4).to_dict()
+    assert "escalated_to_frontier" not in payload
+    assert payload["tier_class"] == FRONTIER
 
 
 def test_empty_metrics_store_yields_no_selection_not_crash() -> None:

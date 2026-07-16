@@ -7,10 +7,15 @@ of the decision* (its merge-gate tier) and make "why was this model trusted
 with this decision" an auditable artifact.
 
 Policy (issue #8233): low-stakes bounded lane / evidence work (Tier 0-2) routes
-to cost-efficient models; strategic synthesis and Tier 3-4 settlement juries
-escalate to frontier models. Selection within a tier is delegated to the
-existing Pareto cost/quality optimizer (``cost_quality_optimizer``), driven by
-the live ELO/calibration data already collected per provider.
+cost-first with low quality floors; strategic synthesis and Tier 3-4 settlement
+juries route quality-first with high quality floors (0.7/0.8). The frontier
+preference is enforced through those floors and the quality-optimized strategy,
+NOT through a frontier-model-family allowlist — any provider whose measured
+quality clears the floor is eligible. Selection within a tier is delegated to
+the existing Pareto cost/quality optimizer (``cost_quality_optimizer``), driven
+by the live ELO/calibration data already collected per provider; a hard
+frontier-family constraint would need a provider→family registry and is
+deliberately out of scope here.
 
 This module is the routing *policy + rationale* core. The :class:`RoutingRationale`
 it emits is the shape destined for the ODR receipt's ``routing`` block once that
@@ -127,7 +132,6 @@ class RoutingRationale:
     models_considered: list[dict[str, Any]] = field(default_factory=list)
     frontier_before_constraints: list[dict[str, Any]] = field(default_factory=list)
     budget_remaining: float | None = None
-    escalated_to_frontier: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Emit the ``aragora.routing_rationale/v1`` record for this choice.
@@ -254,5 +258,4 @@ class DecisionStakesRouter:
             models_considered=_describe(candidates),
             frontier_before_constraints=_describe(frontier),
             budget_remaining=budget_remaining,
-            escalated_to_frontier=policy.tier_class == FRONTIER,
         )
