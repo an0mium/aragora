@@ -64,7 +64,7 @@ Engines that exist and substantially work, but have little or no productized sur
 
 1. **Integrate or park by default; do not archive for tidiness.** The founder
    decision preserved in
-   [`MAXIMALIST_VISION.md`](vision/MAXIMALIST_VISION.md) permits removal only
+   [`MAXIMALIST_VISION.md`](https://github.com/synaptent/aragora/blob/main/docs/vision/MAXIMALIST_VISION.md) permits removal only
    when a module is actively harmful **and** has no credible integration path.
 2. **One activation path and one open owner issue per row.** The owner keeps the
    trigger, minimum exposure, and proof current; the table does not make the
