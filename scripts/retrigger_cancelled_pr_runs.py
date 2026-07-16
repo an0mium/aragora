@@ -217,6 +217,7 @@ def compute_reruns(
     *,
     active_head_pairs: set[tuple[str, str]],
     now: datetime,
+    open_pr_numbers: set[int] | None = None,
     ttl_hours: float,
     protected_paths: set[str],
     events: set[str] | None = None,
@@ -270,6 +271,15 @@ def compute_reruns(
         sha = str(run.get("head_sha", "")).strip()
         if (branch, sha) not in active_head_pairs:
             continue  # superseded head, closed PR, or draft
+        # Belt-and-braces PR association (#9133 r11 openai P2): when the API
+        # names the run's pull_requests, at least one must be an open
+        # non-draft PR we scanned; an empty list stays eligible (GitHub
+        # omits it for fork runs).
+        run_prs = [
+            int(p.get("number") or 0) for p in run.get("pull_requests") or [] if isinstance(p, dict)
+        ]
+        if run_prs and open_pr_numbers is not None and not (set(run_prs) & open_pr_numbers):
+            continue
         cancelled_at = _parse_created_at(
             str(run.get("updated_at", "")) or str(run.get("created_at", ""))
         )
@@ -361,12 +371,14 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
     active_head_pairs = compute_active_head_pairs(open_pulls)
+    open_pr_numbers = {int(pr.get("number") or 0) for pr in open_pulls if not bool(pr.get("draft"))}
     reruns = compute_reruns(
         runs,
         active_head_pairs=active_head_pairs,
         now=datetime.now(timezone.utc),
         ttl_hours=args.ttl_hours,
         protected_paths=protected_paths,
+        open_pr_numbers=open_pr_numbers,
     )
     apply_failures = 0
     for item in reruns:

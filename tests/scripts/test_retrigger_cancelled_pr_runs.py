@@ -295,3 +295,24 @@ def test_keep_list_names_block_also_matches_manifest(mod) -> None:
     assert len(names) >= 1
     for name in names:
         assert name in manifest_names, f"keep-list name missing from manifest: {name}"
+
+
+def test_run_pr_association_must_intersect_open_prs_when_named(mod) -> None:
+    """When the API names the run's pull_requests, at least one must be an
+    open scanned PR; an empty list stays eligible (fork runs omit it)."""
+    # Distinct workflows so the same-head supersession tie-break stays out
+    # of this test's way.
+    named_foreign = _run(run_id=1, workflow_id=71)
+    named_foreign["pull_requests"] = [{"number": 424242}]
+    named_ok = _run(run_id=2, workflow_id=72)
+    named_ok["pull_requests"] = [{"number": 9133}]
+    unnamed = _run(run_id=3, workflow_id=73)
+    reruns = mod.compute_reruns(
+        [named_foreign, named_ok, unnamed],
+        active_head_pairs=_heads(),
+        now=NOW,
+        ttl_hours=6.0,
+        open_pr_numbers={9133},
+        **_protected(mod),
+    )
+    assert sorted(r["run_id"] for r in reruns) == [2, 3]
