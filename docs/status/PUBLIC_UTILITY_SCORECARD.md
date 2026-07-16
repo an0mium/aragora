@@ -1,11 +1,16 @@
 # Public Utility Mission Scorecard (M10)
 
-**Re-audit date:** 2026-07-11
+**Re-audit date:** 2026-07-11, with the external-proof dimension re-audited
+on 2026-07-16
 
 **Baseline:** [`PUBLIC_UTILITY_MISSION_BASELINE.md`](PUBLIC_UTILITY_MISSION_BASELINE.md),
 captured at `d780bd4898` on 2026-07-02
 
 **Re-audit commit:** `258fb97b82` (`origin/main` when this re-audit began)
+
+**External-proof delta commit:** `26f24acb40` (`origin/main` for the
+2026-07-16 reproduction). Other dimension scores remain at their 2026-07-11
+values pending their own current-main re-audits.
 
 **Target:** at least **8/10 (grade B)** in each dimension
 
@@ -38,9 +43,9 @@ requests. Open pull requests discussed later are blockers, not score evidence.
 | Installability | 7 | C | Below | [`INSTALL_MATRIX.md`](../reference/INSTALL_MATRIX.md), [`README.md`](../../README.md), [`sdk/python/pyproject.toml`](../../sdk/python/pyproject.toml); merged [PR #8967](https://github.com/synaptent/aragora/pull/8967), [PR #8985](https://github.com/synaptent/aragora/pull/8985) | Root Aragora 2.9.0 and `aragora-verify` 0.1.1 are live, and the matrix separates end-user, verifier, SDK, and contributor paths. It remains below target because live `aragora-sdk` is 2.8.0 while the tree declares 2.9.0, and the verifier cryptography-floor alignment remains unlanded. Follow-up: [#9234](https://github.com/synaptent/aragora/issues/9234). |
 | Docs/onboarding | 8 | B | Met | [`docs/README.md`](../README.md), [`docs/INDEX.md`](../INDEX.md), [`quickstart.md`](../quickstart.md), [`GITHUB_ACTION_SETUP.md`](../GITHUB_ACTION_SETUP.md), [`guides/GETTING_STARTED.md`](../guides/GETTING_STARTED.md); merged [PR #8991](https://github.com/synaptent/aragora/pull/8991), [PR #9001](https://github.com/synaptent/aragora/pull/9001), [PR #9003](https://github.com/synaptent/aragora/pull/9003), [PR #9059](https://github.com/synaptent/aragora/pull/9059) | The canonical route is quickstart → receipt → verifier → Action, verifier verbs and exit codes are reconciled, and stale material has a redirect route. The overall corpus is still large, but the public-utility path is singular. |
 | Repo legibility | 6 | D | Below | [`ROOT_ALLOWLIST.md`](../reference/ROOT_ALLOWLIST.md), [`README.md`](../../README.md#the-load-bearing-core), [`docs/README.md`](../README.md); merged [PR #9001](https://github.com/synaptent/aragora/pull/9001) | The load-bearing core and root policy are documented, but the mission's root-clutter relocation and module-quarantine proposal are still parked. Archive-metadata follow-up: [#9229](https://github.com/synaptent/aragora/issues/9229). |
-| External proof | 5 | F | Below | [`2026-07-DOGFOOD.md`](../case-studies/dogfood/2026-07-DOGFOOD.md), [`dogfood-summary.json`](../case-studies/dogfood/dogfood-summary.json), [`spend-ledger.json`](../case-studies/dogfood/spend-ledger.json); merged [PR #9204](https://github.com/synaptent/aragora/pull/9204) | Five real-PR ODRs verify and preserve two-family dissent, but the merged slice is retrospective, unsigned, and produced zero independently confirmed defect catches. The M9 benchmark and public report are not merged, so this dimension cannot reach target. Follow-ups: [#9211](https://github.com/synaptent/aragora/issues/9211), [#9231](https://github.com/synaptent/aragora/issues/9231). |
+| External proof | 7 | C | Below | [`2026-07-DOGFOOD.md`](../case-studies/dogfood/2026-07-DOGFOOD.md), [`2026-07-factory-review-quorum-vs-single.md`](../benchmarks/2026-07-factory-review-quorum-vs-single.md), [`factory_review_quorum_vs_single_results.json`](../benchmarks/factory_review_quorum_vs_single_results.json), [`2026-07-PUBLIC-PROOF.md`](../case-studies/dogfood/2026-07-PUBLIC-PROOF.md); merged [PR #9204](https://github.com/synaptent/aragora/pull/9204), [PR #9225](https://github.com/synaptent/aragora/pull/9225), [PR #9228](https://github.com/synaptent/aragora/pull/9228) | The M9 benchmark and public report are merged, and a pristine current-main replay reproduced all three fixtures, receipt digests, and the canonical live-collection hash. This is substantial proof, but it remains below target because no real uncoached outsider has independently run the public path, the receipts are unsigned, and the three-PR smoke slice does not beat its strongest member. Follow-ups: [#8858](https://github.com/synaptent/aragora/issues/8858), [#9231](https://github.com/synaptent/aragora/issues/9231). |
 
-**Total:** **59/80 (73.75%)**. Four dimensions meet the 8/10 target; four remain below target.
+**Total:** **61/80 (76.25%)**. Four dimensions meet the 8/10 target; four remain below target.
 
 ## External-proof gate
 
@@ -66,17 +71,47 @@ Every invocation exited **0** with `schema_conformance=pass`,
 - [`pr-9062-receipt.odr.json`](../case-studies/dogfood/pr-9062-receipt.odr.json)
 - [`pr-9193-receipt.odr.json`](../case-studies/dogfood/pr-9193-receipt.odr.json)
 
-### M9 gate result
+### 2026-07-16 current-main M9 re-audit
 
-At re-audit time, pull/9225 and pull/9228 are **OPEN**, not merged. The three
-benchmark receipts at pull/9225 head `a2da802f0bfc6427306181ecfbbc3ff0e78b3d86`
-were nevertheless checked directly and each returned exit **0** with schema and
-quorum checks passing. That proves the receipt files themselves are verifiable,
-but it does **not** make the benchmark/report repository-visible on `main`.
+Pulls [#9225](https://github.com/synaptent/aragora/pull/9225) and
+[#9228](https://github.com/synaptent/aragora/pull/9228) are now **MERGED**. From
+a pristine detached worktree at current-main commit `26f24acb40`, the documented
+offline measurement command exited **0** and left the worktree byte-clean:
 
-Therefore the external-proof score remains **5/F**, below target. It may be raised
-to 8/B or above only after the benchmark and report land, their pinned commands
-reproduce, and the cited receipts continue to verify at exit 0.
+```bash
+PYTHONPATH=. python3 scripts/measure_factory_review_quorum_vs_single.py measure
+git status --porcelain
+git diff --exit-code -- \
+  docs/benchmarks/factory_review_quorum_vs_single_results.json \
+  docs/benchmarks/fixtures
+```
+
+The measurement regenerated three cases. Both Git commands produced no output.
+The three documented `emit_pr_receipt.py --verify` replays and all three
+standalone-verifier invocations exited **0**. Each verifier result reported
+`schema_conformance=pass`, `canonical_digest=pass`,
+`quorum_consistency=pass`, and the expected `signature=warn` for an unsigned
+receipt.
+
+| Case | Replayed and committed content digest | Documented digest |
+|---|---|---|
+| Sentry PR 6 | `f586b4272e1a1915f95cee2a02fa207dce487a237a71fd32889d87e174fc4072` | match |
+| Grafana PR 1 | `e64756e813dac4064562bf8b6aed2d72fcace76f97d00f7331a6783972a196e2` | match |
+| Keycloak PR 7 | `bfa673e02701f0dfb727fd8d990e815f3bb089cdd32841d8564d75ccaa2a0ad2` | match |
+
+The live collection's canonical JSON SHA-256, recomputed with the benchmark
+script's sorted, compact JSON encoding, is
+`8c675aa9f61d9962fcbe71f5e8265f68f9e334358d04dd5365f4fd4e59e603a9`,
+matching the committed result and documentation. The focused benchmark suite
+also passed **8/8** tests.
+
+These results close the former "proof is unmerged or unreproducible" blocker and
+raise external proof to **7/C**. They do not justify **8/B**: issue
+[#8858](https://github.com/synaptent/aragora/issues/8858) still requires one real,
+uncoached outsider to run the public install/demo/receipt path, and that evidence
+cannot be replaced by another internal replay. The receipts also remain unsigned,
+and [#9231](https://github.com/synaptent/aragora/issues/9231) still tracks
+out-of-tree output and `grok`/`xai` family-vocabulary polish.
 
 ## M0 baseline re-run and comparison
 
@@ -146,19 +181,19 @@ This demonstrates the minimum chain; it does not erase the below-target blockers
 
 ### 1. Land or explicitly settle parked proof and legibility work
 
-The following are current operational blockers, not score evidence:
+The former M7/M9 status list now contains both landed evidence and current
+operational blockers:
 
-- **pull/9091 is OPEN** (head `66c4616280846fe8dceff9d8a468330c49a178f3`):
+- **pull/9091 is OPEN** (head `59e29aca391bfd649efe7717672455e54893a173`):
   root-clutter relocation is parked at Tier 2. If it remains open, archive-metadata
   consistency is tracked by [issue #9229](https://github.com/synaptent/aragora/issues/9229).
-- **pull/9118 is OPEN** (head `70c59e21736621e70f569130c356c256c98ebbe2`):
-  the corrected module-quarantine proposal is not yet on `main`.
-- **pull/9225 is OPEN** (head `a2da802f0bfc6427306181ecfbbc3ff0e78b3d86`):
-  the benchmark is parked at Tier 2. Its out-of-tree output flag and
+- **pull/9118 is MERGED:** the corrected module-quarantine proposal is on
+  `main`; repo legibility still needs its own current-main re-audit.
+- **pull/9225 is MERGED:** the benchmark is on `main` and reproduced above. Its
+  out-of-tree output flag and
   `grok`↔`xai` family-vocabulary normalization are tracked by
   [issue #9231](https://github.com/synaptent/aragora/issues/9231).
-- **pull/9228 is OPEN** (head `b497d8b0057cf79048f4ca086d1ed7d59b7325ab`):
-  the public M9 proof report is not yet on `main`.
+- **pull/9228 is MERGED:** the public M9 proof report is on `main`.
 - **pull/8970 is OPEN** (head `12cfe60b144d8393d82e16daeb986a31ec2b80c8`):
   the `aragora-verify` cryptography floor remains below the root security floor.
 
@@ -214,8 +249,9 @@ Tier 0, and add a narrowly defined known-safe docs-lint/config carve-out in
 Run a bounded **External Adoption Closure** mission, in this order:
 
 1. Operator-settle or supersede the parked M7/M9/package PRs listed above.
-2. Land the M9 benchmark and public proof report, then re-run every cited receipt
-   with `aragora-verify` and raise external proof only if all remain exit 0.
+2. Preserve the now-reproduced M9 benchmark and public proof report, resolve the
+   bounded #9231 harness polish, and wait for the genuine #8858 outsider result
+   before raising external proof to 8/B.
 3. Run a prospective, pre-merge dogfood slice with at least three reachable model
    families and record confirmed catches, false positives, misses, and cost.
 4. Wire opt-in ODR signing plus public-key discovery without weakening unsigned
