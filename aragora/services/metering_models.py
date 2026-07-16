@@ -127,6 +127,10 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("6.00"),
     },
     "openrouter": {
+        "qwen/qwen3.7-max": Decimal("1.475"),
+        "qwen/qwen3.7-max-output": Decimal("4.425"),
+        "moonshotai/kimi-k2.7-code": Decimal("0.75"),
+        "moonshotai/kimi-k2.7-code-output": Decimal("3.50"),
         "anthropic/claude-fable-5": Decimal("10.00"),
         "anthropic/claude-fable-5-output": Decimal("50.00"),
         "openai/gpt-5.6-sol": Decimal("5.00"),
