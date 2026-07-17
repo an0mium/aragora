@@ -376,8 +376,8 @@ def test_run_consult_sets_overall_timeout_and_bounded_outer_timeout(
     command = captured["command"]
     assert result["ok"] is True
     assert command[command.index("--timeout") + 1] == "12.5"
-    assert command[command.index("--overall-timeout") + 1] == "25.0"
-    assert captured["timeout"] == 85.0
+    assert command[command.index("--overall-timeout") + 1] == "50.0"
+    assert captured["timeout"] == 110.0
 
 
 def test_run_consult_rejects_success_without_text(monkeypatch, tmp_path: Path) -> None:
@@ -421,5 +421,5 @@ def test_run_consult_can_enable_openrouter_fallback(monkeypatch, tmp_path: Path)
     assert result["ok"] is True
     assert "--openrouter-fallback" in command
     assert command[command.index("--openrouter-model") + 1] == "anthropic/claude-test"
-    assert command[command.index("--overall-timeout") + 1] == "37.5"
-    assert captured["timeout"] == 97.5
+    assert command[command.index("--overall-timeout") + 1] == "62.5"
+    assert captured["timeout"] == 122.5

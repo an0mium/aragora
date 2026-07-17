@@ -10,6 +10,8 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from aragora.agents import claude_profile_pool
 
 
@@ -18,6 +20,11 @@ SPEC = importlib.util.spec_from_file_location("consult_claude_under_test", SCRIP
 assert SPEC and SPEC.loader
 consult_claude = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(consult_claude)
+
+
+@pytest.fixture(autouse=True)
+def _default_direct_transport(monkeypatch):
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "direct")
 
 
 def test_build_cli_command_disables_mcp() -> None:
@@ -184,6 +191,89 @@ def test_consult_default_is_cli_only(monkeypatch) -> None:
     assert result["ok"] is False
     assert cli_models == [consult_claude.DEFAULT_MODEL, consult_claude.FALLBACK_MODEL]
     assert [attempt["backend"] for attempt in result["attempts"]] == ["cli", "cli"]
+
+
+def test_consult_uses_vibeproxy_before_cli(monkeypatch) -> None:
+    policy = SimpleNamespace(mode=consult_claude.TransportMode.PREFER)
+    monkeypatch.setattr(consult_claude.ModelTransportPolicy, "from_env", lambda **_kwargs: policy)
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_vibeproxy",
+        lambda *_args, **_kwargs: {
+            "ok": True,
+            "backend": "vibeproxy",
+            "text": "fable answer",
+            "elapsed_s": 0.1,
+        },
+    )
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_cli",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("CLI should not run")),
+    )
+
+    result = consult_claude.consult("question")
+
+    assert result["ok"] is True
+    assert result["backend"] == "vibeproxy"
+    assert result["model"] == consult_claude.DEFAULT_MODEL
+
+
+def test_consult_prefer_falls_back_to_cli(monkeypatch) -> None:
+    policy = SimpleNamespace(mode=consult_claude.TransportMode.PREFER)
+    monkeypatch.setattr(consult_claude.ModelTransportPolicy, "from_env", lambda **_kwargs: policy)
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_vibeproxy",
+        lambda *_args, **_kwargs: {
+            "ok": False,
+            "backend": "vibeproxy",
+            "error": "proxy unavailable",
+        },
+    )
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_cli",
+        lambda *_args, **_kwargs: {
+            "ok": True,
+            "backend": "cli",
+            "text": "cli answer",
+            "elapsed_s": 0.1,
+        },
+    )
+
+    result = consult_claude.consult("question")
+
+    assert result["ok"] is True
+    assert [attempt["backend"] for attempt in result["attempts"]] == [
+        "vibeproxy",
+        "vibeproxy",
+        "cli",
+    ]
+
+
+def test_consult_required_does_not_fall_back_to_cli(monkeypatch) -> None:
+    policy = SimpleNamespace(mode=consult_claude.TransportMode.REQUIRED)
+    monkeypatch.setattr(consult_claude.ModelTransportPolicy, "from_env", lambda **_kwargs: policy)
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_vibeproxy",
+        lambda *_args, **_kwargs: {
+            "ok": False,
+            "backend": "vibeproxy",
+            "error": "proxy unavailable",
+        },
+    )
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_cli",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("CLI should not run")),
+    )
+
+    result = consult_claude.consult("question")
+
+    assert result["ok"] is False
+    assert [attempt["backend"] for attempt in result["attempts"]] == ["vibeproxy", "vibeproxy"]
 
 
 def test_consult_api_fallback_skips_cli_only_model(monkeypatch) -> None:
