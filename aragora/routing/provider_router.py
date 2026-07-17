@@ -12,15 +12,33 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from aragora.agents.credential_validator import CredentialStatus
 from aragora.models import by_any_id
 from aragora.routing.cost_quality_optimizer import CostQualityOptimizer, SelectionStrategy
-from aragora.routing.provider_config import current_pricing_table, get_available_models
+from aragora.routing.provider_config import (
+    current_pricing_as_of,
+    current_pricing_table,
+    get_available_models,
+)
 from aragora.routing.provider_metrics import ProviderMetricsStore
 
 logger = logging.getLogger(__name__)
+
+
+def _is_under_soak(provider: str, as_of: date) -> bool:
+    """True when ``provider`` resolves to a catalog model still under soak.
+
+    Soak gating applies to every selection surface (#9364 rounds 3-8):
+    having recorded metrics does not make an under-soak catalog model
+    adoptable. Ids unknown to the catalog pass through. ``as_of`` should be
+    ``current_pricing_as_of()`` so metrics-path gating and the enumerated
+    pricing table agree on one coherent date."""
+    spec = by_any_id(provider)
+    return spec is not None and spec.is_under_soak(as_of)
+
 
 # Minimum number of recorded debates before metrics-based selection is used.
 MIN_DEBATES_FOR_METRICS = 10
@@ -329,7 +347,10 @@ class ProviderRouter:
         if not candidates:
             return self._round_robin_selection(num_agents)
 
-        excluded: set[str] = set()
+        # Seed the optimizer's exclude set with under-soak catalog models
+        # (#9364 round-8): the optimizer itself stays catalog-unaware.
+        as_of = current_pricing_as_of()
+        excluded: set[str] = {p for p in candidates if _is_under_soak(p, as_of)}
         for _ in range(num_agents):
             provider = self._optimizer.select_provider(
                 strategy=strategy,
@@ -394,10 +415,12 @@ class ProviderRouter:
             return {}
 
         all_metrics = self._store.get_all_metrics()
+        as_of = current_pricing_as_of()
         return {
             provider: metrics.avg_quality_score
             for provider, metrics in all_metrics.items()
-            if metrics.total_debates > 0
+            # No quality boost for under-soak models during team selection.
+            if metrics.total_debates > 0 and not _is_under_soak(provider, as_of)
         }
 
     def select_providers_with_details(
@@ -435,14 +458,12 @@ class ProviderRouter:
         if not all_metrics or not self._has_sufficient_data():
             return self._details_from_pricing(num_agents, per_agent_budget)
 
-        # Build candidates filtered by budget and quality
+        # Build candidates filtered by budget and quality; under-soak
+        # catalog models are gated against the snapshot's own as-of date.
+        as_of = current_pricing_as_of()
         candidates: list[dict[str, Any]] = []
         for provider, metrics in all_metrics.items():
-            # Soak gating applies to the metrics path too (#9364 round-7):
-            # having recorded metrics does not make an under-soak catalog
-            # model adoptable. Ids unknown to the catalog pass through.
-            spec = by_any_id(provider)
-            if spec is not None and spec.is_under_soak():
+            if _is_under_soak(provider, as_of):
                 continue
             if metrics.avg_quality_score < min_quality:
                 continue

@@ -258,6 +258,18 @@ def current_pricing_table() -> dict[str, ProviderPricing]:
 _current_pricing_table = current_pricing_table
 
 
+def current_pricing_as_of() -> date:
+    """The UTC date the currently published pricing snapshot was built for.
+
+    This is the coherent as-of date for soak gating (#9364 round-8):
+    selection surfaces that check ``is_under_soak`` on metrics-backed
+    candidates should pass this value, so every gating decision agrees
+    with the enumerated table's own build instant rather than mixing the
+    snapshot date with a live ``utc_today()`` read."""
+    _refresh_projection_if_stale()
+    return _projection_refreshed_on or utc_today()
+
+
 # Initial publication (also stamps the memo date).
 _refresh_projection_if_stale()
 
@@ -338,6 +350,7 @@ def get_models_within_budget(
 __all__ = [
     "ProviderPricing",
     "PROVIDER_PRICING",
+    "current_pricing_as_of",
     "current_pricing_table",
     "get_estimated_cost",
     "get_available_models",

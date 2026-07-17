@@ -404,54 +404,6 @@ class TestUnderSoakModelsNotEnumerated:
             spec = by_any_id(entry["provider"])
             assert spec is None or not spec.is_under_soak(as_of)
 
-    def test_metrics_driven_selection_excludes_under_soak_until_expiry(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Round-7 (#9364, openai): soak gating must also guard the
-        metrics-driven candidate path — recorded metrics do not make an
-        under-soak catalog model adoptable. Same model post-soak is
-        eligible again; ids unknown to the catalog pass through."""
-        base = date(2026, 1, 10)
-        clock = _Clock(base)
-        soaking = ModelSpec(
-            canonical_id="soaking-model",
-            provider="testprov",
-            direct_id="soaking-model",
-            openrouter_id="testprov/soaking-model",
-            input_per_mtok=4.00,
-            output_per_mtok=20.00,
-            context_window=100_000,
-            max_output_tokens=8_192,
-            release_date=base - timedelta(days=13),
-            soak_until=base + timedelta(days=1),
-        )
-        # is_under_soak's default date comes from the catalog module's
-        # utc_today; the router resolves ids via its own by_any_id import.
-        monkeypatch.setattr(catalog_module, "utc_today", clock.today)
-        monkeypatch.setattr(
-            provider_router_module,
-            "by_any_id",
-            lambda mid: soaking if str(mid).strip() in soaking.all_ids() else None,
-        )
-
-        store = ProviderMetricsStore()
-        for _ in range(MIN_DEBATES_FOR_METRICS + 1):
-            store.record_debate_outcome("soaking-model", cost=0.01, quality=0.95)
-            store.record_debate_outcome("other-model", cost=0.02, quality=0.70)
-        router = ProviderRouter(metrics_store=store)
-
-        # Under soak: excluded from metrics-driven selection despite having
-        # metrics data (and despite dominating on quality).
-        details = router.select_providers_with_details(num_agents=5)
-        selected = {d["provider"] for d in details}
-        assert "soaking-model" not in selected
-        assert "other-model" in selected  # unknown-to-catalog passes through
-
-        # Soak expiry: the same model becomes eligible.
-        clock.current = base + timedelta(days=1)
-        details = router.select_providers_with_details(num_agents=5)
-        assert "soaking-model" in {d["provider"] for d in details}
-
     def test_under_soak_model_excluded_but_all_ids_still_price(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -535,6 +487,99 @@ class TestUnderSoakModelsNotEnumerated:
 # ---------------------------------------------------------------------------
 # Round-5: soak gating must be date-fresh, not frozen at import
 # ---------------------------------------------------------------------------
+
+
+class TestMetricsPathSoakGating:
+    """Rounds 7-8 (#9364): soak gating must guard EVERY metrics-driven
+    selection surface — recorded metrics do not make an under-soak catalog
+    model adoptable. Covered surfaces: select_providers_with_details
+    (round 7), select_providers_for_debate via the optimizer's exclude set,
+    and get_provider_hints (round 8). All gates evaluate against the
+    snapshot's coherent as-of date (current_pricing_as_of), which follows
+    the same fake clock as the snapshot itself. Ids unknown to the catalog
+    pass through. Same model post-soak is eligible again."""
+
+    BASE = date(2026, 1, 10)
+
+    @pytest.fixture()
+    def soak_metrics_world(self, monkeypatch: pytest.MonkeyPatch) -> tuple[_Clock, ProviderRouter]:
+        clock = _Clock(self.BASE)
+        soaking = ModelSpec(
+            canonical_id="soaking-model",
+            provider="testprov",
+            direct_id="soaking-model",
+            openrouter_id="testprov/soaking-model",
+            input_per_mtok=4.00,
+            output_per_mtok=20.00,
+            context_window=100_000,
+            max_output_tokens=8_192,
+            release_date=self.BASE - timedelta(days=13),
+            soak_until=self.BASE + timedelta(days=1),
+        )
+        # The gate's as_of comes from current_pricing_as_of() (snapshot
+        # stamp), so provider_config's clock and stamp must follow the fake
+        # clock too; the router resolves ids via its own by_any_id import.
+        monkeypatch.setattr(catalog_module, "utc_today", clock.today)
+        monkeypatch.setattr(provider_config, "utc_today", clock.today)
+        monkeypatch.setattr(provider_config, "_projection_refreshed_on", None)
+        monkeypatch.setattr(provider_config, "PROVIDER_PRICING", {})
+        monkeypatch.setattr(
+            provider_router_module,
+            "by_any_id",
+            lambda mid: soaking if str(mid).strip() in soaking.all_ids() else None,
+        )
+
+        store = ProviderMetricsStore()
+        for _ in range(MIN_DEBATES_FOR_METRICS + 1):
+            # The under-soak model dominates on quality AND cost, so any
+            # selection it appears in would rank it first.
+            store.record_debate_outcome("soaking-model", cost=0.01, quality=0.95)
+            store.record_debate_outcome("other-model", cost=0.02, quality=0.70)
+        return clock, ProviderRouter(metrics_store=store)
+
+    def test_details_path_excludes_under_soak_until_expiry(
+        self, soak_metrics_world: tuple[_Clock, ProviderRouter]
+    ) -> None:
+        clock, router = soak_metrics_world
+        details = router.select_providers_with_details(num_agents=5)
+        selected = {d["provider"] for d in details}
+        assert "soaking-model" not in selected
+        assert "other-model" in selected  # unknown-to-catalog passes through
+
+        clock.current = self.BASE + timedelta(days=1)
+        details = router.select_providers_with_details(num_agents=5)
+        assert "soaking-model" in {d["provider"] for d in details}
+
+    def test_plain_names_selection_excludes_under_soak_until_expiry(
+        self, soak_metrics_world: tuple[_Clock, ProviderRouter]
+    ) -> None:
+        """Round-8 P2 (both reviewers): select_providers_for_debate — the
+        primary plain-names selection API — selects via
+        CostQualityOptimizer.select_provider, which has no soak awareness;
+        the under-soak model is kept out through the exclude set."""
+        clock, router = soak_metrics_world
+        selected = router.select_providers_for_debate(num_agents=2)
+        assert "soaking-model" not in selected
+        # The worse non-catalog model wins despite losing on every metric.
+        assert "other-model" in selected
+
+        clock.current = self.BASE + timedelta(days=1)
+        selected = router.select_providers_for_debate(num_agents=2)
+        assert "soaking-model" in selected
+
+    def test_provider_hints_exclude_under_soak_until_expiry(
+        self, soak_metrics_world: tuple[_Clock, ProviderRouter]
+    ) -> None:
+        """Round-8 P3: get_provider_hints feeds TeamSelector quality
+        boosts — an under-soak model must not receive one."""
+        clock, router = soak_metrics_world
+        hints = router.get_provider_hints()
+        assert "soaking-model" not in hints
+        assert hints["other-model"] == pytest.approx(0.70)
+
+        clock.current = self.BASE + timedelta(days=1)
+        hints = router.get_provider_hints()
+        assert hints["soaking-model"] == pytest.approx(0.95)
 
 
 class _Clock:
