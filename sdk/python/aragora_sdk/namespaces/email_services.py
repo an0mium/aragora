@@ -12,7 +12,14 @@ Features:
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any
+
+
+def _warn_deprecated(message: str) -> None:
+    """Emit a runtime DeprecationWarning for a dead or drifted SDK method."""
+    warnings.warn(message, DeprecationWarning, stacklevel=3)
+
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
@@ -166,6 +173,20 @@ class EmailServicesAPI:
     # Email Triage
     # ===========================================================================
 
+    def create_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
+        """Update the triage rules document.
+
+        .. deprecated::
+            The server exposes triage rules as a single GET/PUT document;
+            POST /api/v1/email/triage/rules was never served. Use
+            :meth:`update_triage_rule` instead. This shim delegates to it.
+        """
+        _warn_deprecated(
+            "create_triage_rule is deprecated: the server has no POST-create "
+            "operation for triage rules; use update_triage_rule (PUT)."
+        )
+        return self.update_triage_rule(**kwargs)
+
     def update_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
         """Update the email triage rules.
 
@@ -193,6 +214,20 @@ class EmailServicesAPI:
             Dict with test results.
         """
         return self._client.request("POST", "/api/v1/email/triage/test", json=kwargs)
+
+    def update_triage_test(self, **kwargs: Any) -> dict[str, Any]:
+        """Test a message against the triage rules.
+
+        .. deprecated::
+            Triage tests are stateless; PUT /api/v1/email/triage/test was
+            never served. Use :meth:`create_triage_test` instead. This shim
+            delegates to it.
+        """
+        _warn_deprecated(
+            "update_triage_test is deprecated: triage tests are stateless; "
+            "use create_triage_test (POST)."
+        )
+        return self.create_triage_test(**kwargs)
 
 
 class AsyncEmailServicesAPI:
@@ -289,6 +324,14 @@ class AsyncEmailServicesAPI:
     # Email Triage
     # ===========================================================================
 
+    async def create_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
+        """Deprecated: no POST-create exists; delegates to update_triage_rule."""
+        _warn_deprecated(
+            "create_triage_rule is deprecated: the server has no POST-create "
+            "operation for triage rules; use update_triage_rule (PUT)."
+        )
+        return await self.update_triage_rule(**kwargs)
+
     async def update_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
         """Update the email triage rules (single GET/PUT document)."""
         return await self._client.request("PUT", "/api/v1/email/triage/rules", json=kwargs)
@@ -296,3 +339,11 @@ class AsyncEmailServicesAPI:
     async def create_triage_test(self, **kwargs: Any) -> dict[str, Any]:
         """Test a message against the triage rules (stateless POST)."""
         return await self._client.request("POST", "/api/v1/email/triage/test", json=kwargs)
+
+    async def update_triage_test(self, **kwargs: Any) -> dict[str, Any]:
+        """Deprecated: triage tests are stateless; delegates to create_triage_test."""
+        _warn_deprecated(
+            "update_triage_test is deprecated: triage tests are stateless; "
+            "use create_triage_test (POST)."
+        )
+        return await self.create_triage_test(**kwargs)

@@ -388,6 +388,17 @@ export class EmailServicesAPI {
   // --- Email Triage ---
 
   /**
+   * Update the triage rules document.
+   *
+   * @deprecated The server exposes triage rules as a single GET/PUT
+   * document; POST /api/v1/email/triage/rules was never served. Use
+   * {@link updateTriageRule} instead — this shim delegates to it.
+   */
+  async createTriageRule(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.updateTriageRule(data);
+  }
+
+  /**
    * Update the email triage rules.
    *
    * The server exposes triage rules as a single document: GET/PUT
@@ -405,5 +416,16 @@ export class EmailServicesAPI {
    */
   async createTriageTest(data: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('POST', '/api/v1/email/triage/test', { json: data });
+  }
+
+  /**
+   * Test a message against the triage rules.
+   *
+   * @deprecated Triage tests are stateless; PUT /api/v1/email/triage/test
+   * was never served. Use {@link createTriageTest} instead — this shim
+   * delegates to it.
+   */
+  async updateTriageTest(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.createTriageTest(data);
   }
 }

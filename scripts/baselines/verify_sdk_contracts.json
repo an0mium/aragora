@@ -241,6 +241,7 @@
     "GET /api/podcast/episodes/{param}",
     "GET /api/privacy/account",
     "GET /api/pulse/scheduler/analytics",
+    "GET /api/pulse/scheduler/config",
     "GET /api/rbac/permissions/{param}",
     "GET /api/rbac/roles/{param}",
     "GET /api/reconciliation/discrepancies/bulk-resolve",

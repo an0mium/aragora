@@ -2157,6 +2157,14 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:GET /api/pulse/scheduler/config",
+      "provenance": "Discovered by PR #9365: deprecated-in-place shim get_scheduler_config performs a safe GET on a PATCH-only route (previous implementation POSTed into the config-update branch); kept per the SDK deprecation convention (#9366/#9367), resolves when the shim is removed",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/rbac/permissions/{param}",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",

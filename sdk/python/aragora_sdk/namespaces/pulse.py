@@ -10,7 +10,14 @@ Provides access to trending topics and real-time signals:
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Literal
+
+
+def _warn_deprecated(message: str) -> None:
+    """Emit a runtime DeprecationWarning for a dead or drifted SDK method."""
+    warnings.warn(message, DeprecationWarning, stacklevel=3)
+
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
@@ -139,6 +146,21 @@ class PulseAPI:
         """
         return self._client.request("GET", "/api/v1/pulse/scheduler/status")
 
+    def get_scheduler_config(self) -> dict[str, Any]:
+        """Get pulse scheduler configuration.
+
+        .. deprecated::
+            The server has no read endpoint for scheduler configuration
+            (config is PATCH-only via /api/v1/pulse/scheduler/config); the
+            previous implementation POSTed into the config-update branch.
+            This shim performs a safe GET, which the server does not serve.
+        """
+        _warn_deprecated(
+            "get_scheduler_config is deprecated: the server has no scheduler "
+            "config read endpoint (config is PATCH-only)."
+        )
+        return self._client.request("GET", "/api/v1/pulse/scheduler/config")
+
     def get_scheduler_history(self) -> dict[str, Any]:
         """
         Get pulse scheduler execution history.
@@ -252,6 +274,14 @@ class AsyncPulseAPI:
     async def get_scheduler_status(self) -> dict[str, Any]:
         """Get pulse scheduler status."""
         return await self._client.request("GET", "/api/v1/pulse/scheduler/status")
+
+    async def get_scheduler_config(self) -> dict[str, Any]:
+        """Deprecated: no scheduler-config read endpoint exists (PATCH-only)."""
+        _warn_deprecated(
+            "get_scheduler_config is deprecated: the server has no scheduler "
+            "config read endpoint (config is PATCH-only)."
+        )
+        return await self._client.request("GET", "/api/v1/pulse/scheduler/config")
 
     async def get_scheduler_history(self) -> dict[str, Any]:
         """Get pulse scheduler execution history."""
