@@ -135,7 +135,7 @@ class TestMemoryStats:
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/analytics",
-                params={"granularity": "hour", "days": 7},
+                params={"days": 7},
             )
             assert result["promotion_effectiveness"] == 0.8
             client.close()
@@ -348,13 +348,14 @@ class TestCritiqueOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"id": "critique-123"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.memory.store_critique(
-                "The proposal lacks consideration for edge cases",
-                agent="claude",
-                debate_id="debate-456",
-                target_agent="gpt4",
-                score=0.85,
-            )
+            with pytest.warns(DeprecationWarning, match="silent no-op"):
+                result = client.memory.store_critique(
+                    "The proposal lacks consideration for edge cases",
+                    agent="claude",
+                    debate_id="debate-456",
+                    target_agent="gpt4",
+                    score=0.85,
+                )
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/critiques",

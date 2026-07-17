@@ -503,8 +503,8 @@ export class MemoryAPI {
    * Store content in the continuum memory system.
    *
    * @deprecated No handler serves POST /api/memory/continuum/store, so this
-   * method always rejects with a 404. Use POST /api/v1/memory/store
-   * (`storeMemoryEntry` on the client, added in PR #9366), which returns
+   * method always rejects with an HTTP 500 (`handler_no_result`). Use
+   * {@link storeEntry} (POST /api/v1/memory/store), which returns
    * `{ id, tier }` — without the `created_at` field declared here.
    */
   async storeToContinuum(
@@ -545,9 +545,10 @@ export class MemoryAPI {
   /**
    * Update an existing memory entry.
    *
-   * @deprecated No memory handler implements PUT, so PUT /api/v1/memory/{key}
-   * always rejects with a 404. The server has no key/value update API; store a
-   * new entry via POST /api/v1/memory/store instead.
+   * @deprecated No memory handler implements PUT, but MemoryHandler still
+   * matches the path, so PUT /api/v1/memory/{key} always rejects with an
+   * HTTP 500 (`handler_no_result`). The server has no key/value update API;
+   * store a new entry via POST /api/v1/memory/store instead.
    *
    * @param key - The key of the entry to update
    * @param value - The new value
@@ -575,8 +576,9 @@ export class MemoryAPI {
    * Query memory entries with advanced filtering.
    *
    * @deprecated POST /api/v1/memory/query is declared in the handler's ROUTES
-   * list but never dispatched, so this method always rejects with a 404. Use
-   * {@link search} (GET /api/v1/memory/search) or {@link retrieveContinuum}.
+   * list but never dispatched, so this method always rejects with an HTTP 500
+   * (`handler_no_result`). Use {@link search} (GET /api/v1/memory/search) or
+   * {@link retrieveContinuum}.
    *
    * @param options - Query options including filters, sorting, and pagination
    */
@@ -858,9 +860,9 @@ export class MemoryAPI {
    * Get entries from a specific tier.
    *
    * @deprecated GET /api/v1/memory/tier/{tier} is declared in the handler's
-   * ROUTES list but never dispatched, so this method always rejects with a 404.
-   * Use {@link listTiers} for tier stats, or {@link retrieveContinuum} with a
-   * `tiers` filter for entries.
+   * ROUTES list but never dispatched, so this method always rejects with an
+   * HTTP 500 (`handler_no_result`). Use {@link listTiers} for tier stats, or
+   * {@link retrieveContinuum} with a `tiers` filter for entries.
    *
    * @param tier - The memory tier
    * @param options - Retrieval options
@@ -878,8 +880,9 @@ export class MemoryAPI {
    * Move an entry between tiers.
    *
    * @deprecated POST /api/v1/memory/{key}/move is declared in the handler's
-   * ROUTES list but never dispatched, so this method always rejects with a 404.
-   * The only server-side tier mutation is promotion — use {@link promoteEntry}.
+   * ROUTES list but never dispatched, so this method always rejects with an
+   * HTTP 500 (`handler_no_result`). The only server-side tier mutation is
+   * promotion — use {@link promoteEntry}.
    *
    * @param key - The entry key
    * @param fromTier - Source tier
@@ -1241,6 +1244,9 @@ export class MemoryAPI {
    * Matches the server contract for POST /api/v1/memory/{id}/promote
    * (`{ target_tier }` -> `{ success, previous_tier }`).
    *
+   * A missing entry is HTTP 200 with `{ success: false, previous_tier: null,
+   * error: 'Memory entry not found' }`, not a 404.
+   *
    * @param memoryId - ID of the entry to promote (as returned by the store endpoint)
    * @param targetTier - Tier to promote the entry to
    *
@@ -1255,7 +1261,7 @@ export class MemoryAPI {
   async promoteEntry(
     memoryId: string,
     targetTier: MemoryTierType
-  ): Promise<{ success: boolean; previous_tier: string | null }> {
+  ): Promise<{ success: boolean; previous_tier: string | null; error?: string }> {
     return this.client.request('POST', `/api/v1/memory/${encodeURIComponent(memoryId)}/promote`, {
       body: { target_tier: targetTier },
     });
@@ -1265,9 +1271,9 @@ export class MemoryAPI {
    * Demote an entry to a slower tier.
    *
    * @deprecated POST /api/v1/memory/{key}/demote is declared in the handler's
-   * ROUTES list but never dispatched, so this method always rejects with a 404.
-   * The server has no demote endpoint — demotion happens automatically during
-   * consolidation and cleanup.
+   * ROUTES list but never dispatched, so this method always rejects with an
+   * HTTP 500 (`handler_no_result`). The server has no demote endpoint —
+   * demotion happens automatically during consolidation and cleanup.
    *
    * @param key - The entry key
    * @param options - Demotion options
@@ -1310,11 +1316,12 @@ export class MemoryAPI {
   /**
    * Get memory analytics over time.
    *
-   * @deprecated The analytics endpoint is GET-only (POST is served only for
-   * /api/v1/memory/analytics/snapshot), so this POST always rejects with a 404.
-   * The server also has no time-series analytics: it accepts a `days` window
-   * (1-365) and returns per-tier analytics, not the shape declared here. Use
-   * {@link getTierAnalytics} instead.
+   * @deprecated The analytics handler serves POST only for
+   * /api/v1/memory/analytics/snapshot; this POST falls through to the GET
+   * handler and returns HTTP 200 with *per-tier* analytics — not the
+   * time-series shape declared here, which the server never produces. The
+   * only parameter the server reads is a `days` window (1-365); everything
+   * this method sends is ignored. Use {@link getTierAnalytics} instead.
    *
    * @param options - Analytics options
    */
@@ -1401,11 +1408,12 @@ export class MemoryAPI {
   /**
    * Store a critique in memory.
    *
-   * @deprecated The server has no store-critique endpoint: GET
-   * /api/v1/memory/critiques only lists existing critiques, and no handler
-   * accepts a POST to it. This method also sends a GET with a request body,
-   * which fetch rejects outright. Critiques are recorded server-side during
-   * debates; there is no client-facing write API.
+   * @deprecated The server has no store-critique endpoint. This method sends
+   * a GET with a request body, which fetch rejects outright, so the call never
+   * reaches the server. (Even a raw POST to /api/v1/memory/critiques would be
+   * a silent no-op: the dispatcher falls through to the GET handler and
+   * returns 200 with the critique *listing*, storing nothing.) Critiques are
+   * recorded server-side during debates; there is no client-facing write API.
    *
    * @param critique - The critique content
    * @param agent - Agent that generated the critique

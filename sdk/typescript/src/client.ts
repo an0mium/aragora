@@ -3291,12 +3291,13 @@ export class AragoraClient {
   /**
    * Store content in the continuum memory system.
    *
-   * @deprecated No handler serves POST /api/memory/continuum/store, so this
-   * method always rejects with a 404. The real continuum store endpoint is
-   * POST /api/v1/memory/store (`{ content, tier?, importance? }` -> `{ id, tier }`);
-   * it does not return the `created_at` field declared on ContinuumStoreResult,
-   * and ignores `tags`/`metadata`. Use `storeMemoryEntry` (added in PR #9366),
-   * or call the endpoint via `request()` directly.
+   * @deprecated No handler serves POST /api/memory/continuum/store —
+   * MemoryHandler matches the normalized path but never dispatches it, so this
+   * method always rejects with an HTTP 500 (`handler_no_result`). The real
+   * continuum store endpoint is POST /api/v1/memory/store
+   * (`{ content, tier?, importance? }` -> `{ id, tier }`); it does not return
+   * the `created_at` field declared on ContinuumStoreResult, and ignores
+   * `tags`/`metadata`. Use {@link storeMemoryEntry} instead.
    *
    * @param content - Content to store in memory
    * @param options - Storage options
