@@ -86,7 +86,7 @@ def _extract_py_endpoints(content: str) -> set[tuple[str, str]]:
     """Extract endpoints from Python SDK source."""
     eps: set[tuple[str, str]] = set()
     for m in re.finditer(
-        r'self\._client\._request\(\s*["\'](?P<method>GET|POST|PUT|PATCH|DELETE)["\']'
+        r'self\._client\._?request\(\s*["\'](?P<method>GET|POST|PUT|PATCH|DELETE)["\']'
         r'\s*,\s*(?:f?["\'])(?P<path>/api/[^"\']+)["\']',
         content,
     ):
@@ -333,6 +333,20 @@ class TestTypeScriptSDKDrift:
 
 class TestPythonSDKDrift:
     """Python SDK endpoints should match the OpenAPI spec."""
+
+    def test_extract_py_endpoints_matches_public_request_calls(self):
+        """The dominant `self._client.request(...)` form must be extracted.
+
+        Regression: the extractor only matched the private `_request` form,
+        leaving ~96% of Python SDK call sites invisible to drift detection.
+        """
+        content = (
+            '        return self._client.request("POST", "/api/v1/memory/critiques", json=body)\n'
+            '        return self._client._request("GET", "/api/v1/memory/stats")\n'
+        )
+        eps = _extract_py_endpoints(content)
+        assert ("post", "/api/memory/critiques") in eps
+        assert ("get", "/api/memory/stats") in eps
 
     def test_py_namespaces_directory_exists(self):
         """The Python namespaces directory must exist."""
