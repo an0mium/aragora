@@ -130,7 +130,7 @@ def test_canonical_and_merge_train_boundary_matrix_match(
     assert _canonical_matched_rule(path) == expected_rule
     assert tier4_merge_train.matches_serialized_path(path) == expected_rule
     tier, _name, _reason = review_queue._classify_model_review_tier([path])
-    assert (tier == 4) is (expected_rule is not None)
+    assert (tier == 4) == (expected_rule is not None)
 
 
 @pytest.mark.parametrize(
@@ -153,6 +153,11 @@ def test_existing_tier2_metric_stem_paths_remain_tier2(path: str) -> None:
     tier, name, _reason = review_queue._classify_model_review_tier([path])
     assert tier == 2
     assert name == "tier_2_live_automation"
+
+
+def test_tier2_metric_stem_matches_when_checked_as_single_rule() -> None:
+    prefix = "aragora/knowledge/mound/metrics"
+    assert review_queue._matches_prefix(f"{prefix}_health_bridge.py", (prefix,))
 
 
 @pytest.mark.parametrize("path", REPORTING_ONLY_PATHS + UNRELATED_SIBLING_PATHS)
