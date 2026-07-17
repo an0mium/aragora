@@ -19,6 +19,8 @@ from enum import Enum
 from statistics import mean, stdev
 from typing import TYPE_CHECKING, Any, cast
 
+from aragora.billing.notification_sink import notify_budget_runway
+
 if TYPE_CHECKING:
     from aragora.billing.cost_tracker import CostTracker
 
@@ -851,19 +853,13 @@ async def run_budget_runway_check(
             # Trigger notification for warning/critical
             if result.alert_level in (AlertSeverity.WARNING, AlertSeverity.CRITICAL):
                 try:
-                    from aragora.notifications.models import Notification
-                    from aragora.notifications.service import get_notification_service
-
-                    svc = get_notification_service()
-                    notification = Notification(
+                    await notify_budget_runway(
                         title=f"Budget Alert: {result.alert_level.value.upper()}",
                         message=result.message,
                         severity=result.alert_level.value,
-                        resource_type="budget_runway_alert",
+                        workspace_id=ws_id,
                     )
-                    await svc.notify(notification)  # type: ignore[attr-defined]
                 except (
-                    ImportError,
                     RuntimeError,
                     OSError,
                     ConnectionError,

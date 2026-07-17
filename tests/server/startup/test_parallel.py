@@ -559,7 +559,7 @@ class TestParallelInitializerPhases:
 
 
 async def test_parallel_entrypoint_registers_webhook_store_before_initializer_run():
-    """Durable webhook wiring must precede scheduling optional KM work."""
+    """Event and webhook wiring must precede scheduling subsystem work."""
     from aragora.server.startup.parallel import parallel_init
 
     order: list[str] = []
@@ -575,6 +575,10 @@ async def test_parallel_entrypoint_registers_webhook_store_before_initializer_ru
 
     with (
         patch(
+            "aragora.server.startup.control_plane.register_control_plane_event_contributors",
+            side_effect=lambda: order.append("control_plane_events"),
+        ),
+        patch(
             "aragora.server.startup.event_subscribers.register_webhook_store",
             side_effect=lambda: order.append("webhook_store"),
         ),
@@ -582,8 +586,12 @@ async def test_parallel_entrypoint_registers_webhook_store_before_initializer_ru
             "aragora.server.startup.parallel.init_security_edge_adapters",
             return_value={},
         ),
+        patch(
+            "aragora.server.startup.parallel.init_billing_edge_adapters",
+            return_value={},
+        ),
         patch.object(ParallelInitializer, "run", run_stub),
     ):
         await parallel_init()
 
-    assert order == ["webhook_store", "initializer_run"]
+    assert order == ["control_plane_events", "webhook_store", "initializer_run"]

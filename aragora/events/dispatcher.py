@@ -38,7 +38,7 @@ from collections.abc import Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from aragora.server.middleware.tracing import get_trace_id
+from aragora.observability.middleware.tracing import get_trace_id
 
 if TYPE_CHECKING:
     from aragora.events.types import EventEmitter, StreamEvent
@@ -347,15 +347,25 @@ def dispatch_webhook_with_retry(
         DeliveryResult with outcome
     """
     # Import metrics and tracing (lazy to avoid circular imports)
+    record_webhook_retry: Callable[[str, int], None] | None
     try:
-        from aragora.observability.metrics.webhook import record_webhook_retry
+        from aragora.observability.metrics.webhook import (
+            record_webhook_retry as _record_webhook_retry,
+        )
     except ImportError:
         record_webhook_retry = None
+    else:
+        record_webhook_retry = _record_webhook_retry
 
+    trace_webhook_delivery: Callable[..., Any] | None
     try:
-        from aragora.observability.tracing import trace_webhook_delivery
+        from aragora.observability.tracing import (
+            trace_webhook_delivery as _trace_webhook_delivery,
+        )
     except ImportError:
         trace_webhook_delivery = None
+    else:
+        trace_webhook_delivery = _trace_webhook_delivery
 
     event_type = payload.get("event", "unknown")
     correlation_id = (

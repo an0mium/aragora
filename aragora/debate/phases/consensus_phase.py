@@ -322,7 +322,7 @@ class ConsensusPhase:
         if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
             from aragora.debate.cancellation import DebateCancelled
 
-            raise DebateCancelled(ctx.cancellation_token.reason)
+            raise DebateCancelled(ctx.cancellation_token.reason or "Debate cancelled")
 
         # Trigger PRE_CONSENSUS hook if hook_manager is available
         if ctx.hook_manager:
@@ -1324,7 +1324,7 @@ class ConsensusPhase:
             await self._handle_majority_consensus(ctx)
             return
 
-        result.consensus_proof = proof
+        setattr(result, "consensus_proof", proof)
         result.consensus_reached = False
         result.final_answer = proof.final_claim
         result.consensus_strength = "weak"
@@ -1835,7 +1835,7 @@ class ConsensusPhase:
                     else None
                 )
             else:
-                verification_result = await asyncio.wait_for(
+                direct_verification_result = await asyncio.wait_for(
                     manager.attempt_formal_verification(
                         claim=result.final_answer,
                         claim_type="DEBATE_CONSENSUS",
@@ -1845,12 +1845,15 @@ class ConsensusPhase:
                     timeout=timeout + 5.0,
                 )
 
-                result.formal_verification = verification_result.to_dict()
-                verification_status = verification_result.status.value
-                verification_is_verified = verification_result.is_verified
+                result.formal_verification = direct_verification_result.to_dict()
+                verification_status = direct_verification_result.status.value
+                verification_is_verified = direct_verification_result.is_verified
                 verification_language = (
-                    verification_result.language.value if verification_result.language else None
+                    direct_verification_result.language.value
+                    if direct_verification_result.language
+                    else None
                 )
+                verification_result = direct_verification_result
 
             logger.info(
                 "formal_verification_complete status=%s language=%s verified=%s",

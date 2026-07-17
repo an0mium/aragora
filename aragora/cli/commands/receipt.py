@@ -5,7 +5,7 @@ Commands for managing decision receipts:
 - view: Open receipt in browser (converts JSON to HTML automatically)
 - verify: Verify a receipt's artifact hash and cryptographic signature
 - inspect: Display receipt details in terminal
-- export: Export receipt to different formats (html, md, json, sarif, pdf, csv)
+- export: Export receipt to different formats (html, md, json, sarif, pdf, csv, odr)
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ Subcommands:
   view    <file>             Open receipt in browser (JSON auto-converts to HTML)
   verify  <file>             Check artifact hash and signature integrity
   inspect <file>             Display receipt details in terminal
-  export  <file> --format X  Convert between html, md, json, sarif, pdf, csv
+  export  <file> --format X  Convert between html, md, json, sarif, pdf, csv, odr
 
 Examples:
   aragora receipt view receipt.json
@@ -736,6 +736,7 @@ def _export_odr(data: dict[str, Any]) -> str:
         calibration_provenance_for_receipt,
         decision_receipt_to_odr,
         jcs_canonicalize,
+        sign_odr_if_configured,
     )
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
@@ -747,6 +748,7 @@ def _export_odr(data: dict[str, Any]) -> str:
         receipt,
         calibration_provenance=calibration_provenance_for_receipt(receipt),
     )
+    odr = sign_odr_if_configured(odr)
     return jcs_canonicalize(odr).decode("utf-8")
 
 
@@ -771,8 +773,20 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
     if output_format in ("json",):
         content = json.dumps(data, indent=2, default=str)
     elif output_format == "odr":
+        from aragora.gauntlet.odr_signing import OdrSigningError
+
         try:
             content = _export_odr(data)
+        except OdrSigningError as e:
+            # A configured-but-unusable signing key fails closed upstream;
+            # present it as a clean CLI error, not a traceback.
+            logger.warning("ODR signing failed: %s", e)
+            print(
+                "Error: ODR signing key is configured but could not be used; "
+                "refusing to export an unsigned receipt (see logs)",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         except (ImportError, KeyError, TypeError, ValueError) as e:
             logger.warning("ODR export failed: %s", e)
             print("Error: Could not export receipt as ODR profile", file=sys.stderr)

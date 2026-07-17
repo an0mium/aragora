@@ -302,12 +302,13 @@ arithmetic sum (no rounding). Summary:
 | review-pr-9056 | #9056 | 0.05 |
 | review-pr-9027 | #9027 | 0.03 |
 | **M8 exact sum** | | **0.2301** |
-| M9 sub-total | | 0.00 (not yet run) |
-| **Cumulative** | | **0.2301 / 100.0** |
+| **M9 exact sum** | | **0.3301** |
+| **Cumulative** | | **0.5602 / 100.0** |
 
-No unrecorded spend. All 10 reviewer calls (2 per PR x 5 PRs) plus 1 connectivity probe are
-accounted for in the ledger. The cumulative total is the exact sum of the per-entry values
-(0.0001 + 0.05 + 0.07 + 0.03 + 0.05 + 0.03 = 0.2301), stored without rounding.
+No unrecorded spend. The ledger accounts for the 10 M8 reviewer calls (2 per PR x 5 PRs),
+the M8 connectivity probes, and every M9 benchmark/probe/replay entry. The exact M8 sum is
+`0.0001 + 0.05 + 0.07 + 0.03 + 0.05 + 0.03 = 0.2301`; the ledger applies its stated
+conservative rounding policy to M9 batches and stores the exact combined sum, `0.5602`.
 
 ## What This Proves
 

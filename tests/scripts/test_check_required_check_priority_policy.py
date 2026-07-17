@@ -64,6 +64,11 @@ jobs:
               'Tests',
               'OpenAPI Spec',
             ]);
+            for (const run of runs) {
+              if (run.head_sha !== headSha) continue;
+              if (run.id === selfRunId) continue;
+              if (run.status !== 'queued') continue;
+            }
 """
 
 
@@ -292,6 +297,9 @@ jobs:
               'Tests',
               'OpenAPI Spec',
             ]);
+            for (const run of runs) {
+              if (run.status !== 'queued') continue;
+            }
 """
     violations = find_required_check_priority_violations(text, repo_root=repo_root)
     assert violations
@@ -488,6 +496,33 @@ jobs:
         repo_root=repo_root,
     )
 
+    assert violations == []
+
+
+def test_policy_rejects_in_progress_cancellation_status_filter() -> None:
+    # The pre-fix filter (`queued` OR `in_progress`) cancelled in-flight
+    # advisory runs, leaving red "cancelled" conclusions the guardian never
+    # reruns. The policy must reject it.
+    text = _valid_workflow_text().replace(
+        "if (run.status !== 'queued') continue;",
+        "if (run.status !== 'queued' && run.status !== 'in_progress') continue;",
+    )
+    violations = find_required_check_priority_violations(text)
+    assert any("not restricted to queued runs" in v for v in violations)
+
+
+def test_policy_rejects_missing_queued_only_status_filter() -> None:
+    lines = [line for line in _valid_workflow_text().splitlines() if "run.status" not in line]
+    violations = find_required_check_priority_violations("\n".join(lines))
+    assert any("not restricted to queued runs" in v for v in violations)
+
+
+def test_policy_accepts_double_quoted_queued_only_status_filter() -> None:
+    text = _valid_workflow_text().replace(
+        "if (run.status !== 'queued') continue;",
+        'if (run.status !== "queued") continue;',
+    )
+    violations = find_required_check_priority_violations(text)
     assert violations == []
 
 
