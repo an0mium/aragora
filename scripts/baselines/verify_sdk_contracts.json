@@ -620,6 +620,7 @@
   ],
   "typescript_sdk_drift": [
     "GET /api/gusto/payrolls/{param}",
+    "GET /api/memory/analytics",
     "POST /api/accounting/connect",
     "POST /api/accounting/reports",
     "POST /api/gusto/connect",
