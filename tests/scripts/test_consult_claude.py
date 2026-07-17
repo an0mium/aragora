@@ -252,6 +252,55 @@ def test_consult_prefer_falls_back_to_cli(monkeypatch) -> None:
     ]
 
 
+def test_consult_prefer_falls_back_after_proxy_configuration_error(monkeypatch) -> None:
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-prefer")
+    monkeypatch.setattr(
+        consult_claude.ModelTransportPolicy,
+        "from_env",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            consult_claude.VibeProxyConfigurationError("invalid proxy configuration")
+        ),
+    )
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_cli",
+        lambda *_args, **_kwargs: {
+            "ok": True,
+            "backend": "cli",
+            "text": "cli answer",
+            "elapsed_s": 0.1,
+        },
+    )
+
+    result = consult_claude.consult("question")
+
+    assert result["ok"] is True
+    assert [attempt["backend"] for attempt in result["attempts"]] == ["vibeproxy", "cli"]
+    assert result["attempts"][0]["error"] == "invalid proxy configuration"
+
+
+def test_consult_required_fails_closed_on_proxy_configuration_error(monkeypatch) -> None:
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-required")
+    monkeypatch.setattr(
+        consult_claude.ModelTransportPolicy,
+        "from_env",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            consult_claude.VibeProxyConfigurationError("invalid proxy configuration")
+        ),
+    )
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_cli",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("CLI should not run")),
+    )
+
+    result = consult_claude.consult("question")
+
+    assert result["ok"] is False
+    assert [attempt["backend"] for attempt in result["attempts"]] == ["vibeproxy"]
+    assert result["error"] == "invalid proxy configuration"
+
+
 def test_consult_required_does_not_fall_back_to_cli(monkeypatch) -> None:
     policy = SimpleNamespace(mode=consult_claude.TransportMode.REQUIRED)
     monkeypatch.setattr(consult_claude.ModelTransportPolicy, "from_env", lambda **_kwargs: policy)

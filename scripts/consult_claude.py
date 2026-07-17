@@ -627,15 +627,21 @@ def consult(
     try:
         vibeproxy_policy = ModelTransportPolicy.from_env(default_mode=TransportMode.PREFER)
     except VibeProxyConfigurationError as exc:
-        return {
-            "ok": False,
-            "model": model,
-            "timed_out": False,
-            "budget_exhausted": False,
-            "rate_limited": False,
-            "attempts": [{"model": model, "ok": False, "backend": "vibeproxy", "error": str(exc)}],
-            "error": str(exc),
-        }
+        attempts.append({"model": model, "ok": False, "backend": "vibeproxy", "error": str(exc)})
+        requested_mode = os.environ.get(
+            "ARAGORA_MODEL_TRANSPORT", TransportMode.PREFER.value
+        ).strip()
+        if requested_mode == TransportMode.REQUIRED.value:
+            return {
+                "ok": False,
+                "model": model,
+                "timed_out": False,
+                "budget_exhausted": False,
+                "rate_limited": False,
+                "attempts": attempts,
+                "error": str(exc),
+            }
+        vibeproxy_policy = ModelTransportPolicy(TransportMode.DIRECT)
     vibeproxy_models = list(
         dict.fromkeys(candidate for candidate in (model, fallback_model) if candidate)
     )

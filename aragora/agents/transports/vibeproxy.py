@@ -24,6 +24,7 @@ DEFAULT_CATALOG_TTL_SECONDS = 60.0
 DEFAULT_CONNECT_TIMEOUT_SECONDS = 1.5
 LOCAL_API_KEY = "vibeproxy-local"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+RESPONSE_READ_CHUNK_BYTES = 64 * 1024
 PROHIBITED_PORTS = {8317}
 
 
@@ -80,6 +81,45 @@ _CATALOG_LOCK = threading.Lock()
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args: Any, **kwargs: Any) -> None:
         return None
+
+
+def _response_socket(response: Any) -> Any | None:
+    fp = getattr(response, "fp", None)
+    raw = getattr(fp, "raw", None)
+    for candidate in (
+        getattr(raw, "_sock", None),
+        getattr(raw, "sock", None),
+        getattr(fp, "_sock", None),
+        getattr(response, "_sock", None),
+    ):
+        if hasattr(candidate, "settimeout"):
+            return candidate
+    return None
+
+
+def _read_response_with_deadline(response: Any, *, deadline: float) -> bytes:
+    """Read a bounded response without letting slow streams extend the deadline."""
+
+    chunks: list[bytes] = []
+    total = 0
+    limit = MAX_RESPONSE_BYTES + 1
+    read1 = getattr(response, "read1", None)
+    while total < limit:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("VibeProxy response read exceeded timeout")
+        sock = _response_socket(response)
+        if sock is not None:
+            sock.settimeout(max(0.001, remaining))
+        amount = min(RESPONSE_READ_CHUNK_BYTES, limit - total)
+        chunk = read1(amount) if callable(read1) else response.read(min(amount, 1))
+        if time.monotonic() >= deadline:
+            raise TimeoutError("VibeProxy response read exceeded timeout")
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+    return b"".join(chunks)
 
 
 def _bounded_float(value: str | int | float, *, name: str, minimum: float) -> float:
@@ -180,11 +220,11 @@ class VibeProxyClient:
             data = json.dumps(payload).encode("utf-8")
             headers.update({"content-type": "application/json", "anthropic-version": "2023-06-01"})
         request = urllib.request.Request(self.base_url + path, data=data, headers=headers)
+        request_timeout = timeout or self.connect_timeout_seconds
+        deadline = time.monotonic() + request_timeout
         try:
-            with self._opener.open(
-                request, timeout=timeout or self.connect_timeout_seconds
-            ) as response:
-                raw = response.read(MAX_RESPONSE_BYTES + 1)
+            with self._opener.open(request, timeout=request_timeout) as response:
+                raw = _read_response_with_deadline(response, deadline=deadline)
         except urllib.error.HTTPError as exc:
             raise VibeProxyUnavailableError(f"VibeProxy HTTP {exc.code}") from exc
         except TimeoutError as exc:

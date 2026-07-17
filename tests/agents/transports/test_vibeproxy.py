@@ -111,6 +111,32 @@ def test_client_classifies_url_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
         client.catalog(force=True)
 
 
+def test_client_times_out_slow_streaming_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = {"now": 0.0}
+    read_amounts: list[int] = []
+
+    class SlowResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, amount: int) -> bytes:
+            read_amounts.append(amount)
+            clock["now"] += 0.6
+            return b" "
+
+    client = vibeproxy.VibeProxyClient()
+    monkeypatch.setattr(vibeproxy.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(client._opener, "open", lambda *_args, **_kwargs: SlowResponse())
+
+    with pytest.raises(vibeproxy.VibeProxyTimeoutError):
+        client._request("/models", timeout=1.0)
+
+    assert read_amounts == [1, 1]
+
+
 class _FakeClient:
     base_url = "http://127.0.0.1:8318/v1"
 
