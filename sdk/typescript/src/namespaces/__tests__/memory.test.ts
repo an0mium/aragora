@@ -141,30 +141,32 @@ describe('MemoryAPI Namespace', () => {
     });
 
     it('should store a continuum entry', async () => {
-      mockClient.storeMemoryEntry.mockResolvedValue({ id: 'mem-123', tier: 'fast' });
+      mockClient.request.mockResolvedValue({ id: 'mem-123', tier: 'fast' });
 
       const result = await api.storeEntry('User prefers dark theme', {
         tier: 'fast',
         importance: 0.8,
       });
 
-      expect(mockClient.storeMemoryEntry).toHaveBeenCalledWith('User prefers dark theme', {
-        tier: 'fast',
-        importance: 0.8,
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/memory/store', {
+        body: { content: 'User prefers dark theme', tier: 'fast', importance: 0.8 },
       });
       expect(result.id).toBe('mem-123');
       expect(result.tier).toBe('fast');
     });
 
     it('should delete a continuum entry by ID', async () => {
-      mockClient.deleteMemoryEntry.mockResolvedValue({
+      mockClient.request.mockResolvedValue({
         success: true,
         message: 'Memory mem-123 deleted successfully',
       });
 
       const result = await api.deleteEntry('mem-123');
 
-      expect(mockClient.deleteMemoryEntry).toHaveBeenCalledWith('mem-123');
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'DELETE',
+        '/api/v1/memory/continuum/mem-123'
+      );
       expect(result.success).toBe(true);
     });
 

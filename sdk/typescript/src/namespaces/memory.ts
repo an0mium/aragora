@@ -398,7 +398,9 @@ export class MemoryAPI {
       importance?: number;
     }
   ): Promise<{ id: string; tier: string }> {
-    return this.client.storeMemoryEntry(content, options);
+    return this.client.request('POST', '/api/v1/memory/store', {
+      body: { content, ...options },
+    });
   }
 
   /**
@@ -436,7 +438,10 @@ export class MemoryAPI {
    * ({ success, message }; 404 if the entry does not exist).
    */
   async deleteEntry(memoryId: string): Promise<{ success: boolean; message: string }> {
-    return this.client.deleteMemoryEntry(memoryId);
+    return this.client.request(
+      'DELETE',
+      `/api/v1/memory/continuum/${encodeURIComponent(memoryId)}`
+    );
   }
 
   /**
