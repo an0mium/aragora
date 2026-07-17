@@ -52,6 +52,13 @@ from aragora.routing.cost_quality_optimizer import (
     SelectionStrategy,
     pareto_frontier,
 )
+from aragora.routing.decision_stakes_router import (
+    ROUTING_RATIONALE_SCHEMA,
+    DecisionStakesRouter,
+    RoutingPolicy,
+    RoutingRationale,
+    policy_for_tier,
+)
 from aragora.routing.provider_config import (
     ProviderPricing,
     PROVIDER_PRICING as PROVIDER_ROUTING_PRICING,
@@ -97,6 +104,12 @@ __all__ = [
     "CostQualityOptimizer",
     "SelectionStrategy",
     "pareto_frontier",
+    # Decision-stakes routing (tier policy + auditable rationale)
+    "DecisionStakesRouter",
+    "RoutingPolicy",
+    "RoutingRationale",
+    "ROUTING_RATIONALE_SCHEMA",
+    "policy_for_tier",
     "ProviderPricing",
     "PROVIDER_ROUTING_PRICING",
     "get_estimated_cost",

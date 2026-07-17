@@ -208,7 +208,15 @@ jobs:
               for (const run of runs) {
                 if (run.head_sha !== headSha) continue;
                 if (run.id === selfRunId) continue;
-                if (run.status !== 'queued' && run.status !== 'in_progress') continue;
+                // Only cancel QUEUED runs. An in-progress run already holds a
+                // runner, so cancelling it frees no queue capacity; it only
+                // converts a 1-5 minute advisory check into a red "cancelled"
+                // conclusion that the cancelled-run guardian deliberately does
+                // not rerun (its manifest covers required workflows only),
+                // creating a manual-rerun tax that stalls merge settlement on
+                // long-lived PRs. Queue-pressure relief is fully preserved:
+                // queued advisory runs still yield to required checks.
+                if (run.status !== 'queued') continue;
                 // Fail closed on a broken (empty) keep-list: cancel nothing.
                 if (keepListEmpty) continue;
                 passConsidered += 1;

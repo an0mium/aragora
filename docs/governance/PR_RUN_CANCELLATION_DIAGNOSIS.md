@@ -1,5 +1,47 @@
 # PR Workflow-Run Cancellation — Diagnosis & Mitigation Plan
 
+## Correction (2026-07-16): the canceller is in-repo — Required Check Priority
+
+The "external cancellation actor" conclusion below is **retracted**. The canceller
+is `.github/workflows/required-check-priority.yml` (RCP) itself. RCP runs on every
+`pull_request` event and performs 4 sweeps (10 s apart) that cancelled every queued
+**and in-progress** advisory `pull_request` run at the PR head not in its
+keep-list.
+
+Smoking gun: RCP run **29520862671** cancelled runs 29520863012 / 29520863349 /
+29520863087 / 29520862378 on PR #9346 seconds after creation, with no newer push.
+Its sweep log reads:
+
+```
+Canceled run 29520863012 (Module Tier Drift)
+…
+Sweep 1/4: considered 14, canceled 4
+```
+
+This also explains every "external actor" signature observed below: the raciness
+(a fast advisory run survives if it finishes before a sweep reaches it — hence
+Portability Lint's ~50/50 split), the selectivity (only non-keep-listed advisory
+`pull_request` runs), and why `push`-to-main runs are always green (RCP only
+triggers on `pull_request`). M2 ("identify & scope the external canceller") is
+resolved: no org-level App or account automation is involved.
+
+The rerun side of the loop is by design, not a gap: the cancelled-run guardian
+(`.github/workflows/pr-cancelled-run-guardian.yml`, driven by
+`scripts/ci/required_workflow_manifest.json`) deliberately reruns **only**
+manifest/keep-listed workflows — advisory cancellations "are that system working
+and stay cancelled" (see below). So every RCP-cancelled advisory run persisted as
+a red `cancelled` conclusion until a human rerun, which blocked the conservative
+merge executor on every long-lived PR (repeated manual reruns observed on
+PRs #9170, #9322, #9346 on 2026-07-15/16).
+
+**Fix applied:** RCP's sweep now cancels **queued runs only**
+(`if (run.status !== 'queued') continue;`). In-progress runs already hold a
+runner, so cancelling them saved nothing; queued advisory runs still yield to
+required checks, preserving all queue-pressure relief. The queued-only invariant
+is enforced by `scripts/check_required_check_priority_policy.py`.
+
+---
+
 Status: **diagnosis + plan (no code/CI changes in this doc).** Companion to
 `docs/governance/MODULE_TIER_DRIFT_GUARDIAN.md`, which established that the recurring
 `check`/`portability` reds on PRs are **cancellations, not drift**. This doc pins

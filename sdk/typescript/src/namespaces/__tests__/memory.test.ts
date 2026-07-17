@@ -20,6 +20,8 @@ interface MockClient {
   storeMemory: Mock;
   retrieveMemory: Mock;
   deleteMemory: Mock;
+  storeMemoryEntry: Mock;
+  deleteMemoryEntry: Mock;
   getMemoryStats: Mock;
   searchMemory: Mock;
   getMemoryTiers: Mock;
@@ -40,6 +42,8 @@ describe('MemoryAPI Namespace', () => {
       storeMemory: vi.fn(),
       retrieveMemory: vi.fn(),
       deleteMemory: vi.fn(),
+      storeMemoryEntry: vi.fn(),
+      deleteMemoryEntry: vi.fn(),
       getMemoryStats: vi.fn(),
       searchMemory: vi.fn(),
       getMemoryTiers: vi.fn(),
@@ -134,6 +138,36 @@ describe('MemoryAPI Namespace', () => {
 
       expect(mockClient.deleteMemory).toHaveBeenCalledWith('key', 'glacial');
       expect(result.deleted).toBe(true);
+    });
+
+    it('should store a continuum entry', async () => {
+      mockClient.request.mockResolvedValue({ id: 'mem-123', tier: 'fast' });
+
+      const result = await api.storeEntry('User prefers dark theme', {
+        tier: 'fast',
+        importance: 0.8,
+      });
+
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/memory/store', {
+        body: { content: 'User prefers dark theme', tier: 'fast', importance: 0.8 },
+      });
+      expect(result.id).toBe('mem-123');
+      expect(result.tier).toBe('fast');
+    });
+
+    it('should delete a continuum entry by ID', async () => {
+      mockClient.request.mockResolvedValue({
+        success: true,
+        message: 'Memory mem-123 deleted successfully',
+      });
+
+      const result = await api.deleteEntry('mem-123');
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'DELETE',
+        '/api/v1/memory/continuum/mem-123'
+      );
+      expect(result.success).toBe(true);
     });
 
     it('should update an existing memory entry', async () => {
@@ -416,19 +450,21 @@ describe('MemoryAPI Namespace', () => {
 
     it('should retrieve from continuum', async () => {
       mockClient.retrieveFromContinuum.mockResolvedValue({
-        entries: [{ key: 'e1', value: 'context data', tier: 'medium' }],
+        memories: [{ id: 'e1', content: 'context data', tier: 'medium' }],
+        count: 1,
       });
 
       const result = await api.retrieveFromContinuum('context');
 
       expect(mockClient.retrieveFromContinuum).toHaveBeenCalledWith('context', undefined);
-      expect(result.entries).toHaveLength(1);
+      expect(result.memories).toHaveLength(1);
+      expect(result.count).toBe(1);
     });
 
     it('should retrieve continuum with options', async () => {
       mockClient.request.mockResolvedValue({
-        entries: [{ key: 'e1', value: 'data' }],
-        total: 5,
+        memories: [{ id: 'e1', content: 'data' }],
+        count: 5,
       });
 
       const result = await api.retrieveContinuum('user preferences', {
