@@ -1,13 +1,13 @@
 # Main-Red Mypy Drain Manifest
 
-Generated from live GitHub, merge-packet, owner, and lane state at `2026-07-17T07:00:09+00:00`.
+Generated from live GitHub, merge-packet, owner, and lane state at `2026-07-17T07:10:52+00:00`.
 
 ## Binding Snapshot
 
 - Current `origin/main`: `bfc14c591013de87860f84638faa7f36e69de2bf`.
 - Main-red halt: **absent**; this manifest does not create or waive one.
-- Open mypy repair PRs: **15** (8 draft, 7 ready).
-- Including this draft manifest exception: **16** mypy-related PRs (9 draft, 7 ready).
+- Open mypy repair PRs: **14** (7 draft, 7 ready).
+- Including this draft manifest exception: **15** mypy-related PRs (8 draft, 7 ready).
 - WIP threshold: **10**. Freeze remains active: no new mypy claims, branches, repair branches, or slice PRs.
 - This is a disposition inventory, not evidence, settlement, readiness, close, or merge authority.
 
@@ -23,10 +23,10 @@ A complete proof names the exact candidate and base, records before/after identi
 ## Current-Main Findings
 
 - Every repair branch is behind current main: range **119-128** commits.
-- Current-main identity proofs: **0**; historical stale proofs: **6**; missing/incomplete proofs: **9**.
+- Current-main identity proofs: **0**; historical stale proofs: **6**; missing/incomplete proofs: **8**.
 - No open repair branch has zero unique commits or an empty changed-file set; no CLOSE-SUPERSEDED classification is presently proven.
 - Exact changed-file overlap: none.
-- All 15 merge packets remain non-ready: 1 `blocked_by_live_gate`, 5 `needs_model_review_quorum`, 9 `repair_or_wait`.
+- All 14 merge packets remain non-ready: 1 `blocked_by_live_gate`, 5 `needs_model_review_quorum`, 8 `repair_or_wait`.
 
 ## Summary
 
@@ -34,7 +34,7 @@ A complete proof names the exact candidate and base, records before/after identi
 |---|---:|
 | DRAIN-NOW | 0 |
 | RESTACK | 5 |
-| PARK | 10 |
+| PARK | 9 |
 | CLOSE-SUPERSEDED | 0 |
 
 ## Complete Inventory
@@ -47,7 +47,6 @@ A complete proof names the exact candidate and base, records before/after identi
 | [#9160](https://github.com/synaptent/aragora/pull/9160) fix(swarm): drain main-red mypy surface | `f1edc54ac54380eab9a558af282defc076e4aa4f` | 128 behind / 1 ahead | codex-conductor-cycle237-pr9160-stale-override-20260717T0618Z (completed; stale_terminal_owner; live=False; unread=0)<br>2026-07-17T06:18:10Z | `aragora/swarm/boss_freshness.py`<br>`aragora/swarm/boss_loop_selection.py`<br>`aragora/swarm/campaign.py`<br>`aragora/swarm/debate_gate.py`<br>`aragora/swarm/outcome_signals.py`<br>`aragora/swarm/session_coordinator.py`<br>`aragora/swarm/tranche_review.py`<br>`aragora/swarm/tranche_submit.py`<br>`aragora/swarm/tranche_watch.py`<br>overlap: none | MISSING<br>no current complete before/after, zero-added, hash-bound proof located | Tier 2 / `needs_model_review_quorum`<br>merge=unstable; model quorum incomplete: 1/2 signal(s) | **PARK**<br>missing complete before/after, zero-added, hash-bound proof |
 | [#9157](https://github.com/synaptent/aragora/pull/9157) fix(documents): drain main-red mypy surface | `37b4d4ebe9be6b390792ee4ddf6eb4fffcd4567b` | 121 behind / 3 ahead | codex-public-utility-drain-cycle49-pr9157-settlement (completed; stale_owner; live=False; unread=0)<br>2026-07-15T20:41:42Z | `aragora/documents/indexing/weaviate_store.py`<br>`aragora/documents/models.py`<br>overlap: none | STALE<br>historical zero-added SHA-256 proof located in live PR comments | Tier 1 / `needs_model_review_quorum`<br>merge=blocked; required aragora-merge-quorum is failing because model quorum is incomplete; model quorum incomplete: 0/2 signal(s) | **RESTACK**<br>historical zero-added proof is stale; merge current main and re-prove after 121 behind commit(s); resolve the stale owner/local-work advisory first |
 | [#9154](https://github.com/synaptent/aragora/pull/9154) fix(approvals): drain 13 main-red mypy diagnostics | `1ca57fbf743babf265a97fed0ce4ed201d302e06` | 128 behind / 2 ahead | codex-desktop-cycle18-pr9154-evidence-20260714 (completed; stale_terminal_owner; live=False; unread=0)<br>2026-07-14T01:37:17Z | `aragora/approvals/chat.py`<br>`aragora/approvals/inbox.py`<br>`tests/approvals/test_inbox.py`<br>overlap: none | STALE<br>historical zero-added SHA-256 proof located in live PR comments | Tier 1 / `blocked_by_live_gate`<br>merge=unstable; live merge-packet gate remains unsatisfied | **RESTACK**<br>historical zero-added proof is stale; merge current main and re-prove after 128 behind commit(s) |
-| [#9152](https://github.com/synaptent/aragora/pull/9152) fix(types): fail closed in debate handlers (#9099) | `0b2216e5309f1f84e4afebe5efc990881e039542` | 128 behind / 1 ahead | codex-main-red-mypy-debate-handlers-20260710 (released; stale_owner; live=False; unread=0)<br>2026-07-10T14:56:59Z | `aragora/server/handlers/debates/batch.py`<br>`aragora/server/handlers/debates/checkpoints.py`<br>`aragora/server/handlers/debates/crud.py`<br>`aragora/server/handlers/debates/decision_package.py`<br>`aragora/server/handlers/debates/evidence.py`<br>`aragora/server/handlers/debates/export.py`<br>`aragora/server/handlers/debates/fork.py`<br>`aragora/server/handlers/debates/graph_debates.py`<br>`aragora/server/handlers/debates/handler.py`<br>`aragora/server/handlers/debates/intervention.py`<br>`aragora/server/handlers/debates/interventions.py`<br>`aragora/server/handlers/debates/matrix_debates.py`<br>`aragora/server/handlers/debates/search.py`<br>overlap: none | MISSING<br>no current complete before/after, zero-added, hash-bound proof located | Tier 3 / `repair_or_wait`<br>merge=blocked; semantic, persistence, security, API, or SDK surface touched; checks are failing; repair before settlement | **PARK**<br>Tier 3 human-gated; no autonomous drain |
 | [#9151](https://github.com/synaptent/aragora/pull/9151) fix(persistence): drain 14 main-red mypy diagnostics | `77ab891968c1090fb7817e39a7aeb40c5fed0f22` | 125 behind / 2 ahead | codex-evergreen-cycle73-pr9151-restack-20260711T0602Z (completed; stale_owner; live=False; unread=0)<br>2026-07-11T05:59:30Z | `aragora/persistence/migrations/consolidate.py`<br>`aragora/persistence/repositories/elo.py`<br>`aragora/persistence/repositories/memory.py`<br>`aragora/persistence/supabase_client.py`<br>overlap: none | STALE<br>historical zero-added SHA-256 proof located in live PR comments | Tier 3 / `repair_or_wait`<br>merge=clean; semantic, persistence, security, API, or SDK surface touched; draft PR | **PARK**<br>Tier 3 human-gated; no autonomous drain |
 | [#9131](https://github.com/synaptent/aragora/pull/9131) fix(types): normalize dependency audit fields (#9099) | `9c459d6f85af69896e00be7faa6214b27e9e86db` | 123 behind / 2 ahead | codex-main-red-pr9131-restack-20260711T0639Z (active; stale_owner; live=False; unread=0)<br>2026-07-11T06:37:30Z | `aragora/audit/dependency_analyzer.py`<br>`tests/audit/test_dependency_analyzer.py`<br>overlap: none | STALE<br>historical zero-added SHA-256 proof located in live PR comments | Tier 1 / `repair_or_wait`<br>merge=clean; draft PR; model quorum incomplete: 0/2 signal(s) | **RESTACK**<br>historical zero-added proof is stale; merge current main and re-prove after 123 behind commit(s); resolve the stale owner/local-work advisory first |
 | [#9126](https://github.com/synaptent/aragora/pull/9126) fix(types): narrow admin handler dependencies | `7bfef1d915c6e7c2b71b6d2e67c038cfaddafebb` | 121 behind / 2 ahead | codex-main-red-pr9126-restack-20260711T073235Z (completed; stale_terminal_owner; live=False; unread=0)<br>2026-07-11T07:40:34Z | `aragora/server/handlers/admin/nomic_admin.py`<br>`aragora/server/handlers/admin/users.py`<br>`tests/handlers/admin/test_nomic_admin.py`<br>`tests/handlers/admin/test_users.py`<br>overlap: none | MISSING<br>no current complete before/after, zero-added, hash-bound proof located | Tier 3 / `repair_or_wait`<br>merge=clean; semantic, persistence, security, API, or SDK surface touched; draft PR | **PARK**<br>Tier 3 human-gated; no autonomous drain |
@@ -59,7 +58,7 @@ A complete proof names the exact candidate and base, records before/after identi
 
 ## Closed Since The Previous Snapshot
 
-The convergence loop has closed twenty-two non-converging stale slices after bounded restack/repair attempts: #9172, #9171, #9167, #9166, #9155, #9141, #9140, #9137, #9088, #9149, #9145, #9139, #9136, #9138, #9142, #9128, #9124, #9105, #9107, #9109, #9156, #9164. Their remote branches and local residue were preserved; this refresh records disposition only and performs no cleanup.
+The convergence loop has closed twenty-three non-converging stale slices after bounded restack/repair attempts: #9172, #9171, #9167, #9166, #9155, #9141, #9140, #9137, #9088, #9149, #9145, #9139, #9136, #9138, #9142, #9128, #9124, #9105, #9107, #9109, #9156, #9164, #9152. Their remote branches and local residue were preserved; this refresh records disposition only and performs no cleanup.
 
 ## Tier-4 Decision State
 
