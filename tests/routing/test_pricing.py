@@ -4,10 +4,13 @@ Covers the fallback ladder (canonical catalog -> legacy table -> conservative
 nonzero default), the never-$0 guarantee for frontier pins, and the wiring
 into the Pareto optimizer and the decision-stakes router's rationale.
 
-The canonical catalog (``aragora.models``) ships in PR #9355. These tests do
-not depend on it being present: the catalog rung is exercised through the
-patchable resolver seam, plus one ``importorskip``-gated test against the real
-catalog for trees where #9355 has landed.
+The canonical catalog (``aragora.models``, PR #9355) is now a hard dependency
+of this tree: ``aragora.routing.provider_config`` imports it at module load
+(catalog projection, #9364), and ``_use_no_catalog`` below uses the real
+``by_any_id`` to strip projected rows. The patchable resolver seam is still
+used to simulate fake- and no-catalog worlds for the fallback-ladder tests;
+``test_real_catalog_when_available`` runs unconditionally against the real
+catalog.
 """
 
 from __future__ import annotations
@@ -63,6 +66,16 @@ def _use_fake_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _use_no_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(pricing, "_by_any_id", None)
+    # The catalog projection (#9364) bakes catalog rows into PROVIDER_PRICING
+    # at import time. A no-catalog world has no projected rows either, so
+    # restrict the rung-2 legacy table to its hand-maintained rows.
+    from aragora.models import by_any_id as _real_by_any_id
+
+    monkeypatch.setattr(
+        pricing,
+        "PROVIDER_PRICING",
+        {k: v for k, v in pricing.PROVIDER_PRICING.items() if _real_by_any_id(k) is None},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -97,8 +110,9 @@ class TestCatalogRung:
         assert resolved.input_per_mtok == pytest.approx(6.00)
 
     def test_real_catalog_when_available(self) -> None:
-        """Against the real aragora.models (skips until PR #9355 lands)."""
-        models = pytest.importorskip("aragora.models")
+        """Against the real aragora.models (a hard dependency since #9364)."""
+        import aragora.models as models
+
         for canonical_id, spec in models.CATALOG.items():
             resolved = resolve_model_pricing(canonical_id)
             assert resolved.source == PRICING_SOURCE_CATALOG
