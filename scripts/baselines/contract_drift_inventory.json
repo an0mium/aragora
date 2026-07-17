@@ -6131,6 +6131,14 @@
       "status": "open"
     },
     {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "typescript_sdk_drift:GET /api/memory/analytics",
+      "provenance": "#9367 getTierAnalytics() contract-correct parallel; route served by MemoryAnalyticsHandler, spec entry lands with #9360 generator supplement (python twin already baselined)",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/memory/context",

@@ -584,9 +584,11 @@ class MemoryAPI:
             entry is HTTP 200 with ``{"success": False, "previous_tier":
             None, "error": "Memory entry not found"}``, not a 404.
         """
+        # Hoisted so contract extractors see a plain {placeholder} path.
+        encoded_id = quote(memory_id, safe="")
         return self._client.request(
             "POST",
-            f"/api/v1/memory/{quote(memory_id, safe='')}/promote",
+            f"/api/v1/memory/{encoded_id}/promote",
             json={"target_tier": target_tier},
         )
 
@@ -1126,9 +1128,11 @@ class AsyncMemoryAPI:
             entry is HTTP 200 with ``{"success": False, "previous_tier":
             None, "error": "Memory entry not found"}``, not a 404.
         """
+        # Hoisted so contract extractors see a plain {placeholder} path.
+        encoded_id = quote(memory_id, safe="")
         return await self._client.request(
             "POST",
-            f"/api/v1/memory/{quote(memory_id, safe='')}/promote",
+            f"/api/v1/memory/{encoded_id}/promote",
             json={"target_tier": target_tier},
         )
 
