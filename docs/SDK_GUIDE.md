@@ -49,20 +49,28 @@ pip install -e .
 
 ### Standalone SDK (aragora-sdk)
 
+This example is pinned to the public 2.8.0 surface and runs offline. Omit
+`demo=True` and provide `base_url` to call a running deployment.
+
 ```python
 import asyncio
-from aragora_sdk import AragoraClient
+from aragora_sdk import AragoraAsyncClient
 
 async def main():
-    client = AragoraClient("http://localhost:8080")
-    debate = await client.debates.run(
-        task="Should we use microservices?",
-        agents=["anthropic-api", "openai-api"],
-    )
-    print(f"Consensus: {debate.consensus.conclusion}")
+    async with AragoraAsyncClient(demo=True) as client:
+        debate = await client.debates.create(
+            task="Should we use microservices?",
+            agents=["demo"],
+        )
+        print(f"Consensus: {debate['consensus']['conclusion']}")
 
 asyncio.run(main())
 ```
+
+The public quickstart is mechanically checked against the committed
+[`aragora-sdk` 2.8.0 surface](https://github.com/synaptent/aragora/blob/main/docs/reference/sdk_released_surface_2.8.0.json).
+Later sections cover the broader repository API and may require installing
+`./sdk/python` when they use methods added after the published release.
 
 ### Full SDK (aragora) - Synchronous Usage
 
