@@ -69,7 +69,7 @@ python3 --version
 python3 -c 'import sys, pytest; print(sys.executable); print(pytest.__version__)'
 command -v mypy
 mypy --version
-grep -nE '"mypy[<>=]' "$REPO_ROOT/pyproject.toml"
+git show "${CANDIDATE_SHA}:pyproject.toml" | grep -nE '"mypy[<>=]'
 ```
 
 Classify any of these outcomes as `infra_error` and stop before running the
@@ -159,18 +159,45 @@ git fetch origin +refs/heads/main:refs/remotes/origin/main
 test "$(git rev-parse origin/main)" = "$CANDIDATE_SHA"
 ```
 
-Also capture the branch-protection required contexts and the check runs for the
-same SHA:
+Also capture the branch-protection required contexts and every page of check
+runs for the same SHA. Reconcile by context name so a required context cannot
+disappear merely because it was beyond the API's first page:
 
 ```bash
-gh api repos/synaptent/aragora/branches/main/protection/required_status_checks \
-  --jq '{strict,contexts,checks}'
-gh api "repos/synaptent/aragora/commits/$CANDIDATE_SHA/check-runs" \
-  --jq '[.check_runs[] | {name,status,conclusion,details_url}]'
+REQUIRED_CONTEXTS_JSON="$(
+  gh api repos/synaptent/aragora/branches/main/protection/required_status_checks \
+    --jq '[.contexts[], .checks[].context] | unique'
+)" || exit 1
+CHECK_RUNS_JSON="$(
+  gh api --paginate --slurp \
+    "repos/synaptent/aragora/commits/$CANDIDATE_SHA/check-runs?filter=latest&per_page=100" \
+    | jq '[.[].check_runs[] | {name,status,conclusion,details_url}]'
+)" || exit 1
+
+jq -n \
+  --argjson required "$REQUIRED_CONTEXTS_JSON" \
+  --argjson runs "$CHECK_RUNS_JSON" \
+  '[$required[] as $context | {
+      context: $context,
+      matches: [$runs[] | select(.name == $context)]
+    }
+    | . + {
+        found: (.matches | length > 0),
+        conclusions: (.matches | map(.conclusion) | unique)
+      }]' \
+  | tee "$EVIDENCE_DIR/required-contexts.json"
+
+jq -e 'all(.[]; .found)' "$EVIDENCE_DIR/required-contexts.json"
 ```
 
-An API outage or rate limit is `evidence_incomplete`, not green. Retry in a
-later bounded cycle; do not substitute old PR checks for current-main checks.
+Inspect every row in `required-contexts.json`. A missing context is
+`evidence_incomplete`. A main-applicable required context whose latest run did
+not complete successfully is `main_red`; a context designed to skip on main
+(currently `aragora-merge-quorum`) must remain visible and be identified as an
+expected main-only skip in the packet rather than silently treated as green.
+An API outage, pagination failure, or rate limit is `evidence_incomplete`, not
+green. Retry in a later bounded cycle; do not substitute old PR checks for
+current-main checks.
 
 ## 5. Build The Human Packet
 
