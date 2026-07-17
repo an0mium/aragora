@@ -6,7 +6,7 @@ import json
 import subprocess
 import sys
 from dataclasses import asdict, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -164,6 +164,23 @@ def test_ref_snapshot_uses_resolved_sha_if_branch_moves(tmp_path: Path, monkeypa
     assert snapshot.git_sha == base_sha
     assert snapshot.values["python_files"] == 1
     assert _git(repo, "rev-parse", "moving") == advanced_sha
+
+
+def test_workflow_surface_counts_only_direct_yaml_files(tmp_path: Path) -> None:
+    view = metrics.RepositoryView(
+        root=tmp_path,
+        tracked_paths=tuple(
+            PurePosixPath(path)
+            for path in (
+                ".github/workflows/lint.yml",
+                ".github/workflows/release.yaml",
+                ".github/workflows/templates/reusable.yml",
+                ".github/workflows/README.md",
+            )
+        ),
+    )
+
+    assert metrics._workflow_surface(view) == {"ci_workflows": 2}
 
 
 def test_snapshot_cli_writes_exact_ref_snapshot(tmp_path: Path) -> None:

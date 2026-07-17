@@ -226,7 +226,13 @@ def _docs_surface(view: RepositoryView) -> dict[str, object]:
 
 
 def _workflow_surface(view: RepositoryView) -> dict[str, object]:
-    return {"ci_workflows": len(view.paths(".github/workflows", ".yml"))}
+    directory = PurePosixPath(".github/workflows")
+    workflows = [
+        path
+        for path in view.paths(directory.as_posix())
+        if path.parent == directory and path.suffix in {".yml", ".yaml"}
+    ]
+    return {"ci_workflows": len(workflows)}
 
 
 def _mypy_debt(view: RepositoryView) -> dict[str, object]:
