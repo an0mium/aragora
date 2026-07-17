@@ -4018,8 +4018,8 @@ def test_untruncated_normalization_unchanged() -> None:
 
 class TestFounderRosterDirective20260716:
     """Pins the 2026-07-16 founder roster directive: gemini out of the
-    counting set (repeat fabricated-claim pattern, see the reviewer-
-    reliability record in operator-context); kimi advisory lane on K3."""
+    counting set (repeat fabricated-claim pattern, see the committed
+    reviewer-reliability record in docs/governance/records/)."""
 
     def test_gemini_family_does_not_count(self):
         from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
@@ -4031,7 +4031,21 @@ class TestFounderRosterDirective20260716:
 
         assert {"claude", "openai", "grok"} <= WESTERN_FAMILIES
 
-    def test_kimi_advisory_lane_runs_k3(self):
+    def test_kimi_lane_stays_on_k26_until_k3_is_catalogued(self):
+        # The record defers the K3 upgrade until K3 has live verification and a
+        # catalog entry (aragora/models/catalog.py, tracked by #9348).
         from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS
 
-        assert _OPENROUTER_REVIEWER_MODELS["kimi"] == "moonshotai/kimi-k3"
+        assert _OPENROUTER_REVIEWER_MODELS["kimi"] == "moonshotai/kimi-k2.6"
+
+    def test_committed_reliability_record_is_auditable(self):
+        # The Tier-4 evidence artifact must live in the repo, not only in the
+        # gitignored operator-context directory.
+        from pathlib import Path
+
+        record = (
+            Path(__file__).resolve().parents[2]
+            / "docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md"
+        )
+        assert record.is_file()
+        assert "fabricated-claim pattern" in record.read_text(encoding="utf-8")

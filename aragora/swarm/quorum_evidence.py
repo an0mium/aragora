@@ -84,12 +84,12 @@ FAMILY_PROVIDERS: dict[str, str] = {
 
 # Jurisdiction families (docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-eligibility).
 # WESTERN_FAMILIES are the lineages that count toward a Tier 3-4 quorum (the spec's
-# Anthropic, OpenAI, Google, xAI, Mistral, Nous Hermes). Chinese-routed families are
+# Anthropic, OpenAI, xAI, Mistral, Nous Hermes). Chinese-routed families are
 # every other recognized family; they always post and remain readable but are
 # advisory-only (not counted) at Tier 3-4 and do not satisfy the at-least-one-Western
 # condition at Tier 2.
 # 2026-07-16 founder directive (reviewer-reliability record
-# .aragora/operator-context/20260716T2200Z-gemini-reviewer-reliability-record.md):
+# docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md):
 # gemini is REMOVED from the counting set after a repeat fabricated-claim
 # pattern in merge-quorum reviews (invented model release dates, false
 # METRICS-drift claims, nonexistent route ids). Its reviews still post and
@@ -1668,9 +1668,12 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
     "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
-    # Upgraded k2.6 -> K3 per the 2026-07-16 founder roster directive
-    # (live-verified 2026-07-16: $3/$15 per MTok, 1M context).
-    "kimi": "moonshotai/kimi-k3",
+    # K3 upgrade DEFERRED: per the reliability record
+    # (docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md),
+    # Kimi K3 needs live verification + a catalog entry (aragora/models/catalog.py,
+    # tracked by the unmerged #9348) before it can produce evidence. Until then the
+    # lane stays on k2.6; override per-run via ARAGORA_OPENROUTER_REVIEWER_MODELS.
+    "kimi": "moonshotai/kimi-k2.6",
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter

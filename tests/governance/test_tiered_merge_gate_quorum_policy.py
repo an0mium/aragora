@@ -36,7 +36,7 @@ def test_western_families_match_spec():
     # docs/REVIEW_AUTHORITY_PRINCIPLES.md: Anthropic, OpenAI, xAI, Mistral,
     # Nous Hermes (by canonical family id). Google (gemini) was demoted to
     # advisory-only by the 2026-07-16 founder roster directive (see
-    # .aragora/operator-context/20260716T2200Z-gemini-reviewer-reliability-record.md);
+    # docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md);
     # its reviews still post and remain readable but do not count.
     assert WESTERN_FAMILIES == frozenset({"claude", "openai", "grok", "mistral", "hermes"})
     assert "gemini" not in WESTERN_FAMILIES
