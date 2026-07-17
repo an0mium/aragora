@@ -427,8 +427,10 @@ describe('MemoryAPI Namespace', () => {
 
     it('should retrieve continuum with options', async () => {
       mockClient.request.mockResolvedValue({
-        entries: [{ key: 'e1', value: 'data' }],
-        total: 5,
+        memories: [{ id: 'e1', content: 'data', tier: 'fast' }],
+        count: 1,
+        query: 'user preferences',
+        tiers: ['fast', 'medium'],
       });
 
       const result = await api.retrieveContinuum('user preferences', {

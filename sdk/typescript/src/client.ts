@@ -3213,6 +3213,18 @@ export class AragoraClient {
   // Memory & Consensus
   // ===========================================================================
 
+  /**
+   * Get memory system statistics.
+   *
+   * @deprecated No memory-handler branch serves GET /api/v1/memory/stats.
+   * After version-stripping the request is routed to the analytics handler's
+   * GET /api/memory/stats, which requires the `analytics:read` permission
+   * (not `memory:read`) and returns only
+   * `{ stats: { embeddings_db, insights_db, continuum_memory } }` — database
+   * file-existence booleans, not the declared {@link MemoryStats} shape.
+   * Use {@link getMemoryTiers} or the memory namespace's `getTierStats()`
+   * for real memory metrics.
+   */
   async getMemoryStats(): Promise<MemoryStats> {
     return this.request<MemoryStats>('GET', '/api/v1/memory/stats');
   }
@@ -3298,17 +3310,13 @@ export class AragoraClient {
   /**
    * Get statistics for the continuum memory system.
    *
-   * Returns detailed metrics about memory usage across all tiers,
-   * including entry counts, consolidation rates, and health status.
+   * @deprecated GET /api/memory/continuum/stats (normalized to
+   * /api/v1/memory/continuum/stats) has no dispatch branch in the memory
+   * handler, so this method always fails against a live server
+   * (HTTP 500 handler_no_result). Use {@link getMemoryTiers} or the memory
+   * namespace's `getTierStats()` (GET /api/v1/memory/tier-stats) instead.
    *
-   * @returns Continuum memory statistics
-   *
-   * @example
-   * ```typescript
-   * const stats = await client.getContinuumStats();
-   * console.log(`Total entries: ${stats.total_entries}`);
-   * console.log(`Health: ${stats.health_status}`);
-   * ```
+   * @returns Never resolves successfully against a live server
    */
   async getContinuumStats(): Promise<MemoryStats> {
     return this.request<MemoryStats>('GET', '/api/memory/continuum/stats');
