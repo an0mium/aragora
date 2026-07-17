@@ -3,7 +3,7 @@
 *Last updated: May 14, 2026*
 
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](status/STATUS.md).
-> The thesis settlement ledger has been archived at [archive/status/2026-04-21-thesis-settlement-session.md](archive/status/2026-04-21-thesis-settlement-session.md).
+> The thesis settlement ledger from 2026-04-21 has been archived.
 > Historical sections below are retained for continuity, but the active source of truth for current project status is `docs/status/STATUS.md`.
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
 
@@ -153,8 +153,8 @@ For the full current-status narrative, use the canonical doc:
 
 ### Codebase Metrics (generated from `docs/METRICS.md`)
 <!-- metrics:begin status-codebase-metrics -->
-- **Python files (`aragora/`)**: 4,286
-- **Tests**: 223,739 across 5,469 test files
+- **Python files (`aragora/`)**: 4,289
+- **Tests**: 223,955 across 5,480 test files
 - **KM adapters**: 41 registered adapter specs
 - **API operations**: 3,299 across 2,872 paths
 <!-- metrics:end -->

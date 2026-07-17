@@ -63,8 +63,17 @@ class MemoryAPI:
         """
         Get memory system statistics.
 
+        DEPRECATED: No memory-handler branch serves GET /api/v1/memory/stats.
+        After version-stripping the request is routed to the analytics
+        handler's GET /api/memory/stats, which requires the ``analytics:read``
+        permission (not ``memory:read``) and returns only
+        ``{"stats": {"embeddings_db": bool, "insights_db": bool,
+        "continuum_memory": bool}}`` -- database file-existence flags, not
+        memory statistics. Use get_tier_stats(), list_tiers(), or
+        get_pressure() for real memory metrics.
+
         Returns:
-            Dict with overall memory statistics
+            Dict with analytics-handler file-existence flags (see above)
         """
         return self._client.request("GET", "/api/v1/memory/stats")
 
@@ -164,6 +173,20 @@ class MemoryAPI:
             query, tiers=tiers, limit=limit, min_importance=min_importance
         )
 
+    def consolidate(self) -> dict[str, Any]:
+        """
+        Trigger continuum memory consolidation.
+
+        POST /api/v1/memory/continuum/consolidate (requires authentication).
+        This is the supported server-side maintenance operation; prefer it
+        over the deprecated prune()/compact()/sync_memories()/vacuum()
+        methods, whose routes are never dispatched.
+
+        Returns:
+            Dict with consolidation result
+        """
+        return self._client.request("POST", "/api/v1/memory/continuum/consolidate", json={})
+
     # ===========================================================================
     # Critique Operations
     # ===========================================================================
@@ -193,6 +216,41 @@ class MemoryAPI:
         Alias for list_critiques() for TypeScript SDK compatibility.
         """
         return self.list_critiques(agent=agent, limit=limit, offset=offset)
+
+    def store(
+        self,
+        content: str,
+        *,
+        tier: str = "fast",
+        importance: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Store a new memory entry in continuum memory.
+
+        Args:
+            content: The memory content to store
+            tier: Target memory tier (fast, medium, slow, glacial)
+            importance: Importance score between 0.0 and 1.0
+
+        Returns:
+            Dict with the stored entry ID and tier
+        """
+        body: dict[str, Any] = {"content": content, "tier": tier}
+        if importance is not None:
+            body["importance"] = importance
+        return self._client.request("POST", "/api/v1/memory/store", json=body)
+
+    def delete_entry(self, memory_id: str) -> dict[str, Any]:
+        """
+        Delete a continuum memory entry by ID.
+
+        Args:
+            memory_id: ID of the entry to delete (as returned by store())
+
+        Returns:
+            Dict with success flag and message (404 if the entry does not exist)
+        """
+        return self._client.request("DELETE", f"/api/v1/memory/continuum/{memory_id}")
 
     def store_critique(
         self,
@@ -339,21 +397,40 @@ class MemoryAPI:
     # ===========================================================================
 
     def compact(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Trigger memory compaction."""
+        """Trigger memory compaction.
+
+        DEPRECATED: POST /api/v1/memory/compact is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Use
+        consolidate() for the supported maintenance operation.
+        """
         body: dict[str, Any] = {}
         if workspace_id:
             body["workspace_id"] = workspace_id
         return self._client.request("POST", "/api/v1/memory/compact", json=body)
 
     def get_context(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Get memory context for current session."""
+        """Get memory context for current session.
+
+        DEPRECATED: GET /api/v1/memory/context is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). The server
+        has no memory-context store; there is no replacement endpoint.
+        """
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
         return self._client.request("GET", "/api/v1/memory/context", params=params)
 
     def get_cross_debate(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Get cross-debate memory entries."""
+        """Get cross-debate memory entries.
+
+        DEPRECATED: GET /api/v1/memory/cross-debate is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Cross-debate
+        memory is injected automatically during debates
+        (``enable_cross_debate_memory``); there is no HTTP endpoint.
+        """
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
@@ -364,7 +441,14 @@ class MemoryAPI:
         debate_id: str,
         entries: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """Inject cross-debate memories into a debate."""
+        """Inject cross-debate memories into a debate.
+
+        DEPRECATED: POST /api/v1/memory/cross-debate/inject is declared in
+        the memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        Cross-debate memory is injected automatically during debates
+        (``enable_cross_debate_memory``); there is no HTTP endpoint.
+        """
         body: dict[str, Any] = {"debate_id": debate_id}
         if entries:
             body["entries"] = entries
@@ -375,14 +459,26 @@ class MemoryAPI:
         format: str = "json",
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
-        """Export memories."""
+        """Export memories.
+
+        DEPRECATED: POST /api/v1/memory/export is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). There is
+        no replacement endpoint.
+        """
         body: dict[str, Any] = {"format": format}
         if workspace_id:
             body["workspace_id"] = workspace_id
         return self._client.request("POST", "/api/v1/memory/export", json=body)
 
     def import_memories(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Import memories from exported data."""
+        """Import memories from exported data.
+
+        DEPRECATED: POST /api/v1/memory/import is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). There is
+        no replacement endpoint.
+        """
         return self._client.request("POST", "/api/v1/memory/import", json=data)
 
     def prune(
@@ -390,7 +486,14 @@ class MemoryAPI:
         workspace_id: str | None = None,
         max_age_days: int | None = None,
     ) -> dict[str, Any]:
-        """Prune old or low-importance memories."""
+        """Prune old or low-importance memories.
+
+        DEPRECATED: POST /api/v1/memory/prune is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Expired
+        entries are cleaned via POST /api/v1/memory/continuum/cleanup; see
+        also consolidate().
+        """
         body: dict[str, Any] = {}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -410,7 +513,13 @@ class MemoryAPI:
         return self._client.request("POST", "/api/v1/memory/query", json=body)
 
     def rebuild_index(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Rebuild the memory search index."""
+        """Rebuild the memory search index.
+
+        DEPRECATED: POST /api/v1/memory/rebuild-index is declared in the
+        memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        There is no replacement endpoint.
+        """
         body: dict[str, Any] = {}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -423,7 +532,13 @@ class MemoryAPI:
         limit: int = 20,
         min_similarity: float = 0.5,
     ) -> dict[str, Any]:
-        """Perform semantic search across memories."""
+        """Perform semantic search across memories.
+
+        DEPRECATED: POST /api/v1/memory/semantic-search is declared in the
+        memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        Use search() or search_index(use_hybrid=True) instead.
+        """
         body: dict[str, Any] = {
             "query": query,
             "limit": limit,
@@ -432,22 +547,46 @@ class MemoryAPI:
         return self._client.request("POST", "/api/v1/memory/semantic-search", json=body)
 
     def list_snapshots(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
-        """List memory snapshots."""
+        """List memory snapshots.
+
+        DEPRECATED: GET /api/v1/memory/snapshots is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). There is
+        no replacement endpoint.
+        """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         return self._client.request("GET", "/api/v1/memory/snapshots", params=params)
 
     def get_snapshot(self, snapshot_id: str) -> dict[str, Any]:
-        """Get a specific memory snapshot."""
+        """Get a specific memory snapshot.
+
+        DEPRECATED: GET /api/v1/memory/snapshots/{id} is declared in the
+        memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        There is no replacement endpoint.
+        """
         return self._client.request("GET", f"/api/v1/memory/snapshots/{snapshot_id}")
 
     def restore_snapshot(self, snapshot_id: str) -> dict[str, Any]:
-        """Restore a memory snapshot."""
+        """Restore a memory snapshot.
+
+        DEPRECATED: POST /api/v1/memory/snapshots/{id}/restore is declared in
+        the memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        There is no replacement endpoint.
+        """
         return self._client.request(
             "POST", f"/api/v1/memory/snapshots/{snapshot_id}/restore", json={}
         )
 
     def sync_memories(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Sync memories across tiers."""
+        """Sync memories across tiers.
+
+        DEPRECATED: POST /api/v1/memory/sync is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Use
+        consolidate() for the supported maintenance operation.
+        """
         body: dict[str, Any] = {}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -458,7 +597,13 @@ class MemoryAPI:
         return self._client.request("GET", f"/api/v1/memory/tier/{tier}")
 
     def vacuum(self) -> dict[str, Any]:
-        """Run vacuum to reclaim storage space."""
+        """Run vacuum to reclaim storage space.
+
+        DEPRECATED: POST /api/v1/memory/vacuum is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Use
+        consolidate() for the supported maintenance operation.
+        """
         return self._client.request("POST", "/api/v1/memory/vacuum", json={})
 
     def promote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
@@ -519,8 +664,17 @@ class AsyncMemoryAPI:
         """
         Get memory system statistics.
 
+        DEPRECATED: No memory-handler branch serves GET /api/v1/memory/stats.
+        After version-stripping the request is routed to the analytics
+        handler's GET /api/memory/stats, which requires the ``analytics:read``
+        permission (not ``memory:read``) and returns only
+        ``{"stats": {"embeddings_db": bool, "insights_db": bool,
+        "continuum_memory": bool}}`` -- database file-existence flags, not
+        memory statistics. Use get_tier_stats(), list_tiers(), or
+        get_pressure() for real memory metrics.
+
         Returns:
-            Dict with overall memory statistics
+            Dict with analytics-handler file-existence flags (see above)
         """
         return await self._client.request("GET", "/api/v1/memory/stats")
 
@@ -620,6 +774,20 @@ class AsyncMemoryAPI:
             query, tiers=tiers, limit=limit, min_importance=min_importance
         )
 
+    async def consolidate(self) -> dict[str, Any]:
+        """
+        Trigger continuum memory consolidation.
+
+        POST /api/v1/memory/continuum/consolidate (requires authentication).
+        This is the supported server-side maintenance operation; prefer it
+        over the deprecated prune()/compact()/sync_memories()/vacuum()
+        methods, whose routes are never dispatched.
+
+        Returns:
+            Dict with consolidation result
+        """
+        return await self._client.request("POST", "/api/v1/memory/continuum/consolidate", json={})
+
     # ===========================================================================
     # Critique Operations
     # ===========================================================================
@@ -649,6 +817,41 @@ class AsyncMemoryAPI:
         Alias for list_critiques() for TypeScript SDK compatibility.
         """
         return await self.list_critiques(agent=agent, limit=limit, offset=offset)
+
+    async def store(
+        self,
+        content: str,
+        *,
+        tier: str = "fast",
+        importance: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Store a new memory entry in continuum memory.
+
+        Args:
+            content: The memory content to store
+            tier: Target memory tier (fast, medium, slow, glacial)
+            importance: Importance score between 0.0 and 1.0
+
+        Returns:
+            Dict with the stored entry ID and tier
+        """
+        body: dict[str, Any] = {"content": content, "tier": tier}
+        if importance is not None:
+            body["importance"] = importance
+        return await self._client.request("POST", "/api/v1/memory/store", json=body)
+
+    async def delete_entry(self, memory_id: str) -> dict[str, Any]:
+        """
+        Delete a continuum memory entry by ID.
+
+        Args:
+            memory_id: ID of the entry to delete (as returned by store())
+
+        Returns:
+            Dict with success flag and message (404 if the entry does not exist)
+        """
+        return await self._client.request("DELETE", f"/api/v1/memory/continuum/{memory_id}")
 
     async def store_critique(
         self,
@@ -749,21 +952,40 @@ class AsyncMemoryAPI:
     # ===========================================================================
 
     async def compact(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Trigger memory compaction."""
+        """Trigger memory compaction.
+
+        DEPRECATED: POST /api/v1/memory/compact is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Use
+        consolidate() for the supported maintenance operation.
+        """
         body: dict[str, Any] = {}
         if workspace_id:
             body["workspace_id"] = workspace_id
         return await self._client.request("POST", "/api/v1/memory/compact", json=body)
 
     async def get_context(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Get memory context for current session."""
+        """Get memory context for current session.
+
+        DEPRECATED: GET /api/v1/memory/context is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). The server
+        has no memory-context store; there is no replacement endpoint.
+        """
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
         return await self._client.request("GET", "/api/v1/memory/context", params=params)
 
     async def get_cross_debate(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Get cross-debate memory entries."""
+        """Get cross-debate memory entries.
+
+        DEPRECATED: GET /api/v1/memory/cross-debate is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Cross-debate
+        memory is injected automatically during debates
+        (``enable_cross_debate_memory``); there is no HTTP endpoint.
+        """
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
@@ -774,7 +996,14 @@ class AsyncMemoryAPI:
         debate_id: str,
         entries: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """Inject cross-debate memories into a debate."""
+        """Inject cross-debate memories into a debate.
+
+        DEPRECATED: POST /api/v1/memory/cross-debate/inject is declared in
+        the memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        Cross-debate memory is injected automatically during debates
+        (``enable_cross_debate_memory``); there is no HTTP endpoint.
+        """
         body: dict[str, Any] = {"debate_id": debate_id}
         if entries:
             body["entries"] = entries
@@ -785,14 +1014,26 @@ class AsyncMemoryAPI:
         format: str = "json",
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
-        """Export memories."""
+        """Export memories.
+
+        DEPRECATED: POST /api/v1/memory/export is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). There is
+        no replacement endpoint.
+        """
         body: dict[str, Any] = {"format": format}
         if workspace_id:
             body["workspace_id"] = workspace_id
         return await self._client.request("POST", "/api/v1/memory/export", json=body)
 
     async def import_memories(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Import memories from exported data."""
+        """Import memories from exported data.
+
+        DEPRECATED: POST /api/v1/memory/import is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). There is
+        no replacement endpoint.
+        """
         return await self._client.request("POST", "/api/v1/memory/import", json=data)
 
     async def prune(
@@ -800,7 +1041,14 @@ class AsyncMemoryAPI:
         workspace_id: str | None = None,
         max_age_days: int | None = None,
     ) -> dict[str, Any]:
-        """Prune old or low-importance memories."""
+        """Prune old or low-importance memories.
+
+        DEPRECATED: POST /api/v1/memory/prune is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Expired
+        entries are cleaned via POST /api/v1/memory/continuum/cleanup; see
+        also consolidate().
+        """
         body: dict[str, Any] = {}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -820,7 +1068,13 @@ class AsyncMemoryAPI:
         return await self._client.request("POST", "/api/v1/memory/query", json=body)
 
     async def rebuild_index(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Rebuild the memory search index."""
+        """Rebuild the memory search index.
+
+        DEPRECATED: POST /api/v1/memory/rebuild-index is declared in the
+        memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        There is no replacement endpoint.
+        """
         body: dict[str, Any] = {}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -833,7 +1087,13 @@ class AsyncMemoryAPI:
         limit: int = 20,
         min_similarity: float = 0.5,
     ) -> dict[str, Any]:
-        """Perform semantic search across memories."""
+        """Perform semantic search across memories.
+
+        DEPRECATED: POST /api/v1/memory/semantic-search is declared in the
+        memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        Use search() or search_index(use_hybrid=True) instead.
+        """
         body: dict[str, Any] = {
             "query": query,
             "limit": limit,
@@ -842,22 +1102,46 @@ class AsyncMemoryAPI:
         return await self._client.request("POST", "/api/v1/memory/semantic-search", json=body)
 
     async def list_snapshots(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
-        """List memory snapshots."""
+        """List memory snapshots.
+
+        DEPRECATED: GET /api/v1/memory/snapshots is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). There is
+        no replacement endpoint.
+        """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         return await self._client.request("GET", "/api/v1/memory/snapshots", params=params)
 
     async def get_snapshot(self, snapshot_id: str) -> dict[str, Any]:
-        """Get a specific memory snapshot."""
+        """Get a specific memory snapshot.
+
+        DEPRECATED: GET /api/v1/memory/snapshots/{id} is declared in the
+        memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        There is no replacement endpoint.
+        """
         return await self._client.request("GET", f"/api/v1/memory/snapshots/{snapshot_id}")
 
     async def restore_snapshot(self, snapshot_id: str) -> dict[str, Any]:
-        """Restore a memory snapshot."""
+        """Restore a memory snapshot.
+
+        DEPRECATED: POST /api/v1/memory/snapshots/{id}/restore is declared in
+        the memory handler's ROUTES list but never dispatched, so this method
+        always fails against a live server (HTTP 500 handler_no_result).
+        There is no replacement endpoint.
+        """
         return await self._client.request(
             "POST", f"/api/v1/memory/snapshots/{snapshot_id}/restore", json={}
         )
 
     async def sync_memories(self, workspace_id: str | None = None) -> dict[str, Any]:
-        """Sync memories across tiers."""
+        """Sync memories across tiers.
+
+        DEPRECATED: POST /api/v1/memory/sync is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Use
+        consolidate() for the supported maintenance operation.
+        """
         body: dict[str, Any] = {}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -868,7 +1152,13 @@ class AsyncMemoryAPI:
         return await self._client.request("GET", f"/api/v1/memory/tier/{tier}")
 
     async def vacuum(self) -> dict[str, Any]:
-        """Run vacuum to reclaim storage space."""
+        """Run vacuum to reclaim storage space.
+
+        DEPRECATED: POST /api/v1/memory/vacuum is declared in the memory
+        handler's ROUTES list but never dispatched, so this method always
+        fails against a live server (HTTP 500 handler_no_result). Use
+        consolidate() for the supported maintenance operation.
+        """
         return await self._client.request("POST", "/api/v1/memory/vacuum", json={})
 
     async def promote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:

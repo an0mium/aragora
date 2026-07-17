@@ -12,17 +12,17 @@ description: "Aragora: Canonical Goals & Foundational Thesis"
 
 ## Canonical Metrics
 
-Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
+Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
 
 <!-- metrics:begin canonical-goals-metrics -->
 | Metric | Value | Source |
 |--------|-------|--------|
 | Version | 2.9.0 | `pyproject.toml` |
-| Python files under `aragora/` | 4,286 | `docs/METRICS.md` |
+| Python files under `aragora/` | 4,289 | `docs/METRICS.md` |
 | Python modules | 144 top-level package directories | `docs/METRICS.md` |
-| Lines of code under `aragora/` | 1,980,676 | `docs/METRICS.md` |
-| Automated tests | 223,739 test functions | `docs/METRICS.md` |
-| Test files | 5,469 | `docs/METRICS.md` |
+| Lines of code under `aragora/` | 1,982,116 | `docs/METRICS.md` |
+| Automated tests | 223,955 test functions | `docs/METRICS.md` |
+| Test files | 5,480 | `docs/METRICS.md` |
 | API operations | 3,299 across 2,872 paths | `docs/METRICS.md` |
 | API paths | 2,872 | `docs/METRICS.md` |
 | Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |
@@ -32,7 +32,8 @@ Other canonical claims (manually maintained):
 
 | Metric | Value | Source |
 |--------|-------|--------|
-| Agent types | 43 across 6+ LLM providers | agent registry |
+| Agent types (registered) | 46 across 6+ LLM providers | `list_available_agents()` in `aragora/agents/base.py` |
+| Agent types (allowlisted) | 35 (see `docs/METRICS.md`) | `ALLOWED_AGENT_TYPES` in `aragora/config/settings.py` |
 | Workflow templates | 50+ across 6 categories | template registry |
 | Handler modules | 580+ | handlers directory |
 | GA readiness | Pre-GA; remaining launch work is tracked in `GA_CHECKLIST.md` | `GA_CHECKLIST.md` |
