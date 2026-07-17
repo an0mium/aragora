@@ -164,7 +164,12 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=262_144,
             max_output_tokens=32_768,
             release_date=date(2026, 6, 15),
-            aliases=("moonshotai/kimi-k2.6",),
+            # NOTE: "moonshotai/kimi-k2.6" is deliberately NOT an alias here.
+            # It is a distinct, live, separately-priced OpenRouter model
+            # ($0.95/$4.00 per MTok on the live catalog, 2026-07-17), so
+            # aliasing it onto k2.7-code would force k2.6 mirror rows to the
+            # wrong prices. Catalog k2.6 as its own ModelSpec if it needs
+            # enforcement.
         ),
     )
 }
