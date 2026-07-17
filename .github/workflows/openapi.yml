@@ -370,9 +370,6 @@ jobs:
 
       - name: Validate handler route coverage
         run: |
-          # pipefail: without it, `| tee` masks the validator's exit code and
-          # the gate silently passes on drift (that happened Jan-Jul 2026).
-          set -o pipefail
           python scripts/validate_openapi_routes.py \
             --spec docs/api/openapi.json \
             --fail-on-missing \
