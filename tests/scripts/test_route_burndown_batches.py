@@ -81,6 +81,7 @@ def test_packet_digest_changes_with_membership() -> None:
     two = [*one, _item("python_sdk_drift:B")]
 
     assert batches.batch_digest(one) != batches.batch_digest(two)
+    assert batches.batch_digest([_item("A\nB")]) != batches.batch_digest([_item("A"), _item("B")])
 
 
 def test_write_outputs_refuses_stale_packet(tmp_path: Path) -> None:

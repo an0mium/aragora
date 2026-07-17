@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -81,7 +82,9 @@ def partition_items(items: list[dict[str, str]], batch_size: int) -> list[list[d
 
 def batch_digest(items: list[dict[str, str]]) -> str:
     """Return a short content identity for a packet's exact ordered ids."""
-    payload = "\n".join(item["id"] for item in items).encode()
+    payload = json.dumps(
+        [item["id"] for item in items], ensure_ascii=True, separators=(",", ":")
+    ).encode()
     return hashlib.sha256(payload).hexdigest()[:16]
 
 
@@ -226,7 +229,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY)
     parser.add_argument("--playbook", type=Path, default=DEFAULT_PLAYBOOK)
-    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        required=True,
+        help="Output directory (relative paths are resolved from the current directory)",
+    )
     parser.add_argument("--batch-size", type=int, default=25)
     parser.add_argument("--json", action="store_true", help="Print a machine-readable summary")
     args = parser.parse_args()
@@ -234,7 +242,7 @@ def main() -> int:
     inventory_path = _resolve_repo_path(args.inventory)
     playbook_path = _resolve_repo_path(args.playbook)
     if not playbook_path.is_file():
-        print(f"ERROR: playbook not found: {playbook_path}")
+        print(f"ERROR: playbook not found: {playbook_path}", file=sys.stderr)
         return 1
 
     try:
@@ -247,7 +255,7 @@ def main() -> int:
         )
         write_outputs(args.output_dir, outputs)
     except (InventoryError, ValueError, OSError) as exc:
-        print(f"ERROR: {exc}")
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
     summary: dict[str, Any] = {
