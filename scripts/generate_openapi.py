@@ -555,7 +555,9 @@ def generate_schema(
     """Run the multi-tier generation pipeline and return the OpenAPI schema."""
     if legacy_handlers:
         print("Generating OpenAPI spec from handler ROUTES (legacy)...", file=sys.stderr)
-        return _legacy_generate_openapi_schema()
+        schema = _legacy_generate_openapi_schema()
+        schema["paths"] = _filter_internal_paths(schema["paths"])
+        return schema
 
     if ast_only:
         print("Generating OpenAPI spec via AST parsing only...", file=sys.stderr)

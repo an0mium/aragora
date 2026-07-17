@@ -429,9 +429,14 @@ def build_parity_report(
         handler_to_routes[handler_name] = normalized
         all_handler_paths.update(normalized)
 
-    # Filter out internal routes
+    # Filter out internal routes — both the exact-route legacy set and the
+    # internal-route policy families (scripts/baselines/internal_route_prefixes.json),
+    # so internal handler routes are never flagged as public SDK-coverage gaps
+    # even when no documented-route source is available.
     internal_normalized = {normalize_route(r) for r in INTERNAL_ROUTES}
-    public_handler_paths = all_handler_paths - internal_normalized
+    public_handler_paths = {
+        p for p in all_handler_paths - internal_normalized if not _is_internal_family(p)
+    }
     if documented_routes is not None:
         # SDK coverage should be enforced for documented API routes.
         public_handler_paths = public_handler_paths & documented_routes

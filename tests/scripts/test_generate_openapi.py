@@ -351,6 +351,28 @@ def test_filter_internal_paths_drops_internal_families_from_any_tier() -> None:
     assert set(filtered) == {"/api/v1/debates"}
 
 
+def test_generate_schema_legacy_mode_filters_internal_paths(monkeypatch) -> None:
+    """--legacy-handlers output passes through the internal-route policy too.
+
+    The legacy handler-ROUTES generation mode is user-invokable and must not
+    become a side door that publishes internal route families the main
+    pipeline excludes.
+    """
+    legacy = {
+        "openapi": "3.1.0",
+        "paths": {
+            "/api/v1/debates": {"get": {"summary": "public"}},
+            "/api/v1/control-plane/audit": {"get": {"summary": "internal"}},
+        },
+    }
+    monkeypatch.setattr(generate_openapi, "_legacy_generate_openapi_schema", lambda: legacy)
+
+    schema = generate_openapi.generate_schema(legacy_handlers=True)
+
+    assert "/api/v1/debates" in schema["paths"]
+    assert "/api/v1/control-plane/audit" not in schema["paths"]
+
+
 def test_filter_internal_paths_fails_closed_without_policy(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(generate_openapi, "PROJECT_ROOT", tmp_path)
 

@@ -337,3 +337,25 @@ def test_stale_sdk_paths_exclude_internal_route_families():
 
     assert report["gaps"]["stale_python_sdk_paths"] == ["/api/genuinely-stale"]
     assert report["gaps"]["stale_typescript_sdk_paths"] == []
+
+
+def test_handler_coverage_excludes_internal_route_families():
+    """Internal-family handler routes are never public SDK-coverage gaps.
+
+    When no documented-route source is available, coverage enforcement falls
+    back to handler ROUTES alone; the internal-route policy must still keep
+    e.g. control-plane routes out of the missing-coverage buckets.
+    """
+    report = check_sdk_parity.build_parity_report(
+        handler_routes={
+            "PublicHandler": ["/api/v1/debates"],
+            "ControlPlaneHandler": ["/api/v1/control-plane/health/status"],
+        },
+        python_sdk={"debates": {"/api/v1/debates"}},
+        typescript_sdk={"debates": {"/api/v1/debates"}},
+        documented_routes=None,
+    )
+
+    assert report["gaps"]["missing_from_python_sdk"] == []
+    assert report["gaps"]["missing_from_typescript_sdk"] == []
+    assert report["gaps"]["missing_from_both_sdks"] == []
