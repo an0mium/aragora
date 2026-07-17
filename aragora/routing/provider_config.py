@@ -9,6 +9,7 @@ Pricing is per 1M tokens (consistent with aragora.billing.usage).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 
@@ -53,6 +54,12 @@ from aragora.models import CATALOG, by_any_id
 # Cataloged models are PROJECTED from aragora.models.CATALOG below — do not
 # hand-edit rows for cataloged ids here; edit the catalog instead
 # (docs/architecture/MODEL_CATALOG.md).
+#
+# NOTE for direct importers of this dict: it is refreshed IN PLACE (soak
+# windows expire by calendar date) whenever any accessor in this module
+# runs on a new date. Enumerate via get_available_models() /
+# _current_pricing_table() for guaranteed date-fresh soak gating; a bare
+# from-import read sees the last-refreshed snapshot.
 PROVIDER_PRICING: dict[str, ProviderPricing] = {
     "claude-opus-4": ProviderPricing(
         provider_name="anthropic",
@@ -182,7 +189,41 @@ def _apply_catalog_projection(table: dict[str, ProviderPricing]) -> None:
             del table[key]
 
 
-_apply_catalog_projection(PROVIDER_PRICING)
+# Soak gating is a function of the calendar date, so the applied projection
+# is memoized per day rather than frozen at import (#9364 round-5): a
+# long-running server imported before a model's soak_until must start
+# enumerating it once the date passes.
+_projection_refreshed_on: date | None = None
+
+
+def _refresh_projection_if_stale() -> None:
+    """Re-apply the catalog projection if the date rolled since last time.
+
+    Mutates PROVIDER_PRICING IN PLACE, so from-importers of the dict also
+    observe refreshed contents — but only after any accessor in this module
+    has run on the new date. Direct dict readers that never go through an
+    accessor see the last-refreshed snapshot (import-time, at worst).
+
+    Concurrency: plain check-and-swap, matching this module's otherwise
+    lock-free conventions; a concurrent duplicate refresh is idempotent
+    (the sweep is a fixed point) so the race is harmless.
+    """
+    global _projection_refreshed_on
+    today = date.today()
+    if _projection_refreshed_on == today:
+        return
+    _apply_catalog_projection(PROVIDER_PRICING)
+    _projection_refreshed_on = today
+
+
+def _current_pricing_table() -> dict[str, ProviderPricing]:
+    """Date-fresh view of PROVIDER_PRICING for enumeration consumers."""
+    _refresh_projection_if_stale()
+    return PROVIDER_PRICING
+
+
+# Initial application (also stamps the memo date).
+_refresh_projection_if_stale()
 
 
 def get_estimated_cost(
@@ -206,7 +247,7 @@ def get_estimated_cost(
         NOT projected into the enumerated table. Returns 0.0 only when the
         model is unknown to both the table and the catalog.
     """
-    pricing = PROVIDER_PRICING.get(provider)
+    pricing = _current_pricing_table().get(provider)
     if pricing is None:
         spec = by_any_id(provider)
         if spec is None:
@@ -222,15 +263,15 @@ def get_estimated_cost(
 
 def get_available_models() -> list[str]:
     """Return list of all model keys with known pricing."""
-    return list(PROVIDER_PRICING.keys())
+    return list(_current_pricing_table().keys())
 
 
 def get_cheapest_model() -> str:
     """Return the model key with the lowest combined cost per 1K tokens."""
+    table = _current_pricing_table()
     return min(
-        PROVIDER_PRICING,
-        key=lambda k: PROVIDER_PRICING[k].input_cost_per_1k
-        + PROVIDER_PRICING[k].output_cost_per_1k,
+        table,
+        key=lambda k: table[k].input_cost_per_1k + table[k].output_cost_per_1k,
     )
 
 
@@ -250,7 +291,7 @@ def get_models_within_budget(
         List of model keys sorted by cost (cheapest first).
     """
     affordable: list[tuple[float, str]] = []
-    for model_key, pricing in PROVIDER_PRICING.items():
+    for model_key, pricing in _current_pricing_table().items():
         cost = get_estimated_cost(model_key, estimated_input_tokens, estimated_output_tokens)
         if cost <= budget_per_debate:
             affordable.append((cost, model_key))

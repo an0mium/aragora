@@ -23,6 +23,7 @@ from datetime import date, timedelta
 
 import pytest
 
+import aragora.models.catalog as catalog_module
 from aragora.models import CATALOG, ModelSpec, by_any_id
 from aragora.routing import provider_config
 from aragora.routing.provider_config import (
@@ -442,3 +443,142 @@ class TestUnderSoakModelsNotEnumerated:
         table: dict[str, ProviderPricing] = {}
         _apply_catalog_projection(table)
         assert "soaked-model-z" in table
+
+
+# ---------------------------------------------------------------------------
+# Round-5: soak gating must be date-fresh, not frozen at import
+# ---------------------------------------------------------------------------
+
+
+class _Clock:
+    """Stand-in for datetime.date in modules that only call date.today()."""
+
+    def __init__(self, today: date) -> None:
+        self.current = today
+
+    def today(self) -> date:
+        return self.current
+
+
+class TestSoakRefreshIsDateFresh:
+    """Round-5 (#9364, openai): _apply_catalog_projection ran once at module
+    import, freezing soak gating — a long-running process that imported
+    before a model's soak_until would never enumerate it after the date
+    passed. The applied projection is now memoized per calendar date and
+    every enumeration consumer goes through _current_pricing_table().
+    All dates here come from a fake clock: no wall-clock sleeps.
+    """
+
+    BASE = date(2026, 1, 10)
+
+    @pytest.fixture()
+    def dated_world(self, monkeypatch: pytest.MonkeyPatch) -> tuple[_Clock, dict[str, ModelSpec]]:
+        soaking = ModelSpec(
+            canonical_id="soaking-model",
+            provider="testprov",
+            direct_id="soaking-model",
+            openrouter_id="testprov/soaking-model",
+            input_per_mtok=4.00,
+            output_per_mtok=20.00,
+            context_window=100_000,
+            max_output_tokens=8_192,
+            release_date=self.BASE - timedelta(days=13),
+            soak_until=self.BASE + timedelta(days=1),  # expires "tomorrow"
+            aliases=("soaking-alias",),
+        )
+        adoptable = ModelSpec(
+            canonical_id="adoptable-model",
+            provider="testprov",
+            direct_id="adoptable-model",
+            openrouter_id="testprov/adoptable-model",
+            input_per_mtok=1.00,
+            output_per_mtok=2.00,
+            context_window=100_000,
+            max_output_tokens=8_192,
+            release_date=self.BASE - timedelta(days=60),
+        )
+        catalog = {s.canonical_id: s for s in (soaking, adoptable)}
+
+        def resolver(model_id: str) -> ModelSpec | None:
+            for s in catalog.values():
+                if str(model_id).strip() in s.all_ids():
+                    return s
+            return None
+
+        clock = _Clock(self.BASE)
+        # is_under_soak reads date.today() in the catalog module; the memo
+        # stamp reads it in provider_config.
+        monkeypatch.setattr(catalog_module, "date", clock)
+        monkeypatch.setattr(provider_config, "date", clock)
+        monkeypatch.setattr(provider_config, "CATALOG", catalog)
+        monkeypatch.setattr(provider_config, "by_any_id", resolver)
+        monkeypatch.setattr(provider_config, "PROVIDER_PRICING", {})
+        monkeypatch.setattr(provider_config, "_projection_refreshed_on", None)
+        return clock, catalog
+
+    def test_soak_expiry_is_observed_without_reimport(
+        self, dated_world: tuple[_Clock, dict[str, ModelSpec]]
+    ) -> None:
+        clock, catalog = dated_world
+        soaking = catalog["soaking-model"]
+
+        # "Today": under soak -> excluded from every enumeration surface.
+        assert "soaking-model" not in provider_config.get_available_models()
+        assert "adoptable-model" in provider_config.get_available_models()
+        assert "soaking-model" not in provider_config.get_models_within_budget(1_000.0)
+        router = ProviderRouter()  # empty metrics -> pricing fallback
+        assert all(
+            d["provider"] != "soaking-model"
+            for d in router.select_providers_with_details(num_agents=10)
+        )
+        # ...but cost lookup prices it throughout the window.
+        assert provider_config.get_estimated_cost(
+            "soaking-alias", 1_000_000, 1_000_000
+        ) == pytest.approx(soaking.input_per_mtok + soaking.output_per_mtok)
+
+        # Roll the calendar to soak_until (adoptable ON the date itself).
+        clock.current = self.BASE + timedelta(days=1)
+
+        assert "soaking-model" in provider_config.get_available_models()
+        assert "soaking-model" in provider_config.get_models_within_budget(1_000.0)
+        assert any(
+            d["provider"] == "soaking-model"
+            for d in router.select_providers_with_details(num_agents=10)
+        )
+        # Enumerated row now carries the catalog rate; cost lookup unchanged.
+        row = provider_config.PROVIDER_PRICING["soaking-model"]
+        assert row.input_cost_per_1k * 1000 == pytest.approx(soaking.input_per_mtok)
+        assert provider_config.get_estimated_cost(
+            "soaking-model", 1_000_000, 1_000_000
+        ) == pytest.approx(soaking.input_per_mtok + soaking.output_per_mtok)
+
+    def test_refresh_memoized_per_date_and_table_object_stable(
+        self, dated_world: tuple[_Clock, dict[str, ModelSpec]], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        clock, _catalog = dated_world
+        calls = {"n": 0}
+        real_projection = provider_config._catalog_projection
+
+        def counting_projection() -> dict[str, ProviderPricing]:
+            calls["n"] += 1
+            return real_projection()
+
+        monkeypatch.setattr(provider_config, "_catalog_projection", counting_projection)
+
+        table_ref = provider_config.PROVIDER_PRICING
+        provider_config.get_available_models()
+        assert calls["n"] == 1
+        # Same date: served from the memo — no recompute, same dict object
+        # (refresh mutates in place, so from-importers stay coherent).
+        provider_config.get_available_models()
+        provider_config.get_models_within_budget(1_000.0)
+        provider_config.get_estimated_cost("adoptable-model", 1000, 1000)
+        assert calls["n"] == 1
+        assert provider_config.PROVIDER_PRICING is table_ref
+
+        # Date rollover: exactly one recompute, same dict object.
+        clock.current = self.BASE + timedelta(days=1)
+        provider_config.get_available_models()
+        provider_config.get_available_models()
+        assert calls["n"] == 2
+        assert provider_config.PROVIDER_PRICING is table_ref

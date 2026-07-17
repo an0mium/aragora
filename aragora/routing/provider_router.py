@@ -16,7 +16,7 @@ from typing import Any
 
 from aragora.agents.credential_validator import CredentialStatus
 from aragora.routing.cost_quality_optimizer import CostQualityOptimizer, SelectionStrategy
-from aragora.routing.provider_config import PROVIDER_PRICING, get_available_models
+from aragora.routing.provider_config import _current_pricing_table, get_available_models
 from aragora.routing.provider_metrics import ProviderMetricsStore
 
 logger = logging.getLogger(__name__)
@@ -470,7 +470,8 @@ class ProviderRouter:
     ) -> list[dict[str, Any]]:
         """Build provider details from static pricing when no metrics exist."""
         results: list[dict[str, Any]] = []
-        for model_key, pricing in PROVIDER_PRICING.items():
+        # _current_pricing_table: date-fresh soak gating (#9364 round-5)
+        for model_key, pricing in _current_pricing_table().items():
             # Estimate cost per debate using 2K input + 1K output tokens
             estimated_cost = (2000 / 1000.0) * pricing.input_cost_per_1k + (
                 1000 / 1000.0
@@ -507,7 +508,8 @@ class ProviderRouter:
 
     def _round_robin_selection(self, n: int) -> list[str]:
         """Select N providers using deterministic round-robin."""
-        available = [model for model in DEFAULT_PROVIDER_ORDER if model in PROVIDER_PRICING]
+        pricing_table = _current_pricing_table()
+        available = [model for model in DEFAULT_PROVIDER_ORDER if model in pricing_table]
         if not available:
             available = get_available_models()
         if not available:
