@@ -25,6 +25,17 @@ Canonical migration path: [Python SDK migration](./python-sdk-migration).
 pip install aragora-sdk
 ```
 
+### Release cadence (recorded operator policy, 2026-07-16)
+
+`aragora-sdk` on PyPI follows a **decoupled release cadence**: the repository's
+`sdk/python/` may be ahead of the latest published wheel between releases
+(e.g. the repo can declare 2.9.0 while PyPI serves 2.8.0). This is intentional —
+releases are operator-gated and cut deliberately, not on every merge.
+Compatibility expectation: the published PyPI version always targets the
+`/api/v1` surface of the same or newer server release, and published versions
+never regress. If you need repo-tip SDK behavior before it is published,
+install from source (below). Tracking issue for this policy: #9234.
+
 Or install the full control plane package (includes the SDK and server):
 
 ```bash

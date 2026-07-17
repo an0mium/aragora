@@ -1,24 +1,39 @@
 #!/usr/bin/env python3
-"""Re-run unexpectedly cancelled PROTECTED PR workflow runs once.
+"""Re-run unexpectedly cancelled PROTECTED PR workflow runs — and advisory
+runs displaced while still QUEUED — once each.
 
 Cancellation-provenance-aware M1 guardian (docs/governance/
-PR_RUN_CANCELLATION_DIAGNOSIS.md). The repo INTENTIONALLY cancels
+PR_RUN_CANCELLATION_DIAGNOSIS.md). The repo INTENTIONALLY cancels QUEUED
 non-required advisory ``pull_request`` runs through
-``.github/workflows/required-check-priority.yml`` — those cancellations are
-the prioritization system working and must stay cancelled. What must never
-stay terminal-cancelled is the PROTECTED class: required checks and the
+``.github/workflows/required-check-priority.yml`` (RCP) — that displacement
+is the prioritization system working, and this guardian completes it by
+rescheduling exactly those displaced runs once, so no run ends terminally
+``cancelled`` merely because it yielded queue capacity. What must never stay
+terminal-cancelled at all is the PROTECTED class: required checks and the
 priority keep-list (observed live 2026-07-09: keep-listed test shards killed
 mid-run — one at 96% all-passing — each clearing on manual rerun at 30-90min
 settlement latency).
 
-Provenance rule: a cancelled run is rerun-eligible ONLY if its workflow is in
+Provenance rule: a cancelled run is rerun-eligible if its workflow is in
 ``scripts/ci/required_workflow_manifest.json`` (the versioned protected
-manifest mirroring the priority keep-list) — i.e. only
-``unexpected_required_cancellation``, never ``intentional_advisory_priority``.
+manifest mirroring the priority keep-list) —
+``unexpected_required_cancellation`` — OR, one narrow exception, if it is an
+advisory run that NEVER EXECUTED: a lazy jobs probe shows no job/step ever
+started, meaning required-check-priority.yml displaced it while it was still
+QUEUED (``queued_phase_advisory_displacement``). The exception is safe
+because (a) it is bounded once per ``run_attempt`` like every other rerun,
+(b) it never touches runs that actually started — an advisory run cancelled
+mid-execution (e.g. at Checkout) stays cancelled, and upstream RCP's
+queued-only rule now guarantees in-flight advisory runs are never cancelled
+at all, so the rerun cannot loop with the canceller — and (c) without it
+every queued-phase displacement ends as a terminal red ``cancelled``
+conclusion that taxes merge settlement. Advisory runs with any executed
+work remain ``intentional_advisory_priority`` and stay cancelled.
 
-A protected cancelled run is re-run ONLY when ALL hold:
+A cancelled run is re-run ONLY when ALL hold:
 - ``conclusion == cancelled`` and the event is a PR event;
-- its workflow path/name is in the protected manifest;
+- its workflow path is in the protected manifest, OR the never-executed
+  jobs probe above confirms a queued-phase advisory displacement;
 - its ``head_sha`` equals the PR's CURRENT head (not superseded);
 - no newer run of the same workflow+branch exists (rerun would be moot);
 - the PR is open and not draft;
@@ -36,6 +51,7 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -134,6 +150,8 @@ class GitHubClient:
                 page_items = data
             elif isinstance(data, dict) and "workflow_runs" in data:
                 page_items = data["workflow_runs"]
+            elif isinstance(data, dict) and "jobs" in data:
+                page_items = data["jobs"]
             else:
                 raise GitHubApiError(
                     f"Expected list-like response for paginated endpoint {path}, got {type(data)}"
@@ -178,6 +196,19 @@ class GitHubClient:
         truncated = len(normalized) > max_runs
         return normalized[:max_runs], truncated
 
+    def list_run_jobs(self, run_id: int, max_pages: int = 3) -> list[dict[str, Any]]:
+        """Jobs of one run, for the queued-phase (never-executed) probe.
+
+        Called LAZILY — only for advisory candidates that already passed every
+        other guard — so the API budget is bounded by surviving candidates,
+        not by --max-runs."""
+        jobs = self.paginate(
+            f"/repos/{self.repo}/actions/runs/{run_id}/jobs",
+            query={"per_page": 100},
+            max_pages=max_pages,
+        )
+        return [j for j in jobs if isinstance(j, dict)]
+
     def rerun_workflow_run(self, run_id: int) -> tuple[bool, str]:
         try:
             self.post(f"/repos/{self.repo}/actions/runs/{run_id}/rerun")
@@ -212,6 +243,29 @@ def compute_active_head_pairs(open_pulls: list[dict[str, Any]]) -> set[tuple[str
     return active
 
 
+def run_never_executed(jobs: list[dict[str, Any]]) -> bool:
+    """True iff a cancelled run was displaced while still QUEUED, i.e. it
+    never executed anything. Two independent signals, either suffices:
+
+    - every job has a null/empty ``started_at`` (nothing was ever assigned a
+      runner), OR
+    - no job contains any step with a non-null ``started_at`` (GitHub can
+      stamp a job-level ``started_at`` on queued-cancelled jobs, but a STEP
+      ``started_at`` appears only when the job genuinely began executing).
+
+    A run cancelled mid-execution — e.g. at the Checkout step — HAS a started
+    step and returns False; that class is eliminated upstream by RCP's
+    queued-only cancellation rule and is never this guardian's to undo."""
+    if all(not job.get("started_at") for job in jobs):
+        return True
+    return not any(
+        step.get("started_at")
+        for job in jobs
+        for step in job.get("steps") or []
+        if isinstance(step, dict)
+    )
+
+
 def compute_reruns(
     runs: list[dict[str, Any]],
     *,
@@ -221,11 +275,31 @@ def compute_reruns(
     ttl_hours: float,
     protected_paths: set[str],
     events: set[str] | None = None,
+    fetch_jobs: Callable[[int], list[dict[str, Any]] | None] | None = None,
 ) -> list[dict[str, Any]]:
-    """Select PROTECTED cancelled PR runs that deserve exactly one honest rerun.
+    """Select cancelled PR runs that deserve exactly one honest rerun.
 
-    Advisory workflows outside the protected manifest are intentionally
-    cancelled by required-check-priority.yml and are never selected."""
+    Two classes qualify; everything else stays cancelled:
+
+    - ``unexpected_required_cancellation`` — the workflow is in the protected
+      manifest (required checks + priority keep-list).
+    - ``queued_phase_advisory_displacement`` — the workflow is advisory (not
+      in the manifest) but the run NEVER EXECUTED: the jobs probe shows no
+      started job/step, i.e. required-check-priority.yml displaced it while
+      it was still queued. One rerun is safe: it is bounded by the
+      run_attempt == 1 marker like every other rerun, and it cannot loop with
+      the canceller because RCP now cancels queued runs only — once the rerun
+      starts executing, priority sweeps can no longer touch it.
+
+    An advisory run that actually STARTED (e.g. cancelled at the Checkout
+    step) is never selected — intentional_advisory_priority stays cancelled —
+    and that mid-execution class is eliminated upstream by RCP's queued-only
+    rule anyway. The jobs probe is LAZY: it fires only for advisory
+    candidates that already passed every other guard (attempt, head pair, PR
+    association, TTL, supersession), so API spend scales with surviving
+    candidates, not --max-runs. ``fetch_jobs=None`` (or a probe returning
+    ``None``) disables/fails the advisory class CLOSED: only protected runs
+    are then selected."""
     considered_events = events or PR_EVENTS
     cutoff = now - timedelta(hours=ttl_hours)
     # Supersession is judged ONLY among runs of the same PR event class AND
@@ -263,7 +337,8 @@ def compute_reruns(
         # a display NAME is free. The residual blast radius is one bounded
         # rerun (run_attempt==1 marker), never authority.
         workflow_path = str(run.get("path", "")).split("@")[0].strip()
-        if workflow_path not in protected_paths:
+        is_protected = workflow_path in protected_paths
+        if not is_protected and fetch_jobs is None:
             continue  # intentional_advisory_priority cancellation: stays cancelled
         if int(run.get("run_attempt") or 1) != 1:
             continue  # once-per-run marker: a rerun already happened
@@ -298,6 +373,21 @@ def compute_reruns(
         newest = newest_by_group.get(group)
         if newest is not None and (created, int(run.get("id") or 0)) < newest:
             continue  # a newer same-head run of this workflow supersedes this one
+        classification = "unexpected_required_cancellation"
+        if not is_protected:
+            # LAZY jobs probe — deliberately the LAST guard, reached only by
+            # advisory candidates that survived every cheap guard above, so
+            # each 20-minute pass spends at most one extra API call per
+            # surviving candidate (not per --max-runs run scanned).
+            assert fetch_jobs is not None  # guarded above
+            jobs = fetch_jobs(int(run.get("id") or 0))
+            if jobs is None or not run_never_executed(jobs):
+                # Probe failed (fail closed: cannot PROVE it never executed)
+                # or the run genuinely started before cancellation — an
+                # in-flight advisory cancellation is not this guardian's to
+                # undo.
+                continue
+            classification = "queued_phase_advisory_displacement"
         reruns.append(
             {
                 "run_id": int(run.get("id") or 0),
@@ -305,6 +395,7 @@ def compute_reruns(
                 "branch": branch,
                 "sha": sha,
                 "created_at": str(run.get("created_at", "")),
+                "classification": classification,
             }
         )
     return reruns
@@ -372,6 +463,17 @@ def main(argv: list[str] | None = None) -> int:
         )
     active_head_pairs = compute_active_head_pairs(open_pulls)
     open_pr_numbers = {int(pr.get("number") or 0) for pr in open_pulls if not bool(pr.get("draft"))}
+
+    def fetch_jobs(run_id: int) -> list[dict[str, Any]] | None:
+        try:
+            return client.list_run_jobs(run_id)
+        except GitHubApiError as exc:
+            # Fail CLOSED per run: without a readable jobs probe we cannot
+            # prove the run never executed, so it stays cancelled — but loud,
+            # so a permanently broken probe never looks green on schedule.
+            print(f"jobs probe failed for run {run_id}: {exc}", file=sys.stderr)
+            return None
+
     reruns = compute_reruns(
         runs,
         active_head_pairs=active_head_pairs,
@@ -379,6 +481,7 @@ def main(argv: list[str] | None = None) -> int:
         ttl_hours=args.ttl_hours,
         protected_paths=protected_paths,
         open_pr_numbers=open_pr_numbers,
+        fetch_jobs=fetch_jobs,
     )
     apply_failures = 0
     for item in reruns:
