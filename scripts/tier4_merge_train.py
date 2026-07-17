@@ -59,11 +59,27 @@ GH_TIMEOUT_SECONDS = 30
 # Mirror of ``aragora.cli.commands.review_queue.TIER_4_PREFIXES`` — the canonical
 # Tier-4 (human-preapproval / merge-authority) classifier. Vendored to keep this
 # module stdlib-only; the drift guard in the focused test fails if it diverges.
+CONTRACT_DRIFT_AUTHORITY_POLICY_VERSION = 1
+CONTRACT_DRIFT_AUTHORITY_TIER = 4
+CONTRACT_DRIFT_AUTHORITY_CANONICAL_SOURCE = (
+    "aragora.cli.commands.review_queue.CONTRACT_DRIFT_AUTHORITY_PREFIXES"
+)
+CONTRACT_DRIFT_AUTHORITY_PREFIXES: tuple[str, ...] = (
+    "scripts/check_contract_drift_ratchet.py",
+    "scripts/generate_contract_drift_inventory.py",
+    "scripts/baselines/contract_drift_inventory.json",
+    "scripts/sdk_path_normalize.py",
+    "scripts/baselines/internal_route_prefixes.json",
+    "scripts/baselines/contract_drift_program.json",
+    "scripts/check_sdk_parity.py",
+    "scripts/validate_openapi_routes.py",
+)
 SERIALIZED_TIER4_PREFIXES: tuple[str, ...] = (
     ".github/workflows/",
     "deploy/",
     "docker/",
     "k8s/",
+    *CONTRACT_DRIFT_AUTHORITY_PREFIXES,
     "aragora/cli/commands/review_queue.py",
     "aragora/cli/parser.py",
     "aragora/swarm/quorum_evidence.py",
