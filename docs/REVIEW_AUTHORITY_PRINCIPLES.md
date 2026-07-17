@@ -51,7 +51,9 @@ These principles fit the repo's existing pillars rather than adding new ones. Re
 
 ## Model family eligibility by Tier and jurisdiction
 
-The model-quorum gate counts signals from a known set of model families. As the routing layer (`aragora/agents/api_agents/`) grows to include heterogeneous Chinese open-weight families (DeepSeek, Qwen, Kimi, GLM, MiniMax, Yi) alongside the Western families (Anthropic, OpenAI, Google, xAI, Mistral, Nous Hermes), the gate must distinguish *which families count for which Tier* and *which payloads may be routed to which jurisdictions*. Without this distinction, expanding the recognizer would silently weaken Tier 3+ review (calibration concerns) and could leak PII across jurisdictional boundaries.
+The model-quorum gate counts signals from a known set of model families. As the routing layer (`aragora/agents/api_agents/`) grows to include heterogeneous Chinese open-weight families (DeepSeek, Qwen, Kimi, GLM, MiniMax, Yi) alongside the Western families (Anthropic, OpenAI, xAI, Mistral, Nous Hermes), the gate must distinguish *which families count for which Tier* and *which payloads may be routed to which jurisdictions*. Without this distinction, expanding the recognizer would silently weaken Tier 3+ review (calibration concerns) and could leak PII across jurisdictional boundaries.
+
+Google (gemini) is **advisory-only**: it was removed from the Western counting set by the 2026-07-16 founder roster directive after a repeat fabricated-claim pattern in merge-quorum reviews (evidence: `.aragora/operator-context/20260716T2200Z-gemini-reviewer-reliability-record.md`). Its reviews still post and remain readable, but they do not count toward Tier 3-4 quorums and do not satisfy the Tier-2 at-least-one-Western condition. Reinstatement requires a founder Tier-4 settlement reversing that record.
 
 ### Tier-eligibility for quorum counting
 
@@ -86,7 +88,9 @@ The payload boundary is hard, not a soft preference. It is enforced at the routi
 
 A change that adds a new family marker to the recognizer in `aragora/cli/commands/review_queue.py::_infer_model_reviewer_from_text`, or changes which family counts at which Tier, is a Tier 4 merge-authority self-modification per the Tier table above. It requires human preapproval before implementation and before merge. The pre-approval artifact for such a change is a design document in `docs/specs/` that enumerates the families being added, their proposed Tier eligibility, their proposed jurisdictional payload constraints, and governance tests in `tests/governance/` that characterize the current gate behavior and pin the gap to be inverted by the implementation.
 
-Removing a family marker, demoting a family to advisory-only, or restricting a family's payload eligibility is Tier 4 by the same rule. Loosening any of these constraints in CI (e.g., counting an advisory family at Tier 3) requires the same preapproval discipline as the original addition.
+Removing a family marker, demoting a family to advisory-only, or restricting a family's payload eligibility is Tier 4 by the same rule. Loosening any of these constraints in CI (e.g., counting an advisory family at Tier 3) requires the same preapproval discipline as the original addition. The gemini demotion above is exactly such a Tier-4 change: it was made with operator preapproval (the 2026-07-16 founder roster directive) and is being settled through the Tier-4 chain on the PR that lands it, with the reviewer-reliability record as the pre-approval artifact.
+
+Advisory-lane model pins (e.g., the kimi lane's `moonshotai/kimi-k3`) live in `aragora/swarm/quorum_evidence.py::_OPENROUTER_REVIEWER_MODELS` and can be overridden per-run via the `ARAGORA_OPENROUTER_REVIEWER_MODELS` environment variable (a JSON family→slug map); a bad slug degrades to a non-ok `ReviewerResult` rather than blocking the gate.
 
 ## Why fresh context per round is load-bearing (the gate as a task loop)
 

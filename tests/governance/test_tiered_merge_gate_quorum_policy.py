@@ -33,11 +33,13 @@ from aragora.swarm.quorum_evidence import (
 
 
 def test_western_families_match_spec():
-    # docs/REVIEW_AUTHORITY_PRINCIPLES.md: Anthropic, OpenAI, Google, xAI, Mistral,
-    # Nous Hermes (by canonical family id).
-    assert WESTERN_FAMILIES == frozenset(
-        {"claude", "openai", "gemini", "grok", "mistral", "hermes"}
-    )
+    # docs/REVIEW_AUTHORITY_PRINCIPLES.md: Anthropic, OpenAI, xAI, Mistral,
+    # Nous Hermes (by canonical family id). Google (gemini) was demoted to
+    # advisory-only by the 2026-07-16 founder roster directive (see
+    # .aragora/operator-context/20260716T2200Z-gemini-reviewer-reliability-record.md);
+    # its reviews still post and remain readable but do not count.
+    assert WESTERN_FAMILIES == frozenset({"claude", "openai", "grok", "mistral", "hermes"})
+    assert "gemini" not in WESTERN_FAMILIES
 
 
 def test_western_frontier_is_strict_subset_of_western():
