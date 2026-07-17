@@ -838,9 +838,12 @@ class TestCmdReview:
         result = cmd_review(review_args)
 
         assert result == 0
-        odr = json.loads((tmp_path / "review.odr.json").read_text())
+        odr_text = (tmp_path / "review.odr.json").read_text()
+        odr = json.loads(odr_text)
         assert odr["claim"]["verdict"] == "FAIL"
         assert odr["quorum"]["method"] == "multi_agent_review"
+        # Demo receipts must never pass for a real review's receipt.
+        assert "[DEMO MODE]" in odr_text
 
     def test_real_review_emits_odr_to_explicit_path(self, review_args, tmp_path, monkeypatch):
         """A standard review can produce its portable receipt in one invocation."""
@@ -881,6 +884,22 @@ class TestCmdReview:
         assert "--emit-odr received a URL" in captured.err
         assert not (tmp_path / "https:").exists()
 
+    def test_emit_odr_schemeless_url_misbinding_fails_fast(
+        self, review_args, tmp_path, capsys, monkeypatch
+    ):
+        """A scheme-less PR URL is caught by the guard too."""
+        review_args.demo = True
+        review_args.emit_odr = "github.com/owner/repo/pull/123"
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+        monkeypatch.chdir(tmp_path)
+
+        result = cmd_review(review_args)
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "--emit-odr received a URL" in captured.err
+        assert not (tmp_path / "github.com").exists()
+
     def test_demo_emit_odr_failure_returns_distinct_exit_code(
         self, review_args, tmp_path, monkeypatch
     ):
@@ -920,6 +939,31 @@ class TestCmdReview:
 
         assert result == 3
         assert sarif_path.exists()
+
+    def test_ci_findings_verdict_beats_emit_odr_failure(self, review_args, tmp_path):
+        """--ci exit codes take priority over an ODR emit failure."""
+        diff_file = tmp_path / "test.diff"
+        diff_file.write_text("diff --git a/test.py b/test.py\n+new line")
+        blocker = tmp_path / "blocker"
+        blocker.write_text("not a directory")
+        review_args.diff_file = str(diff_file)
+        review_args.agents = "anthropic-api,openai-api"
+        review_args.emit_odr = str(blocker / "review.odr.json")
+        review_args.ci = True
+
+        findings = get_demo_findings()
+        assert findings["critical_issues"]
+        with (
+            patch(
+                "aragora.cli.review.run_review_debate",
+                new=AsyncMock(return_value=MockDebateResult()),
+            ),
+            patch("aragora.cli.review.extract_review_findings", return_value=findings),
+            patch("aragora.cli.review._persist_review_to_km", return_value=True),
+        ):
+            result = cmd_review(review_args)
+
+        assert result == 1
 
     def test_error_no_diff_provided(self, review_args, capsys, monkeypatch):
         """Test error when no diff provided."""

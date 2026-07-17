@@ -871,10 +871,20 @@ def _write_review_odr(
     pr_url: str | None,
     output_dir: Path | None,
     output_path: str,
+    demo: bool = False,
 ) -> Path:
     """Export review findings as an Open Decision Receipt."""
     from aragora.gauntlet.odr_export import decision_receipt_to_odr
     from aragora.gauntlet.receipt_models import DecisionReceipt
+
+    if demo:
+        # Mark demo receipts before hashing so the marker is tamper-evident and
+        # the artifact can never pass for a real review's receipt.
+        findings = {
+            **findings,
+            "final_summary": "[DEMO MODE] Fabricated sample findings, not a real review. "
+            + str(findings.get("final_summary", "")),
+        }
 
     agents_used = list(findings.get("agents_used", []))
     receipt = DecisionReceipt.from_review_result(
@@ -909,6 +919,7 @@ def _emit_requested_odr(
             pr_url=getattr(args, "pr_url", None),
             output_dir=output_dir,
             output_path=output_path,
+            demo=getattr(args, "demo", False),
         )
     except (ImportError, KeyError, OSError, TypeError, ValueError) as e:
         logger.warning("ODR export failed: %s", e)
@@ -925,7 +936,10 @@ def cmd_review(args: argparse.Namespace) -> int:
     # Fail fast if --emit-odr swallowed the PR URL positional (nargs="?" footgun):
     # otherwise the receipt would be written under a literal "https:/..." directory.
     emit_odr_path = getattr(args, "emit_odr", None)
-    if emit_odr_path and emit_odr_path.startswith(("http://", "https://")):
+    if emit_odr_path and (
+        emit_odr_path.startswith(("http://", "https://"))
+        or emit_odr_path.lstrip("/").startswith(("github.com/", "www.github.com/"))
+    ):
         print(
             f"Error: --emit-odr received a URL ({emit_odr_path}) instead of a file path. "
             "Place --emit-odr after the PR URL, or pass an explicit PATH.",
@@ -1254,12 +1268,10 @@ def cmd_review(args: argparse.Namespace) -> int:
             )
 
     # Emit the receipt after the other artifact steps so an emit failure cannot
-    # suppress SARIF/comment output; exit 3 keeps it distinct from the --ci
-    # findings verdicts (1=critical, 2=high).
-    if not _emit_requested_odr(args, findings, output_dir):
-        return 3
+    # suppress SARIF/comment output.
+    odr_ok = _emit_requested_odr(args, findings, output_dir)
 
-    # CI mode exit codes
+    # CI mode exit codes — findings verdicts take priority over artifact-IO errors
     if getattr(args, "ci", False):
         critical = len(findings.get("critical_issues", []))
         high = len(findings.get("high_issues", []))
@@ -1270,7 +1282,8 @@ def cmd_review(args: argparse.Namespace) -> int:
             print(f"CI: {high} high severity issues found", file=sys.stderr)
             return 2
 
-    return 0
+    # Exit 3 keeps emit failure distinct from the --ci findings verdicts (1=critical, 2=high).
+    return 0 if odr_ok else 3
 
 
 def create_review_parser(subparsers) -> None:
