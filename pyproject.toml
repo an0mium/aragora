@@ -6,7 +6,27 @@ build-backend = "setuptools.build_meta"
 name = "aragora"
 version = "2.9.0"
 description = "Auditable execution control plane for AI-assisted decisions: multi-model review in, a verifiable Decision Receipt out"
-readme = {text = "# Aragora\n\nAragora is an auditable execution control plane for AI-assisted decisions: multi-model review in, a verifiable Decision Receipt out. Installing this distribution provides the `aragora` CLI and the full `aragora` package. The small standalone debate wedge is published separately as `aragora-debate` (see the `aragora-debate/` subproject).", content-type = "text/markdown"}
+readme = {text = """
+# Aragora
+
+Aragora is an auditable execution control plane for AI-assisted decisions:
+multi-model review in, a verifiable Decision Receipt out. Installing this
+distribution provides the `aragora` CLI and the full `aragora` package.
+
+## Try it without an API key
+
+```bash
+pip install aragora
+aragora demo --offline --receipt aragora-demo-receipt.json
+aragora receipt verify aragora-demo-receipt.json
+```
+
+The demo writes a native Decision Receipt and the final command verifies it
+locally. See the [full Aragora documentation](https://github.com/synaptent/aragora#readme)
+for provider-backed reviews and the independent Open Decision Receipt flow.
+The smaller debate engine is published separately as
+[`aragora-debate`](https://pypi.org/project/aragora-debate/).
+""", content-type = "text/markdown"}
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
@@ -51,7 +71,7 @@ dependencies = [
     # [enterprise], ...). The aiohttp floor matches the [blockchain]/[all]
     # extras for one consistent pin.
     "aiohttp>=3.14.1,<4.0",
-    "websockets>=13.0,<15.1",
+    "websockets>=13.0,<16.2",
 ]
 
 [project.scripts]

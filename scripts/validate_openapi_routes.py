@@ -33,34 +33,69 @@ if str(_REPO_ROOT) not in sys.path:
 # environments when no secrets are actually needed.
 os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
 
-DEFAULT_EXCLUDED_PREFIXES = (
-    "/api/v1/control-plane/",
-    "/api/v1/sme/",
-    "/api/v1/agent-dashboard/",
-    "/api/v1/sso/",
-    "/api/v1/admin/emergency/",
-)
-
 
 def load_internal_prefixes(path: str | None = None) -> tuple[str, ...]:
-    """Load internal/private route prefixes from a policy file."""
+    """Load internal/private route prefixes from a policy file.
+
+    Fails CLOSED: if the policy file is missing or unparseable, exit with an
+    error instead of silently falling back — a silent fallback would let
+    internal route families drift into (or mask leaks in) the public spec.
+    """
     if path is None:
-        path = "scripts/baselines/internal_route_prefixes.json"
+        path = str(_REPO_ROOT / "scripts" / "baselines" / "internal_route_prefixes.json")
     p = Path(path)
-    if not p.exists():
-        return DEFAULT_EXCLUDED_PREFIXES
     try:
         data = json.loads(p.read_text())
-    except (json.JSONDecodeError, OSError):
-        return DEFAULT_EXCLUDED_PREFIXES
-    prefixes = data.get("prefixes")
+    except (json.JSONDecodeError, OSError) as exc:
+        print(
+            f"Error: cannot load internal route policy {p}: {exc}. "
+            "Refusing to validate without it (fail closed).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    prefixes = data.get("prefixes") if isinstance(data, dict) else None
     if not isinstance(prefixes, list):
-        return DEFAULT_EXCLUDED_PREFIXES
-    normalized = []
-    for item in prefixes:
-        if isinstance(item, str) and item.startswith("/api/"):
-            normalized.append(item)
-    return tuple(normalized) if normalized else DEFAULT_EXCLUDED_PREFIXES
+        print(
+            f"Error: internal route policy {p} must contain a 'prefixes' list.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    invalid = [
+        item for item in prefixes if not (isinstance(item, str) and item.startswith("/api/"))
+    ]
+    if invalid:
+        print(
+            f"Error: internal route policy {p} has non-'/api/' prefixes: {invalid}. "
+            "Comparison keys are '/api/'-rooted, so these entries could never match "
+            "and would silently fail to exclude anything.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    normalized = list(prefixes)
+    if not normalized:
+        print(
+            f"Error: internal route policy {p} contains no valid '/api/' prefixes.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return tuple(normalized)
+
+
+def is_internal_route(route: str, prefixes: tuple[str, ...] | list[str]) -> bool:
+    """Whether a route falls inside an internal route family.
+
+    Matches the exact family root or anything under it with the slash intact:
+    ``/api/v1/sme`` and ``/api/v1/sme/dashboard`` are internal under
+    ``/api/v1/sme/``, but sibling names like ``/api/v1/smear`` are NOT
+    (round-1 review P2 on #9360: a bare ``startswith(prefix.rstrip("/"))``
+    overmatched). Canonical matcher — every checker that applies the
+    internal-route policy must delegate here so exclusions stay identical.
+    """
+    for prefix in prefixes:
+        base = prefix.rstrip("/")
+        if route == base or route.startswith(base + "/"):
+            return True
+    return False
 
 
 def get_handler_routes() -> set[str]:
@@ -123,6 +158,109 @@ def get_handler_routes() -> set[str]:
                 routes.add(path)
 
     return routes
+
+
+# Deliberately bogus tail segment: no real handler route ends in this, so a
+# can_handle that claims it is prefix-matching rather than route-matching.
+_CANARY_SEGMENT = "zz-nonexistent-canary-zz"
+
+
+def _probe_can_handle(can_handle: Any, path: str, method: str) -> bool:
+    """Call can_handle(path, method), falling back to the single-arg form."""
+    try:
+        return bool(can_handle(path, method))
+    except TypeError:
+        try:
+            return bool(can_handle(path))
+        except Exception:  # noqa: BLE001 - probing must never fail the gate
+            return False
+    except Exception:  # noqa: BLE001 - probing must never fail the gate
+        return False
+
+
+def filter_served_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
+    """Split orphan candidates into (truly orphaned, served via can_handle).
+
+    Handlers may serve literal paths through ``can_handle`` logic without
+    declaring them in ROUTES. Such spec entries are not orphaned: the server
+    routes them. Probe every registered handler's ``can_handle`` against each
+    candidate (both /api/v1/ and unversioned /api/ forms, all common methods)
+    and drop candidates that a handler accepts.
+
+    Specificity guard: a handler only suppresses a candidate if it rejects a
+    canary path derived from the same candidate (a clearly nonexistent tail
+    segment). Handlers whose ``can_handle`` also claims the canary are broad
+    prefix matchers — accepting their claim would let bogus spec paths hide
+    behind them. Every suppression is logged (path + handler class) so it is
+    never silent.
+    """
+    if not candidates:
+        return set(), set()
+
+    try:
+        from aragora.server.handler_registry import HANDLER_REGISTRY
+    except ImportError:
+        return set(candidates), set()
+
+    probes: list[tuple[str, Any]] = []
+    for _attr_name, handler_ref in HANDLER_REGISTRY:
+        handler_class = handler_ref
+        resolve = getattr(handler_ref, "resolve", None)
+        if callable(resolve):
+            try:
+                handler_class = resolve()
+            except Exception:  # noqa: BLE001 - import failures are non-fatal here
+                continue
+        if handler_class is None:
+            continue
+        try:
+            instance = handler_class.__new__(handler_class)
+        except Exception:  # noqa: BLE001 - exotic metaclasses; skip
+            continue
+        can_handle = getattr(instance, "can_handle", None)
+        if callable(can_handle):
+            handler_name = getattr(handler_class, "__name__", repr(handler_class))
+            probes.append((handler_name, can_handle))
+
+    methods = ("GET", "POST", "PUT", "PATCH", "DELETE")
+    served: set[str] = set()
+    suppressions: list[tuple[str, str]] = []
+    for candidate in sorted(candidates):
+        variants = {candidate}
+        if candidate.startswith("/api/v1/"):
+            variants.add(candidate.replace("/api/v1/", "/api/", 1))
+        serving_handler: str | None = None
+        for handler_name, can_handle in probes:
+            non_specific = False
+            for variant in variants:
+                for method in methods:
+                    if not _probe_can_handle(can_handle, variant, method):
+                        continue
+                    canary = variant.rstrip("/") + "/" + _CANARY_SEGMENT
+                    if _probe_can_handle(can_handle, canary, method):
+                        # Claims the canary too: prefix-matching can_handle,
+                        # not evidence this specific path is served.
+                        non_specific = True
+                        break
+                    serving_handler = handler_name
+                    break
+                if serving_handler is not None or non_specific:
+                    break
+            if serving_handler is not None:
+                break
+        if serving_handler is not None:
+            served.add(candidate)
+            suppressions.append((candidate, serving_handler))
+
+    if suppressions:
+        print(
+            f"Spec-orphan suppressions via can_handle ({len(suppressions)}):",
+            file=sys.stderr,
+        )
+        for path, handler_name in suppressions:
+            print(f"  - {path} (served by {handler_name})", file=sys.stderr)
+
+    return set(candidates) - served, served
 
 
 def _iter_spec_paths(spec_path: str) -> list[Path]:
@@ -231,14 +369,10 @@ def validate_coverage(
     internal_prefixes = load_internal_prefixes(internal_prefixes_path)
     if not include_internal:
         normalized_handler = {
-            r
-            for r in normalized_handler
-            if not any(r.startswith(prefix.rstrip("/")) for prefix in internal_prefixes)
+            r for r in normalized_handler if not is_internal_route(r, internal_prefixes)
         }
         normalized_openapi = {
-            r
-            for r in normalized_openapi
-            if not any(r.startswith(prefix.rstrip("/")) for prefix in internal_prefixes)
+            r for r in normalized_openapi if not is_internal_route(r, internal_prefixes)
         }
 
     # Find discrepancies
@@ -267,7 +401,11 @@ def validate_coverage(
     }
 
     # Routes that are truly orphaned in OpenAPI
-    orphaned_in_spec = missing_handlers - known_dynamic_patterns
+    orphan_candidates = missing_handlers - known_dynamic_patterns
+
+    # A spec path is only orphaned if no registered handler routes it; handlers
+    # frequently serve literal paths via can_handle without declaring them.
+    orphaned_in_spec, served_undeclared = filter_served_orphans(orphan_candidates)
 
     baseline_missing: set[str] = set()
     baseline_orphaned: set[str] = set()
@@ -290,6 +428,8 @@ def validate_coverage(
         "new_missing_in_spec_count": len(new_missing_in_spec),
         "orphaned_in_spec": sorted(orphaned_in_spec),
         "orphaned_in_spec_count": len(orphaned_in_spec),
+        "served_undeclared": sorted(served_undeclared),
+        "served_undeclared_count": len(served_undeclared),
         "new_orphaned_in_spec": new_orphaned_in_spec,
         "new_orphaned_in_spec_count": len(new_orphaned_in_spec),
         "dynamic_routes_skipped": len(known_dynamic_patterns),

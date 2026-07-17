@@ -136,6 +136,29 @@ def pareto_frontier(providers: list[ProviderMetrics]) -> list[ProviderMetrics]:
     return frontier
 
 
+def filter_candidates(
+    providers: list[ProviderMetrics],
+    *,
+    min_quality: float = 0.0,
+    budget_remaining: float | None = None,
+    exclude_providers: set[str] | None = None,
+) -> list[ProviderMetrics]:
+    """Apply selection constraints, returning the actual candidate set.
+
+    This is the exact filter :meth:`CostQualityOptimizer.select_provider`
+    chooses among: the quality floor, the total-failure exclusion
+    (``failure_rate < 1.0``), caller exclusions, and the budget ceiling.
+    """
+    candidates = [
+        m for m in providers if m.avg_quality_score >= min_quality and m.failure_rate < 1.0
+    ]
+    if exclude_providers:
+        candidates = [m for m in candidates if m.provider_name not in exclude_providers]
+    if budget_remaining is not None:
+        candidates = [m for m in candidates if m.avg_cost_per_debate <= budget_remaining]
+    return candidates
+
+
 class CostQualityOptimizer:
     """Selects providers using Pareto-optimal cost/quality analysis.
 
@@ -155,6 +178,26 @@ class CostQualityOptimizer:
         """Return the current Pareto frontier across all providers."""
         all_metrics = list(self._store.get_all_metrics().values())
         return pareto_frontier(all_metrics)
+
+    def get_candidates(
+        self,
+        min_quality: float = 0.0,
+        budget_remaining: float | None = None,
+        exclude_providers: set[str] | None = None,
+    ) -> list[ProviderMetrics]:
+        """Return the providers :meth:`select_provider` would choose among.
+
+        Applies the same constraint filter as :meth:`select_provider`
+        (via :func:`filter_candidates`) so callers can audit the actual
+        post-constraint choice set.
+        """
+        all_metrics = list(self._store.get_all_metrics().values())
+        return filter_candidates(
+            all_metrics,
+            min_quality=min_quality,
+            budget_remaining=budget_remaining,
+            exclude_providers=exclude_providers,
+        )
 
     def select_provider(
         self,
@@ -192,16 +235,32 @@ class CostQualityOptimizer:
             return None
 
         # Filter by constraints
-        candidates = [
-            m for m in all_metrics if m.avg_quality_score >= min_quality and m.failure_rate < 1.0
-        ]
+        candidates = filter_candidates(
+            all_metrics,
+            min_quality=min_quality,
+            budget_remaining=budget_remaining,
+            exclude_providers=exclude_providers,
+        )
 
-        if exclude_providers:
-            candidates = [m for m in candidates if m.provider_name not in exclude_providers]
+        result = self.select_from_candidates(candidates, strategy)
+        if result is None:
+            return None
 
-        if budget_remaining is not None:
-            candidates = [m for m in candidates if m.avg_cost_per_debate <= budget_remaining]
+        self._cache.put(strategy.value, budget_remaining, min_quality, frozen_exclude, result)
+        return result
 
+    def select_from_candidates(
+        self,
+        candidates: list[ProviderMetrics],
+        strategy: SelectionStrategy = SelectionStrategy.BALANCED,
+    ) -> str | None:
+        """Apply ``strategy`` to an already-filtered candidate list.
+
+        Pure selection: no store read, no cache. Callers that must keep the
+        selection consistent with an audited candidate set (e.g. the
+        decision-stakes router's rationale) pass the exact list they
+        recorded, guaranteeing both come from the same metrics snapshot.
+        """
         if not candidates:
             return None
 
@@ -227,9 +286,7 @@ class CostQualityOptimizer:
                 key=lambda m: m.avg_quality_score / (m.avg_cost_per_debate + epsilon),
             )
 
-        result = best.provider_name
-        self._cache.put(strategy.value, budget_remaining, min_quality, frozen_exclude, result)
-        return result
+        return best.provider_name
 
     def invalidate_cache(self) -> None:
         """Clear the routing decision cache."""
@@ -241,5 +298,6 @@ __all__ = [
     "DEFAULT_CACHE_TTL",
     "RoutingCache",
     "SelectionStrategy",
+    "filter_candidates",
     "pareto_frontier",
 ]

@@ -93,3 +93,10 @@ def _cleanup() -> None:
         mod = sys.modules.get(mod_name)
         if mod and hasattr(mod, "_initialized"):
             mod._initialized = False
+
+    try:
+        from aragora.observability.server_metrics import ACTIVE_DEBATES
+
+        ACTIVE_DEBATES.set(0)
+    except ImportError:
+        pass

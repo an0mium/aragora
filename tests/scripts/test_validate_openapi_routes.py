@@ -175,3 +175,140 @@ def test_validate_coverage_counts_prompt_engine_registry_routes() -> None:
 
     assert "/api/v1/prompt-engine/run" not in results["orphaned_in_spec"]
     assert "/api/v1/prompt-engine/decompose" not in results["orphaned_in_spec"]
+
+
+def test_filter_served_orphans_drops_can_handle_routes(monkeypatch):
+    class ServingHandler:
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            return path in ("/api/v1/served/route", "/api/served/route")
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", ServingHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    orphaned, served = validate_openapi_routes.filter_served_orphans(
+        {"/api/v1/served/route", "/api/v1/dark/route"}
+    )
+
+    assert served == {"/api/v1/served/route"}
+    assert orphaned == {"/api/v1/dark/route"}
+
+
+def test_filter_served_orphans_survives_broken_can_handle(monkeypatch):
+    class BrokenHandler:
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            raise AttributeError("uninitialized state")
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_broken", BrokenHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/v1/x"})
+
+    assert orphaned == {"/api/v1/x"}
+    assert served == set()
+
+
+def test_load_internal_prefixes_fails_closed_on_missing_file(tmp_path: Path):
+    missing = tmp_path / "nope" / "internal_route_prefixes.json"
+
+    with pytest.raises(SystemExit) as excinfo:
+        validate_openapi_routes.load_internal_prefixes(str(missing))
+    assert excinfo.value.code == 1
+
+
+def test_load_internal_prefixes_fails_closed_on_unparseable_file(tmp_path: Path):
+    policy = tmp_path / "internal_route_prefixes.json"
+    policy.write_text("{not json", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as excinfo:
+        validate_openapi_routes.load_internal_prefixes(str(policy))
+    assert excinfo.value.code == 1
+
+
+def test_load_internal_prefixes_fails_closed_on_invalid_shape(tmp_path: Path):
+    policy = tmp_path / "internal_route_prefixes.json"
+    policy.write_text('{"prefixes": "not-a-list"}', encoding="utf-8")
+
+    with pytest.raises(SystemExit) as excinfo:
+        validate_openapi_routes.load_internal_prefixes(str(policy))
+    assert excinfo.value.code == 1
+
+
+def test_load_internal_prefixes_reads_repo_policy_by_default():
+    prefixes = validate_openapi_routes.load_internal_prefixes()
+
+    assert prefixes
+    assert all(p.startswith("/api/") for p in prefixes)
+
+
+def test_filter_served_orphans_rejects_prefix_matching_can_handle(monkeypatch):
+    class BroadHandler:
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            return path.startswith("/api/v1/broad") or path.startswith("/api/broad")
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_broad", BroadHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/v1/broad/route"})
+
+    # BroadHandler also claims the nonexistent canary path, so its can_handle
+    # is non-specific and must not suppress the orphan.
+    assert orphaned == {"/api/v1/broad/route"}
+    assert served == set()
+
+
+def test_filter_served_orphans_logs_suppressions(monkeypatch, capsys):
+    class ServingHandler:
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            return path in ("/api/v1/served/route", "/api/served/route")
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", ServingHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/v1/served/route"})
+
+    assert served == {"/api/v1/served/route"}
+    assert orphaned == set()
+    err = capsys.readouterr().err
+    assert "/api/v1/served/route" in err
+    assert "ServingHandler" in err
+
+
+def test_validate_coverage_excludes_served_orphans(monkeypatch, tmp_path: Path):
+    class ServingHandler:
+        ROUTES = ["/api/v1/declared"]
+
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            return path == "/api/v1/served-only"
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", ServingHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_openapi_routes",
+        lambda _spec: {"/api/v1/declared", "/api/v1/served-only", "/api/v1/dark"},
+    )
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        fail_on_missing=False,
+        output_json=True,
+        baseline_path=str(baseline),
+        include_internal=True,
+    )
+
+    assert results["orphaned_in_spec"] == ["/api/v1/dark"]
+    assert results["served_undeclared"] == ["/api/v1/served-only"]
+
+
+def test_is_internal_route_matches_exact_family_not_sibling_names():
+    """Round-1 review P2 on #9360: startswith on the prefix without its
+    trailing slash overmatches — /api/v1/smear must NOT fall under the
+    /api/v1/sme/ internal family."""
+    prefixes = ("/api/v1/sme/",)
+    assert validate_openapi_routes.is_internal_route("/api/v1/sme/dashboard", prefixes)
+    assert validate_openapi_routes.is_internal_route("/api/v1/sme", prefixes)
+    assert not validate_openapi_routes.is_internal_route("/api/v1/smear", prefixes)
+    assert not validate_openapi_routes.is_internal_route("/api/v1/smear/x", prefixes)
