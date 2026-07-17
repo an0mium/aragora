@@ -874,7 +874,7 @@ def _write_review_odr(
     demo: bool = False,
 ) -> Path:
     """Export review findings as an Open Decision Receipt."""
-    from aragora.gauntlet.odr_export import decision_receipt_to_odr
+    from aragora.gauntlet.odr_export import decision_receipt_to_odr, sign_odr_if_configured
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
     if demo:
@@ -893,6 +893,7 @@ def _write_review_odr(
         reviewer_agents=agents_used or None,
     )
     odr = decision_receipt_to_odr(receipt)
+    odr = sign_odr_if_configured(odr)
 
     path = Path(output_path) if output_path else (output_dir or Path.cwd()) / "review.odr.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -921,7 +922,7 @@ def _emit_requested_odr(
             output_path=output_path,
             demo=getattr(args, "demo", False),
         )
-    except (ImportError, KeyError, OSError, TypeError, ValueError) as e:
+    except (AttributeError, ImportError, KeyError, OSError, TypeError, ValueError) as e:
         logger.warning("ODR export failed: %s", e)
         print(f"Error: Could not emit review ODR: {e}", file=sys.stderr)
         return False
@@ -937,8 +938,8 @@ def cmd_review(args: argparse.Namespace) -> int:
     # otherwise the receipt would be written under a literal "https:/..." directory.
     emit_odr_path = getattr(args, "emit_odr", None)
     if emit_odr_path and (
-        emit_odr_path.startswith(("http://", "https://"))
-        or emit_odr_path.lstrip("/").startswith(("github.com/", "www.github.com/"))
+        emit_odr_path.lower().startswith(("http://", "https://", "git@"))
+        or emit_odr_path.lower().lstrip("/").startswith(("github.com/", "www.github.com/"))
     ):
         print(
             f"Error: --emit-odr received a URL ({emit_odr_path}) instead of a file path. "
@@ -994,14 +995,13 @@ def cmd_review(args: argparse.Namespace) -> int:
             except (OSError, ValueError, KeyError) as e:
                 print(f"Warning: SARIF export failed: {e}", file=sys.stderr)
 
-        if not _emit_requested_odr(args, findings, output_dir):
-            return 3
+        odr_ok = _emit_requested_odr(args, findings, output_dir)
 
         print("\n---", file=sys.stderr)
         print("This was a demo. To run a real review, configure API keys:", file=sys.stderr)
         print("  export ANTHROPIC_API_KEY=sk-ant-...", file=sys.stderr)
         print("  export OPENAI_API_KEY=sk-...", file=sys.stderr)
-        return 0
+        return 0 if odr_ok else 3
 
     # Get diff content
     diff = ""

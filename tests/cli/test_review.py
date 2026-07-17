@@ -870,6 +870,24 @@ class TestCmdReview:
         assert odr["claim"]["verdict"] == "FAIL"
         assert odr["quorum"]["participants"]
 
+    def test_emit_odr_pipes_receipt_through_signer(self, review_args, tmp_path, monkeypatch):
+        """The emitted receipt is signed whenever a signing key is configured."""
+        review_args.demo = True
+        review_args.output_dir = str(tmp_path)
+        review_args.emit_odr = ""
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+        def fake_signer(odr, **kwargs):
+            return {**odr, "signatures": [{"alg": "test", "sig": "stub"}]}
+
+        monkeypatch.setattr("aragora.gauntlet.odr_export.sign_odr_if_configured", fake_signer)
+
+        result = cmd_review(review_args)
+
+        assert result == 0
+        odr = json.loads((tmp_path / "review.odr.json").read_text())
+        assert odr["signatures"] == [{"alg": "test", "sig": "stub"}]
+
     def test_emit_odr_url_misbinding_fails_fast(self, review_args, tmp_path, capsys, monkeypatch):
         """--emit-odr followed by the PR URL errors out before any review runs."""
         review_args.demo = True
