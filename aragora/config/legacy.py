@@ -356,6 +356,7 @@ ALLOWED_AGENT_TYPES = frozenset(
         "yi",
         "kimi",
         "kimi-thinking",
+        "kimi-legacy",
         "llama4-maverick",
         "llama4-scout",
         "sonar",

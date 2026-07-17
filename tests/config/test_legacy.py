@@ -110,6 +110,7 @@ class TestAgentConstants:
 
         assert "mistral-api" in ALLOWED_AGENT_TYPES
         assert "codestral" in ALLOWED_AGENT_TYPES
+        assert "kimi-legacy" in ALLOWED_AGENT_TYPES
 
     def test_default_agents_string(self):
         """DEFAULT_AGENTS is a comma-separated string of agent names."""
