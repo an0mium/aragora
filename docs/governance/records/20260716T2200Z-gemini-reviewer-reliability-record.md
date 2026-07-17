@@ -46,3 +46,15 @@ pricing rows), fixed at 53bb7798a449.
 - PR #9075 comments: 4996054771 (refutation), 4996161945 (second refutation
   + treadmill accounting), 4996233860 (adjudication packet).
 - Catalog release/soak dates: `aragora/models/catalog.py` (#9355).
+
+---
+
+## In-repo addendum (2026-07-17, PR #9363 settlement trail — not part of the verbatim record above)
+
+`docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance` expects
+a `docs/specs/` design document as the Tier-4 pre-approval artifact for a change
+to family counting authority. For this demotion, the operator approved
+substituting this committed record plus PR #9363's Tier-4 exact-head settlement
+for that design-doc requirement. This is an operator-approved exception scoped
+to this demotion only — not a precedent relaxing the design-doc requirement for
+future family changes.

@@ -4038,6 +4038,68 @@ class TestFounderRosterDirective20260716:
 
         assert _OPENROUTER_REVIEWER_MODELS["kimi"] == "moonshotai/kimi-k2.6"
 
+    def test_family_classification_is_total_and_disjoint(self):
+        # Explicit, total taxonomy: every recognized family belongs to exactly
+        # one of western / chinese-routed / advisory-only. An unclassified
+        # family would silently default to full Tier 0-1 counting.
+        from aragora.swarm.quorum_evidence import (
+            ADVISORY_ONLY_FAMILIES,
+            CHINESE_ROUTED_FAMILIES,
+            FAMILY_PROVIDERS,
+            WESTERN_FAMILIES,
+        )
+
+        assert not WESTERN_FAMILIES & CHINESE_ROUTED_FAMILIES
+        assert not WESTERN_FAMILIES & ADVISORY_ONLY_FAMILIES
+        assert not CHINESE_ROUTED_FAMILIES & ADVISORY_ONLY_FAMILIES
+        assert WESTERN_FAMILIES | CHINESE_ROUTED_FAMILIES | ADVISORY_ONLY_FAMILIES == set(
+            FAMILY_PROVIDERS
+        )
+
+    @pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
+    @pytest.mark.parametrize("gate", [False, True])
+    def test_gemini_pass_never_counts_toward_any_tier(self, tier, gate):
+        # Record mandate: an advisory-only PASS never counts FOR a quorum, at
+        # any tier, under either gate regime.
+        from aragora.swarm.quorum_evidence import tier_quorum_rule
+
+        rule = tier_quorum_rule(tier, tiered_gate=gate)
+        assert "gemini" not in rule.counted_families({"gemini", "claude", "deepseek"})
+        # gemini alone never satisfies even the 1-signal Tier-0 bar.
+        assert rule.is_satisfied_by({"gemini"}) is False
+        # gemini's presence never changes the outcome for the rest of the set.
+        for others in ({"claude"}, {"claude", "openai"}, {"deepseek"}):
+            assert rule.is_satisfied_by(others | {"gemini"}) == rule.is_satisfied_by(others)
+
+    def test_gemini_evidence_item_never_counts_for(self):
+        item = EvidenceItem("gemini", "Verdict: PASS\n\nNo findings.", True, ["gemini"], [], "pass")
+        assert item.would_count is False
+        assert item.supportive is False
+        assert any("advisory-only" in problem for problem in item.problems)
+
+    @pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
+    def test_gemini_changes_requested_is_not_blocking_dissent(self, tier):
+        # Record mandate: "gemini dissent is NOT to be counted anywhere" — a
+        # gemini CHANGES-REQUESTED (even [P1]-backed) never blocks at any tier.
+        body = "Verdict: CHANGES-REQUESTED\n- [P1] fabricated blocking claim"
+        gemini = EvidenceItem("gemini", body, True, ["gemini"], [], "changes_requested")
+        assert gemini.dissenting is False
+        # Contrast pin: the same review from a counting family still blocks.
+        claude = EvidenceItem("claude", body, True, ["claude"], [], "changes_requested")
+        assert claude.dissenting is True
+        outcome = CollectOutcome(
+            repo="synaptent/aragora",
+            pr=9363,
+            head_sha="a" * 40,
+            head_committed_at="2026-07-17T00:00:00Z",
+            tier=tier,
+            action="collect",
+            action_reason="test",
+            items=[gemini],
+        )
+        assert outcome.dissenting_families == []
+        assert outcome.counting_families == []
+
     def test_committed_reliability_record_is_auditable(self):
         # The Tier-4 evidence artifact must live in the repo, not only in the
         # gitignored operator-context directory.

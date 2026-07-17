@@ -83,19 +83,37 @@ FAMILY_PROVIDERS: dict[str, str] = {
 }
 
 # Jurisdiction families (docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-eligibility).
-# WESTERN_FAMILIES are the lineages that count toward a Tier 3-4 quorum (the spec's
-# Anthropic, OpenAI, xAI, Mistral, Nous Hermes). Chinese-routed families are
-# every other recognized family; they always post and remain readable but are
-# advisory-only (not counted) at Tier 3-4 and do not satisfy the at-least-one-Western
-# condition at Tier 2.
+# The classification is explicit and TOTAL: every recognized family (a
+# FAMILY_PROVIDERS key) belongs to EXACTLY ONE of WESTERN_FAMILIES,
+# CHINESE_ROUTED_FAMILIES, or ADVISORY_ONLY_FAMILIES. The partition is pinned
+# by governance tests so a newly recognized family cannot be left unclassified
+# (an unclassified family would silently default to full Tier 0-1 counting).
+#
+# WESTERN_FAMILIES count toward Tier 3-4 quorums (the spec's Anthropic, OpenAI,
+# xAI, Mistral, Nous Hermes) and satisfy the Tier-2 at-least-one-Western condition.
+WESTERN_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok", "mistral", "hermes"))
+
+# Chinese-routed families count toward Tier 0-2 quorums (Tier 2 additionally
+# requires at least one Western family alongside) and are advisory-only (posted,
+# readable, not counted) at Tier 3-4.
+CHINESE_ROUTED_FAMILIES: frozenset[str] = frozenset(
+    ("deepseek", "qwen", "kimi", "yi", "glm", "minimax")
+)
+
+# ADVISORY-ONLY families never count for OR against ANY tier's quorum: their
+# reviews still post, parse, and lint as evidence comments (advisory visibility
+# is preserved), but a PASS never counts toward a quorum and a CHANGES-REQUESTED
+# never creates blocking dissent.
 # 2026-07-16 founder directive (reviewer-reliability record
 # docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md):
-# gemini is REMOVED from the counting set after a repeat fabricated-claim
-# pattern in merge-quorum reviews (invented model release dates, false
-# METRICS-drift claims, nonexistent route ids). Its reviews still post and
-# remain readable as advisory evidence; reinstatement requires a founder
-# Tier-4 settlement reversing this entry.
-WESTERN_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok", "mistral", "hermes"))
+# gemini is demoted to advisory-only after a repeat fabricated-claim pattern in
+# merge-quorum reviews (invented model release dates, false METRICS-drift
+# claims, nonexistent route ids); the record's mandate is "gemini dissent is
+# NOT to be counted anywhere". For payload-jurisdiction routing gemini keeps
+# its Western-jurisdiction (Google/US) treatment — the demotion removes
+# counting authority, not payload eligibility. Reinstatement requires a founder
+# Tier-4 settlement reversing that record.
+ADVISORY_ONLY_FAMILIES: frozenset[str] = frozenset(("gemini",))
 
 # Western-FRONTIER families: a strict SUBSET of WESTERN_FAMILIES (the frontier labs).
 # Under the tiered gate, a Tier 1-2 PR may settle on a single supportive signal, which
@@ -227,8 +245,15 @@ class TierQuorumRule:
 
     def counted_families(self, supportive: Iterable[str]) -> set[str]:
         """The supportive families that count under this rule (drops Chinese-routed
-        families when ``western_only_counted``)."""
+        families when ``western_only_counted``; drops advisory-only families at
+        EVERY tier per the reviewer-reliability record)."""
         families = {str(f).strip().lower() for f in supportive}
+        # Advisory-only families never count, at any tier — enforced here so every
+        # surface that derives counting from the shared rule (auto-settle, the
+        # review-queue gate's signal_count, the reconcile diagnostic) excludes them
+        # even when handed raw reviewer-id lists that never passed through
+        # EvidenceItem.
+        families -= ADVISORY_ONLY_FAMILIES
         if self.western_only_counted:
             families = {f for f in families if f in WESTERN_FAMILIES}
         return families
@@ -497,6 +522,19 @@ class EvidenceItem:
     severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
     def __post_init__(self) -> None:
+        # Advisory-only contract (2026-07-16 roster directive; #9363 round-3):
+        # an advisory-only family's review posts, parses, and lints as an
+        # evidence comment, but it never counts for or against any tier's
+        # quorum. Demoted here, at the single choke point every construction
+        # path shares (fresh collect, from_raw, prepared-apply relint), so a
+        # prepared artifact cannot smuggle an advisory-only family back into
+        # counting_families / supportive_families.
+        if self.would_count and canonical_family(self.family) in ADVISORY_ONLY_FAMILIES:
+            self.would_count = False
+            self.problems.append(
+                f"family {self.family!r} is advisory-only per the reviewer-reliability "
+                "record — its reviews post but never count for or against quorum"
+            )
         # Verdict contract (issue #9241 B1): a review without a valid parsed verdict
         # is malformed reviewer output and must NEVER count toward quorum — counting
         # feeds counting_families, "families heard", and relief-valve conditions,
@@ -553,6 +591,11 @@ class EvidenceItem:
     @property
     def dissenting(self) -> bool:
         if self.verdict != "changes_requested":
+            return False
+        # Advisory-only families never block (roster record: "gemini dissent is
+        # NOT to be counted anywhere"): their CHANGES-REQUESTED posts and stays
+        # readable on the PR but is not counted dissent at any tier.
+        if canonical_family(self.family) in ADVISORY_ONLY_FAMILIES:
             return False
         # Truncated dissent fails CLOSED (claude #9249 round-3 [P2]): severity
         # gating classifies by VISIBLE findings, so a CHANGES-REQUESTED whose

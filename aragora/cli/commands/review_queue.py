@@ -141,9 +141,11 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
 # (quorum_evidence) reference the *same* frozenset object and cannot drift —
 # replacing the prior test-only parity guard (claude #8507 P2).
 from aragora.swarm.quorum_evidence import (  # noqa: E402
+    ADVISORY_ONLY_FAMILIES as ADVISORY_ONLY_FAMILIES,
     WESTERN_FAMILIES as WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
     advisory_dissent_settle_enabled as advisory_dissent_settle_enabled,
+    canonical_family as canonical_family,
     severity_gated_dissent_enabled as severity_gated_dissent_enabled,
     tier_quorum_rule as tier_quorum_rule,
     tiered_merge_gate_enabled as tiered_merge_gate_enabled,
@@ -3242,6 +3244,14 @@ def _advisory_settle_review_signals(
         body = str(comment.get("body", "") or "")
         if not _is_recognized_model_review(body):
             continue
+        identity = _resolve_model_review_identity(body)
+        # Advisory-only families (roster record: "gemini dissent is NOT to be
+        # counted anywhere") never count for OR against: skipped BEFORE the
+        # blocking scan and the heard/dissent accounting, so an advisory-only
+        # [P0]/[P1] cannot veto advisory_settle and an advisory-only review
+        # cannot establish a heard family. The comment stays visible on the PR.
+        if canonical_family(identity.model_family or "") in ADVISORY_ONLY_FAMILIES:
+            continue
         # Permissive, fail-closed blocking scan (any recognized grounded review).
         if _has_blocking_finding_or_label(body):
             has_blocking = True
@@ -3252,7 +3262,6 @@ def _advisory_settle_review_signals(
         )
         if _is_github_actions_author(author):
             continue
-        identity = _resolve_model_review_identity(body)
         if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
             continue
         if strict_author:
@@ -4736,6 +4745,10 @@ def _dissenting_views_from_comments(
         if identity.surface_reviewer_id == "unknown_model_reviewer":
             identity = _resolve_dogfood_identity(body)
         if identity.surface_reviewer_id == "unknown_model_reviewer":
+            continue
+        # Advisory-only families (roster record) never promote blocking dissent
+        # at any tier; the comment itself stays visible on the PR.
+        if canonical_family(identity.model_family or "") in ADVISORY_ONLY_FAMILIES:
             continue
         author_payload = comment.get("author")
         github_author = ""
