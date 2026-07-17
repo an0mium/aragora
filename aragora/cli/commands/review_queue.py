@@ -238,16 +238,9 @@ TIER_3_TITLE_KEYWORDS: tuple[str, ...] = (
 )
 CONTRACT_DRIFT_AUTHORITY_POLICY_VERSION = 1
 CONTRACT_DRIFT_AUTHORITY_TIER = 4
-CONTRACT_DRIFT_AUTHORITY_PREFIXES: tuple[str, ...] = (
-    "scripts/check_contract_drift_ratchet.py",
-    "scripts/generate_contract_drift_inventory.py",
-    "scripts/baselines/contract_drift_inventory.json",
-    "scripts/sdk_path_normalize.py",
-    "scripts/baselines/internal_route_prefixes.json",
-    "scripts/baselines/contract_drift_program.json",
-    "scripts/check_sdk_parity.py",
-    "scripts/validate_openapi_routes.py",
-)
+# fmt: off
+CONTRACT_DRIFT_AUTHORITY_PREFIXES: tuple[str, ...] = ("scripts/check_contract_drift_ratchet.py", "scripts/generate_contract_drift_inventory.py", "scripts/baselines/contract_drift_inventory.json", "scripts/sdk_path_normalize.py", "scripts/baselines/internal_route_prefixes.json", "scripts/baselines/contract_drift_program.json", "scripts/check_sdk_parity.py", "scripts/validate_openapi_routes.py")
+# fmt: on
 TIER_4_PREFIXES: tuple[str, ...] = (
     ".github/workflows/",
     "deploy/",
