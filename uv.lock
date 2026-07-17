@@ -385,7 +385,7 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.49.0,<1.0" },
     { name = "web3", marker = "extra == 'all'", specifier = ">=7.16.0,<8.0" },
     { name = "web3", marker = "extra == 'blockchain'", specifier = ">=7.16.0,<8.0" },
-    { name = "websockets", specifier = ">=13.0,<15.1" },
+    { name = "websockets", specifier = ">=13.0,<16.2" },
 ]
 provides-extras = ["test", "gateway", "blockchain", "enterprise", "connectors", "experimental", "dev", "all"]
 

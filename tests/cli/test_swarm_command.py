@@ -2345,6 +2345,10 @@ class TestSwarmCommand:
         assert '"failed": 1' in out
         assert '"selected_before": 1' in out
         assert '"selected_after": 0' in out
+        assert '"execution_verified_after": 0' in out
+        assert '"heartbeat_readiness"' in out
+        assert '"ready": false' in out
+        assert '"blocked_reason": "no_execution_verified_runner"' in out
 
     def test_cmd_swarm_audit_issues_json(self, capsys):
         args = _swarm_args(
