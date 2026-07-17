@@ -63,10 +63,15 @@ export class CheckpointsAPI {
 
   /**
    * List all checkpoints.
+   *
+   * Supports filtering by debate via `debate_id` and by `status`
+   * (documented GET /api/v1/checkpoints query params).
    */
   async list(params?: {
     limit?: number;
     offset?: number;
+    debate_id?: string;
+    status?: string;
   }): Promise<{ checkpoints: Checkpoint[]; total: number }> {
     return this.client.request('GET', '/api/v1/checkpoints', {
       params: params as Record<string, unknown>,
@@ -115,6 +120,13 @@ export class CheckpointsAPI {
 
   /**
    * List checkpoints for a specific debate.
+   *
+   * @deprecated Currently unreachable: CheckpointHandler implements
+   * GET /api/v1/debates/{id}/checkpoints, but the server route index hands
+   * every /api/debates/* path to DebatesHandler first, which has no
+   * checkpoints branch and returns 404 from its slug lookup. Use
+   * {@link list} with `{ debate_id }` (documented GET /api/v1/checkpoints)
+   * instead.
    */
   async listForDebate(debateId: string): Promise<{ checkpoints: Checkpoint[] }> {
     return this.client.request('GET', `/api/v1/debates/${debateId}/checkpoints`);
@@ -122,6 +134,13 @@ export class CheckpointsAPI {
 
   /**
    * Create a checkpoint for a running debate.
+   *
+   * @deprecated Currently unreachable: CheckpointHandler implements
+   * POST /api/v1/debates/{id}/checkpoint, but the server route index hands
+   * every /api/debates/* path to DebatesHandler first, which has no
+   * checkpoint branch and returns 404 from its slug lookup. Kept pending a
+   * server wiring fix (wire-or-remove, #9397); there is no documented
+   * create-checkpoint alternative today.
    */
   async createForDebate(debateId: string): Promise<Checkpoint> {
     return this.client.request('POST', `/api/v1/debates/${debateId}/checkpoint`);

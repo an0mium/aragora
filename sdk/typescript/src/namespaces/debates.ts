@@ -643,16 +643,17 @@ export class DebatesAPI {
   /**
    * Add evidence to a debate.
    *
+   * @deprecated The server has no POST /api/v1/debates/{id}/evidence endpoint.
+   * This call is a silent no-op that LOOKS successful: the router matches the
+   * GET-only evidence-chain endpoint (ExplainabilityHandler) and returns 200
+   * with the evidence *explanation* — nothing is stored and no evidence_id is
+   * returned. Use {@link injectEvidence} (POST
+   * /api/v1/debates/{id}/inject-evidence, the documented endpoint) instead.
+   *
    * @param debateId - The debate ID
    * @param evidence - Evidence content
    * @param source - Optional source of the evidence
    * @param metadata - Optional additional metadata
-   *
-   * @example
-   * ```typescript
-   * const result = await client.debates.addEvidence('debate-123', 'Studies show...', 'research-paper');
-   * console.log(`Evidence added: ${result.evidence_id}`);
-   * ```
    */
   async addEvidence(
     debateId: string,
@@ -663,6 +664,43 @@ export class DebatesAPI {
     return this.client.request('POST', `/api/v1/debates/${debateId}/evidence`, {
       body: { evidence, source, metadata },
     });
+  }
+
+  /**
+   * Inject evidence into a running debate (with optional source citation).
+   *
+   * Matches the documented server contract for
+   * POST /api/v1/debates/{id}/inject-evidence
+   * ({ evidence, source? } -> { success, debate_id, intervention }).
+   *
+   * @param debateId - The debate ID
+   * @param evidence - Evidence content (required, non-empty)
+   * @param source - Optional source citation
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.injectEvidence(
+   *   'debate-123',
+   *   'Studies show...',
+   *   'research-paper'
+   * );
+   * console.log(`Injected: ${result.success}`);
+   * ```
+   */
+  async injectEvidence(
+    debateId: string,
+    evidence: string,
+    source?: string
+  ): Promise<{
+    success: boolean;
+    debate_id: string;
+    intervention: Record<string, unknown>;
+  }> {
+    return this.client.request(
+      'POST',
+      `/api/v1/debates/${encodeURIComponent(debateId)}/inject-evidence`,
+      { body: source !== undefined ? { evidence, source } : { evidence } }
+    );
   }
 
   /**
@@ -1872,15 +1910,12 @@ export class DebatesAPI {
   /**
    * Get health status for a specific debate.
    *
-   * @param debateId - The debate ID
+   * @deprecated The server has no per-debate health endpoint: no handler
+   * dispatches GET /api/v1/debates/{id}/health, so the request falls through
+   * to DebatesHandler's slug lookup and returns 404. Use {@link listHealth}
+   * (GET /api/v1/debates/health) for system-wide debate health instead.
    *
-   * @example
-   * ```typescript
-   * const health = await client.debates.getHealth('debate-123');
-   * if (health.status === 'stuck') {
-   *   console.log(`Debate stuck since round ${health.stuck_since_round}`);
-   * }
-   * ```
+   * @param debateId - The debate ID
    */
   async getHealth(debateId: string): Promise<DebateHealthDetail> {
     return this.client.request('GET', `/api/v1/debates/${debateId}/health`);
@@ -2076,13 +2111,10 @@ export class DebatesAPI {
    *
    * @param options - Filter options
    *
-   * @example
-   * ```typescript
-   * const agentStats = await client.debates.getAgentStatistics({ period: '30d' });
-   * for (const agent of agentStats.agents) {
-   *   console.log(`${agent.name}: ${agent.win_rate}% win rate`);
-   * }
-   * ```
+   * @deprecated Not served: no handler dispatches
+   * GET /api/v1/debates/statistics/agents — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Use {@link getStatsAgents}
+   * (documented GET /api/debates/stats/agents) instead.
    */
   async getAgentStatistics(options?: {
     period?: string;
@@ -2096,14 +2128,13 @@ export class DebatesAPI {
   /**
    * Get consensus analytics for debates.
    *
-   * @param period - Time period for analytics
+   * @deprecated Not served: /api/v1/debates/analytics/consensus is declared in
+   * DebatesHandler.ROUTES but never dispatched — the request falls through to
+   * the slug lookup and returns 404. Use the documented
+   * GET /api/analytics/consensus-quality or
+   * GET /api/v1/analytics/debates/overview endpoints instead.
    *
-   * @example
-   * ```typescript
-   * const consensus = await client.debates.getConsensusAnalytics('30d');
-   * console.log(`Consensus reached in ${consensus.reached_count}/${consensus.total_debates}`);
-   * console.log(`Average confidence: ${consensus.avg_confidence}`);
-   * ```
+   * @param period - Time period for analytics
    */
   async getConsensusAnalytics(period: string = '30d'): Promise<ConsensusAnalytics> {
     return this.client.request('GET', '/api/v1/debates/analytics/consensus', {
@@ -2114,15 +2145,12 @@ export class DebatesAPI {
   /**
    * Get topic trends in debates.
    *
-   * @param options - Filter options
+   * @deprecated Not served: /api/v1/debates/analytics/trends is declared in
+   * DebatesHandler.ROUTES but never dispatched — the request falls through to
+   * the slug lookup and returns 404. Use the documented
+   * GET /api/v1/analytics/debates/trends endpoint instead.
    *
-   * @example
-   * ```typescript
-   * const trends = await client.debates.getTopicTrends({ period: '7d', limit: 10 });
-   * for (const topic of trends.topics) {
-   *   console.log(`${topic.name}: ${topic.count} debates, ${topic.velocity} trend`);
-   * }
-   * ```
+   * @param options - Filter options
    */
   async getTopicTrends(options?: {
     period?: string;
@@ -2192,15 +2220,13 @@ export class DebatesAPI {
   /**
    * Cancel a batch job.
    *
-   * @param batchId - The batch ID to cancel
+   * @deprecated The server has no batch-cancel endpoint. Worse than a 404:
+   * DebatesHandler.handle_post matches the `/cancel` suffix and treats the
+   * literal path segment "batch" as a debate ID, so this attempts to cancel a
+   * debate named "batch" and fails. Cancel individual debates with
+   * {@link cancel} instead.
    *
-   * @example
-   * ```typescript
-   * const result = await client.debates.cancelBatch('batch-123');
-   * if (result.success) {
-   *   console.log(`Batch cancelled: ${result.cancelled_jobs} jobs stopped`);
-   * }
-   * ```
+   * @param batchId - The batch ID to cancel
    */
   async cancelBatch(batchId: string): Promise<{ success: boolean; cancelled_jobs: number }> {
     return this.client.request('POST', `/api/v1/debates/batch/${batchId}/cancel`);
@@ -2209,14 +2235,13 @@ export class DebatesAPI {
   /**
    * Retry failed jobs in a batch.
    *
+   * @deprecated Not served: no handler dispatches
+   * POST /api/v1/debates/batch/{id}/retry — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Re-submit failed debates
+   * with {@link submitBatch} instead.
+   *
    * @param batchId - The batch ID
    * @param options - Retry options
-   *
-   * @example
-   * ```typescript
-   * const result = await client.debates.retryBatch('batch-123', { onlyFailed: true });
-   * console.log(`Retrying ${result.retried_count} jobs`);
-   * ```
    */
   async retryBatch(
     batchId: string,
@@ -2230,15 +2255,13 @@ export class DebatesAPI {
   /**
    * Get detailed results from a completed batch.
    *
-   * @param batchId - The batch ID
+   * @deprecated Not served: no handler dispatches
+   * GET /api/v1/debates/batch/{id}/results — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Use {@link getBatchStatus}
+   * (documented GET /api/v1/debates/batch/{id}/status, which includes per-job
+   * state) instead.
    *
-   * @example
-   * ```typescript
-   * const results = await client.debates.getBatchResults('batch-123');
-   * for (const result of results.debates) {
-   *   console.log(`${result.debate_id}: ${result.status}`);
-   * }
-   * ```
+   * @param batchId - The batch ID
    */
   async getBatchResults(batchId: string): Promise<BatchResults> {
     return this.client.request('GET', `/api/v1/debates/batch/${batchId}/results`);
@@ -2270,16 +2293,13 @@ export class DebatesAPI {
   /**
    * Get similar debates to a given debate.
    *
+   * @deprecated Not served: no handler dispatches
+   * GET /api/v1/debates/{id}/similar — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Use cross-debate search
+   * ({@link search}) or {@link compare} instead.
+   *
    * @param debateId - The debate ID to find similar debates for
    * @param limit - Maximum number of similar debates to return
-   *
-   * @example
-   * ```typescript
-   * const similar = await client.debates.findSimilar('debate-123', 5);
-   * for (const debate of similar.debates) {
-   *   console.log(`${debate.debate_id}: ${debate.similarity_score}`);
-   * }
-   * ```
    */
   async findSimilar(
     debateId: string,
@@ -2293,16 +2313,13 @@ export class DebatesAPI {
   /**
    * Analyze argument quality in a debate.
    *
-   * @param debateId - The debate ID
+   * @deprecated Not served: no handler dispatches
+   * GET /api/v1/debates/{id}/quality — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. There is no server
+   * equivalent; the closest documented endpoint is
+   * GET /api/v1/debates/{id}/summary ({@link getSummary}).
    *
-   * @example
-   * ```typescript
-   * const quality = await client.debates.analyzeArgumentQuality('debate-123');
-   * console.log(`Overall quality: ${quality.overall_score}`);
-   * for (const agent of quality.by_agent) {
-   *   console.log(`${agent.name}: ${agent.quality_score}`);
-   * }
-   * ```
+   * @param debateId - The debate ID
    */
   async analyzeArgumentQuality(debateId: string): Promise<ArgumentQualityAnalysis> {
     return this.client.request('GET', `/api/v1/debates/${debateId}/quality`);
@@ -2332,13 +2349,12 @@ export class DebatesAPI {
   /**
    * List archived debates.
    *
-   * @param options - Pagination options
+   * @deprecated Not served: /api/v1/debates/archived is declared in
+   * DebatesHandler.ROUTES but never dispatched — the request falls through to
+   * the slug lookup and returns 404. There is no server endpoint that lists
+   * archived debates; use {@link list} for active debates.
    *
-   * @example
-   * ```typescript
-   * const archived = await client.debates.listArchived({ limit: 50 });
-   * console.log(`${archived.total} debates in archive`);
-   * ```
+   * @param options - Pagination options
    */
   async listArchived(options?: {
     limit?: number;
@@ -2352,15 +2368,12 @@ export class DebatesAPI {
   /**
    * Restore an archived debate.
    *
-   * @param debateId - The debate ID to restore
+   * @deprecated Not served: no handler dispatches
+   * POST /api/v1/debates/{id}/restore — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. There is no un-archive
+   * endpoint on the server (archiving via {@link archive} is one-way today).
    *
-   * @example
-   * ```typescript
-   * const result = await client.debates.restore('debate-123');
-   * if (result.success) {
-   *   console.log('Debate restored successfully');
-   * }
-   * ```
+   * @param debateId - The debate ID to restore
    */
   async restore(debateId: string): Promise<{ success: boolean }> {
     return this.client.request('POST', `/api/v1/debates/${debateId}/restore`);
@@ -2369,15 +2382,13 @@ export class DebatesAPI {
   /**
    * Permanently delete a debate (requires archive first).
    *
-   * @param debateId - The debate ID to delete permanently
+   * @deprecated Not served: no handler dispatches
+   * DELETE /api/v1/debates/{id}/permanent — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Use {@link delete}
+   * (documented DELETE /api/v1/debates/{id}, which permanently deletes the
+   * debate and cascades to critiques) instead.
    *
-   * @example
-   * ```typescript
-   * const result = await client.debates.deletePermanently('debate-123');
-   * if (result.success) {
-   *   console.log('Debate permanently deleted');
-   * }
-   * ```
+   * @param debateId - The debate ID to delete permanently
    */
   async deletePermanently(debateId: string): Promise<{ success: boolean }> {
     return this.client.request('DELETE', `/api/v1/debates/${debateId}/permanent`);
@@ -2390,13 +2401,13 @@ export class DebatesAPI {
   /**
    * Add tags to a debate.
    *
+   * @deprecated Not served: no handler dispatches
+   * POST /api/v1/debates/{id}/tags — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Use {@link update}
+   * (documented PATCH /api/v1/debates/{id} with a `tags` field) instead.
+   *
    * @param debateId - The debate ID
    * @param tags - Array of tags to add
-   *
-   * @example
-   * ```typescript
-   * await client.debates.addTags('debate-123', ['important', 'review']);
-   * ```
    */
   async addTags(debateId: string, tags: string[]): Promise<{ success: boolean; tags: string[] }> {
     return this.client.request('POST', `/api/v1/debates/${debateId}/tags`, {
@@ -2407,13 +2418,14 @@ export class DebatesAPI {
   /**
    * Remove tags from a debate.
    *
+   * @deprecated Not served: no handler dispatches
+   * DELETE /api/v1/debates/{id}/tags — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Use {@link update}
+   * (documented PATCH /api/v1/debates/{id} with the desired `tags` list)
+   * instead.
+   *
    * @param debateId - The debate ID
    * @param tags - Array of tags to remove
-   *
-   * @example
-   * ```typescript
-   * await client.debates.removeTags('debate-123', ['review']);
-   * ```
    */
   async removeTags(debateId: string, tags: string[]): Promise<{ success: boolean; tags: string[] }> {
     return this.client.request('DELETE', `/api/v1/debates/${debateId}/tags`, {
@@ -2447,16 +2459,13 @@ export class DebatesAPI {
   /**
    * Update metadata for a debate.
    *
+   * @deprecated Not served: no handler dispatches
+   * PATCH /api/v1/debates/{id}/metadata — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Use {@link update}
+   * (documented PATCH /api/v1/debates/{id} with a `metadata` field) instead.
+   *
    * @param debateId - The debate ID
    * @param metadata - Metadata to merge with existing metadata
-   *
-   * @example
-   * ```typescript
-   * await client.debates.updateMetadata('debate-123', {
-   *   priority: 'high',
-   *   reviewer: 'john@example.com',
-   * });
-   * ```
    */
   async updateMetadata(
     debateId: string,
@@ -2474,14 +2483,14 @@ export class DebatesAPI {
   /**
    * Add a note to a debate.
    *
+   * @deprecated Not served: the server has no debate-notes feature. No handler
+   * dispatches POST /api/v1/debates/{id}/notes — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Store annotations via
+   * {@link update} (PATCH /api/v1/debates/{id} with a `metadata` field)
+   * instead.
+   *
    * @param debateId - The debate ID
    * @param note - The note content
-   *
-   * @example
-   * ```typescript
-   * const result = await client.debates.addNote('debate-123', 'Needs further review');
-   * console.log(`Note added: ${result.note_id}`);
-   * ```
    */
   async addNote(
     debateId: string,
@@ -2495,15 +2504,11 @@ export class DebatesAPI {
   /**
    * Get notes for a debate.
    *
-   * @param debateId - The debate ID
+   * @deprecated Not served: the server has no debate-notes feature. No handler
+   * dispatches GET /api/v1/debates/{id}/notes — the request falls through to
+   * DebatesHandler's slug lookup and returns 404.
    *
-   * @example
-   * ```typescript
-   * const notes = await client.debates.getNotes('debate-123');
-   * for (const note of notes) {
-   *   console.log(`${note.created_at}: ${note.content}`);
-   * }
-   * ```
+   * @param debateId - The debate ID
    */
   async getNotes(debateId: string): Promise<DebateNote[]> {
     const response = await this.client.request<{ notes: DebateNote[] }>(
@@ -2516,13 +2521,12 @@ export class DebatesAPI {
   /**
    * Delete a note from a debate.
    *
+   * @deprecated Not served: the server has no debate-notes feature. No handler
+   * dispatches DELETE /api/v1/debates/{id}/notes/{noteId} — the request falls
+   * through to DebatesHandler's slug lookup and returns 404.
+   *
    * @param debateId - The debate ID
    * @param noteId - The note ID to delete
-   *
-   * @example
-   * ```typescript
-   * await client.debates.deleteNote('debate-123', 'note-456');
-   * ```
    */
   async deleteNote(debateId: string, noteId: string): Promise<{ success: boolean }> {
     return this.client.request('DELETE', `/api/v1/debates/${debateId}/notes/${noteId}`);
@@ -2763,6 +2767,13 @@ export class DebatesAPI {
 
   /**
    * Get public spectate status for a shared debate.
+   *
+   * @deprecated Currently unreachable: DebateShareHandler implements
+   * GET /api/v1/debates/{id}/spectate/public, but the server route index
+   * hands every /api/debates/* path to DebatesHandler first, which has no
+   * spectate branch and returns 404 from its slug lookup. Pending a server
+   * wiring fix (wire-or-remove, #9397), use {@link getPublicDebate} for
+   * publicly shared debates.
    */
   async getPublicSpectate(debateId: string): Promise<Record<string, unknown>> {
     return this.client.request(
@@ -3231,18 +3242,13 @@ export class DebatesAPI {
    * Returns reasoning chains, key crux points, unresolved disagreements,
    * and intervention data for a debate.
    *
-   * @param debateId - The debate ID
+   * @deprecated Currently unreachable: DebateInterventionHandler implements
+   * GET /api/v1/debates/{id}/reasoning, but it is not registered with the
+   * server route index, so the request is handed to DebatesHandler (no
+   * reasoning branch) and returns 404 from its slug lookup. Kept pending a
+   * server wiring fix (wire-or-remove, #9397).
    *
-   * @example
-   * ```typescript
-   * const reasoning = await client.debates.getReasoning('debate-123');
-   * for (const agent of reasoning.agents) {
-   *   console.log(`${agent.name}: confidence ${agent.confidence}`);
-   * }
-   * for (const crux of reasoning.cruxes) {
-   *   console.log(`Crux: ${crux.claim} (confidence: ${crux.confidence})`);
-   * }
-   * ```
+   * @param debateId - The debate ID
    */
   async getReasoning(debateId: string): Promise<{
     data: {
@@ -3267,16 +3273,14 @@ export class DebatesAPI {
   /**
    * Get per-agent performance statistics for a specific debate.
    *
+   * @deprecated Not served: no handler dispatches
+   * GET /api/v1/debates/{id}/agent-statistics — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Use {@link getStatsAgents}
+   * (documented GET /api/debates/stats/agents, aggregate across debates)
+   * instead.
+   *
    * @param debateId - The debate to retrieve agent statistics for
    * @returns Per-agent statistics keyed by agent name
-   *
-   * @example
-   * ```typescript
-   * const stats = await client.debates.getDebateAgentStatistics('debate-123');
-   * for (const [agent, data] of Object.entries(stats.agents)) {
-   *   console.log(`${agent}: score=${data.contribution_score}`);
-   * }
-   * ```
    */
   async getDebateAgentStatistics(debateId: string): Promise<{
     debate_id: string;
@@ -3294,13 +3298,12 @@ export class DebatesAPI {
   /**
    * Make a debate permanent (prevent automatic cleanup or archiving).
    *
-   * @param debateId - The debate to mark as permanent
+   * @deprecated Not served: no handler dispatches
+   * POST /api/v1/debates/{id}/make-permanent — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. There is no server
+   * equivalent for pinning a debate.
    *
-   * @example
-   * ```typescript
-   * const result = await client.debates.makePermanent('debate-123');
-   * console.log(`Debate is now permanent: ${result.is_permanent}`);
-   * ```
+   * @param debateId - The debate to mark as permanent
    */
   async makePermanent(debateId: string): Promise<{ success: boolean; is_permanent: boolean; debate_id: string }> {
     return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(debateId)}/make-permanent`);
