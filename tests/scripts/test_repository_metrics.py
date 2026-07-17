@@ -137,6 +137,35 @@ def test_ref_snapshots_are_isolated_and_ref_specific(tmp_path: Path) -> None:
     assert first.git_sha != after.git_sha
 
 
+def test_ref_snapshot_uses_resolved_sha_if_branch_moves(tmp_path: Path, monkeypatch) -> None:
+    repo = _repo(tmp_path)
+    catalog = _catalog(tmp_path / "catalog.toml", _metric("python_files", "python_surface"))
+    base_sha = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "branch", "moving", base_sha)
+
+    (repo / "aragora" / "two.py").write_text("value = 2\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "advance branch target")
+    advanced_sha = _git(repo, "rev-parse", "HEAD")
+    original_run_git = metrics._run_git
+    moved = False
+
+    def move_branch_after_resolution(repo_root: Path, *args: str) -> bytes:
+        nonlocal moved
+        result = original_run_git(repo_root, *args)
+        if not moved and args[0] == "rev-parse":
+            _git(repo, "branch", "-f", "moving", advanced_sha)
+            moved = True
+        return result
+
+    monkeypatch.setattr(metrics, "_run_git", move_branch_after_resolution)
+    snapshot = metrics.collect_ref_snapshot(repo, "moving", catalog)
+
+    assert snapshot.git_sha == base_sha
+    assert snapshot.values["python_files"] == 1
+    assert _git(repo, "rev-parse", "moving") == advanced_sha
+
+
 def test_snapshot_cli_writes_exact_ref_snapshot(tmp_path: Path) -> None:
     output = tmp_path / "metrics.json"
     result = subprocess.run(

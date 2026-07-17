@@ -369,13 +369,13 @@ def collect_ref_snapshot(
     sha = _run_git(repo_root, "rev-parse", f"{ref}^{{commit}}").decode().strip()
     tracked = tuple(
         PurePosixPath(path.decode("utf-8"))
-        for path in _run_git(repo_root, "ls-tree", "-r", "--name-only", "-z", ref).split(b"\0")
+        for path in _run_git(repo_root, "ls-tree", "-r", "--name-only", "-z", sha).split(b"\0")
         if path
     )
     with tempfile.TemporaryDirectory(prefix="repository-metrics-") as temp:
         temp_path = Path(temp)
         archive = temp_path / "ref.tar"
-        _run_git(repo_root, "archive", "--format=tar", f"--output={archive}", ref)
+        _run_git(repo_root, "archive", "--format=tar", f"--output={archive}", sha)
         root = temp_path / "tree"
         root.mkdir()
         _extract_archive(archive, root)
