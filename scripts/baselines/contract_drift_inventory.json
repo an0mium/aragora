@@ -734,6 +734,30 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:DELETE /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:DELETE /api/n8n/node",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:DELETE /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/orchestration/canvas/{param}",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -2432,6 +2456,14 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/pulse/scheduler/analytics",
       "provenance": "python extractor blindness fix (#9362)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:GET /api/pulse/scheduler/config",
+      "provenance": "Discovered by PR #9365: deprecated-in-place shim get_scheduler_config performs a safe GET on a PATCH-only route (previous implementation POSTed into the config-update branch); kept per the SDK deprecation convention (#9366/#9367), resolves when the shim is removed",
       "source": "python_sdk_drift",
       "status": "open"
     },
@@ -4582,6 +4614,30 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/n8n/node",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/onboarding/complete",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -5559,6 +5615,14 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/memory/context",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "typescript_sdk_drift:DELETE /api/memory/continuum/{param}",
       "provenance": "PR #9366: contract-correct deleteEntry calls DELETE /api/v1/memory/continuum/{id} (served by MemoryHandler.handle_delete) but the generated spec lacks the route (generator ROUTES gap, see #9360)",
       "source": "typescript_sdk_drift",
@@ -5569,6 +5633,30 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:DELETE /api/memory/snapshots/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/n8n/node",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -5617,6 +5705,14 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:DELETE /api/users/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/webhooks/bulk",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -7928,6 +8024,22 @@
       "status": "open"
     },
     {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/external-agents/adapters",
+      "provenance": "Discovered by PR #9365: generic-handle GET dispatch analysis replaced the ambiguous class-verb guess on these routes; handler dispatch verified 2026-07-16 \u2014 external-agents adapters/health are GET-only (external_agents.py handle()), and /api/v1/invites serves only POST {token}/accept sub-routes (workspace_module.py _route_invites) \u2014 the TS SDK methods POST to operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/external-agents/health",
+      "provenance": "Discovered by PR #9365: generic-handle GET dispatch analysis replaced the ambiguous class-verb guess on these routes; handler dispatch verified 2026-07-16 \u2014 external-agents adapters/health are GET-only (external_agents.py handle()), and /api/v1/invites serves only POST {token}/accept sub-routes (workspace_module.py _route_invites) \u2014 the TS SDK methods POST to operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/facts",
@@ -8120,6 +8232,14 @@
       "status": "open"
     },
     {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/invites",
+      "provenance": "Discovered by PR #9365: generic-handle GET dispatch analysis replaced the ambiguous class-verb guess on these routes; handler dispatch verified 2026-07-16 \u2014 external-agents adapters/health are GET-only (external_agents.py handle()), and /api/v1/invites serves only POST {token}/accept sub-routes (workspace_module.py _route_invites) \u2014 the TS SDK methods POST to operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/knowledge/embeddings",
@@ -8292,6 +8412,30 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/media/audio/{param}/convert",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/n8n/node",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
