@@ -3,6 +3,174 @@
   "generated_by": "scripts/generate_contract_drift_inventory.py",
   "items": [
     {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}/adjust",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}/expiring",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}/issue",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}/transactions",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/email/daily-digest",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/email/sender-profile",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/actions",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/bulk-actions",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/command",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/daily-digest",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/reprioritize",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/sender-profile",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/integrations/status",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/integrations/{param}",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/integrations/{param}/test",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}/adjust",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}/expiring",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}/issue",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}/transactions",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/elo-trends",

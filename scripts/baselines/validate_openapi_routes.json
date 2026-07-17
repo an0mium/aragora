@@ -1,5 +1,27 @@
 {
-  "missing_in_spec": [],
+  "missing_in_spec": [
+    "/api/admin/credits/{param}",
+    "/api/admin/credits/{param}/adjust",
+    "/api/admin/credits/{param}/expiring",
+    "/api/admin/credits/{param}/issue",
+    "/api/admin/credits/{param}/transactions",
+    "/api/email/daily-digest",
+    "/api/email/sender-profile",
+    "/api/inbox/actions",
+    "/api/inbox/bulk-actions",
+    "/api/inbox/command",
+    "/api/inbox/daily-digest",
+    "/api/inbox/reprioritize",
+    "/api/inbox/sender-profile",
+    "/api/integrations/status",
+    "/api/integrations/{param}",
+    "/api/integrations/{param}/test",
+    "/api/v1/admin/credits/{param}",
+    "/api/v1/admin/credits/{param}/adjust",
+    "/api/v1/admin/credits/{param}/expiring",
+    "/api/v1/admin/credits/{param}/issue",
+    "/api/v1/admin/credits/{param}/transactions"
+  ],
   "orphaned_in_spec": [
     "/api/v1/calibration/curve",
     "/api/v1/calibration/history",

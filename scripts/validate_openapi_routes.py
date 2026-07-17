@@ -460,15 +460,23 @@ def normalize_route(route: str | tuple, *, normalize_version: bool = True) -> st
     return route
 
 
-def filter_wired_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
-    """Split orphan candidates by literal evidence from wired route functions."""
+def load_wired_routes_for_validation() -> set[str]:
+    """Load literal wired routes with exact API-version semantics."""
     try:
-        wired_routes = {
+        return {
             normalize_route(route, normalize_version=False) for route in get_wired_function_routes()
         }
     except RouteRegistrationScanError as exc:
         print(f"Error: {exc}. Refusing to validate partial route wiring.", file=sys.stderr)
         sys.exit(1)
+
+
+def filter_wired_orphans(
+    candidates: set[str], wired_routes: set[str] | None = None
+) -> tuple[set[str], set[str]]:
+    """Split orphan candidates by literal evidence from wired route functions."""
+    if wired_routes is None:
+        wired_routes = load_wired_routes_for_validation()
 
     served = candidates & wired_routes
     if served:
@@ -501,10 +509,12 @@ def validate_coverage(
     """
     handler_routes = get_handler_routes()
     openapi_routes = get_openapi_routes(spec_path)
+    wired_routes = load_wired_routes_for_validation()
 
     # Normalize routes for comparison
     normalized_handler = {normalize_route(r) for r in handler_routes}
     normalized_openapi = {normalize_route(r) for r in openapi_routes}
+    normalized_openapi_exact = {normalize_route(r, normalize_version=False) for r in openapi_routes}
     internal_prefixes = load_internal_prefixes(internal_prefixes_path)
     if not include_internal:
         normalized_handler = {
@@ -513,10 +523,18 @@ def validate_coverage(
         normalized_openapi = {
             r for r in normalized_openapi if not is_internal_route(r, internal_prefixes)
         }
+        normalized_openapi_exact = {
+            r for r in normalized_openapi_exact if not is_internal_route(r, internal_prefixes)
+        }
+        wired_routes = {r for r in wired_routes if not is_internal_route(r, internal_prefixes)}
+
+    effective_handler_routes = normalized_handler | wired_routes
 
     # Find discrepancies
     # Routes in handlers but not in OpenAPI (these need to be documented)
-    missing_in_spec = normalized_handler - normalized_openapi
+    missing_in_spec = (normalized_handler - normalized_openapi) | (
+        wired_routes - normalized_openapi_exact
+    )
 
     # Routes in OpenAPI but not in handlers (may be deprecated or generated)
     missing_handlers = normalized_openapi - normalized_handler
@@ -545,7 +563,9 @@ def validate_coverage(
     # A spec path is only orphaned if no server wiring or registered handler
     # routes it. Free-function registrations and can_handle paths do not always
     # have class-level ROUTES metadata.
-    orphan_candidates, served_wired_registration = filter_wired_orphans(orphan_candidates)
+    orphan_candidates, served_wired_registration = filter_wired_orphans(
+        orphan_candidates, wired_routes
+    )
     orphaned_in_spec, served_can_handle = filter_served_orphans(orphan_candidates)
     served_undeclared = served_wired_registration | served_can_handle
 
@@ -563,6 +583,8 @@ def validate_coverage(
 
     results = {
         "handler_routes_count": len(handler_routes),
+        "wired_function_routes_count": len(wired_routes),
+        "effective_handler_routes_count": len(effective_handler_routes),
         "openapi_routes_count": len(openapi_routes),
         "missing_in_spec": sorted(missing_in_spec),
         "missing_in_spec_count": len(missing_in_spec),
@@ -578,7 +600,7 @@ def validate_coverage(
         "new_orphaned_in_spec_count": len(new_orphaned_in_spec),
         "dynamic_routes_skipped": len(known_dynamic_patterns),
         "coverage_percentage": round(
-            (1 - len(missing_in_spec) / max(len(handler_routes), 1)) * 100, 1
+            (1 - len(missing_in_spec) / max(len(effective_handler_routes), 1)) * 100, 1
         ),
     }
 
