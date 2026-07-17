@@ -135,9 +135,17 @@ def _catalog_projection() -> dict[str, ProviderPricing]:
     candidate models, so projecting alias/openrouter spellings would let
     one model occupy several candidate slots and crowd out genuinely
     distinct providers. Alias spellings still price correctly through the
-    ``by_any_id`` fallback in :func:`get_estimated_cost`."""
+    ``by_any_id`` fallback in :func:`get_estimated_cost`.
+
+    Models still inside their catalog soak window are NOT projected
+    (#9364 round-3): the enumerated table is an adoption surface, and the
+    catalog contract says a model must not be adopted before
+    ``soak_until``. Cost lookup for under-soak ids keeps working through
+    the same ``by_any_id`` fallback, which has no soak gating."""
     rows: dict[str, ProviderPricing] = {}
     for spec in CATALOG.values():
+        if spec.is_under_soak():
+            continue
         rows[spec.canonical_id] = ProviderPricing(
             provider_name=spec.provider,
             model_name=spec.direct_id,

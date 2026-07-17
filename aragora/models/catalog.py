@@ -62,6 +62,19 @@ class ModelSpec:
     def all_ids(self) -> tuple[str, ...]:
         return (self.canonical_id, self.direct_id, self.openrouter_id, *self.aliases)
 
+    def is_under_soak(self, today: date | None = None) -> bool:
+        """True while the model is inside its post-release soak window
+        (before ``soak_until``; the 14-day availability rule).
+
+        Adoption surfaces — merge-authority evidence, routing candidate
+        enumeration — must not offer the model while under soak. Id
+        resolution (``by_any_id``) and cost lookup for its ids remain
+        valid throughout the window.
+        """
+        if self.soak_until is None:
+            return False
+        return (today if today is not None else date.today()) < self.soak_until
+
 
 # Prices are USD per 1M tokens, captured from the live OpenRouter catalog on
 # 2026-07-16 (see catalog_snapshot.json for the raw capture). Direct-provider
