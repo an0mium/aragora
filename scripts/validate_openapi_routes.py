@@ -4,7 +4,8 @@
 This script ensures the OpenAPI specification stays in sync with actual
 handler implementations by comparing:
 1. Routes defined in handler ROUTES attributes
-2. Routes in the OpenAPI spec paths
+2. Literal routes in server-wired aiohttp registration functions
+3. Routes in the OpenAPI spec paths
 
 Usage:
     python scripts/validate_openapi_routes.py
@@ -17,9 +18,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import sys
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +30,13 @@ from typing import Any
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+
+_SERVER_ROUTE_REGISTRATION = (
+    _REPO_ROOT / "aragora" / "server" / "stream" / "servers_route_registration.py"
+)
+_LITERAL_ROUTER_METHODS = frozenset(
+    {"add_get", "add_post", "add_put", "add_patch", "add_delete", "add_head", "add_options"}
+)
 
 # Route validation is an offline contract check. Disable AWS Secrets Manager
 # lookups so importing handlers does not stall or fail on network-restricted dev/CI
@@ -98,8 +108,115 @@ def is_internal_route(route: str, prefixes: tuple[str, ...] | list[str]) -> bool
     return False
 
 
+class RouteRegistrationScanError(ValueError):
+    """A wired route-registration source could not be inspected safely."""
+
+
+def _parse_python_source(path: Path) -> ast.Module:
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RouteRegistrationScanError(f"cannot read route-registration source {path}: {exc}")
+    try:
+        return ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        raise RouteRegistrationScanError(f"cannot parse route-registration source {path}: {exc}")
+
+
+def _resolve_local_module(repo_root: Path, module_name: str) -> Path | None:
+    relative = Path(*module_name.split("."))
+    candidates = (repo_root / relative.with_suffix(".py"), repo_root / relative / "__init__.py")
+    return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+
+def _iter_executable_calls(nodes: Iterable[ast.AST]) -> Iterator[ast.Call]:
+    """Yield calls while excluding nested definitions that may never execute."""
+    for node in nodes:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            continue
+        if isinstance(node, ast.Call):
+            yield node
+        yield from _iter_executable_calls(ast.iter_child_nodes(node))
+
+
+def get_wired_function_routes(
+    registration_path: Path | None = None,
+    repo_root: Path | None = None,
+) -> set[str]:
+    """Statically extract literal routes from wired aiohttp registration functions.
+
+    The server registration module is the authority for which free functions
+    participate in startup. Only imported ``register_*`` callables that are
+    actually called there are considered. Within those exact function bodies,
+    only literal ``<first-argument>.router.add_*('/api/...')`` calls count.
+    Computed paths, re-exported functions without a local definition, and
+    unrelated route-registration helpers remain unverified.
+    """
+    root = repo_root or _REPO_ROOT
+    wiring_path = registration_path or _SERVER_ROUTE_REGISTRATION
+    wiring_tree = _parse_python_source(wiring_path)
+
+    imports: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(wiring_tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if not node.module or not node.module.startswith("aragora."):
+            continue
+        for imported in node.names:
+            local_name = imported.asname or imported.name
+            imports[local_name] = (node.module, imported.name)
+
+    called_names = {
+        node.func.id
+        for node in ast.walk(wiring_tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+
+    routes: set[str] = set()
+    for local_name in sorted(called_names & imports.keys()):
+        module_name, function_name = imports[local_name]
+        if not (local_name.startswith("register_") or function_name.startswith("register_")):
+            continue
+
+        module_path = _resolve_local_module(root, module_name)
+        if module_path is None:
+            continue
+        module_tree = _parse_python_source(module_path)
+        definitions = (
+            node
+            for node in module_tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == function_name
+        )
+        for function in definitions:
+            if not function.args.args:
+                continue
+            app_argument = function.args.args[0].arg
+            for call in _iter_executable_calls(function.body):
+                if not isinstance(call.func, ast.Attribute):
+                    continue
+                if call.func.attr not in _LITERAL_ROUTER_METHODS or not call.args:
+                    continue
+                receiver = call.func.value
+                if not (
+                    isinstance(receiver, ast.Attribute)
+                    and receiver.attr == "router"
+                    and isinstance(receiver.value, ast.Name)
+                    and receiver.value.id == app_argument
+                ):
+                    continue
+                path_argument = call.args[0]
+                if (
+                    isinstance(path_argument, ast.Constant)
+                    and isinstance(path_argument.value, str)
+                    and path_argument.value.startswith("/api/")
+                ):
+                    routes.add(path_argument.value)
+    return routes
+
+
 def get_handler_routes() -> set[str]:
-    """Extract all routes from handler ROUTES attributes.
+    """Extract routes from class metadata and decorator metadata.
 
     Returns:
         Set of route paths defined across all handlers.
@@ -296,7 +413,7 @@ def get_openapi_routes(spec_path: str) -> set[str]:
     return routes
 
 
-def normalize_route(route: str | tuple) -> str:
+def normalize_route(route: str | tuple, *, normalize_version: bool = True) -> str:
     """Normalize a route for comparison.
 
     Handles:
@@ -327,8 +444,9 @@ def normalize_route(route: str | tuple) -> str:
     # Strip trailing slash
     route = route.rstrip("/")
 
-    # Normalize version prefix
-    if route.startswith("/api/") and not route.startswith("/api/v"):
+    # Normalize version prefix when comparing legacy handler metadata. Literal
+    # server wiring must match the exact API version it actually registers.
+    if normalize_version and route.startswith("/api/") and not route.startswith("/api/v"):
         route = route.replace("/api/", "/api/v1/", 1)
 
     # Convert wildcard * to generic {param} for comparison
@@ -340,6 +458,27 @@ def normalize_route(route: str | tuple) -> str:
     route = re.sub(r"/\{[^}]+\}", "/{param}", route)
 
     return route
+
+
+def filter_wired_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
+    """Split orphan candidates by literal evidence from wired route functions."""
+    try:
+        wired_routes = {
+            normalize_route(route, normalize_version=False) for route in get_wired_function_routes()
+        }
+    except RouteRegistrationScanError as exc:
+        print(f"Error: {exc}. Refusing to validate partial route wiring.", file=sys.stderr)
+        sys.exit(1)
+
+    served = candidates & wired_routes
+    if served:
+        print(
+            f"Spec-orphan suppressions via wired route registrations ({len(served)}):",
+            file=sys.stderr,
+        )
+        for path in sorted(served):
+            print(f"  - {path}", file=sys.stderr)
+    return candidates - served, served
 
 
 def validate_coverage(
@@ -403,9 +542,12 @@ def validate_coverage(
     # Routes that are truly orphaned in OpenAPI
     orphan_candidates = missing_handlers - known_dynamic_patterns
 
-    # A spec path is only orphaned if no registered handler routes it; handlers
-    # frequently serve literal paths via can_handle without declaring them.
-    orphaned_in_spec, served_undeclared = filter_served_orphans(orphan_candidates)
+    # A spec path is only orphaned if no server wiring or registered handler
+    # routes it. Free-function registrations and can_handle paths do not always
+    # have class-level ROUTES metadata.
+    orphan_candidates, served_wired_registration = filter_wired_orphans(orphan_candidates)
+    orphaned_in_spec, served_can_handle = filter_served_orphans(orphan_candidates)
+    served_undeclared = served_wired_registration | served_can_handle
 
     baseline_missing: set[str] = set()
     baseline_orphaned: set[str] = set()
@@ -430,6 +572,8 @@ def validate_coverage(
         "orphaned_in_spec_count": len(orphaned_in_spec),
         "served_undeclared": sorted(served_undeclared),
         "served_undeclared_count": len(served_undeclared),
+        "served_wired_registration": sorted(served_wired_registration),
+        "served_wired_registration_count": len(served_wired_registration),
         "new_orphaned_in_spec": new_orphaned_in_spec,
         "new_orphaned_in_spec_count": len(new_orphaned_in_spec),
         "dynamic_routes_skipped": len(known_dynamic_patterns),

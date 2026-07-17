@@ -122,6 +122,99 @@ def test_get_handler_routes_includes_api_endpoint_metadata(monkeypatch):
     assert "/api/v1/coordination/fleet/status" in routes
 
 
+def test_get_wired_function_routes_accepts_only_called_literal_app_routes(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        """
+from aragora.server.handlers.wired import register_routes as register_wired
+from aragora.server.handlers.wired import register_unused
+
+def install(app):
+    register_wired(app)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    handler.write_text(
+        """
+def register_routes(app):
+    computed = "/api/v1/computed"
+    app.router.add_get("/api/v1/wired", object())
+    app.router.add_post("/api/wired-legacy", object())
+    app.router.add_put(computed, object())
+    other.router.add_delete("/api/v1/other-router", object())
+    def dormant():
+        app.router.add_get("/api/v1/nested-unwired", object())
+
+def register_unused(app):
+    app.router.add_get("/api/v1/unwired", object())
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    routes = validate_openapi_routes.get_wired_function_routes(registration, tmp_path)
+
+    assert routes == {"/api/v1/wired", "/api/wired-legacy"}
+    assert {validate_openapi_routes.normalize_route(route) for route in routes} == {
+        "/api/v1/wired",
+        "/api/v1/wired-legacy",
+    }
+    assert {
+        validate_openapi_routes.normalize_route(route, normalize_version=False) for route in routes
+    } == {"/api/v1/wired", "/api/wired-legacy"}
+
+
+def test_get_wired_function_routes_fails_closed_on_unparseable_source(tmp_path: Path):
+    registration = tmp_path / "registration.py"
+    registration.write_text("def broken(:\n", encoding="utf-8")
+
+    with pytest.raises(validate_openapi_routes.RouteRegistrationScanError):
+        validate_openapi_routes.get_wired_function_routes(registration, tmp_path)
+
+
+def test_wired_function_routes_include_known_server_registrations():
+    routes = validate_openapi_routes.get_wired_function_routes()
+
+    assert {
+        "/api/v1/accounting/callback",
+        "/api/v1/accounting/gusto/callback",
+        "/api/v1/accounting/gusto/connect",
+        "/api/v1/accounting/gusto/disconnect",
+        "/api/v1/accounting/report",
+        "/api/v1/codebase/quick-scan",
+        "/api/v1/codebase/quick-scans",
+    } <= routes
+
+
+def test_validate_coverage_uses_wired_routes_only_to_disprove_orphans(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: set())
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_openapi_routes",
+        lambda _spec: {"/api/v1/wired", "/api/v1/wired-legacy", "/api/v1/dark"},
+    )
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_wired_function_routes",
+        lambda: {"/api/v1/wired", "/api/wired-legacy"},
+    )
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        baseline_path=str(baseline),
+        include_internal=True,
+    )
+
+    assert results["missing_in_spec"] == []
+    assert results["orphaned_in_spec"] == ["/api/v1/dark", "/api/v1/wired-legacy"]
+    assert results["served_wired_registration"] == ["/api/v1/wired"]
+
+
 def test_validate_coverage_treats_decorator_routes_as_implemented(monkeypatch, tmp_path: Path):
     endpoint = types.SimpleNamespace(path="/api/v1/coordination/swarm/integrator")
 

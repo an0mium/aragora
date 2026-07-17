@@ -106,40 +106,45 @@
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/accounting/callback",
       "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "resolved_on": "2026-07-17",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/accounting/gusto/callback",
       "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "resolved_on": "2026-07-17",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/accounting/gusto/connect",
       "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "resolved_on": "2026-07-17",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/accounting/gusto/disconnect",
       "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "resolved_on": "2026-07-17",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/accounting/report",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -179,16 +184,18 @@
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/codebase/quick-scan",
       "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "resolved_on": "2026-07-17",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/v1/codebase/quick-scans",
       "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "resolved_on": "2026-07-17",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
