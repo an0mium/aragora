@@ -200,6 +200,22 @@ def build_outputs(
     return outputs
 
 
+def summarize_batches(items: list[dict[str, str]], batch_size: int) -> list[dict[str, Any]]:
+    canonical_items = sorted(items, key=lambda item: item["id"])
+    summaries: list[dict[str, Any]] = []
+    for number, batch in enumerate(partition_items(canonical_items, batch_size), start=1):
+        summaries.append(
+            {
+                "id": f"route-batch-{number:03d}",
+                "entries": len(batch),
+                "digest": batch_digest(batch),
+                "first_id": batch[0]["id"],
+                "last_id": batch[-1]["id"],
+            }
+        )
+    return summaries
+
+
 def write_outputs(output_dir: Path, outputs: dict[str, str]) -> None:
     """Write a complete snapshot, refusing to leave obsolete batch packets."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -214,8 +230,17 @@ def write_outputs(output_dir: Path, outputs: dict[str, str]) -> None:
             f"output directory contains stale generated packets ({names}); use an empty directory"
         )
 
+    # The index is the validity marker. Remove an older index before packet
+    # writes and publish the new one last, so an interrupted write cannot look
+    # like a complete snapshot.
+    index_content = outputs.get("index.md")
+    (output_dir / "index.md").unlink(missing_ok=True)
     for filename, content in sorted(outputs.items()):
+        if filename == "index.md":
+            continue
         (output_dir / filename).write_text(content)
+    if index_content is not None:
+        (output_dir / "index.md").write_text(index_content)
 
 
 def _display_path(path: Path) -> str:
@@ -265,6 +290,7 @@ def main() -> int:
         "batch_size": args.batch_size,
         "batch_count": len(outputs) - 1,
         "index": str(args.output_dir / "index.md"),
+        "batches": summarize_batches(items, args.batch_size),
     }
     if args.json:
         print(json.dumps(summary, sort_keys=True))

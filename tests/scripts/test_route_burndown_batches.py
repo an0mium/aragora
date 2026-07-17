@@ -84,6 +84,29 @@ def test_packet_digest_changes_with_membership() -> None:
     assert batches.batch_digest([_item("A\nB")]) != batches.batch_digest([_item("A"), _item("B")])
 
 
+def test_batch_summary_exposes_machine_readable_identity() -> None:
+    items = [_item("python_sdk_drift:B"), _item("python_sdk_drift:A")]
+
+    summaries = batches.summarize_batches(items, batch_size=1)
+
+    assert summaries == [
+        {
+            "id": "route-batch-001",
+            "entries": 1,
+            "digest": batches.batch_digest([_item("python_sdk_drift:A")]),
+            "first_id": "python_sdk_drift:A",
+            "last_id": "python_sdk_drift:A",
+        },
+        {
+            "id": "route-batch-002",
+            "entries": 1,
+            "digest": batches.batch_digest([_item("python_sdk_drift:B")]),
+            "first_id": "python_sdk_drift:B",
+            "last_id": "python_sdk_drift:B",
+        },
+    ]
+
+
 def test_write_outputs_refuses_stale_packet(tmp_path: Path) -> None:
     (tmp_path / "batch-999.md").write_text("obsolete")
 
@@ -98,3 +121,22 @@ def test_write_outputs_round_trip(tmp_path: Path) -> None:
     batches.write_outputs(tmp_path, outputs)
 
     assert {path.name: path.read_text() for path in tmp_path.iterdir()} == outputs
+
+
+def test_write_outputs_removes_old_index_before_packet_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "index.md").write_text("old index\n")
+    original_write = Path.write_text
+
+    def fail_packet_write(path: Path, content: str, *args, **kwargs):
+        if path.name == "batch-001.md":
+            raise OSError("disk full")
+        return original_write(path, content, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", fail_packet_write)
+
+    with pytest.raises(OSError, match="disk full"):
+        batches.write_outputs(tmp_path, {"index.md": "new index\n", "batch-001.md": "packet\n"})
+
+    assert not (tmp_path / "index.md").exists()
