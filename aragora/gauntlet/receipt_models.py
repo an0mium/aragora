@@ -557,6 +557,12 @@ class DecisionReceipt:
     # Tracks queries, retrievals, and injection counts for cross-debate visibility
     km_operations: dict[str, Any] | None = None
 
+    # Crux cards (#8227): load-bearing disagreements detected in the debate,
+    # populated when the debate ran with enable_crux_cards. Additive-only:
+    # None means "not recorded" and serialization omits the key entirely, so
+    # flag-off receipts remain byte-identical to pre-crux receipts.
+    cruxes: dict[str, Any] | None = None
+
     # Schema version for forward compatibility
     schema_version: str = "1.1"
 
@@ -1493,6 +1499,14 @@ class DecisionReceipt:
         if live_explainability is not None:
             explainability = {"live_explainability": live_explainability}
 
+        # Crux cards (#8227): attached by the consensus phase when the debate
+        # ran with enable_crux_cards. Only carried when items exist — a missing
+        # or empty block keeps the receipt byte-identical to pre-crux output.
+        crux_cards = metadata.get("crux_cards")
+        cruxes: dict[str, Any] | None = None
+        if isinstance(crux_cards, dict) and crux_cards.get("items"):
+            cruxes = crux_cards
+
         # Determine verdict from consensus
         if zero_evidence:
             verdict = "NO_EVIDENCE"
@@ -1558,6 +1572,7 @@ class DecisionReceipt:
             explainability=explainability,
             cost_summary=cost_summary,
             settlement_metadata=settlement_metadata,
+            cruxes=cruxes,
             config_used=config_used,
         )
 
@@ -2089,6 +2104,10 @@ class DecisionReceipt:
             "artifact_hash": self.artifact_hash,
             "config_used": self.config_used,
         }
+        # Additive crux-cards block: omit the key when not recorded so
+        # flag-off receipts stay byte-identical (#8227).
+        if self.cruxes is not None:
+            data["cruxes"] = self.cruxes
         # Include signature fields if present
         if self.signature:
             data["signature"] = self.signature
@@ -2139,6 +2158,7 @@ class DecisionReceipt:
             settlement_metadata=data.get("settlement_metadata"),
             settlement_status=data.get("settlement_status"),
             explainability=data.get("explainability"),
+            cruxes=data.get("cruxes"),
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),
