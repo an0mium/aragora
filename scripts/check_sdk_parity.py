@@ -268,7 +268,7 @@ _INTERNAL_PREFIX_CACHE: tuple[str, ...] | None = None
 def _internal_prefix_families() -> tuple[str, ...]:
     """Internal-route policy prefixes, normalized like every route here.
 
-    Internal route families (control-plane, SSO, SME, emergency admin, ...)
+    Internal route families (control-plane, v1 SSO, SME, emergency admin, ...)
     are excluded from the public OpenAPI spec by policy
     (scripts/baselines/internal_route_prefixes.json), so SDK methods that
     call them cannot be validated against public-contract route sources.

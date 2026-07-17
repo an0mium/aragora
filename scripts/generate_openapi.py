@@ -635,7 +635,7 @@ def generate_schema(
 
     # Apply the internal-route policy to the FINAL merged path set, not just
     # the Tier-4 supplement. Tier-1 (canonical registry), Tier-2 (decorators)
-    # and Tier-3 (AST) all surface internal families (control-plane, SSO,
+    # and Tier-3 (AST) all surface internal families (control-plane, SME,
     # emergency admin, ...) that must never publish into the public spec —
     # and the route-coverage gate excludes internal prefixes from both sides
     # of its comparison, so a leak here would be permanently invisible to it.
@@ -719,8 +719,16 @@ _ROUTE_METHOD_PREFIXES = ("GET ", "POST ", "PUT ", "PATCH ", "DELETE ", "HEAD ",
 def _load_internal_route_prefixes() -> tuple[str, ...]:
     """Load the internal-route policy, failing CLOSED when it is unusable.
 
-    Without the policy, internal route families (control-plane, SSO,
+    Without the policy, internal route families (control-plane, SME,
     emergency admin, ...) would silently publish into the public spec.
+
+    Policy prefixes are exact family roots, version-scoped: comparison keys
+    normalize unversioned ``/api/`` to ``/api/v1/``, so a ``/api/v1/...``
+    prefix also covers the unversioned alias — but NOT other versions or
+    non-``/api/`` forms. E.g. ``/api/v1/sso/`` is internal while the
+    browser-facing ``/auth/sso/*`` flow and the SDK's ``/api/v2/sso/*``
+    aliases stay public by design. Every entry must be ``/api/``-rooted;
+    anything else is a policy error (fail closed, never silently ignored).
     """
     prefixes_file = PROJECT_ROOT / "scripts" / "baselines" / "internal_route_prefixes.json"
     try:
@@ -736,9 +744,14 @@ def _load_internal_route_prefixes() -> tuple[str, ...]:
         raise SystemExit(
             f"Error: internal route policy {prefixes_file} must contain a 'prefixes' list."
         )
-    internal_prefixes: tuple[str, ...] = tuple(
-        p for p in prefixes_raw if isinstance(p, str) and p.startswith("/api/")
-    )
+    invalid = [p for p in prefixes_raw if not (isinstance(p, str) and p.startswith("/api/"))]
+    if invalid:
+        raise SystemExit(
+            f"Error: internal route policy {prefixes_file} has non-'/api/' prefixes: "
+            f"{invalid}. Comparison keys are '/api/'-rooted, so these entries could "
+            "never match and would silently fail to exclude anything."
+        )
+    internal_prefixes: tuple[str, ...] = tuple(prefixes_raw)
     if not internal_prefixes:
         raise SystemExit(
             f"Error: internal route policy {prefixes_file} contains no valid '/api/' prefixes."
@@ -951,7 +964,7 @@ def _collect_handler_routes_supplement(
         return {}
 
     # Fail CLOSED on the internal-route policy: without it, internal route
-    # families (control-plane, SSO, emergency admin, ...) would silently
+    # families (control-plane, SME, emergency admin, ...) would silently
     # publish into the public spec.
     internal_prefixes = _load_internal_route_prefixes()
 
@@ -1041,6 +1054,14 @@ def _collect_handler_routes_supplement(
                 spec_path = _route_to_spec_path(route)
                 comparison_key = _normalize_for_comparison(spec_path)
 
+                if method is None:
+                    # Count every method-less static entry — including ones
+                    # resolved via routes() below — so class-level verb
+                    # derivation stays gated to single-generic-path handlers
+                    # and can't over-attribute a routes()-covered sibling's
+                    # verbs to the remaining generic path.
+                    total_generic_declared += 1
+
                 if method is None and comparison_key in explicit_verbs:
                     # routes() declared this path's verb set explicitly:
                     # expand to method-declared entries, per-method covered.
@@ -1053,7 +1074,6 @@ def _collect_handler_routes_supplement(
                     continue
 
                 if method is None:
-                    total_generic_declared += 1
                     # Generic ROUTES on an already-covered path: the served
                     # verb set is unknowable, so never re-derive ops for it.
                     if comparison_key in covered and comparison_key not in supplement_keys:
