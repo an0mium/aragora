@@ -694,6 +694,14 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:DELETE /api/memory/continuum/{param}",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/memory/critiques",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -3126,6 +3134,22 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/export/batch/{param}/results",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/export/batch/{param}/status",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/queue/status",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -3144,6 +3168,22 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/{param}/followup",
       "provenance": "python extractor blindness fix (#9362)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/{param}/followups",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/{param}/forks",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
       "source": "python_sdk_drift",
       "status": "open"
     },
@@ -3822,6 +3862,22 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/export/batch/{param}/results",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/export/batch/{param}/status",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/queue/status",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -3848,6 +3904,22 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/{param}/evidence",
       "provenance": "python extractor blindness fix (#9362)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/{param}/followups",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/{param}/forks",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
       "source": "python_sdk_drift",
       "status": "open"
     },

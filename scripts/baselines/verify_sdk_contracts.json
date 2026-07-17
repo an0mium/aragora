@@ -1,4 +1,14 @@
 {
+  "missing_stable": [
+    "PATCH /api/v1/debates/export/batch/{param}/results",
+    "PATCH /api/v1/debates/export/batch/{param}/status",
+    "PATCH /api/v1/debates/{param}/followups",
+    "PATCH /api/v1/debates/{param}/forks",
+    "POST /api/v1/debates/export/batch/{param}/results",
+    "POST /api/v1/debates/export/batch/{param}/status",
+    "POST /api/v1/debates/{param}/followups",
+    "POST /api/v1/debates/{param}/forks"
+  ],
   "python_sdk_drift": [
     "DELETE /api/actions/{param}",
     "DELETE /api/actions/{param}/edges/{param}",
@@ -20,6 +30,7 @@
     "DELETE /api/keys/{param}",
     "DELETE /api/knowledge/mound/federation/regions/{param}",
     "DELETE /api/media/audio/{param}",
+    "DELETE /api/memory/continuum/{param}",
     "DELETE /api/memory/critiques",
     "DELETE /api/memory/pressure",
     "DELETE /api/memory/search",
@@ -324,9 +335,13 @@
     "PATCH /api/connectors/{param}",
     "PATCH /api/debates/batch",
     "PATCH /api/debates/batch/{param}/status",
+    "PATCH /api/debates/export/batch/{param}/results",
+    "PATCH /api/debates/export/batch/{param}/status",
     "PATCH /api/debates/queue/status",
     "PATCH /api/debates/{param}/cancel",
     "PATCH /api/debates/{param}/followup",
+    "PATCH /api/debates/{param}/followups",
+    "PATCH /api/debates/{param}/forks",
     "PATCH /api/debates/{param}/verification-report",
     "PATCH /api/documents/{param}",
     "PATCH /api/outlook/messages/{param}/read",
@@ -411,10 +426,14 @@
     "POST /api/debates/batch/{param}/cancel",
     "POST /api/debates/batch/{param}/retry",
     "POST /api/debates/batch/{param}/status",
+    "POST /api/debates/export/batch/{param}/results",
+    "POST /api/debates/export/batch/{param}/status",
     "POST /api/debates/queue/status",
     "POST /api/debates/{param}/audience/suggestions",
     "POST /api/debates/{param}/checkpoint",
     "POST /api/debates/{param}/evidence",
+    "POST /api/debates/{param}/followups",
+    "POST /api/debates/{param}/forks",
     "POST /api/debates/{param}/make-permanent",
     "POST /api/debates/{param}/notes",
     "POST /api/debates/{param}/podcast",
@@ -1007,15 +1026,5 @@
     "POST /api/webhooks/{param}/rotate-secret",
     "PUT /api/webhooks/{param}/retry-policy",
     "DELETE /api/memory/continuum/{param}"
-  ],
-  "missing_stable": [
-    "PATCH /api/v1/debates/export/batch/{param}/results",
-    "PATCH /api/v1/debates/export/batch/{param}/status",
-    "PATCH /api/v1/debates/{param}/followups",
-    "PATCH /api/v1/debates/{param}/forks",
-    "POST /api/v1/debates/export/batch/{param}/results",
-    "POST /api/v1/debates/export/batch/{param}/status",
-    "POST /api/v1/debates/{param}/followups",
-    "POST /api/v1/debates/{param}/forks"
   ]
 }
