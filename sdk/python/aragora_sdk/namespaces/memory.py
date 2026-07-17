@@ -8,21 +8,32 @@ Provides methods for interacting with the memory system:
 - Continuum retrieval
 - Critique operations (list, store)
 
-Note: Core CRUD (store/retrieve/update/delete by key), query, semantic-search,
-tier operations (get_tier, move, promote, demote), context management,
-cross-debate memory, export/import, snapshots, and maintenance operations
-(prune, compact, sync, vacuum, rebuild-index, consolidate, continuum store/stats)
-were removed as their handler routes no longer exist.
+Note: Several "Advanced Operations" methods below (query, get_tier, move,
+demote, store_critique, ...) target routes that are declared in the memory
+handler's ROUTES list but never dispatched. Because ``MemoryHandler.can_handle``
+claims all of ``/api/v1/memory/*``, these calls do not 404: the dispatcher
+matches the handler, gets no result, and returns HTTP 500 with code
+``handler_no_result`` (or, where a same-path GET branch exists, silently falls
+through to it and returns 200 with the GET response). They are kept for
+backward compatibility, emit :class:`DeprecationWarning` at runtime, and are
+marked DEPRECATED in their docstrings; prefer the documented working methods.
 """
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 MemoryTier = Literal["fast", "medium", "slow", "glacial"]
+
+
+def _warn_deprecated(message: str) -> None:
+    """Emit a runtime DeprecationWarning for a dead or drifted SDK method."""
+    warnings.warn(message, DeprecationWarning, stacklevel=3)
 
 
 class MemoryAPI:
@@ -97,22 +108,35 @@ class MemoryAPI:
     def get_analytics(
         self,
         *,
+        days: int | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
-        granularity: str = "hour",
+        granularity: str | None = None,
     ) -> dict[str, Any]:
         """
-        Get memory analytics over time.
+        Get per-tier memory analytics.
+
+        GET /api/v1/memory/analytics returns tier stats, promotion
+        effectiveness, learning velocity, and recommendations over a
+        ``days`` window.
 
         Args:
-            start_time: Start of time range (ISO format)
-            end_time: End of time range (ISO format)
-            granularity: Time granularity (minute, hour, day)
+            days: Analysis window in days (1-365, server default 30) --
+                the only parameter the server reads
+            start_time: DEPRECATED -- ignored by the server
+            end_time: DEPRECATED -- ignored by the server
+            granularity: DEPRECATED -- ignored by the server; sent on the
+                wire only when explicitly provided
 
         Returns:
-            Dict with time-series analytics data
+            Dict with per-tier analytics (``tier_stats``,
+            ``promotion_effectiveness``, ``learning_velocity``, ...)
         """
-        params: dict[str, Any] = {"granularity": granularity}
+        params: dict[str, Any] = {}
+        if days is not None:
+            params["days"] = days
+        if granularity is not None:
+            params["granularity"] = granularity
         if start_time:
             params["start_time"] = start_time
         if end_time:
@@ -265,6 +289,13 @@ class MemoryAPI:
         """
         Store a critique in memory.
 
+        DEPRECATED: The server has no store-critique endpoint. This POST
+        is a silent no-op that LOOKS successful: ``MemoryHandler.handle_post``
+        has no /critiques branch, so the dispatcher falls through to the GET
+        handler and returns HTTP 200 with the critique *listing* -- nothing
+        is stored and no critique ID is returned. Critiques are recorded
+        server-side during debates.
+
         Args:
             critique: The critique content
             agent: Agent that generated the critique
@@ -274,8 +305,13 @@ class MemoryAPI:
             metadata: Additional metadata
 
         Returns:
-            Dict with stored critique ID
+            The critique listing (not a stored-critique receipt)
         """
+        _warn_deprecated(
+            "memory.store_critique() is a silent no-op: the server has no "
+            "store-critique endpoint; the POST returns the critique listing "
+            "and stores nothing."
+        )
         body: dict[str, Any] = {"critique": critique, "agent": agent}
         if debate_id:
             body["debate_id"] = debate_id
@@ -506,7 +542,17 @@ class MemoryAPI:
         prompt: str,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
-        """Query memories using natural language."""
+        """Query memories using natural language.
+
+        DEPRECATED: POST /api/v1/memory/query is declared in the handler's
+        ROUTES list but never dispatched, so this method always fails with
+        HTTP 500 (``handler_no_result``). Use search() or
+        retrieve_continuum() instead.
+        """
+        _warn_deprecated(
+            "memory.query() targets an undispatched route (HTTP 500 "
+            "handler_no_result); use search() or retrieve_continuum()."
+        )
         body: dict[str, Any] = {"prompt": prompt}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -593,7 +639,17 @@ class MemoryAPI:
         return self._client.request("POST", "/api/v1/memory/sync", json=body)
 
     def get_tier(self, tier: str) -> dict[str, Any]:
-        """Get detailed information about a specific memory tier."""
+        """Get detailed information about a specific memory tier.
+
+        DEPRECATED: GET /api/v1/memory/tier/{tier} is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with HTTP 500 (``handler_no_result``). Use list_tiers() for
+        tier stats or retrieve_continuum(tiers=[...]) for entries.
+        """
+        _warn_deprecated(
+            "memory.get_tier() targets an undispatched route (HTTP 500 "
+            "handler_no_result); use list_tiers() or retrieve_continuum()."
+        )
         return self._client.request("GET", f"/api/v1/memory/tier/{tier}")
 
     def vacuum(self) -> dict[str, Any]:
@@ -607,21 +663,75 @@ class MemoryAPI:
         return self._client.request("POST", "/api/v1/memory/vacuum", json={})
 
     def promote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
-        """Promote a memory entry to a higher tier."""
+        """Promote a memory entry to a higher tier.
+
+        DEPRECATED: The server requires ``target_tier`` -- calls without it
+        fail with 400 -- and responds with
+        ``{"success": bool, "previous_tier": str | None}``. Use
+        promote_entry() instead.
+        """
+        _warn_deprecated(
+            "memory.promote() fails with 400 unless target_tier is given "
+            "and its documented response shape is wrong; use promote_entry()."
+        )
         body: dict[str, Any] = {}
         if target_tier:
             body["target_tier"] = target_tier
         return self._client.request("POST", f"/api/v1/memory/{key}/promote", json=body)
 
+    def promote_entry(self, memory_id: str, target_tier: str) -> dict[str, Any]:
+        """
+        Promote a continuum memory entry to a target tier.
+
+        Matches the server contract for POST /api/v1/memory/{id}/promote.
+
+        Args:
+            memory_id: ID of the entry to promote (as returned by the store endpoint)
+            target_tier: Tier to promote the entry to (fast, medium, slow, glacial)
+
+        Returns:
+            Dict with ``success`` flag and ``previous_tier``. A missing
+            entry is HTTP 200 with ``{"success": False, "previous_tier":
+            None, "error": "Memory entry not found"}``, not a 404.
+        """
+        # Hoisted so contract extractors see a plain {placeholder} path.
+        encoded_id = quote(memory_id, safe="")
+        return self._client.request(
+            "POST",
+            f"/api/v1/memory/{encoded_id}/promote",
+            json={"target_tier": target_tier},
+        )
+
     def demote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
-        """Demote a memory entry to a lower tier."""
+        """Demote a memory entry to a lower tier.
+
+        DEPRECATED: POST /api/v1/memory/{key}/demote is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with HTTP 500 (``handler_no_result``). The server has no
+        demote endpoint -- demotion happens automatically during
+        consolidation and cleanup.
+        """
+        _warn_deprecated(
+            "memory.demote() targets an undispatched route (HTTP 500 "
+            "handler_no_result); the server has no demote endpoint."
+        )
         body: dict[str, Any] = {}
         if target_tier:
             body["target_tier"] = target_tier
         return self._client.request("POST", f"/api/v1/memory/{key}/demote", json=body)
 
     def move(self, key: str, target_tier: str) -> dict[str, Any]:
-        """Move a memory entry to a specific tier."""
+        """Move a memory entry to a specific tier.
+
+        DEPRECATED: POST /api/v1/memory/{key}/move is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with HTTP 500 (``handler_no_result``). The only server-side
+        tier mutation is promotion -- use promote_entry().
+        """
+        _warn_deprecated(
+            "memory.move() targets an undispatched route (HTTP 500 "
+            "handler_no_result); use promote_entry()."
+        )
         body: dict[str, Any] = {"target_tier": target_tier}
         return self._client.request("POST", f"/api/v1/memory/{key}/move", json=body)
 
@@ -698,22 +808,35 @@ class AsyncMemoryAPI:
     async def get_analytics(
         self,
         *,
+        days: int | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
-        granularity: str = "hour",
+        granularity: str | None = None,
     ) -> dict[str, Any]:
         """
-        Get memory analytics over time.
+        Get per-tier memory analytics.
+
+        GET /api/v1/memory/analytics returns tier stats, promotion
+        effectiveness, learning velocity, and recommendations over a
+        ``days`` window.
 
         Args:
-            start_time: Start of time range (ISO format)
-            end_time: End of time range (ISO format)
-            granularity: Time granularity (minute, hour, day)
+            days: Analysis window in days (1-365, server default 30) --
+                the only parameter the server reads
+            start_time: DEPRECATED -- ignored by the server
+            end_time: DEPRECATED -- ignored by the server
+            granularity: DEPRECATED -- ignored by the server; sent on the
+                wire only when explicitly provided
 
         Returns:
-            Dict with time-series analytics data
+            Dict with per-tier analytics (``tier_stats``,
+            ``promotion_effectiveness``, ``learning_velocity``, ...)
         """
-        params: dict[str, Any] = {"granularity": granularity}
+        params: dict[str, Any] = {}
+        if days is not None:
+            params["days"] = days
+        if granularity is not None:
+            params["granularity"] = granularity
         if start_time:
             params["start_time"] = start_time
         if end_time:
@@ -866,6 +989,13 @@ class AsyncMemoryAPI:
         """
         Store a critique in memory.
 
+        DEPRECATED: The server has no store-critique endpoint. This POST
+        is a silent no-op that LOOKS successful: ``MemoryHandler.handle_post``
+        has no /critiques branch, so the dispatcher falls through to the GET
+        handler and returns HTTP 200 with the critique *listing* -- nothing
+        is stored and no critique ID is returned. Critiques are recorded
+        server-side during debates.
+
         Args:
             critique: The critique content
             agent: Agent that generated the critique
@@ -875,8 +1005,13 @@ class AsyncMemoryAPI:
             metadata: Additional metadata
 
         Returns:
-            Dict with stored critique ID
+            The critique listing (not a stored-critique receipt)
         """
+        _warn_deprecated(
+            "memory.store_critique() is a silent no-op: the server has no "
+            "store-critique endpoint; the POST returns the critique listing "
+            "and stores nothing."
+        )
         body: dict[str, Any] = {"critique": critique, "agent": agent}
         if debate_id:
             body["debate_id"] = debate_id
@@ -1061,7 +1196,17 @@ class AsyncMemoryAPI:
         prompt: str,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
-        """Query memories using natural language."""
+        """Query memories using natural language.
+
+        DEPRECATED: POST /api/v1/memory/query is declared in the handler's
+        ROUTES list but never dispatched, so this method always fails with
+        HTTP 500 (``handler_no_result``). Use search() or
+        retrieve_continuum() instead.
+        """
+        _warn_deprecated(
+            "memory.query() targets an undispatched route (HTTP 500 "
+            "handler_no_result); use search() or retrieve_continuum()."
+        )
         body: dict[str, Any] = {"prompt": prompt}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -1148,7 +1293,17 @@ class AsyncMemoryAPI:
         return await self._client.request("POST", "/api/v1/memory/sync", json=body)
 
     async def get_tier(self, tier: str) -> dict[str, Any]:
-        """Get detailed information about a specific memory tier."""
+        """Get detailed information about a specific memory tier.
+
+        DEPRECATED: GET /api/v1/memory/tier/{tier} is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with HTTP 500 (``handler_no_result``). Use list_tiers() for
+        tier stats or retrieve_continuum(tiers=[...]) for entries.
+        """
+        _warn_deprecated(
+            "memory.get_tier() targets an undispatched route (HTTP 500 "
+            "handler_no_result); use list_tiers() or retrieve_continuum()."
+        )
         return await self._client.request("GET", f"/api/v1/memory/tier/{tier}")
 
     async def vacuum(self) -> dict[str, Any]:
@@ -1162,20 +1317,74 @@ class AsyncMemoryAPI:
         return await self._client.request("POST", "/api/v1/memory/vacuum", json={})
 
     async def promote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
-        """Promote a memory entry to a higher tier."""
+        """Promote a memory entry to a higher tier.
+
+        DEPRECATED: The server requires ``target_tier`` -- calls without it
+        fail with 400 -- and responds with
+        ``{"success": bool, "previous_tier": str | None}``. Use
+        promote_entry() instead.
+        """
+        _warn_deprecated(
+            "memory.promote() fails with 400 unless target_tier is given "
+            "and its documented response shape is wrong; use promote_entry()."
+        )
         body: dict[str, Any] = {}
         if target_tier:
             body["target_tier"] = target_tier
         return await self._client.request("POST", f"/api/v1/memory/{key}/promote", json=body)
 
+    async def promote_entry(self, memory_id: str, target_tier: str) -> dict[str, Any]:
+        """
+        Promote a continuum memory entry to a target tier.
+
+        Matches the server contract for POST /api/v1/memory/{id}/promote.
+
+        Args:
+            memory_id: ID of the entry to promote (as returned by the store endpoint)
+            target_tier: Tier to promote the entry to (fast, medium, slow, glacial)
+
+        Returns:
+            Dict with ``success`` flag and ``previous_tier``. A missing
+            entry is HTTP 200 with ``{"success": False, "previous_tier":
+            None, "error": "Memory entry not found"}``, not a 404.
+        """
+        # Hoisted so contract extractors see a plain {placeholder} path.
+        encoded_id = quote(memory_id, safe="")
+        return await self._client.request(
+            "POST",
+            f"/api/v1/memory/{encoded_id}/promote",
+            json={"target_tier": target_tier},
+        )
+
     async def demote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
-        """Demote a memory entry to a lower tier."""
+        """Demote a memory entry to a lower tier.
+
+        DEPRECATED: POST /api/v1/memory/{key}/demote is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with HTTP 500 (``handler_no_result``). The server has no
+        demote endpoint -- demotion happens automatically during
+        consolidation and cleanup.
+        """
+        _warn_deprecated(
+            "memory.demote() targets an undispatched route (HTTP 500 "
+            "handler_no_result); the server has no demote endpoint."
+        )
         body: dict[str, Any] = {}
         if target_tier:
             body["target_tier"] = target_tier
         return await self._client.request("POST", f"/api/v1/memory/{key}/demote", json=body)
 
     async def move(self, key: str, target_tier: str) -> dict[str, Any]:
-        """Move a memory entry to a specific tier."""
+        """Move a memory entry to a specific tier.
+
+        DEPRECATED: POST /api/v1/memory/{key}/move is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with HTTP 500 (``handler_no_result``). The only server-side
+        tier mutation is promotion -- use promote_entry().
+        """
+        _warn_deprecated(
+            "memory.move() targets an undispatched route (HTTP 500 "
+            "handler_no_result); use promote_entry()."
+        )
         body: dict[str, Any] = {"target_tier": target_tier}
         return await self._client.request("POST", f"/api/v1/memory/{key}/move", json=body)
