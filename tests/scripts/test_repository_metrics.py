@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
 
 from scripts import repository_metrics as metrics
+from scripts import regenerate_metrics
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REGENERATE_SCRIPT = REPO_ROOT / "scripts" / "regenerate_metrics.py"
 
 
 BASE_DEFINITION = metrics.MetricDefinition(
@@ -129,6 +135,76 @@ def test_ref_snapshots_are_isolated_and_ref_specific(tmp_path: Path) -> None:
 
     assert after.values["python_files"] == 2
     assert first.git_sha != after.git_sha
+
+
+def test_snapshot_cli_writes_exact_ref_snapshot(tmp_path: Path) -> None:
+    output = tmp_path / "metrics.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REGENERATE_SCRIPT),
+            "snapshot",
+            "--ref",
+            "HEAD",
+            "--output",
+            str(output),
+        ],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["git_sha"] == _git(REPO_ROOT, "rev-parse", "HEAD")
+    assert payload["status"] == "complete"
+    assert payload["errors"] == []
+    assert len(payload["catalog_digest"]) == 64
+
+
+def test_snapshot_cli_failure_writes_diagnostic_json(tmp_path: Path) -> None:
+    output = tmp_path / "missing-ref.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REGENERATE_SCRIPT),
+            "snapshot",
+            "--ref",
+            "refs/heads/does-not-exist",
+            "--output",
+            str(output),
+        ],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["status"] == "partial"
+    assert payload["errors"][0]["collector"] == "snapshot"
+
+
+def test_legacy_cli_modes_remain_available(tmp_path: Path, monkeypatch, capsys) -> None:
+    snapshot = regenerate_metrics.MetricsSnapshot(
+        generated_at="2026-07-17T00:00:00Z",
+        git_sha="deadbeef",
+        metrics=[],
+    )
+    monkeypatch.setattr(regenerate_metrics, "gather_metrics", lambda: snapshot)
+
+    assert regenerate_metrics.main(["--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["git_sha"] == "deadbeef"
+
+    monkeypatch.setattr(regenerate_metrics, "check_drift", lambda _snapshot: (False, []))
+    assert regenerate_metrics.main(["--check"]) == 0
+
+    output = tmp_path / "METRICS.md"
+    monkeypatch.setattr(regenerate_metrics, "METRICS_DOC", output)
+    assert regenerate_metrics.main([]) == 0
+    assert output.exists()
 
 
 def test_collection_reports_every_failed_collector(tmp_path: Path) -> None:
