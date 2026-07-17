@@ -100,13 +100,14 @@ class ShardStats:
 
 
 def _gh_api_json(path: str) -> dict:
-    out = subprocess.run(
+    proc = subprocess.run(
         ["gh", "api", path],
-        check=True,
         capture_output=True,
         text=True,
-    ).stdout
-    return json.loads(out)
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"gh api {path} failed (exit {proc.returncode}): {proc.stderr.strip()}")
+    return json.loads(proc.stdout)
 
 
 def fetch_recent_run_ids(repo: str, workflow: str, days: int, max_runs: int) -> list[int]:
@@ -114,17 +115,18 @@ def fetch_recent_run_ids(repo: str, workflow: str, days: int, max_runs: int) -> 
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
     run_ids: list[int] = []
     page = 1
+    # per_page must stay constant across pages: the API computes offsets as
+    # (page-1)*per_page, so shrinking it mid-pagination rereads earlier runs.
     while len(run_ids) < max_runs:
-        per_page = min(100, max_runs - len(run_ids))
         data = _gh_api_json(
             f"repos/{repo}/actions/workflows/{workflow}/runs"
-            f"?status=completed&created=%3E%3D{since}&per_page={per_page}&page={page}"
+            f"?status=completed&created=%3E%3D{since}&per_page=100&page={page}"
         )
         batch = data.get("workflow_runs", [])
         if not batch:
             break
         run_ids.extend(run["id"] for run in batch)
-        if len(batch) < per_page:
+        if len(batch) < 100:
             break
         page += 1
     return run_ids[:max_runs]
@@ -182,12 +184,22 @@ def parse_shard_name(job_name: str) -> str | None:
     return match.group(1).strip() if match else None
 
 
-def job_executed(job: dict) -> bool:
-    """True when the shard's pytest step actually ran (not path-filtered out)."""
+def _run_step_conclusion(job: dict) -> str | None:
     for step in job.get("steps") or []:
         if _RUN_STEP_RE.match(step.get("name") or ""):
-            return step.get("conclusion") not in (None, "skipped")
-    return False
+            return step.get("conclusion")
+    return None
+
+
+def job_executed(job: dict) -> bool:
+    """True when the shard's pytest step actually ran (not path-filtered out)."""
+    return _run_step_conclusion(job) not in (None, "skipped")
+
+
+def _parse_timestamp(value: str) -> datetime:
+    # GitHub currently emits ...T00:00:00Z, but fromisoformat also tolerates
+    # fractional seconds and explicit offsets, unlike a pinned strptime format.
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 def job_duration_minutes(job: dict) -> float | None:
@@ -195,8 +207,10 @@ def job_duration_minutes(job: dict) -> float | None:
     completed = job.get("completed_at")
     if not started or not completed:
         return None
-    fmt = "%Y-%m-%dT%H:%M:%SZ"
-    delta = datetime.strptime(completed, fmt) - datetime.strptime(started, fmt)
+    try:
+        delta = _parse_timestamp(completed) - _parse_timestamp(started)
+    except ValueError:
+        return None
     minutes = delta.total_seconds() / 60.0
     return minutes if minutes >= 0 else None
 
@@ -210,15 +224,28 @@ def percentile(values: list[float], pct: float) -> float:
     return ordered[rank - 1]
 
 
-def collect_shard_durations(jobs: list[dict]) -> dict[str, list[float]]:
-    """Group executed test-fast job durations (minutes) by shard name."""
+def collect_shard_durations(
+    jobs: list[dict], cap_minutes: float = DEFAULT_CAP_MINUTES
+) -> dict[str, list[float]]:
+    """Group executed test-fast job durations (minutes) by shard name.
+
+    Cancelled jobs near the runner cap are cap kills — the saturation signal
+    this guard exists to catch — and must count. Jobs cancelled well before
+    the cap (superseded runs, concurrency cancels) are truncated samples that
+    would drag p95 *down*, so they are dropped.
+    """
     durations: dict[str, list[float]] = {}
     for job in jobs:
         shard = parse_shard_name(job.get("name") or "")
-        if shard is None or not job_executed(job):
+        if shard is None:
+            continue
+        conclusion = _run_step_conclusion(job)
+        if conclusion in (None, "skipped"):
             continue
         minutes = job_duration_minutes(job)
         if minutes is None:
+            continue
+        if conclusion == "cancelled" and minutes < cap_minutes - 1.0:
             continue
         durations.setdefault(shard, []).append(minutes)
     return durations
@@ -311,9 +338,22 @@ def emit_outputs(
     output_path = os.environ.get("GITHUB_OUTPUT")
     if output_path:
         with open(output_path, "a", encoding="utf-8") as fh:
+            fh.write("status=ok\n")
             fh.write(f"breach={'1' if breaches else '0'}\n")
             fh.write(f"breach_shards={','.join(s.shard for s in breaches)}\n")
             fh.write(f"report<<CI_SHARD_REPORT_EOF\n{header}\n\n{table}\nCI_SHARD_REPORT_EOF\n")
+
+
+def emit_no_data_outputs(message: str) -> None:
+    """Report an early exit so the workflow's green path can't overstate it."""
+    print(message)
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if output_path:
+        with open(output_path, "a", encoding="utf-8") as fh:
+            fh.write("status=no_data\n")
+            fh.write("breach=0\n")
+            fh.write("breach_shards=\n")
+            fh.write(f"report<<CI_SHARD_REPORT_EOF\n{message}\nCI_SHARD_REPORT_EOF\n")
 
 
 # ---------------------------------------------------------------------------
@@ -350,18 +390,20 @@ def main(argv: list[str] | None = None) -> int:
 
     run_ids = fetch_recent_run_ids(args.repo, args.workflow, args.days, args.max_runs)
     if not run_ids:
-        print(f"No completed {args.workflow} runs in the last {args.days} days; nothing to do.")
+        emit_no_data_outputs(
+            f"No completed {args.workflow} runs in the last {args.days} days; nothing measured."
+        )
         return 0
 
     all_jobs: list[dict] = []
     for run_id in run_ids:
         all_jobs.extend(fetch_run_jobs(args.repo, run_id))
 
-    durations = collect_shard_durations(all_jobs)
+    durations = collect_shard_durations(all_jobs, args.cap_minutes)
     if not durations:
-        print(
+        emit_no_data_outputs(
             f"Analyzed {len(run_ids)} runs but found no executed test-fast shard "
-            f"jobs (all path-filtered?); nothing to report."
+            f"jobs (all path-filtered?); nothing measured."
         )
         return 0
 

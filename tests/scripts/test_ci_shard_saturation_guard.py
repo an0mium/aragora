@@ -67,6 +67,13 @@ class TestJobDurationMinutes:
     def test_computes_minutes(self):
         assert guard.job_duration_minutes(_job()) == pytest.approx(22.0)
 
+    def test_tolerates_fractional_seconds_and_offsets(self):
+        job = _job(started="2026-07-15T16:00:00.123Z", completed="2026-07-15T16:22:00+00:00")
+        assert guard.job_duration_minutes(job) == pytest.approx(22.0, abs=0.01)
+
+    def test_unparseable_timestamp_returns_none(self):
+        assert guard.job_duration_minutes(_job(started="not-a-time")) is None
+
     def test_missing_timestamps(self):
         assert guard.job_duration_minutes({"started_at": None, "completed_at": None}) is None
 
@@ -104,6 +111,70 @@ class TestCollectShardDurations:
         durations = guard.collect_shard_durations(jobs)
         assert sorted(durations) == ["agents", "debate-am"]
         assert len(durations["debate-am"]) == 2
+
+    def test_cap_killed_job_counts(self):
+        # Cancelled at ~the cap = the saturation signal; must be sampled.
+        jobs = [
+            _job(
+                completed="2026-07-15T16:59:30Z",  # 59.5m with 60m cap
+                run_step_conclusion="cancelled",
+            )
+        ]
+        durations = guard.collect_shard_durations(jobs, cap_minutes=60)
+        assert len(durations["debate-am"]) == 1
+
+    def test_early_cancelled_job_excluded(self):
+        # Cancelled mid-flight (superseded run): a truncated sample that
+        # would drag p95 down, so it must not be counted.
+        jobs = [
+            _job(
+                completed="2026-07-15T16:05:00Z",  # 5m with 60m cap
+                run_step_conclusion="cancelled",
+            )
+        ]
+        assert guard.collect_shard_durations(jobs, cap_minutes=60) == {}
+
+
+class TestFetchRecentRunIds:
+    def test_paginates_without_duplicates_or_gaps(self, monkeypatch):
+        # 150 runs on the server; every page must use per_page=100, since the
+        # API offsets by (page-1)*per_page and a shrinking per_page rereads
+        # earlier runs while never reaching the tail.
+        calls: list[str] = []
+
+        def fake_api(path: str) -> dict:
+            calls.append(path)
+            page = int(path.rsplit("page=", 1)[1])
+            start = (page - 1) * 100
+            ids = [i for i in range(start + 1, start + 101) if i <= 150]
+            return {"workflow_runs": [{"id": i} for i in ids]}
+
+        monkeypatch.setattr(guard, "_gh_api_json", fake_api)
+        run_ids = guard.fetch_recent_run_ids("o/r", "test.yml", days=14, max_runs=150)
+        assert run_ids == list(range(1, 151))
+        assert all("per_page=100" in c for c in calls)
+
+    def test_respects_max_runs_cap(self, monkeypatch):
+        monkeypatch.setattr(
+            guard,
+            "_gh_api_json",
+            lambda path: {"workflow_runs": [{"id": i} for i in range(1, 101)]},
+        )
+        assert guard.fetch_recent_run_ids("o/r", "test.yml", days=14, max_runs=30) == list(
+            range(1, 31)
+        )
+
+
+class TestEmitNoDataOutputs:
+    def test_writes_status_and_breach_outputs(self, tmp_path, monkeypatch, capsys):
+        out = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+        guard.emit_no_data_outputs("nothing measured")
+        text = out.read_text()
+        assert "status=no_data" in text
+        assert "breach=0" in text
+        assert "nothing measured" in text
+        assert "nothing measured" in capsys.readouterr().out
 
 
 class TestLoadActiveShards:

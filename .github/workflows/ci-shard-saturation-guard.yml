@@ -116,5 +116,12 @@ jobs:
 
       - name: Report green
         if: steps.analyze.outputs.breach != '1'
+        env:
+          STATUS: ${{ steps.analyze.outputs.status }}
+          REPORT: ${{ steps.analyze.outputs.report }}
         run: |
-          echo "::notice::All test-fast shard p95 durations under threshold."
+          if [ "$STATUS" = "no_data" ]; then
+            echo "::notice::Shard guard measured nothing this run: $REPORT"
+          else
+            echo "::notice::All test-fast shard p95 durations under threshold."
+          fi
