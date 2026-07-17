@@ -111,7 +111,7 @@ class PulseAPI:
             Dict with analytics data including topic counts by source,
             category distribution, and daily trends.
         """
-        return self._client.request("POST", "/api/v1/pulse/analytics", json=kwargs)
+        return self._client.request("GET", "/api/v1/pulse/analytics", params=kwargs)
 
     def get_scheduler_analytics(self) -> dict[str, Any]:
         """
@@ -137,17 +137,7 @@ class PulseAPI:
             Dict with scheduler running state, next poll time,
             and configuration.
         """
-        return self._client.request("POST", "/api/v1/pulse/scheduler/status")
-
-    def get_scheduler_config(self) -> dict[str, Any]:
-        """
-        Get pulse scheduler configuration.
-
-        Returns:
-            Dict with scheduler configuration including poll interval,
-            sources, and filtering rules.
-        """
-        return self._client.request("POST", "/api/v1/pulse/scheduler/config")
+        return self._client.request("GET", "/api/v1/pulse/scheduler/status")
 
     def get_scheduler_history(self) -> dict[str, Any]:
         """
@@ -156,7 +146,7 @@ class PulseAPI:
         Returns:
             Dict with recent scheduler runs, their results, and timing.
         """
-        return self._client.request("POST", "/api/v1/pulse/scheduler/history")
+        return self._client.request("GET", "/api/v1/pulse/scheduler/history")
 
     def start_scheduler(self) -> dict[str, Any]:
         """
@@ -249,7 +239,7 @@ class AsyncPulseAPI:
 
     async def get_analytics(self, **kwargs: Any) -> dict[str, Any]:
         """Get pulse analytics including topic distribution and trends."""
-        return await self._client.request("POST", "/api/v1/pulse/analytics", json=kwargs)
+        return await self._client.request("GET", "/api/v1/pulse/analytics", params=kwargs)
 
     async def get_scheduler_analytics(self) -> dict[str, Any]:
         """Get scheduler runtime metrics and store analytics."""
@@ -261,15 +251,11 @@ class AsyncPulseAPI:
 
     async def get_scheduler_status(self) -> dict[str, Any]:
         """Get pulse scheduler status."""
-        return await self._client.request("POST", "/api/v1/pulse/scheduler/status")
-
-    async def get_scheduler_config(self) -> dict[str, Any]:
-        """Get pulse scheduler configuration."""
-        return await self._client.request("POST", "/api/v1/pulse/scheduler/config")
+        return await self._client.request("GET", "/api/v1/pulse/scheduler/status")
 
     async def get_scheduler_history(self) -> dict[str, Any]:
         """Get pulse scheduler execution history."""
-        return await self._client.request("POST", "/api/v1/pulse/scheduler/history")
+        return await self._client.request("GET", "/api/v1/pulse/scheduler/history")
 
     async def start_scheduler(self) -> dict[str, Any]:
         """Start the pulse scheduler."""

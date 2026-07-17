@@ -166,30 +166,25 @@ class EmailServicesAPI:
     # Email Triage
     # ===========================================================================
 
-    def create_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
-        """Create an email triage rule.
-
-        Args:
-            **kwargs: Rule configuration (name, conditions, actions, etc.).
-
-        Returns:
-            Dict with created rule details.
-        """
-        return self._client.request("POST", "/api/v1/email/triage/rules", json=kwargs)
-
     def update_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
-        """Update an email triage rule.
+        """Update the email triage rules.
+
+        The server exposes triage rules as a single document: GET/PUT
+        /api/v1/email/triage/rules (there is no POST-create operation).
 
         Args:
-            **kwargs: Updated rule configuration.
+            **kwargs: Updated rules configuration.
 
         Returns:
-            Dict with updated rule details.
+            Dict with updated rules details.
         """
         return self._client.request("PUT", "/api/v1/email/triage/rules", json=kwargs)
 
     def create_triage_test(self, **kwargs: Any) -> dict[str, Any]:
-        """Create an email triage test.
+        """Test a message against the triage rules.
+
+        The server serves POST /api/v1/email/triage/test only (tests are
+        stateless; there is no PUT-update operation).
 
         Args:
             **kwargs: Test configuration (email_content, rules, etc.).
@@ -198,17 +193,6 @@ class EmailServicesAPI:
             Dict with test results.
         """
         return self._client.request("POST", "/api/v1/email/triage/test", json=kwargs)
-
-    def update_triage_test(self, **kwargs: Any) -> dict[str, Any]:
-        """Update an email triage test.
-
-        Args:
-            **kwargs: Updated test configuration.
-
-        Returns:
-            Dict with updated test details.
-        """
-        return self._client.request("PUT", "/api/v1/email/triage/test", json=kwargs)
 
 
 class AsyncEmailServicesAPI:
@@ -305,18 +289,10 @@ class AsyncEmailServicesAPI:
     # Email Triage
     # ===========================================================================
 
-    async def create_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
-        """Create an email triage rule."""
-        return await self._client.request("POST", "/api/v1/email/triage/rules", json=kwargs)
-
     async def update_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
-        """Update an email triage rule."""
+        """Update the email triage rules (single GET/PUT document)."""
         return await self._client.request("PUT", "/api/v1/email/triage/rules", json=kwargs)
 
     async def create_triage_test(self, **kwargs: Any) -> dict[str, Any]:
-        """Create an email triage test."""
+        """Test a message against the triage rules (stateless POST)."""
         return await self._client.request("POST", "/api/v1/email/triage/test", json=kwargs)
-
-    async def update_triage_test(self, **kwargs: Any) -> dict[str, Any]:
-        """Update an email triage test."""
-        return await self._client.request("PUT", "/api/v1/email/triage/test", json=kwargs)
