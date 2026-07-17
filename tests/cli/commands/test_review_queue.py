@@ -46,9 +46,11 @@ from aragora.cli.commands.review_queue import (
     _subsystem_for,
     _summarize_checks,
     _summarize_required_pr_checks,
-    _verified_unstable_non_required_cancellation_receipt,
     add_review_queue_parser,
     cmd_review_queue,
+)
+from aragora.cli.commands.review_queue_unstable import (
+    verified_unstable_non_required_cancellation_receipt as _verified_unstable_non_required_cancellation_receipt,
 )
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.review import (
@@ -772,6 +774,11 @@ class TestSummarizeChecks:
 
 
 class TestUnstableCancellationReceipt:
+    def test_classifier_lives_in_focused_helper(self) -> None:
+        assert _verified_unstable_non_required_cancellation_receipt.__module__ == (
+            "aragora.cli.commands.review_queue_unstable"
+        )
+
     @staticmethod
     def _cancelled_build_check() -> dict[str, Any]:
         return {
