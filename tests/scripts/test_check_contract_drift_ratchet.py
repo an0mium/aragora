@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from datetime import date, timedelta
 from pathlib import Path
+
+import pytest
 
 import scripts.check_contract_drift_ratchet as ratchet
 import scripts.generate_contract_drift_inventory as gen
@@ -1158,3 +1161,534 @@ def test_pr_mode_program_parameter_change_fails(tmp_path: Path):
     assert not result["integrity"]["passing"]
     assert any("Program baseline parameter changed" in i for i in result["integrity"]["issues"])
     assert not result["passing"]
+
+
+# --------------------------------------------------------------- boundary mode
+
+
+def _canonical_artifact_paths() -> tuple[Path, Path]:
+    mission_dir = os.environ.get("FACTORY_MISSION_DIR")
+    runtime_settings = os.environ.get("FACTORY_RUNTIME_SETTINGS_PATH")
+    if mission_dir:
+        library = Path(mission_dir) / "library"
+    elif runtime_settings:
+        library = Path(runtime_settings).resolve().parent / "library"
+    else:
+        pytest.skip("Factory mission artifacts are unavailable in this environment")
+    cohort = library / "contract-drift-original-cohort-v1.json"
+    provenance = library / "contract-drift-sdk-provenance-v1.json"
+    if not cohort.exists() or not provenance.exists():
+        pytest.skip("canonical Contract Drift mission artifacts are unavailable")
+    return cohort, provenance
+
+
+def _boundary_repo() -> tuple[Path, str]:
+    repo = Path(ratchet.__file__).resolve().parents[1]
+    sha = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    return repo, sha
+
+
+def _authority_manifest(sha: str) -> dict:
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, _head = _boundary_repo()
+    return gen._build_authority_manifest(
+        repo,
+        sha,
+        cohort_artifact,
+        provenance_artifact,
+    )
+
+
+def _redigest_authority(authority: dict) -> None:
+    body = {key: value for key, value in authority.items() if key != "authority_manifest_sha256"}
+    authority["authority_manifest_sha256"] = ratchet._sha256_bytes(
+        ratchet._canonical_json_bytes(body)
+    )
+
+
+def _boundary_evidence(
+    sha: str,
+    authority_sha256: str,
+    *,
+    active_inventory_sha256: str = "2" * 64,
+    release_immutable: bool = False,
+) -> dict:
+    digest = "2" * 64
+    return {
+        "schema": ratchet.BOUNDARY_EVIDENCE_SCHEMA,
+        "boundary": "corrective_bootstrap",
+        "start_sha": sha,
+        "end_sha": sha,
+        "authority_manifest_sha256": authority_sha256,
+        "dependency_manifest_sha256": digest,
+        "active_inventory_sha256": active_inventory_sha256,
+        "public_symbol_manifest_sha256": digest,
+        "route_boundary_sha256": digest,
+        "category_set_sha256": digest,
+        "unit_set_sha256": digest,
+        "core_set_sha256": ratchet.CORE_ID_SET_SHA256,
+        "extended_set_sha256": ratchet.EXTENDED_ID_SET_SHA256,
+        "governed_prs": [],
+        "first_parent_receipts": [],
+        "source_receipts": [],
+        "actions": [
+            {"kind": "filesystem", "operation": "read"},
+            {"kind": "git", "argv": ["git", "show", sha]},
+            {"kind": "http", "method": "GET"},
+            {"kind": "subprocess", "operation": "hash", "mutating": False},
+        ],
+        "remote_resources": [
+            {
+                "resource": "https://api.github.test/repos/synaptent/aragora",
+                "before": {"etag": '"stable"', "updated_at": "2026-07-17T00:00:00Z"},
+                "after": {"etag": '"stable"', "updated_at": "2026-07-17T00:00:00Z"},
+            }
+        ],
+        "external_prerequisites": {
+            "future_release_immutability_enabled": release_immutable,
+            "administration_read_verified": True,
+            "rule_suite": {"id": 123, "result": "pass", "bypassed": False},
+        },
+        "attestation": {"predicate": "synthetic-test"},
+    }
+
+
+def _write_boundary_inputs(
+    tmp_path: Path,
+    *,
+    release_immutable: bool = False,
+) -> tuple[Path, str, Path, Path]:
+    repo, sha = _boundary_repo()
+    authority = _authority_manifest(sha)
+    authority_path = tmp_path / "authority.json"
+    evidence_path = tmp_path / "evidence.json"
+    _write_json(authority_path, authority)
+    _write_json(
+        evidence_path,
+        _boundary_evidence(
+            sha,
+            authority["authority_manifest_sha256"],
+            active_inventory_sha256=authority["inventory_facts"]["active_inventory"]["sha256"],
+            release_immutable=release_immutable,
+        ),
+    )
+    return repo, sha, authority_path, evidence_path
+
+
+def _boundary_result(
+    tmp_path: Path,
+    *,
+    release_immutable: bool = False,
+) -> dict:
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(
+        tmp_path,
+        release_immutable=release_immutable,
+    )
+    return ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="corrective_bootstrap",
+        start_ref=sha,
+        end_ref=sha,
+        authority_manifest_path=authority_path,
+        cohort_artifact_path=cohort_artifact,
+        sdk_provenance_artifact_path=provenance_artifact,
+        evidence_path=evidence_path,
+    )
+
+
+def test_boundary_mode_validates_schema_one_independently(tmp_path: Path):
+    result = _boundary_result(tmp_path)
+    assert result["status"] == "blocked"
+    assert not result["passing"]
+    assert "Release immutability" in result["blocked_reason"]
+    assert result["schema_version"] == 1
+    assert result["original_cohort"]["record_count"] == 655
+    assert result["sdk_provenance"]["record_count"] == 598
+    assert result["sdk_provenance"]["source_occurrence_count"] == 690
+    assert (
+        result["sdk_provenance"]["baseline_birth"]["commit_sha"]
+        == "af5edb22235d4c40a97fe3faa54168b406ab5696"
+    )
+    assert (
+        result["sdk_provenance"]["dependencies"]["verifier"]["git_blob_oid"]
+        == "2d2a0e866f722dab0fad29f4283d1158aad0c408"
+    )
+    assert result["operation_projection"] == {
+        "schema": "cdg-operation-projection-v1",
+        "membership_count": 655,
+        "edge_count": 666,
+        "multi_edge_originals": 9,
+        "maximum_edges_per_original": 4,
+        "edge_count_distribution": {"1": 646, "2": 8, "4": 1},
+        "record_digest_set_sha256": ratchet.PROJECTION_RECORD_SET_SHA256,
+    }
+    assert len(result["manifest_sha256"]) == 64
+
+
+def test_boundary_mode_accepts_standalone_generator_manifest(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha = _boundary_repo()
+    authority_path = tmp_path / "authority.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(repo / "scripts/generate_contract_drift_inventory.py"),
+            "--authority-manifest",
+            "--ref",
+            sha,
+            "--json",
+            "--repo-root",
+            str(repo),
+            "--cohort-artifact",
+            str(cohort_artifact),
+            "--sdk-provenance-artifact",
+            str(provenance_artifact),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    authority_path.write_text(proc.stdout, encoding="utf-8")
+    authority = json.loads(proc.stdout)
+    evidence_path = tmp_path / "evidence.json"
+    _write_json(
+        evidence_path,
+        _boundary_evidence(
+            sha,
+            authority["authority_manifest_sha256"],
+            active_inventory_sha256=authority["inventory_facts"]["active_inventory"]["sha256"],
+        ),
+    )
+
+    result = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="corrective_bootstrap",
+        start_ref=sha,
+        end_ref=sha,
+        authority_manifest_path=authority_path,
+        cohort_artifact_path=cohort_artifact,
+        sdk_provenance_artifact_path=provenance_artifact,
+        evidence_path=evidence_path,
+    )
+    assert result["status"] == "blocked"
+    assert not result["passing"]
+    assert (
+        result["authority"]["authority_manifest_sha256"] == authority["authority_manifest_sha256"]
+    )
+
+
+def test_boundary_cli_autodiscovers_artifacts_and_blocks_without_evidence(
+    monkeypatch,
+    capsys,
+):
+    repo, sha = _boundary_repo()
+    cohort_artifact, _provenance_artifact = _canonical_artifact_paths()
+    monkeypatch.setenv("FACTORY_MISSION_DIR", str(cohort_artifact.parent.parent))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_contract_drift_ratchet.py",
+            "--mode",
+            "boundary",
+            "--schema-version",
+            "1",
+            "--boundary",
+            "corrective_bootstrap",
+            "--start-ref",
+            sha,
+            "--end-ref",
+            sha,
+            "--repo-root",
+            str(repo),
+            "--json",
+        ],
+    )
+    assert ratchet.main() == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "blocked"
+    assert result["passing"] is False
+    assert result["evidence"]["status"] == "unavailable"
+    assert result["canonical_artifacts"]["original_cohort"]["byte_length"] == 1_692_125
+
+
+def test_unsupported_schema_version_fails_closed(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(tmp_path)
+    with pytest.raises(ValueError, match="unsupported boundary schema version"):
+        ratchet.build_boundary_result(
+            repo_root=repo,
+            schema_version=2,
+            boundary="corrective_bootstrap",
+            start_ref=sha,
+            end_ref=sha,
+            authority_manifest_path=authority_path,
+            cohort_artifact_path=cohort_artifact,
+            sdk_provenance_artifact_path=provenance_artifact,
+            evidence_path=evidence_path,
+        )
+
+
+def test_boundary_manifest_digest_mismatch_fails_closed(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(tmp_path)
+    authority = json.loads(authority_path.read_text())
+    authority["authority_manifest_sha256"] = "0" * 64
+    _write_json(authority_path, authority)
+    with pytest.raises(ValueError, match="authority manifest digest mismatch"):
+        ratchet.build_boundary_result(
+            repo_root=repo,
+            schema_version=1,
+            boundary="corrective_bootstrap",
+            start_ref=sha,
+            end_ref=sha,
+            authority_manifest_path=authority_path,
+            cohort_artifact_path=cohort_artifact,
+            sdk_provenance_artifact_path=provenance_artifact,
+            evidence_path=evidence_path,
+        )
+
+
+def test_boundary_manifest_ref_binding_tamper_fails_closed(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(tmp_path)
+    authority = json.loads(authority_path.read_text())
+    authority["file_bindings"][0]["byte_length"] += 1
+    authority["authority_manifest_sha256"] = ratchet._sha256_bytes(
+        ratchet._canonical_json_bytes(
+            {key: value for key, value in authority.items() if key != "authority_manifest_sha256"}
+        )
+    )
+    _write_json(authority_path, authority)
+    evidence = json.loads(evidence_path.read_text())
+    evidence["authority_manifest_sha256"] = authority["authority_manifest_sha256"]
+    _write_json(evidence_path, evidence)
+    with pytest.raises(ValueError, match="does not match ref"):
+        ratchet.build_boundary_result(
+            repo_root=repo,
+            schema_version=1,
+            boundary="corrective_bootstrap",
+            start_ref=sha,
+            end_ref=sha,
+            authority_manifest_path=authority_path,
+            cohort_artifact_path=cohort_artifact,
+            sdk_provenance_artifact_path=provenance_artifact,
+            evidence_path=evidence_path,
+        )
+
+
+def test_boundary_manifest_inventory_binding_tamper_fails_closed(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(tmp_path)
+    authority = json.loads(authority_path.read_text())
+    authority["inventory_facts"]["operation_projection"]["operation_edge_count"] = 665
+    authority["authority_manifest_sha256"] = ratchet._sha256_bytes(
+        ratchet._canonical_json_bytes(
+            {key: value for key, value in authority.items() if key != "authority_manifest_sha256"}
+        )
+    )
+    _write_json(authority_path, authority)
+    evidence = json.loads(evidence_path.read_text())
+    evidence["authority_manifest_sha256"] = authority["authority_manifest_sha256"]
+    _write_json(evidence_path, evidence)
+    with pytest.raises(ValueError, match="operation projection facts mismatch"):
+        ratchet.build_boundary_result(
+            repo_root=repo,
+            schema_version=1,
+            boundary="corrective_bootstrap",
+            start_ref=sha,
+            end_ref=sha,
+            authority_manifest_path=authority_path,
+            cohort_artifact_path=cohort_artifact,
+            sdk_provenance_artifact_path=provenance_artifact,
+            evidence_path=evidence_path,
+        )
+
+
+def test_boundary_manifest_policy_under_scope_fails_closed(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(tmp_path)
+    authority = json.loads(authority_path.read_text())
+    authority["policy"]["authority_roots"] = authority["policy"]["authority_roots"][:-1]
+    _redigest_authority(authority)
+    _write_json(authority_path, authority)
+    evidence = json.loads(evidence_path.read_text())
+    evidence["authority_manifest_sha256"] = authority["authority_manifest_sha256"]
+    _write_json(evidence_path, evidence)
+    with pytest.raises(ValueError, match="authority roots are incomplete or noncanonical"):
+        ratchet.build_boundary_result(
+            repo_root=repo,
+            schema_version=1,
+            boundary="corrective_bootstrap",
+            start_ref=sha,
+            end_ref=sha,
+            authority_manifest_path=authority_path,
+            cohort_artifact_path=cohort_artifact,
+            sdk_provenance_artifact_path=provenance_artifact,
+            evidence_path=evidence_path,
+        )
+
+
+def test_boundary_evidence_inheritance_fails_closed(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(tmp_path)
+    evidence = json.loads(evidence_path.read_text())
+    evidence["inherited_from_boundary"] = "prior-boundary"
+    _write_json(evidence_path, evidence)
+    with pytest.raises(ValueError, match="may not inherit"):
+        ratchet.build_boundary_result(
+            repo_root=repo,
+            schema_version=1,
+            boundary="corrective_bootstrap",
+            start_ref=sha,
+            end_ref=sha,
+            authority_manifest_path=authority_path,
+            cohort_artifact_path=cohort_artifact,
+            sdk_provenance_artifact_path=provenance_artifact,
+            evidence_path=evidence_path,
+        )
+
+
+def test_release_immutability_or_rule_suite_prerequisite_blocks(tmp_path: Path):
+    result = _boundary_result(tmp_path, release_immutable=False)
+    assert result["status"] == "blocked"
+    assert not result["passing"]
+    assert "Release immutability" in result["blocked_reason"]
+    assert len(result["manifest_sha256"]) == 64
+
+
+def test_self_claimed_external_prerequisites_remain_blocked(tmp_path: Path):
+    result = _boundary_result(tmp_path, release_immutable=True)
+    assert result["status"] == "blocked"
+    assert not result["passing"]
+    assert "Release immutability" in result["blocked_reason"]
+
+
+def test_read_only_cli_rejects_mutating_http_verbs(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    for method in ("POST", "PUT", "PATCH", "DELETE"):
+        case_dir = tmp_path / method.lower()
+        case_dir.mkdir()
+        repo, sha, authority_path, evidence_path = _write_boundary_inputs(case_dir)
+        evidence = json.loads(evidence_path.read_text())
+        evidence["actions"].append({"kind": "http", "method": method})
+        _write_json(evidence_path, evidence)
+        with pytest.raises(ValueError, match="mutating HTTP verb rejected"):
+            ratchet.build_boundary_result(
+                repo_root=repo,
+                schema_version=1,
+                boundary="corrective_bootstrap",
+                start_ref=sha,
+                end_ref=sha,
+                authority_manifest_path=authority_path,
+                cohort_artifact_path=cohort_artifact,
+                sdk_provenance_artifact_path=provenance_artifact,
+                evidence_path=evidence_path,
+            )
+
+
+def test_read_only_cli_rejects_mutating_git_and_subprocess_actions(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    actions = (
+        {"kind": "git", "argv": ["git", "push", "origin", "main"]},
+        {"kind": "git", "argv": ["git", "-C", "/tmp/repo", "reset", "--hard", "HEAD"]},
+        {"kind": "git", "argv": ["git", "config", "user.name", "hostile"]},
+        {"kind": "git", "argv": ["git", "notes", "add", "-m", "hostile"]},
+        {"kind": "git", "argv": ["git", "replace", "HEAD", "HEAD^"]},
+        {"kind": "git", "argv": ["git", "symbolic-ref", "HEAD", "refs/heads/main"]},
+        {"kind": "subprocess", "operation": "merge", "mutating": True},
+        {"kind": "filesystem", "operation": "write"},
+    )
+    for index, action in enumerate(actions):
+        case_dir = tmp_path / str(index)
+        case_dir.mkdir()
+        repo, sha, authority_path, evidence_path = _write_boundary_inputs(case_dir)
+        evidence = json.loads(evidence_path.read_text())
+        evidence["actions"].append(action)
+        _write_json(evidence_path, evidence)
+        with pytest.raises(ValueError, match="rejected|mutating"):
+            ratchet.build_boundary_result(
+                repo_root=repo,
+                schema_version=1,
+                boundary="corrective_bootstrap",
+                start_ref=sha,
+                end_ref=sha,
+                authority_manifest_path=authority_path,
+                cohort_artifact_path=cohort_artifact,
+                sdk_provenance_artifact_path=provenance_artifact,
+                evidence_path=evidence_path,
+            )
+
+
+def test_read_only_cli_preserves_etag_and_updated_at(tmp_path: Path):
+    result = _boundary_result(tmp_path)
+    remote = result["evidence"]["remote_resources"][0]
+    assert remote["before"] == remote["after"]
+    assert remote["before"]["etag"] == '"stable"'
+    assert remote["before"]["updated_at"] == "2026-07-17T00:00:00Z"
+
+
+def test_read_only_cli_retries_or_blocks_on_concurrent_mutation(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(tmp_path)
+    evidence = json.loads(evidence_path.read_text())
+    evidence["remote_resources"][0]["after"]["etag"] = '"moved"'
+    _write_json(evidence_path, evidence)
+    result = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="corrective_bootstrap",
+        start_ref=sha,
+        end_ref=sha,
+        authority_manifest_path=authority_path,
+        cohort_artifact_path=cohort_artifact,
+        sdk_provenance_artifact_path=provenance_artifact,
+        evidence_path=evidence_path,
+    )
+    assert result["status"] == "blocked"
+    assert not result["passing"]
+    assert "remote resource moved" in result["blocked_reason"]
+
+
+def test_boundary_mode_is_deterministic_and_read_only(tmp_path: Path):
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(tmp_path)
+
+    def status() -> str:
+        return subprocess.run(
+            ["git", "-C", str(repo), "status", "--porcelain=v1"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+        ).stdout
+
+    kwargs = {
+        "repo_root": repo,
+        "schema_version": 1,
+        "boundary": "corrective_bootstrap",
+        "start_ref": sha,
+        "end_ref": sha,
+        "authority_manifest_path": authority_path,
+        "cohort_artifact_path": cohort_artifact,
+        "sdk_provenance_artifact_path": provenance_artifact,
+        "evidence_path": evidence_path,
+    }
+    for _attempt in range(3):
+        before = status()
+        first = ratchet._canonical_json_bytes(ratchet.build_boundary_result(**kwargs))
+        second = ratchet._canonical_json_bytes(ratchet.build_boundary_result(**kwargs))
+        after = status()
+        if before == after:
+            break
+    assert first == second
+    assert before == after
