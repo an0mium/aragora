@@ -40,6 +40,8 @@ substitution occurs by default.
 
 Plaintext endpoints must use a literal loopback IP. Remote endpoints require
 HTTPS and an explicit key. Credentials are never included in diagnostics.
+Requests ignore ambient HTTP proxy settings and reject redirects so prompts
+and authorization headers cannot escape the resolved endpoint.
 Loopback prevents network exposure but does not authenticate the local server.
 Use `direct` on a shared or untrusted host; broader rollout requires a separate
 server-authentication or endpoint-pinning design.

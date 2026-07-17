@@ -62,8 +62,8 @@ def test_catalog_is_sanitized_and_cached(monkeypatch: pytest.MonkeyPatch) -> Non
         assert timeout == 1.5
         return _Response(json.dumps({"data": [{"id": "claude-fable-5"}]}).encode())
 
-    monkeypatch.setattr(vibeproxy.urllib.request, "urlopen", fake_urlopen)
     client = vibeproxy.VibeProxyClient()
+    monkeypatch.setattr(client._opener, "open", fake_urlopen)
 
     first = client.sanitized_status()
     second = client.sanitized_status()
@@ -73,6 +73,42 @@ def test_catalog_is_sanitized_and_cached(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "api_key" not in json.dumps(first)
     assert second == first
     assert calls == 1
+
+
+def test_client_disables_environment_proxies_and_redirects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handlers: tuple[object, ...] = ()
+
+    def fake_build_opener(*configured: object):
+        nonlocal handlers
+        handlers = configured
+        return SimpleNamespace()
+
+    monkeypatch.setattr(vibeproxy.urllib.request, "build_opener", fake_build_opener)
+    vibeproxy.VibeProxyClient()
+
+    proxy = next(
+        handler
+        for handler in handlers
+        if isinstance(handler, vibeproxy.urllib.request.ProxyHandler)
+    )
+    assert proxy.proxies == {}
+    assert any(isinstance(handler, vibeproxy._NoRedirectHandler) for handler in handlers)
+
+
+def test_client_classifies_url_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = vibeproxy.VibeProxyClient()
+    monkeypatch.setattr(
+        client._opener,
+        "open",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            vibeproxy.urllib.error.URLError(TimeoutError())
+        ),
+    )
+
+    with pytest.raises(vibeproxy.VibeProxyTimeoutError):
+        client.catalog(force=True)
 
 
 class _FakeClient:
@@ -158,3 +194,18 @@ def test_anthropic_message_extracts_only_text(monkeypatch: pytest.MonkeyPatch) -
     )
 
     assert client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1) == "answer"
+
+
+def test_anthropic_message_rejects_truncated_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = vibeproxy.VibeProxyClient()
+    monkeypatch.setattr(
+        client,
+        "_request",
+        lambda *_args, **_kwargs: {
+            "stop_reason": "max_tokens",
+            "content": [{"type": "text", "text": "partial"}],
+        },
+    )
+
+    with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="truncated"):
+        client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1)

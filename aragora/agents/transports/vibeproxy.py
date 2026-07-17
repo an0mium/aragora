@@ -35,6 +35,10 @@ class VibeProxyUnavailableError(RuntimeError):
     """Raised when required VibeProxy routing cannot be satisfied."""
 
 
+class VibeProxyTimeoutError(VibeProxyUnavailableError):
+    """Raised when a VibeProxy request times out."""
+
+
 class TransportMode(str, Enum):
     DIRECT = "direct"
     PREFER = "vibeproxy-prefer"
@@ -71,6 +75,11 @@ class ResolvedModelRoute:
 
 _CATALOG_CACHE: dict[str, VibeProxyCatalog] = {}
 _CATALOG_LOCK = threading.Lock()
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        return None
 
 
 def _bounded_float(value: str | int | float, *, name: str, minimum: float) -> float:
@@ -158,6 +167,9 @@ class VibeProxyClient:
         self.connect_timeout_seconds = _bounded_float(
             connect_timeout_seconds, name="connect timeout", minimum=0.1
         )
+        self._opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({}), _NoRedirectHandler()
+        )
 
     def _request(
         self, path: str, *, timeout: float | None = None, payload: dict | None = None
@@ -169,13 +181,19 @@ class VibeProxyClient:
             headers.update({"content-type": "application/json", "anthropic-version": "2023-06-01"})
         request = urllib.request.Request(self.base_url + path, data=data, headers=headers)
         try:
-            with urllib.request.urlopen(
+            with self._opener.open(
                 request, timeout=timeout or self.connect_timeout_seconds
             ) as response:
                 raw = response.read(MAX_RESPONSE_BYTES + 1)
         except urllib.error.HTTPError as exc:
             raise VibeProxyUnavailableError(f"VibeProxy HTTP {exc.code}") from exc
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except TimeoutError as exc:
+            raise VibeProxyTimeoutError("VibeProxy request timed out") from exc
+        except urllib.error.URLError as exc:
+            if isinstance(exc.reason, TimeoutError):
+                raise VibeProxyTimeoutError("VibeProxy request timed out") from exc
+            raise VibeProxyUnavailableError("VibeProxy request failed: URLError") from exc
+        except OSError as exc:
             raise VibeProxyUnavailableError(
                 f"VibeProxy request failed: {type(exc).__name__}"
             ) from exc
@@ -228,6 +246,8 @@ class VibeProxyClient:
         if system:
             payload["system"] = system
         body = self._request("/messages", timeout=timeout, payload=payload)
+        if body.get("stop_reason") == "max_tokens":
+            raise VibeProxyUnavailableError("VibeProxy Claude response was truncated")
         content = body.get("content")
         if not isinstance(content, list):
             raise VibeProxyUnavailableError("VibeProxy returned no Claude content")
@@ -360,5 +380,6 @@ __all__ = [
     "TransportMode",
     "VibeProxyClient",
     "VibeProxyConfigurationError",
+    "VibeProxyTimeoutError",
     "VibeProxyUnavailableError",
 ]

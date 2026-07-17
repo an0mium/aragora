@@ -547,7 +547,9 @@ def run_consult(
     openrouter_fallback: bool = False,
     openrouter_model: str | None = None,
 ) -> dict:
-    enabled_attempts = 4 + int(openrouter_fallback)
+    transport_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", "vibeproxy-prefer").strip()
+    vibeproxy_attempts = 0 if transport_mode == "direct" else 2
+    enabled_attempts = 2 + vibeproxy_attempts + int(openrouter_fallback)
     overall_timeout = timeout * enabled_attempts
     command = [
         sys.executable,

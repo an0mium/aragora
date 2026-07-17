@@ -63,6 +63,7 @@ from aragora.agents.transports.vibeproxy import (  # noqa: E402
     ModelTransportPolicy,
     TransportMode,
     VibeProxyConfigurationError,
+    VibeProxyTimeoutError,
     VibeProxyUnavailableError,
 )
 
@@ -425,11 +426,18 @@ def _run_vibeproxy(
             system=system,
             max_tokens=API_MAX_TOKENS,
         )
+    except VibeProxyTimeoutError as exc:
+        return {
+            "ok": False,
+            "backend": "vibeproxy",
+            "timed_out": True,
+            "error": str(exc),
+        }
     except (VibeProxyConfigurationError, VibeProxyUnavailableError) as exc:
         return {
             "ok": False,
             "backend": "vibeproxy",
-            "timed_out": "timeout" in str(exc).lower(),
+            "timed_out": False,
             "error": str(exc),
         }
     return {

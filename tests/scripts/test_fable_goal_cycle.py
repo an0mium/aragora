@@ -397,6 +397,32 @@ def test_run_consult_rejects_success_without_text(monkeypatch, tmp_path: Path) -
     assert "without text" in result["error"]
 
 
+def test_run_consult_direct_mode_does_not_budget_proxy_attempts(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(command, timeout, cwd=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        return True, json.dumps({"ok": True, "text": "advice"})
+
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "direct")
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        "claude-fable-5",
+        timeout=12.5,
+    )
+
+    command = captured["command"]
+    assert result["ok"] is True
+    assert command[command.index("--overall-timeout") + 1] == "25.0"
+    assert captured["timeout"] == 85.0
+
+
 def test_run_consult_can_enable_openrouter_fallback(monkeypatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
