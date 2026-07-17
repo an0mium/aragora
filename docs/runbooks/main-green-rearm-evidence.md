@@ -159,44 +159,108 @@ git fetch origin +refs/heads/main:refs/remotes/origin/main
 test "$(git rev-parse origin/main)" = "$CANDIDATE_SHA"
 ```
 
-Also capture the branch-protection required contexts and every page of check
-runs for the same SHA. Reconcile by context name so a required context cannot
-disappear merely because it was beyond the API's first page:
+Also capture the branch-protection policy, every page of check runs, and every
+page of legacy commit statuses for the same SHA. Preserve each app-bound
+requirement's `app_id`; a same-named run from another GitHub App is not proof
+for that requirement. Treat a name in `.contexts` as legacy only when no entry
+in `.checks` binds that name to an app:
 
 ```bash
-REQUIRED_CONTEXTS_JSON="$(
+REQUIRED_POLICY_JSON="$(
   gh api repos/synaptent/aragora/branches/main/protection/required_status_checks \
-    --jq '[.contexts[], .checks[].context] | unique'
+    --jq '{
+      checks: [.checks[] | {context, app_id}],
+      legacy_contexts: ([.contexts[]] - [.checks[].context] | unique)
+    }'
 )" || exit 1
 CHECK_RUNS_JSON="$(
   gh api --paginate --slurp \
     "repos/synaptent/aragora/commits/$CANDIDATE_SHA/check-runs?filter=latest&per_page=100" \
-    | jq '[.[].check_runs[] | {name,status,conclusion,details_url}]'
+    | jq '[.[].check_runs[] | {
+        id,
+        name,
+        app_id: (.app.id // null),
+        status,
+        conclusion,
+        details_url,
+        started_at,
+        completed_at
+      }]'
+)" || exit 1
+COMMIT_STATUSES_JSON="$(
+  gh api --paginate --slurp \
+    "repos/synaptent/aragora/commits/$CANDIDATE_SHA/statuses?per_page=100" \
+    | jq '[.[][] | {
+        id,
+        context,
+        state,
+        target_url,
+        creator: (.creator.login // null),
+        updated_at
+      }]'
 )" || exit 1
 
 jq -n \
-  --argjson required "$REQUIRED_CONTEXTS_JSON" \
+  --argjson policy "$REQUIRED_POLICY_JSON" \
   --argjson runs "$CHECK_RUNS_JSON" \
-  '[$required[] as $context | {
-      context: $context,
-      matches: [$runs[] | select(.name == $context)]
-    }
-    | . + {
-        found: (.matches | length > 0),
-        conclusions: (.matches | map(.conclusion) | unique)
-      }]' \
+  --argjson statuses "$COMMIT_STATUSES_JSON" \
+  '{
+    checks: [
+      $policy.checks[] as $requirement
+      | [$runs[] | select(
+          .name == $requirement.context
+          and (
+            $requirement.app_id == null
+            or $requirement.app_id == -1
+            or .app_id == $requirement.app_id
+          )
+        )] as $matches
+      | {
+          kind: "check_run",
+          context: $requirement.context,
+          app_id: $requirement.app_id,
+          found: ($matches | length > 0),
+          latest: ($matches | sort_by(.started_at // "") | reverse | .[0] // null)
+        }
+    ],
+    statuses: [
+      $policy.legacy_contexts[] as $context
+      | [$statuses[] | select(.context == $context)] as $matches
+      | {
+          kind: "commit_status",
+          context: $context,
+          found: ($matches | length > 0),
+          latest: ($matches | sort_by(.updated_at // "") | reverse | .[0] // null)
+        }
+    ]
+  }' \
   | tee "$EVIDENCE_DIR/required-contexts.json"
 
-jq -e 'all(.[]; .found)' "$EVIDENCE_DIR/required-contexts.json"
+jq -e \
+  'all(.checks[];
+      .found
+      and .latest.status == "completed"
+      and (
+        .latest.conclusion == "success"
+        or (
+          .context == "aragora-merge-quorum"
+          and .latest.conclusion == "skipped"
+        )
+      )
+    )
+    and all(.statuses[]; .found and .latest.state == "success")' \
+  "$EVIDENCE_DIR/required-contexts.json"
 ```
 
-Inspect every row in `required-contexts.json`. A missing context is
-`evidence_incomplete`. A main-applicable required context whose latest run did
-not complete successfully is `main_red`; a context designed to skip on main
-(currently `aragora-merge-quorum`) must remain visible and be identified as an
-expected main-only skip in the packet rather than silently treated as green.
-An API outage, pagination failure, or rate limit is `evidence_incomplete`, not
-green. Retry in a later bounded cycle; do not substitute old PR checks for
+Inspect every row in both arrays in `required-contexts.json`. A missing
+app-bound check, app-id mismatch, or missing legacy status is
+`evidence_incomplete`. A main-applicable required check whose latest run did
+not complete successfully, or a required legacy status whose latest state is
+not `success`, is `main_red`; a check designed to skip on main (currently
+`aragora-merge-quorum`) must remain visible and be identified as an expected
+main-only skip in the packet rather than silently treated as green. An API
+outage, pagination failure, or rate limit is `evidence_incomplete`, not green.
+Retry in a later bounded cycle; do not substitute old PR checks for
 current-main checks.
 
 ## 5. Build The Human Packet
