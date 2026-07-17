@@ -695,7 +695,7 @@
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/memory/continuum/{param}",
-      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "provenance": "cross-merge intake: #9366 delete_entry() call site made visible by #9362 extractor fix",
       "source": "python_sdk_drift",
       "status": "open"
     },
