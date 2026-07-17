@@ -14,6 +14,7 @@ Features:
 
 from __future__ import annotations
 
+import importlib
 import logging
 import os
 import threading
@@ -38,12 +39,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Pre-declare redis_lib for optional import fallback
-redis_lib: Any
-
 # Optional Redis support - redis_lib is set to None when import fails.
 try:
-    import redis as redis_lib
+    redis_lib: Any = importlib.import_module("redis")
 
     REDIS_AVAILABLE = True
 except ImportError:

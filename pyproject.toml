@@ -119,7 +119,7 @@ experimental = [
     "playwright>=1.60.0,<2.0",
 ]
 dev = [
-    "mypy==2.2.0",
+    "mypy==2.3.0",
     "mypy-baseline==0.7.4",
     "pyjwt[crypto]==2.13.0",
     "types-PyYAML>=6.0.12.20260518,<7.0",
