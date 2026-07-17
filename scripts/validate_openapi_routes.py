@@ -4,7 +4,8 @@
 This script ensures the OpenAPI specification stays in sync with actual
 handler implementations by comparing:
 1. Routes defined in handler ROUTES attributes
-2. Routes in the OpenAPI spec paths
+2. Literal routes in server-wired aiohttp registration functions
+3. Routes in the OpenAPI spec paths
 
 Usage:
     python scripts/validate_openapi_routes.py
@@ -17,9 +18,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import sys
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -28,43 +31,192 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+_SERVER_ROUTE_REGISTRATION = (
+    _REPO_ROOT / "aragora" / "server" / "stream" / "servers_route_registration.py"
+)
+_LITERAL_ROUTER_METHODS = frozenset(
+    {"add_get", "add_post", "add_put", "add_patch", "add_delete", "add_head", "add_options"}
+)
+
 # Route validation is an offline contract check. Disable AWS Secrets Manager
 # lookups so importing handlers does not stall or fail on network-restricted dev/CI
 # environments when no secrets are actually needed.
 os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
 
-DEFAULT_EXCLUDED_PREFIXES = (
-    "/api/v1/control-plane/",
-    "/api/v1/sme/",
-    "/api/v1/agent-dashboard/",
-    "/api/v1/sso/",
-    "/api/v1/admin/emergency/",
-)
-
 
 def load_internal_prefixes(path: str | None = None) -> tuple[str, ...]:
-    """Load internal/private route prefixes from a policy file."""
+    """Load internal/private route prefixes from a policy file.
+
+    Fails CLOSED: if the policy file is missing or unparseable, exit with an
+    error instead of silently falling back — a silent fallback would let
+    internal route families drift into (or mask leaks in) the public spec.
+    """
     if path is None:
-        path = "scripts/baselines/internal_route_prefixes.json"
+        path = str(_REPO_ROOT / "scripts" / "baselines" / "internal_route_prefixes.json")
     p = Path(path)
-    if not p.exists():
-        return DEFAULT_EXCLUDED_PREFIXES
     try:
         data = json.loads(p.read_text())
-    except (json.JSONDecodeError, OSError):
-        return DEFAULT_EXCLUDED_PREFIXES
-    prefixes = data.get("prefixes")
+    except (json.JSONDecodeError, OSError) as exc:
+        print(
+            f"Error: cannot load internal route policy {p}: {exc}. "
+            "Refusing to validate without it (fail closed).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    prefixes = data.get("prefixes") if isinstance(data, dict) else None
     if not isinstance(prefixes, list):
-        return DEFAULT_EXCLUDED_PREFIXES
-    normalized = []
-    for item in prefixes:
-        if isinstance(item, str) and item.startswith("/api/"):
-            normalized.append(item)
-    return tuple(normalized) if normalized else DEFAULT_EXCLUDED_PREFIXES
+        print(
+            f"Error: internal route policy {p} must contain a 'prefixes' list.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    invalid = [
+        item for item in prefixes if not (isinstance(item, str) and item.startswith("/api/"))
+    ]
+    if invalid:
+        print(
+            f"Error: internal route policy {p} has non-'/api/' prefixes: {invalid}. "
+            "Comparison keys are '/api/'-rooted, so these entries could never match "
+            "and would silently fail to exclude anything.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    normalized = list(prefixes)
+    if not normalized:
+        print(
+            f"Error: internal route policy {p} contains no valid '/api/' prefixes.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return tuple(normalized)
+
+
+def is_internal_route(route: str, prefixes: tuple[str, ...] | list[str]) -> bool:
+    """Whether a route falls inside an internal route family.
+
+    Matches the exact family root or anything under it with the slash intact:
+    ``/api/v1/sme`` and ``/api/v1/sme/dashboard`` are internal under
+    ``/api/v1/sme/``, but sibling names like ``/api/v1/smear`` are NOT
+    (round-1 review P2 on #9360: a bare ``startswith(prefix.rstrip("/"))``
+    overmatched). Canonical matcher — every checker that applies the
+    internal-route policy must delegate here so exclusions stay identical.
+    """
+    for prefix in prefixes:
+        base = prefix.rstrip("/")
+        if route == base or route.startswith(base + "/"):
+            return True
+    return False
+
+
+class RouteRegistrationScanError(ValueError):
+    """A wired route-registration source could not be inspected safely."""
+
+
+def _parse_python_source(path: Path) -> ast.Module:
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RouteRegistrationScanError(f"cannot read route-registration source {path}: {exc}")
+    try:
+        return ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        raise RouteRegistrationScanError(f"cannot parse route-registration source {path}: {exc}")
+
+
+def _resolve_local_module(repo_root: Path, module_name: str) -> Path | None:
+    relative = Path(*module_name.split("."))
+    candidates = (repo_root / relative.with_suffix(".py"), repo_root / relative / "__init__.py")
+    return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+
+def _iter_executable_calls(nodes: Iterable[ast.AST]) -> Iterator[ast.Call]:
+    """Yield calls while excluding nested definitions that may never execute."""
+    for node in nodes:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            continue
+        if isinstance(node, ast.Call):
+            yield node
+        yield from _iter_executable_calls(ast.iter_child_nodes(node))
+
+
+def get_wired_function_routes(
+    registration_path: Path | None = None,
+    repo_root: Path | None = None,
+) -> set[str]:
+    """Statically extract literal routes from wired aiohttp registration functions.
+
+    The server registration module is the authority for which free functions
+    participate in startup. Only imported ``register_*`` callables that are
+    actually called there are considered. Within those exact function bodies,
+    only literal ``<first-argument>.router.add_*('/api/...')`` calls count.
+    Computed paths, re-exported functions without a local definition, and
+    unrelated route-registration helpers remain unverified.
+    """
+    root = repo_root or _REPO_ROOT
+    wiring_path = registration_path or _SERVER_ROUTE_REGISTRATION
+    wiring_tree = _parse_python_source(wiring_path)
+
+    imports: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(wiring_tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if not node.module or not node.module.startswith("aragora."):
+            continue
+        for imported in node.names:
+            local_name = imported.asname or imported.name
+            imports[local_name] = (node.module, imported.name)
+
+    called_names = {
+        node.func.id
+        for node in ast.walk(wiring_tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+
+    routes: set[str] = set()
+    for local_name in sorted(called_names & imports.keys()):
+        module_name, function_name = imports[local_name]
+        if not (local_name.startswith("register_") or function_name.startswith("register_")):
+            continue
+
+        module_path = _resolve_local_module(root, module_name)
+        if module_path is None:
+            continue
+        module_tree = _parse_python_source(module_path)
+        definitions = (
+            node
+            for node in module_tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == function_name
+        )
+        for function in definitions:
+            if not function.args.args:
+                continue
+            app_argument = function.args.args[0].arg
+            for call in _iter_executable_calls(function.body):
+                if not isinstance(call.func, ast.Attribute):
+                    continue
+                if call.func.attr not in _LITERAL_ROUTER_METHODS or not call.args:
+                    continue
+                receiver = call.func.value
+                if not (
+                    isinstance(receiver, ast.Attribute)
+                    and receiver.attr == "router"
+                    and isinstance(receiver.value, ast.Name)
+                    and receiver.value.id == app_argument
+                ):
+                    continue
+                path_argument = call.args[0]
+                if (
+                    isinstance(path_argument, ast.Constant)
+                    and isinstance(path_argument.value, str)
+                    and path_argument.value.startswith("/api/")
+                ):
+                    routes.add(path_argument.value)
+    return routes
 
 
 def get_handler_routes() -> set[str]:
-    """Extract all routes from handler ROUTES attributes.
+    """Extract routes from class metadata and decorator metadata.
 
     Returns:
         Set of route paths defined across all handlers.
@@ -125,6 +277,109 @@ def get_handler_routes() -> set[str]:
     return routes
 
 
+# Deliberately bogus tail segment: no real handler route ends in this, so a
+# can_handle that claims it is prefix-matching rather than route-matching.
+_CANARY_SEGMENT = "zz-nonexistent-canary-zz"
+
+
+def _probe_can_handle(can_handle: Any, path: str, method: str) -> bool:
+    """Call can_handle(path, method), falling back to the single-arg form."""
+    try:
+        return bool(can_handle(path, method))
+    except TypeError:
+        try:
+            return bool(can_handle(path))
+        except Exception:  # noqa: BLE001 - probing must never fail the gate
+            return False
+    except Exception:  # noqa: BLE001 - probing must never fail the gate
+        return False
+
+
+def filter_served_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
+    """Split orphan candidates into (truly orphaned, served via can_handle).
+
+    Handlers may serve literal paths through ``can_handle`` logic without
+    declaring them in ROUTES. Such spec entries are not orphaned: the server
+    routes them. Probe every registered handler's ``can_handle`` against each
+    candidate (both /api/v1/ and unversioned /api/ forms, all common methods)
+    and drop candidates that a handler accepts.
+
+    Specificity guard: a handler only suppresses a candidate if it rejects a
+    canary path derived from the same candidate (a clearly nonexistent tail
+    segment). Handlers whose ``can_handle`` also claims the canary are broad
+    prefix matchers — accepting their claim would let bogus spec paths hide
+    behind them. Every suppression is logged (path + handler class) so it is
+    never silent.
+    """
+    if not candidates:
+        return set(), set()
+
+    try:
+        from aragora.server.handler_registry import HANDLER_REGISTRY
+    except ImportError:
+        return set(candidates), set()
+
+    probes: list[tuple[str, Any]] = []
+    for _attr_name, handler_ref in HANDLER_REGISTRY:
+        handler_class = handler_ref
+        resolve = getattr(handler_ref, "resolve", None)
+        if callable(resolve):
+            try:
+                handler_class = resolve()
+            except Exception:  # noqa: BLE001 - import failures are non-fatal here
+                continue
+        if handler_class is None:
+            continue
+        try:
+            instance = handler_class.__new__(handler_class)
+        except Exception:  # noqa: BLE001 - exotic metaclasses; skip
+            continue
+        can_handle = getattr(instance, "can_handle", None)
+        if callable(can_handle):
+            handler_name = getattr(handler_class, "__name__", repr(handler_class))
+            probes.append((handler_name, can_handle))
+
+    methods = ("GET", "POST", "PUT", "PATCH", "DELETE")
+    served: set[str] = set()
+    suppressions: list[tuple[str, str]] = []
+    for candidate in sorted(candidates):
+        variants = {candidate}
+        if candidate.startswith("/api/v1/"):
+            variants.add(candidate.replace("/api/v1/", "/api/", 1))
+        serving_handler: str | None = None
+        for handler_name, can_handle in probes:
+            non_specific = False
+            for variant in variants:
+                for method in methods:
+                    if not _probe_can_handle(can_handle, variant, method):
+                        continue
+                    canary = variant.rstrip("/") + "/" + _CANARY_SEGMENT
+                    if _probe_can_handle(can_handle, canary, method):
+                        # Claims the canary too: prefix-matching can_handle,
+                        # not evidence this specific path is served.
+                        non_specific = True
+                        break
+                    serving_handler = handler_name
+                    break
+                if serving_handler is not None or non_specific:
+                    break
+            if serving_handler is not None:
+                break
+        if serving_handler is not None:
+            served.add(candidate)
+            suppressions.append((candidate, serving_handler))
+
+    if suppressions:
+        print(
+            f"Spec-orphan suppressions via can_handle ({len(suppressions)}):",
+            file=sys.stderr,
+        )
+        for path, handler_name in suppressions:
+            print(f"  - {path} (served by {handler_name})", file=sys.stderr)
+
+    return set(candidates) - served, served
+
+
 def _iter_spec_paths(spec_path: str) -> list[Path]:
     """Return the primary spec path plus any supplemental generated snapshots."""
     primary = Path(spec_path)
@@ -158,7 +413,7 @@ def get_openapi_routes(spec_path: str) -> set[str]:
     return routes
 
 
-def normalize_route(route: str | tuple) -> str:
+def normalize_route(route: str | tuple, *, normalize_version: bool = True) -> str:
     """Normalize a route for comparison.
 
     Handles:
@@ -189,8 +444,9 @@ def normalize_route(route: str | tuple) -> str:
     # Strip trailing slash
     route = route.rstrip("/")
 
-    # Normalize version prefix
-    if route.startswith("/api/") and not route.startswith("/api/v"):
+    # Normalize version prefix when comparing legacy handler metadata. Literal
+    # server wiring must match the exact API version it actually registers.
+    if normalize_version and route.startswith("/api/") and not route.startswith("/api/v"):
         route = route.replace("/api/", "/api/v1/", 1)
 
     # Convert wildcard * to generic {param} for comparison
@@ -202,6 +458,27 @@ def normalize_route(route: str | tuple) -> str:
     route = re.sub(r"/\{[^}]+\}", "/{param}", route)
 
     return route
+
+
+def filter_wired_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
+    """Split orphan candidates by literal evidence from wired route functions."""
+    try:
+        wired_routes = {
+            normalize_route(route, normalize_version=False) for route in get_wired_function_routes()
+        }
+    except RouteRegistrationScanError as exc:
+        print(f"Error: {exc}. Refusing to validate partial route wiring.", file=sys.stderr)
+        sys.exit(1)
+
+    served = candidates & wired_routes
+    if served:
+        print(
+            f"Spec-orphan suppressions via wired route registrations ({len(served)}):",
+            file=sys.stderr,
+        )
+        for path in sorted(served):
+            print(f"  - {path}", file=sys.stderr)
+    return candidates - served, served
 
 
 def validate_coverage(
@@ -231,14 +508,10 @@ def validate_coverage(
     internal_prefixes = load_internal_prefixes(internal_prefixes_path)
     if not include_internal:
         normalized_handler = {
-            r
-            for r in normalized_handler
-            if not any(r.startswith(prefix.rstrip("/")) for prefix in internal_prefixes)
+            r for r in normalized_handler if not is_internal_route(r, internal_prefixes)
         }
         normalized_openapi = {
-            r
-            for r in normalized_openapi
-            if not any(r.startswith(prefix.rstrip("/")) for prefix in internal_prefixes)
+            r for r in normalized_openapi if not is_internal_route(r, internal_prefixes)
         }
 
     # Find discrepancies
@@ -267,7 +540,14 @@ def validate_coverage(
     }
 
     # Routes that are truly orphaned in OpenAPI
-    orphaned_in_spec = missing_handlers - known_dynamic_patterns
+    orphan_candidates = missing_handlers - known_dynamic_patterns
+
+    # A spec path is only orphaned if no server wiring or registered handler
+    # routes it. Free-function registrations and can_handle paths do not always
+    # have class-level ROUTES metadata.
+    orphan_candidates, served_wired_registration = filter_wired_orphans(orphan_candidates)
+    orphaned_in_spec, served_can_handle = filter_served_orphans(orphan_candidates)
+    served_undeclared = served_wired_registration | served_can_handle
 
     baseline_missing: set[str] = set()
     baseline_orphaned: set[str] = set()
@@ -290,6 +570,10 @@ def validate_coverage(
         "new_missing_in_spec_count": len(new_missing_in_spec),
         "orphaned_in_spec": sorted(orphaned_in_spec),
         "orphaned_in_spec_count": len(orphaned_in_spec),
+        "served_undeclared": sorted(served_undeclared),
+        "served_undeclared_count": len(served_undeclared),
+        "served_wired_registration": sorted(served_wired_registration),
+        "served_wired_registration_count": len(served_wired_registration),
         "new_orphaned_in_spec": new_orphaned_in_spec,
         "new_orphaned_in_spec_count": len(new_orphaned_in_spec),
         "dynamic_routes_skipped": len(known_dynamic_patterns),
