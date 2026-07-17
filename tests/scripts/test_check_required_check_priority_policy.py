@@ -14,7 +14,7 @@ def _valid_workflow_text() -> str:
 jobs:
   prioritize-required-checks:
     steps:
-      - name: Cancel non-required workflow runs for this PR head
+      - name: Cancel queued non-required workflow runs for superseded PR heads
         uses: actions/github-script@v7
         with:
           script: |
@@ -65,7 +65,7 @@ jobs:
               'OpenAPI Spec',
             ]);
             for (const run of runs) {
-              if (run.head_sha !== headSha) continue;
+              if (run.head_sha === headSha) continue;
               if (run.id === selfRunId) continue;
               if (run.status !== 'queued') continue;
             }
@@ -517,6 +517,21 @@ def test_policy_rejects_missing_queued_only_status_filter() -> None:
     assert any("not restricted to queued runs" in v for v in violations)
 
 
+def test_policy_rejects_cancelling_only_current_head() -> None:
+    text = _valid_workflow_text().replace(
+        "if (run.head_sha === headSha) continue;",
+        "if (run.head_sha !== headSha) continue;",
+    )
+    violations = find_required_check_priority_violations(text)
+    assert any("does not skip the current PR head" in v for v in violations)
+
+
+def test_policy_rejects_missing_current_head_skip() -> None:
+    lines = [line for line in _valid_workflow_text().splitlines() if "run.head_sha" not in line]
+    violations = find_required_check_priority_violations("\n".join(lines))
+    assert any("does not skip the current PR head" in v for v in violations)
+
+
 def test_policy_accepts_double_quoted_queued_only_status_filter() -> None:
     text = _valid_workflow_text().replace(
         "if (run.status !== 'queued') continue;",
@@ -524,6 +539,21 @@ def test_policy_accepts_double_quoted_queued_only_status_filter() -> None:
     )
     violations = find_required_check_priority_violations(text)
     assert violations == []
+
+
+def test_unstable_allowlisted_workflows_do_not_cancel_same_pr_runs() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    workflow_paths = (
+        ".github/workflows/docs-build.yml",
+        ".github/workflows/docs-consistency.yml",
+        ".github/workflows/portability-lint.yml",
+        ".github/workflows/self-hosted-shadow.yml",
+    )
+
+    for rel in workflow_paths:
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        concurrency_block = text.split("concurrency:", maxsplit=1)[1].split("jobs:", maxsplit=1)[0]
+        assert "cancel-in-progress: false" in concurrency_block, rel
 
 
 def test_repo_required_check_priority_policy_passes_for_current_tree() -> None:

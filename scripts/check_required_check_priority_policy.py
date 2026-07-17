@@ -90,6 +90,11 @@ _QUEUED_ONLY_STATUS_FILTER_RE = re.compile(
     r"if\s*\(\s*run\.status\s*!==\s*(['\"])queued\1\s*\)\s*continue;"
 )
 
+# Cancelling a workflow run on the live PR head leaves a cancelled check in
+# GitHub's status rollup and can poison mergeStateStatus into UNSTABLE (#9034).
+# Queue cleanup is therefore restricted to superseded heads on the same branch.
+_CURRENT_HEAD_SKIP_RE = re.compile(r"if\s*\(\s*run\.head_sha\s*===\s*headSha\s*\)\s*continue;")
+
 
 def _extract_js_set_items(workflow_text: str, set_name: str) -> list[str] | None:
     pattern = r"const\s+" + re.escape(set_name) + r"\s*=\s*new Set\(\[(?P<body>.*?)\]\);"
@@ -422,6 +427,13 @@ def find_required_check_priority_violations(
             "cancellation sweep is not restricted to queued runs: expected "
             "`if (run.status !== 'queued') continue;` (in_progress runs must "
             "never be cancelled)"
+        )
+
+    if not _CURRENT_HEAD_SKIP_RE.search(workflow_text):
+        violations.append(
+            "cancellation sweep does not skip the current PR head: expected "
+            "`if (run.head_sha === headSha) continue;` (only superseded-head "
+            "runs may be cancelled)"
         )
 
     if repo_root is not None:

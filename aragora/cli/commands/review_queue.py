@@ -287,6 +287,26 @@ CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
 OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
 GH_COMMAND_TIMEOUT_SECONDS = 30
 GIT_STATUS_TIMEOUT_SECONDS = 10
+UNSTABLE_CANCELLATION_POLICY_PATH = "docs/runbooks/MERGE_STATE_UNSTABLE_SETTLEMENT.md"
+UNSTABLE_CANCELLED_CONTEXT_VERIFIERS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("Build Documentation (PR Check)", "build"): (
+        "Update doc stats",
+        "Sync documentation",
+        "Check capability matrix is synced",
+        "Check command guidance drift",
+        "Check CLI reference is synced",
+        "Ensure docs are synced",
+        "Generate capability matrix summary artifact",
+        "Build documentation",
+        "Check for broken links",
+    ),
+    ("Docs Consistency", "Docs Consistency"): (
+        "Run docs consistency lint",
+        "Inspect cold-review proof surface",
+    ),
+    ("Portability Lint", "portability"): ("Portability guard (no new private/legacy references)",),
+    ("Self-Hosted Shadow CI", "Mac TypeScript SDK Shadow"): ("Run TypeScript SDK typecheck",),
+}
 
 
 def resolve_repo_root(path_hint: Path) -> Path:
@@ -399,6 +419,7 @@ class ReviewPacket:
     model_review_quorum: dict[str, Any] = field(default_factory=dict)
     labels: list[str] = field(default_factory=list)
     merge_state_status: str = ""
+    unstable_non_required_contexts_ignored: list[dict[str, Any]] = field(default_factory=list)
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
 
@@ -2431,6 +2452,218 @@ def _is_required_pr_check_current_merge_quorum_self_check(check: dict[str, Any])
     )
 
 
+def _normalized_rollup_conclusion(check: dict[str, Any]) -> str:
+    conclusion = str(check.get("conclusion") or "").strip().upper()
+    if conclusion:
+        return conclusion
+    state = str(check.get("status") or check.get("state") or "").strip().upper()
+    if state in {
+        "SUCCESS",
+        "FAILURE",
+        "TIMED_OUT",
+        "ACTION_REQUIRED",
+        "CANCELLED",
+        "SKIPPED",
+        "NEUTRAL",
+        "STALE",
+    }:
+        return state
+    if state in {"ERROR", "FAILED"}:
+        return "FAILURE"
+    return ""
+
+
+def _actions_run_job_ids(details_url: str, repo_slug: str) -> tuple[str, str] | None:
+    parsed = urlparse(details_url)
+    if parsed.scheme not in {"http", "https"} or parsed.netloc != "github.com":
+        return None
+    expected_prefix = f"/{repo_slug.strip('/')}/actions/runs/"
+    if not repo_slug or not parsed.path.startswith(expected_prefix):
+        return None
+    suffix = parsed.path.removeprefix(expected_prefix)
+    match = re.fullmatch(r"(?P<run>\d+)/job/(?P<job>\d+)/?", suffix)
+    if not match:
+        return None
+    return match.group("run"), match.group("job")
+
+
+def _verify_cancelled_context_run(
+    *,
+    check: dict[str, Any],
+    head_sha: str,
+    repo_slug: str,
+) -> dict[str, Any] | None:
+    workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
+    name = str(check.get("name") or check.get("context") or "").strip()
+    verifier_names = UNSTABLE_CANCELLED_CONTEXT_VERIFIERS.get((workflow, name))
+    if not verifier_names:
+        return None
+
+    details_url = str(check.get("detailsUrl") or check.get("link") or "").strip()
+    run_job_ids = _actions_run_job_ids(details_url, repo_slug)
+    if not run_job_ids:
+        return None
+    run_id, job_id = run_job_ids
+    args = [
+        "run",
+        "view",
+        run_id,
+        "--json",
+        "headSha,status,conclusion,workflowName,jobs",
+    ]
+    if repo_slug:
+        args.extend(["--repo", repo_slug])
+    try:
+        run = _gh_json(args)
+    except _GhError:
+        return None
+    if not isinstance(run, dict):
+        return None
+    if str(run.get("headSha") or "").strip() != head_sha:
+        return None
+    if str(run.get("workflowName") or "").strip() != workflow:
+        return None
+    if str(run.get("status") or "").strip().upper() != "COMPLETED":
+        return None
+    if str(run.get("conclusion") or "").strip().upper() != "CANCELLED":
+        return None
+
+    job: dict[str, Any] | None = None
+    for candidate in run.get("jobs") or []:
+        if not isinstance(candidate, dict):
+            continue
+        if str(candidate.get("databaseId") or candidate.get("id") or "").strip() == job_id:
+            job = candidate
+            break
+    if not job:
+        return None
+    if str(job.get("name") or "").strip() != name:
+        return None
+    if str(job.get("status") or "").strip().upper() != "COMPLETED":
+        return None
+    if str(job.get("conclusion") or "").strip().upper() != "CANCELLED":
+        return None
+
+    steps = [step for step in job.get("steps") or [] if isinstance(step, dict)]
+    verifier_steps = [
+        step for step in steps if str(step.get("name") or "").strip() in verifier_names
+    ]
+    if steps and {str(step.get("name") or "").strip() for step in verifier_steps} != set(
+        verifier_names
+    ):
+        return None
+    if any(
+        str(step.get("conclusion") or "").strip().upper() != "SKIPPED" for step in verifier_steps
+    ):
+        return None
+
+    return {
+        "workflow": workflow,
+        "name": name,
+        "url": details_url,
+        "run_id": int(run_id),
+        "job_id": int(job_id),
+        "head_sha": head_sha,
+        "conclusion": "CANCELLED",
+        "reason": "allowlisted non-required current-head run cancelled before substantive verifier command",
+        "verifier_steps": [
+            {
+                "name": str(step.get("name") or "").strip(),
+                "conclusion": str(step.get("conclusion") or "").strip().upper(),
+            }
+            for step in verifier_steps
+        ],
+    }
+
+
+def _verified_unstable_non_required_cancellation_receipt(
+    *,
+    pr: dict[str, Any],
+    pr_number: int,
+    repo_override: str | None,
+) -> dict[str, Any]:
+    if str(pr.get("mergeStateStatus") or "").strip().upper() != "UNSTABLE":
+        return {}
+    head_sha = str(pr.get("headRefOid") or "").strip()
+    rollup = pr.get("statusCheckRollup")
+    if not head_sha or not isinstance(rollup, list):
+        return {}
+
+    latest_checks = _latest_status_check_rollup(rollup)
+    cancelled_checks: list[dict[str, Any]] = []
+    for check in latest_checks:
+        if not isinstance(check, dict) or _is_current_merge_quorum_self_check(check):
+            continue
+        conclusion = _normalized_rollup_conclusion(check)
+        status = str(check.get("status") or check.get("state") or "").strip().upper()
+        if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL", "STALE"}:
+            continue
+        if conclusion == "CANCELLED":
+            cancelled_checks.append(check)
+            continue
+        if status in {"IN_PROGRESS", "QUEUED", "PENDING", "EXPECTED"} or not conclusion:
+            return {}
+        return {}
+    if not cancelled_checks:
+        return {}
+
+    required_surface = _fetch_required_pr_check_surface(pr_number, repo_override)
+    required_checks = [
+        check for check in required_surface.get("checks") or [] if isinstance(check, dict)
+    ]
+    if not required_surface.get("available") or not required_checks:
+        return {}
+    if not any(_is_merge_quorum_check(check) for check in required_checks):
+        return {}
+    effective_required = _effective_required_pr_checks(required_checks)
+    if not effective_required:
+        return {}
+    if any(_required_pr_check_bucket(check) != "pass" for check in effective_required):
+        return {}
+    if any(_rollup_check_matches_required(check, required_checks) for check in cancelled_checks):
+        return {}
+
+    repo_slug = rest_fallback._repo_slug_from_pr_payload(pr, repo_override)
+    if not repo_slug:
+        return {}
+    verified_contexts: list[dict[str, Any]] = []
+    for check in cancelled_checks:
+        verified = _verify_cancelled_context_run(
+            check=check,
+            head_sha=head_sha,
+            repo_slug=repo_slug,
+        )
+        if not verified:
+            return {}
+        verified_contexts.append(verified)
+
+    required_summary, required_failures, required_pending = _summarize_required_pr_checks(
+        required_checks
+    )
+    if required_failures or required_pending:
+        return {}
+    return {
+        "schema_version": "unstable_non_required_cancellation.v1",
+        "head_sha": head_sha,
+        "merge_state_status": "UNSTABLE",
+        "policy_path": UNSTABLE_CANCELLATION_POLICY_PATH,
+        "required_checks_summary": required_summary,
+        "current_merge_quorum_self_check_ignored": (
+            len(effective_required) != len(required_checks)
+        ),
+        "required_checks": [
+            {
+                "workflow": str(check.get("workflow") or "").strip(),
+                "name": str(check.get("name") or "").strip(),
+                "state": str(check.get("state") or "").strip(),
+                "link": str(check.get("link") or "").strip(),
+            }
+            for check in effective_required
+        ],
+        "ignored_contexts": verified_contexts,
+    }
+
+
 def _filter_lanes(
     items: list[QueueItem],
     *,
@@ -2526,6 +2759,7 @@ def _build_packet(
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
     check_surfaces: dict[str, Any]
+    unstable_cancellation_receipt: dict[str, Any] = {}
     if settlement_state_block:
         checks_unavailable = False
         checks_summary = f"failing PR state ({settlement_state_block})"
@@ -2557,6 +2791,16 @@ def _build_packet(
     rest_fallback_meta = pr.get("_rest_fallback")
     if isinstance(rest_fallback_meta, dict):
         check_surfaces["metadata_transport_fallback"] = rest_fallback_meta
+    if not settlement_state_block:
+        unstable_cancellation_receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=number,
+            repo_override=repo_override,
+        )
+        if unstable_cancellation_receipt:
+            check_surfaces["unstable_non_required_cancellation_receipt"] = (
+                unstable_cancellation_receipt
+            )
     required_pr_check_gate_satisfied = False
     if not settlement_state_block and not checks_unavailable and (has_failures or has_pending):
         required_surface = _fetch_required_pr_check_surface(number, repo_override)
@@ -2957,9 +3201,47 @@ def _build_packet(
         ),
         labels=labels,
         merge_state_status=str(pr.get("mergeStateStatus") or "").strip().upper(),
+        unstable_non_required_contexts_ignored=list(
+            unstable_cancellation_receipt.get("ignored_contexts") or []
+        ),
     )
     packet.packet_sha = _packet_sha(packet)
     return packet
+
+
+def _verified_unstable_cancellation_override(packet: ReviewPacket) -> bool:
+    receipt = packet.check_surfaces.get("unstable_non_required_cancellation_receipt")
+    if not isinstance(receipt, dict):
+        return False
+    ignored = receipt.get("ignored_contexts")
+    if not isinstance(ignored, list) or not ignored:
+        return False
+    if ignored != packet.unstable_non_required_contexts_ignored:
+        return False
+    if str(receipt.get("head_sha") or "").strip() != packet.head_sha:
+        return False
+    if str(receipt.get("merge_state_status") or "").strip().upper() != "UNSTABLE":
+        return False
+    if str(receipt.get("policy_path") or "").strip() != UNSTABLE_CANCELLATION_POLICY_PATH:
+        return False
+    if not receipt.get("required_checks"):
+        return False
+    if bool(receipt.get("current_merge_quorum_self_check_ignored")) and not (
+        os.environ.get("GITHUB_WORKFLOW") == MERGE_QUORUM_WORKFLOW_NAME
+        and os.environ.get("GITHUB_JOB") == MERGE_QUORUM_JOB_ID
+    ):
+        return False
+    quorum = packet.model_review_quorum
+    if not bool(quorum.get("admin_squash_allowed")):
+        return False
+    if bool(quorum.get("unresolved_dissent")):
+        return False
+    return all(
+        isinstance(context, dict)
+        and str(context.get("head_sha") or "").strip() == packet.head_sha
+        and str(context.get("conclusion") or "").strip().upper() == "CANCELLED"
+        for context in ignored
+    )
 
 
 def _admin_squash_live_gate_blockers(packet: ReviewPacket) -> list[str]:
@@ -2971,6 +3253,8 @@ def _admin_squash_live_gate_blockers(packet: ReviewPacket) -> list[str]:
     merge_state_status = str(packet.merge_state_status or "").strip().upper()
     if not merge_state_status:
         blockers.append("mergeStateStatus unavailable; admin squash requires CLEAN or BLOCKED")
+    elif merge_state_status == "UNSTABLE" and _verified_unstable_cancellation_override(packet):
+        pass
     elif merge_state_status not in {"CLEAN", "BLOCKED"}:
         blockers.append(
             f"mergeStateStatus={merge_state_status}; admin squash requires CLEAN or BLOCKED"
@@ -3060,6 +3344,9 @@ def _build_merge_authorization_packet(
             "model_quorum_admin_squash_allowed": model_quorum_admin_squash_allowed,
             "admin_squash_gate_blockers": admin_squash_gate_blockers,
             "merge_state_status": packet.merge_state_status,
+            "unstable_non_required_contexts_ignored": (
+                packet.unstable_non_required_contexts_ignored
+            ),
             "operator_review_required": OPERATOR_REVIEW_REQUIRED_LABEL
             in {str(label).strip().lower() for label in packet.labels if str(label).strip()},
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
@@ -5875,6 +6162,15 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
             f"{len(entry.get('dogfood_evidence') or [])} dogfood note(s), "
             f"{len(entry.get('counted_reviewer_ids') or [])} counted reviewer(s)"
         )
+        ignored_contexts = entry.get("unstable_non_required_contexts_ignored") or []
+        if ignored_contexts:
+            print("  verified UNSTABLE advisory cancellations ignored:")
+            for context in ignored_contexts:
+                print(
+                    "    - "
+                    f"{context.get('workflow', '')} / {context.get('name', '')}: "
+                    f"{context.get('url', '')}"
+                )
         gate_blockers = entry.get("admin_squash_gate_blockers") or []
         if gate_blockers:
             print("  admin squash live-gate blockers:")

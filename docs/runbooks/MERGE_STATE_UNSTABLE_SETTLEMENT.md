@@ -33,7 +33,7 @@ summary that is being held open by cancelled or stale check runs.
    | --- | --- | --- |
    | Required check is red | hard gate | Repair the PR or main before settlement. |
    | Required checks pass and only advisory checks are pending | queue churn | Recheck once, then proceed under the merge contract if policy allows. |
-   | Latest advisory check is `cancelled` before its command ran | merge-state poison | Park target settlement and file or link a CI issue. |
+   | Latest advisory check is `cancelled` before its command ran | merge-state poison | Apply the verified allowlist predicate below; otherwise park and file or link a CI issue. |
    | Advisory check ran and failed in files touched by the PR | in-scope failure | Repair or explicitly park the PR. |
    | Advisory check ran and failed outside PR scope | possible main regression | Verify on `origin/main`, then open or link a main-health issue. |
 
@@ -54,8 +54,8 @@ When this pattern appears:
 1. Link the affected PR to #9031 or a successor issue.
 2. Leave a PR handoff comment with the check name, run URL, and exact
    classification.
-3. Stop settlement and evidence-collection loops for that PR until merge state
-   becomes `CLEAN` or the CI issue is repaired.
+3. Stop settlement and evidence-collection loops unless the exact-head packet
+   emits the verified allowlisted-cancellation receipt below.
 4. Work the CI/runbook/tooling issue as a separate bounded unit.
 
 ## Evidence Commands
@@ -92,16 +92,16 @@ already has a prior green portability run and the failed workflow never reached
 the guard command, classify the target PR as parked on CI/merge-state noise
 rather than source correctness.
 
-## Candidate Settlement-Stability Predicate for Cancelled Non-Required Contexts
+## Verified Settlement-Stability Predicate for Cancelled Non-Required Contexts
 
 Issue #9034 tracks the wider July 8, 2026 pattern where completed/cancelled
 non-required check runs left otherwise-ready PRs in `mergeStateStatus=UNSTABLE`.
-This section is a policy proposal and implementation spec, not current merge
-authority. Until the helper change below lands, conductors must continue to park
-or hand off these PRs instead of merging through the live gate.
+`review-queue merge-packet` may ignore this narrow cancellation class only when
+it verifies every predicate below and emits an exact-head receipt. Any missing
+or unverifiable field fails closed on the normal live-state gate.
 
-A future settlement helper may treat a completed/cancelled non-required context
-as settlement-stable only when all of these exact-head predicates are true:
+The settlement helper treats a completed/cancelled non-required context as
+settlement-stable only when all of these exact-head predicates are true:
 
 1. The PR is open, non-draft, and `mergeable=MERGEABLE`.
 2. The exact `headRefOid` has not changed since model evidence was collected.
@@ -115,10 +115,10 @@ as settlement-stable only when all of these exact-head predicates are true:
    - `Portability Lint` / `portability`
    - `Docs Consistency` / `Docs Consistency`
    - `Self-Hosted Shadow CI` / `Mac TypeScript SDK Shadow`
-7. The latest cancelled run for the allowlisted context is completed/cancelled
-   before the substantive verifier command ran, or the exact head has an older
-   successful run for the same context after the last file change relevant to
-   that workflow.
+7. The latest cancelled run and job belong to the exact PR head and every known
+   substantive verifier step for that context is present and `SKIPPED`. A run
+   with missing job metadata, unknown verifier steps, or a verifier step that
+   started fails closed.
 8. The helper emits an explicit receipt field naming each ignored non-required
    cancelled context, run URL, and reason so the merge record does not silently
    hide GitHub rollup noise.
@@ -133,17 +133,16 @@ checks and model quorum, but GitHub still reported `mergeStateStatus=UNSTABLE`:
 | #9049 | `9790df5ae848b9a5458eed2cfc7edd34c3c85072` | all green, including `aragora-merge-quorum` | Build Documentation, Docs Consistency, Portability Lint |
 | #9053 | `e4083d0b415648bd341b342b4d4228d8cf8a45c4` | all green, including `aragora-merge-quorum` | Build Documentation, Portability Lint |
 
-The observed safe current behavior is to stop merge attempts, link the affected
-head to #9034, and either wait for GitHub merge state to stabilize or work a
-separate workflow/helper fix. Do not rerun cancelled workflows from conductor
-automation without exact operator authorization for that cycle.
+Contexts outside the allowlist, required-check failures, incomplete model
+quorum, unresolved dissent, head movement, or unverifiable Actions metadata
+remain blocking. Do not rerun cancelled workflows from conductor automation
+without exact operator authorization for that cycle.
 
-### Follow-Up Helper Spec
+### Receipt Contract
 
-A future `settle_one_pr.py` change should add an opt-in predicate that consumes
-the branch-protection required-context list, the exact PR `statusCheckRollup`,
-and the merge-packet evidence state. When the predicate succeeds, the dry-run
-packet should report something like:
+The merge packet consumes the branch-protection required-check list, the exact
+PR `statusCheckRollup`, and Actions run/job step metadata. When the predicate
+succeeds, the packet reports the ignored contexts and the complete receipt:
 
 ```json
 {
@@ -153,13 +152,19 @@ packet should report something like:
       "workflow": "Build Documentation (PR Check)",
       "name": "build",
       "url": "https://github.com/synaptent/aragora/actions/runs/...",
-      "reason": "allowlisted non-required completed/cancelled context"
+      "head_sha": "<exact-pr-head>",
+      "reason": "allowlisted non-required current-head run cancelled before substantive verifier command"
     }
-  ]
+  ],
+  "check_surfaces": {
+    "unstable_non_required_cancellation_receipt": {
+      "schema_version": "unstable_non_required_cancellation.v1",
+      "head_sha": "<exact-pr-head>",
+      "required_checks_summary": "6/6 required green"
+    }
+  }
 }
 ```
 
-The merge/apply path should require the same exact-head recheck immediately
-before merge and include the receipt in the conductor report. Any required
-context failure, unknown context, unallowlisted context, unresolved dissent, or
-head movement must fail closed.
+The merge/apply path still requires the same exact-head recheck immediately
+before merge and must include this receipt in the conductor report.

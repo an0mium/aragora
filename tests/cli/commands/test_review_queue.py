@@ -46,6 +46,7 @@ from aragora.cli.commands.review_queue import (
     _subsystem_for,
     _summarize_checks,
     _summarize_required_pr_checks,
+    _verified_unstable_non_required_cancellation_receipt,
     add_review_queue_parser,
     cmd_review_queue,
 )
@@ -768,6 +769,244 @@ class TestSummarizeChecks:
         assert summary == "1 failing / 2 total"
         assert has_fail
         assert not has_pending
+
+
+class TestUnstableCancellationReceipt:
+    @staticmethod
+    def _cancelled_build_check() -> dict[str, Any]:
+        return {
+            "name": "build",
+            "workflowName": "Build Documentation (PR Check)",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+            "detailsUrl": ("https://github.com/synaptent/aragora/actions/runs/12345/job/67890"),
+            "completedAt": "2026-07-17T15:37:35Z",
+        }
+
+    @staticmethod
+    def _required_surface(*, state: str = "SUCCESS", include_quorum: bool = True) -> dict[str, Any]:
+        checks = [
+            {
+                "name": "lint",
+                "workflow": "Lint",
+                "state": state,
+                "bucket": "pass" if state == "SUCCESS" else "fail",
+                "link": "https://github.com/synaptent/aragora/actions/runs/1/job/1",
+            }
+        ]
+        if include_quorum:
+            checks.append(
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflow": "Aragora Merge Quorum",
+                    "state": "SUCCESS",
+                    "bucket": "pass",
+                    "link": "https://github.com/synaptent/aragora/actions/runs/2/job/2",
+                }
+            )
+        return {
+            "available": True,
+            "checks": checks,
+            "error": "",
+        }
+
+    @staticmethod
+    def _cancelled_build_run(head_sha: str) -> dict[str, Any]:
+        verifier_steps = [
+            "Update doc stats",
+            "Sync documentation",
+            "Check capability matrix is synced",
+            "Check command guidance drift",
+            "Check CLI reference is synced",
+            "Ensure docs are synced",
+            "Generate capability matrix summary artifact",
+            "Build documentation",
+            "Check for broken links",
+        ]
+        return {
+            "headSha": head_sha,
+            "status": "completed",
+            "conclusion": "cancelled",
+            "workflowName": "Build Documentation (PR Check)",
+            "jobs": [
+                {
+                    "databaseId": 67890,
+                    "name": "build",
+                    "status": "completed",
+                    "conclusion": "cancelled",
+                    "steps": [
+                        {"name": "Checkout", "conclusion": "CANCELLED"},
+                        *[{"name": name, "conclusion": "SKIPPED"} for name in verifier_steps],
+                    ],
+                }
+            ],
+        }
+
+    def test_accepts_exact_head_allowlisted_early_cancellation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[
+                self._cancelled_build_check(),
+                {
+                    "name": "lint",
+                    "workflowName": "Lint",
+                    "status": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                },
+            ],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: self._cancelled_build_run(head_sha),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt["head_sha"] == head_sha
+        assert receipt["required_checks_summary"] == "2/2 required green"
+        assert receipt["ignored_contexts"][0]["run_id"] == 12345
+        assert receipt["ignored_contexts"][0]["head_sha"] == head_sha
+        assert receipt["ignored_contexts"][0]["reason"].startswith("allowlisted non-required")
+
+    def test_rejects_run_from_different_head(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = "exact-head"
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: self._cancelled_build_run("stale-head"),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_substantive_verifier_that_ran(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+        run["jobs"][0]["steps"][-2]["conclusion"] = "SUCCESS"
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", lambda _args: run)
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_required_check_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(state="FAILURE"),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: self._cancelled_build_run(head_sha),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_missing_required_merge_quorum(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(include_quorum=False),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: self._cancelled_build_run(head_sha),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_unallowlisted_cancelled_context(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pr = _make_pr(
+            number=9034,
+            checks=[
+                {
+                    **self._cancelled_build_check(),
+                    "workflowName": "Metrics Drift",
+                    "name": "check",
+                }
+            ],
+            merge_state_status="UNSTABLE",
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: pytest.fail("unallowlisted cancellation must not inspect a run"),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
 
 
 # --- B2: --ignore-own-quorum-check (diagnostic only) -----------------------
@@ -3692,6 +3931,93 @@ class TestBuildQueueAndPacket:
         assert entry["status"] == "blocked_by_live_gate"
         assert entry["verdict"] == "admin_squash_blocked_by_live_gate"
         assert 8958 in packet["not_ready"]
+
+    def test_merge_packet_allows_verified_allowlisted_unstable_cancellations(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ignored_context = {
+            "workflow": "Build Documentation (PR Check)",
+            "name": "build",
+            "url": "https://github.com/synaptent/aragora/actions/runs/12345/job/67890",
+            "run_id": 12345,
+            "job_id": 67890,
+            "head_sha": "abc123",
+            "conclusion": "CANCELLED",
+            "reason": (
+                "allowlisted non-required current-head run cancelled before substantive "
+                "verifier command"
+            ),
+            "verifier_steps": [{"name": "Build documentation", "conclusion": "SKIPPED"}],
+        }
+        receipt = {
+            "schema_version": "unstable_non_required_cancellation.v1",
+            "head_sha": "abc123",
+            "merge_state_status": "UNSTABLE",
+            "policy_path": "docs/runbooks/MERGE_STATE_UNSTABLE_SETTLEMENT.md",
+            "required_checks_summary": "6/6 required green",
+            "required_checks": [{"workflow": "Lint", "name": "lint", "state": "SUCCESS"}],
+            "ignored_contexts": [ignored_context],
+        }
+
+        def fake_build_packet(ref: str, **_kwargs: Any) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(ref),
+                title=f"PR {ref}",
+                url=f"https://github.com/synaptent/aragora/pull/{ref}",
+                head_sha="abc123",
+                base_sha="def456",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["scripts"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="6/6 required green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="bounded test packet",
+                packet_sha="sha256:test",
+                generated_at="2026-07-17T00:00:00+00:00",
+                check_surfaces={
+                    "unstable_non_required_cancellation_receipt": receipt,
+                },
+                merge_state_status="UNSTABLE",
+                unstable_non_required_contexts_ignored=[ignored_context],
+                model_review_quorum={
+                    "tier": 2,
+                    "tier_name": "Tier 2",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [],
+                    "counted_reviewer_ids": ["claude", "openai"],
+                    "reasons": ["clean exact-head quorum"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            lambda ref, repo_override: None,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["9034"],
+            limit=30,
+            repo_override="synaptent/aragora",
+        )
+
+        entry = packet["entries"][0]
+        assert entry["admin_squash_allowed"] is True
+        assert entry["admin_squash_gate_blockers"] == []
+        assert entry["unstable_non_required_contexts_ignored"] == [ignored_context]
+        assert packet["admin_squash_order"] == [9034]
 
     def test_merge_packet_text_renderer_prints_live_gate_blockers(
         self,
