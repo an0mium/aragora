@@ -72,6 +72,7 @@ Set valid direct `XAI_API_KEY` and `MISTRAL_API_KEY` credentials, then run:
 ARAGORA_USE_SECRETS_MANAGER=false ARAGORA_SECRETS_STRICT=false \
   PYTHONPATH=. python3 scripts/measure_factory_review_quorum_vs_single.py collect \
   --providers grok mistral-api \
+  --allow-external-output \
   --output /tmp/factory-review-live-collection.json
 ```
 
@@ -83,10 +84,26 @@ The separate [`factory_review_quorum_vs_single_evidence.json`](factory_review_qu
 contains manual `golden_comment_id` mappings against the pinned validation records,
 and is not represented as raw model output.
 
+`grok` remains the provider and historical replay-fixture identifier used to
+invoke xAI. The machine-readable measurement result normalizes that provider's
+model family to canonical `xai`, matching the ODR receipts, and includes a
+`family_aliases` mapping. Keeping the fixture reviewer identifier unchanged
+preserves deterministic replay of the committed receipts.
+
 ### Deterministic measurement command
 
 ```bash
 PYTHONPATH=. python3 scripts/measure_factory_review_quorum_vs_single.py measure
+```
+
+The default command writes only to the committed in-repository result and fixture
+paths. A read-only checkout can instead use explicit external destinations:
+
+```bash
+PYTHONPATH=. python3 scripts/measure_factory_review_quorum_vs_single.py measure \
+  --allow-external-output \
+  --outcome-dir /tmp/factory-review-outcomes \
+  --output /tmp/factory-review-results.json
 ```
 
 That command spends nothing. It fails closed on missing cases, mismatched SHAs,
@@ -122,7 +139,7 @@ Two cases meet the narrow claim. Both are machine-readable in the result JSON:
   confirms the literal Italian string.
 
 For each case, `quorum.distinct_model_families` is `2`,
-`quorum.families` is `["grok", "mistral"]`, and `receipt_path` points to a
+`quorum.families` is `["mistral", "xai"]`, and `receipt_path` points to a
 verifiable ODR produced from the paired live findings. The result JSON and each
 fixture carry the live collection digest plus a manual-adjudication disclosure:
 
