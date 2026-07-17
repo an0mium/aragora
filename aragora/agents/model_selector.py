@@ -193,8 +193,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         },
         max_context_tokens=1000000,
         max_output_tokens=32768,
-        cost_input_per_1k=0.002,
-        cost_output_per_1k=0.008,
+        # Provider repriced ~2026-07-14; must match aragora/models/catalog.py
+        # ($5/$30 per MTok) — enforced by tests/models/test_catalog.py.
+        cost_input_per_1k=0.005,
+        cost_output_per_1k=0.030,
         avg_latency_ms=900,
         reliability_score=0.97,
         supports_vision=True,

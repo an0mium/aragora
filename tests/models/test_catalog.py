@@ -120,8 +120,12 @@ def test_metering_models_matches_catalog(canonical_id: str) -> None:
             if mid in table and f"{mid}-output" in table:
                 _approx_pair(table[mid], table[f"{mid}-output"], spec)
                 checked = True
-    if not checked:
-        pytest.skip(f"metering has no row for {canonical_id} (presence not yet required)")
+    assert checked, (
+        f"metering MODEL_PRICING has no row for {canonical_id} — "
+        "UsageMeter._calculate_token_cost falls back to provider/default rates "
+        "for missing rows, silently mis-billing live usage; add the row to "
+        "aragora/services/metering_models.py from the catalog"
+    )
 
 
 @pytest.mark.parametrize("canonical_id", ENFORCED_MODELS)
@@ -155,16 +159,68 @@ def test_provider_config_matches_catalog(canonical_id: str) -> None:
         pytest.skip(f"provider_config has no row for {canonical_id} (presence not yet required)")
 
 
-def test_fallback_maps_resolve_to_live_catalog_ids() -> None:
-    """Every OpenRouter target in the agent fallback maps that references an
-    ENFORCED model must use the exact catalog slug (dead-slug class of
-    #9073)."""
+def test_model_selector_profiles_match_catalog() -> None:
+    """Every model_selector profile whose model_id resolves to an ENFORCED
+    catalog spec must carry the catalog's pricing (per-1k mirror of the
+    per-MTok catalog values)."""
+    from aragora.agents.model_selector import MODEL_PROFILES
+
+    checked: set[str] = set()
+    for profile in MODEL_PROFILES.values():
+        spec = by_any_id(profile.model_id)
+        if spec is None or spec.canonical_id not in ENFORCED_MODELS:
+            continue
+        _approx_pair(profile.cost_input_per_1k * 1000, profile.cost_output_per_1k * 1000, spec)
+        checked.add(spec.canonical_id)
+    # Anchors: these enforced models are known to have selector profiles
+    # (gpt4 -> gpt-5.5, claude-opus -> claude-opus-4-8). Deleting or renaming
+    # those rows off-catalog fails here instead of passing vacuously.
+    assert {"gpt-5.5", "claude-opus-4-8"} <= checked, (
+        f"model_selector enforcement anchors missing: checked only {sorted(checked)}"
+    )
+
+
+# Fallback targets that intentionally have no catalog spec yet. Each entry
+# needs adjudication before cataloging (deepseek-v4-pro's mirror rows are
+# known-stale vs the live catalog — see MODEL_CATALOG.md "Known-stale legacy
+# rows"). Remove an entry once its model is cataloged; a stale entry fails
+# the hygiene assertion below.
+_UNCATALOGED_FALLBACK_TARGETS = {"deepseek/deepseek-v4-pro"}
+
+
+def test_fallback_targets_resolve_to_catalog_specs() -> None:
+    """Every OpenRouter fallback TARGET must resolve to a catalog spec (a
+    dead/renamed slug fails — the dead-slug class of #9073), except for the
+    explicit allowlist above; and a target resolving to an ENFORCED spec must
+    be exactly that spec's ``openrouter_id``."""
     from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-    enforced_or_ids = {CATALOG[c].openrouter_id for c in ENFORCED_MODELS}
-    for target in set(OPENROUTER_FALLBACK_MODELS.values()):
+    targets = set(OPENROUTER_FALLBACK_MODELS.values())
+    # Allowlist hygiene: every allowlisted slug must still be a live target.
+    assert _UNCATALOGED_FALLBACK_TARGETS <= targets, (
+        "stale _UNCATALOGED_FALLBACK_TARGETS entries: "
+        f"{sorted(_UNCATALOGED_FALLBACK_TARGETS - targets)}"
+    )
+
+    checked_enforced: set[str] = set()
+    for target in sorted(targets):
         spec = by_any_id(target)
-        if spec is not None and spec.canonical_id in ENFORCED_MODELS:
-            assert target in enforced_or_ids or target in spec.all_ids(), (
-                f"fallback target {target!r} is not a catalog id spelling"
+        if target in _UNCATALOGED_FALLBACK_TARGETS:
+            assert spec is None, (
+                f"{target!r} is now cataloged — remove it from _UNCATALOGED_FALLBACK_TARGETS"
             )
+            continue
+        assert spec is not None, (
+            f"fallback target {target!r} resolves to no catalog spec — dead or "
+            "uncataloged slug; catalog it (with live verification) or add it to "
+            "_UNCATALOGED_FALLBACK_TARGETS with adjudication"
+        )
+        if spec.canonical_id in ENFORCED_MODELS:
+            assert target == spec.openrouter_id, (
+                f"fallback target {target!r} resolves to enforced "
+                f"{spec.canonical_id} but is not its OpenRouter slug "
+                f"{spec.openrouter_id!r}"
+            )
+            checked_enforced.add(spec.canonical_id)
+    # Falsifiability anchor: the map is known to target gpt-5.5 and opus-4.8.
+    assert checked_enforced, "no enforced fallback targets were checked"

@@ -7,87 +7,130 @@
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/elo-trends",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/pending",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/pending/{param}/approve",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/pending/{param}/reject",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/timeline",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/compliance/rbac-coverage",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/debates/public/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/debates/public/{param}/og",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/inbox/messages/{param}/debate",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/mcp/tools",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/relationship/{param}/*",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
+      "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/accounting/callback",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/accounting/gusto/callback",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/accounting/gusto/connect",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/accounting/gusto/disconnect",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
       "status": "open"
     },
     {
@@ -103,6 +146,47 @@
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/bots/slack/status",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
+      "source": "orphaned_in_spec",
+      "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/calibration/curve",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/calibration/history",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/chat/knowledge/channel",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/codebase/quick-scan",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/codebase/quick-scans",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -111,54 +195,85 @@
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/consent",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/execute",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/executions",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/federation",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/health",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/stats",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/workspaces",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
+      "source": "orphaned_in_spec",
+      "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/debates/public",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/devices/apple/shortcuts",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/inbox/mentions",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -175,46 +290,60 @@
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/batch",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/batch/delete",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/merge",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/relationships",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/stats",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/validate",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
+      "source": "orphaned_in_spec",
+      "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/knowledge/mound/graph",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -223,6 +352,182 @@
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/matches/stats",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/memory",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/memory/tier",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/patterns",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/patterns/hive-mind",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/patterns/map-reduce",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/patterns/review-cycle",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/ralph/blockers",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/ralph/campaigns",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/ralph/overview",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/review-queue",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/review-queue/triage-metrics",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/shared",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/slos",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/marketplace/categories",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/marketplace/status",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/marketplace/templates",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/marketplace/templates/import",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/orchestration/deliberate",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/orchestration/deliberate/sync",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/orchestration/templates",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/verification/proofs",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/verification/validate",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -423,6 +728,30 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/memory/tiers",
       "provenance": "python extractor blindness fix (#9362)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:DELETE /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:DELETE /api/n8n/node",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:DELETE /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
       "source": "python_sdk_drift",
       "status": "open"
     },
@@ -2133,6 +2462,14 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:GET /api/pulse/scheduler/config",
+      "provenance": "Discovered by PR #9365: deprecated-in-place shim get_scheduler_config performs a safe GET on a PATCH-only route (previous implementation POSTed into the config-update branch); kept per the SDK deprecation convention (#9366/#9367), resolves when the shim is removed",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/rbac/permissions/{param}",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -2829,6 +3166,22 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/export/batch/{param}/results",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/export/batch/{param}/status",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/queue/status",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -2847,6 +3200,22 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/{param}/followup",
       "provenance": "python extractor blindness fix (#9362)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/{param}/followups",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/{param}/forks",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
       "source": "python_sdk_drift",
       "status": "open"
     },
@@ -3525,6 +3894,22 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/export/batch/{param}/results",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/export/batch/{param}/status",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/queue/status",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -3551,6 +3936,22 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/{param}/evidence",
       "provenance": "python extractor blindness fix (#9362)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/{param}/followups",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/{param}/forks",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
       "source": "python_sdk_drift",
       "status": "open"
     },
@@ -4207,6 +4608,30 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/memory/tiers",
       "provenance": "python extractor blindness fix (#9362)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/n8n/node",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: python twins of the TS n8n fictions \u2014 AutomationHandler serves n8n config routes GET-only (handle_post/handle_delete have no n8n branches, verified 2026-07-16); the py SDK n8n namespace methods target operations the server never served",
       "source": "python_sdk_drift",
       "status": "open"
     },
@@ -5063,8 +5488,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:DELETE /api/control-plane/schedules/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -5189,6 +5615,14 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/memory/context",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "typescript_sdk_drift:DELETE /api/memory/continuum/{param}",
       "provenance": "PR #9366: contract-correct deleteEntry calls DELETE /api/v1/memory/continuum/{id} (served by MemoryHandler.handle_delete) but the generated spec lacks the route (generator ROUTES gap, see #9360)",
       "source": "typescript_sdk_drift",
@@ -5199,6 +5633,30 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:DELETE /api/memory/snapshots/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/n8n/node",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -5247,6 +5705,14 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:DELETE /api/users/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/webhooks/bulk",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -5487,24 +5953,27 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/control-plane/audit-logs/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/control-plane/metrics/agents/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/control-plane/schedules/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6135,6 +6604,14 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/media/audio/{param}/transcription",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:GET /api/memory/analytics",
+      "provenance": "#9367 getTierAnalytics() contract-correct parallel; route served by MemoryAnalyticsHandler, spec entry lands with #9360 generator supplement (python twin already baselined)",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -7015,16 +7492,18 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/admin/emergency/activate",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/admin/emergency/deactivate",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7055,24 +7534,27 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/agent-dashboard/agents/{param}/pause",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/agent-dashboard/agents/{param}/resume",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/agent-dashboard/queue/prioritize",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7359,24 +7841,27 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/control-plane/agents/{param}/pause",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/control-plane/agents/{param}/resume",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/control-plane/queue/prioritize",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7535,6 +8020,22 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/email/{param}/snooze",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/external-agents/adapters",
+      "provenance": "Discovered by PR #9365: generic-handle GET dispatch analysis replaced the ambiguous class-verb guess on these routes; handler dispatch verified 2026-07-16 \u2014 external-agents adapters/health are GET-only (external_agents.py handle()), and /api/v1/invites serves only POST {token}/accept sub-routes (workspace_module.py _route_invites) \u2014 the TS SDK methods POST to operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/external-agents/health",
+      "provenance": "Discovered by PR #9365: generic-handle GET dispatch analysis replaced the ambiguous class-verb guess on these routes; handler dispatch verified 2026-07-16 \u2014 external-agents adapters/health are GET-only (external_agents.py handle()), and /api/v1/invites serves only POST {token}/accept sub-routes (workspace_module.py _route_invites) \u2014 the TS SDK methods POST to operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -7731,6 +8232,14 @@
       "status": "open"
     },
     {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/invites",
+      "provenance": "Discovered by PR #9365: generic-handle GET dispatch analysis replaced the ambiguous class-verb guess on these routes; handler dispatch verified 2026-07-16 \u2014 external-agents adapters/health are GET-only (external_agents.py handle()), and /api/v1/invites serves only POST {token}/accept sub-routes (workspace_module.py _route_invites) \u2014 the TS SDK methods POST to operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/knowledge/embeddings",
@@ -7903,6 +8412,30 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/media/audio/{param}/convert",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/n8n/node",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -8127,8 +8660,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/sme/teams/subscribe",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -8319,8 +8853,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:PUT /api/control-plane/schedules/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
