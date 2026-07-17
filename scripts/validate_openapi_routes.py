@@ -129,6 +129,73 @@ def _resolve_local_module(repo_root: Path, module_name: str) -> Path | None:
     return next((candidate for candidate in candidates if candidate.is_file()), None)
 
 
+def _resolve_import_module(
+    current_module: str,
+    current_path: Path,
+    imported: ast.ImportFrom,
+) -> str | None:
+    """Resolve an absolute module name for a local ``from`` import."""
+    if imported.level == 0:
+        return imported.module
+
+    package_parts = current_module.split(".")
+    if current_path.name != "__init__.py":
+        package_parts = package_parts[:-1]
+    ascents = imported.level - 1
+    if ascents > len(package_parts):
+        return None
+    if ascents:
+        package_parts = package_parts[:-ascents]
+    if imported.module:
+        package_parts.extend(imported.module.split("."))
+    return ".".join(package_parts) or None
+
+
+def _resolve_registration_function(
+    repo_root: Path,
+    module_name: str,
+    function_name: str,
+    visited: set[tuple[str, str]] | None = None,
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    """Resolve a registrar definition through local package reexports."""
+    seen = set() if visited is None else visited
+    key = (module_name, function_name)
+    if key in seen:
+        raise RouteRegistrationScanError(
+            f"cyclic route-registration reexport while resolving {module_name}:{function_name}"
+        )
+    seen.add(key)
+
+    module_path = _resolve_local_module(repo_root, module_name)
+    if module_path is None:
+        return None
+    module_tree = _parse_python_source(module_path)
+    definitions = [
+        node
+        for node in module_tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name
+    ]
+    if definitions:
+        return definitions[-1]
+
+    for node in module_tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        for imported in node.names:
+            if (imported.asname or imported.name) != function_name:
+                continue
+            imported_module = _resolve_import_module(module_name, module_path, node)
+            if imported_module is None:
+                return None
+            return _resolve_registration_function(
+                repo_root,
+                imported_module,
+                imported.name,
+                seen,
+            )
+    return None
+
+
 def _iter_executable_calls(nodes: Iterable[ast.AST]) -> Iterator[ast.Call]:
     """Yield calls while excluding nested definitions that may never execute."""
     for node in nodes:
@@ -149,8 +216,8 @@ def get_wired_function_routes(
     participate in startup. Only imported ``register_*`` callables that are
     actually called there are considered. Within those exact function bodies,
     only literal ``<first-argument>.router.add_*('/api/...')`` calls count.
-    Computed paths, re-exported functions without a local definition, and
-    unrelated route-registration helpers remain unverified.
+    Local package reexports are followed to their function definition. Computed
+    paths and unrelated route-registration helpers remain unverified.
     """
     root = repo_root or _REPO_ROOT
     wiring_path = registration_path or _SERVER_ROUTE_REGISTRATION
@@ -178,40 +245,34 @@ def get_wired_function_routes(
         if not (local_name.startswith("register_") or function_name.startswith("register_")):
             continue
 
-        module_path = _resolve_local_module(root, module_name)
-        if module_path is None:
+        function = _resolve_registration_function(root, module_name, function_name)
+        if function is None:
+            raise RouteRegistrationScanError(
+                f"cannot resolve wired registrar {module_name}:{function_name}"
+            )
+        if not function.args.args:
             continue
-        module_tree = _parse_python_source(module_path)
-        definitions = (
-            node
-            for node in module_tree.body
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and node.name == function_name
-        )
-        for function in definitions:
-            if not function.args.args:
+        app_argument = function.args.args[0].arg
+        for call in _iter_executable_calls(function.body):
+            if not isinstance(call.func, ast.Attribute):
                 continue
-            app_argument = function.args.args[0].arg
-            for call in _iter_executable_calls(function.body):
-                if not isinstance(call.func, ast.Attribute):
-                    continue
-                if call.func.attr not in _LITERAL_ROUTER_METHODS or not call.args:
-                    continue
-                receiver = call.func.value
-                if not (
-                    isinstance(receiver, ast.Attribute)
-                    and receiver.attr == "router"
-                    and isinstance(receiver.value, ast.Name)
-                    and receiver.value.id == app_argument
-                ):
-                    continue
-                path_argument = call.args[0]
-                if (
-                    isinstance(path_argument, ast.Constant)
-                    and isinstance(path_argument.value, str)
-                    and path_argument.value.startswith("/api/")
-                ):
-                    routes.add(path_argument.value)
+            if call.func.attr not in _LITERAL_ROUTER_METHODS or not call.args:
+                continue
+            receiver = call.func.value
+            if not (
+                isinstance(receiver, ast.Attribute)
+                and receiver.attr == "router"
+                and isinstance(receiver.value, ast.Name)
+                and receiver.value.id == app_argument
+            ):
+                continue
+            path_argument = call.args[0]
+            if (
+                isinstance(path_argument, ast.Constant)
+                and isinstance(path_argument.value, str)
+                and path_argument.value.startswith("/api/")
+            ):
+                routes.add(path_argument.value)
     return routes
 
 
@@ -476,7 +537,7 @@ def filter_wired_orphans(
 ) -> tuple[set[str], set[str]]:
     """Split orphan candidates by literal evidence from wired route functions."""
     if wired_routes is None:
-        wired_routes = load_wired_routes_for_validation()
+        wired_routes = {normalize_route(route) for route in load_wired_routes_for_validation()}
 
     served = candidates & wired_routes
     if served:
@@ -515,7 +576,6 @@ def validate_coverage(
     normalized_handler = {normalize_route(r) for r in handler_routes}
     normalized_openapi = {normalize_route(r) for r in openapi_routes}
     normalized_openapi_exact = {normalize_route(r, normalize_version=False) for r in openapi_routes}
-    normalized_wired_routes = {normalize_route(r) for r in wired_routes}
     internal_prefixes = load_internal_prefixes(internal_prefixes_path)
     if not include_internal:
         normalized_handler = {
@@ -525,12 +585,18 @@ def validate_coverage(
             r for r in normalized_openapi if not is_internal_route(r, internal_prefixes)
         }
         normalized_openapi_exact = {
-            r for r in normalized_openapi_exact if not is_internal_route(r, internal_prefixes)
+            r
+            for r in normalized_openapi_exact
+            if not is_internal_route(r, internal_prefixes)
+            and not is_internal_route(normalize_route(r), internal_prefixes)
         }
-        wired_routes = {r for r in wired_routes if not is_internal_route(r, internal_prefixes)}
-        normalized_wired_routes = {
-            r for r in normalized_wired_routes if not is_internal_route(r, internal_prefixes)
+        wired_routes = {
+            r
+            for r in wired_routes
+            if not is_internal_route(r, internal_prefixes)
+            and not is_internal_route(normalize_route(r), internal_prefixes)
         }
+    normalized_wired_routes = {normalize_route(r) for r in wired_routes}
 
     effective_handler_routes = normalized_handler | wired_routes
 
@@ -614,9 +680,11 @@ def validate_coverage(
         print("=" * 60)
         print("OpenAPI Route Validation Report")
         print("=" * 60)
-        print(f"Handler routes:  {results['handler_routes_count']}")
-        print(f"OpenAPI routes:  {results['openapi_routes_count']}")
-        print(f"Coverage:        {results['coverage_percentage']}%")
+        print(f"Handler metadata routes: {results['handler_routes_count']}")
+        print(f"Wired function routes:   {results['wired_function_routes_count']}")
+        print(f"Effective handler routes: {results['effective_handler_routes_count']}")
+        print(f"OpenAPI routes:          {results['openapi_routes_count']}")
+        print(f"Coverage:                {results['coverage_percentage']}%")
         print()
         if baseline_path:
             print(f"New missing in spec vs baseline: {results['new_missing_in_spec_count']}")

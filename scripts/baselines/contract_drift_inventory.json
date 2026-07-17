@@ -45,6 +45,14 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/costs/recommendations/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
       "id": "missing_in_spec:/api/email/daily-digest",
       "provenance": "#9388 wired function missing-spec intake",
       "source": "missing_in_spec",
@@ -127,6 +135,102 @@
       "discovered_on": "2026-07-17",
       "id": "missing_in_spec:/api/integrations/{param}/test",
       "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/authorize",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/capture",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/charge",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/customer",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/customer/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/refund",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/subscription",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/subscription/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/transaction/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/void",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/webhook/authnet",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/webhook/stripe",
+      "provenance": "#9388 package-reexport wired-route intake",
       "source": "missing_in_spec",
       "status": "open"
     },
@@ -259,6 +363,46 @@
       "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
       "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/customer/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/subscription/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/transaction/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/webhook/authnet",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/webhook/stripe",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
     },
     {
       "class": "start_cohort",

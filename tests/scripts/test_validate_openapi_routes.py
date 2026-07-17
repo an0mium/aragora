@@ -177,7 +177,7 @@ def test_get_wired_function_routes_fails_closed_on_unparseable_source(tmp_path: 
         validate_openapi_routes.get_wired_function_routes(registration, tmp_path)
 
 
-def test_get_wired_function_routes_ignores_package_reexports(tmp_path: Path):
+def test_get_wired_function_routes_follows_package_reexports(tmp_path: Path):
     registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
     package = tmp_path / "aragora" / "server" / "handlers" / "reexported"
     registration.parent.mkdir(parents=True)
@@ -194,7 +194,22 @@ def test_get_wired_function_routes_ignores_package_reexports(tmp_path: Path):
 
     routes = validate_openapi_routes.get_wired_function_routes(registration, tmp_path)
 
-    assert routes == set()
+    assert routes == {"/api/v1/reexported"}
+
+
+def test_get_wired_function_routes_fails_closed_on_unresolved_reexport(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    package = tmp_path / "aragora" / "server" / "handlers" / "reexported"
+    registration.parent.mkdir(parents=True)
+    package.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.reexported import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    (package / "__init__.py").write_text("from .missing import register_routes\n", encoding="utf-8")
+
+    with pytest.raises(validate_openapi_routes.RouteRegistrationScanError):
+        validate_openapi_routes.get_wired_function_routes(registration, tmp_path)
 
 
 def test_wired_function_routes_include_known_server_registrations():
@@ -208,6 +223,8 @@ def test_wired_function_routes_include_known_server_registrations():
         "/api/v1/accounting/report",
         "/api/v1/codebase/quick-scan",
         "/api/v1/codebase/quick-scans",
+        "/api/v1/costs",
+        "/api/v1/payments/charge",
     } <= routes
 
 
@@ -278,7 +295,7 @@ def test_validate_coverage_excludes_internal_wired_routes(monkeypatch, tmp_path:
     monkeypatch.setattr(
         validate_openapi_routes,
         "get_wired_function_routes",
-        lambda: {"/api/v1/control-plane/private"},
+        lambda: {"/api/v1/control-plane/private", "/api/control-plane/legacy"},
     )
 
     baseline = tmp_path / "baseline.json"
@@ -290,6 +307,19 @@ def test_validate_coverage_excludes_internal_wired_routes(monkeypatch, tmp_path:
     )
 
     assert results["missing_in_spec"] == []
+
+
+def test_filter_wired_orphans_normalizes_default_registry(monkeypatch):
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "load_wired_routes_for_validation",
+        lambda: {"/api/wired-legacy"},
+    )
+
+    orphaned, served = validate_openapi_routes.filter_wired_orphans({"/api/v1/wired-legacy"})
+
+    assert orphaned == set()
+    assert served == {"/api/v1/wired-legacy"}
 
 
 def test_validate_coverage_treats_decorator_routes_as_implemented(monkeypatch, tmp_path: Path):
