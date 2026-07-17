@@ -628,6 +628,72 @@ describe('MemoryAPI Namespace', () => {
       });
     });
 
+    it('should promote a continuum entry to a target tier', async () => {
+      mockClient.request.mockResolvedValue({
+        success: true,
+        previous_tier: 'fast',
+      });
+
+      const result = await api.promoteEntry('mem-123', 'slow');
+
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/memory/mem-123/promote', {
+        body: { target_tier: 'slow' },
+      });
+      expect(result.success).toBe(true);
+      expect(result.previous_tier).toBe('fast');
+    });
+
+    it('should URL-encode the memory ID when promoting', async () => {
+      mockClient.request.mockResolvedValue({ success: false, previous_tier: null });
+
+      await api.promoteEntry('id/with/slashes', 'medium');
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'POST',
+        '/api/v1/memory/id%2Fwith%2Fslashes/promote',
+        { body: { target_tier: 'medium' } }
+      );
+    });
+
+    it('should get tier analytics via GET with a days window', async () => {
+      mockClient.request.mockResolvedValue({
+        tier_stats: {},
+        promotion_effectiveness: 0.8,
+        learning_velocity: 0.2,
+        total_entries: 42,
+        total_hits: 100,
+        overall_quality_impact: 0.1,
+        recommendations: [],
+        generated_at: '2026-07-16T00:00:00Z',
+      });
+
+      const result = await api.getTierAnalytics({ days: 7 });
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/memory/analytics', {
+        params: { days: 7 },
+      });
+      expect(result.promotion_effectiveness).toBe(0.8);
+    });
+
+    it('should get tier analytics with server-default window', async () => {
+      mockClient.request.mockResolvedValue({
+        tier_stats: {},
+        promotion_effectiveness: 0,
+        learning_velocity: 0,
+        total_entries: 0,
+        total_hits: 0,
+        overall_quality_impact: 0,
+        recommendations: [],
+        generated_at: '2026-07-16T00:00:00Z',
+      });
+
+      await api.getTierAnalytics();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/memory/analytics', {
+        params: {},
+      });
+    });
+
     it('should move entry between tiers', async () => {
       mockClient.request.mockResolvedValue({
         moved: true,

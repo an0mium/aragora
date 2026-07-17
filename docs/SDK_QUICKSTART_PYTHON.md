@@ -12,6 +12,11 @@ Get started with Aragora in under 5 minutes.
 pip install aragora-sdk
 ```
 
+> **Version note:** PyPI releases are cut deliberately and may trail the
+> repository (decoupled cadence, recorded in #9234 — see
+> [SDK_GUIDE.md](SDK_GUIDE.md#release-cadence-recorded-operator-policy-2026-07-16)).
+> Install from source if you need repo-tip behavior.
+
 ## Basic Usage
 
 ```python

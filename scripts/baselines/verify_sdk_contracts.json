@@ -606,6 +606,16 @@
     "PUT /api/verticals/{param}/config",
     "PUT /api/webhooks/{param}/retry-policy"
   ],
+  "missing_stable": [
+    "PATCH /api/v1/debates/export/batch/{param}/results",
+    "PATCH /api/v1/debates/export/batch/{param}/status",
+    "PATCH /api/v1/debates/{param}/followups",
+    "PATCH /api/v1/debates/{param}/forks",
+    "POST /api/v1/debates/export/batch/{param}/results",
+    "POST /api/v1/debates/export/batch/{param}/status",
+    "POST /api/v1/debates/{param}/followups",
+    "POST /api/v1/debates/{param}/forks"
+  ],
   "typescript_sdk_drift": [
     "DELETE /api/analytics/{param}",
     "DELETE /api/backups/schedules/{param}",
@@ -752,6 +762,7 @@
     "GET /api/learning/sessions/{param}",
     "GET /api/media/audio/{param}",
     "GET /api/media/audio/{param}/transcription",
+    "GET /api/memory/analytics",
     "GET /api/memory/context",
     "GET /api/memory/cross-debate",
     "GET /api/memory/snapshots",
@@ -1039,15 +1050,5 @@
     "PUT /api/plans/{param}",
     "PUT /api/users/{param}/role",
     "PUT /api/webhooks/{param}/retry-policy"
-  ],
-  "missing_stable": [
-    "PATCH /api/v1/debates/export/batch/{param}/results",
-    "PATCH /api/v1/debates/export/batch/{param}/status",
-    "PATCH /api/v1/debates/{param}/followups",
-    "PATCH /api/v1/debates/{param}/forks",
-    "POST /api/v1/debates/export/batch/{param}/results",
-    "POST /api/v1/debates/export/batch/{param}/status",
-    "POST /api/v1/debates/{param}/followups",
-    "POST /api/v1/debates/{param}/forks"
   ]
 }

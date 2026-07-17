@@ -127,6 +127,19 @@ class TestMemoryStats:
             )
             client.close()
 
+    def test_get_analytics_days_window(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"tier_stats": {}, "promotion_effectiveness": 0.8}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.get_analytics(days=7)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/memory/analytics",
+                params={"days": 7},
+            )
+            assert result["promotion_effectiveness"] == 0.8
+            client.close()
+
 
 # ===========================================================================
 # Tier Operations Tests
@@ -156,6 +169,32 @@ class TestTierOperations:
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
             client.memory.tiers()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/tiers")
+            client.close()
+
+    def test_promote_entry(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True, "previous_tier": "fast"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.promote_entry("mem-123", "slow")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/mem-123/promote",
+                json={"target_tier": "slow"},
+            )
+            assert result["success"] is True
+            assert result["previous_tier"] == "fast"
+            client.close()
+
+    def test_promote_entry_url_encodes_id(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": False, "previous_tier": None}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.memory.promote_entry("id/with/slashes", "medium")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/id%2Fwith%2Fslashes/promote",
+                json={"target_tier": "medium"},
+            )
             client.close()
 
 
@@ -218,6 +257,19 @@ class TestContinuumOperations:
                     "tiers": "slow",
                 },
             )
+            client.close()
+
+    def test_consolidate(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"status": "completed"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.consolidate()
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/continuum/consolidate",
+                json={},
+            )
+            assert result["status"] == "completed"
             client.close()
 
     def test_store_entry(self) -> None:
@@ -309,13 +361,14 @@ class TestCritiqueOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"id": "critique-123"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.memory.store_critique(
-                "The proposal lacks consideration for edge cases",
-                agent="claude",
-                debate_id="debate-456",
-                target_agent="gpt4",
-                score=0.85,
-            )
+            with pytest.warns(DeprecationWarning, match="silent no-op"):
+                result = client.memory.store_critique(
+                    "The proposal lacks consideration for edge cases",
+                    agent="claude",
+                    debate_id="debate-456",
+                    target_agent="gpt4",
+                    score=0.85,
+                )
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/critiques",
@@ -426,6 +479,20 @@ class TestAsyncMemory:
             await client.close()
 
     @pytest.mark.asyncio
+    async def test_promote_entry(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"success": True, "previous_tier": "medium"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.memory.promote_entry("mem-789", "glacial")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/mem-789/promote",
+                json={"target_tier": "glacial"},
+            )
+            assert result["success"] is True
+            await client.close()
+
+    @pytest.mark.asyncio
     async def test_retrieve_continuum(self) -> None:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"memories": [{"id": "m1"}]}
@@ -446,6 +513,20 @@ class TestAsyncMemory:
                 },
             )
             assert len(result["memories"]) == 1
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_consolidate(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"status": "completed"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.memory.consolidate()
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/continuum/consolidate",
+                json={},
+            )
+            assert result["status"] == "completed"
             await client.close()
 
     @pytest.mark.asyncio
