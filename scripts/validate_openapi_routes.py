@@ -413,7 +413,7 @@ def get_openapi_routes(spec_path: str) -> set[str]:
     return routes
 
 
-def normalize_route(route: str | tuple) -> str:
+def normalize_route(route: str | tuple, *, normalize_version: bool = True) -> str:
     """Normalize a route for comparison.
 
     Handles:
@@ -444,8 +444,9 @@ def normalize_route(route: str | tuple) -> str:
     # Strip trailing slash
     route = route.rstrip("/")
 
-    # Normalize version prefix
-    if route.startswith("/api/") and not route.startswith("/api/v"):
+    # Normalize version prefix when comparing legacy handler metadata. Literal
+    # server wiring must match the exact API version it actually registers.
+    if normalize_version and route.startswith("/api/") and not route.startswith("/api/v"):
         route = route.replace("/api/", "/api/v1/", 1)
 
     # Convert wildcard * to generic {param} for comparison
@@ -462,7 +463,9 @@ def normalize_route(route: str | tuple) -> str:
 def filter_wired_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
     """Split orphan candidates by literal evidence from wired route functions."""
     try:
-        wired_routes = {normalize_route(route) for route in get_wired_function_routes()}
+        wired_routes = {
+            normalize_route(route, normalize_version=False) for route in get_wired_function_routes()
+        }
     except RouteRegistrationScanError as exc:
         print(f"Error: {exc}. Refusing to validate partial route wiring.", file=sys.stderr)
         sys.exit(1)

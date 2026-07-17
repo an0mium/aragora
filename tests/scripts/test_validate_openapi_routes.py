@@ -161,6 +161,9 @@ def register_unused(app):
         "/api/v1/wired",
         "/api/v1/wired-legacy",
     }
+    assert {
+        validate_openapi_routes.normalize_route(route, normalize_version=False) for route in routes
+    } == {"/api/v1/wired", "/api/wired-legacy"}
 
 
 def test_get_wired_function_routes_fails_closed_on_unparseable_source(tmp_path: Path):
@@ -190,12 +193,12 @@ def test_validate_coverage_uses_wired_routes_only_to_disprove_orphans(monkeypatc
     monkeypatch.setattr(
         validate_openapi_routes,
         "get_openapi_routes",
-        lambda _spec: {"/api/v1/wired-legacy", "/api/v1/dark"},
+        lambda _spec: {"/api/v1/wired", "/api/v1/wired-legacy", "/api/v1/dark"},
     )
     monkeypatch.setattr(
         validate_openapi_routes,
         "get_wired_function_routes",
-        lambda: {"/api/wired-legacy"},
+        lambda: {"/api/v1/wired", "/api/wired-legacy"},
     )
 
     baseline = tmp_path / "baseline.json"
@@ -208,8 +211,8 @@ def test_validate_coverage_uses_wired_routes_only_to_disprove_orphans(monkeypatc
     )
 
     assert results["missing_in_spec"] == []
-    assert results["orphaned_in_spec"] == ["/api/v1/dark"]
-    assert results["served_wired_registration"] == ["/api/v1/wired-legacy"]
+    assert results["orphaned_in_spec"] == ["/api/v1/dark", "/api/v1/wired-legacy"]
+    assert results["served_wired_registration"] == ["/api/v1/wired"]
 
 
 def test_validate_coverage_treats_decorator_routes_as_implemented(monkeypatch, tmp_path: Path):
