@@ -233,7 +233,14 @@ worker that produced the packet. After re-arm, the next merge cycle must still
 re-run its normal exact-head ownership, quorum, settlement, and branch-
 protection gates.
 
-## Snapshot: 2026-07-08
+## Historical Snapshot: 2026-07-08 (Non-Comparable)
+
+This retained observation predates the pinned #9099 campaign profile. It ran
+under Python 3.11.11 rather than Python 3.12.12, so it is classified as
+`non_comparable_environment`. It may illustrate what that older environment
+reported, but it cannot establish `product_red`, red `main`, or a #9099
+identity set. Do not use it to trigger preservation, repair, settlement, or
+re-arm decisions; rerun the procedure under the exact declared profile first.
 
 | Field | Value |
 | --- | --- |
@@ -241,10 +248,12 @@ protection gates.
 | Commit summary | `docs(m6): canonical consistency sweep across quickstart/verifier/action docs (#9003)` |
 | Detached worktree | `/private/tmp/aragora-main-health-20260708T143015Z` |
 | Local command | `PATH="$HOME/.pyenv/versions/3.11.11/bin:$PATH" make ci-required` |
+| Evidence classification | `non_comparable_environment` |
+| Campaign comparability | Invalid: Python 3.11.11 does not match the required Python 3.12.12 profile. |
 | Start / end | `2026-07-08T14:30:36Z` / `2026-07-08T14:31:37Z` |
 | Elapsed | 61 seconds |
 | Full log | `/tmp/aragora-main-health-ci-required-20260708T143015Z.log` |
-| Result | failed at `typecheck` |
+| Result | Historical observation only: failed at `typecheck` under a non-comparable environment. |
 
 Per-check result:
 
@@ -270,8 +279,7 @@ Found 2646 errors in 648 files (checked 4248 source files)
 make: *** [ci-required] Error 1
 ```
 
-Disposition: `origin/main` is not locally green under the no-dispatch
-`make ci-required` proxy because the typecheck step fails broadly. The next
-bounded repair should target the typecheck command or classify why the local
-aggregate differs from the protected GitHub `typecheck` context before any
-main-health dispatch or settlement decision relies on this snapshot.
+Disposition: non-actionable historical observation. Because the interpreter
+does not match the declared campaign profile, this result is not evidence that
+`origin/main` was red and must not nominate source or tooling repair. Produce a
+fresh exact-profile run before drawing a main-health conclusion.
