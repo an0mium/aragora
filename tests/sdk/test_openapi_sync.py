@@ -108,6 +108,25 @@ def _load_baseline() -> dict[str, set[str]]:
     }
 
 
+def _internal_prefixes() -> tuple[str, ...]:
+    """Internal-route policy prefixes in normalized (version-stripped) form.
+
+    The canonical checkers (scripts/verify_sdk_contracts.py,
+    scripts/validate_openapi_routes.py) exclude served-but-internal endpoint
+    families from public-spec verification under a single policy file. These
+    tests must apply the same policy, or they re-flag exactly the endpoints
+    the policy excludes (first hit: the #9360 route-gate re-arm)."""
+    from scripts.validate_openapi_routes import load_internal_prefixes
+
+    return tuple(_normalize(p) for p in load_internal_prefixes())
+
+
+def _is_internal(normalized_path: str, internal_prefixes: tuple[str, ...]) -> bool:
+    from scripts.validate_openapi_routes import is_internal_route
+
+    return is_internal_route(normalized_path, internal_prefixes)
+
+
 # ---------------------------------------------------------------------------
 # Tests: OpenAPI Spec Structure
 # ---------------------------------------------------------------------------
@@ -241,12 +260,17 @@ class TestStabilityManifest:
         manifest = json.loads(STABILITY_MANIFEST.read_text())
         stable = manifest.get("stable", [])
 
+        internal = _internal_prefixes()
         missing = []
         for entry in stable:
             parts = entry.split(" ", 1)
             if len(parts) != 2:
                 continue
             method, path = parts[0].lower(), _normalize(parts[1])
+            if _is_internal(path, internal):
+                # Internal-route policy: served-but-internal families are
+                # excluded from the public spec by design.
+                continue
             if (method, path) not in openapi_eps:
                 missing.append(entry)
 
@@ -302,6 +326,7 @@ class TestTypeScriptSDKDrift:
 
         assert TS_NAMESPACES.exists(), "TypeScript namespaces not found"
 
+        internal = _internal_prefixes()
         ts_drift: list[tuple[str, str, str]] = []
         for ts_file in sorted(TS_NAMESPACES.glob("*.ts")):
             if (
@@ -313,6 +338,10 @@ class TestTypeScriptSDKDrift:
             content = ts_file.read_text()
             eps = _extract_ts_endpoints(content)
             for ep in sorted(eps - openapi_eps):
+                if _is_internal(ep[1], internal):
+                    # Internal-route policy: internal families cannot be
+                    # verified against the public spec.
+                    continue
                 ts_drift.append((ts_file.stem, ep[0].upper(), ep[1]))
 
         baseline = _load_baseline()
@@ -363,6 +392,7 @@ class TestPythonSDKDrift:
 
         assert PY_NAMESPACES.exists(), "Python namespaces not found"
 
+        internal = _internal_prefixes()
         py_drift: list[tuple[str, str, str]] = []
         for py_file in sorted(PY_NAMESPACES.glob("*.py")):
             if py_file.name.startswith("_"):
@@ -370,6 +400,11 @@ class TestPythonSDKDrift:
             content = py_file.read_text()
             eps = _extract_py_endpoints(content)
             for ep in sorted(eps - openapi_eps):
+                if _is_internal(ep[1], internal):
+                    # Internal-route policy: internal families cannot be
+                    # verified against the public spec (same exclusion the
+                    # canonical checkers and the TS test above apply).
+                    continue
                 py_drift.append((py_file.stem, ep[0].upper(), ep[1]))
 
         baseline = _load_baseline()

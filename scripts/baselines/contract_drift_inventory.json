@@ -7,87 +7,130 @@
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/elo-trends",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/pending",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/pending/{param}/approve",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/pending/{param}/reject",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/timeline",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/compliance/rbac-coverage",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/debates/public/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/debates/public/{param}/og",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/inbox/messages/{param}/debate",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/mcp/tools",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/relationship/{param}/*",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
+      "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/accounting/callback",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/accounting/gusto/callback",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/accounting/gusto/connect",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/accounting/gusto/disconnect",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
       "status": "open"
     },
     {
@@ -103,6 +146,47 @@
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/bots/slack/status",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
+      "source": "orphaned_in_spec",
+      "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/calibration/curve",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/calibration/history",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/chat/knowledge/channel",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/codebase/quick-scan",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/codebase/quick-scans",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -111,54 +195,85 @@
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/consent",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/execute",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/executions",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/federation",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/health",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/stats",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/coordination/workspaces",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
+      "source": "orphaned_in_spec",
+      "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/debates/public",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/devices/apple/shortcuts",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/inbox/mentions",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -175,46 +290,60 @@
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/batch",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/batch/delete",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/merge",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/relationships",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/stats",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "orphaned_in_spec",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/knowledge/facts/validate",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
+      "source": "orphaned_in_spec",
+      "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/knowledge/mound/graph",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -223,6 +352,182 @@
       "discovered_on": "2026-04-17",
       "id": "orphaned_in_spec:/api/v1/matches/stats",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/memory",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/memory/tier",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/patterns",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/patterns/hive-mind",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/patterns/map-reduce",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/patterns/review-cycle",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/ralph/blockers",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/ralph/campaigns",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/ralph/overview",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/review-queue",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/review-queue/triage-metrics",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/shared",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v1/slos",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/marketplace/categories",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/marketplace/status",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/marketplace/templates",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/marketplace/templates/import",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/orchestration/deliberate",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/orchestration/deliberate/sync",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/v2/orchestration/templates",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/verification/proofs",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "orphaned_in_spec:/api/verification/validate",
+      "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
       "source": "orphaned_in_spec",
       "status": "open"
     },
@@ -383,6 +688,14 @@
       "discovered_on": "2026-04-17",
       "id": "python_sdk_drift:DELETE /api/media/audio/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:DELETE /api/memory/continuum/{param}",
+      "provenance": "cross-merge intake: #9366 delete_entry() call site made visible by #9362 extractor fix",
       "source": "python_sdk_drift",
       "status": "open"
     },
@@ -2821,6 +3134,22 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/export/batch/{param}/results",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/export/batch/{param}/status",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/queue/status",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -2839,6 +3168,22 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/{param}/followup",
       "provenance": "python extractor blindness fix (#9362)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/{param}/followups",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:PATCH /api/debates/{param}/forks",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
       "source": "python_sdk_drift",
       "status": "open"
     },
@@ -3517,6 +3862,22 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/export/batch/{param}/results",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/export/batch/{param}/status",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/queue/status",
       "provenance": "python extractor blindness fix (#9362)",
       "source": "python_sdk_drift",
@@ -3543,6 +3904,22 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/{param}/evidence",
       "provenance": "python extractor blindness fix (#9362)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/{param}/followups",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "source": "python_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "python_sdk_drift:POST /api/debates/{param}/forks",
+      "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
       "source": "python_sdk_drift",
       "status": "open"
     },
@@ -5055,8 +5432,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:DELETE /api/control-plane/schedules/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -5479,24 +5857,27 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/control-plane/audit-logs/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/control-plane/metrics/agents/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/control-plane/schedules/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6127,6 +6508,14 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/media/audio/{param}/transcription",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:GET /api/memory/analytics",
+      "provenance": "#9367 getTierAnalytics() contract-correct parallel; route served by MemoryAnalyticsHandler, spec entry lands with #9360 generator supplement (python twin already baselined)",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -7007,16 +7396,18 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/admin/emergency/activate",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/admin/emergency/deactivate",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7047,24 +7438,27 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/agent-dashboard/agents/{param}/pause",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/agent-dashboard/agents/{param}/resume",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/agent-dashboard/queue/prioritize",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7351,24 +7745,27 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/control-plane/agents/{param}/pause",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/control-plane/agents/{param}/resume",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/control-plane/queue/prioritize",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -8119,8 +8516,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/sme/teams/subscribe",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -8311,8 +8709,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:PUT /api/control-plane/schedules/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-16",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
