@@ -228,7 +228,7 @@ def test_wired_function_routes_include_known_server_registrations():
     } <= routes
 
 
-def test_validate_coverage_uses_exact_wired_routes_for_missing_and_normalized_for_orphans(
+def test_validate_coverage_uses_exact_wired_routes_for_missing_and_orphans(
     monkeypatch, tmp_path: Path
 ):
     monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: set())
@@ -253,11 +253,50 @@ def test_validate_coverage_uses_exact_wired_routes_for_missing_and_normalized_fo
     )
 
     assert results["missing_in_spec"] == ["/api/wired-legacy"]
-    assert results["orphaned_in_spec"] == ["/api/v1/dark"]
-    assert results["served_wired_registration"] == [
-        "/api/v1/wired",
-        "/api/v1/wired-legacy",
-    ]
+    assert results["orphaned_in_spec"] == ["/api/v1/dark", "/api/v1/wired-legacy"]
+    assert results["served_wired_registration"] == ["/api/v1/wired"]
+
+
+@pytest.mark.parametrize(
+    ("spec_routes", "wired_routes", "handler_routes", "orphaned", "served"),
+    [
+        ({"/api/foo"}, {"/api/foo"}, set(), [], ["/api/foo"]),
+        ({"/api/v1/foo"}, {"/api/foo"}, set(), ["/api/v1/foo"], []),
+        (
+            {"/api/foo", "/api/v1/foo"},
+            {"/api/foo"},
+            set(),
+            ["/api/v1/foo"],
+            ["/api/foo"],
+        ),
+        ({"/api/v1/foo"}, {"/api/v1/foo"}, set(), [], ["/api/v1/foo"]),
+        ({"/api/foo"}, set(), {"/api/v1/foo"}, [], []),
+    ],
+)
+def test_validate_coverage_preserves_exact_wired_alias_semantics(
+    monkeypatch,
+    tmp_path: Path,
+    spec_routes: set[str],
+    wired_routes: set[str],
+    handler_routes: set[str],
+    orphaned: list[str],
+    served: list[str],
+):
+    monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: handler_routes)
+    monkeypatch.setattr(validate_openapi_routes, "get_openapi_routes", lambda _spec: spec_routes)
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: wired_routes)
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        baseline_path=str(baseline),
+        include_internal=True,
+    )
+
+    assert results["orphaned_in_spec"] == orphaned
+    assert results["served_wired_registration"] == served
 
 
 def test_validate_coverage_counts_wired_routes_missing_from_spec(monkeypatch, tmp_path: Path):
@@ -309,7 +348,7 @@ def test_validate_coverage_excludes_internal_wired_routes(monkeypatch, tmp_path:
     assert results["missing_in_spec"] == []
 
 
-def test_filter_wired_orphans_normalizes_default_registry(monkeypatch):
+def test_filter_wired_orphans_preserves_exact_default_registry(monkeypatch):
     monkeypatch.setattr(
         validate_openapi_routes,
         "load_wired_routes_for_validation",
@@ -318,8 +357,8 @@ def test_filter_wired_orphans_normalizes_default_registry(monkeypatch):
 
     orphaned, served = validate_openapi_routes.filter_wired_orphans({"/api/v1/wired-legacy"})
 
-    assert orphaned == set()
-    assert served == {"/api/v1/wired-legacy"}
+    assert orphaned == {"/api/v1/wired-legacy"}
+    assert served == set()
 
 
 def test_validate_coverage_treats_decorator_routes_as_implemented(monkeypatch, tmp_path: Path):
@@ -392,6 +431,20 @@ def test_filter_served_orphans_drops_can_handle_routes(monkeypatch):
 
     assert served == {"/api/v1/served/route"}
     assert orphaned == {"/api/v1/dark/route"}
+
+
+def test_filter_served_orphans_probes_versioned_variant_for_legacy_candidate(monkeypatch):
+    class VersionedOnlyHandler:
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            return path == "/api/v1/served/versioned-only"
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", VersionedOnlyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/served/versioned-only"})
+
+    assert served == {"/api/served/versioned-only"}
+    assert orphaned == set()
 
 
 def test_filter_served_orphans_survives_broken_can_handle(monkeypatch):

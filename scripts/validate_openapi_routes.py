@@ -407,6 +407,10 @@ def filter_served_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
         variants = {candidate}
         if candidate.startswith("/api/v1/"):
             variants.add(candidate.replace("/api/v1/", "/api/", 1))
+        elif candidate.startswith("/api/"):
+            first_segment = candidate.removeprefix("/api/").partition("/")[0]
+            if not (first_segment.startswith("v") and first_segment[1:].isdigit()):
+                variants.add(candidate.replace("/api/", "/api/v1/", 1))
         serving_handler: str | None = None
         for handler_name, can_handle in probes:
             non_specific = False
@@ -537,7 +541,7 @@ def filter_wired_orphans(
 ) -> tuple[set[str], set[str]]:
     """Split orphan candidates by literal evidence from wired route functions."""
     if wired_routes is None:
-        wired_routes = {normalize_route(route) for route in load_wired_routes_for_validation()}
+        wired_routes = load_wired_routes_for_validation()
 
     served = candidates & wired_routes
     if served:
@@ -596,8 +600,6 @@ def validate_coverage(
             if not is_internal_route(r, internal_prefixes)
             and not is_internal_route(normalize_route(r), internal_prefixes)
         }
-    normalized_wired_routes = {normalize_route(r) for r in wired_routes}
-
     effective_handler_routes = normalized_handler | wired_routes
 
     # Find discrepancies
@@ -606,8 +608,14 @@ def validate_coverage(
         wired_routes - normalized_openapi_exact
     )
 
-    # Routes in OpenAPI but not in handlers (may be deprecated or generated)
-    missing_handlers = normalized_openapi - normalized_handler
+    # Keep orphan candidates in exact spec-path space. Handler metadata uses
+    # legacy version normalization, while literal server wiring only serves the
+    # exact path it registers.
+    missing_handlers = {
+        route
+        for route in normalized_openapi_exact
+        if normalize_route(route) not in normalized_handler
+    }
 
     # Filter out known patterns that may not have explicit ROUTES
     # (e.g., dynamic routes handled by can_handle())
@@ -634,7 +642,7 @@ def validate_coverage(
     # routes it. Free-function registrations and can_handle paths do not always
     # have class-level ROUTES metadata.
     orphan_candidates, served_wired_registration = filter_wired_orphans(
-        orphan_candidates, normalized_wired_routes
+        orphan_candidates, wired_routes
     )
     orphaned_in_spec, served_can_handle = filter_served_orphans(orphan_candidates)
     served_undeclared = served_wired_registration | served_can_handle
