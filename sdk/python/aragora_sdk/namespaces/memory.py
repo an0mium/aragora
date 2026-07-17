@@ -217,6 +217,41 @@ class MemoryAPI:
         """
         return self.list_critiques(agent=agent, limit=limit, offset=offset)
 
+    def store(
+        self,
+        content: str,
+        *,
+        tier: str = "fast",
+        importance: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Store a new memory entry in continuum memory.
+
+        Args:
+            content: The memory content to store
+            tier: Target memory tier (fast, medium, slow, glacial)
+            importance: Importance score between 0.0 and 1.0
+
+        Returns:
+            Dict with the stored entry ID and tier
+        """
+        body: dict[str, Any] = {"content": content, "tier": tier}
+        if importance is not None:
+            body["importance"] = importance
+        return self._client.request("POST", "/api/v1/memory/store", json=body)
+
+    def delete_entry(self, memory_id: str) -> dict[str, Any]:
+        """
+        Delete a continuum memory entry by ID.
+
+        Args:
+            memory_id: ID of the entry to delete (as returned by store())
+
+        Returns:
+            Dict with success flag and message (404 if the entry does not exist)
+        """
+        return self._client.request("DELETE", f"/api/v1/memory/continuum/{memory_id}")
+
     def store_critique(
         self,
         critique: str,
@@ -782,6 +817,41 @@ class AsyncMemoryAPI:
         Alias for list_critiques() for TypeScript SDK compatibility.
         """
         return await self.list_critiques(agent=agent, limit=limit, offset=offset)
+
+    async def store(
+        self,
+        content: str,
+        *,
+        tier: str = "fast",
+        importance: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Store a new memory entry in continuum memory.
+
+        Args:
+            content: The memory content to store
+            tier: Target memory tier (fast, medium, slow, glacial)
+            importance: Importance score between 0.0 and 1.0
+
+        Returns:
+            Dict with the stored entry ID and tier
+        """
+        body: dict[str, Any] = {"content": content, "tier": tier}
+        if importance is not None:
+            body["importance"] = importance
+        return await self._client.request("POST", "/api/v1/memory/store", json=body)
+
+    async def delete_entry(self, memory_id: str) -> dict[str, Any]:
+        """
+        Delete a continuum memory entry by ID.
+
+        Args:
+            memory_id: ID of the entry to delete (as returned by store())
+
+        Returns:
+            Dict with success flag and message (404 if the entry does not exist)
+        """
+        return await self._client.request("DELETE", f"/api/v1/memory/continuum/{memory_id}")
 
     async def store_critique(
         self,

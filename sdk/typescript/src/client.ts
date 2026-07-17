@@ -3019,6 +3019,11 @@ export class AragoraClient {
   /**
    * Store a value in memory.
    *
+   * @deprecated The server does not implement a key/value memory API.
+   * POST /api/v1/memory/store expects `{ content, tier?, importance? }` and
+   * rejects this method's `{ key, value }` payload with 400. Use
+   * {@link storeMemoryEntry} instead.
+   *
    * @param key - Memory key
    * @param value - Value to store
    * @param options - Storage options
@@ -3039,7 +3044,33 @@ export class AragoraClient {
   }
 
   /**
+   * Store a new entry in continuum memory.
+   *
+   * Matches the server contract for POST /api/v1/memory/store
+   * (`{ content, tier?, importance? }` -> `{ id, tier }`).
+   *
+   * @param content - The memory content to store
+   * @param options - Storage options (tier defaults to 'fast', importance to 0.5)
+   * @returns The stored entry ID and tier
+   */
+  async storeMemoryEntry(content: string, options?: {
+    tier?: 'fast' | 'medium' | 'slow' | 'glacial';
+    importance?: number;
+  }): Promise<{ id: string; tier: string }> {
+    return this.request<{ id: string; tier: string }>('POST', '/api/v1/memory/store', {
+      body: {
+        content,
+        ...options,
+      },
+    });
+  }
+
+  /**
    * Retrieve a value from memory by key.
+   *
+   * @deprecated The server does not implement GET /api/v1/memory/retrieve,
+   * so this method always resolves to `null` (the 404 is swallowed). Use
+   * {@link retrieveFromContinuum} to query continuum memory instead.
    *
    * @param key - Memory key
    * @param options - Retrieval options
@@ -3065,6 +3096,10 @@ export class AragoraClient {
   /**
    * Delete a memory entry.
    *
+   * @deprecated The server does not implement DELETE /api/v1/memory/delete,
+   * so this method always rejects with a 404. Use {@link deleteMemoryEntry}
+   * with the entry ID returned by {@link storeMemoryEntry} instead.
+   *
    * @param key - Memory key
    * @param tier - Optional tier to delete from
    */
@@ -3072,6 +3107,21 @@ export class AragoraClient {
     return this.request<{ deleted: boolean }>('DELETE', '/api/v1/memory/delete', {
       params: { key, tier },
     });
+  }
+
+  /**
+   * Delete a continuum memory entry by ID.
+   *
+   * Matches the server contract for DELETE /api/v1/memory/continuum/{id}
+   * (returns `{ success, message }`; 404 if the entry does not exist).
+   *
+   * @param memoryId - ID of the entry to delete (as returned by storeMemoryEntry)
+   */
+  async deleteMemoryEntry(memoryId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(
+      'DELETE',
+      `/api/v1/memory/continuum/${encodeURIComponent(memoryId)}`
+    );
   }
 
   // ===========================================================================
@@ -3294,17 +3344,25 @@ export class AragoraClient {
    *
    * @example
    * ```typescript
-   * const { entries } = await client.retrieveFromContinuum('database optimization', {
+   * const { memories } = await client.retrieveFromContinuum('database optimization', {
    *   tier: 'slow',
    *   limit: 5
    * });
-   * entries.forEach(e => console.log(e.content));
+   * memories.forEach(m => console.log(m.content));
    * ```
    */
-  async retrieveFromContinuum(query: string, options?: ContinuumRetrieveOptions): Promise<{ entries: MemoryEntry[] }> {
-    return this.request<{ entries: MemoryEntry[] }>('GET', '/api/memory/continuum/retrieve', {
-      params: { q: query, ...options },
-    });
+  async retrieveFromContinuum(
+    query: string,
+    options?: ContinuumRetrieveOptions
+  ): Promise<{ memories: MemoryEntry[]; count: number }> {
+    const params: Record<string, unknown> = { query };
+    if (options?.tier) params.tiers = options.tier;
+    if (options?.limit !== undefined) params.limit = options.limit;
+    return this.request<{ memories: MemoryEntry[]; count: number }>(
+      'GET',
+      '/api/memory/continuum/retrieve',
+      { params }
+    );
   }
 
   /**
