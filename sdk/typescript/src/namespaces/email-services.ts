@@ -392,9 +392,23 @@ export class EmailServicesAPI {
    *
    * @deprecated The server exposes triage rules as a single GET/PUT
    * document; POST /api/v1/email/triage/rules was never served. Use
-   * {@link updateTriageRule} instead — this shim delegates to it.
+   * {@link updateTriageRule} with the full rules document instead.
+   *
+   * @throws Error if the payload is not a full rules document — a
+   * single-rule payload sent to the full-document PUT would silently
+   * reset the server's triage rules to defaults, so this shim fails
+   * closed instead of delegating blindly.
    */
   async createTriageRule(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (!('rules' in data)) {
+      throw new Error(
+        'createTriageRule cannot translate a single-rule payload: ' +
+          'PUT /api/v1/email/triage/rules replaces the whole document, and a ' +
+          "payload without 'rules' would reset the server config to defaults. " +
+          'Call updateTriageRule with the full document ' +
+          "({ rules: [...], escalation_keywords: [...], ... })."
+      );
+    }
     return this.updateTriageRule(data);
   }
 

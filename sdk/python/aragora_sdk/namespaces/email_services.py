@@ -179,12 +179,26 @@ class EmailServicesAPI:
         .. deprecated::
             The server exposes triage rules as a single GET/PUT document;
             POST /api/v1/email/triage/rules was never served. Use
-            :meth:`update_triage_rule` instead. This shim delegates to it.
+            :meth:`update_triage_rule` with the full rules document instead.
+
+        Raises:
+            ValueError: If the payload is not a full rules document. A
+                single-rule payload sent to the full-document PUT would
+                silently reset the server's triage rules to defaults, so
+                this shim fails closed instead of delegating blindly.
         """
         _warn_deprecated(
             "create_triage_rule is deprecated: the server has no POST-create "
             "operation for triage rules; use update_triage_rule (PUT)."
         )
+        if "rules" not in kwargs:
+            raise ValueError(
+                "create_triage_rule cannot translate a single-rule payload: "
+                "PUT /api/v1/email/triage/rules replaces the whole document, "
+                "and a payload without 'rules' would reset the server config "
+                "to defaults. Call update_triage_rule with the full document "
+                "({'rules': [...], 'escalation_keywords': [...], ...})."
+            )
         return self.update_triage_rule(**kwargs)
 
     def update_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
@@ -325,11 +339,21 @@ class AsyncEmailServicesAPI:
     # ===========================================================================
 
     async def create_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
-        """Deprecated: no POST-create exists; delegates to update_triage_rule."""
+        """Deprecated: no POST-create exists; requires the full rules document.
+
+        Fails closed on single-rule payloads — the full-document PUT would
+        silently reset the server's triage rules to defaults otherwise.
+        """
         _warn_deprecated(
             "create_triage_rule is deprecated: the server has no POST-create "
             "operation for triage rules; use update_triage_rule (PUT)."
         )
+        if "rules" not in kwargs:
+            raise ValueError(
+                "create_triage_rule cannot translate a single-rule payload: "
+                "PUT /api/v1/email/triage/rules replaces the whole document. "
+                "Call update_triage_rule with the full document."
+            )
         return await self.update_triage_rule(**kwargs)
 
     async def update_triage_rule(self, **kwargs: Any) -> dict[str, Any]:
