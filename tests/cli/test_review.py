@@ -867,6 +867,60 @@ class TestCmdReview:
         assert odr["claim"]["verdict"] == "FAIL"
         assert odr["quorum"]["participants"]
 
+    def test_emit_odr_url_misbinding_fails_fast(self, review_args, tmp_path, capsys, monkeypatch):
+        """--emit-odr followed by the PR URL errors out before any review runs."""
+        review_args.demo = True
+        review_args.emit_odr = "https://github.com/owner/repo/pull/123"
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+        monkeypatch.chdir(tmp_path)
+
+        result = cmd_review(review_args)
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "--emit-odr received a URL" in captured.err
+        assert not (tmp_path / "https:").exists()
+
+    def test_demo_emit_odr_failure_returns_distinct_exit_code(
+        self, review_args, tmp_path, monkeypatch
+    ):
+        """An unwritable receipt path exits 3, not a findings-verdict code."""
+        blocker = tmp_path / "blocker"
+        blocker.write_text("not a directory")
+        review_args.demo = True
+        review_args.emit_odr = str(blocker / "review.odr.json")
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+        result = cmd_review(review_args)
+
+        assert result == 3
+
+    def test_real_review_emit_odr_failure_preserves_sarif(self, review_args, tmp_path, monkeypatch):
+        """ODR emission runs after the other artifact steps, so SARIF still lands."""
+        diff_file = tmp_path / "test.diff"
+        diff_file.write_text("diff --git a/test.py b/test.py\n+new line")
+        blocker = tmp_path / "blocker"
+        blocker.write_text("not a directory")
+        sarif_path = tmp_path / "review.sarif"
+        review_args.diff_file = str(diff_file)
+        review_args.agents = "anthropic-api,openai-api"
+        review_args.emit_odr = str(blocker / "review.odr.json")
+        review_args.sarif = str(sarif_path)
+
+        findings = get_demo_findings()
+        with (
+            patch(
+                "aragora.cli.review.run_review_debate",
+                new=AsyncMock(return_value=MockDebateResult()),
+            ),
+            patch("aragora.cli.review.extract_review_findings", return_value=findings),
+            patch("aragora.cli.review._persist_review_to_km", return_value=True),
+        ):
+            result = cmd_review(review_args)
+
+        assert result == 3
+        assert sarif_path.exists()
+
     def test_error_no_diff_provided(self, review_args, capsys, monkeypatch):
         """Test error when no diff provided."""
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)

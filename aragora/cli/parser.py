@@ -1958,7 +1958,7 @@ def _add_review_parser(subparsers) -> None:
         default=None,
         metavar="PATH",
         help="Emit a verifiable Open Decision Receipt (default: review.odr.json, "
-        "or inside --output-dir when set)",
+        "or inside --output-dir when set); place after the PR URL or pass an explicit PATH",
     )
     parser.add_argument(
         "--sarif",

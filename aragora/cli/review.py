@@ -922,6 +922,17 @@ def _emit_requested_odr(
 def cmd_review(args: argparse.Namespace) -> int:
     """Handle 'review' command."""
 
+    # Fail fast if --emit-odr swallowed the PR URL positional (nargs="?" footgun):
+    # otherwise the receipt would be written under a literal "https:/..." directory.
+    emit_odr_path = getattr(args, "emit_odr", None)
+    if emit_odr_path and emit_odr_path.startswith(("http://", "https://")):
+        print(
+            f"Error: --emit-odr received a URL ({emit_odr_path}) instead of a file path. "
+            "Place --emit-odr after the PR URL, or pass an explicit PATH.",
+            file=sys.stderr,
+        )
+        return 1
+
     # Demo mode - show sample output without API keys
     if getattr(args, "demo", False):
         print("Running in demo mode (no API calls)...", file=sys.stderr)
@@ -970,7 +981,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                 print(f"Warning: SARIF export failed: {e}", file=sys.stderr)
 
         if not _emit_requested_odr(args, findings, output_dir):
-            return 1
+            return 3
 
         print("\n---", file=sys.stderr)
         print("This was a demo. To run a real review, configure API keys:", file=sys.stderr)
@@ -1181,9 +1192,6 @@ def cmd_review(args: argparse.Namespace) -> int:
             print(f"Warning: Gauntlet stress-test failed: {e}", file=sys.stderr)
             logger.debug("Gauntlet error details", exc_info=True)
 
-    if not _emit_requested_odr(args, findings, output_dir):
-        return 1
-
     # Generate SARIF output if requested
     sarif_output = getattr(args, "sarif", None)
     if sarif_output is not None:
@@ -1244,6 +1252,12 @@ def cmd_review(args: argparse.Namespace) -> int:
                 "Warning: 'gh' CLI not found. Install GitHub CLI to use --post-comment.",
                 file=sys.stderr,
             )
+
+    # Emit the receipt after the other artifact steps so an emit failure cannot
+    # suppress SARIF/comment output; exit 3 keeps it distinct from the --ci
+    # findings verdicts (1=critical, 2=high).
+    if not _emit_requested_odr(args, findings, output_dir):
+        return 3
 
     # CI mode exit codes
     if getattr(args, "ci", False):
@@ -1316,7 +1330,7 @@ def create_review_parser(subparsers) -> None:
         default=None,
         metavar="PATH",
         help="Emit a verifiable Open Decision Receipt (default: review.odr.json, "
-        "or inside --output-dir when set)",
+        "or inside --output-dir when set); place after the PR URL or pass an explicit PATH",
     )
 
     parser.add_argument(
