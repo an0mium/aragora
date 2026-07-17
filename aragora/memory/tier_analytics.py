@@ -276,17 +276,23 @@ class TierAnalyticsTracker:
             )
             conn.commit()
 
-        # Emit tier movement event
+        # Emit tier movement event. Bootstraps the domain-subset cross-subscriber
+        # wiring (rather than fetching the bare manager) because this tracker is
+        # reached from pure-library tier-management paths with no Arena in the
+        # call stack; a bare manager would have zero of the relocated domain
+        # reactions applied (e.g. tier_demotion_to_revalidation /
+        # tier_promotion_to_knowledge in aragora.knowledge.event_subscribers),
+        # per docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.4.
         try:
+            from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
             from aragora.events.types import StreamEvent, StreamEventType
-            from aragora.events.cross_subscribers import get_cross_subscriber_manager
 
             event_type = (
                 StreamEventType.MEMORY_TIER_PROMOTION
                 if self._is_promotion(from_tier, to_tier)
                 else StreamEventType.MEMORY_TIER_DEMOTION
             )
-            manager = get_cross_subscriber_manager()
+            manager = bootstrap_debate_event_subscribers()
             manager.dispatch(
                 StreamEvent(
                     type=event_type,
@@ -298,7 +304,7 @@ class TierAnalyticsTracker:
                     },
                 )
             )
-        except (ImportError, RuntimeError, AttributeError) as e:
+        except (ImportError, RuntimeError, AttributeError, TypeError, ValueError) as e:
             logger.debug("Tier movement event emission unavailable: %s", e)
 
     @staticmethod

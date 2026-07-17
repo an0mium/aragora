@@ -6,6 +6,14 @@ versioning.
 
 ## [0.1.2] — Unreleased
 
+### Changed
+- Feeding a **native** Aragora receipt (what `aragora demo --receipt` /
+  `aragora receipt` write) still FAILs schema conformance, but the failure now
+  names the format mistake and the exact bridge command
+  (`aragora receipt export <file> --format odr -o receipt.odr.json`) instead of
+  only listing twelve missing ODR members (issue #9185). Exit codes are
+  unchanged.
+
 ### Security
 - Raise the standalone package's direct `cryptography` dependency floor to
   `>=48.0.1`, matching the root project security floor for GHSA-537c-gmf6-5ccf.

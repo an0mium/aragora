@@ -31,7 +31,7 @@ Aragora works for a 5-person startup on day one and scales to regulated enterpri
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with its registered adapters (canonical count in [METRICS.md](METRICS.md)) give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with its registered adapters (canonical count in [METRICS.md](METRICS.md)) give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system gives models programmatic access to context as REPL variables -- it is **not** prompt compression (compression exists only as a fallback path) -- enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
@@ -337,7 +337,7 @@ aragora/
 ```
 
 <!-- metrics:begin extended-readme-scale -->
-**Scale:** 4,260 tracked Python files | 144 top-level modules | 223,079 test functions across 5,433 test files | canonical counts in [METRICS.md](METRICS.md)
+**Scale:** 4,292 tracked Python files | 145 top-level modules | 224,110 test functions across 5,486 test files | canonical counts in [METRICS.md](METRICS.md)
 <!-- metrics:end -->
 
 ---
@@ -684,7 +684,7 @@ aragora serve --api-port 8080 --ws-port 8765
 ## API Endpoints
 
 <!-- metrics:begin extended-readme-api-surface -->
-The server exposes 3,297 API operations across 2,870 paths. Key categories:
+The server exposes 3,081 API operations across 2,876 paths. Key categories:
 <!-- metrics:end -->
 
 | Category | Description |

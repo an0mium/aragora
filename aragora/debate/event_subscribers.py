@@ -422,6 +422,25 @@ def bootstrap_debate_event_subscribers() -> CrossSubscriberManager:
     from aragora.memory import event_subscribers as memory_home
     from aragora.reasoning import event_subscribers as reasoning_home
 
+    # A second domain-side composition root -- alongside aragora.debate.
+    # orchestrator's module-level import -- that guarantees aragora.events.
+    # security_events has a registered security debate runner. This one
+    # covers callers that reach this bootstrap (server startup via the
+    # interface superset, or any of this module's other domain callers such
+    # as orchestrator_memory/knowledge_manager/extensions) WITHOUT ever
+    # constructing an Arena (which is what orchestrator.py's import would
+    # otherwise depend on). aragora.events never imports aragora.debate.
+    #
+    # ensure_registered() is called explicitly rather than relying on the
+    # import's self-registration side effect alone: this bootstrap function
+    # is documented as idempotent and safe to call repeatedly, and a bare
+    # import is a no-op once security_response is already cached in
+    # sys.modules, so it would not recover from a registry reset that
+    # happens between calls.
+    from aragora.debate import security_response as _security_response
+
+    _security_response.ensure_registered()
+
     knowledge_home.register()
     memory_home.register()
     reasoning_home.register()

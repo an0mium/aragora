@@ -1,0 +1,55 @@
+# Aragora AI Code Review - Decision Receipt Workflow
+#
+# Demonstrates emitting a verifiable Open Decision Receipt (ODR) for the review
+# (landed in #8669) and uploading it as a build artifact.
+#
+# Add this file to your repository at: .github/workflows/aragora-review.yml
+#
+# For full setup instructions, see: docs/GITHUB_ACTION_SETUP.md
+# (section "Emitting a Verifiable Decision Receipt")
+
+name: Aragora AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: aragora-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Aragora Review
+        id: review
+        uses: synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          post-comment: 'true'
+          emit-receipt: 'true'
+          receipt-reviewers: 'claude openai'   # must be families you hold keys for
+
+      - name: Upload the decision receipt
+        if: steps.review.outputs.receipt-verified == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: decision-receipt
+          path: ${{ steps.review.outputs.receipt-path }}
+
+      - name: Verify the receipt offline (optional)
+        if: steps.review.outputs.receipt-verified == 'true'
+        run: |
+          pip install "aragora-verify>=0.1.1"
+          aragora-verify "${{ steps.review.outputs.receipt-path }}"

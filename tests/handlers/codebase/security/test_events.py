@@ -15,6 +15,7 @@ handling, SAST severity filtering, and edge cases.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -38,6 +39,7 @@ from aragora.analysis.codebase.sast.models import (
 )
 from aragora.events.security_events import (
     SecurityEvent,
+    SecurityEventEmitter,
     SecurityEventType,
     SecurityFinding,
     SecuritySeverity,
@@ -664,6 +666,139 @@ class TestEmitScanEvents:
 
         finding = mock_emitter.emit.call_args[0][0].findings[0]
         assert finding.metadata["cvss_score"] is None
+
+
+class TestEmitScanEventsColdRunnerRegistration:
+    """Regression test for P4a E8 SCOPE #5, updated by P4a
+    security-debate-unification (incident #5 fix-forward).
+
+    This handler module never explicitly imports
+    aragora.debate.security_response (that import was deliberately reverted
+    during E8 to avoid a Tier-3 reclassification for this interface-tier
+    handler). E7a-as-merged (and E8) compensated for that with an
+    events-side self-heal
+    (aragora.events.security_events._ensure_default_security_debate_runner_registered)
+    that lazily imported aragora.debate.security_response on first use --
+    but that was itself a charter-forbidden events->debate import edge
+    (incident #5) and has been removed.
+
+    The equivalent robustness now lives entirely domain-side: composition
+    roots register the runner before any request-handling code runs
+    (aragora.debate.orchestrator, aragora.debate.event_subscribers.
+    bootstrap_debate_event_subscribers, aragora.analysis.codebase.sast.
+    scanner -- see aragora/debate/security_response.py's module docstring).
+    A real server process always imports at least one of these during
+    startup, so this handler's auto-debate path keeps working in
+    production. This class pins both halves of the new contract:
+      - test_critical_finding_triggers_debate_when_composition_root_registered:
+        production bootstrap already wired the runner (the realistic case).
+      - test_critical_finding_fails_soft_when_truly_cold: no composition
+        root ever ran (e.g. a misconfigured deployment) -- auto-debate now
+        fails soft with a loud warning log instead of self-healing.
+    See also tests/debate/test_security_response.py::
+    TestConsumerRegistrationSideEffect for the equivalent proof from the
+    SAST scanner composition root's side.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_runner_registry(self):
+        import aragora.events.security_events as security_events_mod
+
+        original = security_events_mod._security_debate_runner
+        security_events_mod._security_debate_runner = security_events_mod._UNSET_RUNNER
+        yield
+        security_events_mod._security_debate_runner = original
+
+    @pytest.mark.asyncio
+    async def test_critical_finding_triggers_debate_when_composition_root_registered(self):
+        """A critical finding through the real handler+emitter path triggers
+        a debate once a composition root has registered the runner
+        (simulating production startup, e.g. aragora.debate.orchestrator
+        having been imported before any request is handled)."""
+        from aragora.debate import security_response
+        from aragora.events.security_events import get_security_debate_runner
+
+        security_response.ensure_registered()
+        assert get_security_debate_runner() is not None
+
+        vuln = _make_vuln(severity=VulnerabilitySeverity.CRITICAL, cvss_score=9.8)
+        dep = _make_dep(vulnerabilities=[vuln])
+        result = _make_scan_result(dependencies=[dep])
+
+        mock_debate_result = MagicMock()
+        mock_debate_result.debate_id = "cold-start-debate-1"
+        mock_debate_result.consensus_reached = True
+        mock_debate_result.confidence = 0.85
+        mock_debate_result.final_answer = "Patch immediately"
+        mock_debate_result.messages = [MagicMock()]
+        mock_debate_result.participants = ["security-auditor"]
+        mock_debate_result.rounds_used = 2
+        mock_debate_result.metadata = {"security_confidence_threshold_met": True}
+
+        real_emitter = SecurityEventEmitter(enable_auto_debate=True)
+
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.events.get_security_emitter",
+                return_value=real_emitter,
+            ),
+            patch(
+                "aragora.debate.security_debate.run_security_debate",
+                new_callable=AsyncMock,
+                return_value=mock_debate_result,
+            ) as mock_run,
+            patch(
+                "aragora.debate.security_response._store_security_debate_result",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await emit_scan_events(result, "repo-1", "scan-1")
+
+        mock_run.assert_awaited_once()
+        assert get_security_debate_runner() is not None
+        assert get_security_debate_runner().__name__ == "trigger_security_debate"
+
+        # get_recent_events() is newest-first: the original scan event is
+        # last (it also triggers a SECURITY_DEBATE_STARTED event, emitted
+        # after debate_requested/debate_id are set on it).
+        scan_event = real_emitter.get_recent_events()[-1]
+        assert scan_event.event_type == SecurityEventType.CRITICAL_VULNERABILITY
+        assert scan_event.debate_requested is True
+        assert scan_event.debate_id == "cold-start-debate-1"
+
+    @pytest.mark.asyncio
+    async def test_critical_finding_fails_soft_when_truly_cold(self, caplog):
+        """A critical finding through the real handler+emitter path fails
+        soft with a loud log -- no debate, no exception -- when no
+        composition root has ever registered a runner (a genuinely cold
+        process, e.g. a misconfigured deployment that skips startup
+        wiring)."""
+        from aragora.events.security_events import get_security_debate_runner
+
+        assert get_security_debate_runner() is None
+
+        vuln = _make_vuln(severity=VulnerabilitySeverity.CRITICAL, cvss_score=9.8)
+        dep = _make_dep(vulnerabilities=[vuln])
+        result = _make_scan_result(dependencies=[dep])
+
+        real_emitter = SecurityEventEmitter(enable_auto_debate=True)
+
+        with (
+            patch(
+                "aragora.server.handlers.codebase.security.events.get_security_emitter",
+                return_value=real_emitter,
+            ),
+            caplog.at_level(logging.WARNING, logger="aragora.events.security_events"),
+        ):
+            await emit_scan_events(result, "repo-1", "scan-1")
+
+        assert get_security_debate_runner() is None
+        assert "No security debate runner registered" in caplog.text
+
+        scan_event = real_emitter.get_recent_events()[-1]
+        assert scan_event.event_type == SecurityEventType.CRITICAL_VULNERABILITY
+        assert scan_event.debate_requested is False
+        assert scan_event.debate_id is None
 
 
 # ============================================================================

@@ -105,11 +105,14 @@ function resolveSourcePath(srcRelPath) {
 
 // Document mapping: source -> destination with category organization
 const DOC_MAP = {
+  // `docs-site/docs/enterprise/positioning.md` is intentionally hand-maintained
+  // as a redirect-style stub after archiving `docs/status/COMMERCIAL_POSITIONING.md`.
+
   // =========================================================================
   // Getting Started
   // =========================================================================
-  'GETTING_STARTED.md': 'getting-started/overview.md',
-  'QUICKSTART_DEVELOPER.md': 'getting-started/quickstart.md',
+  'guides/GETTING_STARTED.md': 'getting-started/overview.md',
+  'quickstart.md': 'getting-started/quickstart.md',
   'CONFIGURATION.md': 'getting-started/configuration.md',
   'ENVIRONMENT.md': 'getting-started/environment.md',
 
@@ -178,6 +181,8 @@ const DOC_MAP = {
   'SDK_CONSOLIDATION.md': 'guides/sdk-consolidation.md',
   'LIBRARY_USAGE.md': 'guides/library-usage.md',
   'PLUGIN_GUIDE.md': 'guides/plugin-guide.md',
+  'GITHUB_ACTION_SETUP.md': 'guides/github-action-setup.md',
+  'guides/github-actions-review.md': 'guides/github-actions-review.md',
 
   // =========================================================================
   // API Reference
@@ -189,6 +194,7 @@ const DOC_MAP = {
   'API_RATE_LIMITS.md': 'api/rate-limits.md',
   'API_STABILITY.md': 'api/stability.md',
   'API_DISCOVERY.md': 'api/discovery.md',
+  'api/SUPPORTED_SURFACE.md': 'api/supported-surface.md',
   'reference/CLI_REFERENCE.md': 'api/cli.md',
   'GITHUB_PR_REVIEW.md': 'api/github-pr-review.md',
   'api/WEBHOOKS.md': 'api/webhooks.md',
@@ -259,7 +265,6 @@ const DOC_MAP = {
   'COMMERCIAL_OVERVIEW.md': 'enterprise/commercial-overview.md',
   'WHY_ARAGORA.md': 'enterprise/why-aragora.md',
   'PRICING.md': 'enterprise/pricing.md',
-  'COMMERCIAL_POSITIONING.md': 'enterprise/positioning.md',
   'BILLING.md': 'enterprise/billing.md',
   'BILLING_UNITS.md': 'enterprise/billing-units.md',
   'SSO_SETUP.md': 'enterprise/sso.md',
@@ -348,6 +353,7 @@ const DOC_MAP = {
   'NEXT_STEPS.md': 'contributing/next-steps.md',
   'FIRST_CONTRIBUTION.md': 'contributing/first-contribution.md',
   'INDEX.md': 'contributing/documentation-index.md',
+  'COLD_REVIEWER_GUIDE.md': 'contributing/cold-reviewer-guide.md',
   'INBOX_GUIDE.md': 'contributing/INBOX_GUIDE.md',
   'DEPRECATION_POLICY.md': 'contributing/deprecation.md',
   'STATUS.md': 'contributing/status.md',
@@ -581,6 +587,9 @@ const REPO_BLOB_BASE = 'https://github.com/synaptent/aragora/blob/main';
 const REPO_MARKDOWN_LINKS = {
   '../README.md': `${REPO_BLOB_BASE}/README.md`,
   'README.md': `${REPO_BLOB_BASE}/docs/README.md`,
+  // METRICS.md is auto-regenerated and not published to docs-site; repo-relative
+  // links from any docs/ page must resolve to the canonical repo copy.
+  'METRICS.md': `${REPO_BLOB_BASE}/docs/METRICS.md`,
   '../aragora/mcp/README.md': `${REPO_BLOB_BASE}/aragora/mcp/README.md`,
   'algorithms/README.md': `${REPO_BLOB_BASE}/docs/algorithms/README.md`,
   '../deploy/README.md': `${REPO_BLOB_BASE}/deploy/README.md`,

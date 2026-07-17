@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -621,6 +623,14 @@ class TestDefaultRunnerPath:
 
     @pytest.mark.asyncio
     async def test_default_path_without_registered_runner_fails_gracefully(self):
+        """True cold path: no composition root has registered a runner.
+
+        There is no lazy-import fallback inside aragora.events (P4a
+        security-debate-unification removed it - see
+        register_security_debate_runner's docstring); a truly cold registry
+        must fail soft (counted as failed, no exception escapes) rather than
+        importing aragora.debate itself.
+        """
         emitter = SecurityEventEmitter(enable_auto_debate=False)
         dispatcher = SecurityDispatcher(emitter=emitter)
         await dispatcher.start()
@@ -635,16 +645,18 @@ class TestDefaultRunnerPath:
                 "aragora.events.security_dispatcher.get_security_debate_runner",
                 return_value=None,
             ),
-            patch(
-                "aragora.events.security_dispatcher._ensure_default_security_debate_runner_registered",
-                return_value=None,
-            ),
+            patch.object(
+                logging.getLogger("aragora.events.security_dispatcher"), "exception"
+            ) as mock_log,
         ):
             await dispatcher._handle_event(event)
             await asyncio.sleep(0.05)
 
         assert dispatcher._stats.debates_failed == 1
         assert dispatcher._stats.debates_completed == 0
+        assert event.debate_requested is False
+        assert event.debate_id is None
+        mock_log.assert_called_once()
         await dispatcher.stop()
 
     @pytest.mark.asyncio
@@ -669,8 +681,15 @@ class TestDefaultRunnerPath:
         assert event.debate_id is None
 
     @pytest.mark.asyncio
-    async def test_default_path_lazily_registers_runner_when_cold(self):
-        runner = AsyncMock(return_value="debate-lazy-1")
+    async def test_default_path_registers_via_composition_root_not_lazy_import(self):
+        """A composition root (e.g. importing aragora.debate.security_response,
+        as aragora.debate.orchestrator and aragora.debate.event_subscribers'
+        bootstrap_debate_event_subscribers do) registers the default runner
+        BEFORE the dispatcher ever runs -- there is no events-side lazy-import
+        fallback to fall back on if that has not happened (see
+        test_default_path_without_registered_runner_fails_gracefully)."""
+        import aragora.debate.security_response as security_response_mod
+
         emitter = SecurityEventEmitter(enable_auto_debate=False)
         dispatcher = SecurityDispatcher(emitter=emitter)
         await dispatcher.start()
@@ -683,21 +702,30 @@ class TestDefaultRunnerPath:
         with (
             patch(
                 "aragora.events.security_dispatcher.get_security_debate_runner",
-                return_value=None,
+                return_value=security_response_mod.trigger_security_debate,
             ),
             patch(
-                "aragora.events.security_dispatcher._ensure_default_security_debate_runner_registered",
-                return_value=runner,
-            ),
+                "aragora.debate.security_debate.run_security_debate",
+                new_callable=AsyncMock,
+            ) as mock_run,
         ):
-            await dispatcher._handle_event(event)
-            await asyncio.sleep(0.05)
+            mock_run.return_value.debate_id = "debate-composition-root-1"
+            mock_run.return_value.consensus_reached = True
+            mock_run.return_value.confidence = 0.9
+            mock_run.return_value.metadata = {"security_confidence_threshold_met": True}
 
-        runner.assert_awaited_once()
+            with patch(
+                "aragora.debate.security_response._store_security_debate_result",
+                new_callable=AsyncMock,
+            ):
+                await dispatcher._handle_event(event)
+                await asyncio.sleep(0.05)
+
+        mock_run.assert_awaited_once()
         assert dispatcher._stats.debates_completed == 1
         assert dispatcher._stats.debates_failed == 0
         assert event.debate_requested is True
-        assert event.debate_id == "debate-lazy-1"
+        assert event.debate_id == "debate-composition-root-1"
         await dispatcher.stop()
 
     @pytest.mark.asyncio
@@ -727,6 +755,84 @@ class TestDefaultRunnerPath:
         runner.assert_awaited_once()
         assert dispatcher._stats.debates_completed == 1
         assert dispatcher._stats.debates_failed == 0
+        await dispatcher.stop()
+
+    @pytest.mark.asyncio
+    async def test_default_path_uses_debate_defaults_and_rich_context(self):
+        """Regression for p4a-security-debate-unification.
+
+        The dispatcher's default path resolves to the registered
+        aragora.debate.security_response.trigger_security_debate runner,
+        which forwards to aragora.debate.security_debate.run_security_debate
+        unmodified. That function builds its DebateProtocol from
+        DEBATE_DEFAULTS.security_debate_rounds/consensus (not a hardcoded
+        rounds=3/consensus="majority") and includes security_event_type,
+        source, and severity in Environment.context alongside the existing
+        security_event_id/repository/scan_id/findings. This proves the
+        dispatcher default path gets the exact same DEBATE_DEFAULTS-driven
+        config and rich context as the emitter's auto-debate path, since
+        both share the one registered runner.
+        """
+        from aragora.debate.config.defaults import DEBATE_DEFAULTS
+        from aragora.debate.security_response import trigger_security_debate
+
+        mock_agent = MagicMock()
+        mock_agent.name = "security-auditor"
+
+        mock_result = MagicMock()
+        mock_result.debate_id = "debate-rich-context-1"
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.9
+        mock_result.metadata = {}
+
+        mock_arena = MagicMock()
+        mock_arena.run = AsyncMock(return_value=mock_result)
+
+        emitter = SecurityEventEmitter(enable_auto_debate=False)
+        dispatcher = SecurityDispatcher(emitter=emitter)
+        await dispatcher.start()
+
+        event = _make_event(
+            severity=SecuritySeverity.CRITICAL,
+            event_type=SecurityEventType.CRITICAL_CVE,
+            findings=[_make_critical_finding()],
+        )
+
+        with (
+            patch(
+                "aragora.events.security_dispatcher.get_security_debate_runner",
+                return_value=trigger_security_debate,
+            ),
+            patch(
+                "aragora.debate.security_debate.get_security_debate_agents",
+                new_callable=AsyncMock,
+                return_value=[mock_agent],
+            ),
+            patch(
+                "aragora.debate.orchestrator.Arena",
+                return_value=mock_arena,
+            ) as mock_arena_cls,
+            patch(
+                "aragora.debate.security_response._store_security_debate_result",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await dispatcher._handle_event(event)
+            await asyncio.sleep(0.05)
+
+        mock_arena_cls.assert_called_once()
+        protocol = mock_arena_cls.call_args.kwargs["protocol"]
+        assert protocol.rounds == DEBATE_DEFAULTS.security_debate_rounds == 3
+        assert protocol.consensus == DEBATE_DEFAULTS.security_debate_consensus == "majority"
+
+        environment = mock_arena_cls.call_args.kwargs["environment"]
+        context = json.loads(environment.context)
+        assert context["security_event_type"] == event.event_type.value
+        assert context["source"] == event.source
+        assert context["severity"] == event.severity.value
+
+        assert dispatcher._stats.debates_completed == 1
+        assert event.debate_id == "debate-rich-context-1"
         await dispatcher.stop()
 
     @pytest.mark.asyncio

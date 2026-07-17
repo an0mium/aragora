@@ -17,6 +17,8 @@ from aragora.exceptions import ExternalServiceError
 from aragora.knowledge.mound.retrieval import build_debate_knowledge_query
 
 if TYPE_CHECKING:
+    import asyncio
+
     from aragora.debate.context import DebateContext
     from aragora.reasoning.belief import BeliefNetwork
     from aragora.events.security_events import SecurityEvent
@@ -65,9 +67,13 @@ class ArenaDelegatesMixin:
     # Knowledge Mound Delegates
     # ------------------------------------------------------------------
 
-    async def _init_km_context(self, debate_id: str, domain: str) -> None:
-        """Initialize Knowledge Mound context. Delegates to ArenaKnowledgeManager."""
-        await self._km_manager.init_context(
+    async def _init_km_context(self, debate_id: str, domain: str) -> "asyncio.Task[Any] | None":
+        """Initialize Knowledge Mound context. Delegates to ArenaKnowledgeManager.
+
+        Returns the in-flight culture-profile retrieval task (if one was
+        scheduled) so the caller can await it before reading culture hints.
+        """
+        return await self._km_manager.init_context(
             debate_id=debate_id,
             domain=domain,
             env=self.env,

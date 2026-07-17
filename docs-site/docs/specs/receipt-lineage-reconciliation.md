@@ -12,12 +12,18 @@ touched by this document: `aragora/gauntlet/odr_schema.json` is unmodified.
 
 ## Purpose
 
-"Decision receipt" currently names at least three independent code lineages in this
-repo, each with its own module path, its own hashing/signing mechanism, and its own
-level of maturity. This document maps the three lineages, states which one is
-canonical for which audience, and documents how each lineage's decision-state
-(`verdict`) field relates to the others. It introduces no new receipt implementation,
-changes no schema, and does not edit `RECEIPT_CONTRACT.md`.
+Per the front-door positioning in [`README.md`](https://github.com/synaptent/aragora/blob/main/README.md) (quoted verbatim; not
+edited by this document):
+
+> **Aragora is an auditable execution control plane for AI-assisted decisions: multi-model review in, a verifiable Decision Receipt out.**
+
+The "receipt out" half of that sentence is not one artifact. "Decision receipt"
+currently names at least three independent code lineages in this repo, each with its
+own module path, its own hashing/signing mechanism, and its own level of maturity.
+This document maps the three lineages, states which one is canonical for which
+audience, and documents how each lineage's decision-state (`verdict`) field relates to
+the others. It introduces no new receipt implementation, changes no schema, and does
+not edit `RECEIPT_CONTRACT.md`.
 
 ## Canonical decision
 
@@ -84,7 +90,9 @@ must be kept in lockstep:
    aragora-verify` or `curl -s https://pypi.org/pypi/aragora-verify/json`. To
    exercise this exact checkout instead of the published package, run
    `PYTHONPATH=src python -m aragora_verify <r>.odr.json` from `aragora-verify/`, or
-   `pip install ./aragora-verify` for a local `aragora-verify` console script.
+   `pip install ./aragora-verify` for a local `aragora-verify` console script. Its
+   exit-code contract is `0 verified / 1 failed / 2 usage / 3
+   signatures-present-unchecked`.
 
 Both engines are hand-rolled, dependency-light mirrors of the same normative artifact
 — `aragora/gauntlet/odr_schema.json`, also bundled inside the `aragora-verify` package

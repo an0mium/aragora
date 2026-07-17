@@ -2,7 +2,9 @@
 
 Welcome to Aragora's documentation. The `docs/` directory is the canonical
 source. The published site in `docs-site/` is synced from these files via
-`docs-site/scripts/sync-docs.js`.
+`docs-site/scripts/sync-docs.js`. This page is the canonical documentation
+landing page; [docs/INDEX.md](INDEX.md) is a flat reference list of the same
+docs.
 
 Aragora is an **auditable execution control plane for consequential
 AI-assisted work**. It uses multi-model review, receipts, provenance, and
@@ -11,11 +13,16 @@ trusted.
 
 ## What Are You Trying To Do?
 
+The core loop — run a debate, get a receipt, verify it independently, then
+wire it into CI — comes first below; everything else follows.
+
 | Goal | Document |
 |------|----------|
+| **Run your first debate in under a minute** | [Quickstart](./quickstart.md) |
+| Understand the receipt model (native record vs. the portable ODR) | [Receipt Lineage Reconciliation](./specs/RECEIPT_LINEAGE_RECONCILIATION.md) |
+| Verify a receipt independently, no Aragora install required (`aragora-verify` exit codes: `0 verified / 1 failed / 2 usage / 3 signatures-present-unchecked`) | [Independent Verifier Guide](./specs/INDEPENDENT_VERIFIER_GUIDE.md) |
+| Add multi-model CI review + receipts to your pull requests | [GitHub Action Setup](./GITHUB_ACTION_SETUP.md) |
 | Review or audit the project quickly | [Cold Reviewer Guide](./COLD_REVIEWER_GUIDE.md) |
-| **Run your first debate in 5 minutes** | [Quickstart](./guides/QUICKSTART.md) |
-| Full onboarding guide | [Getting Started](./guides/GETTING_STARTED.md) |
 | Understand the supported API contract | [Supported API Surface](./api/SUPPORTED_SURFACE.md) |
 | See 20 runnable code examples | [API Cookbook](./guides/API_COOKBOOK.md) |
 | Build a Python integration | [SDK Guide](./SDK_GUIDE.md) |

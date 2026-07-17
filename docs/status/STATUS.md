@@ -181,7 +181,7 @@ The short version on April 21, 2026:
 - **Agent types**: 43
 - **API operations**: 3,100+ across 2,600+ paths
 - **RBAC permissions**: 420+
-- **Version**: v2.8.0
+- **Version**: v2.9.0
 
 ---
 
@@ -2968,13 +2968,13 @@ The codebase is **feature-rich with improving exposure**:
 ### Docker Deployment
 ```bash
 # Quick start (requires .env file with API keys)
-docker-compose up -d
+docker compose up -d
 
 # With frontend
-docker-compose --profile with-frontend up -d
+docker compose --profile with-frontend up -d
 
 # View logs
-docker-compose logs -f aragora
+docker compose logs -f aragora
 ```
 
 ### Environment Variables

@@ -21,6 +21,7 @@ DOC_PATH = Path("docs/GITHUB_ACTION_SETUP.md")
 README_PATH = Path("README.md")
 ROOT_ACTION_PATH = Path("action.yml")
 EXAMPLE_RECEIPT_PATH = Path("docs/specs/examples/example-merge-quorum-receipt.odr.json")
+RECEIPT_WORKFLOW_EXAMPLE_PATH = Path("examples/github-action/receipt.yml")
 PINNED_ROOT_ACTION_REF = "synaptent/aragora@8b600a3a8dbf076f4027ae27f3dcbbf48e75409f"
 
 _BACKTICK_TABLE_FIELD_RE = re.compile(r"^\|\s*`([a-zA-Z0-9_-]+)`\s*\|", re.MULTILINE)
@@ -56,7 +57,11 @@ def _first_uses_step(steps: list[dict[str, Any]], prefix: str) -> dict[str, Any]
     raise AssertionError(f"no step with uses starting with {prefix!r} in {steps!r}")
 
 
-def test_documented_input_names_are_a_subset_of_action_yml() -> None:
+def test_documented_input_names_match_action_yml_exactly() -> None:
+    """Exact-parity guard (not a subset check): the doc's Action Inputs table
+    must document every action.yml input and no others, so a future field
+    added to (or removed from) action.yml without a matching doc update fails
+    this test immediately instead of silently drifting."""
     action = _load_yaml(ROOT_ACTION_PATH)
     action_inputs = set(action["inputs"].keys())
 
@@ -64,14 +69,19 @@ def test_documented_input_names_are_a_subset_of_action_yml() -> None:
     documented = set(_table_field_names(_section(doc, "### Action Inputs")))
 
     phantom = documented - action_inputs
-    assert not phantom, f"doc documents inputs action.yml does not have: {phantom}"
+    missing = action_inputs - documented
+    assert documented == action_inputs, (
+        f"doc Action Inputs table is out of parity with action.yml -- "
+        f"phantom (documented but not in action.yml): {phantom or None}; "
+        f"missing (in action.yml but not documented): {missing or None}"
+    )
 
-    receipt_inputs = {"emit-receipt", "receipt-reviewers", "use-secrets-manager", "aws-region"}
-    missing = receipt_inputs - documented
-    assert not missing, f"doc is missing receipt-related inputs: {missing}"
 
-
-def test_documented_output_names_are_a_subset_of_action_yml() -> None:
+def test_documented_output_names_match_action_yml_exactly() -> None:
+    """Exact-parity guard (not a subset check): the doc's Action Outputs table
+    must document every action.yml output and no others, so a future field
+    added to (or removed from) action.yml without a matching doc update fails
+    this test immediately instead of silently drifting."""
     action = _load_yaml(ROOT_ACTION_PATH)
     action_outputs = set(action["outputs"].keys())
 
@@ -79,11 +89,12 @@ def test_documented_output_names_are_a_subset_of_action_yml() -> None:
     documented = set(_table_field_names(_section(doc, "### Action Outputs")))
 
     phantom = documented - action_outputs
-    assert not phantom, f"doc documents outputs action.yml does not have: {phantom}"
-
-    receipt_outputs = {"receipt-path", "receipt-verdict", "receipt-digest", "receipt-verified"}
-    missing = receipt_outputs - documented
-    assert not missing, f"doc is missing receipt-related outputs: {missing}"
+    missing = action_outputs - documented
+    assert documented == action_outputs, (
+        f"doc Action Outputs table is out of parity with action.yml -- "
+        f"phantom (documented but not in action.yml): {phantom or None}; "
+        f"missing (in action.yml but not documented): {missing or None}"
+    )
 
 
 def test_emit_receipt_input_exists_only_on_root_action() -> None:
@@ -128,6 +139,29 @@ def test_minimal_receipt_snippet_is_valid_yaml_and_wires_emit_receipt() -> None:
 
     verify_steps = [s for s in steps if "aragora-verify" in s.get("run", "")]
     assert verify_steps, "expected an optional aragora-verify step in the snippet"
+
+
+def test_doc_points_to_receipt_workflow_example() -> None:
+    doc = DOC_PATH.read_text(encoding="utf-8")
+    assert str(RECEIPT_WORKFLOW_EXAMPLE_PATH) in doc, (
+        "doc should point at the receipt-emitting example workflow file"
+    )
+
+
+def test_receipt_workflow_example_is_valid_yaml_and_wires_emit_receipt() -> None:
+    workflow = _load_yaml(RECEIPT_WORKFLOW_EXAMPLE_PATH)
+
+    assert "jobs" in workflow
+    steps = next(iter(workflow["jobs"].values()))["steps"]
+
+    aragora_step = _first_uses_step(steps, "synaptent/aragora@")
+    assert "/.github/actions/" not in aragora_step["uses"], (
+        "the receipt example must point at the ROOT action, not a nested composite"
+    )
+    assert aragora_step["with"]["emit-receipt"] == "true"
+
+    upload_step = _first_uses_step(steps, "actions/upload-artifact@")
+    assert "receipt-path" in upload_step["with"]["path"]
 
 
 def test_docs_do_not_recommend_mutable_main_action_ref() -> None:
