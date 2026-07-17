@@ -9,12 +9,12 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        exclude: ^(docs/|\.md$)
+        exclude: (^docs/|\.md$)
       - id: end-of-file-fixer
-        exclude: ^(docs/|\.json$|\.lock$)
+        exclude: (^docs/|\.md$|\.json$|\.lock$)
       - id: check-yaml
         args: [--unsafe]  # Allow custom tags
-        exclude: ^(deploy/(helm|multi-region/helm)|aragora-operator/helm)/.*templates/  # Helm templates use Go templating
+        exclude: ^(deploy/(helm|multi-region/helm|kubernetes/helm)|aragora-operator/helm)/.*templates/  # Helm templates use Go templating
       - id: check-json
         exclude: ^(package-lock\.json$|node_modules/)
       - id: check-added-large-files
