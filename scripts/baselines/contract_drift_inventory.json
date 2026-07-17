@@ -3331,6 +3331,22 @@
       "status": "open"
     },
     {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/external-agents/adapters",
+      "provenance": "Discovered by PR #9365: generic-handle GET dispatch analysis replaced the ambiguous class-verb guess on these routes; handler dispatch verified 2026-07-16 \u2014 external-agents adapters/health are GET-only (external_agents.py handle()), and /api/v1/invites serves only POST {token}/accept sub-routes (workspace_module.py _route_invites) \u2014 the TS SDK methods POST to operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/external-agents/health",
+      "provenance": "Discovered by PR #9365: generic-handle GET dispatch analysis replaced the ambiguous class-verb guess on these routes; handler dispatch verified 2026-07-16 \u2014 external-agents adapters/health are GET-only (external_agents.py handle()), and /api/v1/invites serves only POST {token}/accept sub-routes (workspace_module.py _route_invites) \u2014 the TS SDK methods POST to operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/facts",
@@ -3519,6 +3535,14 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/integrations/wizard/{param}/test",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/invites",
+      "provenance": "Discovered by PR #9365: generic-handle GET dispatch analysis replaced the ambiguous class-verb guess on these routes; handler dispatch verified 2026-07-16 \u2014 external-agents adapters/health are GET-only (external_agents.py handle()), and /api/v1/invites serves only POST {token}/accept sub-routes (workspace_module.py _route_invites) \u2014 the TS SDK methods POST to operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },

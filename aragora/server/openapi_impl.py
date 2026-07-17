@@ -960,13 +960,22 @@ def _infer_methods(handler_cls: type) -> tuple[list[str], bool]:
     return ["get"], False
 
 
+_HTTP_VERBS_UPPER = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"})
+
+
 def _dispatch_verbs_by_route(handler_cls: type) -> dict[str, set[str]]:
-    """Attribute verbs to routes by scanning each ``handle_<verb>`` method.
+    """Attribute verbs to routes by scanning the handler's dispatch methods.
 
     A verb counts for a route only when the route path appears as a string
-    literal in that verb's dispatch source (or in a same-class helper the
-    method calls, one level deep). This recovers genuinely served operations
-    on handlers whose class-wide verb union is too ambiguous to fan out.
+    literal in that verb's ``handle_<verb>`` source (or in a same-class helper
+    the method calls, one level deep). Trailing-slash literals are prefix
+    idioms (``path.startswith("/api/x/")``) and never attribute the bare
+    route. The generic ``handle`` method is the GET path in the handler
+    convention, so its literals count as GET evidence — unless it dispatches
+    on a ``method`` value, in which case only conditions testing both the
+    route and the method attribute (exactly the verbs they test). This
+    recovers genuinely served operations on handlers whose class-wide verb
+    union is too ambiguous to fan out.
     """
 
     def _method_source(name: str) -> str | None:
@@ -978,34 +987,82 @@ def _dispatch_verbs_by_route(handler_cls: type) -> dict[str, set[str]]:
         except (OSError, TypeError):
             return None
 
-    def _path_constants(source: str) -> set[str]:
+    def _parse(source: str) -> ast.AST | None:
         try:
-            tree = ast.parse(textwrap.dedent(source))
+            return ast.parse(textwrap.dedent(source))
         except SyntaxError:
-            return set()
+            return None
+
+    def _path_constants(node: ast.AST) -> set[str]:
+        # Any route-shaped literal in the verb's dispatch source counts:
+        # equality comparisons, membership tests, dispatch-table keys, and
+        # @api_endpoint(path=...) declarations all appear as constants.
+        # Trailing-slash literals are startswith() prefixes and are excluded
+        # (they only prove sub-routes are served, not the bare route).
         return {
-            node.value
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and node.value.startswith("/")
+            child.value
+            for child in ast.walk(node)
+            if isinstance(child, ast.Constant)
+            and isinstance(child.value, str)
+            and child.value.startswith("/")
+            and not child.value.endswith("/")
         }
 
     verbs_by_path: dict[str, set[str]] = {}
+
+    def _add(path: str, verb: str) -> None:
+        # Key by the version-stripped form: dispatch code frequently
+        # normalizes /api/v1/... to /api/... before comparing.
+        key = re.sub(r"^/api/v\d+/", "/api/", path)
+        verbs_by_path.setdefault(key, set()).add(verb)
+
+    def _paths_with_helpers(source: str) -> set[str]:
+        tree = _parse(source)
+        paths = _path_constants(tree) if tree is not None else set()
+        for helper in set(re.findall(r"self\.(_\w+)\(", source)):
+            helper_source = _method_source(helper)
+            if helper_source:
+                helper_tree = _parse(helper_source)
+                if helper_tree is not None:
+                    paths |= _path_constants(helper_tree)
+        return paths
+
     for verb in ("get", "post", "put", "patch", "delete", "head"):
         source = _method_source(f"handle_{verb}")
         if source is None:
             continue
-        paths = _path_constants(source)
-        for helper in set(re.findall(r"self\.(_\w+)\(", source)):
-            helper_source = _method_source(helper)
-            if helper_source:
-                paths |= _path_constants(helper_source)
-        for path in paths:
-            # Key by the version-stripped form: dispatch code frequently
-            # normalizes /api/v1/... to /api/... before comparing.
-            key = re.sub(r"^/api/v\d+/", "/api/", path).rstrip("/") or path
-            verbs_by_path.setdefault(key, set()).add(verb)
+        for path in _paths_with_helpers(source):
+            _add(path, verb)
+
+    generic_source = _method_source("handle")
+    if generic_source is not None:
+        tree = _parse(generic_source)
+        if tree is not None:
+            compares_method = any(
+                isinstance(node, ast.Compare)
+                and isinstance(node.left, ast.Name)
+                and node.left.id == "method"
+                for node in ast.walk(tree)
+            )
+            if not compares_method:
+                for path in _paths_with_helpers(generic_source):
+                    _add(path, "get")
+            else:
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.If):
+                        continue
+                    test_paths = _path_constants(node.test)
+                    test_verbs = {
+                        child.value
+                        for child in ast.walk(node.test)
+                        if isinstance(child, ast.Constant)
+                        and isinstance(child.value, str)
+                        and child.value in _HTTP_VERBS_UPPER
+                    }
+                    if test_paths and test_verbs:
+                        for path in test_paths:
+                            for test_verb in test_verbs:
+                                _add(path, test_verb.lower())
     return verbs_by_path
 
 
@@ -1156,6 +1213,10 @@ def _collect_autogenerated_paths() -> dict[str, tuple[list[str], bool]]:
             for template in route_templates + pattern_templates
             if _normalize_template(template) not in explicit_by_norm
         }
+        # NOTE: a single-verb handle_<verb> set alongside a generic handle()
+        # is still fanned out (the GET side of such handlers stays
+        # under-documented) — narrowing that idiom reshuffles hundreds of
+        # operations and is deferred; see PR #9365 review round 3.
         ambiguous = len(generic_templates) > 1 and len(handler_methods) > 1
         if ambiguous:
             dispatch_verbs = _dispatch_verbs_by_route(handler_cls)
