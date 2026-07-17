@@ -20,6 +20,7 @@
     "DELETE /api/keys/{param}",
     "DELETE /api/knowledge/mound/federation/regions/{param}",
     "DELETE /api/media/audio/{param}",
+    "DELETE /api/memory/continuum/{param}",
     "DELETE /api/memory/critiques",
     "DELETE /api/memory/pressure",
     "DELETE /api/memory/search",
