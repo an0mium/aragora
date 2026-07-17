@@ -23,7 +23,7 @@ from pathlib import Path
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head"}
 
 PY_REQUEST_RE = re.compile(
-    r'self\._client\._request\(\s*["\'](?P<method>GET|POST|PUT|PATCH|DELETE)["\']'
+    r'self\._client\._?request\(\s*["\'](?P<method>GET|POST|PUT|PATCH|DELETE)["\']'
     r'\s*,\s*(?:f?["\'])(?P<path>/api/[^"\']+)["\']'
 )
 TS_REQUEST_RE = re.compile(

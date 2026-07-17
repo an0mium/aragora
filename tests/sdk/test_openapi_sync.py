@@ -86,7 +86,7 @@ def _extract_py_endpoints(content: str) -> set[tuple[str, str]]:
     """Extract endpoints from Python SDK source."""
     eps: set[tuple[str, str]] = set()
     for m in re.finditer(
-        r'self\._client\._request\(\s*["\'](?P<method>GET|POST|PUT|PATCH|DELETE)["\']'
+        r'self\._client\._?request\(\s*["\'](?P<method>GET|POST|PUT|PATCH|DELETE)["\']'
         r'\s*,\s*(?:f?["\'])(?P<path>/api/[^"\']+)["\']',
         content,
     ):
@@ -363,6 +363,20 @@ class TestTypeScriptSDKDrift:
 class TestPythonSDKDrift:
     """Python SDK endpoints should match the OpenAPI spec."""
 
+    def test_extract_py_endpoints_matches_public_request_calls(self):
+        """The dominant `self._client.request(...)` form must be extracted.
+
+        Regression: the extractor only matched the private `_request` form,
+        leaving ~96% of Python SDK call sites invisible to drift detection.
+        """
+        content = (
+            '        return self._client.request("POST", "/api/v1/memory/critiques", json=body)\n'
+            '        return self._client._request("GET", "/api/v1/memory/stats")\n'
+        )
+        eps = _extract_py_endpoints(content)
+        assert ("post", "/api/memory/critiques") in eps
+        assert ("get", "/api/memory/stats") in eps
+
     def test_py_namespaces_directory_exists(self):
         """The Python namespaces directory must exist."""
         assert PY_NAMESPACES.exists(), f"Python namespaces not found: {PY_NAMESPACES}"
@@ -378,6 +392,7 @@ class TestPythonSDKDrift:
 
         assert PY_NAMESPACES.exists(), "Python namespaces not found"
 
+        internal = _internal_prefixes()
         py_drift: list[tuple[str, str, str]] = []
         for py_file in sorted(PY_NAMESPACES.glob("*.py")):
             if py_file.name.startswith("_"):
@@ -385,6 +400,11 @@ class TestPythonSDKDrift:
             content = py_file.read_text()
             eps = _extract_py_endpoints(content)
             for ep in sorted(eps - openapi_eps):
+                if _is_internal(ep[1], internal):
+                    # Internal-route policy: internal families cannot be
+                    # verified against the public spec (same exclusion the
+                    # canonical checkers and the TS test above apply).
+                    continue
                 py_drift.append((py_file.stem, ep[0].upper(), ep[1]))
 
         baseline = _load_baseline()
