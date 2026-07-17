@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from aragora.routing.pricing import with_effective_costs
+
 if TYPE_CHECKING:
     from aragora.routing.provider_metrics import ProviderMetrics, ProviderMetricsStore
 
@@ -174,10 +176,21 @@ class CostQualityOptimizer:
         self._store = metrics_store
         self._cache = RoutingCache(ttl=cache_ttl)
 
+    def _all_metrics_with_real_costs(self) -> list[ProviderMetrics]:
+        """Read the store, pricing zero-cost entries via the model catalog.
+
+        Providers whose outcomes were recorded without cost (the default
+        ``cost=0.0`` path) previously entered every cost comparison as FREE,
+        which let unpriced frontier pins dominate the Pareto frontier. The
+        pricing ladder (catalog -> legacy table -> conservative default)
+        substitutes a real, nonzero expectation; substituted entries carry
+        ``cost_estimated=True`` for downstream audit records.
+        """
+        return with_effective_costs(list(self._store.get_all_metrics().values()))
+
     def get_pareto_frontier(self) -> list[ProviderMetrics]:
         """Return the current Pareto frontier across all providers."""
-        all_metrics = list(self._store.get_all_metrics().values())
-        return pareto_frontier(all_metrics)
+        return pareto_frontier(self._all_metrics_with_real_costs())
 
     def get_candidates(
         self,
@@ -191,7 +204,7 @@ class CostQualityOptimizer:
         (via :func:`filter_candidates`) so callers can audit the actual
         post-constraint choice set.
         """
-        all_metrics = list(self._store.get_all_metrics().values())
+        all_metrics = self._all_metrics_with_real_costs()
         return filter_candidates(
             all_metrics,
             min_quality=min_quality,
@@ -229,7 +242,7 @@ class CostQualityOptimizer:
             logger.debug("Routing cache hit for strategy=%s", strategy.value)
             return cached
 
-        all_metrics = list(self._store.get_all_metrics().values())
+        all_metrics = self._all_metrics_with_real_costs()
         if not all_metrics:
             self._cache.put(strategy.value, budget_remaining, min_quality, frozen_exclude, None)
             return None
