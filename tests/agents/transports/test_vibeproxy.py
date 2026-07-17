@@ -75,6 +75,27 @@ def test_catalog_is_sanitized_and_cached(monkeypatch: pytest.MonkeyPatch) -> Non
     assert calls == 1
 
 
+def test_catalog_cache_isolated_by_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"first": 0, "second": 0}
+    first = vibeproxy.VibeProxyClient("https://proxy.example", "first-key")
+    second = vibeproxy.VibeProxyClient("https://proxy.example", "second-key")
+
+    def first_open(*_args, **_kwargs):
+        calls["first"] += 1
+        return _Response(json.dumps({"data": [{"id": "first-model"}]}).encode())
+
+    def second_open(*_args, **_kwargs):
+        calls["second"] += 1
+        return _Response(json.dumps({"data": [{"id": "second-model"}]}).encode())
+
+    monkeypatch.setattr(first._opener, "open", first_open)
+    monkeypatch.setattr(second._opener, "open", second_open)
+
+    assert first.catalog().models == frozenset({"first-model"})
+    assert second.catalog().models == frozenset({"second-model"})
+    assert calls == {"first": 1, "second": 1}
+
+
 def test_client_disables_environment_proxies_and_redirects(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

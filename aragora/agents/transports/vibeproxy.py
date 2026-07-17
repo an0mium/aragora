@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import hashlib
 import ipaddress
 import json
 import math
@@ -74,7 +75,7 @@ class ResolvedModelRoute:
         }
 
 
-_CATALOG_CACHE: dict[str, VibeProxyCatalog] = {}
+_CATALOG_CACHE: dict[tuple[str, bytes], VibeProxyCatalog] = {}
 _CATALOG_LOCK = threading.Lock()
 
 
@@ -201,6 +202,10 @@ class VibeProxyClient:
     ) -> None:
         self.base_url, self.is_loopback = _normalize_base_url(base_url, api_key)
         self.api_key = api_key or (LOCAL_API_KEY if self.is_loopback else None)
+        self._catalog_cache_key = (
+            self.base_url,
+            hashlib.sha256((self.api_key or "").encode("utf-8")).digest(),
+        )
         self.catalog_ttl_seconds = _bounded_float(
             catalog_ttl_seconds, name="catalog TTL", minimum=0.0
         )
@@ -250,7 +255,7 @@ class VibeProxyClient:
     def catalog(self, *, force: bool = False) -> VibeProxyCatalog:
         now = time.monotonic()
         with _CATALOG_LOCK:
-            cached = _CATALOG_CACHE.get(self.base_url)
+            cached = _CATALOG_CACHE.get(self._catalog_cache_key)
             if cached and not force and now - cached.fetched_at < self.catalog_ttl_seconds:
                 return cached
         body = self._request("/models")
@@ -266,7 +271,7 @@ class VibeProxyClient:
             raise VibeProxyUnavailableError("VibeProxy model catalog is empty")
         catalog = VibeProxyCatalog(models=models, fetched_at=now)
         with _CATALOG_LOCK:
-            _CATALOG_CACHE[self.base_url] = catalog
+            _CATALOG_CACHE[self._catalog_cache_key] = catalog
         return catalog
 
     def anthropic_message(
