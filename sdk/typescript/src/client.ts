@@ -3241,23 +3241,16 @@ export class AragoraClient {
   /**
    * Store content in the continuum memory system.
    *
-   * The continuum memory system organizes data across tiers based on
-   * access patterns and importance, automatically promoting or demoting
-   * entries over time.
+   * @deprecated No handler serves POST /api/memory/continuum/store, so this
+   * method always rejects with a 404. The real continuum store endpoint is
+   * POST /api/v1/memory/store (`{ content, tier?, importance? }` -> `{ id, tier }`);
+   * it does not return the `created_at` field declared on ContinuumStoreResult,
+   * and ignores `tags`/`metadata`. Use `storeMemoryEntry` (added in PR #9366),
+   * or call the endpoint via `request()` directly.
    *
    * @param content - Content to store in memory
    * @param options - Storage options
    * @returns Storage confirmation with entry ID and tier
-   *
-   * @example
-   * ```typescript
-   * const result = await client.storeToContinuum('Important insight from debate', {
-   *   tier: 'medium',
-   *   tags: ['debate', 'insight'],
-   *   metadata: { debate_id: 'deb-123' }
-   * });
-   * console.log(`Stored with ID: ${result.id}`);
-   * ```
    */
   async storeToContinuum(content: string, options?: ContinuumStoreOptions): Promise<ContinuumStoreResult> {
     return this.request<ContinuumStoreResult>('POST', '/api/memory/continuum/store', {

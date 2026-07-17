@@ -8,11 +8,11 @@ Provides methods for interacting with the memory system:
 - Continuum retrieval
 - Critique operations (list, store)
 
-Note: Core CRUD (store/retrieve/update/delete by key), query, semantic-search,
-tier operations (get_tier, move, promote, demote), context management,
-cross-debate memory, export/import, snapshots, and maintenance operations
-(prune, compact, sync, vacuum, rebuild-index, consolidate, continuum store/stats)
-were removed as their handler routes no longer exist.
+Note: Several "Advanced Operations" methods below (query, get_tier, move,
+demote, store_critique, ...) target routes that are declared in the memory
+handler's ROUTES list but never dispatched, so they fail with 404 against a
+live server. They are kept for backward compatibility and marked DEPRECATED
+in their docstrings; prefer the documented working methods.
 """
 
 from __future__ import annotations
@@ -88,22 +88,32 @@ class MemoryAPI:
     def get_analytics(
         self,
         *,
+        days: int | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
         granularity: str = "hour",
     ) -> dict[str, Any]:
         """
-        Get memory analytics over time.
+        Get per-tier memory analytics.
+
+        GET /api/v1/memory/analytics returns tier stats, promotion
+        effectiveness, learning velocity, and recommendations over a
+        ``days`` window.
 
         Args:
-            start_time: Start of time range (ISO format)
-            end_time: End of time range (ISO format)
-            granularity: Time granularity (minute, hour, day)
+            days: Analysis window in days (1-365, server default 30) --
+                the only parameter the server reads
+            start_time: DEPRECATED -- ignored by the server
+            end_time: DEPRECATED -- ignored by the server
+            granularity: DEPRECATED -- ignored by the server
 
         Returns:
-            Dict with time-series analytics data
+            Dict with per-tier analytics (``tier_stats``,
+            ``promotion_effectiveness``, ``learning_velocity``, ...)
         """
         params: dict[str, Any] = {"granularity": granularity}
+        if days is not None:
+            params["days"] = days
         if start_time:
             params["start_time"] = start_time
         if end_time:
@@ -206,6 +216,11 @@ class MemoryAPI:
     ) -> dict[str, Any]:
         """
         Store a critique in memory.
+
+        DEPRECATED: The server has no store-critique endpoint -- GET
+        /api/v1/memory/critiques only lists existing critiques and no
+        handler accepts a POST to it, so this method always fails with
+        404. Critiques are recorded server-side during debates.
 
         Args:
             critique: The critique content
@@ -403,7 +418,12 @@ class MemoryAPI:
         prompt: str,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
-        """Query memories using natural language."""
+        """Query memories using natural language.
+
+        DEPRECATED: POST /api/v1/memory/query is declared in the handler's
+        ROUTES list but never dispatched, so this method always fails with
+        404. Use search() or retrieve_continuum() instead.
+        """
         body: dict[str, Any] = {"prompt": prompt}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -454,7 +474,13 @@ class MemoryAPI:
         return self._client.request("POST", "/api/v1/memory/sync", json=body)
 
     def get_tier(self, tier: str) -> dict[str, Any]:
-        """Get detailed information about a specific memory tier."""
+        """Get detailed information about a specific memory tier.
+
+        DEPRECATED: GET /api/v1/memory/tier/{tier} is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with 404. Use list_tiers() for tier stats or
+        retrieve_continuum(tiers=[...]) for entries.
+        """
         return self._client.request("GET", f"/api/v1/memory/tier/{tier}")
 
     def vacuum(self) -> dict[str, Any]:
@@ -462,21 +488,56 @@ class MemoryAPI:
         return self._client.request("POST", "/api/v1/memory/vacuum", json={})
 
     def promote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
-        """Promote a memory entry to a higher tier."""
+        """Promote a memory entry to a higher tier.
+
+        DEPRECATED: The server requires ``target_tier`` -- calls without it
+        fail with 400 -- and responds with
+        ``{"success": bool, "previous_tier": str | None}``. Use
+        promote_entry() instead.
+        """
         body: dict[str, Any] = {}
         if target_tier:
             body["target_tier"] = target_tier
         return self._client.request("POST", f"/api/v1/memory/{key}/promote", json=body)
 
+    def promote_entry(self, memory_id: str, target_tier: str) -> dict[str, Any]:
+        """
+        Promote a continuum memory entry to a target tier.
+
+        Matches the server contract for POST /api/v1/memory/{id}/promote.
+
+        Args:
+            memory_id: ID of the entry to promote (as returned by the store endpoint)
+            target_tier: Tier to promote the entry to (fast, medium, slow, glacial)
+
+        Returns:
+            Dict with ``success`` flag and ``previous_tier``
+        """
+        return self._client.request(
+            "POST", f"/api/v1/memory/{memory_id}/promote", json={"target_tier": target_tier}
+        )
+
     def demote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
-        """Demote a memory entry to a lower tier."""
+        """Demote a memory entry to a lower tier.
+
+        DEPRECATED: POST /api/v1/memory/{key}/demote is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with 404. The server has no demote endpoint -- demotion
+        happens automatically during consolidation and cleanup.
+        """
         body: dict[str, Any] = {}
         if target_tier:
             body["target_tier"] = target_tier
         return self._client.request("POST", f"/api/v1/memory/{key}/demote", json=body)
 
     def move(self, key: str, target_tier: str) -> dict[str, Any]:
-        """Move a memory entry to a specific tier."""
+        """Move a memory entry to a specific tier.
+
+        DEPRECATED: POST /api/v1/memory/{key}/move is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with 404. The only server-side tier mutation is promotion --
+        use promote_entry().
+        """
         body: dict[str, Any] = {"target_tier": target_tier}
         return self._client.request("POST", f"/api/v1/memory/{key}/move", json=body)
 
@@ -544,22 +605,32 @@ class AsyncMemoryAPI:
     async def get_analytics(
         self,
         *,
+        days: int | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
         granularity: str = "hour",
     ) -> dict[str, Any]:
         """
-        Get memory analytics over time.
+        Get per-tier memory analytics.
+
+        GET /api/v1/memory/analytics returns tier stats, promotion
+        effectiveness, learning velocity, and recommendations over a
+        ``days`` window.
 
         Args:
-            start_time: Start of time range (ISO format)
-            end_time: End of time range (ISO format)
-            granularity: Time granularity (minute, hour, day)
+            days: Analysis window in days (1-365, server default 30) --
+                the only parameter the server reads
+            start_time: DEPRECATED -- ignored by the server
+            end_time: DEPRECATED -- ignored by the server
+            granularity: DEPRECATED -- ignored by the server
 
         Returns:
-            Dict with time-series analytics data
+            Dict with per-tier analytics (``tier_stats``,
+            ``promotion_effectiveness``, ``learning_velocity``, ...)
         """
         params: dict[str, Any] = {"granularity": granularity}
+        if days is not None:
+            params["days"] = days
         if start_time:
             params["start_time"] = start_time
         if end_time:
@@ -662,6 +733,11 @@ class AsyncMemoryAPI:
     ) -> dict[str, Any]:
         """
         Store a critique in memory.
+
+        DEPRECATED: The server has no store-critique endpoint -- GET
+        /api/v1/memory/critiques only lists existing critiques and no
+        handler accepts a POST to it, so this method always fails with
+        404. Critiques are recorded server-side during debates.
 
         Args:
             critique: The critique content
@@ -813,7 +889,12 @@ class AsyncMemoryAPI:
         prompt: str,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
-        """Query memories using natural language."""
+        """Query memories using natural language.
+
+        DEPRECATED: POST /api/v1/memory/query is declared in the handler's
+        ROUTES list but never dispatched, so this method always fails with
+        404. Use search() or retrieve_continuum() instead.
+        """
         body: dict[str, Any] = {"prompt": prompt}
         if workspace_id:
             body["workspace_id"] = workspace_id
@@ -864,7 +945,13 @@ class AsyncMemoryAPI:
         return await self._client.request("POST", "/api/v1/memory/sync", json=body)
 
     async def get_tier(self, tier: str) -> dict[str, Any]:
-        """Get detailed information about a specific memory tier."""
+        """Get detailed information about a specific memory tier.
+
+        DEPRECATED: GET /api/v1/memory/tier/{tier} is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with 404. Use list_tiers() for tier stats or
+        retrieve_continuum(tiers=[...]) for entries.
+        """
         return await self._client.request("GET", f"/api/v1/memory/tier/{tier}")
 
     async def vacuum(self) -> dict[str, Any]:
@@ -872,20 +959,55 @@ class AsyncMemoryAPI:
         return await self._client.request("POST", "/api/v1/memory/vacuum", json={})
 
     async def promote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
-        """Promote a memory entry to a higher tier."""
+        """Promote a memory entry to a higher tier.
+
+        DEPRECATED: The server requires ``target_tier`` -- calls without it
+        fail with 400 -- and responds with
+        ``{"success": bool, "previous_tier": str | None}``. Use
+        promote_entry() instead.
+        """
         body: dict[str, Any] = {}
         if target_tier:
             body["target_tier"] = target_tier
         return await self._client.request("POST", f"/api/v1/memory/{key}/promote", json=body)
 
+    async def promote_entry(self, memory_id: str, target_tier: str) -> dict[str, Any]:
+        """
+        Promote a continuum memory entry to a target tier.
+
+        Matches the server contract for POST /api/v1/memory/{id}/promote.
+
+        Args:
+            memory_id: ID of the entry to promote (as returned by the store endpoint)
+            target_tier: Tier to promote the entry to (fast, medium, slow, glacial)
+
+        Returns:
+            Dict with ``success`` flag and ``previous_tier``
+        """
+        return await self._client.request(
+            "POST", f"/api/v1/memory/{memory_id}/promote", json={"target_tier": target_tier}
+        )
+
     async def demote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
-        """Demote a memory entry to a lower tier."""
+        """Demote a memory entry to a lower tier.
+
+        DEPRECATED: POST /api/v1/memory/{key}/demote is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with 404. The server has no demote endpoint -- demotion
+        happens automatically during consolidation and cleanup.
+        """
         body: dict[str, Any] = {}
         if target_tier:
             body["target_tier"] = target_tier
         return await self._client.request("POST", f"/api/v1/memory/{key}/demote", json=body)
 
     async def move(self, key: str, target_tier: str) -> dict[str, Any]:
-        """Move a memory entry to a specific tier."""
+        """Move a memory entry to a specific tier.
+
+        DEPRECATED: POST /api/v1/memory/{key}/move is declared in the
+        handler's ROUTES list but never dispatched, so this method always
+        fails with 404. The only server-side tier mutation is promotion --
+        use promote_entry().
+        """
         body: dict[str, Any] = {"target_tier": target_tier}
         return await self._client.request("POST", f"/api/v1/memory/{key}/move", json=body)

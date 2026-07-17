@@ -283,6 +283,33 @@ export interface MemoryAnalyticsResponse {
 }
 
 /**
+ * Tier analytics response from GET /api/v1/memory/analytics.
+ *
+ * Matches `TierAnalytics.to_dict()` served by MemoryAnalyticsHandler.
+ */
+export interface TierAnalyticsResponse {
+  tier_stats: Record<string, {
+    tier: string;
+    entries: number;
+    total_hits: number;
+    avg_hits: number;
+    total_quality_impact: number;
+    avg_quality_impact: number;
+    promotions_in: number;
+    promotions_out: number;
+    demotions_in: number;
+    demotions_out: number;
+  }>;
+  promotion_effectiveness: number;
+  learning_velocity: number;
+  total_entries: number;
+  total_hits: number;
+  overall_quality_impact: number;
+  recommendations: string[];
+  generated_at: string;
+}
+
+/**
  * Vacuum result response.
  */
 export interface VacuumResult {
@@ -426,6 +453,11 @@ export class MemoryAPI {
 
   /**
    * Store content in the continuum memory system.
+   *
+   * @deprecated No handler serves POST /api/memory/continuum/store, so this
+   * method always rejects with a 404. Use POST /api/v1/memory/store
+   * (`storeMemoryEntry` on the client, added in PR #9366), which returns
+   * `{ id, tier }` — without the `created_at` field declared here.
    */
   async storeToContinuum(
     content: string,
@@ -465,17 +497,13 @@ export class MemoryAPI {
   /**
    * Update an existing memory entry.
    *
+   * @deprecated No memory handler implements PUT, so PUT /api/v1/memory/{key}
+   * always rejects with a 404. The server has no key/value update API; store a
+   * new entry via POST /api/v1/memory/store instead.
+   *
    * @param key - The key of the entry to update
    * @param value - The new value
    * @param options - Update options
-   *
-   * @example
-   * ```typescript
-   * const result = await client.memory.update('user-prefs', { theme: 'light' });
-   * if (result.updated) {
-   *   console.log(`Updated in tier: ${result.tier}`);
-   * }
-   * ```
    */
   async update(
     key: string,
@@ -498,17 +526,11 @@ export class MemoryAPI {
   /**
    * Query memory entries with advanced filtering.
    *
-   * @param options - Query options including filters, sorting, and pagination
+   * @deprecated POST /api/v1/memory/query is declared in the handler's ROUTES
+   * list but never dispatched, so this method always rejects with a 404. Use
+   * {@link search} (GET /api/v1/memory/search) or {@link retrieveContinuum}.
    *
-   * @example
-   * ```typescript
-   * const results = await client.memory.query({
-   *   filter: { tags: ['important'] },
-   *   sort_by: 'created_at',
-   *   sort_order: 'desc',
-   *   limit: 10,
-   * });
-   * ```
+   * @param options - Query options including filters, sorting, and pagination
    */
   async query(options: MemoryQueryOptions): Promise<{ entries: MemoryEntry[]; total: number }> {
     return this.client.request('POST', '/api/v1/memory/query', {
@@ -787,14 +809,13 @@ export class MemoryAPI {
   /**
    * Get entries from a specific tier.
    *
+   * @deprecated GET /api/v1/memory/tier/{tier} is declared in the handler's
+   * ROUTES list but never dispatched, so this method always rejects with a 404.
+   * Use {@link listTiers} for tier stats, or {@link retrieveContinuum} with a
+   * `tiers` filter for entries.
+   *
    * @param tier - The memory tier
    * @param options - Retrieval options
-   *
-   * @example
-   * ```typescript
-   * const { entries } = await client.memory.getTier('fast', { limit: 50 });
-   * console.log(`${entries.length} entries in fast tier`);
-   * ```
    */
   async getTier(
     tier: 'fast' | 'medium' | 'slow' | 'glacial',
@@ -808,14 +829,13 @@ export class MemoryAPI {
   /**
    * Move an entry between tiers.
    *
+   * @deprecated POST /api/v1/memory/{key}/move is declared in the handler's
+   * ROUTES list but never dispatched, so this method always rejects with a 404.
+   * The only server-side tier mutation is promotion — use {@link promoteEntry}.
+   *
    * @param key - The entry key
    * @param fromTier - Source tier
    * @param toTier - Destination tier
-   *
-   * @example
-   * ```typescript
-   * await client.memory.moveTier('important-data', 'fast', 'slow');
-   * ```
    */
   async moveTier(
     key: string,
@@ -1150,18 +1170,13 @@ export class MemoryAPI {
   /**
    * Promote an entry to a faster tier.
    *
-   * Matches Python SDK's `promote()` method.
+   * @deprecated The promote handler requires `{ target_tier }` in the body and
+   * rejects this method's `{ reason }` payload with a 400. It also returns
+   * `{ success, previous_tier }`, not the shape declared here. Use
+   * {@link promoteEntry} instead.
    *
    * @param key - The entry key
    * @param options - Promotion options
-   *
-   * @example
-   * ```typescript
-   * const result = await client.memory.promote('frequently-accessed-data', {
-   *   reason: 'High access frequency',
-   * });
-   * console.log(`Promoted to tier: ${result.new_tier}`);
-   * ```
    */
   async promote(
     key: string,
@@ -1173,20 +1188,41 @@ export class MemoryAPI {
   }
 
   /**
-   * Demote an entry to a slower tier.
+   * Promote a continuum memory entry to a target tier.
    *
-   * Matches Python SDK's `demote()` method.
+   * Matches the server contract for POST /api/v1/memory/{id}/promote
+   * (`{ target_tier }` -> `{ success, previous_tier }`).
    *
-   * @param key - The entry key
-   * @param options - Demotion options
+   * @param memoryId - ID of the entry to promote (as returned by the store endpoint)
+   * @param targetTier - Tier to promote the entry to
    *
    * @example
    * ```typescript
-   * const result = await client.memory.demote('old-data', {
-   *   reason: 'Low access frequency',
-   * });
-   * console.log(`Demoted to tier: ${result.new_tier}`);
+   * const result = await client.memory.promoteEntry('mem-123', 'slow');
+   * if (result.success) {
+   *   console.log(`Promoted from tier: ${result.previous_tier}`);
+   * }
    * ```
+   */
+  async promoteEntry(
+    memoryId: string,
+    targetTier: MemoryTierType
+  ): Promise<{ success: boolean; previous_tier: string | null }> {
+    return this.client.request('POST', `/api/v1/memory/${encodeURIComponent(memoryId)}/promote`, {
+      body: { target_tier: targetTier },
+    });
+  }
+
+  /**
+   * Demote an entry to a slower tier.
+   *
+   * @deprecated POST /api/v1/memory/{key}/demote is declared in the handler's
+   * ROUTES list but never dispatched, so this method always rejects with a 404.
+   * The server has no demote endpoint — demotion happens automatically during
+   * consolidation and cleanup.
+   *
+   * @param key - The entry key
+   * @param options - Demotion options
    */
   async demote(
     key: string,
@@ -1226,21 +1262,13 @@ export class MemoryAPI {
   /**
    * Get memory analytics over time.
    *
-   * Matches Python SDK's `get_analytics()` method.
+   * @deprecated The analytics endpoint is GET-only (POST is served only for
+   * /api/v1/memory/analytics/snapshot), so this POST always rejects with a 404.
+   * The server also has no time-series analytics: it accepts a `days` window
+   * (1-365) and returns per-tier analytics, not the shape declared here. Use
+   * {@link getTierAnalytics} instead.
    *
    * @param options - Analytics options
-   *
-   * @example
-   * ```typescript
-   * const analytics = await client.memory.getAnalytics({
-   *   start_time: '2024-01-01T00:00:00Z',
-   *   end_time: '2024-01-31T23:59:59Z',
-   *   granularity: 'day',
-   * });
-   * for (const point of analytics.data_points) {
-   *   console.log(`${point.timestamp}: ${point.entries_count} entries`);
-   * }
-   * ```
    */
   async getAnalytics(options?: {
     start_time?: string;
@@ -1253,6 +1281,27 @@ export class MemoryAPI {
     if (options?.start_time) params.start_time = options.start_time;
     if (options?.end_time) params.end_time = options.end_time;
     return this.client.request('POST', '/api/v1/memory/analytics', { params });
+  }
+
+  /**
+   * Get per-tier memory analytics.
+   *
+   * Matches the server contract for GET /api/v1/memory/analytics: tier stats,
+   * promotion effectiveness, learning velocity, and recommendations over the
+   * requested window.
+   *
+   * @param options - `days` is the analysis window (1-365, server default 30)
+   *
+   * @example
+   * ```typescript
+   * const analytics = await client.memory.getTierAnalytics({ days: 7 });
+   * console.log(`Promotion effectiveness: ${analytics.promotion_effectiveness}`);
+   * ```
+   */
+  async getTierAnalytics(options?: { days?: number }): Promise<TierAnalyticsResponse> {
+    const params: Record<string, unknown> = {};
+    if (options?.days !== undefined) params.days = options.days;
+    return this.client.request('GET', '/api/v1/memory/analytics', { params });
   }
 
   // ===========================================================================
@@ -1304,24 +1353,15 @@ export class MemoryAPI {
   /**
    * Store a critique in memory.
    *
-   * Matches Python SDK's `store_critique()` method.
+   * @deprecated The server has no store-critique endpoint: GET
+   * /api/v1/memory/critiques only lists existing critiques, and no handler
+   * accepts a POST to it. This method also sends a GET with a request body,
+   * which fetch rejects outright. Critiques are recorded server-side during
+   * debates; there is no client-facing write API.
    *
    * @param critique - The critique content
    * @param agent - Agent that generated the critique
    * @param options - Storage options
-   *
-   * @example
-   * ```typescript
-   * const result = await client.memory.storeCritique(
-   *   'The argument lacks supporting evidence',
-   *   'claude',
-   *   {
-   *     debate_id: 'debate-123',
-   *     target_agent: 'gpt4',
-   *     score: 0.8,
-   *   }
-   * );
-   * ```
    */
   async storeCritique(
     critique: string,
