@@ -54,8 +54,6 @@ from importlib.metadata import version
 for package in ("mypy", "mypy-baseline", "PyJWT"):
     print(f"{package}=={version(package)}")
 PY
-
-make ci-required
 ```
 
 The declared mypy range is `>=2.1.0,<3.0`. A missing mypy, a mypy below that
@@ -72,7 +70,12 @@ Capture the full log outside the worktree, for example:
 
 ```bash
 LOG=/tmp/aragora-main-health-ci-required-$(date -u +%Y%m%dT%H%M%SZ).log
-make ci-required >"$LOG" 2>&1
+if make ci-required >"$LOG" 2>&1; then
+  CI_REQUIRED_RC=0
+else
+  CI_REQUIRED_RC=$?
+fi
+printf 'ci_required_rc=%s log=%s\n' "$CI_REQUIRED_RC" "$LOG"
 ```
 
 `/tmp` is only a staging location. Before using the log as settlement or re-arm
