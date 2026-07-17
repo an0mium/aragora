@@ -9,6 +9,7 @@ Usage:
     python scripts/regenerate_metrics.py              # rewrite docs/METRICS.md
     python scripts/regenerate_metrics.py --check      # fail if drift > 0.5%
     python scripts/regenerate_metrics.py --json       # emit JSON only
+    python scripts/regenerate_metrics.py snapshot --ref HEAD --output metrics.json
 
 Drift threshold is intentionally tight: claim-drift is a thesis-commitment
 violation (Commitment 4: respect the limits). A drifted metric should
@@ -25,6 +26,11 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+
+try:
+    from scripts import repository_metrics
+except ModuleNotFoundError:  # Direct execution puts scripts/ on sys.path.
+    import repository_metrics  # type: ignore[no-redef]
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 METRICS_DOC = REPO_ROOT / "docs" / "METRICS.md"
@@ -590,19 +596,56 @@ def check_drift(snapshot: MetricsSnapshot) -> tuple[bool, list[str]]:
     return (len(drifts) > 0), drifts
 
 
-def main() -> int:
+def _write_repository_snapshot(ref: str, output: Path) -> int:
+    try:
+        snapshot = repository_metrics.collect_ref_snapshot(REPO_ROOT, ref)
+        payload = snapshot.as_dict()
+    except (OSError, RuntimeError, ValueError) as exc:
+        payload = {
+            "schema_version": repository_metrics.SCHEMA_VERSION,
+            "collector_version": repository_metrics.COLLECTOR_VERSION,
+            "catalog_digest": "",
+            "git_sha": "",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "status": "partial",
+            "errors": [{"collector": "snapshot", "detail": str(exc)}],
+            "metrics": [],
+        }
+
+    try:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        print(f"Could not write snapshot to {output}: {exc}", file=sys.stderr)
+        return 2
+
+    return 2 if payload["errors"] else 0
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Exit non-zero if any metric drifted more than 0.5% from current doc.",
+        help="Exit non-zero if any metric drifted more than 0.5%% from current doc.",
     )
     parser.add_argument(
         "--json",
         action="store_true",
         help="Print JSON snapshot to stdout instead of writing docs/METRICS.md.",
     )
-    args = parser.parse_args()
+    subparsers = parser.add_subparsers(dest="command")
+    snapshot_parser = subparsers.add_parser(
+        "snapshot", help="Write an exact, SHA-bound repository snapshot."
+    )
+    snapshot_parser.add_argument("--ref", required=True, help="Git ref to collect.")
+    snapshot_parser.add_argument("--output", required=True, type=Path, help="Output JSON path.")
+    args = parser.parse_args(argv)
+
+    if args.command == "snapshot":
+        if args.check or args.json:
+            parser.error("snapshot cannot be combined with --check or --json")
+        return _write_repository_snapshot(args.ref, args.output)
 
     snapshot = gather_metrics()
 
