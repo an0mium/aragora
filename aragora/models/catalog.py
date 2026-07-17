@@ -90,7 +90,7 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=1_000_000,
             max_output_tokens=128_000,
             release_date=date(2026, 2, 10),
-            aliases=("claude-opus-4.8",),
+            aliases=("claude-opus-4.8", "anthropic/claude-opus-4-8"),
         ),
         ModelSpec(
             canonical_id="gpt-5.6-sol",
