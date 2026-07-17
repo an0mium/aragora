@@ -18,6 +18,7 @@ in their docstrings; prefer the documented working methods.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
@@ -549,7 +550,9 @@ class MemoryAPI:
             Dict with ``success`` flag and ``previous_tier``
         """
         return self._client.request(
-            "POST", f"/api/v1/memory/{memory_id}/promote", json={"target_tier": target_tier}
+            "POST",
+            f"/api/v1/memory/{quote(memory_id, safe='')}/promote",
+            json={"target_tier": target_tier},
         )
 
     def demote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:
@@ -1055,7 +1058,9 @@ class AsyncMemoryAPI:
             Dict with ``success`` flag and ``previous_tier``
         """
         return await self._client.request(
-            "POST", f"/api/v1/memory/{memory_id}/promote", json={"target_tier": target_tier}
+            "POST",
+            f"/api/v1/memory/{quote(memory_id, safe='')}/promote",
+            json={"target_tier": target_tier},
         )
 
     async def demote(self, key: str, target_tier: str | None = None) -> dict[str, Any]:

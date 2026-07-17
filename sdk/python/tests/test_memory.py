@@ -185,6 +185,18 @@ class TestTierOperations:
             assert result["previous_tier"] == "fast"
             client.close()
 
+    def test_promote_entry_url_encodes_id(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": False, "previous_tier": None}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.memory.promote_entry("id/with/slashes", "medium")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/id%2Fwith%2Fslashes/promote",
+                json={"target_tier": "medium"},
+            )
+            client.close()
+
 
 # ===========================================================================
 # Continuum Operations Tests
