@@ -122,6 +122,14 @@ class DebatesHandler(
 
     # Route patterns this handler manages (from routing module)
     ROUTES = ROUTES
+    # Spec-only verb declarations for the batch-export root, which serves
+    # both verbs through _handle_batch_export inside generic handle()
+    # (POST starts an export, GET lists jobs); read by openapi_impl, not
+    # used for request routing.
+    _ROUTE_MAP: dict[str, Any] = {
+        "POST /api/v1/debates/export/batch": None,
+        "GET /api/v1/debates/export/batch": None,
+    }
     AUTH_REQUIRED_ENDPOINTS = AUTH_REQUIRED_ENDPOINTS
     ALLOWED_EXPORT_FORMATS = ALLOWED_EXPORT_FORMATS
     ALLOWED_EXPORT_TABLES = ALLOWED_EXPORT_TABLES

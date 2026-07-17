@@ -1492,6 +1492,7 @@
     "POST /api/v1/debates/capability-probe",
     "POST /api/v1/debates/compare",
     "POST /api/v1/debates/deep-audit",
+    "POST /api/v1/debates/export/batch",
     "POST /api/v1/debates/export/batch/{param}/results",
     "POST /api/v1/debates/export/batch/{param}/status",
     "POST /api/v1/debates/export/batch/{param}/stream",
