@@ -127,22 +127,29 @@ def _catalog_projection() -> dict[str, ProviderPricing]:
 
     Before this projection, the Pareto/decision-stakes router saw $0 for
     every frontier pin because this table's hand-maintained rows had gone
-    stale — a real routing bug, not hygiene (#9355 follow-up)."""
+    stale — a real routing bug, not hygiene (#9355 follow-up).
+
+    Only the CANONICAL id of each catalog model is projected. Enumeration
+    consumers (get_available_models, get_models_within_budget,
+    ProviderRouter._details_from_pricing) treat table keys as distinct
+    candidate models, so projecting alias/openrouter spellings would let
+    one model occupy several candidate slots and crowd out genuinely
+    distinct providers. Alias spellings still price correctly through the
+    ``by_any_id`` fallback in :func:`get_estimated_cost`."""
     rows: dict[str, ProviderPricing] = {}
     for spec in CATALOG.values():
-        pricing = ProviderPricing(
+        rows[spec.canonical_id] = ProviderPricing(
             provider_name=spec.provider,
             model_name=spec.direct_id,
             input_cost_per_1k=spec.input_per_mtok / 1000.0,
             output_cost_per_1k=spec.output_per_mtok / 1000.0,
             context_window=spec.context_window,
         )
-        for model_id in spec.all_ids():
-            rows[model_id] = pricing
     return rows
 
 
-# The projection OVERRIDES any hand row for cataloged ids: single source.
+# The projection OVERRIDES any hand row for cataloged canonical ids:
+# single source.
 PROVIDER_PRICING.update(_catalog_projection())
 
 
@@ -154,12 +161,18 @@ def get_estimated_cost(
     """Estimate cost for a given provider and token usage.
 
     Args:
-        provider: Model key in PROVIDER_PRICING (e.g. "claude-opus-4").
+        provider: Model key in PROVIDER_PRICING (e.g. "claude-opus-4"),
+            or any catalog spelling (canonical/direct/openrouter/alias)
+            resolvable by ``aragora.models.by_any_id``.
         input_tokens: Number of input tokens.
         output_tokens: Number of output tokens.
 
     Returns:
-        Estimated cost in USD. Returns 0.0 if provider is unknown.
+        Estimated cost in USD. Keys missing from PROVIDER_PRICING fall
+        back to catalog ``by_any_id`` resolution — this is the load-bearing
+        path for alias spellings of cataloged models, which are deliberately
+        NOT projected into the enumerated table. Returns 0.0 only when the
+        model is unknown to both the table and the catalog.
     """
     pricing = PROVIDER_PRICING.get(provider)
     if pricing is None:
