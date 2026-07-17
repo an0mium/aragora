@@ -947,10 +947,42 @@
       "status": "open"
     },
     {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/memory/context",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:DELETE /api/memory/snapshots/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/n8n/node",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -999,6 +1031,14 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:DELETE /api/users/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:DELETE /api/webhooks/bulk",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
@@ -3655,6 +3695,30 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/media/audio/{param}/convert",
       "provenance": "2026-04-17 program baseline cohort",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/n8n/credentials",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/n8n/node",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
+      "source": "typescript_sdk_drift",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-16",
+      "id": "typescript_sdk_drift:POST /api/n8n/trigger",
+      "provenance": "Discovered by PR #9365: ops removed as phantom class-verb fan-out; handler dispatch verified 2026-07-16 (no n8n/context/bulk branches in handle_post/handle_delete) \u2014 TS SDK methods target operations the server never served",
       "source": "typescript_sdk_drift",
       "status": "open"
     },
