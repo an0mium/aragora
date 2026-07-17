@@ -143,7 +143,7 @@ def test_client_times_out_slow_streaming_response(monkeypatch: pytest.MonkeyPatc
         def __exit__(self, *_args):
             return False
 
-        def read(self, amount: int) -> bytes:
+        def read1(self, amount: int) -> bytes:
             read_amounts.append(amount)
             clock["now"] += 0.6
             return b" "
@@ -155,7 +155,27 @@ def test_client_times_out_slow_streaming_response(monkeypatch: pytest.MonkeyPatc
     with pytest.raises(vibeproxy.VibeProxyTimeoutError):
         client._request("/models", timeout=1.0)
 
-    assert read_amounts == [1, 1]
+    assert read_amounts == [vibeproxy.RESPONSE_READ_CHUNK_BYTES] * 2
+
+
+def test_client_rejects_response_without_bounded_read_support(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class UnboundedResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _amount: int) -> bytes:
+            raise AssertionError("unbounded read must not run")
+
+    client = vibeproxy.VibeProxyClient()
+    monkeypatch.setattr(client._opener, "open", lambda *_args, **_kwargs: UnboundedResponse())
+
+    with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="bounded reads"):
+        client._request("/models", timeout=1.0)
 
 
 class _FakeClient:
