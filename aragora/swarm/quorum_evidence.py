@@ -247,7 +247,10 @@ class TierQuorumRule:
         """The supportive families that count under this rule (drops Chinese-routed
         families when ``western_only_counted``; drops advisory-only families at
         EVERY tier per the reviewer-reliability record)."""
-        families = {str(f).strip().lower() for f in supportive}
+        # Canonicalize (lowercase + alias collapse, e.g. "google" -> "gemini",
+        # "codex" -> "openai") so a raw alias/provider id can neither dodge the
+        # advisory-only exclusion nor count as a distinct family.
+        families = {canonical_family(str(f)) for f in supportive}
         # Advisory-only families never count, at any tier — enforced here so every
         # surface that derives counting from the shared rule (auto-settle, the
         # review-queue gate's signal_count, the reconcile diagnostic) excludes them
@@ -343,6 +346,11 @@ _FAMILY_ALIASES: dict[str, str] = {
     "gpt-5": "openai",
     "gpt5": "openai",
     "chatgpt": "openai",
+    # Provider name for the gemini family (mirrors FAMILY_PROVIDERS and the
+    # review-queue recognizer's ("gemini", "google") markers). Required so the
+    # ADVISORY_ONLY_FAMILIES exclusion cannot be sidestepped by a raw provider
+    # id (#9363 round-4 [P3]).
+    "google": "gemini",
 }
 
 

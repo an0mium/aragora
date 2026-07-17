@@ -1315,6 +1315,122 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "unresolved_dissent"
         assert quorum["admin_squash_allowed"] is False
 
+    def test_advisory_only_dogfood_does_not_satisfy_required_leg(self) -> None:
+        # #9363 round-4 [P2]: a gemini-attributed dogfood item must not satisfy
+        # the required adversarial-dogfood leg at Tier 1+ (roster record:
+        # advisory-only families never count FOR).
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    f"## Claude independent model review\nCurrent head: {head}\nVerdict: approve."
+                ),
+            },
+            _family_dogfood_comment("gemini"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
+        assert "focused adversarial dogfood evidence is required" in quorum["reasons"]
+        # Contrast: the same dogfood item from a counting (Chinese-routed at
+        # Tier 2) family satisfies the leg.
+        pr["comments"][-1] = _family_dogfood_comment("deepseek")
+        satisfied = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert satisfied["status"] == "satisfied"
+
+    def test_advisory_only_protocol_payload_dissent_does_not_block(self) -> None:
+        # #9363 round-4 [P2]: a {"agent": "gemini", ...} dissenting view arriving
+        # via the merge-protocol payload (or a stale prepared artifact) must not
+        # block — only the comments path was filtered before.
+        protocol = _executed_protocol()
+        protocol["dissenting_views"] = [
+            {
+                "agent": "gemini:maintainability",
+                "position": "request_changes",
+                "reason": "[P1] fabricated blocking claim",
+            }
+        ]
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol=protocol,
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["unresolved_dissent"] is False
+        assert quorum["dissenting_views"] == []
+        assert quorum["status"] == "satisfied"
+
+    def test_advisory_only_blocking_severity_review_recorded_as_advisory_view(self) -> None:
+        # #9363 round-4 [P3]: a [P1]-backed gemini CHANGES-REQUESTED never blocks
+        # but must not vanish from the merge packet — it is preserved as an
+        # advisory view.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Gemini independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "[P1] fabricated blocking claim."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["unresolved_dissent"] is False
+        assert quorum["dissenting_views"] == []
+        assert quorum["status"] == "satisfied"
+        advisory_agents = [str(view.get("agent", "")) for view in quorum["advisory_views"]]
+        assert "gemini" in advisory_agents
+        gemini_view = quorum["advisory_views"][advisory_agents.index("gemini")]
+        assert gemini_view["blocking"] is False
+        assert gemini_view["highest_severity"] == "P1"
+        assert any(
+            "advisory finding from gemini" in reason and "advisory-only family" in reason
+            for reason in quorum["reasons"]
+        )
+
     def test_severity_gated_explicit_p2_blocker_still_blocks(
         self,
         monkeypatch: pytest.MonkeyPatch,

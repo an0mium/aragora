@@ -4077,6 +4077,31 @@ class TestFounderRosterDirective20260716:
         assert item.supportive is False
         assert any("advisory-only" in problem for problem in item.problems)
 
+    def test_gemini_aliases_are_excluded_everywhere(self):
+        # #9363 round-4 [P3]: a raw alias/provider id must not dodge the
+        # advisory-only exclusion at any of the filter sites.
+        from aragora.swarm.quorum_evidence import canonical_family, tier_quorum_rule
+
+        gemini_aliases = ["google", "Google", " GEMINI "]
+        for alias in gemini_aliases:
+            assert canonical_family(alias) == "gemini"
+        for tier in (0, 1, 2, 3, 4):
+            rule = tier_quorum_rule(tier, tiered_gate=False)
+            for alias in gemini_aliases:
+                assert not rule.counted_families({alias})
+                assert rule.is_satisfied_by({alias}) is False
+        item = EvidenceItem("google", "Verdict: PASS\n\nNo findings.", True, ["google"], [], "pass")
+        assert item.would_count is False
+        cr = EvidenceItem(
+            "Google",
+            "Verdict: CHANGES-REQUESTED\n- [P1] fabricated blocking claim",
+            True,
+            ["google"],
+            [],
+            "changes_requested",
+        )
+        assert cr.dissenting is False
+
     @pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
     def test_gemini_changes_requested_is_not_blocking_dissent(self, tier):
         # Record mandate: "gemini dissent is NOT to be counted anywhere" — a

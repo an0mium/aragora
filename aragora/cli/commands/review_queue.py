@@ -3330,8 +3330,14 @@ def _build_model_review_quorum(
     # so a PR with many recognized comments cannot flood the merge packet's
     # advisory_views field or its `reasons` notes (claude #8574 P3).
     del advisory_views[5:]
+    # Protocol-payload dissent is filtered for advisory-only families the same
+    # way the comments path is: a {"agent": "gemini", ...} view arriving via a
+    # merge-protocol payload or a stale prepared artifact must not block either
+    # (#9363 round-4 [P2]).
     dissenting_views = [
-        view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
+        view
+        for view in (protocol.get("dissenting_views") or [])
+        if isinstance(view, dict) and not _view_is_advisory_only(view)
     ]
     dissenting_views.extend(comment_dissenting_views)
     blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
@@ -3367,8 +3373,14 @@ def _build_model_review_quorum(
     # counted toward signal_count (claude #8507 P2). Pinned by
     # test_western_frontier_signal_set_is_subset_of_counted.
     counted_reviewer_signal_ids = _counted_model_reviewer_ids(reviewer_signals, [])
+    # Advisory-only families cannot satisfy the required adversarial-dogfood leg
+    # (roster record: never FOR): a gemini-attributed dogfood item stays visible
+    # in dogfood_evidence for the audit trail but does not satisfy the Tier 1+
+    # requirement (#9363 round-4 [P2]).
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
-        _known_model_reviewer_id(item) for item in dogfood_evidence
+        (reviewer_id := _known_model_reviewer_id(item))
+        and canonical_family(reviewer_id) not in ADVISORY_ONLY_FAMILIES
+        for item in dogfood_evidence
     )
     # The WF requirement must be met by a model-review signal, not by dogfood-only
     # metadata. Dogfood remains separately required for Tier 1+.
@@ -3609,11 +3621,14 @@ def _build_model_review_quorum(
         severity = advisory.get("highest_severity")
         # ``highest_severity`` is None both for a [P2]/[P3]-only CR and for a
         # finding-free CR, so don't assert "[P2]/[P3] only" — report the accurate
-        # invariant (no blocking [P0]/[P1] finding) in the audit packet.
+        # invariant (no blocking [P0]/[P1] finding) in the audit packet. An
+        # advisory-only family's view can carry a [P0]/[P1]; name the roster
+        # demotion, not the severity gate, as the reason it does not block.
         sev_note = severity if severity else "no blocking [P0]/[P1] finding"
-        reasons.append(
-            f"advisory finding from {family}: {sev_note} — not blocking (severity-gated dissent)"
+        cause = (
+            "advisory-only family" if _view_is_advisory_only(advisory) else "severity-gated dissent"
         )
+        reasons.append(f"advisory finding from {family}: {sev_note} — not blocking ({cause})")
     if advisory_settle_eligible:
         reasons.append(
             "advisory-dissent settle: only the model-quorum check is failing, a "
@@ -4747,8 +4762,14 @@ def _dissenting_views_from_comments(
         if identity.surface_reviewer_id == "unknown_model_reviewer":
             continue
         # Advisory-only families (roster record) never promote blocking dissent
-        # at any tier; the comment itself stays visible on the PR.
+        # at any tier — but the review must not vanish from the merge packet:
+        # record it as an advisory view (advisory visibility preserved even for
+        # a [P0]/[P1]-backed CHANGES-REQUESTED; #9363 round-4 [P3]).
         if canonical_family(identity.model_family or "") in ADVISORY_ONLY_FAMILIES:
+            if advisory_views is not None:
+                advisory = _build_advisory_view(comment, body)
+                if advisory is not None:
+                    advisory_views.append(advisory)
             continue
         author_payload = comment.get("author")
         github_author = ""
@@ -4767,10 +4788,29 @@ def _dissenting_views_from_comments(
     return dissent[:5]
 
 
+def _view_is_advisory_only(view: dict[str, Any]) -> bool:
+    """Whether a dissenting/advisory view is attributed to an advisory-only family.
+
+    Checks both the ``model_family`` packet field and the ``agent`` field
+    (which protocol payloads may format as ``"family:role"``), canonicalizing
+    via :func:`canonical_family` so raw alias/provider ids (e.g. ``"google"``)
+    cannot dodge the exclusion.
+    """
+    for key in ("model_family", "agent"):
+        raw = str(view.get(key, "") or "")
+        if not raw:
+            continue
+        if canonical_family(raw.split(":", 1)[0]) in ADVISORY_ONLY_FAMILIES:
+            return True
+    return False
+
+
 def _build_advisory_view(comment: dict[str, Any], body: str) -> dict[str, Any] | None:
     """Build the advisory (non-blocking, non-counting) record for a CHANGES-REQUESTED
     comment that, under the severity gate, carries only ``[P2]``/``[P3]`` (or no)
-    findings. Returns ``None`` if the reviewer identity is unrecognized.
+    findings — or that comes from an advisory-only family (in which case it may
+    carry any severity, including ``[P0]``/``[P1]``). Returns ``None`` if the
+    reviewer identity is unrecognized.
     """
     # The comment WOULD have blocked under the strict (flag-OFF) regime: it is a
     # genuine negative verdict, just not backed by a real [P0]/[P1] finding or a
@@ -4791,7 +4831,8 @@ def _build_advisory_view(comment: dict[str, Any], body: str) -> dict[str, Any] |
         "agent": identity.model_family or identity.surface_reviewer_id,
         "position": "advisory_changes_requested",
         "blocking": False,
-        "highest_severity": severity,  # None for finding-free, never P0/P1 here
+        # None for finding-free; P0/P1 possible only for advisory-only families.
+        "highest_severity": severity,
         "reason": _first_nonempty_line(body)[:240],
         "source": "pr_comment",
         "github_author": github_author,
