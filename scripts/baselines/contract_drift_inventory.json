@@ -1025,8 +1025,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/control-plane/schedules/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1129,40 +1130,45 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/memory/continuum/{param}",
       "provenance": "cross-merge intake: #9366 delete_entry() call site made visible by #9362 extractor fix",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/memory/critiques",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/memory/pressure",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/memory/search",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/memory/tiers",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1449,8 +1455,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/agents/configs/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1513,16 +1520,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/autonomous/monitoring/baseline/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/autonomous/monitoring/trends/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1537,16 +1546,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/batch/queue/status",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/bindings/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1593,8 +1604,9 @@
       "discovered_on": "2026-04-17",
       "id": "python_sdk_drift:GET /api/checkpoints/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1625,64 +1637,72 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/consensus/seed-demo",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/control-plane/audit-logs/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/control-plane/metrics/agents/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/control-plane/schedules/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/crm/connect",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/crm/enrich",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/crm/sync-lead",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/crm/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1737,32 +1757,36 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/health",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/public/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/statistics",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/stream",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1953,8 +1977,9 @@
       "discovered_on": "2026-04-17",
       "id": "python_sdk_drift:GET /api/decisions/plans/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -2001,8 +2026,9 @@
       "discovered_on": "2026-04-17",
       "id": "python_sdk_drift:GET /api/documents/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -2041,32 +2067,36 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/ecommerce/connect",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/ecommerce/ship",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/ecommerce/sync-inventory",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/ecommerce/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2089,48 +2119,54 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/evolution/ab-tests",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/external-agents/adapters",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/external-agents/health",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/external-agents/tasks/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/feature-flags/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/features/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2145,8 +2181,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/gateway/agents/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2161,56 +2198,63 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/gateway/openclaw/audit",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/gateway/openclaw/credentials",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/gateway/openclaw/health",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/gateway/openclaw/metrics",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/gateway/openclaw/sessions",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/gateway/routing/rules",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/gateway/routing/stats",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2273,8 +2317,9 @@
       "discovered_on": "2026-04-17",
       "id": "python_sdk_drift:GET /api/ideas/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2305,8 +2350,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/incidents/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2337,8 +2383,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/integrations/available",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2385,8 +2432,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/invites",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2409,8 +2457,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/knowledge/mound/nodes/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2441,8 +2490,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/learning/knowledge/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2457,16 +2507,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/learning/metrics/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/learning/patterns/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2497,8 +2549,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/learning/sessions/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -2513,8 +2566,9 @@
       "discovered_on": "2026-04-17",
       "id": "python_sdk_drift:GET /api/media/audio/{param}/transcription",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2553,24 +2607,27 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/memory/snapshots/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/memory/tier/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/metrics/background",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2585,8 +2642,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/metrics/verification",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2609,8 +2667,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/moderation/config",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2689,8 +2748,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/notifications/email/recipients",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2705,8 +2765,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/notifications/status",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2745,8 +2806,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/org/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2801,8 +2863,9 @@
       "discovered_on": "2026-04-17",
       "id": "python_sdk_drift:GET /api/personas/options",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2881,16 +2944,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/privacy/account",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/pulse/scheduler/analytics",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2905,48 +2970,54 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/rbac/permissions/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/rbac/roles/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/reconciliation/discrepancies/bulk-resolve",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/reconciliation/run",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/reconciliation/{param}/approve",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/reconciliation/{param}/resolve",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -2985,32 +3056,36 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/repository/batch",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/repository/incremental",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/repository/index",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/repository/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3033,8 +3108,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/repository/{param}/status",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3129,8 +3205,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/self-improve/runs/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3161,32 +3238,36 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/shared/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/skills/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/slos/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/sme/workflows/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3201,32 +3282,36 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/support/auto-respond",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/support/connect",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/support/triage",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/support/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3241,16 +3326,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/support/{param}/tickets/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/support/{param}/tickets/{param}/reply",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3265,8 +3352,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/tasks/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3441,16 +3529,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/uncertainty/estimate",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/uncertainty/followups",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3505,8 +3595,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/workflows/executions",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3521,8 +3612,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/workflows/templates",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3585,80 +3677,90 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/batch",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/batch/{param}/status",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/export/batch/{param}/results",
       "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/export/batch/{param}/status",
       "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/queue/status",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/{param}/cancel",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/{param}/followup",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/{param}/followups",
       "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/{param}/forks",
       "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PATCH /api/debates/{param}/verification-report",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -3809,16 +3911,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/admin/emergency/activate",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/admin/emergency/deactivate",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -3849,24 +3953,27 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/agent-dashboard/agents/{param}/pause",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/agent-dashboard/agents/{param}/resume",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/agent-dashboard/queue/prioritize",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -4225,40 +4332,45 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/control-plane/agents/{param}/pause",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/control-plane/agents/{param}/resume",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/control-plane/policies",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/control-plane/queue/prioritize",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/control-plane/schedules",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -4321,32 +4433,36 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/batch/{param}/status",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/export/batch/{param}/results",
       "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/export/batch/{param}/status",
       "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/queue/status",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -4377,16 +4493,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/{param}/followups",
       "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/{param}/forks",
       "provenance": "py drift newly visible on merged tree: #9366 delete_entry + openapi catch-all namespace under #9362 un-blinded extractor (#9360)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -4425,8 +4543,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/debates/{param}/verification-report",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -5009,8 +5128,9 @@
       "discovered_on": "2026-04-17",
       "id": "python_sdk_drift:POST /api/media/audio/{param}/convert",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -5025,24 +5145,27 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/memory/pressure",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/memory/search",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/memory/tiers",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -5401,48 +5524,54 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/sme/budgets/check",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/sme/receipts/delivery/test",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/sme/teams/oauth/callback",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/sme/teams/subscribe",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/sme/workflows",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/sso/callback",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -5689,8 +5818,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PUT /api/control-plane/schedules/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -5825,8 +5955,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PUT /api/sme/receipts/delivery/config",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -6058,8 +6189,9 @@
       "discovered_on": "2026-07-16",
       "id": "typescript_sdk_drift:DELETE /api/memory/continuum/{param}",
       "provenance": "PR #9366: contract-correct deleteEntry calls DELETE /api/v1/memory/continuum/{id} (served by MemoryHandler.handle_delete) but the generated spec lacks the route (generator ROUTES gap, see #9360)",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6162,16 +6294,18 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:DELETE /inbox/accounts/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/admin/feature-flags/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6210,8 +6344,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/admin/security/rotation-status",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6226,8 +6361,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/agents/configs/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6290,8 +6426,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/batch/queue/status",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6306,8 +6443,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/bindings/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6346,8 +6484,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/checkpoints/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6453,32 +6592,36 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/debates/health",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/debates/hybrid/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/debates/public/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/debates/statistics",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6493,8 +6636,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/debates/stream",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6581,8 +6725,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/decisions/plans/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6629,8 +6774,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/documents/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6677,8 +6823,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/external-agents/tasks/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6701,88 +6848,99 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/feature-flags/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/features/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/gateway/agents/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/gateway/credentials/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/gateway/openclaw/audit",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/gateway/openclaw/credentials",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/gateway/openclaw/health",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/gateway/openclaw/metrics",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/gateway/openclaw/sessions",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/gateway/routing/rules",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/gateway/routing/stats",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6869,8 +7027,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/integrations/available",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6917,8 +7076,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/keys/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6941,16 +7101,18 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/knowledge/mound/graph/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/knowledge/mound/nodes/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -6997,32 +7159,36 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/learning/knowledge/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/learning/metrics/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/learning/patterns/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/learning/sessions/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7037,8 +7203,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/media/audio/{param}/transcription",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -7077,8 +7244,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/memory/tier/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7093,8 +7261,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/moderation/config",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7173,40 +7342,45 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/notifications/email/recipients",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/notifications/status",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/org/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/org/{param}/invitations/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/org/{param}/members/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7261,8 +7435,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/personas/options",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7333,56 +7508,63 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/pulse/analytics",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/pulse/scheduler/analytics",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/pulse/scheduler/history",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/pulse/scheduler/status",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/rbac/assignments/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/rbac/permissions/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/rbac/roles/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7445,8 +7627,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/repository/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7493,8 +7676,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/self-improve/runs/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7525,16 +7709,18 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/shared/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/skills/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7549,8 +7735,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /api/tasks/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -7717,72 +7904,81 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /inbox/accounts",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /inbox/messages",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /inbox/messages/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /inbox/oauth/gmail",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /inbox/oauth/outlook",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /inbox/stats",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /inbox/trends",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /scim/v2/groups",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:GET /scim/v2/users",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -8845,8 +9041,9 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /api/media/audio/{param}/convert",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -9222,24 +9419,27 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /inbox/bulk-action",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /inbox/connect",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /inbox/messages/send",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -9254,16 +9454,18 @@
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:POST /inbox/triage",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "typescript_sdk_drift:PUT /api/admin/feature-flags/{param}",
       "provenance": "2026-04-17 program baseline cohort",
+      "resolved_on": "2026-07-17",
       "source": "typescript_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
