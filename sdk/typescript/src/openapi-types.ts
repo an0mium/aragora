@@ -60274,7 +60274,11 @@ export interface paths {
          */
         get: operations["listSsoCallback"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v2/sso/callback
+         * @description Handler for SSO (Single Sign-On) endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createSsoCallback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -60294,7 +60298,11 @@ export interface paths {
          */
         get: operations["listSsoLogin"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v2/sso/login
+         * @description Handler for SSO (Single Sign-On) endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createSsoLogin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -60314,7 +60322,11 @@ export interface paths {
          */
         get: operations["listSsoLogout"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v2/sso/logout
+         * @description Handler for SSO (Single Sign-On) endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createSsoLogout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -61460,7 +61472,11 @@ export interface paths {
          */
         get: operations["listauthSsoCallback"];
         put?: never;
-        post?: never;
+        /**
+         * POST /auth/sso/callback
+         * @description Handler for SSO (Single Sign-On) endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createauthSsoCallback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -61480,7 +61496,11 @@ export interface paths {
          */
         get: operations["listauthSsoLogin"];
         put?: never;
-        post?: never;
+        /**
+         * POST /auth/sso/login
+         * @description Handler for SSO (Single Sign-On) endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createauthSsoLogin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -61500,7 +61520,11 @@ export interface paths {
          */
         get: operations["listauthSsoLogout"];
         put?: never;
-        post?: never;
+        /**
+         * POST /auth/sso/logout
+         * @description Handler for SSO (Single Sign-On) endpoints. Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createauthSsoLogout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -187219,6 +187243,30 @@ export interface operations {
             };
         };
     };
+    createSsoCallback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listSsoLogin: {
         parameters: {
             query?: never;
@@ -187243,6 +187291,30 @@ export interface operations {
             };
         };
     };
+    createSsoLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listSsoLogout: {
         parameters: {
             query?: never;
@@ -187263,6 +187335,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createSsoLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -189668,6 +189764,30 @@ export interface operations {
             };
         };
     };
+    createauthSsoCallback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listauthSsoLogin: {
         parameters: {
             query?: never;
@@ -189692,6 +189812,30 @@ export interface operations {
             };
         };
     };
+    createauthSsoLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listauthSsoLogout: {
         parameters: {
             query?: never;
@@ -189712,6 +189856,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createauthSsoLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };

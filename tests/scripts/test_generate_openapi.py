@@ -351,6 +351,56 @@ def test_filter_internal_paths_drops_internal_families_from_any_tier() -> None:
     assert set(filtered) == {"/api/v1/debates"}
 
 
+def test_handler_routes_supplement_uses_explicit_routes_method_verbs(monkeypatch) -> None:
+    """Explicit routes() declarations beat verb inference (P2 on #9360).
+
+    Dispatch-based handlers like SSOHandler declare served verbs only via a
+    routes() method returning (METHOD, path, name) tuples; their static
+    ROUTES list is method-less. Without reading routes(), POST login/callback
+    operations were documented as GET-only.
+    """
+    import sys
+    import types
+
+    class DummySSOHandler:
+        """Dummy SSO-style handler declaring verbs via routes()."""
+
+        ROUTES = [
+            "/api/v1/dummy-sso/login",
+            "/api/v1/dummy-sso/status",
+        ]
+
+        def __init__(self) -> None:
+            raise AssertionError("spec generation must not construct handlers")
+
+        def routes(self) -> list[tuple[str, str, str]]:
+            return [
+                ("GET", "/api/v1/dummy-sso/login", "handle_login"),
+                ("POST", "/api/v1/dummy-sso/login", "handle_login"),
+                ("GET", "/api/v1/dummy-sso/status", "handle_status"),
+            ]
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy_sso", DummySSOHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    supplement = generate_openapi._collect_handler_routes_supplement({})
+
+    login = supplement["/api/v1/dummy-sso/login"]
+    assert set(login) == {"get", "post"}
+    assert login["post"]["x-method-inferred"] is False
+    status = supplement["/api/v1/dummy-sso/status"]
+    assert set(status) == {"get"}
+
+    # The real #9360 failure mode: an earlier tier already documented GET,
+    # so the generic-ROUTES covered-path skip swallowed the declared POST.
+    existing = {"/api/v1/dummy-sso/login": {"get": {"summary": "documented"}}}
+    supplement = generate_openapi._collect_handler_routes_supplement(existing)
+
+    login = supplement["/api/v1/dummy-sso/login"]
+    assert set(login) == {"post"}
+    assert login["post"]["x-method-inferred"] is False
+
+
 def test_generate_schema_legacy_mode_filters_internal_paths(monkeypatch) -> None:
     """--legacy-handlers output passes through the internal-route policy too.
 

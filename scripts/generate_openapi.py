@@ -887,6 +887,38 @@ def _implemented_handler_verbs(handler_class: Any) -> list[str]:
     return verbs
 
 
+def _explicit_route_verbs(handler_class: Any) -> dict[str, set[str]]:
+    """Verb map declared by a handler's ``routes()`` method, keyed by path.
+
+    Some dispatch-based handlers (e.g. SSOHandler) declare their served verbs
+    only via ``routes()`` returning ``(METHOD, path, handler_name)`` tuples —
+    their static ROUTES list is method-less, so verb inference alone would
+    document POST operations as GET. ``routes()`` is invoked on a bare
+    instance (``object.__new__``) so handler ``__init__`` side effects can't
+    fire during spec generation; any failure degrades to verb inference.
+    Keys are normalized comparison keys (see _normalize_for_comparison).
+    """
+    routes_fn = getattr(handler_class, "routes", None)
+    if not callable(routes_fn):
+        return {}
+    try:
+        declared = routes_fn(object.__new__(handler_class))
+    except Exception:  # noqa: BLE001 - optional protocol; fall back to inference
+        return {}
+    if not isinstance(declared, (list, tuple)):
+        return {}
+    out: dict[str, set[str]] = {}
+    for item in declared:
+        if not (isinstance(item, (list, tuple)) and len(item) >= 2):
+            continue
+        method, path = item[0], item[1]
+        if not (isinstance(method, str) and isinstance(path, str) and path.startswith("/")):
+            continue
+        key = _normalize_for_comparison(_route_to_spec_path(path))
+        out.setdefault(key, set()).add(method.strip().lower())
+    return out
+
+
 def _merge_supplement(
     merged_paths: dict[str, dict[str, Any]], supplement: dict[str, dict[str, Any]]
 ) -> None:
@@ -980,6 +1012,12 @@ def _collect_handler_routes_supplement(
         # POST-only mailgun webhook picking up GET from the covered /status
         # route's handle()).
         total_generic_declared = 0
+        # Explicit routes() declarations are per-path verb evidence and beat
+        # every inference tier (review P2 on #9360: SSOHandler's POST
+        # login/callback/logout documented as GET-only). Expanded here in the
+        # first pass so per-method coverage applies: a path documented for
+        # GET still gets its declared POST supplemented.
+        explicit_verbs = _explicit_route_verbs(handler_class)
         for attr, declared_method in method_attrs:
             routes = getattr(handler_class, attr, None)
             if not isinstance(routes, (list, tuple)):
@@ -999,12 +1037,23 @@ def _collect_handler_routes_supplement(
                         if route.startswith(prefix):
                             method = prefix.strip().lower()
                             break
-                if method is None:
-                    total_generic_declared += 1
 
                 spec_path = _route_to_spec_path(route)
                 comparison_key = _normalize_for_comparison(spec_path)
+
+                if method is None and comparison_key in explicit_verbs:
+                    # routes() declared this path's verb set explicitly:
+                    # expand to method-declared entries, per-method covered.
+                    for verb in sorted(explicit_verbs[comparison_key]):
+                        if verb in covered_methods.get(comparison_key, set()):
+                            continue
+                        if _is_internal_route(comparison_key, internal_prefixes):
+                            continue
+                        entries.append((verb, spec_path, comparison_key))
+                    continue
+
                 if method is None:
+                    total_generic_declared += 1
                     # Generic ROUTES on an already-covered path: the served
                     # verb set is unknowable, so never re-derive ops for it.
                     if comparison_key in covered and comparison_key not in supplement_keys:
