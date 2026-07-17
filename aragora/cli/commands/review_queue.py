@@ -5039,12 +5039,8 @@ def _first_nonempty_line(text: str) -> str:
 
 
 def _matches_prefix(path: str, prefixes: tuple[str, ...]) -> bool:
-    # Tier 2 retains one historical filename-stem rule without a trailing slash.
-    allow_legacy_stems = prefixes == TIER_2_PREFIXES
-    return any(
-        path.startswith(prefix) if allow_legacy_stems or prefix.endswith("/") else path == prefix
-        for prefix in prefixes
-    )
+    legacy = prefixes == TIER_2_PREFIXES
+    return any(path == p or (legacy or p[-1:] == "/") and path.startswith(p) for p in prefixes)
 
 
 def _is_docs_tests_or_status_path(path: str) -> bool:
