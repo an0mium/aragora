@@ -893,7 +893,9 @@ def _write_review_odr(
         reviewer_agents=agents_used or None,
     )
     odr = decision_receipt_to_odr(receipt)
-    odr = sign_odr_if_configured(odr)
+    if not demo:
+        # Never sign fabricated demo findings; demo receipts stay explicitly unsigned.
+        odr = sign_odr_if_configured(odr)
 
     path = Path(output_path) if output_path else (output_dir or Path.cwd()) / "review.odr.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -914,6 +916,8 @@ def _emit_requested_odr(
     if output_path is None:
         return True
 
+    from aragora.gauntlet.odr_signing import OdrSigningError
+
     try:
         path = _write_review_odr(
             findings,
@@ -922,7 +926,15 @@ def _emit_requested_odr(
             output_path=output_path,
             demo=getattr(args, "demo", False),
         )
-    except (AttributeError, ImportError, KeyError, OSError, TypeError, ValueError) as e:
+    except (
+        AttributeError,
+        ImportError,
+        KeyError,
+        OdrSigningError,
+        OSError,
+        TypeError,
+        ValueError,
+    ) as e:
         logger.warning("ODR export failed: %s", e)
         print(f"Error: Could not emit review ODR: {e}", file=sys.stderr)
         return False
@@ -1343,7 +1355,8 @@ def create_review_parser(subparsers) -> None:
         default=None,
         metavar="PATH",
         help="Emit a verifiable Open Decision Receipt (default: review.odr.json, "
-        "or inside --output-dir when set); place after the PR URL or pass an explicit PATH",
+        "or inside --output-dir when set); place after the PR URL or pass an explicit "
+        "PATH; a failed receipt write exits 3",
     )
 
     parser.add_argument(
@@ -1369,7 +1382,8 @@ def create_review_parser(subparsers) -> None:
         action="store_true",
         default=False,
         help="CI mode: exit with non-zero code based on findings severity. "
-        "Exit 1 if critical issues, exit 2 if high issues found.",
+        "Exit 1 if critical issues, exit 2 if high issues found "
+        "(exit 3 = --emit-odr write failure, not a findings verdict).",
     )
 
     parser.add_argument(

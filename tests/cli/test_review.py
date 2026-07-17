@@ -871,7 +871,36 @@ class TestCmdReview:
         assert odr["quorum"]["participants"]
 
     def test_emit_odr_pipes_receipt_through_signer(self, review_args, tmp_path, monkeypatch):
-        """The emitted receipt is signed whenever a signing key is configured."""
+        """A real review's receipt is signed whenever a signing key is configured."""
+        diff_file = tmp_path / "test.diff"
+        diff_file.write_text("diff --git a/test.py b/test.py\n+new line")
+        odr_path = tmp_path / "review.odr.json"
+        review_args.diff_file = str(diff_file)
+        review_args.agents = "anthropic-api,openai-api"
+        review_args.emit_odr = str(odr_path)
+
+        def fake_signer(odr, **kwargs):
+            return {**odr, "signatures": [{"alg": "test", "sig": "stub"}]}
+
+        monkeypatch.setattr("aragora.gauntlet.odr_export.sign_odr_if_configured", fake_signer)
+
+        findings = get_demo_findings()
+        with (
+            patch(
+                "aragora.cli.review.run_review_debate",
+                new=AsyncMock(return_value=MockDebateResult()),
+            ),
+            patch("aragora.cli.review.extract_review_findings", return_value=findings),
+            patch("aragora.cli.review._persist_review_to_km", return_value=True),
+        ):
+            result = cmd_review(review_args)
+
+        assert result == 0
+        odr = json.loads(odr_path.read_text())
+        assert odr["signatures"] == [{"alg": "test", "sig": "stub"}]
+
+    def test_demo_odr_is_never_signed(self, review_args, tmp_path, monkeypatch):
+        """Fabricated demo findings must not be signed even with a key configured."""
         review_args.demo = True
         review_args.output_dir = str(tmp_path)
         review_args.emit_odr = ""
@@ -886,7 +915,35 @@ class TestCmdReview:
 
         assert result == 0
         odr = json.loads((tmp_path / "review.odr.json").read_text())
-        assert odr["signatures"] == [{"alg": "test", "sig": "stub"}]
+        assert odr["signatures"] == []
+
+    def test_emit_odr_signing_error_contained(self, review_args, tmp_path, monkeypatch):
+        """A configured-but-broken signing key exits 3 cleanly, not a traceback."""
+        from aragora.gauntlet.odr_signing import OdrSigningError
+
+        diff_file = tmp_path / "test.diff"
+        diff_file.write_text("diff --git a/test.py b/test.py\n+new line")
+        review_args.diff_file = str(diff_file)
+        review_args.agents = "anthropic-api,openai-api"
+        review_args.emit_odr = str(tmp_path / "review.odr.json")
+
+        def broken_signer(odr, **kwargs):
+            raise OdrSigningError("configured key is unreadable")
+
+        monkeypatch.setattr("aragora.gauntlet.odr_export.sign_odr_if_configured", broken_signer)
+
+        findings = get_demo_findings()
+        with (
+            patch(
+                "aragora.cli.review.run_review_debate",
+                new=AsyncMock(return_value=MockDebateResult()),
+            ),
+            patch("aragora.cli.review.extract_review_findings", return_value=findings),
+            patch("aragora.cli.review._persist_review_to_km", return_value=True),
+        ):
+            result = cmd_review(review_args)
+
+        assert result == 3
 
     def test_emit_odr_url_misbinding_fails_fast(self, review_args, tmp_path, capsys, monkeypatch):
         """--emit-odr followed by the PR URL errors out before any review runs."""

@@ -1958,7 +1958,8 @@ def _add_review_parser(subparsers) -> None:
         default=None,
         metavar="PATH",
         help="Emit a verifiable Open Decision Receipt (default: review.odr.json, "
-        "or inside --output-dir when set); place after the PR URL or pass an explicit PATH",
+        "or inside --output-dir when set); place after the PR URL or pass an explicit "
+        "PATH; a failed receipt write exits 3",
     )
     parser.add_argument(
         "--sarif",
@@ -1978,7 +1979,8 @@ def _add_review_parser(subparsers) -> None:
         "--ci",
         action="store_true",
         default=False,
-        help="CI mode: exit with non-zero code based on findings severity.",
+        help="CI mode: exit with non-zero code based on findings severity "
+        "(1=critical, 2=high; 3 = --emit-odr write failure, not a findings verdict).",
     )
     parser.add_argument(
         "--demo",
