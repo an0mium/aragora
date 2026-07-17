@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 __all__ = [
@@ -38,7 +38,17 @@ __all__ = [
     "by_any_id",
     "load_snapshot",
     "snapshot_path",
+    "utc_today",
 ]
+
+
+def utc_today() -> date:
+    """Canonical 'today' for soak governance, anchored to UTC.
+
+    Soak windows are a governance boundary (must-not-adopt-before dates),
+    so they must not flip earlier or later depending on the host's local
+    timezone."""
+    return datetime.now(timezone.utc).date()
 
 
 @dataclass(frozen=True)
@@ -69,11 +79,13 @@ class ModelSpec:
         Adoption surfaces — merge-authority evidence, routing candidate
         enumeration — must not offer the model while under soak. Id
         resolution (``by_any_id``) and cost lookup for its ids remain
-        valid throughout the window.
+        valid throughout the window. Defaults to the UTC calendar date
+        (``utc_today``): soak is a governance boundary and must not shift
+        with the host timezone.
         """
         if self.soak_until is None:
             return False
-        return (today if today is not None else date.today()) < self.soak_until
+        return (today if today is not None else utc_today()) < self.soak_until
 
 
 # Prices are USD per 1M tokens, captured from the live OpenRouter catalog on

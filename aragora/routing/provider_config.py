@@ -48,19 +48,14 @@ class ProviderPricing:
         )
 
 
-from aragora.models import CATALOG, by_any_id
+from aragora.models import CATALOG, by_any_id, utc_today
 
 # Legacy hand-maintained rows (models not yet in the canonical catalog).
 # Cataloged models are PROJECTED from aragora.models.CATALOG below — do not
 # hand-edit rows for cataloged ids here; edit the catalog instead
-# (docs/architecture/MODEL_CATALOG.md).
-#
-# NOTE for direct importers of this dict: it is refreshed IN PLACE (soak
-# windows expire by calendar date) whenever any accessor in this module
-# runs on a new date. Enumerate via get_available_models() /
-# _current_pricing_table() for guaranteed date-fresh soak gating; a bare
-# from-import read sees the last-refreshed snapshot.
-PROVIDER_PRICING: dict[str, ProviderPricing] = {
+# (docs/architecture/MODEL_CATALOG.md). This base dict is never mutated;
+# each snapshot rebuild starts from a copy of it.
+_HAND_ROWS: dict[str, ProviderPricing] = {
     "claude-opus-4": ProviderPricing(
         provider_name="anthropic",
         model_name="claude-opus-4",
@@ -127,8 +122,20 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
     ),
 }
 
+# Compat export for from-importers. Rebound (never mutated) to a fresh
+# immutable snapshot whenever an accessor below runs on a new UTC date, so:
+# - module-attribute readers (aragora.routing.provider_config.PROVIDER_PRICING)
+#   see date-fresh soak gating after any accessor has run;
+# - from-importers hold whichever snapshot object was current when they
+#   imported — possibly stale, but NEVER mutated under them, so iteration
+#   is always safe (stale-but-never-corrupt);
+# - code that needs guaranteed freshness must use get_available_models() /
+#   _current_pricing_table().
+# Initialized by the _refresh_projection_if_stale() call further down.
+PROVIDER_PRICING: dict[str, ProviderPricing] = {}
 
-def _catalog_projection() -> dict[str, ProviderPricing]:
+
+def _catalog_projection(today: date | None = None) -> dict[str, ProviderPricing]:
     """Phase-2 catalog consumer (first projection, founder-directed):
     every catalog model prices identically here and in aragora.models.
 
@@ -148,10 +155,13 @@ def _catalog_projection() -> dict[str, ProviderPricing]:
     (#9364 round-3): the enumerated table is an adoption surface, and the
     catalog contract says a model must not be adopted before
     ``soak_until``. Cost lookup for under-soak ids keeps working through
-    the same ``by_any_id`` fallback, which has no soak gating."""
+    the same ``by_any_id`` fallback, which has no soak gating.
+
+    ``today`` anchors soak evaluation; pass one value through a whole
+    rebuild so gating and the refresh stamp share a coherent date."""
     rows: dict[str, ProviderPricing] = {}
     for spec in CATALOG.values():
-        if spec.is_under_soak():
+        if spec.is_under_soak(today):
             continue
         rows[spec.canonical_id] = ProviderPricing(
             provider_name=spec.provider,
@@ -163,15 +173,19 @@ def _catalog_projection() -> dict[str, ProviderPricing]:
     return rows
 
 
-def _apply_catalog_projection(table: dict[str, ProviderPricing]) -> None:
+def _apply_catalog_projection(table: dict[str, ProviderPricing], today: date | None = None) -> None:
     """Apply the canonical-only projection to a pricing table, in place.
+
+    Only ever called on tables that are NOT yet published (snapshot builds
+    and tests); published snapshots are immutable — see
+    ``_refresh_projection_if_stale``.
 
     Enforced POST-CONDITION (the single invariant behind the #9364
     round 1-4 findings, instead of pruning discovered cases one by one):
 
         Every key of the resulting table that ``by_any_id`` resolves to a
         catalog model (a) IS that model's canonical_id and (b) that model
-        is NOT under soak.
+        is NOT under soak (as of ``today``).
 
     The projection is applied first (it overrides any hand row keyed by an
     adoptable model's canonical id: single source), then one sweep deletes
@@ -182,47 +196,61 @@ def _apply_catalog_projection(table: dict[str, ProviderPricing]) -> None:
     works via the ``by_any_id`` fallback in ``get_estimated_cost``, which
     has no soak gating.
     """
-    table.update(_catalog_projection())
+    table.update(_catalog_projection(today))
     for key in list(table):
         spec = by_any_id(key)
-        if spec is not None and (key != spec.canonical_id or spec.is_under_soak()):
+        if spec is not None and (key != spec.canonical_id or spec.is_under_soak(today)):
             del table[key]
 
 
-# Soak gating is a function of the calendar date, so the applied projection
-# is memoized per day rather than frozen at import (#9364 round-5): a
+def _build_pricing_snapshot(today: date) -> dict[str, ProviderPricing]:
+    """Build a fresh pricing table (hand rows + projection) for ``today``."""
+    table = dict(_HAND_ROWS)
+    _apply_catalog_projection(table, today=today)
+    return table
+
+
+# Soak gating is a function of the calendar date, so the published snapshot
+# is memoized per UTC day rather than frozen at import (#9364 round-5): a
 # long-running server imported before a model's soak_until must start
 # enumerating it once the date passes.
 _projection_refreshed_on: date | None = None
 
 
 def _refresh_projection_if_stale() -> None:
-    """Re-apply the catalog projection if the date rolled since last time.
+    """Publish a fresh snapshot if the UTC date rolled since last time.
 
-    Mutates PROVIDER_PRICING IN PLACE, so from-importers of the dict also
-    observe refreshed contents — but only after any accessor in this module
-    has run on the new date. Direct dict readers that never go through an
-    accessor see the last-refreshed snapshot (import-time, at worst).
+    Snapshot semantics (#9364 round-6): a NEW dict is built off-line and
+    then ATOMICALLY rebound to ``PROVIDER_PRICING``; a published snapshot
+    is never mutated. Re-entrant callers (get_models_within_budget
+    iterating while get_estimated_cost refreshes mid-loop) and concurrent
+    threads therefore always iterate a stable object by construction —
+    they may briefly see the previous day's snapshot, never a dict that
+    changes size under them.
 
-    Concurrency: plain check-and-swap, matching this module's otherwise
-    lock-free conventions; a concurrent duplicate refresh is idempotent
-    (the sweep is a fixed point) so the race is harmless.
+    One ``today`` value (UTC — soak is a governance boundary) is threaded
+    through the whole rebuild so soak gating and the memo stamp agree.
+    Plain check-and-swap, matching this module's lock-free conventions:
+    a concurrent duplicate rebuild publishes an identical snapshot.
     """
-    global _projection_refreshed_on
-    today = date.today()
+    global _projection_refreshed_on, PROVIDER_PRICING
+    today = utc_today()
     if _projection_refreshed_on == today:
         return
-    _apply_catalog_projection(PROVIDER_PRICING)
+    PROVIDER_PRICING = _build_pricing_snapshot(today)
     _projection_refreshed_on = today
 
 
 def _current_pricing_table() -> dict[str, ProviderPricing]:
-    """Date-fresh view of PROVIDER_PRICING for enumeration consumers."""
+    """Date-fresh pricing snapshot for enumeration consumers.
+
+    The returned dict is immutable-by-convention: safe to iterate across
+    re-entrant refreshes and from other threads."""
     _refresh_projection_if_stale()
     return PROVIDER_PRICING
 
 
-# Initial application (also stamps the memo date).
+# Initial publication (also stamps the memo date).
 _refresh_projection_if_stale()
 
 

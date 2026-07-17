@@ -27,33 +27,36 @@ import aragora.models.catalog as catalog_module
 from aragora.models import CATALOG, ModelSpec, by_any_id
 from aragora.routing import provider_config
 from aragora.routing.provider_config import (
-    PROVIDER_PRICING,
     ProviderPricing,
     _apply_catalog_projection,
+    _current_pricing_table,
     get_available_models,
     get_estimated_cost,
     get_models_within_budget,
 )
-from aragora.routing.provider_router import ProviderRouter
+from aragora.routing.provider_router import DEFAULT_PROVIDER_ORDER, ProviderRouter
 
 
 class TestCatalogProjection:
+    # Real-table tests take ONE snapshot via the accessor (never the bare
+    # module attribute) so they cannot straddle a midnight refresh.
+
     def test_adoptable_canonical_ids_have_a_pricing_row(self) -> None:
+        table = _current_pricing_table()
         for spec in CATALOG.values():
             if spec.is_under_soak():
-                assert spec.canonical_id not in PROVIDER_PRICING, (
+                assert spec.canonical_id not in table, (
                     f"{spec.canonical_id} is under soak and must not be enumerated"
                 )
             else:
-                assert spec.canonical_id in PROVIDER_PRICING, (
-                    f"no projected row for {spec.canonical_id}"
-                )
+                assert spec.canonical_id in table, f"no projected row for {spec.canonical_id}"
 
     def test_projected_rows_match_catalog_rates(self) -> None:
+        table = _current_pricing_table()
         for spec in CATALOG.values():
             if spec.is_under_soak():
                 continue
-            row = PROVIDER_PRICING[spec.canonical_id]
+            row = table[spec.canonical_id]
             assert row.input_cost_per_1k * 1000 == pytest.approx(spec.input_per_mtok)
             assert row.output_cost_per_1k * 1000 == pytest.approx(spec.output_per_mtok)
             assert row.context_window == spec.context_window
@@ -80,8 +83,20 @@ class TestCatalogProjection:
 
     def test_legacy_hand_rows_survive_projection(self) -> None:
         """Non-catalog legacy models keep their hand-maintained rows."""
-        assert "claude-opus-4" in PROVIDER_PRICING
+        assert "claude-opus-4" in _current_pricing_table()
         assert get_estimated_cost("claude-opus-4", 1_000_000, 1_000_000) > 0.0
+
+    def test_default_provider_order_entries_stay_enumerable(self) -> None:
+        """P3 (#9364 round-6): DEFAULT_PROVIDER_ORDER drives round-robin via
+        table membership. If a future catalog entry claims one of these
+        spellings as an alias, the sweep would silently drop it from the
+        table and shrink round-robin — fail loudly here instead."""
+        table = _current_pricing_table()
+        for model in DEFAULT_PROVIDER_ORDER:
+            assert model in table, (
+                f"DEFAULT_PROVIDER_ORDER entry {model!r} is no longer in the "
+                "pricing table — did a catalog model claim it as an alias?"
+            )
 
 
 class TestAliasesDoNotInflateEnumeration:
@@ -115,7 +130,7 @@ class TestAliasesDoNotInflateEnumeration:
         """The reachable no-metrics fallback must not fill multiple agent
         slots with the same catalog model under different spellings."""
         router = ProviderRouter()  # empty metrics store -> pricing fallback
-        details = router.select_providers_with_details(num_agents=len(PROVIDER_PRICING))
+        details = router.select_providers_with_details(num_agents=len(_current_pricing_table()))
         selected = [d["provider"] for d in details]
         assert len(selected) == len(set(selected))
         for spec in CATALOG.values():
@@ -142,7 +157,7 @@ class TestAliasesDoNotInflateEnumeration:
         actually resolve — deepseek is not cataloged — so no live row is
         affected today; this pins the invariant against catalog growth.)
         """
-        for key in PROVIDER_PRICING:
+        for key in _current_pricing_table():
             spec = by_any_id(key)
             assert spec is None or spec.canonical_id == key, (
                 f"table key {key!r} is an alias of catalog model "
@@ -164,7 +179,7 @@ class TestAliasesDoNotInflateEnumeration:
                 output_cost_per_1k=0.00099,
                 context_window=128_000,
             ),
-            "deepseek-r1": PROVIDER_PRICING["deepseek-r1"],
+            "deepseek-r1": _current_pricing_table()["deepseek-r1"],
         }
         _apply_catalog_projection(table)
 
@@ -334,8 +349,8 @@ class TestProjectionInvariant:
         ) == pytest.approx(adoptable.input_per_mtok + adoptable.output_per_mtok)
 
     def test_real_table_satisfies_invariant(self) -> None:
-        """The module-level applied table satisfies the same post-condition."""
-        for key in PROVIDER_PRICING:
+        """The published real snapshot satisfies the same post-condition."""
+        for key in _current_pricing_table():
             spec = by_any_id(key)
             assert spec is None or (key == spec.canonical_id and not spec.is_under_soak())
 
@@ -360,7 +375,7 @@ class TestUnderSoakModelsNotEnumerated:
 
     def test_details_from_pricing_never_offers_under_soak_models(self) -> None:
         router = ProviderRouter()  # empty metrics store -> pricing fallback
-        details = router.select_providers_with_details(num_agents=len(PROVIDER_PRICING) + 5)
+        details = router.select_providers_with_details(num_agents=len(_current_pricing_table()) + 5)
         for entry in details:
             spec = by_any_id(entry["provider"])
             assert spec is None or not spec.is_under_soak()
@@ -451,7 +466,7 @@ class TestUnderSoakModelsNotEnumerated:
 
 
 class _Clock:
-    """Stand-in for datetime.date in modules that only call date.today()."""
+    """Fake utc_today() source for both the catalog and provider_config."""
 
     def __init__(self, today: date) -> None:
         self.current = today
@@ -464,8 +479,10 @@ class TestSoakRefreshIsDateFresh:
     """Round-5 (#9364, openai): _apply_catalog_projection ran once at module
     import, freezing soak gating — a long-running process that imported
     before a model's soak_until would never enumerate it after the date
-    passed. The applied projection is now memoized per calendar date and
-    every enumeration consumer goes through _current_pricing_table().
+    passed. Round-6 semantics: the published snapshot is memoized per UTC
+    date; a rollover builds a NEW dict and atomically rebinds it, and a
+    published snapshot is never mutated (stale-but-never-corrupt for
+    re-entrant iteration and from-importers).
     All dates here come from a fake clock: no wall-clock sleeps.
     """
 
@@ -506,12 +523,21 @@ class TestSoakRefreshIsDateFresh:
             return None
 
         clock = _Clock(self.BASE)
-        # is_under_soak reads date.today() in the catalog module; the memo
-        # stamp reads it in provider_config.
-        monkeypatch.setattr(catalog_module, "date", clock)
-        monkeypatch.setattr(provider_config, "date", clock)
+        # is_under_soak defaults read utc_today() in the catalog module; the
+        # snapshot rebuild and memo stamp read it in provider_config.
+        monkeypatch.setattr(catalog_module, "utc_today", clock.today)
+        monkeypatch.setattr(provider_config, "utc_today", clock.today)
         monkeypatch.setattr(provider_config, "CATALOG", catalog)
         monkeypatch.setattr(provider_config, "by_any_id", resolver)
+        # Two non-catalog legacy rows so mid-iteration refresh has room to
+        # bite (a one-row table ends before a second next() call).
+        monkeypatch.setattr(
+            provider_config,
+            "_HAND_ROWS",
+            {"legacy-a": _stale_row("legacy-a"), "legacy-b": _stale_row("legacy-b")},
+        )
+        # Register both mutables with monkeypatch so the refresh's rebinds
+        # during the test are rolled back to the real snapshot afterwards.
         monkeypatch.setattr(provider_config, "PROVIDER_PRICING", {})
         monkeypatch.setattr(provider_config, "_projection_refreshed_on", None)
         return clock, catalog
@@ -552,33 +578,67 @@ class TestSoakRefreshIsDateFresh:
             "soaking-model", 1_000_000, 1_000_000
         ) == pytest.approx(soaking.input_per_mtok + soaking.output_per_mtok)
 
-    def test_refresh_memoized_per_date_and_table_object_stable(
+    def test_refresh_memoized_per_date_with_snapshot_semantics(
         self, dated_world: tuple[_Clock, dict[str, ModelSpec]], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         clock, _catalog = dated_world
         calls = {"n": 0}
         real_projection = provider_config._catalog_projection
 
-        def counting_projection() -> dict[str, ProviderPricing]:
+        def counting_projection(today: date | None = None) -> dict[str, ProviderPricing]:
             calls["n"] += 1
-            return real_projection()
+            return real_projection(today)
 
         monkeypatch.setattr(provider_config, "_catalog_projection", counting_projection)
 
-        table_ref = provider_config.PROVIDER_PRICING
-        provider_config.get_available_models()
+        first = provider_config._current_pricing_table()
         assert calls["n"] == 1
-        # Same date: served from the memo — no recompute, same dict object
-        # (refresh mutates in place, so from-importers stay coherent).
-        provider_config.get_available_models()
+        # Same date: served from the memo — no recompute, and the accessor
+        # returns the SAME snapshot object.
+        assert provider_config._current_pricing_table() is first
         provider_config.get_models_within_budget(1_000.0)
         provider_config.get_estimated_cost("adoptable-model", 1000, 1000)
         assert calls["n"] == 1
-        assert provider_config.PROVIDER_PRICING is table_ref
+        assert provider_config.PROVIDER_PRICING is first
 
-        # Date rollover: exactly one recompute, same dict object.
+        # Date rollover: exactly one rebuild publishing a NEW snapshot;
+        # the module attribute is atomically rebound to it.
         clock.current = self.BASE + timedelta(days=1)
-        provider_config.get_available_models()
+        second = provider_config._current_pricing_table()
+        assert calls["n"] == 2
+        assert second is not first
+        assert provider_config.PROVIDER_PRICING is second
         provider_config.get_available_models()
         assert calls["n"] == 2
-        assert provider_config.PROVIDER_PRICING is table_ref
+
+        # The superseded snapshot was never mutated: holders of the old
+        # object (from-importers, mid-loop iterators) see yesterday's view,
+        # not a dict that changed under them.
+        assert "soaking-model" not in first
+        assert "soaking-model" in second
+
+    def test_mid_iteration_refresh_does_not_corrupt_enumeration(
+        self, dated_world: tuple[_Clock, dict[str, ModelSpec]], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Round-6 (#9364, claude+openai convergent): under in-place refresh,
+        get_models_within_budget iterating the table while its inner
+        get_estimated_cost calls re-enter the refresh at date rollover blew
+        up with RuntimeError('dictionary changed size during iteration').
+        Snapshots make the iterated object stable by construction."""
+        clock, _catalog = dated_world
+        real_cost = provider_config.get_estimated_cost
+
+        def rolling_cost(provider: str, input_tokens: int, output_tokens: int) -> float:
+            # Midnight strikes during the enumeration loop: the inner call
+            # refreshes and (under round-5 code) mutated the dict mid-loop.
+            clock.current = self.BASE + timedelta(days=1)
+            return real_cost(provider, input_tokens, output_tokens)
+
+        monkeypatch.setattr(provider_config, "get_estimated_cost", rolling_cost)
+
+        # Must not raise; enumerates the pre-rollover snapshot coherently.
+        models = provider_config.get_models_within_budget(1_000.0)
+        assert "adoptable-model" in models
+        assert "soaking-model" not in models  # captured snapshot predates expiry
+        # The next enumeration observes the post-rollover snapshot.
+        assert "soaking-model" in provider_config.get_available_models()

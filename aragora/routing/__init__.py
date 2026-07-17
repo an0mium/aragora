@@ -61,6 +61,9 @@ from aragora.routing.decision_stakes_router import (
 )
 from aragora.routing.provider_config import (
     ProviderPricing,
+    # Import-time snapshot (never mutated after publication). For date-fresh
+    # soak gating use provider_config.get_available_models() or
+    # get_estimated_cost(), which refresh internally.
     PROVIDER_PRICING as PROVIDER_ROUTING_PRICING,
     get_estimated_cost,
 )
