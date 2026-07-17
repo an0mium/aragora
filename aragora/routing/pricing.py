@@ -32,6 +32,10 @@ import logging
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Callable
 
+# From-import holds the snapshot current at import time (published snapshots
+# are never mutated — stale-but-never-corrupt). Freshness is immaterial for
+# this rung-2 point lookup: rung 1 (catalog resolution) precedes it for every
+# cataloged id, and this rung never iterates the dict.
 from aragora.routing.provider_config import PROVIDER_PRICING
 
 if TYPE_CHECKING:
