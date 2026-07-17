@@ -18,6 +18,7 @@ their ids keep pricing through the same fallback.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, timedelta
 
 import pytest
@@ -176,6 +177,166 @@ class TestAliasesDoNotInflateEnumeration:
         canonical_cost = get_estimated_cost(kimi.canonical_id, 2000, 1000)
         assert get_estimated_cost(legacy_alias_key, 2000, 1000) == pytest.approx(canonical_cost)
         assert canonical_cost > 0.0
+
+
+def _stale_row(model_name: str) -> ProviderPricing:
+    """A hand-maintained row with deliberately wrong (stale) prices."""
+    return ProviderPricing(
+        provider_name="testprov",
+        model_name=model_name,
+        input_cost_per_1k=0.00001,
+        output_cost_per_1k=0.00002,
+        context_window=8_000,
+    )
+
+
+def _synthetic_catalog() -> dict[str, ModelSpec]:
+    """One under-soak and one adoptable spec, soak dates relative to today
+    so the tests never couple to the real catalog's wall-clock dates."""
+    soaking = ModelSpec(
+        canonical_id="soaking-model",
+        provider="testprov",
+        direct_id="soaking-model",
+        openrouter_id="testprov/soaking-model",
+        input_per_mtok=4.00,
+        output_per_mtok=20.00,
+        context_window=100_000,
+        max_output_tokens=8_192,
+        release_date=date.today() - timedelta(days=1),
+        soak_until=date.today() + timedelta(days=13),
+        aliases=("soaking-alias",),
+    )
+    adoptable = ModelSpec(
+        canonical_id="adoptable-model",
+        provider="testprov",
+        direct_id="adoptable-model",
+        openrouter_id="testprov/adoptable-model",
+        input_per_mtok=1.00,
+        output_per_mtok=2.00,
+        context_window=100_000,
+        max_output_tokens=8_192,
+        release_date=date.today() - timedelta(days=60),
+        aliases=("adoptable-alias",),
+    )
+    return {s.canonical_id: s for s in (soaking, adoptable)}
+
+
+class TestProjectionInvariant:
+    """Round-4 (#9364): rounds 1-4 were all instances of ONE invariant, so
+    _apply_catalog_projection now enforces it as a post-condition sweep:
+
+        every final-table key that by_any_id resolves to a catalog model
+        (a) is exactly that model's canonical_id and (b) that model is not
+        under soak.
+
+    These tests start from PRE-POPULATED tables (the round-4 miss: an
+    empty-table synthetic test cannot catch a surviving stale canonical
+    row of an under-soak model) and check the invariant on the result.
+    """
+
+    @staticmethod
+    def _assert_invariant(
+        table: dict[str, ProviderPricing],
+        resolver: Callable[[str], ModelSpec | None],
+    ) -> None:
+        for key in table:
+            spec = resolver(key)
+            assert spec is None or (key == spec.canonical_id and not spec.is_under_soak()), (
+                f"invariant violated: table key {key!r} resolves to "
+                f"{spec.canonical_id!r} (under_soak={spec.is_under_soak()})"
+            )
+
+    @pytest.fixture()
+    def synthetic(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> tuple[dict[str, ModelSpec], Callable[[str], ModelSpec | None]]:
+        catalog = _synthetic_catalog()
+
+        def resolver(model_id: str) -> ModelSpec | None:
+            for s in catalog.values():
+                if str(model_id).strip() in s.all_ids():
+                    return s
+            return None
+
+        monkeypatch.setattr(provider_config, "CATALOG", catalog)
+        monkeypatch.setattr(provider_config, "by_any_id", resolver)
+        return catalog, resolver
+
+    @pytest.mark.parametrize(
+        "seed_keys",
+        [
+            [],  # empty table (rounds 1-3 baseline)
+            ["soaking-model"],  # THE round-4 edge: stale canonical under-soak row
+            ["soaking-alias", "testprov/soaking-model"],  # under-soak alias rows
+            ["adoptable-alias", "testprov/adoptable-model"],  # adoptable alias rows
+            ["adoptable-model"],  # stale canonical row of adoptable model
+            ["legacy-standalone"],  # hand row unknown to the catalog
+            [  # everything at once
+                "soaking-model",
+                "soaking-alias",
+                "testprov/soaking-model",
+                "adoptable-model",
+                "adoptable-alias",
+                "testprov/adoptable-model",
+                "legacy-standalone",
+            ],
+        ],
+    )
+    def test_invariant_holds_from_any_prepopulated_table(
+        self,
+        synthetic: tuple[dict[str, ModelSpec], Callable[[str], ModelSpec | None]],
+        seed_keys: list[str],
+    ) -> None:
+        catalog, resolver = synthetic
+        table = {key: _stale_row(key) for key in seed_keys}
+        _apply_catalog_projection(table)
+
+        self._assert_invariant(table, resolver)
+
+        # Adoptable model: exactly its canonical row, at catalog rates
+        # (a stale seeded canonical row must be overridden, not kept).
+        adoptable = catalog["adoptable-model"]
+        row = table["adoptable-model"]
+        assert row.input_cost_per_1k * 1000 == pytest.approx(adoptable.input_per_mtok)
+        assert row.output_cost_per_1k * 1000 == pytest.approx(adoptable.output_per_mtok)
+        # Under-soak model: no spelling survives.
+        assert not any(key in table for key in catalog["soaking-model"].all_ids())
+        # Hand rows unknown to the catalog are preserved verbatim.
+        if "legacy-standalone" in seed_keys:
+            assert table["legacy-standalone"] == _stale_row("legacy-standalone")
+
+        # Idempotence: re-applying changes nothing.
+        before = dict(table)
+        _apply_catalog_projection(table)
+        assert table == before
+        self._assert_invariant(table, resolver)
+
+    def test_dropped_spellings_still_price_from_prepopulated_table(
+        self,
+        synthetic: tuple[dict[str, ModelSpec], Callable[[str], ModelSpec | None]],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Cost lookup keeps working for every deleted spelling — including
+        all ids of the under-soak model — via the by_any_id fallback."""
+        catalog, _resolver = synthetic
+        table = {key: _stale_row(key) for key in ("soaking-model", "adoptable-alias")}
+        _apply_catalog_projection(table)
+        monkeypatch.setattr(provider_config, "PROVIDER_PRICING", table)
+
+        soaking = catalog["soaking-model"]
+        for model_id in soaking.all_ids():
+            cost = provider_config.get_estimated_cost(model_id, 1_000_000, 1_000_000)
+            assert cost == pytest.approx(soaking.input_per_mtok + soaking.output_per_mtok)
+        adoptable = catalog["adoptable-model"]
+        assert provider_config.get_estimated_cost(
+            "adoptable-alias", 1_000_000, 1_000_000
+        ) == pytest.approx(adoptable.input_per_mtok + adoptable.output_per_mtok)
+
+    def test_real_table_satisfies_invariant(self) -> None:
+        """The module-level applied table satisfies the same post-condition."""
+        for key in PROVIDER_PRICING:
+            spec = by_any_id(key)
+            assert spec is None or (key == spec.canonical_id and not spec.is_under_soak())
 
 
 class TestUnderSoakModelsNotEnumerated:

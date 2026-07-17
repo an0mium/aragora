@@ -159,21 +159,27 @@ def _catalog_projection() -> dict[str, ProviderPricing]:
 def _apply_catalog_projection(table: dict[str, ProviderPricing]) -> None:
     """Apply the canonical-only projection to a pricing table, in place.
 
-    Two rules keep enumeration duplicate-free (#9364 round-2 residual):
+    Enforced POST-CONDITION (the single invariant behind the #9364
+    round 1-4 findings, instead of pruning discovered cases one by one):
 
-    1. Legacy hand rows whose KEY is an alias spelling of a cataloged model
-       (``by_any_id`` resolves it to a different canonical id) are DROPPED —
-       left in place they would enumerate the same model in a second slot
-       beside its projected canonical row. Cost lookups by that spelling
-       still work via the ``by_any_id`` fallback in ``get_estimated_cost``.
-    2. The projection then OVERRIDES any hand row keyed by a canonical id:
-       single source. Hand rows for models unknown to the catalog are kept.
+        Every key of the resulting table that ``by_any_id`` resolves to a
+        catalog model (a) IS that model's canonical_id and (b) that model
+        is NOT under soak.
+
+    The projection is applied first (it overrides any hand row keyed by an
+    adoptable model's canonical id: single source), then one sweep deletes
+    every violating key — alias-keyed hand rows, stale canonical rows of
+    under-soak models, or any future spelling the catalog learns about.
+    Hand rows for models unknown to the catalog are preserved. Cost lookup
+    for every dropped spelling (aliases and under-soak ids alike) still
+    works via the ``by_any_id`` fallback in ``get_estimated_cost``, which
+    has no soak gating.
     """
+    table.update(_catalog_projection())
     for key in list(table):
         spec = by_any_id(key)
-        if spec is not None and spec.canonical_id != key:
+        if spec is not None and (key != spec.canonical_id or spec.is_under_soak()):
             del table[key]
-    table.update(_catalog_projection())
 
 
 _apply_catalog_projection(PROVIDER_PRICING)
