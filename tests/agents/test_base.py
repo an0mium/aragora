@@ -485,6 +485,13 @@ class TestAgentType:
         types = get_args(AgentType)
         assert "deepseek" in types
 
+    def test_agent_type_includes_kimi_legacy(self):
+        """AgentType includes the direct Moonshot compatibility agent."""
+        from aragora.agents.base import AgentType
+        from typing import get_args
+
+        assert "kimi-legacy" in get_args(AgentType)
+
     def test_agent_type_has_multiple_options(self):
         """AgentType has multiple options."""
         from aragora.agents.base import AgentType

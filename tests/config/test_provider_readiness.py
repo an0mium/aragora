@@ -32,6 +32,27 @@ def test_discovery_reports_configured_provider(monkeypatch):
     assert not mod.agent_type_has_configured_provider("anthropic-api", report)
 
 
+def test_current_kimi_requires_openrouter_not_legacy_kimi_key(monkeypatch):
+    for spec in mod.PROVIDER_CREDENTIAL_SPECS:
+        for env_var in spec.env_vars:
+            monkeypatch.delenv(env_var, raising=False)
+    monkeypatch.setenv("KIMI_API_KEY", "legacy-key")
+
+    legacy_report = mod.discover_provider_credentials(hydrate=False, load_dotenv=False)
+
+    assert mod.agent_type_has_configured_provider("kimi-legacy", legacy_report)
+    assert not mod.agent_type_has_configured_provider("kimi", legacy_report)
+    assert not mod.agent_type_has_configured_provider("kimi-thinking", legacy_report)
+
+    monkeypatch.delenv("KIMI_API_KEY")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-key")
+    current_report = mod.discover_provider_credentials(hydrate=False, load_dotenv=False)
+
+    assert mod.agent_type_has_configured_provider("kimi", current_report)
+    assert mod.agent_type_has_configured_provider("kimi-thinking", current_report)
+    assert not mod.agent_type_has_configured_provider("kimi-legacy", current_report)
+
+
 def test_discovery_uses_secret_hydrator(monkeypatch):
     for spec in mod.PROVIDER_CREDENTIAL_SPECS:
         for env_var in spec.env_vars:

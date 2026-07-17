@@ -90,7 +90,7 @@ commit") from the v12/v13 lessons; soft-reset and re-commit instead.
 
 ## Agent Types
 
-Aragora currently registers 46 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 35 types as of 2026-06-06). Entries marked **opt-in** are registered but not allowlisted by default.
+Aragora currently registers 46 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 36 types as of 2026-07-16). Entries marked **opt-in** are registered but not allowlisted by default.
 
 ### CLI-Based Agents (allowlisted)
 

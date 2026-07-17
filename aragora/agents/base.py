@@ -296,6 +296,7 @@ AgentType = Literal[
     "yi",
     "kimi",
     "kimi-thinking",
+    "kimi-legacy",
     "llama4-maverick",
     "llama4-scout",
     "sonar",

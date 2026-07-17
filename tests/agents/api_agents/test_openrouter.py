@@ -683,10 +683,21 @@ class TestKimiLegacyAgent:
 
         agent = KimiLegacyAgent()
 
-        assert agent.name == "kimi"
+        assert agent.name == "kimi-legacy"
         assert agent.model == "moonshot-v1-8k"
+        assert agent.agent_type == "kimi-legacy"
         assert "moonshot" in agent.base_url
         assert agent.api_key == "test-kimi-key"
+
+    def test_factory_preserves_legacy_identity(self, mock_env_with_api_keys, monkeypatch):
+        monkeypatch.setenv("KIMI_API_KEY", "test-kimi-key")
+
+        from aragora.agents.base import create_agent
+
+        agent = create_agent("kimi-legacy")
+
+        assert agent.name == "kimi-legacy"
+        assert agent.agent_type == "kimi-legacy"
 
     def test_init_raises_without_api_key(self, mock_env_no_api_keys):
         """Should raise error without API key."""

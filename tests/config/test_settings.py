@@ -680,3 +680,6 @@ class TestAllowedAgentTypes:
     def test_contains_core_agents(self):
         for agent in ("claude", "grok", "anthropic-api", "openai-api", "deepseek", "mistral"):
             assert agent in ALLOWED_AGENT_TYPES
+
+    def test_contains_kimi_legacy(self):
+        assert "kimi-legacy" in ALLOWED_AGENT_TYPES

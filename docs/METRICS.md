@@ -25,7 +25,7 @@
 | Unique permission strings | `423` | `aragora/` | `git grep -h -o -E "@require_permission\(['\"][^'\"]+['\"]\)" -- aragora \| sed -E "s/.*['\"]([^'\"]+)['\"].*/\1/" \| sort -u \| wc -l` |
 | Python SDK modules | `198` | `sdk/python/` | `git ls-files sdk/python/aragora_sdk \| grep -E '\.py$' \| grep -v '/__' \| awk -F/ 'NF<=5' \| wc -l` |
 | TypeScript SDK modules | `216` | `sdk/typescript/` | `git ls-files sdk/typescript/src \| grep -E '\.ts$' \| awk -F/ 'NF<=5' \| wc -l` |
-| Allowlisted agent types | `35` | `aragora/config/settings.py` | `grep -A 50 'ALLOWED_AGENT_TYPES' aragora/config/settings.py \| grep -oE "'[a-z-]+'" \| sort -u \| wc -l` |
+| Allowlisted agent types | `36` | `aragora/config/settings.py` | `grep -A 50 'ALLOWED_AGENT_TYPES' aragora/config/settings.py \| grep -oE "'[a-z-]+'" \| sort -u \| wc -l` |
 | Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `git grep -E '"\.[a-z_]+_adapter"' -- aragora/knowledge/mound/adapters/factory.py \| wc -l` |
 | Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `git ls-files aragora/knowledge/mound/adapters \| grep -E '/[^/]+_adapter\.py$' \| wc -l` |
 | Markdown files under docs/ | `1074` | `docs/` | `git ls-files docs \| grep -E '\.md$' \| wc -l` |
