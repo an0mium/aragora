@@ -126,6 +126,14 @@ class TestFlagOn:
         assert len(d["arbitrations"]) == 1
         assert d["summary"]["active_arbitrations"] == 1
 
+    def test_serialization_stable_when_flag_disabled_after_build(self, flag_on, monkeypatch):
+        report = build_truth_map(claim_results=[], arbitration_inputs=[_arb()])
+        before = report.to_dict()
+
+        monkeypatch.delenv("ARAGORA_CRUX_ARBITRATION_ENABLED", raising=False)
+
+        assert report.to_dict() == before
+
     def test_empty_inputs_zero_count(self, flag_on):
         d = build_truth_map(claim_results=[], arbitration_inputs=[]).to_dict()
         assert "arbitrations" not in d
@@ -154,3 +162,13 @@ class TestFlagOn:
             "is_reversed",
         }
         assert expected == set(d.keys())
+
+
+def test_serialization_stable_when_flag_enabled_after_build(monkeypatch):
+    monkeypatch.delenv("ARAGORA_CRUX_ARBITRATION_ENABLED", raising=False)
+    report = build_truth_map(claim_results=[], arbitration_inputs=[_arb()])
+    before = report.to_dict()
+
+    monkeypatch.setenv("ARAGORA_CRUX_ARBITRATION_ENABLED", "1")
+
+    assert report.to_dict() == before

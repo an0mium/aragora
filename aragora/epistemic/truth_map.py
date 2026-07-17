@@ -143,6 +143,7 @@ class OrgTruthMapReport:
     crux_summaries: list[CruxSummaryRow] = field(default_factory=list)
     genealogies: list[GenealogyRow] = field(default_factory=list)
     arbitrations: list[ArbitrationRow] = field(default_factory=list)
+    arbitration_enabled: bool = False
     total_claims: int = 0
     passing_claims: int = 0
     failing_claims: int = 0
@@ -162,7 +163,7 @@ class OrgTruthMapReport:
             "error": self.error_claims,
             "open_crux_count": self.open_crux_count,
         }
-        if _arbitration_enabled():
+        if self.arbitration_enabled:
             summary["active_arbitrations"] = self.active_arbitration_count
 
         d: dict[str, Any] = {
@@ -260,8 +261,9 @@ def build_truth_map(
                 )
             )
 
+    arbitration_enabled = _arbitration_enabled()
     arbitration_rows: list[ArbitrationRow] = []
-    if arbitration_inputs and _arbitration_enabled():
+    if arbitration_inputs and arbitration_enabled:
         for arb in arbitration_inputs:
             arbitration_rows.append(
                 ArbitrationRow(
@@ -287,6 +289,7 @@ def build_truth_map(
         crux_summaries=crux_rows,
         genealogies=genealogy_rows,
         arbitrations=arbitration_rows,
+        arbitration_enabled=arbitration_enabled,
         total_claims=len(rows),
         passing_claims=counts[ClaimStatus.PASS],
         failing_claims=counts[ClaimStatus.FAIL],
