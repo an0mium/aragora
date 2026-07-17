@@ -168,8 +168,8 @@ class TestEstimateCostUsd:
 
     def test_known_openai_model(self) -> None:
         cost = estimate_cost_usd(model="gpt-5.5", tokens_in=1_000_000, tokens_out=1_000_000)
-        # (2.50, 10.00) → 12.50
-        assert cost == pytest.approx(12.5)
+        # (5.00, 30.00) → 35.00 (live catalog 2026-07-16; provider repriced)
+        assert cost == pytest.approx(35.0)
 
     def test_qwen37_max_priced_not_free(self) -> None:
         # (1.475, 4.425) → 5.90 (live catalog 2026-07-16; provider raised the
@@ -766,7 +766,7 @@ class TestNewFamilyCostTracking:
         ) == pytest.approx(expected)
 
     def test_gpt_5_5_pdb_price_entry_is_explicit(self) -> None:
-        assert _PRICE_PER_MTOK["gpt-5.5"] == (2.50, 10.00)
+        assert _PRICE_PER_MTOK["gpt-5.5"] == (5.00, 30.00)
 
     @pytest.mark.parametrize(
         ("provider", "model"),
