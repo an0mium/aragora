@@ -15,8 +15,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from aragora.agents.credential_validator import CredentialStatus
+from aragora.models import by_any_id
 from aragora.routing.cost_quality_optimizer import CostQualityOptimizer, SelectionStrategy
-from aragora.routing.provider_config import _current_pricing_table, get_available_models
+from aragora.routing.provider_config import current_pricing_table, get_available_models
 from aragora.routing.provider_metrics import ProviderMetricsStore
 
 logger = logging.getLogger(__name__)
@@ -437,6 +438,12 @@ class ProviderRouter:
         # Build candidates filtered by budget and quality
         candidates: list[dict[str, Any]] = []
         for provider, metrics in all_metrics.items():
+            # Soak gating applies to the metrics path too (#9364 round-7):
+            # having recorded metrics does not make an under-soak catalog
+            # model adoptable. Ids unknown to the catalog pass through.
+            spec = by_any_id(provider)
+            if spec is not None and spec.is_under_soak():
+                continue
             if metrics.avg_quality_score < min_quality:
                 continue
             if per_agent_budget is not None and metrics.avg_cost_per_debate > per_agent_budget:
@@ -470,8 +477,8 @@ class ProviderRouter:
     ) -> list[dict[str, Any]]:
         """Build provider details from static pricing when no metrics exist."""
         results: list[dict[str, Any]] = []
-        # _current_pricing_table: date-fresh soak gating (#9364 round-5)
-        for model_key, pricing in _current_pricing_table().items():
+        # current_pricing_table: date-fresh soak gating (#9364 round-5)
+        for model_key, pricing in current_pricing_table().items():
             # Estimate cost per debate using 2K input + 1K output tokens
             estimated_cost = (2000 / 1000.0) * pricing.input_cost_per_1k + (
                 1000 / 1000.0
@@ -508,7 +515,7 @@ class ProviderRouter:
 
     def _round_robin_selection(self, n: int) -> list[str]:
         """Select N providers using deterministic round-robin."""
-        pricing_table = _current_pricing_table()
+        pricing_table = current_pricing_table()
         available = [model for model in DEFAULT_PROVIDER_ORDER if model in pricing_table]
         if not available:
             available = get_available_models()

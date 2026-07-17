@@ -24,27 +24,45 @@ from datetime import date, timedelta
 import pytest
 
 import aragora.models.catalog as catalog_module
-from aragora.models import CATALOG, ModelSpec, by_any_id
+from aragora.models import CATALOG, ModelSpec, by_any_id, utc_today
 from aragora.routing import provider_config
+from aragora.routing import provider_router as provider_router_module
 from aragora.routing.provider_config import (
     ProviderPricing,
     _apply_catalog_projection,
-    _current_pricing_table,
+    current_pricing_table,
     get_available_models,
     get_estimated_cost,
     get_models_within_budget,
 )
-from aragora.routing.provider_router import DEFAULT_PROVIDER_ORDER, ProviderRouter
+from aragora.routing.provider_metrics import ProviderMetricsStore
+from aragora.routing.provider_router import (
+    DEFAULT_PROVIDER_ORDER,
+    MIN_DEBATES_FOR_METRICS,
+    ProviderRouter,
+)
+
+
+def _snapshot_and_as_of() -> tuple[dict[str, ProviderPricing], date | None]:
+    """A real-table snapshot plus the UTC date it was built for.
+
+    Real-table tests evaluate is_under_soak against the SAME date the
+    snapshot was built for (the refresh stamp), so a UTC-midnight rollover
+    between taking the snapshot and checking soak state cannot desynchronize
+    the two."""
+    table = current_pricing_table()
+    return table, provider_config._projection_refreshed_on
 
 
 class TestCatalogProjection:
-    # Real-table tests take ONE snapshot via the accessor (never the bare
-    # module attribute) so they cannot straddle a midnight refresh.
+    # Real-table tests take ONE snapshot via the accessor plus its build
+    # date (_snapshot_and_as_of), never the bare module attribute — both
+    # the table AND the soak evaluation share one instant.
 
     def test_adoptable_canonical_ids_have_a_pricing_row(self) -> None:
-        table = _current_pricing_table()
+        table, as_of = _snapshot_and_as_of()
         for spec in CATALOG.values():
-            if spec.is_under_soak():
+            if spec.is_under_soak(as_of):
                 assert spec.canonical_id not in table, (
                     f"{spec.canonical_id} is under soak and must not be enumerated"
                 )
@@ -52,9 +70,9 @@ class TestCatalogProjection:
                 assert spec.canonical_id in table, f"no projected row for {spec.canonical_id}"
 
     def test_projected_rows_match_catalog_rates(self) -> None:
-        table = _current_pricing_table()
+        table, as_of = _snapshot_and_as_of()
         for spec in CATALOG.values():
-            if spec.is_under_soak():
+            if spec.is_under_soak(as_of):
                 continue
             row = table[spec.canonical_id]
             assert row.input_cost_per_1k * 1000 == pytest.approx(spec.input_per_mtok)
@@ -83,7 +101,7 @@ class TestCatalogProjection:
 
     def test_legacy_hand_rows_survive_projection(self) -> None:
         """Non-catalog legacy models keep their hand-maintained rows."""
-        assert "claude-opus-4" in _current_pricing_table()
+        assert "claude-opus-4" in current_pricing_table()
         assert get_estimated_cost("claude-opus-4", 1_000_000, 1_000_000) > 0.0
 
     def test_default_provider_order_entries_stay_enumerable(self) -> None:
@@ -91,7 +109,7 @@ class TestCatalogProjection:
         table membership. If a future catalog entry claims one of these
         spellings as an alias, the sweep would silently drop it from the
         table and shrink round-robin — fail loudly here instead."""
-        table = _current_pricing_table()
+        table = current_pricing_table()
         for model in DEFAULT_PROVIDER_ORDER:
             assert model in table, (
                 f"DEFAULT_PROVIDER_ORDER entry {model!r} is no longer in the "
@@ -108,10 +126,11 @@ class TestAliasesDoNotInflateEnumeration:
     """
 
     def test_catalog_model_occupies_at_most_one_available_slot(self) -> None:
-        available = set(get_available_models())
+        table, as_of = _snapshot_and_as_of()
+        available = set(table)
         for spec in CATALOG.values():
             spellings_in_table = set(spec.all_ids()) & available
-            expected = set() if spec.is_under_soak() else {spec.canonical_id}
+            expected = set() if spec.is_under_soak(as_of) else {spec.canonical_id}
             assert spellings_in_table == expected, (
                 f"{spec.canonical_id} occupies {sorted(spellings_in_table)} — "
                 "aliases must not be enumerated as distinct candidates"
@@ -121,16 +140,17 @@ class TestAliasesDoNotInflateEnumeration:
         # kimi-k2.7-code has 3 spellings; a generous budget admits them all
         # if they are (wrongly) projected as separate rows.
         affordable = get_models_within_budget(budget_per_debate=1_000.0)
+        as_of = provider_config._projection_refreshed_on
         for spec in CATALOG.values():
             spellings = [m for m in affordable if m in set(spec.all_ids())]
-            expected = [] if spec.is_under_soak() else [spec.canonical_id]
+            expected = [] if spec.is_under_soak(as_of) else [spec.canonical_id]
             assert spellings == expected
 
     def test_details_from_pricing_returns_distinct_models(self) -> None:
         """The reachable no-metrics fallback must not fill multiple agent
         slots with the same catalog model under different spellings."""
         router = ProviderRouter()  # empty metrics store -> pricing fallback
-        details = router.select_providers_with_details(num_agents=len(_current_pricing_table()))
+        details = router.select_providers_with_details(num_agents=len(current_pricing_table()))
         selected = [d["provider"] for d in details]
         assert len(selected) == len(set(selected))
         for spec in CATALOG.values():
@@ -157,7 +177,7 @@ class TestAliasesDoNotInflateEnumeration:
         actually resolve — deepseek is not cataloged — so no live row is
         affected today; this pins the invariant against catalog growth.)
         """
-        for key in _current_pricing_table():
+        for key in current_pricing_table():
             spec = by_any_id(key)
             assert spec is None or spec.canonical_id == key, (
                 f"table key {key!r} is an alias of catalog model "
@@ -179,7 +199,7 @@ class TestAliasesDoNotInflateEnumeration:
                 output_cost_per_1k=0.00099,
                 context_window=128_000,
             ),
-            "deepseek-r1": _current_pricing_table()["deepseek-r1"],
+            "deepseek-r1": current_pricing_table()["deepseek-r1"],
         }
         _apply_catalog_projection(table)
 
@@ -218,8 +238,8 @@ def _synthetic_catalog() -> dict[str, ModelSpec]:
         output_per_mtok=20.00,
         context_window=100_000,
         max_output_tokens=8_192,
-        release_date=date.today() - timedelta(days=1),
-        soak_until=date.today() + timedelta(days=13),
+        release_date=utc_today() - timedelta(days=1),
+        soak_until=utc_today() + timedelta(days=13),
         aliases=("soaking-alias",),
     )
     adoptable = ModelSpec(
@@ -231,7 +251,7 @@ def _synthetic_catalog() -> dict[str, ModelSpec]:
         output_per_mtok=2.00,
         context_window=100_000,
         max_output_tokens=8_192,
-        release_date=date.today() - timedelta(days=60),
+        release_date=utc_today() - timedelta(days=60),
         aliases=("adoptable-alias",),
     )
     return {s.canonical_id: s for s in (soaking, adoptable)}
@@ -350,9 +370,10 @@ class TestProjectionInvariant:
 
     def test_real_table_satisfies_invariant(self) -> None:
         """The published real snapshot satisfies the same post-condition."""
-        for key in _current_pricing_table():
+        table, as_of = _snapshot_and_as_of()
+        for key in table:
             spec = by_any_id(key)
-            assert spec is None or (key == spec.canonical_id and not spec.is_under_soak())
+            assert spec is None or (key == spec.canonical_id and not spec.is_under_soak(as_of))
 
 
 class TestUnderSoakModelsNotEnumerated:
@@ -365,20 +386,71 @@ class TestUnderSoakModelsNotEnumerated:
     """
 
     def test_no_enumerated_key_is_under_soak_today(self) -> None:
-        """Invariant on the real applied table."""
-        for key in get_available_models():
+        """Invariant on the real applied table (soak checked against the
+        snapshot's own build date)."""
+        table, as_of = _snapshot_and_as_of()
+        for key in table:
             spec = by_any_id(key)
-            assert spec is None or not spec.is_under_soak(), (
+            assert spec is None or not spec.is_under_soak(as_of), (
                 f"{key!r} is enumerated but {spec.canonical_id} is under soak "
                 f"until {spec.soak_until}"
             )
 
     def test_details_from_pricing_never_offers_under_soak_models(self) -> None:
         router = ProviderRouter()  # empty metrics store -> pricing fallback
-        details = router.select_providers_with_details(num_agents=len(_current_pricing_table()) + 5)
+        details = router.select_providers_with_details(num_agents=len(current_pricing_table()) + 5)
+        as_of = provider_config._projection_refreshed_on
         for entry in details:
             spec = by_any_id(entry["provider"])
-            assert spec is None or not spec.is_under_soak()
+            assert spec is None or not spec.is_under_soak(as_of)
+
+    def test_metrics_driven_selection_excludes_under_soak_until_expiry(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Round-7 (#9364, openai): soak gating must also guard the
+        metrics-driven candidate path — recorded metrics do not make an
+        under-soak catalog model adoptable. Same model post-soak is
+        eligible again; ids unknown to the catalog pass through."""
+        base = date(2026, 1, 10)
+        clock = _Clock(base)
+        soaking = ModelSpec(
+            canonical_id="soaking-model",
+            provider="testprov",
+            direct_id="soaking-model",
+            openrouter_id="testprov/soaking-model",
+            input_per_mtok=4.00,
+            output_per_mtok=20.00,
+            context_window=100_000,
+            max_output_tokens=8_192,
+            release_date=base - timedelta(days=13),
+            soak_until=base + timedelta(days=1),
+        )
+        # is_under_soak's default date comes from the catalog module's
+        # utc_today; the router resolves ids via its own by_any_id import.
+        monkeypatch.setattr(catalog_module, "utc_today", clock.today)
+        monkeypatch.setattr(
+            provider_router_module,
+            "by_any_id",
+            lambda mid: soaking if str(mid).strip() in soaking.all_ids() else None,
+        )
+
+        store = ProviderMetricsStore()
+        for _ in range(MIN_DEBATES_FOR_METRICS + 1):
+            store.record_debate_outcome("soaking-model", cost=0.01, quality=0.95)
+            store.record_debate_outcome("other-model", cost=0.02, quality=0.70)
+        router = ProviderRouter(metrics_store=store)
+
+        # Under soak: excluded from metrics-driven selection despite having
+        # metrics data (and despite dominating on quality).
+        details = router.select_providers_with_details(num_agents=5)
+        selected = {d["provider"] for d in details}
+        assert "soaking-model" not in selected
+        assert "other-model" in selected  # unknown-to-catalog passes through
+
+        # Soak expiry: the same model becomes eligible.
+        clock.current = base + timedelta(days=1)
+        details = router.select_providers_with_details(num_agents=5)
+        assert "soaking-model" in {d["provider"] for d in details}
 
     def test_under_soak_model_excluded_but_all_ids_still_price(
         self, monkeypatch: pytest.MonkeyPatch
@@ -395,8 +467,8 @@ class TestUnderSoakModelsNotEnumerated:
             output_per_mtok=20.00,
             context_window=100_000,
             max_output_tokens=8_192,
-            release_date=date.today() - timedelta(days=1),
-            soak_until=date.today() + timedelta(days=13),
+            release_date=utc_today() - timedelta(days=1),
+            soak_until=utc_today() + timedelta(days=13),
             aliases=("soak-alias-x",),
         )
         adoptable = ModelSpec(
@@ -408,7 +480,7 @@ class TestUnderSoakModelsNotEnumerated:
             output_per_mtok=2.00,
             context_window=100_000,
             max_output_tokens=8_192,
-            release_date=date.today() - timedelta(days=60),
+            release_date=utc_today() - timedelta(days=60),
         )
         fake_catalog = {s.canonical_id: s for s in (soaking, adoptable)}
 
@@ -446,8 +518,8 @@ class TestUnderSoakModelsNotEnumerated:
             output_per_mtok=9.00,
             context_window=100_000,
             max_output_tokens=8_192,
-            release_date=date.today() - timedelta(days=15),
-            soak_until=date.today(),  # must-not-adopt BEFORE today: now OK
+            release_date=utc_today() - timedelta(days=15),
+            soak_until=utc_today(),  # must-not-adopt BEFORE today: now OK
         )
         monkeypatch.setattr(provider_config, "CATALOG", {expired.canonical_id: expired})
         monkeypatch.setattr(
@@ -591,11 +663,11 @@ class TestSoakRefreshIsDateFresh:
 
         monkeypatch.setattr(provider_config, "_catalog_projection", counting_projection)
 
-        first = provider_config._current_pricing_table()
+        first = provider_config.current_pricing_table()
         assert calls["n"] == 1
         # Same date: served from the memo — no recompute, and the accessor
         # returns the SAME snapshot object.
-        assert provider_config._current_pricing_table() is first
+        assert provider_config.current_pricing_table() is first
         provider_config.get_models_within_budget(1_000.0)
         provider_config.get_estimated_cost("adoptable-model", 1000, 1000)
         assert calls["n"] == 1
@@ -604,7 +676,7 @@ class TestSoakRefreshIsDateFresh:
         # Date rollover: exactly one rebuild publishing a NEW snapshot;
         # the module attribute is atomically rebound to it.
         clock.current = self.BASE + timedelta(days=1)
-        second = provider_config._current_pricing_table()
+        second = provider_config.current_pricing_table()
         assert calls["n"] == 2
         assert second is not first
         assert provider_config.PROVIDER_PRICING is second

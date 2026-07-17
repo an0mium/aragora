@@ -130,7 +130,7 @@ _HAND_ROWS: dict[str, ProviderPricing] = {
 #   imported — possibly stale, but NEVER mutated under them, so iteration
 #   is always safe (stale-but-never-corrupt);
 # - code that needs guaranteed freshness must use get_available_models() /
-#   _current_pricing_table().
+#   current_pricing_table().
 # Initialized by the _refresh_projection_if_stale() call further down.
 PROVIDER_PRICING: dict[str, ProviderPricing] = {}
 
@@ -237,17 +237,25 @@ def _refresh_projection_if_stale() -> None:
     today = utc_today()
     if _projection_refreshed_on == today:
         return
-    PROVIDER_PRICING = _build_pricing_snapshot(today)
+    snapshot = _build_pricing_snapshot(today)
+    # Stamp before publish: a concurrent reader between the two statements
+    # gets the previous day's snapshot without triggering a duplicate
+    # rebuild (either ordering is benign; this one avoids wasted work).
     _projection_refreshed_on = today
+    PROVIDER_PRICING = snapshot
 
 
-def _current_pricing_table() -> dict[str, ProviderPricing]:
+def current_pricing_table() -> dict[str, ProviderPricing]:
     """Date-fresh pricing snapshot for enumeration consumers.
 
     The returned dict is immutable-by-convention: safe to iterate across
     re-entrant refreshes and from other threads."""
     _refresh_projection_if_stale()
     return PROVIDER_PRICING
+
+
+# Back-compat private alias (pre-round-7 name).
+_current_pricing_table = current_pricing_table
 
 
 # Initial publication (also stamps the memo date).
@@ -275,7 +283,7 @@ def get_estimated_cost(
         NOT projected into the enumerated table. Returns 0.0 only when the
         model is unknown to both the table and the catalog.
     """
-    pricing = _current_pricing_table().get(provider)
+    pricing = current_pricing_table().get(provider)
     if pricing is None:
         spec = by_any_id(provider)
         if spec is None:
@@ -291,12 +299,12 @@ def get_estimated_cost(
 
 def get_available_models() -> list[str]:
     """Return list of all model keys with known pricing."""
-    return list(_current_pricing_table().keys())
+    return list(current_pricing_table().keys())
 
 
 def get_cheapest_model() -> str:
     """Return the model key with the lowest combined cost per 1K tokens."""
-    table = _current_pricing_table()
+    table = current_pricing_table()
     return min(
         table,
         key=lambda k: table[k].input_cost_per_1k + table[k].output_cost_per_1k,
@@ -319,7 +327,7 @@ def get_models_within_budget(
         List of model keys sorted by cost (cheapest first).
     """
     affordable: list[tuple[float, str]] = []
-    for model_key, pricing in _current_pricing_table().items():
+    for model_key, pricing in current_pricing_table().items():
         cost = get_estimated_cost(model_key, estimated_input_tokens, estimated_output_tokens)
         if cost <= budget_per_debate:
             affordable.append((cost, model_key))
@@ -330,6 +338,7 @@ def get_models_within_budget(
 __all__ = [
     "ProviderPricing",
     "PROVIDER_PRICING",
+    "current_pricing_table",
     "get_estimated_cost",
     "get_available_models",
     "get_cheapest_model",
