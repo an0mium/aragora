@@ -17,6 +17,7 @@ def test_fail_on_missing_passes_when_only_baseline_drift(monkeypatch, tmp_path: 
         validate_openapi_routes, "get_handler_routes", lambda: {"/api/v1/a", "/api/v1/b"}
     )
     monkeypatch.setattr(validate_openapi_routes, "get_openapi_routes", lambda _spec: {"/api/v1/b"})
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: set())
 
     baseline = tmp_path / "baseline.json"
     baseline.write_text(
@@ -45,6 +46,7 @@ def test_fail_on_missing_fails_on_new_drift(monkeypatch, tmp_path: Path):
         validate_openapi_routes, "get_handler_routes", lambda: {"/api/v1/a", "/api/v1/b"}
     )
     monkeypatch.setattr(validate_openapi_routes, "get_openapi_routes", lambda _spec: {"/api/v1/b"})
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: set())
 
     baseline = tmp_path / "baseline.json"
     baseline.write_text(
@@ -75,6 +77,7 @@ def test_internal_prefixes_are_excluded_by_default(monkeypatch, tmp_path: Path):
         lambda: {"/api/v1/control-plane/agents"},
     )
     monkeypatch.setattr(validate_openapi_routes, "get_openapi_routes", lambda _spec: set())
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: set())
 
     baseline = tmp_path / "baseline.json"
     baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
@@ -174,6 +177,41 @@ def test_get_wired_function_routes_fails_closed_on_unparseable_source(tmp_path: 
         validate_openapi_routes.get_wired_function_routes(registration, tmp_path)
 
 
+def test_get_wired_function_routes_follows_package_reexports(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    package = tmp_path / "aragora" / "server" / "handlers" / "reexported"
+    registration.parent.mkdir(parents=True)
+    package.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.reexported import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    (package / "__init__.py").write_text("from .routes import register_routes\n", encoding="utf-8")
+    (package / "routes.py").write_text(
+        'def register_routes(app):\n    app.router.add_get("/api/v1/reexported", object())\n',
+        encoding="utf-8",
+    )
+
+    routes = validate_openapi_routes.get_wired_function_routes(registration, tmp_path)
+
+    assert routes == {"/api/v1/reexported"}
+
+
+def test_get_wired_function_routes_fails_closed_on_unresolved_reexport(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    package = tmp_path / "aragora" / "server" / "handlers" / "reexported"
+    registration.parent.mkdir(parents=True)
+    package.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.reexported import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    (package / "__init__.py").write_text("from .missing import register_routes\n", encoding="utf-8")
+
+    with pytest.raises(validate_openapi_routes.RouteRegistrationScanError):
+        validate_openapi_routes.get_wired_function_routes(registration, tmp_path)
+
+
 def test_wired_function_routes_include_known_server_registrations():
     routes = validate_openapi_routes.get_wired_function_routes()
 
@@ -185,10 +223,14 @@ def test_wired_function_routes_include_known_server_registrations():
         "/api/v1/accounting/report",
         "/api/v1/codebase/quick-scan",
         "/api/v1/codebase/quick-scans",
+        "/api/v1/costs",
+        "/api/v1/payments/charge",
     } <= routes
 
 
-def test_validate_coverage_uses_wired_routes_only_to_disprove_orphans(monkeypatch, tmp_path: Path):
+def test_validate_coverage_uses_exact_wired_routes_for_missing_and_orphans(
+    monkeypatch, tmp_path: Path
+):
     monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: set())
     monkeypatch.setattr(
         validate_openapi_routes,
@@ -210,9 +252,113 @@ def test_validate_coverage_uses_wired_routes_only_to_disprove_orphans(monkeypatc
         include_internal=True,
     )
 
-    assert results["missing_in_spec"] == []
+    assert results["missing_in_spec"] == ["/api/wired-legacy"]
     assert results["orphaned_in_spec"] == ["/api/v1/dark", "/api/v1/wired-legacy"]
     assert results["served_wired_registration"] == ["/api/v1/wired"]
+
+
+@pytest.mark.parametrize(
+    ("spec_routes", "wired_routes", "handler_routes", "orphaned", "served"),
+    [
+        ({"/api/foo"}, {"/api/foo"}, set(), [], ["/api/foo"]),
+        ({"/api/v1/foo"}, {"/api/foo"}, set(), ["/api/v1/foo"], []),
+        (
+            {"/api/foo", "/api/v1/foo"},
+            {"/api/foo"},
+            set(),
+            ["/api/v1/foo"],
+            ["/api/foo"],
+        ),
+        ({"/api/v1/foo"}, {"/api/v1/foo"}, set(), [], ["/api/v1/foo"]),
+        ({"/api/foo"}, set(), {"/api/v1/foo"}, [], []),
+    ],
+)
+def test_validate_coverage_preserves_exact_wired_alias_semantics(
+    monkeypatch,
+    tmp_path: Path,
+    spec_routes: set[str],
+    wired_routes: set[str],
+    handler_routes: set[str],
+    orphaned: list[str],
+    served: list[str],
+):
+    monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: handler_routes)
+    monkeypatch.setattr(validate_openapi_routes, "get_openapi_routes", lambda _spec: spec_routes)
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: wired_routes)
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        baseline_path=str(baseline),
+        include_internal=True,
+    )
+
+    assert results["orphaned_in_spec"] == orphaned
+    assert results["served_wired_registration"] == served
+
+
+def test_validate_coverage_counts_wired_routes_missing_from_spec(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: set())
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_openapi_routes",
+        lambda _spec: {"/api/v1/wired-present", "/api/wired-legacy"},
+    )
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_wired_function_routes",
+        lambda: {
+            "/api/v1/wired-present",
+            "/api/v1/wired-missing",
+            "/api/wired-legacy",
+        },
+    )
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        baseline_path=str(baseline),
+        include_internal=True,
+    )
+
+    assert results["missing_in_spec"] == ["/api/v1/wired-missing"]
+
+
+def test_validate_coverage_excludes_internal_wired_routes(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: set())
+    monkeypatch.setattr(validate_openapi_routes, "get_openapi_routes", lambda _spec: set())
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_wired_function_routes",
+        lambda: {"/api/v1/control-plane/private", "/api/control-plane/legacy"},
+    )
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        baseline_path=str(baseline),
+    )
+
+    assert results["missing_in_spec"] == []
+
+
+def test_filter_wired_orphans_preserves_exact_default_registry(monkeypatch):
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "load_wired_routes_for_validation",
+        lambda: {"/api/wired-legacy"},
+    )
+
+    orphaned, served = validate_openapi_routes.filter_wired_orphans({"/api/v1/wired-legacy"})
+
+    assert orphaned == {"/api/v1/wired-legacy"}
+    assert served == set()
 
 
 def test_validate_coverage_treats_decorator_routes_as_implemented(monkeypatch, tmp_path: Path):
@@ -231,6 +377,7 @@ def test_validate_coverage_treats_decorator_routes_as_implemented(monkeypatch, t
         "get_openapi_routes",
         lambda _spec: {"/api/v1/coordination/swarm/integrator"},
     )
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: set())
 
     baseline = tmp_path / "baseline.json"
     baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
@@ -284,6 +431,28 @@ def test_filter_served_orphans_drops_can_handle_routes(monkeypatch):
 
     assert served == {"/api/v1/served/route"}
     assert orphaned == {"/api/v1/dark/route"}
+
+
+def test_filter_served_orphans_does_not_credit_v1_matcher_for_legacy_candidate(monkeypatch):
+    """A v1-only exact matcher must NOT suppress a legacy /api/ candidate.
+
+    The live router passes the raw request path to can_handle with no
+    legacy<->v1 aliasing, so a legacy-path request 404s even when the
+    handler accepts the /api/v1/ form. Probing the v1 variant for a legacy
+    candidate would mark genuinely-orphaned spec paths as served.
+    """
+
+    class VersionedOnlyHandler:
+        def can_handle(self, path: str, method: str = "GET") -> bool:
+            return path == "/api/v1/served/versioned-only"
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", VersionedOnlyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/served/versioned-only"})
+
+    assert orphaned == {"/api/served/versioned-only"}
+    assert served == set()
 
 
 def test_filter_served_orphans_survives_broken_can_handle(monkeypatch):
@@ -380,6 +549,7 @@ def test_validate_coverage_excludes_served_orphans(monkeypatch, tmp_path: Path):
         "get_openapi_routes",
         lambda _spec: {"/api/v1/declared", "/api/v1/served-only", "/api/v1/dark"},
     )
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: set())
 
     baseline = tmp_path / "baseline.json"
     baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
