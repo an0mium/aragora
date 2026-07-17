@@ -46,6 +46,9 @@ PROVIDER_FAMILIES = {
     "grok": "grok",
     "mistral-api": "mistral",
 }
+FAMILY_ALIASES = {
+    "grok": "xai",
+}
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -68,6 +71,31 @@ def _write_json(path: Path, value: object) -> None:
 def _canonical_sha256(value: object) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _canonical_family(family: str) -> str:
+    return FAMILY_ALIASES.get(family, family)
+
+
+def _resolve_output_path(path: Path, *, label: str, allow_external: bool) -> Path:
+    resolved = path.expanduser().resolve()
+    try:
+        resolved.relative_to(REPO_ROOT.resolve())
+    except ValueError as exc:
+        if not allow_external:
+            raise ValueError(
+                f"{label} is outside the repository; pass --allow-external-output "
+                "to permit external writes"
+            ) from exc
+    return resolved
+
+
+def _output_path_label(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(REPO_ROOT.resolve()))
+    except ValueError:
+        return str(resolved)
 
 
 def _manifest_cases(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -393,7 +421,7 @@ def measure(
         quorum_matches: set[str] = set()
         for model in models:
             provider = str(model.get("provider", ""))
-            family = str(model.get("family", ""))
+            family = _canonical_family(str(model.get("family", "")))
             all_families.add(family)
             matches: set[str] = set()
             for finding in model.get("findings", []):
@@ -424,7 +452,7 @@ def measure(
             )
         if baseline_matches is None:
             raise ValueError(f"{case_id}: named baseline {baseline_provider} is absent")
-        families = {str(model["family"]) for model in models}
+        families = {_canonical_family(str(model["family"])) for model in models}
         if len(families) < 2:
             raise ValueError(f"{case_id}: quorum has fewer than two distinct families")
 
@@ -453,7 +481,7 @@ def measure(
                     "missed_golden_ids": sorted(golden_ids - quorum_matches),
                     "caught_beyond_baseline_golden_ids": sorted(quorum_matches - baseline_matches),
                 },
-                "collect_outcome_fixture": str(fixture_path.relative_to(REPO_ROOT)),
+                "collect_outcome_fixture": _output_path_label(fixture_path),
                 "receipt_path": (f"docs/benchmarks/receipts/{case_id}-receipt.odr.json"),
             }
         )
@@ -476,6 +504,7 @@ def measure(
         "live_collection": str(DEFAULT_LIVE_COLLECTION.relative_to(REPO_ROOT)),
         "live_collection_canonical_sha256": live_collection_sha256,
         "adjudication_scope": "manual golden_comment_id mappings only; finding text is live output",
+        "family_aliases": dict(sorted(FAMILY_ALIASES.items())),
         "baseline_provider": baseline_provider,
         "quorum_families": sorted(all_families),
         "cases": measured_cases,
@@ -495,6 +524,11 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     collect.add_argument("--providers", nargs="+", default=["grok", "mistral-api"])
     collect.add_argument("--output", type=Path, required=True)
+    collect.add_argument(
+        "--allow-external-output",
+        action="store_true",
+        help="permit --output outside the repository (disabled by default)",
+    )
 
     offline = subparsers.add_parser("measure", help="measure committed evidence offline")
     offline.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
@@ -503,16 +537,31 @@ def build_parser() -> argparse.ArgumentParser:
     offline.add_argument("--baseline-provider", default="mistral-api")
     offline.add_argument("--outcome-dir", type=Path, default=DEFAULT_OUTCOME_DIR)
     offline.add_argument("--output", type=Path, default=DEFAULT_RESULTS)
+    offline.add_argument(
+        "--allow-external-output",
+        action="store_true",
+        help="permit --output and --outcome-dir outside the repository (disabled by default)",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        output_path = _resolve_output_path(
+            args.output,
+            label="--output",
+            allow_external=args.allow_external_output,
+        )
         manifest = _read_json(args.manifest)
         if args.command == "collect":
             result = asyncio.run(collect_live(manifest, providers=args.providers))
         else:
+            outcome_dir = _resolve_output_path(
+                args.outcome_dir,
+                label="--outcome-dir",
+                allow_external=args.allow_external_output,
+            )
             evidence = _read_json(args.evidence)
             live_collection = _read_json(args.live_collection)
             result = measure(
@@ -520,13 +569,13 @@ def main(argv: list[str] | None = None) -> int:
                 evidence,
                 live_collection,
                 baseline_provider=args.baseline_provider,
-                outcome_dir=args.outcome_dir,
+                outcome_dir=outcome_dir,
             )
-        _write_json(args.output, result)
+        _write_json(output_path, result)
     except (OSError, RuntimeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    print(json.dumps({"output": str(args.output), "cases": len(result["cases"])}, sort_keys=True))
+    print(json.dumps({"output": str(output_path), "cases": len(result["cases"])}, sort_keys=True))
     return 0
 
 
