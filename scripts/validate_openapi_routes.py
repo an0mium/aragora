@@ -407,10 +407,12 @@ def filter_served_orphans(candidates: set[str]) -> tuple[set[str], set[str]]:
         variants = {candidate}
         if candidate.startswith("/api/v1/"):
             variants.add(candidate.replace("/api/v1/", "/api/", 1))
-        elif candidate.startswith("/api/"):
-            first_segment = candidate.removeprefix("/api/").partition("/")[0]
-            if not (first_segment.startswith("v") and first_segment[1:].isdigit()):
-                variants.add(candidate.replace("/api/", "/api/v1/", 1))
+        # Deliberately no legacy->/api/v1/ variant probe: the live dispatch
+        # path (aragora/server/router.py) passes the RAW request path to
+        # can_handle with no legacy<->v1 aliasing, so a handler accepting the
+        # v1 form is not evidence that the legacy spec path is served.
+        # Handlers that genuinely serve both forms (strip_version_prefix in
+        # can_handle) already pass the direct legacy probe.
         serving_handler: str | None = None
         for handler_name, can_handle in probes:
             non_specific = False

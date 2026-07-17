@@ -488,6 +488,14 @@
     {
       "class": "discovered",
       "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/quotas/request-increase",
+      "provenance": "#9389 unsound legacy->v1 variant-probe removal surfaced mis-suppressed legacy orphan",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
       "id": "orphaned_in_spec:/api/ralph/blockers",
       "provenance": "#9388 exact-version orphan intake",
       "source": "orphaned_in_spec",
@@ -951,18 +959,16 @@
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/verification/proofs",
       "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
-      "resolved_on": "2026-07-17",
       "source": "orphaned_in_spec",
-      "status": "resolved"
+      "status": "open"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "orphaned_in_spec:/api/verification/validate",
       "provenance": "canary-probe-exposed orphan routes, route-gate re-arm recut (#9360, recut of #9332)",
-      "resolved_on": "2026-07-17",
       "source": "orphaned_in_spec",
-      "status": "resolved"
+      "status": "open"
     },
     {
       "class": "discovered",

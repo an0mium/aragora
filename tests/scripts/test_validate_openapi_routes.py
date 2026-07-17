@@ -433,7 +433,15 @@ def test_filter_served_orphans_drops_can_handle_routes(monkeypatch):
     assert orphaned == {"/api/v1/dark/route"}
 
 
-def test_filter_served_orphans_probes_versioned_variant_for_legacy_candidate(monkeypatch):
+def test_filter_served_orphans_does_not_credit_v1_matcher_for_legacy_candidate(monkeypatch):
+    """A v1-only exact matcher must NOT suppress a legacy /api/ candidate.
+
+    The live router passes the raw request path to can_handle with no
+    legacy<->v1 aliasing, so a legacy-path request 404s even when the
+    handler accepts the /api/v1/ form. Probing the v1 variant for a legacy
+    candidate would mark genuinely-orphaned spec paths as served.
+    """
+
     class VersionedOnlyHandler:
         def can_handle(self, path: str, method: str = "GET") -> bool:
             return path == "/api/v1/served/versioned-only"
@@ -443,8 +451,8 @@ def test_filter_served_orphans_probes_versioned_variant_for_legacy_candidate(mon
 
     orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/served/versioned-only"})
 
-    assert served == {"/api/served/versioned-only"}
-    assert orphaned == set()
+    assert orphaned == {"/api/served/versioned-only"}
+    assert served == set()
 
 
 def test_filter_served_orphans_survives_broken_can_handle(monkeypatch):

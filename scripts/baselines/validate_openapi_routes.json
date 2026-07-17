@@ -50,6 +50,7 @@
     "/api/patterns/hive-mind",
     "/api/patterns/map-reduce",
     "/api/patterns/review-cycle",
+    "/api/quotas/request-increase",
     "/api/ralph/blockers",
     "/api/ralph/campaigns",
     "/api/ralph/overview",
@@ -83,6 +84,8 @@
     "/api/v2/marketplace/templates/import",
     "/api/v2/orchestration/deliberate",
     "/api/v2/orchestration/deliberate/sync",
-    "/api/v2/orchestration/templates"
+    "/api/v2/orchestration/templates",
+    "/api/verification/proofs",
+    "/api/verification/validate"
   ]
 }
