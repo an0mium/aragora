@@ -564,29 +564,6 @@ export class MemoryAPI {
     });
   }
 
-  /**
-   * Store a new memory entry in the continuum memory system.
-   *
-   * @param content - The memory content to store
-   * @param options - Optional tier (fast, medium, slow, glacial) and importance (0-1)
-   *
-   * @example
-   * ```typescript
-   * const stored = await client.memory.storeEntry('User prefers dark mode', {
-   *   tier: 'slow',
-   *   importance: 0.8,
-   * });
-   * ```
-   */
-  async storeEntry(
-    content: string,
-    options: { tier?: string; importance?: number } = {},
-  ): Promise<{ id: string; tier: string }> {
-    return this.client.request('POST', '/api/v1/memory/store', {
-      body: { content, tier: options.tier ?? 'fast', ...(options.importance !== undefined ? { importance: options.importance } : {}) },
-    });
-  }
-
   // ===========================================================================
   // Context Management
   // ===========================================================================
