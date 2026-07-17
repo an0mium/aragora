@@ -158,8 +158,8 @@ For the full current-status narrative, use the canonical doc:
 
 ### Codebase Metrics (generated from `docs/METRICS.md`)
 <!-- metrics:begin status-codebase-metrics -->
-- **Python files (`aragora/`)**: 4,290
-- **Tests**: 223,961 across 5,481 test files
+- **Python files (`aragora/`)**: 4,291
+- **Tests**: 223,996 across 5,482 test files
 - **KM adapters**: 41 registered adapter specs
 - **API operations**: 3,299 across 2,872 paths
 <!-- metrics:end -->
@@ -2328,7 +2328,7 @@ All stabilization items addressed:
 ### Active Agents (default config, 8 total)
 | Agent | Model | API |
 |-------|-------|-----|
-| `grok` | grok-4.5 | xAI |
+| `grok` | grok-4-latest | xAI |
 | `anthropic-api` | claude-opus-4-5-20251101 | Anthropic |
 | `openai-api` | gpt-5.3 | OpenAI |
 | `deepseek` | deepseek/deepseek-v4-pro | OpenRouter |

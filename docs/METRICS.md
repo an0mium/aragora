@@ -12,11 +12,11 @@
 
 | Metric | Value | Source | Command |
 |---|---|---|---|
-| Python files under aragora/ | `4290` | `aragora/` | `git ls-files aragora \| grep -E '\.py$' \| wc -l` |
-| Python lines of code under aragora/ | `1982185` | `aragora/` | `python3 -c "from pathlib import Path; import subprocess; files = subprocess.check_output(['git', 'ls-files', 'aragora'], text=True).splitlines(); print(sum(sum(1 for _ in Path(p).open(encoding='utf-8', errors='replace')) for p in files if p.endswith('.py')))"` |
+| Python files under aragora/ | `4291` | `aragora/` | `git ls-files aragora \| grep -E '\.py$' \| wc -l` |
+| Python lines of code under aragora/ | `1982530` | `aragora/` | `python3 -c "from pathlib import Path; import subprocess; files = subprocess.check_output(['git', 'ls-files', 'aragora'], text=True).splitlines(); print(sum(sum(1 for _ in Path(p).open(encoding='utf-8', errors='replace')) for p in files if p.endswith('.py')))"` |
 | Top-level modules under aragora/ | `145` | `aragora/` | `git ls-files aragora \| awk -F/ 'NF>2 {print $2}' \| sort -u \| wc -l` |
-| Test files (test_*.py under tests/) | `5481` | `tests/` | `git ls-files tests \| grep -E '(^\|/)test_[^/]*\.py$' \| wc -l` |
-| Test functions (class + module level) | `223961` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
+| Test files (test_*.py under tests/) | `5482` | `tests/` | `git ls-files tests \| grep -E '(^\|/)test_[^/]*\.py$' \| wc -l` |
+| Test functions (class + module level) | `223996` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
 | @pytest.mark.parametrize decorators | `858` | `tests/` | `git grep -E '@pytest\.mark\.parametrize' -- tests \| wc -l` |
 | CLI top-level command modules | `84` | `aragora/cli/commands/` | `git ls-files aragora/cli/commands \| grep -E '/[^/]*\.py$' \| grep -v '/__' \| wc -l` |
 | OpenAPI paths | `2872` | `docs/api/openapi.json` | `python -c "import json; print(len(json.load(open('docs/api/openapi.json'))['paths']))"` |
@@ -28,7 +28,7 @@
 | Allowlisted agent types | `35` | `aragora/config/settings.py` | `grep -A 50 'ALLOWED_AGENT_TYPES' aragora/config/settings.py \| grep -oE "'[a-z-]+'" \| sort -u \| wc -l` |
 | Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `git grep -E '"\.[a-z_]+_adapter"' -- aragora/knowledge/mound/adapters/factory.py \| wc -l` |
 | Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `git ls-files aragora/knowledge/mound/adapters \| grep -E '/[^/]+_adapter\.py$' \| wc -l` |
-| Markdown files under docs/ | `1081` | `docs/` | `git ls-files docs \| grep -E '\.md$' \| wc -l` |
+| Markdown files under docs/ | `1093` | `docs/` | `git ls-files docs \| grep -E '\.md$' \| wc -l` |
 | GitHub Actions workflows | `92` | `.github/workflows/` | `git ls-files .github/workflows \| grep -E '\.yml$' \| wc -l` |
 | Mypy baseline errors (grandfathered) | `3115` | `.mypy-baseline` | `wc -l .mypy-baseline` |
 

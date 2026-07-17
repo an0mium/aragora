@@ -342,7 +342,7 @@ aragora/
 ```
 
 <!-- metrics:begin extended-readme-scale -->
-**Scale:** 4,290 tracked Python files | 145 top-level modules | 223,961 test functions across 5,481 test files | canonical counts in [METRICS.md](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md)
+**Scale:** 4,291 tracked Python files | 145 top-level modules | 223,996 test functions across 5,482 test files | canonical counts in [METRICS.md](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md)
 <!-- metrics:end -->
 
 ---
@@ -630,7 +630,7 @@ See [ENTERPRISE_FEATURES.md](../enterprise/features) for complete enterprise cap
 ANTHROPIC_API_KEY=sk-ant-xxx    # For Claude (Opus 4.5, Sonnet 4)
 OPENAI_API_KEY=sk-xxx           # For GPT models
 GEMINI_API_KEY=AIzaSy...        # For Gemini 2.5
-XAI_API_KEY=xai-xxx             # For Grok 4.5
+XAI_API_KEY=xai-xxx             # For Grok 4
 MISTRAL_API_KEY=xxx             # For Mistral Large, Codestral
 OPENROUTER_API_KEY=sk-or-xxx    # For DeepSeek, Qwen, Yi (multi-model access)
 KIMI_API_KEY=xxx                # For Kimi (Moonshot, China perspective)
