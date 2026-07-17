@@ -2,8 +2,16 @@ from __future__ import annotations
 
 import textwrap
 from pathlib import Path
+from types import SimpleNamespace
 
-from scripts.check_quickstart_surface import check_documents, extract_python_blocks
+import pytest
+
+from scripts.check_quickstart_surface import (
+    DEFAULT_DOCS,
+    build_installed_manifest,
+    check_documents,
+    extract_python_blocks,
+)
 
 
 def _write(path: Path, content: str) -> Path:
@@ -27,6 +35,11 @@ def _manifest() -> dict[str, object]:
             },
         },
     }
+
+
+def test_default_docs_cover_public_sdk_guides() -> None:
+    assert Path("docs/SDK_QUICKSTART_PYTHON.md") in DEFAULT_DOCS
+    assert Path("docs-site/docs/guides/sdk.md") in DEFAULT_DOCS
 
 
 def test_extract_python_blocks_preserves_source_line(tmp_path: Path) -> None:
@@ -114,7 +127,7 @@ def test_checker_rejects_sync_client_in_async_context(tmp_path: Path) -> None:
 
     assert len(findings) == 1
     assert findings[0].line == 5
-    assert findings[0].message == "AragoraClient does not support async with"
+    assert findings[0].message == "AragoraClient does not support async context management"
 
 
 def test_checker_ignores_other_client_packages(tmp_path: Path) -> None:
@@ -131,3 +144,83 @@ def test_checker_ignores_other_client_packages(tmp_path: Path) -> None:
     )
 
     assert check_documents([path], _manifest()) == []
+
+
+def test_installed_manifest_closes_clients(monkeypatch) -> None:
+    closed: list[str] = []
+
+    class Namespace:
+        def list(self) -> None:
+            pass
+
+    class SyncClient:
+        def __init__(self, *, demo: bool) -> None:
+            assert demo is True
+            self.agents = Namespace()
+            self.debates = Namespace()
+
+        def close(self) -> None:
+            closed.append("sync")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            self.close()
+
+    class AsyncClient:
+        def __init__(self, *, demo: bool) -> None:
+            assert demo is True
+            self.agents = Namespace()
+            self.debates = Namespace()
+
+        async def close(self) -> None:
+            closed.append("async")
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args) -> None:
+            await self.close()
+
+    sdk = SimpleNamespace(AragoraClient=SyncClient, AragoraAsyncClient=AsyncClient)
+    monkeypatch.setattr("scripts.check_quickstart_surface.importlib.import_module", lambda _: sdk)
+    monkeypatch.setattr(
+        "scripts.check_quickstart_surface.importlib.metadata.version", lambda _: "2.8.0"
+    )
+
+    manifest = build_installed_manifest()
+
+    assert closed == ["sync", "async"]
+    assert manifest["clients"]["AragoraClient"]["context_managers"] == {
+        "async": False,
+        "sync": True,
+    }
+    assert manifest["clients"]["AragoraAsyncClient"]["context_managers"] == {
+        "async": True,
+        "sync": False,
+    }
+
+
+def test_installed_manifest_closes_client_when_introspection_fails(monkeypatch) -> None:
+    closed = False
+
+    class BrokenClient:
+        def __init__(self, *, demo: bool) -> None:
+            assert demo is True
+
+        @property
+        def agents(self):
+            raise RuntimeError("broken namespace")
+
+        def close(self) -> None:
+            nonlocal closed
+            closed = True
+
+    sdk = SimpleNamespace(AragoraClient=BrokenClient)
+    monkeypatch.setattr("scripts.check_quickstart_surface.importlib.import_module", lambda _: sdk)
+
+    with pytest.raises(RuntimeError, match="broken namespace"):
+        build_installed_manifest()
+
+    assert closed is True

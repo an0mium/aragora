@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+import asyncio
 import importlib
 import importlib.metadata
+import inspect
 import json
 import sys
 from dataclasses import dataclass
@@ -20,6 +22,7 @@ DEFAULT_DOCS = (
     Path("docs/SDK_QUICKSTART_PYTHON.md"),
     Path("docs/SDK_GUIDE.md"),
     Path("docs/reference/INSTALL_MATRIX.md"),
+    Path("docs-site/docs/guides/sdk.md"),
 )
 DEFAULT_MANIFEST = Path("docs/reference/sdk_released_surface_2.8.0.json")
 
@@ -194,7 +197,7 @@ def check_documents(paths: list[Path], manifest: dict[str, Any]) -> list[Finding
                 elif not _call_is_available(client, call_path):
                     if call_path.startswith("@"):
                         mode = call_path.removeprefix("@").removesuffix("_context")
-                        message = f"{client_class} does not support {mode} with"
+                        message = f"{client_class} does not support {mode} context management"
                     else:
                         message = (
                             f"{client_class}.{call_path}() is absent from released SDK surface"
@@ -216,26 +219,31 @@ def build_installed_manifest() -> dict[str, Any]:
     for class_name in CLIENT_CLASSES:
         client_class = getattr(sdk, class_name)
         instance = client_class(demo=True)
-        methods = sorted(
-            name
-            for name in dir(instance)
-            if not name.startswith("_") and callable(getattr(instance, name, None))
-        )
-        namespaces: dict[str, list[str]] = {}
-        for namespace_name in QUICKSTART_NAMESPACES:
-            namespace = getattr(instance, namespace_name, None)
-            if namespace is None:
-                continue
-            namespaces[namespace_name] = sorted(
+        try:
+            methods = sorted(
                 name
-                for name in dir(namespace)
-                if not name.startswith("_") and callable(getattr(namespace, name, None))
+                for name in dir(instance)
+                if not name.startswith("_") and callable(getattr(instance, name, None))
             )
-        clients[class_name] = {"methods": methods, "namespaces": namespaces}
-        clients[class_name]["context_managers"] = {
-            "async": hasattr(instance, "__aenter__") and hasattr(instance, "__aexit__"),
-            "sync": hasattr(instance, "__enter__") and hasattr(instance, "__exit__"),
-        }
+            namespaces: dict[str, list[str]] = {}
+            for namespace_name in QUICKSTART_NAMESPACES:
+                namespace = getattr(instance, namespace_name, None)
+                if namespace is None:
+                    continue
+                namespaces[namespace_name] = sorted(
+                    name
+                    for name in dir(namespace)
+                    if not name.startswith("_") and callable(getattr(namespace, name, None))
+                )
+            clients[class_name] = {"methods": methods, "namespaces": namespaces}
+            clients[class_name]["context_managers"] = {
+                "async": hasattr(instance, "__aenter__") and hasattr(instance, "__aexit__"),
+                "sync": hasattr(instance, "__enter__") and hasattr(instance, "__exit__"),
+            }
+        finally:
+            close_result = instance.close()
+            if inspect.isawaitable(close_result):
+                asyncio.run(close_result)
 
     return {
         "schema_version": 1,
