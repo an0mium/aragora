@@ -515,6 +515,7 @@ def validate_coverage(
     normalized_handler = {normalize_route(r) for r in handler_routes}
     normalized_openapi = {normalize_route(r) for r in openapi_routes}
     normalized_openapi_exact = {normalize_route(r, normalize_version=False) for r in openapi_routes}
+    normalized_wired_routes = {normalize_route(r) for r in wired_routes}
     internal_prefixes = load_internal_prefixes(internal_prefixes_path)
     if not include_internal:
         normalized_handler = {
@@ -527,6 +528,9 @@ def validate_coverage(
             r for r in normalized_openapi_exact if not is_internal_route(r, internal_prefixes)
         }
         wired_routes = {r for r in wired_routes if not is_internal_route(r, internal_prefixes)}
+        normalized_wired_routes = {
+            r for r in normalized_wired_routes if not is_internal_route(r, internal_prefixes)
+        }
 
     effective_handler_routes = normalized_handler | wired_routes
 
@@ -564,7 +568,7 @@ def validate_coverage(
     # routes it. Free-function registrations and can_handle paths do not always
     # have class-level ROUTES metadata.
     orphan_candidates, served_wired_registration = filter_wired_orphans(
-        orphan_candidates, wired_routes
+        orphan_candidates, normalized_wired_routes
     )
     orphaned_in_spec, served_can_handle = filter_served_orphans(orphan_candidates)
     served_undeclared = served_wired_registration | served_can_handle

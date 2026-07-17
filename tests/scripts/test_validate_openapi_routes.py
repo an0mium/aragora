@@ -211,7 +211,9 @@ def test_wired_function_routes_include_known_server_registrations():
     } <= routes
 
 
-def test_validate_coverage_uses_wired_routes_only_to_disprove_orphans(monkeypatch, tmp_path: Path):
+def test_validate_coverage_uses_exact_wired_routes_for_missing_and_normalized_for_orphans(
+    monkeypatch, tmp_path: Path
+):
     monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: set())
     monkeypatch.setattr(
         validate_openapi_routes,
@@ -234,8 +236,11 @@ def test_validate_coverage_uses_wired_routes_only_to_disprove_orphans(monkeypatc
     )
 
     assert results["missing_in_spec"] == ["/api/wired-legacy"]
-    assert results["orphaned_in_spec"] == ["/api/v1/dark", "/api/v1/wired-legacy"]
-    assert results["served_wired_registration"] == ["/api/v1/wired"]
+    assert results["orphaned_in_spec"] == ["/api/v1/dark"]
+    assert results["served_wired_registration"] == [
+        "/api/v1/wired",
+        "/api/v1/wired-legacy",
+    ]
 
 
 def test_validate_coverage_counts_wired_routes_missing_from_spec(monkeypatch, tmp_path: Path):
