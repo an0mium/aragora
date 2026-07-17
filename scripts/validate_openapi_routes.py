@@ -60,7 +60,18 @@ def load_internal_prefixes(path: str | None = None) -> tuple[str, ...]:
             file=sys.stderr,
         )
         sys.exit(1)
-    normalized = [item for item in prefixes if isinstance(item, str) and item.startswith("/api/")]
+    invalid = [
+        item for item in prefixes if not (isinstance(item, str) and item.startswith("/api/"))
+    ]
+    if invalid:
+        print(
+            f"Error: internal route policy {p} has non-'/api/' prefixes: {invalid}. "
+            "Comparison keys are '/api/'-rooted, so these entries could never match "
+            "and would silently fail to exclude anything.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    normalized = list(prefixes)
     if not normalized:
         print(
             f"Error: internal route policy {p} contains no valid '/api/' prefixes.",

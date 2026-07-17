@@ -504,10 +504,14 @@ def build_parity_report(
             return any(sp.startswith(prefix + "/") for sp in sdk_paths)
         return False
 
-    # Per-handler coverage
+    # Per-handler coverage (same internal-route policy as the global buckets)
     handler_coverage: list[dict[str, Any]] = []
     for handler_name, normalized_routes in sorted(handler_to_routes.items()):
-        public_routes = [r for r in normalized_routes if r not in internal_normalized]
+        public_routes = [
+            r
+            for r in normalized_routes
+            if r not in internal_normalized and not _is_internal_family(r)
+        ]
         if not public_routes:
             continue
 
