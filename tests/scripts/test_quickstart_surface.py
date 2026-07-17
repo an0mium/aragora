@@ -6,8 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from scripts import check_quickstart_surface as quickstart_surface
 from scripts.check_quickstart_surface import (
     DEFAULT_DOCS,
+    _display_path,
     build_installed_manifest,
     check_documents,
     extract_python_blocks,
@@ -63,6 +65,42 @@ def test_extract_python_blocks_preserves_source_line(tmp_path: Path) -> None:
     assert len(blocks) == 1
     assert blocks[0].start_line == 8
     assert blocks[0].source == 'print("hello")'
+
+
+def test_extract_python_blocks_accepts_parameterized_fence(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path / "guide.md",
+        """
+        ```python title="quickstart.py" {line-numbers}
+        from aragora_sdk import AragoraAsyncClient
+        ```
+        """,
+    )
+
+    blocks = extract_python_blocks(path)
+
+    assert len(blocks) == 1
+    assert blocks[0].source == "from aragora_sdk import AragoraAsyncClient"
+
+
+def test_checker_ignores_invalid_unrelated_python_block(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path / "guide.md",
+        """
+        ```python
+        this is illustrative pseudocode, not valid Python
+        ```
+        """,
+    )
+
+    assert check_documents([path], _manifest()) == []
+
+
+def test_display_path_preserves_outside_root(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    outside = tmp_path / "released-surface.json"
+
+    assert _display_path(root, outside) == outside
 
 
 def test_checker_accepts_released_async_quickstart(tmp_path: Path) -> None:
@@ -184,10 +222,8 @@ def test_installed_manifest_closes_clients(monkeypatch) -> None:
             await self.close()
 
     sdk = SimpleNamespace(AragoraClient=SyncClient, AragoraAsyncClient=AsyncClient)
-    monkeypatch.setattr("scripts.check_quickstart_surface.importlib.import_module", lambda _: sdk)
-    monkeypatch.setattr(
-        "scripts.check_quickstart_surface.importlib.metadata.version", lambda _: "2.8.0"
-    )
+    monkeypatch.setattr(quickstart_surface.importlib, "import_module", lambda _: sdk)
+    monkeypatch.setattr(quickstart_surface.importlib.metadata, "version", lambda _: "2.8.0")
 
     manifest = build_installed_manifest()
 
@@ -218,7 +254,7 @@ def test_installed_manifest_closes_client_when_introspection_fails(monkeypatch) 
             closed = True
 
     sdk = SimpleNamespace(AragoraClient=BrokenClient)
-    monkeypatch.setattr("scripts.check_quickstart_surface.importlib.import_module", lambda _: sdk)
+    monkeypatch.setattr(quickstart_surface.importlib, "import_module", lambda _: sdk)
 
     with pytest.raises(RuntimeError, match="broken namespace"):
         build_installed_manifest()

@@ -11,6 +11,7 @@ import importlib.metadata
 import inspect
 import json
 import sys
+from collections.abc import Awaitable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -49,6 +50,21 @@ def _resolve(root: Path, path: Path) -> Path:
     return path if path.is_absolute() else root / path
 
 
+def _display_path(root: Path, path: Path) -> Path:
+    try:
+        return path.relative_to(root)
+    except ValueError:
+        return path
+
+
+def _is_python_fence(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped.startswith("```"):
+        return False
+    info = stripped[3:].strip().split(maxsplit=1)
+    return bool(info) and info[0].lower() in {"python", "py"}
+
+
 def extract_python_blocks(path: Path) -> list[CodeBlock]:
     """Return fenced Python blocks with source line numbers."""
     blocks: list[CodeBlock] = []
@@ -59,7 +75,7 @@ def extract_python_blocks(path: Path) -> list[CodeBlock]:
     for line_number, line in enumerate(lines, 1):
         stripped = line.strip()
         if start_line is None:
-            if stripped.lower() in {"```python", "```py"}:
+            if _is_python_fence(stripped):
                 start_line = line_number + 1
                 body = []
             continue
@@ -133,6 +149,8 @@ def _client_contexts(tree: ast.AST, imported: dict[str, str]) -> list[tuple[str,
 
 def find_sdk_calls(block: CodeBlock) -> tuple[list[tuple[str, str, int]], Finding | None]:
     """Return (client class, call path, source line) for a self-contained SDK block."""
+    if "aragora_sdk" not in block.source:
+        return [], None
     try:
         tree = ast.parse(block.source)
     except SyntaxError as exc:
@@ -212,6 +230,10 @@ def check_documents(paths: list[Path], manifest: dict[str, Any]) -> list[Finding
     return findings
 
 
+async def _await_close(result: Awaitable[Any]) -> None:
+    await result
+
+
 def build_installed_manifest() -> dict[str, Any]:
     """Introspect the importable aragora-sdk package for quickstart namespaces."""
     sdk = importlib.import_module("aragora_sdk")
@@ -243,7 +265,7 @@ def build_installed_manifest() -> dict[str, Any]:
         finally:
             close_result = instance.close()
             if inspect.isawaitable(close_result):
-                asyncio.run(close_result)
+                asyncio.run(_await_close(close_result))
 
     return {
         "schema_version": 1,
@@ -295,15 +317,12 @@ def main() -> int:
         output_path.write_text(
             json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
-        print(f"Wrote {output_path.relative_to(root)} for aragora-sdk {manifest['version']}")
+        print(f"Wrote {_display_path(root, output_path)} for aragora-sdk {manifest['version']}")
 
     findings = check_documents(docs, manifest)
     if findings:
         for finding in findings:
-            try:
-                display_path = finding.path.relative_to(root)
-            except ValueError:
-                display_path = finding.path
+            display_path = _display_path(root, finding.path)
             print(f"{display_path}:{finding.line}: {finding.message}", file=sys.stderr)
         return 1
 
