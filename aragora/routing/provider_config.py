@@ -148,9 +148,27 @@ def _catalog_projection() -> dict[str, ProviderPricing]:
     return rows
 
 
-# The projection OVERRIDES any hand row for cataloged canonical ids:
-# single source.
-PROVIDER_PRICING.update(_catalog_projection())
+def _apply_catalog_projection(table: dict[str, ProviderPricing]) -> None:
+    """Apply the canonical-only projection to a pricing table, in place.
+
+    Two rules keep enumeration duplicate-free (#9364 round-2 residual):
+
+    1. Legacy hand rows whose KEY is an alias spelling of a cataloged model
+       (``by_any_id`` resolves it to a different canonical id) are DROPPED —
+       left in place they would enumerate the same model in a second slot
+       beside its projected canonical row. Cost lookups by that spelling
+       still work via the ``by_any_id`` fallback in ``get_estimated_cost``.
+    2. The projection then OVERRIDES any hand row keyed by a canonical id:
+       single source. Hand rows for models unknown to the catalog are kept.
+    """
+    for key in list(table):
+        spec = by_any_id(key)
+        if spec is not None and spec.canonical_id != key:
+            del table[key]
+    table.update(_catalog_projection())
+
+
+_apply_catalog_projection(PROVIDER_PRICING)
 
 
 def get_estimated_cost(

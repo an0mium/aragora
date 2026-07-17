@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import pytest
 
-from aragora.models import CATALOG
+from aragora.models import CATALOG, by_any_id
 from aragora.routing.provider_config import (
     PROVIDER_PRICING,
+    ProviderPricing,
+    _apply_catalog_projection,
     get_available_models,
     get_estimated_cost,
     get_models_within_budget,
@@ -110,3 +112,50 @@ class TestAliasesDoNotInflateEnumeration:
             canonical_cost = get_estimated_cost(spec.canonical_id, 2000, 1000)
             for model_id in spec.all_ids():
                 assert get_estimated_cost(model_id, 2000, 1000) == pytest.approx(canonical_cost)
+
+    def test_no_table_key_is_an_alias_of_a_catalog_model(self) -> None:
+        """Round-2 residual (#9364, openai): a pre-existing hand row keyed by
+        an alias spelling of a catalog model would survive a plain update()
+        and enumerate that model in a second slot. The applied table must
+        contain no key that by_any_id resolves to a DIFFERENT canonical id.
+
+        (Verified while fixing: the review's `deepseek-r1` example does not
+        actually resolve — deepseek is not cataloged — so no live row is
+        affected today; this pins the invariant against catalog growth.)
+        """
+        for key in PROVIDER_PRICING:
+            spec = by_any_id(key)
+            assert spec is None or spec.canonical_id == key, (
+                f"table key {key!r} is an alias of catalog model "
+                f"{spec.canonical_id!r} and would occupy a duplicate slot"
+            )
+
+    def test_legacy_alias_keyed_hand_row_is_filtered_but_still_prices(self) -> None:
+        """Simulate the residual directly: a legacy hand row keyed by a real
+        alias spelling must be dropped by _apply_catalog_projection, while
+        genuinely non-catalog hand rows (deepseek-r1) are kept, and cost
+        lookup on the dropped legacy key resolves to the canonical price."""
+        kimi = CATALOG["kimi-k2.7-code"]
+        legacy_alias_key = kimi.openrouter_id  # "moonshotai/kimi-k2.7-code"
+        table = {
+            legacy_alias_key: ProviderPricing(
+                provider_name="moonshot",
+                model_name="kimi-k2.7-code",
+                input_cost_per_1k=0.00042,  # stale hand price
+                output_cost_per_1k=0.00099,
+                context_window=128_000,
+            ),
+            "deepseek-r1": PROVIDER_PRICING["deepseek-r1"],
+        }
+        _apply_catalog_projection(table)
+
+        # The alias-keyed hand row no longer occupies a second slot...
+        assert legacy_alias_key not in table
+        assert kimi.canonical_id in table
+        # ...non-catalog hand rows survive untouched...
+        assert "deepseek-r1" in table
+        # ...and the legacy spelling still prices at the canonical catalog
+        # rate through the by_any_id fallback in get_estimated_cost.
+        canonical_cost = get_estimated_cost(kimi.canonical_id, 2000, 1000)
+        assert get_estimated_cost(legacy_alias_key, 2000, 1000) == pytest.approx(canonical_cost)
+        assert canonical_cost > 0.0
