@@ -77,3 +77,38 @@ A scheduled workflow at `.github/workflows/runner-headcount-monitor.yml` polls
 the runner API daily and alerts when the count drifts from the committed
 baseline in this file. See that workflow for threshold + notification
 configuration.
+
+### RUNNER_INVENTORY_TOKEN (required)
+
+Listing self-hosted runners (`GET /repos/synaptent/aragora/actions/runners`)
+requires the repository **Administration: read** permission. The default
+`GITHUB_TOKEN` can never be granted this — `administration` is not part of the
+workflow `permissions:` vocabulary — which is why the monitor 403'd on every
+run from 2026-07-02 until 2026-07-16 (silently masking the Jul 16 EC2 fleet
+outage). The monitor therefore uses a dedicated secret.
+
+Setup (repo admin, ~2 minutes):
+
+1. Create a **fine-grained PAT**: GitHub → Settings → Developer settings →
+   Fine-grained tokens → Generate new token.
+   - Resource owner: `synaptent`; Repository access: **only** `synaptent/aragora`.
+   - Repository permissions: **Administration: Read-only**. Nothing else.
+   - Expiration: 1 year (set a calendar reminder; an expired token trips the
+     monitor-down alert below, so it fails loud, not silent).
+2. Store it: `gh secret set RUNNER_INVENTORY_TOKEN --repo synaptent/aragora`
+3. Verify: `gh workflow run runner-headcount-monitor.yml --repo synaptent/aragora`
+   and confirm the "Query runner API" step passes.
+
+(Alternative: a GitHub App installation token minted via
+`actions/create-github-app-token` works too, but as of 2026-07-16 the existing
+aragora App installation does **not** have Administration: read, so a
+fine-grained PAT is the lower-friction path.)
+
+### Dead-monitor alerting
+
+If the audit fails **before the runner API query succeeds** (missing/expired
+token, API failure), a `monitor-down` job opens — or comments on — an issue
+labeled `runner-monitor-down`, and every consecutive failing run adds a
+comment. The issue is closed automatically on the first successful query.
+Headcount drift itself opens/updates a separate `runner-drift` issue and fails
+the run.

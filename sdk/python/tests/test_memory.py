@@ -220,6 +220,44 @@ class TestContinuumOperations:
             )
             client.close()
 
+    def test_store_entry(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "mem-123", "tier": "slow"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.store("Important insight", tier="slow", importance=0.9)
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/store",
+                json={"content": "Important insight", "tier": "slow", "importance": 0.9},
+            )
+            assert result["id"] == "mem-123"
+            client.close()
+
+    def test_store_entry_defaults(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "mem-456", "tier": "fast"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.store("Quick note")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/store",
+                json={"content": "Quick note", "tier": "fast"},
+            )
+            assert result["tier"] == "fast"
+            client.close()
+
+    def test_delete_entry(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True, "message": "deleted"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.delete_entry("mem-123")
+            mock_request.assert_called_once_with(
+                "DELETE",
+                "/api/v1/memory/continuum/mem-123",
+            )
+            assert result["success"] is True
+            client.close()
+
 
 # ===========================================================================
 # Critique Operations Tests
@@ -348,6 +386,33 @@ class TestAsyncMemory:
             result = await client.memory.stats()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/stats")
             assert result["total_entries"] == 1000
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_store_entry(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"id": "mem-789", "tier": "medium"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.memory.store("Async insight", tier="medium")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/store",
+                json={"content": "Async insight", "tier": "medium"},
+            )
+            assert result["id"] == "mem-789"
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_delete_entry(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"success": True, "message": "deleted"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.memory.delete_entry("mem-789")
+            mock_request.assert_called_once_with(
+                "DELETE",
+                "/api/v1/memory/continuum/mem-789",
+            )
+            assert result["success"] is True
             await client.close()
 
     @pytest.mark.asyncio

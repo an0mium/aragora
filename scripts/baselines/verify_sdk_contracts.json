@@ -476,7 +476,8 @@
     "POST /api/webhooks/{param}/deliveries/{param}/retry",
     "POST /api/webhooks/{param}/events",
     "POST /api/webhooks/{param}/rotate-secret",
-    "PUT /api/webhooks/{param}/retry-policy"
+    "PUT /api/webhooks/{param}/retry-policy",
+    "DELETE /api/memory/continuum/{param}"
   ],
   "missing_stable": [
     "PATCH /api/v1/debates/export/batch/{param}/results",
