@@ -52,10 +52,22 @@ from aragora.routing.cost_quality_optimizer import (
     SelectionStrategy,
     pareto_frontier,
 )
+from aragora.routing.decision_stakes_router import (
+    ROUTING_RATIONALE_SCHEMA,
+    DecisionStakesRouter,
+    RoutingPolicy,
+    RoutingRationale,
+    policy_for_tier,
+)
 from aragora.routing.provider_config import (
     ProviderPricing,
     PROVIDER_PRICING as PROVIDER_ROUTING_PRICING,
     get_estimated_cost,
+)
+from aragora.routing.pricing import (
+    ResolvedPricing,
+    estimate_model_cost_usd,
+    resolve_model_pricing,
 )
 from aragora.routing.provider_router import ProviderRouter, get_provider_router
 from aragora.routing.session_circuit_breaker import (
@@ -97,9 +109,19 @@ __all__ = [
     "CostQualityOptimizer",
     "SelectionStrategy",
     "pareto_frontier",
+    # Decision-stakes routing (tier policy + auditable rationale)
+    "DecisionStakesRouter",
+    "RoutingPolicy",
+    "RoutingRationale",
+    "ROUTING_RATIONALE_SCHEMA",
+    "policy_for_tier",
     "ProviderPricing",
     "PROVIDER_ROUTING_PRICING",
     "get_estimated_cost",
+    # Catalog-backed pricing (canonical model catalog, PR #9355; import-guarded)
+    "ResolvedPricing",
+    "estimate_model_cost_usd",
+    "resolve_model_pricing",
     "ProviderRouter",
     "get_provider_router",
     # Session circuit breaker

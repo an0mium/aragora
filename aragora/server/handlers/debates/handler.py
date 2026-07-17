@@ -122,6 +122,14 @@ class DebatesHandler(
 
     # Route patterns this handler manages (from routing module)
     ROUTES = ROUTES
+    # Spec-only verb declarations for the batch-export root, which serves
+    # both verbs through _handle_batch_export inside generic handle()
+    # (POST starts an export, GET lists jobs); read by openapi_impl, not
+    # used for request routing.
+    _ROUTE_MAP: dict[str, Any] = {
+        "POST /api/v1/debates/export/batch": None,
+        "GET /api/v1/debates/export/batch": None,
+    }
     AUTH_REQUIRED_ENDPOINTS = AUTH_REQUIRED_ENDPOINTS
     ALLOWED_EXPORT_FORMATS = ALLOWED_EXPORT_FORMATS
     ALLOWED_EXPORT_TABLES = ALLOWED_EXPORT_TABLES
@@ -264,17 +272,20 @@ class DebatesHandler(
         # Normalize to unversioned for consistent checking
         normalized = path.replace("/api/v1/", "/api/").replace("/api/v2/", "/api/")
 
-        # POST /api/debates/export/batch - start batch export
+        # The root path serves two verbs: POST starts a batch export, GET
+        # lists export jobs. The POST branch previously matched
+        # unconditionally, shadowing the GET list (every GET returned 400).
         if normalized in ("/api/debates/export/batch", "/api/debates/export/batch/"):
-            body = self.read_json_body(handler)
-            if not body:
-                return error_response("Invalid or missing JSON body", 400)
-            debate_ids = body.get("debate_ids", [])
-            format = body.get("format", "json")
-            return self._start_batch_export(handler, debate_ids, format)  # Mixin method
+            method = str(getattr(handler, "command", "GET") or "GET").upper()
+            if method == "POST":
+                body = self.read_json_body(handler)
+                if not body:
+                    return error_response("Invalid or missing JSON body", 400)
+                debate_ids = body.get("debate_ids", [])
+                format = body.get("format", "json")
+                return self._start_batch_export(handler, debate_ids, format)  # Mixin method
 
-        # GET /api/debates/export/batch - list export jobs
-        if normalized == "/api/debates/export/batch":
+            # GET /api/debates/export/batch - list export jobs
             limit = min(get_int_param(query_params, "limit", 50), 100)
             return self._list_batch_exports(limit)  # Mixin method
 
