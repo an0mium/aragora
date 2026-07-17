@@ -1030,7 +1030,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/accounting/callback": {
@@ -60002,7 +60002,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "put": {
         "tags": [
@@ -60589,7 +60589,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "put": {
         "tags": [
@@ -62983,7 +62983,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/admin/security/status": {
@@ -66485,7 +66485,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "post": {
         "tags": [
@@ -67001,7 +67001,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/agent-bridge/runs/{run_id}": {
@@ -68234,7 +68234,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/agent-bridge/runs/{run_id}/events": {
@@ -179692,7 +179692,7 @@
             "description": "MCP tools module not available"
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/mcp/tools/{name}": {
@@ -179850,7 +179850,7 @@
             "description": "MCP tools module not available"
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/media/audio": {
@@ -194201,7 +194201,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/orchestration/templates": {
@@ -194461,7 +194461,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/org": {
@@ -207923,7 +207923,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/ralph/campaigns/{campaign_id}/blockers": {
@@ -208147,7 +208147,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/ralph/campaigns/{campaign_id}/budget": {
@@ -208371,7 +208371,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/ralph/campaigns/{campaign_id}/pr-gate": {
@@ -208595,7 +208595,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/ralph/campaigns/{campaign_id}/repairs": {
@@ -208819,7 +208819,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/ralph/campaigns/{campaign_id}/timeline": {
@@ -209046,7 +209046,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/ralph/overview": {
@@ -244918,7 +244918,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/receipts/stats": {
