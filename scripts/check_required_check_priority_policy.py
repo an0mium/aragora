@@ -80,6 +80,16 @@ REQUIRED_CONTEXT_TO_WORKFLOW_PATH = {
     "TypeScript SDK Type Check": ".github/workflows/sdk-test.yml",
 }
 
+# The cancellation sweep must only ever cancel QUEUED runs. Cancelling an
+# in_progress run frees no queue capacity (the run already holds a runner)
+# and leaves a red "cancelled" conclusion on advisory checks that the
+# cancelled-run guardian deliberately does not rerun, forcing manual reruns
+# before merge settlement. See PR run 29520862671 (2026-07-15), which
+# cancelled in-flight advisory runs on PR #9346 seconds after creation.
+_QUEUED_ONLY_STATUS_FILTER_RE = re.compile(
+    r"if\s*\(\s*run\.status\s*!==\s*(['\"])queued\1\s*\)\s*continue;"
+)
+
 
 def _extract_js_set_items(workflow_text: str, set_name: str) -> list[str] | None:
     pattern = r"const\s+" + re.escape(set_name) + r"\s*=\s*new Set\(\[(?P<body>.*?)\]\);"
@@ -406,6 +416,13 @@ def find_required_check_priority_violations(
     missing_required_names = sorted(REQUIRED_KEEP_WORKFLOW_NAMES - name_set)
     for name in missing_required_names:
         violations.append(f"missing required keep workflow name: {name}")
+
+    if not _QUEUED_ONLY_STATUS_FILTER_RE.search(workflow_text):
+        violations.append(
+            "cancellation sweep is not restricted to queued runs: expected "
+            "`if (run.status !== 'queued') continue;` (in_progress runs must "
+            "never be cancelled)"
+        )
 
     if repo_root is not None:
         mapped_workflows: dict[str, str] = {}
