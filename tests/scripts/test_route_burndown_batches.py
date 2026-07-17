@@ -53,6 +53,22 @@ def test_load_open_items_rejects_duplicate_ids(tmp_path: Path) -> None:
         batches.load_open_items(inventory)
 
 
+def test_load_open_items_rejects_unknown_status(tmp_path: Path) -> None:
+    inventory = tmp_path / "inventory.json"
+    _write_inventory(inventory, [_item("python_sdk_drift:A", status="pending")])
+
+    with pytest.raises(batches.InventoryError, match="unknown status"):
+        batches.load_open_items(inventory)
+
+
+def test_load_open_items_requires_items_list(tmp_path: Path) -> None:
+    inventory = tmp_path / "inventory.json"
+    inventory.write_text("{}")
+
+    with pytest.raises(batches.InventoryError, match="must contain an 'items' list"):
+        batches.load_open_items(inventory)
+
+
 def test_partition_and_render_are_stable() -> None:
     items = [_item(f"python_sdk_drift:{value}") for value in ("E", "A", "D", "B", "C")]
 
@@ -74,6 +90,20 @@ def test_partition_and_render_are_stable() -> None:
     assert "`python_sdk_drift:A`" in first["batch-001.md"]
     assert "`python_sdk_drift:C`" in first["batch-002.md"]
     assert "Open entries: `5`" in first["index.md"]
+
+
+def test_empty_inventory_produces_index_only_snapshot() -> None:
+    outputs = batches.build_outputs(
+        [],
+        batch_size=25,
+        inventory_label="inventory.json",
+        playbook_label="playbook.md",
+    )
+
+    assert list(outputs) == ["index.md"]
+    assert "Open entries: `0`" in outputs["index.md"]
+    assert "Batch count: `0`" in outputs["index.md"]
+    assert batches.summarize_batches([], 25) == []
 
 
 def test_packet_digest_changes_with_membership() -> None:
@@ -112,6 +142,11 @@ def test_write_outputs_refuses_stale_packet(tmp_path: Path) -> None:
 
     with pytest.raises(batches.InventoryError, match="stale generated packets"):
         batches.write_outputs(tmp_path, {"index.md": "index\n"})
+
+
+def test_write_outputs_requires_index(tmp_path: Path) -> None:
+    with pytest.raises(batches.InventoryError, match="must include index.md"):
+        batches.write_outputs(tmp_path, {"batch-001.md": "packet\n"})
 
 
 def test_write_outputs_round_trip(tmp_path: Path) -> None:

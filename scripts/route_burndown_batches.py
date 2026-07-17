@@ -88,6 +88,10 @@ def batch_digest(items: list[dict[str, str]]) -> str:
     return hashlib.sha256(payload).hexdigest()[:16]
 
 
+def canonical_batches(items: list[dict[str, str]], batch_size: int) -> list[list[dict[str, str]]]:
+    return partition_items(sorted(items, key=lambda item: item["id"]), batch_size)
+
+
 def render_batch_packet(
     number: int,
     total_batches: int,
@@ -178,8 +182,7 @@ def build_outputs(
     inventory_label: str,
     playbook_label: str,
 ) -> dict[str, str]:
-    canonical_items = sorted(items, key=lambda item: item["id"])
-    batches = partition_items(canonical_items, batch_size)
+    batches = canonical_batches(items, batch_size)
     outputs = {
         "index.md": render_index(
             batches,
@@ -201,9 +204,8 @@ def build_outputs(
 
 
 def summarize_batches(items: list[dict[str, str]], batch_size: int) -> list[dict[str, Any]]:
-    canonical_items = sorted(items, key=lambda item: item["id"])
     summaries: list[dict[str, Any]] = []
-    for number, batch in enumerate(partition_items(canonical_items, batch_size), start=1):
+    for number, batch in enumerate(canonical_batches(items, batch_size), start=1):
         summaries.append(
             {
                 "id": f"route-batch-{number:03d}",
@@ -218,6 +220,8 @@ def summarize_batches(items: list[dict[str, str]], batch_size: int) -> list[dict
 
 def write_outputs(output_dir: Path, outputs: dict[str, str]) -> None:
     """Write a complete snapshot, refusing to leave obsolete batch packets."""
+    if "index.md" not in outputs:
+        raise InventoryError("generated outputs must include index.md")
     output_dir.mkdir(parents=True, exist_ok=True)
     stale = sorted(
         path.name
@@ -233,14 +237,13 @@ def write_outputs(output_dir: Path, outputs: dict[str, str]) -> None:
     # The index is the validity marker. Remove an older index before packet
     # writes and publish the new one last, so an interrupted write cannot look
     # like a complete snapshot.
-    index_content = outputs.get("index.md")
+    index_content = outputs["index.md"]
     (output_dir / "index.md").unlink(missing_ok=True)
     for filename, content in sorted(outputs.items()):
         if filename == "index.md":
             continue
         (output_dir / filename).write_text(content)
-    if index_content is not None:
-        (output_dir / "index.md").write_text(index_content)
+    (output_dir / "index.md").write_text(index_content)
 
 
 def _display_path(path: Path) -> str:
