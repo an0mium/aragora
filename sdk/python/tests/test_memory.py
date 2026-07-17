@@ -220,6 +220,19 @@ class TestContinuumOperations:
             )
             client.close()
 
+    def test_consolidate(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"status": "completed"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.consolidate()
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/continuum/consolidate",
+                json={},
+            )
+            assert result["status"] == "completed"
+            client.close()
+
     def test_store_entry(self) -> None:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"id": "mem-123", "tier": "slow"}
@@ -446,6 +459,20 @@ class TestAsyncMemory:
                 },
             )
             assert len(result["memories"]) == 1
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_consolidate(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"status": "completed"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.memory.consolidate()
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/memory/continuum/consolidate",
+                json={},
+            )
+            assert result["status"] == "completed"
             await client.close()
 
     @pytest.mark.asyncio

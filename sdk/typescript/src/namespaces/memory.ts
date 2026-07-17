@@ -11,6 +11,14 @@
  * - Memory analytics/stats
  * - Context management
  * - Maintenance operations (prune, compact, sync, vacuum)
+ *
+ * NOTE: Several "advanced" methods below (context, cross-debate,
+ * export/import, snapshots, prune/compact/sync/vacuum, rebuild-index,
+ * semantic search) target routes that are declared in the memory handler's
+ * ROUTES list but never dispatched, so they always fail against a live
+ * server. They are kept for backward compatibility and marked @deprecated;
+ * prefer the documented working methods (search, tiers/tier stats,
+ * continuum retrieve/consolidate, critiques).
  */
 
 import type {
@@ -446,6 +454,13 @@ export class MemoryAPI {
 
   /**
    * Get memory system statistics.
+   *
+   * @deprecated No memory-handler branch serves GET /api/v1/memory/stats.
+   * The request is routed to the analytics handler, which requires the
+   * `analytics:read` permission and returns only
+   * `{ stats: { embeddings_db, insights_db, continuum_memory } }` — database
+   * file-existence booleans, not the declared {@link MemoryStats} shape.
+   * Use {@link tiers} or {@link getTierStats} for real memory metrics.
    */
   async stats(): Promise<MemoryStats> {
     return this.client.getMemoryStats();
@@ -494,6 +509,11 @@ export class MemoryAPI {
 
   /**
    * Get continuum memory statistics.
+   *
+   * @deprecated GET /api/memory/continuum/stats has no dispatch branch in
+   * the memory handler, so this method always fails against a live server
+   * (HTTP 500 handler_no_result). Use {@link getTierStats} or {@link tiers}
+   * instead.
    */
   async continuumStats(): Promise<MemoryStats> {
     return this.client.getContinuumStats();
@@ -571,6 +591,11 @@ export class MemoryAPI {
   /**
    * Get the current memory context.
    *
+   * @deprecated GET /api/v1/memory/context is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). The server has no
+   * memory-context store; there is no replacement endpoint.
+   *
    * @param contextId - Optional context ID (defaults to current session)
    *
    * @example
@@ -589,6 +614,11 @@ export class MemoryAPI {
 
   /**
    * Set or update the memory context.
+   *
+   * @deprecated POST /api/v1/memory/context is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). The server has no
+   * memory-context store; there is no replacement endpoint.
    *
    * @param data - Context data to set
    * @param options - Context options
@@ -714,14 +744,16 @@ export class MemoryAPI {
   /**
    * Retrieve memories from the continuum.
    *
-   * Matches Python SDK's `retrieve_continuum()` method.
+   * Matches Python SDK's `retrieve_continuum()` method and the server
+   * contract for GET /api/v1/memory/continuum/retrieve, which responds with
+   * `{ memories, count, query, tiers }` (not `{ entries, total }`).
    *
    * @param query - Search query
    * @param options - Retrieval options
    *
    * @example
    * ```typescript
-   * const result = await client.memory.retrieveContinuum('user preferences', {
+   * const { memories, count } = await client.memory.retrieveContinuum('user preferences', {
    *   tiers: ['fast', 'medium'],
    *   limit: 10,
    *   min_importance: 0.5,
@@ -754,6 +786,12 @@ export class MemoryAPI {
   /**
    * Prune old or low-importance memory entries.
    *
+   * @deprecated POST /api/v1/memory/prune is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). Expired entries are
+   * cleaned via POST /api/v1/memory/continuum/cleanup; see also
+   * {@link consolidate}.
+   *
    * @param options - Prune options
    *
    * @example
@@ -781,6 +819,11 @@ export class MemoryAPI {
   /**
    * Compact memory storage by merging related entries.
    *
+   * @deprecated POST /api/v1/memory/compact is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). Use
+   * {@link consolidate} for the supported maintenance operation.
+   *
    * @param options - Compact options
    *
    * @example
@@ -804,6 +847,11 @@ export class MemoryAPI {
 
   /**
    * Synchronize memory across distributed systems.
+   *
+   * @deprecated POST /api/v1/memory/sync is declared in the memory handler's
+   * ROUTES list but never dispatched, so this method always fails against a
+   * live server (HTTP 500 handler_no_result). Use {@link consolidate} for
+   * the supported maintenance operation.
    *
    * @param options - Sync options
    *
@@ -884,6 +932,11 @@ export class MemoryAPI {
    *
    * Matches Python SDK's `semantic_search()` method.
    *
+   * @deprecated POST /api/v1/memory/semantic-search is declared in the
+   * memory handler's ROUTES list but never dispatched, so this method always
+   * fails against a live server (HTTP 500 handler_no_result). Use
+   * {@link search} or {@link searchIndex} (with `use_hybrid`) instead.
+   *
    * @param query - Natural language query
    * @param options - Search options
    *
@@ -924,6 +977,12 @@ export class MemoryAPI {
    *
    * Matches Python SDK's `get_cross_debate()` method.
    *
+   * @deprecated GET /api/v1/memory/cross-debate is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). Cross-debate memory
+   * is injected automatically during debates (`enable_cross_debate_memory`);
+   * there is no HTTP endpoint.
+   *
    * @param options - Retrieval options
    *
    * @example
@@ -957,6 +1016,11 @@ export class MemoryAPI {
    * Store cross-debate knowledge from a debate outcome.
    *
    * Matches Python SDK's `store_cross_debate()` method.
+   *
+   * @deprecated POST /api/v1/memory/cross-debate is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). Cross-debate memory
+   * is recorded automatically during debates; there is no HTTP endpoint.
    *
    * @param content - Knowledge content
    * @param debateId - Source debate ID
@@ -1001,6 +1065,12 @@ export class MemoryAPI {
    *
    * Matches Python SDK's `inject_institutional()` method.
    *
+   * @deprecated POST /api/v1/memory/cross-debate/inject is declared in the
+   * memory handler's ROUTES list but never dispatched, so this method always
+   * fails against a live server (HTTP 500 handler_no_result). Cross-debate
+   * memory is injected automatically during debates
+   * (`enable_cross_debate_memory`); there is no HTTP endpoint.
+   *
    * @param debateId - Target debate ID
    * @param options - Injection options
    *
@@ -1037,6 +1107,11 @@ export class MemoryAPI {
    *
    * Matches Python SDK's `export_memory()` method.
    *
+   * @deprecated POST /api/v1/memory/export is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). There is no
+   * replacement endpoint.
+   *
    * @param options - Export options
    *
    * @example
@@ -1063,6 +1138,11 @@ export class MemoryAPI {
    * Import memory entries from backup.
    *
    * Matches Python SDK's `import_memory()` method.
+   *
+   * @deprecated POST /api/v1/memory/import is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). There is no
+   * replacement endpoint.
    *
    * @param data - Memory data to import
    * @param options - Import options
@@ -1097,6 +1177,11 @@ export class MemoryAPI {
    *
    * Matches Python SDK's `create_snapshot()` method.
    *
+   * @deprecated POST /api/v1/memory/snapshots is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). There is no
+   * replacement endpoint.
+   *
    * @param options - Snapshot options
    *
    * @example
@@ -1123,6 +1208,11 @@ export class MemoryAPI {
    *
    * Matches Python SDK's `list_snapshots()` method.
    *
+   * @deprecated GET /api/v1/memory/snapshots is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). There is no
+   * replacement endpoint.
+   *
    * @param options - Pagination options
    *
    * @example
@@ -1148,6 +1238,11 @@ export class MemoryAPI {
    * Restore memory from a snapshot.
    *
    * Matches Python SDK's `restore_snapshot()` method.
+   *
+   * @deprecated POST /api/v1/memory/snapshots/{id}/restore is declared in
+   * the memory handler's ROUTES list but never dispatched, so this method
+   * always fails against a live server (HTTP 500 handler_no_result). There
+   * is no replacement endpoint.
    *
    * @param snapshotId - Snapshot ID to restore
    * @param options - Restore options
@@ -1176,6 +1271,12 @@ export class MemoryAPI {
    * Delete a memory snapshot.
    *
    * Matches Python SDK's `delete_snapshot()` method.
+   *
+   * @deprecated DELETE /api/v1/memory/snapshots/{id} has no dispatch branch
+   * in the memory handler (DELETE is only served for
+   * /api/v1/memory/continuum/{id}), so this method always fails against a
+   * live server (HTTP 500 handler_no_result). There is no replacement
+   * endpoint.
    *
    * @param snapshotId - Snapshot ID to delete
    *
@@ -1254,6 +1355,11 @@ export class MemoryAPI {
    *
    * Matches Python SDK's `clear_context()` method.
    *
+   * @deprecated DELETE /api/v1/memory/context is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). The server has no
+   * memory-context store; there is no replacement endpoint.
+   *
    * @param contextId - Context ID to clear (current session if not specified)
    *
    * @example
@@ -1312,6 +1418,11 @@ export class MemoryAPI {
    *
    * Matches Python SDK's `vacuum()` method.
    *
+   * @deprecated POST /api/v1/memory/vacuum is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). Use
+   * {@link consolidate} for the supported maintenance operation.
+   *
    * @example
    * ```typescript
    * const result = await client.memory.vacuum();
@@ -1326,6 +1437,11 @@ export class MemoryAPI {
    * Rebuild memory search indices.
    *
    * Matches Python SDK's `rebuild_index()` method.
+   *
+   * @deprecated POST /api/v1/memory/rebuild-index is declared in the memory
+   * handler's ROUTES list but never dispatched, so this method always fails
+   * against a live server (HTTP 500 handler_no_result). There is no
+   * replacement endpoint.
    *
    * @param options - Rebuild options
    *
