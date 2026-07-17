@@ -337,7 +337,7 @@ aragora/
 ```
 
 <!-- metrics:begin extended-readme-scale -->
-**Scale:** 4,289 tracked Python files | 144 top-level modules | 224,010 test functions across 5,482 test files | canonical counts in [METRICS.md](METRICS.md)
+**Scale:** 4,289 tracked Python files | 144 top-level modules | 224,049 test functions across 5,482 test files | canonical counts in [METRICS.md](METRICS.md)
 <!-- metrics:end -->
 
 ---
@@ -684,7 +684,7 @@ aragora serve --api-port 8080 --ws-port 8765
 ## API Endpoints
 
 <!-- metrics:begin extended-readme-api-surface -->
-The server exposes 3,299 API operations across 2,872 paths. Key categories:
+The server exposes 3,354 API operations across 2,896 paths. Key categories:
 <!-- metrics:end -->
 
 | Category | Description |
