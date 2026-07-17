@@ -1,16 +1,9 @@
 {
   "missing_in_spec": [],
   "orphaned_in_spec": [
-    "/api/v1/accounting/callback",
-    "/api/v1/accounting/gusto/callback",
-    "/api/v1/accounting/gusto/connect",
-    "/api/v1/accounting/gusto/disconnect",
-    "/api/v1/accounting/report",
     "/api/v1/calibration/curve",
     "/api/v1/calibration/history",
     "/api/v1/chat/knowledge/channel",
-    "/api/v1/codebase/quick-scan",
-    "/api/v1/codebase/quick-scans",
     "/api/v1/debates/public",
     "/api/v1/devices/apple/shortcuts",
     "/api/v1/inbox/mentions",
