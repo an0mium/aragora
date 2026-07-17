@@ -236,12 +236,21 @@ class DecisionStakesRouter:
             )
 
         def _describe(metrics: list[Any]) -> list[dict[str, Any]]:
+            # ``cost_source`` is audit-critical: providers whose outcomes were
+            # recorded without spend get a catalog-priced expectation from the
+            # pricing ladder (never $0), and the rationale must not present
+            # that estimate as observed spend.
             return [
                 {
                     "provider": m.provider_name,
                     "avg_cost_per_debate": m.avg_cost_per_debate,
                     "avg_quality_score": m.avg_quality_score,
                     "failure_rate": m.failure_rate,
+                    "cost_source": (
+                        "estimated_from_pricing"
+                        if getattr(m, "cost_estimated", False)
+                        else "observed"
+                    ),
                 }
                 for m in metrics
             ]
