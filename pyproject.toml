@@ -71,7 +71,15 @@ dependencies = [
     # [enterprise], ...). The aiohttp floor matches the [blockchain]/[all]
     # extras for one consistent pin.
     "aiohttp>=3.14.1,<4.0",
-    "websockets>=13.0,<15.1",
+    "websockets>=13.0,<16.2",
+    # XXE-safe XML parsing, imported at module level by aragora.pulse.ingestor
+    # (via aragora/pulse/__init__.py), aragora.auth.saml, and
+    # aragora.connectors.{arxiv,feeds.ingestor}. Server readiness feature
+    # detection reaches aragora.pulse transitively, so a plain install must
+    # provide it. Pin matches LEGACY_CONTROL_PLANE_BASE_DEPS in
+    # scripts/ci_install_project.sh, which already side-loads it in CI (the
+    # reason this gap never surfaced there).
+    "defusedxml>=0.7,<1.0",
 ]
 
 [project.scripts]
@@ -214,6 +222,9 @@ ignore = ["E402", "E501", "E731", "E741", "E712", "C401", "C405", "C408", "C416"
 "tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004", "S101"]
 "aragora/**/test_*.py" = ["S101"]
 "aragora/**/tests/*" = ["S101"]
+# Benchmarks intentionally assert SLOs; Liftmode is an operational CLI with an optional-secrets fallback.
+"benchmarks/*.py" = ["S101"]
+"deploy/liftmode/briefing.py" = ["T201", "BLE001"]
 "examples/*" = ["T201", "BLE001"]
 "sdk/cookbook/*" = ["T201", "BLE001", "F841"]
 "deprecated/*" = ["UP"]
