@@ -110,6 +110,7 @@ class TestFromSettlementStatus:
             "creator": {"login": "scarmani"},
             "created_at": "2026-07-17T13:00:00Z",
             "context": HUMAN_SETTLEMENT_CONTEXT,
+            "state": "success",
             "description": f"Settlement receipt {RECEIPT_SHA} recorded for PR #9999",
             "url": "https://api.github.com/repos/o/r/statuses/xyz",
         }
@@ -135,6 +136,20 @@ class TestFromSettlementStatus:
             attestation_from_settlement_status(
                 status, head_sha=HEAD_SHA, execution_identity_id="an0mium"
             )
+
+    def test_non_settlement_context_refused(self) -> None:
+        """Public-API hardening (round-7 finding): an arbitrary CI status can
+        never be converted into countable oversight evidence."""
+        status = self._status()
+        status["context"] = "ci/build"
+        with pytest.raises(ValueError, match="settlement context"):
+            attestation_from_settlement_status(status, head_sha=HEAD_SHA)
+
+    def test_non_success_state_refused(self) -> None:
+        status = self._status()
+        status["state"] = "failure"
+        with pytest.raises(ValueError, match="must be 'success'"):
+            attestation_from_settlement_status(status, head_sha=HEAD_SHA)
 
     def test_description_without_digest(self) -> None:
         status = self._status()
@@ -168,6 +183,7 @@ class TestOdrIntegration:
                 "creator": {"login": "scarmani"},
                 "created_at": "2026-07-17T13:00:00Z",
                 "context": HUMAN_SETTLEMENT_CONTEXT,
+                "state": "success",
                 "description": f"Settlement receipt {RECEIPT_SHA} recorded for PR #9999",
                 "url": "https://api.github.com/repos/o/r/statuses/xyz",
             },

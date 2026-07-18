@@ -387,7 +387,6 @@ def _clause_status(
     are computed from per-receipt evidence-field presence
     (``evidence_counts``), never from receipt presence alone.
     """
-    human_evidence = human_attested + settlements
     if clause == "14(4)(e)":
         return (
             "partial",
@@ -395,12 +394,23 @@ def _clause_status(
             "not evidenced per-receipt by this pack",
         )
     if clause in ("14(1)", "14(3)", "14(4)(d)"):
-        # Identity-dependent clauses need at least one real human attestation.
-        if human_evidence > 0:
+        # Identity-dependent clauses are satisfied only by human-attested
+        # receipts in the window: trail settlements demonstrate the
+        # mechanism operating but are not matched to the windowed decisions,
+        # so alone they cap the status at partial (never overstating
+        # per-decision oversight).
+        if human_attested > 0:
             basis = f"{human_attested}/{total} windowed decisions human-attested"
             if settlements:
                 basis += f"; {settlements} human-settlement attestation(s) from the trail"
             return "satisfied", basis
+        if settlements > 0:
+            return (
+                "partial",
+                f"{settlements} human-settlement attestation(s) demonstrate the "
+                "oversight mechanism operating in the window, but no windowed "
+                "receipt is itself human-attested",
+            )
         return (
             "partial",
             "oversight mechanism exists but no windowed decision carries a human attestation",

@@ -160,6 +160,7 @@ def attestation_from_settlement_status(
     *,
     head_sha: str,
     execution_identity_id: str | None = None,
+    expected_context: str = HUMAN_SETTLEMENT_CONTEXT,
 ) -> OversightAttestation:
     """Build an attestation from a GitHub commit-status API object.
 
@@ -177,6 +178,17 @@ def attestation_from_settlement_status(
         execution_identity_id: The identity that executed/authored the
             decision, for the separation check.
     """
+    # Only a successful status on the settlement context is oversight: this
+    # builder is public API, so it must refuse to convert an arbitrary CI
+    # status (or a failed settlement) into countable oversight evidence.
+    context = str(status.get("context", "") or "")
+    if context != expected_context:
+        raise ValueError(
+            f"status context {context!r} is not the settlement context {expected_context!r}"
+        )
+    state = str(status.get("state", "") or "")
+    if state != "success":
+        raise ValueError(f"settlement status state must be 'success', got {state!r}")
     creator = status.get("creator") or {}
     attestor_id = str(creator.get("login", "") or "")
     description = str(status.get("description", "") or "")

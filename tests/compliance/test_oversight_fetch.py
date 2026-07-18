@@ -215,9 +215,11 @@ class TestPackIntegration:
         assert pack["summary"]["mechanisms"]["settlement_status"] == 1
         assert pack["settlement_attestations"][0]["pr"] == 101
 
-    def test_settlements_satisfy_identity_clauses(self) -> None:
-        """Trail settlements are real oversight events: identity-dependent
-        clauses turn satisfied even when scanned receipts are all autonomous."""
+    def test_trail_settlements_alone_cap_identity_clauses_at_partial(self) -> None:
+        """Round-7 finding: trail settlements demonstrate the mechanism
+        operating but are not matched to windowed receipts, so alone they
+        never flip identity clauses to satisfied (no per-decision
+        overstatement). The basis names the settlements explicitly."""
         pack = build_oversight_pack(
             [
                 {
@@ -232,9 +234,37 @@ class TestPackIntegration:
             settlement_attestations=self._fetched(),
         )
         by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
-        assert by_clause["14(1)"]["status"] == "satisfied"
-        assert "human-settlement attestation" in by_clause["14(1)"]["status_basis"]
+        assert by_clause["14(1)"]["status"] == "partial"
+        assert (
+            "demonstrate the oversight mechanism operating" in (by_clause["14(1)"]["status_basis"])
+        )
         assert by_clause["14(4)(e)"]["status"] == "partial"
+
+    def test_receipt_attestation_plus_settlements_satisfied(self) -> None:
+        attested_odr = {
+            "odr_version": "0.1",
+            "receipt_id": "r-att",
+            "issued_at": "2026-07-10T00:00:00+00:00",
+            "claim": {"verdict": "PASS"},
+            "confidence": {"value": 0.8},
+            "attestation": {
+                "disposition": "human_attested",
+                "attestor": {"id": "overseer2"},
+                "attested_at": "2026-07-10T00:00:00+00:00",
+                "mechanism": {"type": "preapproval_comment"},
+            },
+        }
+        pack = build_oversight_pack(
+            [attested_odr],
+            window_days=30,
+            now=NOW,
+            settlement_attestations=self._fetched(),
+        )
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert by_clause["14(1)"]["status"] == "satisfied"
+        assert (
+            "human-settlement attestation(s) from the trail" in (by_clause["14(1)"]["status_basis"])
+        )
 
     def test_without_settlements_behavior_unchanged(self) -> None:
         pack = build_oversight_pack([], window_days=30, now=NOW)

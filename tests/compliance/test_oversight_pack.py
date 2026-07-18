@@ -233,7 +233,11 @@ class TestBuildPack:
             "missing attestor.id"
         )
         by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
-        assert by_clause["14(1)"]["status"] == "satisfied"
+        # Trail settlements alone cap identity clauses at partial (round 7).
+        assert by_clause["14(1)"]["status"] == "partial"
+        assert (
+            "demonstrate the oversight mechanism operating" in (by_clause["14(1)"]["status_basis"])
+        )
 
     def test_settlement_without_resolvable_trail_not_counted(self) -> None:
         """Settlement entries face a stricter bar than receipt blocks: without
