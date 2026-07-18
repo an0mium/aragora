@@ -141,6 +141,17 @@ def fetch_settlement_attestations(
             continue
         author = pr.get("author") or {}
         execution_id = str(author.get("login", "") or "") or None
+        if execution_id is None:
+            # Without a resolvable executing author the attestor≠execution
+            # separation check cannot run — unverifiable oversight is
+            # skipped with the reason, never assumed valid.
+            skipped.append(
+                {
+                    "pr": pr.get("number"),
+                    "reason": "PR author unresolvable; identity separation unverifiable",
+                }
+            )
+            continue
         try:
             attestation = attestation_from_settlement_status(
                 settlement,

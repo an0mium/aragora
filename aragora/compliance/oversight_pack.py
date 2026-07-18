@@ -276,6 +276,12 @@ def _receipt_entry(
                 observed = dict(attestation["observed"])
             attested_at = str(attestation.get("attested_at", "") or "") or None
 
+    def _present_block(value: Any) -> bool:
+        # ODR blocks are honest: {"status": "absent", ...} markers don't count.
+        if isinstance(value, Mapping):
+            return value.get("status") != "absent" and bool(value)
+        return bool(value)
+
     if is_odr:
         timestamp = receipt.get("issued_at")
         claim = receipt.get("claim") or {}
@@ -290,10 +296,26 @@ def _receipt_entry(
         confidence = (
             confidence_block.get("value") if isinstance(confidence_block, Mapping) else None
         )
+        evidence = {
+            "has_confidence": bool(verdict) and confidence is not None,
+            "has_responses": _present_block(receipt.get("quorum")),
+            "has_dissent_record": _present_block(receipt.get("quorum")),
+            "has_reasoning": _present_block(receipt.get("reasoning")),
+        }
     else:
         timestamp = receipt.get("timestamp") or receipt.get("produced_at")
         verdict = str(receipt.get("verdict", "") or "")
         confidence = receipt.get("confidence")
+        evidence = {
+            "has_confidence": bool(verdict) and confidence is not None,
+            "has_responses": bool(
+                receipt.get("agent_responses") or receipt.get("provenance_chain")
+            ),
+            "has_dissent_record": "dissenting_views" in receipt,
+            "has_reasoning": bool(
+                receipt.get("verdict_reasoning") or receipt.get("explainability")
+            ),
+        }
 
     entry: dict[str, Any] = {
         "receipt_id": receipt_id,
@@ -302,6 +324,7 @@ def _receipt_entry(
         "verdict": verdict,
         "confidence": confidence,
         "disposition": disposition,
+        "evidence": evidence,
     }
     if attestor_id:
         entry["attestor"] = attestor_id
@@ -318,15 +341,38 @@ def _receipt_entry(
     return entry
 
 
+# Content-dependent clauses require the named evidence fields to actually be
+# present on receipts — mere receipt presence never satisfies them.
+_CLAUSE_EVIDENCE_FLAGS = {
+    "14(2)": "has_confidence",
+    "14(4)(a)": "has_responses",
+    "14(4)(b)": "has_dissent_record",
+    "14(4)(c)": "has_reasoning",
+}
+
+_EVIDENCE_FLAG_LABELS = {
+    "has_confidence": "verdict + confidence",
+    "has_responses": "agent responses / provenance",
+    "has_dissent_record": "recorded dissent field",
+    "has_reasoning": "verdict reasoning / explainability",
+}
+
+
 def _clause_status(
-    clause: str, human_attested: int, total: int, settlements: int = 0
+    clause: str,
+    human_attested: int,
+    total: int,
+    settlements: int = 0,
+    evidence_counts: Mapping[str, int] | None = None,
 ) -> tuple[str, str]:
     """Honest per-clause status from windowed evidence.
 
     ``settlements`` counts human-settlement attestations fetched from the
     repository trail (see :mod:`aragora.compliance.oversight_fetch`) — real
     oversight events with resolvable refs, counted for the identity-dependent
-    clauses alongside receipt-level attestations.
+    clauses alongside receipt-level attestations. Content-dependent clauses
+    are computed from per-receipt evidence-field presence
+    (``evidence_counts``), never from receipt presence alone.
     """
     human_evidence = human_attested + settlements
     if clause == "14(4)(e)":
@@ -348,7 +394,16 @@ def _clause_status(
         )
     if total == 0:
         return "partial", "no receipts in window"
-    return "satisfied", f"evidence present on all {total} windowed receipts"
+    flag = _CLAUSE_EVIDENCE_FLAGS[clause]
+    label = _EVIDENCE_FLAG_LABELS[flag]
+    carrying = (evidence_counts or {}).get(flag, 0)
+    if carrying >= total:
+        return "satisfied", f"all {total} windowed receipts carry {label}"
+    return (
+        "partial",
+        f"{carrying}/{total} windowed receipts carry {label}; "
+        "status requires the evidence on every windowed receipt",
+    )
 
 
 def load_receipts_from_dirs(
@@ -468,10 +523,19 @@ def build_oversight_pack(
             mechanisms[mech] += 1
     attestors.sort()
 
+    evidence_counts = {
+        flag: sum(1 for e in entries if (e.get("evidence") or {}).get(flag))
+        for flag in _EVIDENCE_FLAG_LABELS
+    }
+
     article_14 = []
     for clause_def in ARTICLE_14_CLAUSES:
         status, basis = _clause_status(
-            clause_def["clause"], human_attested, len(entries), settlements=len(settlements)
+            clause_def["clause"],
+            human_attested,
+            len(entries),
+            settlements=len(settlements),
+            evidence_counts=evidence_counts,
         )
         article_14.append({**clause_def, "status": status, "status_basis": basis})
 

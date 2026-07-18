@@ -110,7 +110,55 @@ class TestBuildPack:
         by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
         assert by_clause["14(1)"]["status"] == "partial"
         assert by_clause["14(4)(d)"]["status"] == "partial"
+        # Content-dependent clauses need the evidence fields, not mere
+        # receipt presence: a bare native receipt carries verdict+confidence
+        # (14(2)) but no responses/dissent/reasoning.
         assert by_clause["14(2)"]["status"] == "satisfied"
+        assert by_clause["14(4)(a)"]["status"] == "partial"
+        assert by_clause["14(4)(b)"]["status"] == "partial"
+        assert by_clause["14(4)(c)"]["status"] == "partial"
+
+    def test_content_clauses_need_actual_evidence_fields(self) -> None:
+        """Round-5 finding (claude): clause presence must be computed from the
+        evidence fields the clause names, never from receipt presence."""
+        rich = {
+            "receipt_id": "r-rich",
+            "timestamp": "2026-07-10T00:00:00+00:00",
+            "verdict": "PASS",
+            "confidence": 0.9,
+            "dissenting_views": ["grok: latency risk"],
+            "agent_responses": [{"agent": "a", "response": "supported"}],
+            "verdict_reasoning": "Consensus reached with strong agreement",
+        }
+        pack = build_oversight_pack([rich], window_days=30, now=NOW)
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        for clause in ("14(2)", "14(4)(a)", "14(4)(b)", "14(4)(c)"):
+            assert by_clause[clause]["status"] == "satisfied", clause
+        entry = pack["receipts"][0]
+        assert entry["evidence"] == {
+            "has_confidence": True,
+            "has_responses": True,
+            "has_dissent_record": True,
+            "has_reasoning": True,
+        }
+        # Mixed evidence: one rich + one bare receipt -> partial with counts.
+        pack = build_oversight_pack(
+            [rich, _native("r-bare", "2026-07-11T00:00:00+00:00")],
+            window_days=30,
+            now=NOW,
+        )
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert by_clause["14(4)(a)"]["status"] == "partial"
+        assert "1/2" in by_clause["14(4)(a)"]["status_basis"]
+
+    def test_odr_absent_blocks_do_not_count_as_evidence(self) -> None:
+        doc = _odr("r-abs", "2026-07-10T00:00:00+00:00", attested=False)
+        doc["reasoning"] = {"status": "absent", "reason": "none recorded"}
+        doc["quorum"] = {"status": "absent", "reason": "none recorded"}
+        pack = build_oversight_pack([doc], window_days=30, now=NOW)
+        entry = pack["receipts"][0]
+        assert entry["evidence"]["has_reasoning"] is False
+        assert entry["evidence"]["has_responses"] is False
 
     def test_bare_human_attested_block_not_trusted(self) -> None:
         """A block claiming human_attested without attestor/when/mechanism is

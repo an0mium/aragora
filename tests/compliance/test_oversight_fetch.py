@@ -121,6 +121,39 @@ class TestFetcher:
         )
         assert ["repo", "view", "--json", "nameWithOwner"] not in calls
 
+    def test_unresolvable_author_skipped(self) -> None:
+        """Round-5 finding (claude P3): without a resolvable executing author
+        the separation check cannot run — skip with reason, never assume."""
+
+        def run(args):
+            if args[:2] == ["pr", "list"]:
+                return [
+                    {
+                        "number": 200,
+                        "url": "u",
+                        "mergedAt": "2026-07-16T10:00:00Z",
+                        "headRefOid": "f" * 40,
+                        "author": {},
+                    }
+                ]
+            return [
+                {
+                    "context": "aragora/human-settlement",
+                    "state": "success",
+                    "creator": {"login": "overseer"},
+                    "created_at": "2026-07-16T11:00:00Z",
+                    "description": "settled",
+                    "url": "https://api.github.com/repos/acme/widgets/statuses/f",
+                }
+            ]
+
+        result = fetch_settlement_attestations(
+            repo="acme/widgets", window_days=30, now=NOW, gh_runner=run
+        )
+        assert result["attestations"] == []
+        assert result["skipped"][0]["pr"] == 200
+        assert "identity separation unverifiable" in result["skipped"][0]["reason"]
+
     def test_unresolvable_repo_raises(self) -> None:
         def run(args):
             return {} if args[:2] == ["repo", "view"] else []

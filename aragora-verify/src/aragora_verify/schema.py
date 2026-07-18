@@ -121,6 +121,10 @@ def _check_attestation(errors: list[str], value: Any) -> None:
     execution_identity = value.get("execution_identity")
     if "execution_identity" in value and not isinstance(execution_identity, dict):
         errors.append("attestation.execution_identity: must be an object")
+    elif isinstance(execution_identity, dict):
+        for key in ("id", "name", "role"):
+            if key in execution_identity and not isinstance(execution_identity.get(key), str):
+                errors.append(f"attestation.execution_identity.{key}: must be a string")
     observed = value.get("observed")
     if "observed" in value and not isinstance(observed, dict):
         errors.append("attestation.observed: must be an object")
