@@ -28,7 +28,7 @@ from aragora.events.types import StreamEvent, StreamEventType
 from aragora.resilience import CircuitBreaker
 
 from .admin import AdminMixin
-from .dispatch import DispatchMixin
+from .dispatch import CrossSubscriberHandler, DispatchMixin
 from .registry import get_registered_subscribers
 
 if TYPE_CHECKING:
@@ -106,9 +106,7 @@ class CrossSubscriberManager(
             default_retry_config: Default retry configuration for handlers (default: 3 retries)
             async_config: Configuration for async/batched event dispatch
         """
-        self._subscribers: dict[
-            StreamEventType, list[tuple[str, Callable[[StreamEvent], None]]]
-        ] = {}
+        self._subscribers: dict[StreamEventType, list[tuple[str, CrossSubscriberHandler]]] = {}
         self._stats: dict[str, SubscriberStats] = {}
         self._filters: dict[str, Callable[[StreamEvent], bool]] = {}
         self._connected = False
@@ -611,7 +609,7 @@ class CrossSubscriberManager(
         self,
         name: str,
         event_type: StreamEventType,
-        handler: Callable[[StreamEvent], None],
+        handler: CrossSubscriberHandler,
     ) -> None:
         """
         Register a cross-subsystem subscriber.
@@ -632,7 +630,7 @@ class CrossSubscriberManager(
     def subscribe(
         self,
         event_type: StreamEventType,
-    ) -> Callable[[Callable[[StreamEvent], None]], Callable[[StreamEvent], None]]:
+    ) -> Callable[[CrossSubscriberHandler], CrossSubscriberHandler]:
         """
         Decorator for registering subscribers.
 
@@ -642,7 +640,7 @@ class CrossSubscriberManager(
                 pass
         """
 
-        def decorator(func: Callable[[StreamEvent], None]) -> Callable[[StreamEvent], None]:
+        def decorator(func: CrossSubscriberHandler) -> CrossSubscriberHandler:
             self.register(func.__name__, event_type, func)
             return func
 

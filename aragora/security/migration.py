@@ -635,7 +635,7 @@ def rotate_and_reencrypt_store(
 
     except (TypeError, RuntimeError, OSError, ValueError) as e:
         result.errors.append("Re-encryption failed due to an internal error")
-        result.failed_records = result.total_records
+        result.failed_records = max(1, result.total_records)
         logger.error("Key rotation re-encryption failed for %s: %s", store_name, e)
 
     return result
