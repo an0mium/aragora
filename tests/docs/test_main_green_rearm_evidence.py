@@ -37,7 +37,7 @@ def test_required_context_reconciliation_consumes_all_check_run_pages() -> None:
     assert "checks: [.checks[] | {context, app_id}]" in text
     assert "legacy_contexts: ([.contexts[]] - [.checks[].context] | unique)" in text
     assert "app_id: (.app.id // null)" in text
-    assert "created_at," in text
+    assert "else ($matches | max_by(.id))" in text
     assert ".app_id == $requirement.app_id" in text
     assert "| jq '[.[].check_runs[]" in text
     assert 'tee "$EVIDENCE_DIR/required-contexts.json"' in text
@@ -58,7 +58,6 @@ def test_required_context_reconciliation_prefers_newer_queued_run() -> None:
             "app_id": 15368,
             "status": "completed",
             "conclusion": "success",
-            "created_at": "2026-07-17T10:00:00Z",
             "started_at": "2026-07-17T10:00:01Z",
         },
         {
@@ -67,7 +66,6 @@ def test_required_context_reconciliation_prefers_newer_queued_run() -> None:
             "app_id": 15368,
             "status": "queued",
             "conclusion": None,
-            "created_at": "2026-07-17T10:01:00Z",
             "started_at": None,
         },
     ]

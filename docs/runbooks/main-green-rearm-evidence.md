@@ -163,7 +163,9 @@ Also capture the branch-protection policy, every page of check runs, and every
 page of legacy commit statuses for the same SHA. Preserve each app-bound
 requirement's `app_id`; a same-named run from another GitHub App is not proof
 for that requirement. Treat a name in `.contexts` as legacy only when no entry
-in `.checks` binds that name to an app:
+in `.checks` binds that name to an app. Select matching check runs by their
+numeric creation-ordered ID so a newer queued run with no `started_at` cannot
+be hidden by an older success; a missing or nonnumeric ID fails closed:
 
 ```bash
 REQUIRED_POLICY_JSON="$(
@@ -183,7 +185,6 @@ CHECK_RUNS_JSON="$(
         status,
         conclusion,
         details_url,
-        created_at,
         started_at,
         completed_at
       }]'
@@ -222,9 +223,9 @@ jq -n \
           app_id: $requirement.app_id,
           found: ($matches | length > 0),
           latest: (
-            if any($matches[]; .created_at == null)
+            if any($matches[]; (.id | type) != "number")
             then null
-            else ($matches | max_by([.created_at, .id]))
+            else ($matches | max_by(.id))
             end
           )
         }
