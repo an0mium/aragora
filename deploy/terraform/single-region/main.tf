@@ -103,13 +103,13 @@ variable "enable_deletion_protection" {
 }
 
 variable "noncurrent_version_retention_days" {
-  description = "Days to retain noncurrent (superseded) S3 object versions before expiration (min 30: the lifecycle rule transitions noncurrent versions to STANDARD_IA at 30 days, and expiration must not precede transition)"
+  description = "Days to retain noncurrent (superseded) S3 object versions before expiration"
   type        = number
   default     = 30
 
   validation {
-    condition     = var.noncurrent_version_retention_days >= 30
-    error_message = "noncurrent_version_retention_days must be >= 30 so expiration never precedes the 30-day noncurrent STANDARD_IA transition."
+    condition     = var.noncurrent_version_retention_days >= 1
+    error_message = "noncurrent_version_retention_days must be >= 1."
   }
 }
 
@@ -444,12 +444,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "backup" {
 
     # With versioning enabled, `expiration` above only creates delete markers;
     # noncurrent versions otherwise accumulate in STANDARD forever (the Feb-Apr
-    # 2026 TimedStorage-ByteHrs runaway). These two blocks close that leak.
-    noncurrent_version_transition {
-      noncurrent_days = 30
-      storage_class   = "STANDARD_IA"
-    }
-
+    # 2026 TimedStorage-ByteHrs runaway). No noncurrent transition tier: at the
+    # default 30-day retention it would coincide with expiration (S3 requires
+    # expiration strictly after transition) and IA minimum-storage charges
+    # would negate the savings for such short-lived versions.
     noncurrent_version_expiration {
       noncurrent_days = var.noncurrent_version_retention_days
     }
