@@ -351,6 +351,7 @@ class ModelTransportPolicy:
         cls, *, default_mode: TransportMode = TransportMode.DIRECT
     ) -> "ModelTransportPolicy":
         raw_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", default_mode.value).strip()
+        raw_mode = raw_mode or default_mode.value
         try:
             mode = TransportMode(raw_mode)
         except ValueError as exc:
@@ -396,6 +397,10 @@ class ModelTransportPolicy:
         mapped = self.model_map.get(f"{provider}:{model}", self.model_map.get(model, model))
         try:
             catalog = self.client.catalog()
+        except VibeProxyTimeoutError as exc:
+            if self.mode is TransportMode.REQUIRED:
+                raise
+            return self._unavailable(direct, str(exc))
         except VibeProxyUnavailableError as exc:
             return self._unavailable(direct, str(exc))
         if mapped not in catalog.models:

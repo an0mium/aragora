@@ -449,7 +449,7 @@ def _run_vibeproxy(
             "ok": False,
             "backend": "vibeproxy",
             "timed_out": False,
-            "failure_kind": "transport_unavailable",
+            "failure_kind": "backend_failed",
             "error": str(exc),
         }
     return {
@@ -686,14 +686,17 @@ def consult(
         len(vibeproxy_models) if vibeproxy_policy.mode is not TransportMode.DIRECT else 0
     )
     if overall_timeout is None:
-        overall_timeout = _default_overall_timeout(
-            timeout=timeout,
-            model=model,
-            fallback_model=fallback_model,
-            api_fallback=api_fallback,
-            openrouter_fallback=openrouter_fallback,
-            vibeproxy_attempts=vibeproxy_attempts,
-        )
+        if vibeproxy_policy.mode is TransportMode.REQUIRED:
+            overall_timeout = timeout * vibeproxy_attempts
+        else:
+            overall_timeout = _default_overall_timeout(
+                timeout=timeout,
+                model=model,
+                fallback_model=fallback_model,
+                api_fallback=api_fallback,
+                openrouter_fallback=openrouter_fallback,
+                vibeproxy_attempts=vibeproxy_attempts,
+            )
 
     if vibeproxy_policy.mode is not TransportMode.DIRECT:
         for vibeproxy_model in vibeproxy_models:

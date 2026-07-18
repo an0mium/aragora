@@ -52,6 +52,15 @@ def test_invalid_catalog_ttl_is_a_configuration_error(monkeypatch: pytest.Monkey
         vibeproxy.ModelTransportPolicy.from_env()
 
 
+def test_empty_transport_mode_uses_direct_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "")
+
+    policy = vibeproxy.ModelTransportPolicy.from_env()
+
+    assert policy.mode is vibeproxy.TransportMode.DIRECT
+    assert policy.client is None
+
+
 def test_catalog_is_sanitized_and_cached(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = 0
 
@@ -253,6 +262,30 @@ def test_required_fails_closed_when_model_missing() -> None:
 
     with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="model not"):
         policy.resolve("anthropic", "claude-fable-5")
+
+
+@pytest.mark.parametrize("mode", [vibeproxy.TransportMode.PREFER, vibeproxy.TransportMode.REQUIRED])
+def test_catalog_timeout_preserves_timeout_type_in_required_mode(
+    mode: vibeproxy.TransportMode,
+) -> None:
+    class TimeoutClient:
+        base_url = "http://127.0.0.1:8318/v1"
+
+        def catalog(self):
+            raise vibeproxy.VibeProxyTimeoutError("catalog timed out")
+
+    policy = vibeproxy.ModelTransportPolicy(
+        mode,
+        client=TimeoutClient(),  # type: ignore[arg-type]
+    )
+
+    if mode is vibeproxy.TransportMode.REQUIRED:
+        with pytest.raises(vibeproxy.VibeProxyTimeoutError, match="catalog timed out"):
+            policy.resolve("anthropic", "claude-fable-5")
+    else:
+        route = policy.resolve("anthropic", "claude-fable-5")
+        assert route.transport == "direct"
+        assert route.fallback_reason == "catalog timed out"
 
 
 def test_unsupported_web_search_uses_direct_in_prefer_mode() -> None:

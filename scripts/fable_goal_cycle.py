@@ -549,7 +549,7 @@ def run_consult(
     openrouter_fallback: bool = False,
     openrouter_model: str | None = None,
 ) -> dict:
-    transport_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", "direct").strip()
+    transport_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", "direct").strip() or "direct"
     if transport_mode not in MODEL_TRANSPORT_MODES:
         return {
             "ok": False,
@@ -558,9 +558,11 @@ def run_consult(
     models = tuple(
         dict.fromkeys(candidate for candidate in (model, CONSULT_FALLBACK_MODEL) if candidate)
     )
-    cli_attempts = len(models)
     vibeproxy_attempts = 0 if transport_mode == "direct" else len(models)
-    enabled_attempts = cli_attempts + vibeproxy_attempts + int(openrouter_fallback)
+    if transport_mode == "vibeproxy-required":
+        enabled_attempts = vibeproxy_attempts
+    else:
+        enabled_attempts = len(models) + vibeproxy_attempts + int(openrouter_fallback)
     overall_timeout = timeout * enabled_attempts
     command = [
         sys.executable,

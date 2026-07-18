@@ -220,6 +220,48 @@ def test_consult_uses_vibeproxy_before_cli(monkeypatch) -> None:
     assert result["model"] == consult_claude.DEFAULT_MODEL
 
 
+def test_run_vibeproxy_preserves_catalog_timeout_classification() -> None:
+    class TimeoutPolicy:
+        client = object()
+
+        def resolve(self, *_args, **_kwargs):
+            raise consult_claude.VibeProxyTimeoutError("catalog timed out")
+
+    result = consult_claude._run_vibeproxy(
+        "question",
+        consult_claude.DEFAULT_MODEL,
+        10,
+        None,
+        TimeoutPolicy(),  # type: ignore[arg-type]
+    )
+
+    assert result == {
+        "ok": False,
+        "backend": "vibeproxy",
+        "timed_out": True,
+        "error": "catalog timed out",
+    }
+
+
+def test_run_vibeproxy_marks_executed_failure_as_backend_failed() -> None:
+    class FailedPolicy:
+        client = object()
+
+        def resolve(self, *_args, **_kwargs):
+            raise consult_claude.VibeProxyUnavailableError("invalid response")
+
+    result = consult_claude._run_vibeproxy(
+        "question",
+        consult_claude.DEFAULT_MODEL,
+        10,
+        None,
+        FailedPolicy(),  # type: ignore[arg-type]
+    )
+
+    assert result["timed_out"] is False
+    assert result["failure_kind"] == "backend_failed"
+
+
 def test_consult_prefer_falls_back_to_cli(monkeypatch) -> None:
     policy = SimpleNamespace(mode=consult_claude.TransportMode.PREFER)
     monkeypatch.setattr(consult_claude.ModelTransportPolicy, "from_env", lambda **_kwargs: policy)
@@ -342,6 +384,40 @@ def test_consult_required_does_not_fall_back_to_cli(monkeypatch) -> None:
 
     assert result["ok"] is False
     assert [attempt["backend"] for attempt in result["attempts"]] == ["vibeproxy", "vibeproxy"]
+
+
+def test_consult_required_budget_excludes_unreachable_fallbacks(monkeypatch) -> None:
+    policy = SimpleNamespace(mode=consult_claude.TransportMode.REQUIRED)
+    timeouts: list[float] = []
+    monotonic_values = iter([0.0, 0.0, 10.0])
+    monkeypatch.setattr(consult_claude.ModelTransportPolicy, "from_env", lambda **_kwargs: policy)
+    monkeypatch.setattr(consult_claude.time, "monotonic", lambda: next(monotonic_values))
+
+    def fail_proxy(_prompt, _model, timeout, _system, _policy):
+        timeouts.append(timeout)
+        return {
+            "ok": False,
+            "backend": "vibeproxy",
+            "timed_out": True,
+            "error": "timeout",
+        }
+
+    monkeypatch.setattr(consult_claude, "_run_vibeproxy", fail_proxy)
+
+    result = consult_claude.consult(
+        "question",
+        timeout=10,
+        api_fallback=True,
+        openrouter_fallback=True,
+    )
+
+    assert result["ok"] is False
+    assert result["timed_out"] is True
+    assert timeouts == [10, 10]
+    assert [attempt["backend"] for attempt in result["attempts"]] == [
+        "vibeproxy",
+        "vibeproxy",
+    ]
 
 
 def test_consult_api_fallback_skips_cli_only_model(monkeypatch) -> None:
