@@ -195,19 +195,30 @@ def _attestation_invalid_reason(block: Mapping[str, Any]) -> str | None:
     the block is countable.
     """
     attestor = block.get("attestor")
-    attestor_id = str(attestor.get("id", "") or "").strip() if isinstance(attestor, Mapping) else ""
+    raw_attestor_id = attestor.get("id") if isinstance(attestor, Mapping) else None
+    if raw_attestor_id is not None and not isinstance(raw_attestor_id, str):
+        # No str() coercion: the ODR schema types these as strings, and a
+        # coerced non-string must never become countable oversight evidence.
+        return "attestor.id must be a string"
+    attestor_id = (raw_attestor_id or "").strip()
     if not attestor_id:
         return "missing attestor.id"
-    if not str(block.get("attested_at", "") or "").strip():
+    raw_attested_at = block.get("attested_at")
+    if raw_attested_at is not None and not isinstance(raw_attested_at, str):
+        return "attested_at must be a string"
+    if not (raw_attested_at or "").strip():
         return "missing attested_at"
     mech = block.get("mechanism")
-    mech_type = str(mech.get("type", "") or "").strip() if isinstance(mech, Mapping) else ""
-    if not mech_type:
+    raw_mech_type = mech.get("type") if isinstance(mech, Mapping) else None
+    if raw_mech_type is not None and not isinstance(raw_mech_type, str):
+        return "mechanism.type must be a string"
+    if not (raw_mech_type or "").strip():
         return "missing mechanism.type"
     execution = block.get("execution_identity")
-    execution_id = (
-        str(execution.get("id", "") or "").strip() if isinstance(execution, Mapping) else ""
-    )
+    raw_execution_id = execution.get("id") if isinstance(execution, Mapping) else None
+    if raw_execution_id is not None and not isinstance(raw_execution_id, str):
+        return "execution_identity.id must be a string"
+    execution_id = (raw_execution_id or "").strip()
     if execution_id and execution_id.lower() == attestor_id.lower():
         return "attestor equals execution identity"
     return None

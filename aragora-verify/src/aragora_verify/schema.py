@@ -115,6 +115,13 @@ def _check_attestation(errors: list[str], value: Any) -> None:
         errors.append("attestation.disposition: must be 'human_attested' or 'autonomous'")
     if disposition == "human_attested" and not isinstance(value.get("attestor"), dict):
         errors.append("attestation.attestor: required object when disposition is human_attested")
+    attestor = value.get("attestor")
+    if "attestor" in value and not isinstance(attestor, dict):
+        errors.append("attestation.attestor: must be an object")
+    elif isinstance(attestor, dict):
+        for key in ("id", "name", "role"):
+            if key in attestor and not isinstance(attestor.get(key), str):
+                errors.append(f"attestation.attestor.{key}: must be a string")
     # Oversight extension members (ODR-6 / #8230): validate shapes when
     # present, mirroring the bundled JSON schema so installs without the
     # optional jsonschema extra reject the same malformed blocks.

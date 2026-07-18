@@ -295,6 +295,25 @@ class TestBuildPack:
         assert pack["summary"]["attestor_identities"] == []
         assert pack["summary"]["mechanisms"] == {}
 
+    def test_non_string_attestation_fields_not_coerced(self) -> None:
+        """Round-11 finding: non-string attestor.id/attested_at/mechanism.type
+        must be rejected, never str()-coerced into countable evidence."""
+        for field_patch, reason in [
+            ({"attestor": {"id": 123}}, "attestor.id must be a string"),
+            ({"attested_at": 1234567890}, "attested_at must be a string"),
+            (
+                {"mechanism": {"type": ["settlement_status"]}},
+                "mechanism.type must be a string",
+            ),
+        ]:
+            doc = _odr("r-coerce", "2026-07-10T00:00:00+00:00", attested=True)
+            doc["attestation"].update(field_patch)
+            pack = build_oversight_pack([doc], window_days=30, now=NOW)
+            entry = pack["receipts"][0]
+            assert entry["disposition"] == "invalid_attestation", field_patch
+            assert entry["attestation_invalid_reason"] == reason
+            assert pack["summary"]["human_attested"] == 0
+
     def test_odr_verdict_field_normalized(self) -> None:
         """The ODR exporter/schema use claim.verdict (round-3 finding: reading
         claim.decision produced blank verdicts for real ODR inputs); legacy

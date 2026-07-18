@@ -63,3 +63,11 @@ def test_self_attested_block_rejected() -> None:
     odr["attestation"]["execution_identity"] = {"id": "Scarmani"}
     errors = validate_structure(odr)
     assert any("must differ" in e for e in errors)
+
+
+def test_non_string_attestor_fields_rejected() -> None:
+    odr = _attested(valid_odr())
+    odr["attestation"]["attestor"] = {"id": 123, "role": ["oversight"]}
+    errors = validate_structure(odr)
+    assert any("attestor.id: must be a string" in e for e in errors)
+    assert any("attestor.role: must be a string" in e for e in errors)
