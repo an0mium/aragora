@@ -112,6 +112,63 @@ class TestBuildPack:
         assert by_clause["14(4)(d)"]["status"] == "partial"
         assert by_clause["14(2)"]["status"] == "satisfied"
 
+    def test_bare_human_attested_block_not_trusted(self) -> None:
+        """A block claiming human_attested without attestor/when/mechanism is
+        recorded as invalid_attestation and never counts as oversight
+        (openai review round 2 on #9417)."""
+        doc = _odr("r-bare", "2026-07-10T00:00:00+00:00", attested=False)
+        doc["attestation"] = {"disposition": "human_attested"}
+        pack = build_oversight_pack([doc], window_days=30, now=NOW)
+        entry = pack["receipts"][0]
+        assert entry["disposition"] == "invalid_attestation"
+        assert entry["attestation_invalid_reason"] == "missing attestor.id"
+        assert pack["summary"]["human_attested"] == 0
+        assert pack["summary"]["other_dispositions"] == {"invalid_attestation": 1}
+        assert pack["summary"]["attestor_identities"] == []
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert by_clause["14(1)"]["status"] == "partial"
+
+    def test_self_attested_block_not_trusted(self) -> None:
+        doc = _odr("r-self", "2026-07-10T00:00:00+00:00", attested=True)
+        doc["attestation"]["execution_identity"] = {"id": "scarmani"}
+        pack = build_oversight_pack([doc], window_days=30, now=NOW)
+        entry = pack["receipts"][0]
+        assert entry["disposition"] == "invalid_attestation"
+        assert entry["attestation_invalid_reason"] == "attestor equals execution identity"
+        assert pack["summary"]["human_attested"] == 0
+
+    def test_attestations_map_also_validated(self) -> None:
+        pack = build_oversight_pack(
+            [_native("r1", "2026-07-10T00:00:00+00:00")],
+            window_days=30,
+            now=NOW,
+            attestations={"r1": {"disposition": "human_attested"}},
+        )
+        assert pack["receipts"][0]["disposition"] == "invalid_attestation"
+        assert pack["summary"]["human_attested"] == 0
+
+    def test_invalid_settlement_attestations_reported_not_counted(self) -> None:
+        good = {
+            "pr": 1,
+            "attestation": {
+                "disposition": "human_attested",
+                "attestor": {"id": "overseer"},
+                "attested_at": "2026-07-10T01:00:00+00:00",
+                "mechanism": {"type": "settlement_status"},
+            },
+        }
+        bad = {"pr": 2, "attestation": {"disposition": "human_attested"}}
+        pack = build_oversight_pack(
+            [], window_days=30, now=NOW, settlement_attestations=[good, bad]
+        )
+        assert pack["summary"]["settlement_attestations"] == 1
+        assert pack["summary"]["settlement_attestations_invalid"] == 1
+        assert pack["settlement_attestations_invalid"][0]["invalid_reason"] == (
+            "missing attestor.id"
+        )
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert by_clause["14(1)"]["status"] == "satisfied"
+
     def test_empty_window_all_partial_or_honest(self) -> None:
         pack = build_oversight_pack([], window_days=30, now=NOW)
         assert pack["summary"]["receipts_in_window"] == 0

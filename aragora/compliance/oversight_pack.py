@@ -182,6 +182,37 @@ def _parse_timestamp(value: Any) -> datetime | None:
     return parsed
 
 
+INVALID_ATTESTATION_DISPOSITION = "invalid_attestation"
+
+
+def _attestation_invalid_reason(block: Mapping[str, Any]) -> str | None:
+    """Why a ``human_attested`` block does NOT count as oversight evidence.
+
+    The pack never trusts a bare ``{"disposition": "human_attested"}``: to be
+    counted, a block must name who attested, when, and via what mechanism —
+    and must satisfy the same identity-separation rule the attestation
+    builder enforces (attestor != execution identity). Returns ``None`` when
+    the block is countable.
+    """
+    attestor = block.get("attestor")
+    attestor_id = str(attestor.get("id", "") or "").strip() if isinstance(attestor, Mapping) else ""
+    if not attestor_id:
+        return "missing attestor.id"
+    if not str(block.get("attested_at", "") or "").strip():
+        return "missing attested_at"
+    mech = block.get("mechanism")
+    mech_type = str(mech.get("type", "") or "").strip() if isinstance(mech, Mapping) else ""
+    if not mech_type:
+        return "missing mechanism.type"
+    execution = block.get("execution_identity")
+    execution_id = (
+        str(execution.get("id", "") or "").strip() if isinstance(execution, Mapping) else ""
+    )
+    if execution_id and execution_id.lower() == attestor_id.lower():
+        return "attestor equals execution identity"
+    return None
+
+
 def _receipt_entry(
     receipt: Mapping[str, Any],
     attestations: Mapping[str, Mapping[str, Any]],
@@ -202,15 +233,23 @@ def _receipt_entry(
     mechanism: str | None = None
     observed: dict[str, Any] = {}
     attested_at: str | None = None
+    invalid_reason: str | None = None
     if attestation:
         disposition = str(attestation.get("disposition", HUMAN_ATTESTED_DISPOSITION))
-        attestor = attestation.get("attestor") or {}
-        attestor_id = str(attestor.get("id", "") or "") or None
-        mech = attestation.get("mechanism") or {}
-        mechanism = str(mech.get("type", "") or "") or None
-        if isinstance(attestation.get("observed"), Mapping):
-            observed = dict(attestation["observed"])
-        attested_at = str(attestation.get("attested_at", "") or "") or None
+        if disposition == HUMAN_ATTESTED_DISPOSITION:
+            invalid_reason = _attestation_invalid_reason(attestation)
+        if invalid_reason:
+            # Malformed oversight claims are recorded visibly, never counted
+            # as human oversight and never silently dropped.
+            disposition = INVALID_ATTESTATION_DISPOSITION
+        else:
+            attestor = attestation.get("attestor") or {}
+            attestor_id = str(attestor.get("id", "") or "") or None
+            mech = attestation.get("mechanism") or {}
+            mechanism = str(mech.get("type", "") or "") or None
+            if isinstance(attestation.get("observed"), Mapping):
+                observed = dict(attestation["observed"])
+            attested_at = str(attestation.get("attested_at", "") or "") or None
 
     if is_odr:
         timestamp = receipt.get("issued_at")
@@ -241,6 +280,8 @@ def _receipt_entry(
         entry["attested_at"] = attested_at
     if observed:
         entry["observed"] = observed
+    if invalid_reason:
+        entry["attestation_invalid_reason"] = invalid_reason
     if source:
         entry["source"] = source
     return entry
@@ -360,9 +401,19 @@ def build_oversight_pack(
     attestors = sorted({e["attestor"] for e in entries if e.get("attestor")})
     mechanisms = Counter(e["mechanism"] for e in entries if e.get("mechanism"))
 
-    settlements = [dict(s) for s in (settlement_attestations or [])]
-    for settlement in settlements:
+    settlements: list[dict[str, Any]] = []
+    settlements_invalid: list[dict[str, Any]] = []
+    for raw_settlement in settlement_attestations or []:
+        settlement = dict(raw_settlement)
         block = settlement.get("attestation") or {}
+        # Same trust boundary as receipt-level blocks: a settlement entry is
+        # counted only when its attestation names who/when/how and satisfies
+        # identity separation; malformed entries are reported, not counted.
+        reason = _attestation_invalid_reason(block) if isinstance(block, Mapping) else "no block"
+        if reason:
+            settlements_invalid.append({**settlement, "invalid_reason": reason})
+            continue
+        settlements.append(settlement)
         attestor = (block.get("attestor") or {}).get("id")
         if attestor and attestor not in attestors:
             attestors.append(attestor)
@@ -403,11 +454,13 @@ def build_oversight_pack(
             "attestor_identities": attestors,
             "mechanisms": dict(mechanisms),
             "settlement_attestations": len(settlements),
+            "settlement_attestations_invalid": len(settlements_invalid),
             "excluded_no_timestamp": excluded_no_timestamp,
             "excluded_out_of_window": excluded_out_of_window,
         },
         "receipts": entries,
         "settlement_attestations": settlements,
+        "settlement_attestations_invalid": settlements_invalid,
         "article_14_mapping": article_14,
         "nist_cross_references": list(NIST_CROSS_REFERENCES),
     }
