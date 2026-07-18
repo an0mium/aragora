@@ -248,10 +248,20 @@ def _receipt_entry(
     receipt_id = str(receipt.get("receipt_id", "") or "")
 
     attestation: Mapping[str, Any] | None = None
-    if is_odr and isinstance(receipt.get("attestation"), Mapping):
-        attestation = receipt["attestation"]
+    malformed_attestation = False
+    if is_odr:
+        raw_odr_block = receipt.get("attestation")
+        if isinstance(raw_odr_block, Mapping):
+            attestation = raw_odr_block
     if receipt_id and receipt_id in attestations:
-        attestation = attestations[receipt_id]
+        candidate = attestations[receipt_id]
+        if isinstance(candidate, Mapping):
+            attestation = candidate
+        else:
+            # A non-object --attestations value is an invalid oversight
+            # claim, reported per-receipt instead of crashing the pack.
+            attestation = None
+            malformed_attestation = True
 
     disposition = AUTONOMOUS_DISPOSITION
     attestor_id: str | None = None
@@ -259,6 +269,9 @@ def _receipt_entry(
     observed: dict[str, Any] = {}
     attested_at: str | None = None
     invalid_reason: str | None = None
+    if malformed_attestation:
+        disposition = INVALID_ATTESTATION_DISPOSITION
+        invalid_reason = "attestation block is not an object"
     if attestation:
         disposition = str(attestation.get("disposition", HUMAN_ATTESTED_DISPOSITION))
         if disposition == HUMAN_ATTESTED_DISPOSITION:

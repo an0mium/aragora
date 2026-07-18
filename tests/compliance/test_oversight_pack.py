@@ -195,6 +195,20 @@ class TestBuildPack:
         assert pack["receipts"][0]["disposition"] == "invalid_attestation"
         assert pack["summary"]["human_attested"] == 0
 
+    def test_non_object_attestations_value_reported_not_crash(self) -> None:
+        """Round-6 finding (openai P3): a non-object --attestations value must
+        be reported as an invalid attestation, not crash the pack."""
+        pack = build_oversight_pack(
+            [_native("r1", "2026-07-10T00:00:00+00:00")],
+            window_days=30,
+            now=NOW,
+            attestations={"r1": "human_attested"},
+        )
+        entry = pack["receipts"][0]
+        assert entry["disposition"] == "invalid_attestation"
+        assert entry["attestation_invalid_reason"] == "attestation block is not an object"
+        assert pack["summary"]["human_attested"] == 0
+
     def test_invalid_settlement_attestations_reported_not_counted(self) -> None:
         good = {
             "pr": 1,

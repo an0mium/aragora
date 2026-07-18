@@ -121,6 +121,43 @@ class TestFetcher:
         )
         assert ["repo", "view", "--json", "nameWithOwner"] not in calls
 
+    def test_paginated_status_pages_flattened(self) -> None:
+        """Round-6 finding (openai P2): the settlement status must be found
+        even when it sits on a later status page (gh --paginate --slurp
+        returns an array of pages)."""
+
+        def run(args):
+            if args[:2] == ["pr", "list"]:
+                return [
+                    {
+                        "number": 300,
+                        "url": "u",
+                        "mergedAt": "2026-07-16T10:00:00Z",
+                        "headRefOid": "9" * 40,
+                        "author": {"login": "agent-bot"},
+                    }
+                ]
+            assert "--paginate" in args and "--slurp" in args
+            assert "per_page=100" in args[1]
+            page1 = [{"context": f"ci/noise-{i}", "state": "success"} for i in range(3)]
+            page2 = [
+                {
+                    "context": "aragora/human-settlement",
+                    "state": "success",
+                    "creator": {"login": "overseer"},
+                    "created_at": "2026-07-16T11:00:00Z",
+                    "description": "settled",
+                    "url": "https://api.github.com/repos/acme/widgets/statuses/9",
+                }
+            ]
+            return [page1, page2]
+
+        result = fetch_settlement_attestations(
+            repo="acme/widgets", window_days=30, now=NOW, gh_runner=run
+        )
+        assert len(result["attestations"]) == 1
+        assert result["attestations"][0]["pr"] == 300
+
     def test_unresolvable_author_skipped(self) -> None:
         """Round-5 finding (claude P3): without a resolvable executing author
         the separation check cannot run — skip with reason, never assume."""

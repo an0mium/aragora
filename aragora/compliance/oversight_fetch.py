@@ -121,7 +121,24 @@ def fetch_settlement_attestations(
             continue
         scanned += 1
         try:
-            statuses = run(["api", f"repos/{repo}/commits/{head_sha}/statuses"]) or []
+            # Busy heads can carry >100 statuses; paginate so an older
+            # settlement status is never missed (--slurp wraps pages in an
+            # outer array — flattened below; plain arrays also handled for
+            # older gh versions and test fakes).
+            raw = (
+                run(
+                    [
+                        "api",
+                        f"repos/{repo}/commits/{head_sha}/statuses?per_page=100",
+                        "--paginate",
+                        "--slurp",
+                    ]
+                )
+                or []
+            )
+            statuses = [
+                status for page in raw for status in (page if isinstance(page, list) else [page])
+            ]
         except (subprocess.SubprocessError, OSError, ValueError) as exc:
             skipped.append({"pr": pr.get("number"), "reason": f"statuses fetch failed: {exc}"})
             continue
