@@ -936,6 +936,43 @@ class TestUnstableCancellationReceipt:
 
         assert receipt == {}
 
+    @pytest.mark.parametrize("step_metadata", ["missing", "empty", "incomplete", "malformed"])
+    def test_rejects_unproven_verifier_step_metadata(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        step_metadata: str,
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+        job = run["jobs"][0]
+        if step_metadata == "missing":
+            job.pop("steps")
+        elif step_metadata == "empty":
+            job["steps"] = []
+        elif step_metadata == "incomplete":
+            job["steps"].pop()
+        else:
+            job["steps"].append("malformed-step")
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", lambda _args: run)
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
     def test_rejects_required_check_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         head_sha = "exact-head"
         pr = _make_pr(
@@ -1005,6 +1042,39 @@ class TestUnstableCancellationReceipt:
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
             lambda _args: pytest.fail("unallowlisted cancellation must not inspect a run"),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_stale_rollup_context(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pr = _make_pr(
+            number=9034,
+            checks=[
+                self._cancelled_build_check(),
+                {
+                    "name": "advisory",
+                    "workflowName": "Advisory Workflow",
+                    "status": "COMPLETED",
+                    "conclusion": "STALE",
+                    "completedAt": "2026-07-17T15:38:35Z",
+                },
+            ],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = "exact-head"
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: pytest.fail("STALE must fail before required-check fetch"),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: pytest.fail("STALE must fail before cancelled-run inspection"),
         )
 
         receipt = _verified_unstable_non_required_cancellation_receipt(

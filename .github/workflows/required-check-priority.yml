@@ -132,6 +132,15 @@ jobs:
             const requiredContextRunCache = new Map();
             let emptySweepCount = 0;
 
+            async function getLiveHeadSha() {
+              const { data: livePr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: pr.number,
+              });
+              return String(livePr.head?.sha || '').trim();
+            }
+
             async function runHasRequiredContext(run) {
               if (requiredContextsNormalized.size === 0) {
                 return false;
@@ -194,6 +203,14 @@ jobs:
             }
 
             for (let pass = 1; pass <= sweeps; pass++) {
+              const liveHeadSha = await getLiveHeadSha();
+              if (!liveHeadSha || liveHeadSha !== headSha) {
+                core.info(
+                  `Stopping stale priority sweep: event head ${headSha} is no longer ` +
+                    `the live PR head ${liveHeadSha || '(unavailable)'}`
+                );
+                break;
+              }
               const { data: runPage } = await github.rest.actions.listWorkflowRunsForRepo({
                 owner,
                 repo,
@@ -205,12 +222,13 @@ jobs:
 
               let passCanceled = 0;
               let passConsidered = 0;
+              let staleSweep = false;
               for (const run of runs) {
                 // Never cancel a run attached to the current PR head. GitHub
                 // folds cancelled advisory conclusions into mergeStateStatus,
                 // leaving otherwise-ready PRs UNSTABLE (#9034). Queue relief
                 // is limited to superseded heads on the same branch.
-                if (run.head_sha === headSha) continue;
+                if (run.head_sha === liveHeadSha) continue;
                 if (run.id === selfRunId) continue;
                 // Only cancel QUEUED runs. An in-progress run already holds a
                 // runner, so cancelling it frees no queue capacity; it only
@@ -240,6 +258,19 @@ jobs:
                 if (hasRequiredContext) continue;
 
                 try {
+                  // Close the race where a synchronize event lands after this
+                  // sweep listed runs: a stale worker must never cancel the new
+                  // live head's advisory checks.
+                  const confirmedLiveHeadSha = await getLiveHeadSha();
+                  if (!confirmedLiveHeadSha || confirmedLiveHeadSha !== headSha) {
+                    staleSweep = true;
+                    core.info(
+                      `Stopping stale priority sweep before cancellation: event head ` +
+                        `${headSha} is no longer the live PR head ` +
+                        `${confirmedLiveHeadSha || '(unavailable)'}`
+                    );
+                    break;
+                  }
                   await github.rest.actions.cancelWorkflowRun({
                     owner,
                     repo,
@@ -259,6 +290,8 @@ jobs:
                   core.warning(`Failed to cancel run ${run.id} (${run.name}): ${error.message}`);
                 }
               }
+
+              if (staleSweep) break;
 
               core.info(
                 `Sweep ${pass}/${sweeps}: considered ${passConsidered} run(s), canceled ${passCanceled} run(s)`

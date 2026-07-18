@@ -92,8 +92,26 @@ _QUEUED_ONLY_STATUS_FILTER_RE = re.compile(
 
 # Cancelling a workflow run on the live PR head leaves a cancelled check in
 # GitHub's status rollup and can poison mergeStateStatus into UNSTABLE (#9034).
-# Queue cleanup is therefore restricted to superseded heads on the same branch.
-_CURRENT_HEAD_SKIP_RE = re.compile(r"if\s*\(\s*run\.head_sha\s*===\s*headSha\s*\)\s*continue;")
+# The worker must resolve the live PR head on every sweep, reject stale event
+# heads, and confirm freshness again immediately before cancellation.
+_LIVE_HEAD_FETCH_RE = re.compile(
+    r"github\.rest\.pulls\.get\s*\(\s*\{.*?pull_number\s*:\s*pr\.number",
+    flags=re.DOTALL,
+)
+_PER_SWEEP_LIVE_HEAD_REFRESH_RE = re.compile(
+    r"for\s*\(\s*let\s+pass\s*=.*?pass\s*<=\s*sweeps.*?\)\s*\{.*?"
+    r"const\s+liveHeadSha\s*=\s*await\s+getLiveHeadSha\(\)\s*;",
+    flags=re.DOTALL,
+)
+_STALE_EVENT_HEAD_GUARD_RE = re.compile(
+    r"if\s*\(\s*!liveHeadSha\s*\|\|\s*liveHeadSha\s*!==\s*headSha\s*\)"
+)
+_CURRENT_HEAD_SKIP_RE = re.compile(r"if\s*\(\s*run\.head_sha\s*===\s*liveHeadSha\s*\)\s*continue;")
+_PRE_CANCEL_HEAD_REFRESH_RE = re.compile(
+    r"const\s+confirmedLiveHeadSha\s*=\s*await\s+getLiveHeadSha\(\)\s*;.*?"
+    r"confirmedLiveHeadSha\s*!==\s*headSha.*?github\.rest\.actions\.cancelWorkflowRun",
+    flags=re.DOTALL,
+)
 
 
 def _extract_js_set_items(workflow_text: str, set_name: str) -> list[str] | None:
@@ -429,11 +447,30 @@ def find_required_check_priority_violations(
             "never be cancelled)"
         )
 
+    if not _LIVE_HEAD_FETCH_RE.search(workflow_text):
+        violations.append("cancellation sweep does not resolve the live PR head with `pulls.get`")
+
+    if not _PER_SWEEP_LIVE_HEAD_REFRESH_RE.search(workflow_text):
+        violations.append(
+            "cancellation sweep does not refresh the live PR head at the start of every sweep"
+        )
+
+    if not _STALE_EVENT_HEAD_GUARD_RE.search(workflow_text):
+        violations.append(
+            "cancellation sweep does not stop when its event head is stale: expected "
+            "`if (!liveHeadSha || liveHeadSha !== headSha)`"
+        )
+
     if not _CURRENT_HEAD_SKIP_RE.search(workflow_text):
         violations.append(
             "cancellation sweep does not skip the current PR head: expected "
-            "`if (run.head_sha === headSha) continue;` (only superseded-head "
+            "`if (run.head_sha === liveHeadSha) continue;` (only superseded-head "
             "runs may be cancelled)"
+        )
+
+    if not _PRE_CANCEL_HEAD_REFRESH_RE.search(workflow_text):
+        violations.append(
+            "cancellation sweep does not refresh the live PR head immediately before cancellation"
         )
 
     if repo_root is not None:
@@ -453,10 +490,10 @@ def find_required_check_priority_violations(
                     f"required context marker `{context}` not found in mapped workflow: {rel}"
                 )
         for context, rel in sorted(REQUIRED_CONTEXT_TO_WORKFLOW_PATH.items()):
-            text = mapped_workflows.get(rel)
-            if text is None:
+            mapped_text = mapped_workflows.get(rel)
+            if mapped_text is None:
                 continue
-            main_push = _main_push_trigger(text)
+            main_push = _main_push_trigger(mapped_text)
             if main_push.targets_main and main_push.path_filtered:
                 violations.append(
                     f"required context `{context}` maps to path-filtered main push workflow: {rel}"

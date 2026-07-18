@@ -139,13 +139,18 @@ def _verify_cancelled_context_run(
     if str(job.get("conclusion") or "").strip().upper() != "CANCELLED":
         return None
 
-    steps = [step for step in job.get("steps") or [] if isinstance(step, dict)]
+    raw_steps = job.get("steps")
+    if (
+        not isinstance(raw_steps, list)
+        or not raw_steps
+        or any(not isinstance(step, dict) for step in raw_steps)
+    ):
+        return None
+    steps = raw_steps
     verifier_steps = [
         step for step in steps if str(step.get("name") or "").strip() in verifier_names
     ]
-    if steps and {str(step.get("name") or "").strip() for step in verifier_steps} != set(
-        verifier_names
-    ):
+    if {str(step.get("name") or "").strip() for step in verifier_steps} != set(verifier_names):
         return None
     if any(
         str(step.get("conclusion") or "").strip().upper() != "SKIPPED" for step in verifier_steps
@@ -196,7 +201,7 @@ def verified_unstable_non_required_cancellation_receipt(
             continue
         conclusion = _normalized_rollup_conclusion(check)
         status = str(check.get("status") or check.get("state") or "").strip().upper()
-        if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL", "STALE"}:
+        if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}:
             continue
         if conclusion == "CANCELLED":
             cancelled_checks.append(check)

@@ -18,6 +18,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const headSha = pr.head.sha;
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-merge-quorum.yml',
               '.github/workflows/aragora-review-gate.yml',
@@ -64,10 +68,29 @@ jobs:
               'Tests',
               'OpenAPI Spec',
             ]);
-            for (const run of runs) {
-              if (run.head_sha === headSha) continue;
-              if (run.id === selfRunId) continue;
-              if (run.status !== 'queued') continue;
+            async function getLiveHeadSha() {
+              const { data: livePr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: pr.number,
+              });
+              return String(livePr.head?.sha || '').trim();
+            }
+            for (let pass = 1; pass <= sweeps; pass++) {
+              const liveHeadSha = await getLiveHeadSha();
+              if (!liveHeadSha || liveHeadSha !== headSha) break;
+              for (const run of runs) {
+                if (run.head_sha === liveHeadSha) continue;
+                if (run.id === selfRunId) continue;
+                if (run.status !== 'queued') continue;
+                const confirmedLiveHeadSha = await getLiveHeadSha();
+                if (!confirmedLiveHeadSha || confirmedLiveHeadSha !== headSha) break;
+                await github.rest.actions.cancelWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: run.id,
+                });
+              }
             }
 """
 
@@ -519,8 +542,8 @@ def test_policy_rejects_missing_queued_only_status_filter() -> None:
 
 def test_policy_rejects_cancelling_only_current_head() -> None:
     text = _valid_workflow_text().replace(
-        "if (run.head_sha === headSha) continue;",
-        "if (run.head_sha !== headSha) continue;",
+        "if (run.head_sha === liveHeadSha) continue;",
+        "if (run.head_sha !== liveHeadSha) continue;",
     )
     violations = find_required_check_priority_violations(text)
     assert any("does not skip the current PR head" in v for v in violations)
@@ -530,6 +553,40 @@ def test_policy_rejects_missing_current_head_skip() -> None:
     lines = [line for line in _valid_workflow_text().splitlines() if "run.head_sha" not in line]
     violations = find_required_check_priority_violations("\n".join(lines))
     assert any("does not skip the current PR head" in v for v in violations)
+
+
+def test_policy_rejects_missing_live_head_fetch() -> None:
+    text = _valid_workflow_text().replace("github.rest.pulls.get", "github.rest.pulls.list")
+    violations = find_required_check_priority_violations(text)
+    assert any("does not resolve the live PR head" in v for v in violations)
+
+
+def test_policy_rejects_missing_per_sweep_live_head_refresh() -> None:
+    text = _valid_workflow_text().replace(
+        "const liveHeadSha = await getLiveHeadSha();",
+        "const liveHeadSha = headSha;",
+    )
+    violations = find_required_check_priority_violations(text)
+    assert any("does not refresh the live PR head at the start" in v for v in violations)
+
+
+def test_policy_rejects_missing_stale_event_head_guard() -> None:
+    text = _valid_workflow_text().replace(
+        "if (!liveHeadSha || liveHeadSha !== headSha) break;",
+        "if (!liveHeadSha) break;",
+        1,
+    )
+    violations = find_required_check_priority_violations(text)
+    assert any("does not stop when its event head is stale" in v for v in violations)
+
+
+def test_policy_rejects_missing_pre_cancel_head_refresh() -> None:
+    text = _valid_workflow_text().replace(
+        "const confirmedLiveHeadSha = await getLiveHeadSha();",
+        "const confirmedLiveHeadSha = liveHeadSha;",
+    )
+    violations = find_required_check_priority_violations(text)
+    assert any("does not refresh the live PR head" in v for v in violations)
 
 
 def test_policy_accepts_double_quoted_queued_only_status_filter() -> None:
