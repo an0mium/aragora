@@ -112,8 +112,29 @@ def get_lifecycle(s3, bucket: str) -> list[dict[str, Any]]:
         raise
 
 
+def _rule_is_whole_bucket(rule: dict[str, Any]) -> bool:
+    """True when a lifecycle rule applies to the entire bucket.
+
+    A rule scoped by prefix, tag, size bounds, or an And combination only
+    protects part of the keyspace — the rest of a versioned bucket keeps
+    accumulating noncurrent versions, so scoped rules must not count as
+    coverage for the leak audit/sweep.
+    """
+    if rule.get("Prefix"):  # legacy top-level prefix; non-empty = scoped
+        return False
+    rule_filter = rule.get("Filter")
+    if not rule_filter:
+        return True
+    scoped_keys = ("Prefix", "Tag", "And", "ObjectSizeGreaterThan", "ObjectSizeLessThan")
+    return not any(rule_filter.get(key) for key in scoped_keys)
+
+
 def rule_covers_noncurrent(rule: dict[str, Any]) -> bool:
-    return rule.get("Status") == "Enabled" and "NoncurrentVersionExpiration" in rule
+    return (
+        rule.get("Status") == "Enabled"
+        and "NoncurrentVersionExpiration" in rule
+        and _rule_is_whole_bucket(rule)
+    )
 
 
 def is_versioned(s3, bucket: str) -> bool:
