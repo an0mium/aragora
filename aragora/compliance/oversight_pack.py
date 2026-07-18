@@ -213,6 +213,31 @@ def _attestation_invalid_reason(block: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _settlement_attestation_invalid_reason(block: Mapping[str, Any]) -> str | None:
+    """Settlement entries face a stricter bar than receipt-level blocks.
+
+    A settlement attestation is trail evidence with no surrounding receipt to
+    back it, so beyond the core who/when/how it must be independently
+    checkable: a resolvable ``mechanism.ref`` and the ``observed.head_sha``
+    the oversight bound to. Without those, a synthetic block could satisfy
+    identity clauses with no verifiable trail.
+    """
+    reason = _attestation_invalid_reason(block)
+    if reason:
+        return reason
+    mech = block.get("mechanism")
+    ref = str(mech.get("ref", "") or "").strip() if isinstance(mech, Mapping) else ""
+    if not ref:
+        return "missing mechanism.ref (settlement evidence must be resolvable)"
+    observed = block.get("observed")
+    head_sha = (
+        str(observed.get("head_sha", "") or "").strip() if isinstance(observed, Mapping) else ""
+    )
+    if not head_sha:
+        return "missing observed.head_sha (settlement must be head-bound)"
+    return None
+
+
 def _receipt_entry(
     receipt: Mapping[str, Any],
     attestations: Mapping[str, Mapping[str, Any]],
@@ -416,7 +441,11 @@ def build_oversight_pack(
         # Same trust boundary as receipt-level blocks: a settlement entry is
         # counted only when its attestation names who/when/how and satisfies
         # identity separation; malformed entries are reported, not counted.
-        reason = _attestation_invalid_reason(block) if isinstance(block, Mapping) else "no block"
+        reason = (
+            _settlement_attestation_invalid_reason(block)
+            if isinstance(block, Mapping)
+            else "no block"
+        )
         attested_at = _parse_timestamp(block.get("attested_at")) if not reason else None
         if not reason and attested_at is None:
             reason = "unparseable attested_at"

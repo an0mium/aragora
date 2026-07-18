@@ -115,6 +115,29 @@ def _check_attestation(errors: list[str], value: Any) -> None:
         errors.append("attestation.disposition: must be 'human_attested' or 'autonomous'")
     if disposition == "human_attested" and not isinstance(value.get("attestor"), dict):
         errors.append("attestation.attestor: required object when disposition is human_attested")
+    # Oversight extension members (ODR-6 / #8230): validate shapes when
+    # present, mirroring the bundled JSON schema so installs without the
+    # optional jsonschema extra reject the same malformed blocks.
+    execution_identity = value.get("execution_identity")
+    if "execution_identity" in value and not isinstance(execution_identity, dict):
+        errors.append("attestation.execution_identity: must be an object")
+    observed = value.get("observed")
+    if "observed" in value and not isinstance(observed, dict):
+        errors.append("attestation.observed: must be an object")
+    elif isinstance(observed, dict):
+        for key in ("head_sha", "evidence_digest"):
+            if key in observed and not isinstance(observed.get(key), str):
+                errors.append(f"attestation.observed.{key}: must be a string")
+    mechanism = value.get("mechanism")
+    if "mechanism" in value and not isinstance(mechanism, dict):
+        errors.append("attestation.mechanism: must be an object")
+    elif isinstance(mechanism, dict):
+        mech_type = mechanism.get("type")
+        if not isinstance(mech_type, str) or not mech_type:
+            errors.append("attestation.mechanism.type: required non-empty string")
+        for key in ("context", "ref"):
+            if key in mechanism and not isinstance(mechanism.get(key), str):
+                errors.append(f"attestation.mechanism.{key}: must be a string")
 
 
 def _check_signatures(errors: list[str], value: Any) -> None:

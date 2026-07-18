@@ -154,7 +154,11 @@ class TestBuildPack:
                 "disposition": "human_attested",
                 "attestor": {"id": "overseer"},
                 "attested_at": "2026-07-10T01:00:00+00:00",
-                "mechanism": {"type": "settlement_status"},
+                "mechanism": {
+                    "type": "settlement_status",
+                    "ref": "https://api.github.com/repos/o/r/statuses/abc",
+                },
+                "observed": {"head_sha": "b" * 40},
             },
         }
         bad = {"pr": 2, "attestation": {"disposition": "human_attested"}}
@@ -168,6 +172,45 @@ class TestBuildPack:
         )
         by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
         assert by_clause["14(1)"]["status"] == "satisfied"
+
+    def test_settlement_without_resolvable_trail_not_counted(self) -> None:
+        """Settlement entries face a stricter bar than receipt blocks: without
+        a resolvable mechanism.ref and observed.head_sha, a synthetic block
+        could satisfy identity clauses with no verifiable trail (round-4
+        finding)."""
+        no_ref = {
+            "pr": 5,
+            "attestation": {
+                "disposition": "human_attested",
+                "attestor": {"id": "overseer"},
+                "attested_at": "2026-07-10T01:00:00+00:00",
+                "mechanism": {"type": "settlement_status"},
+                "observed": {"head_sha": "e" * 40},
+            },
+        }
+        no_head = {
+            "pr": 6,
+            "attestation": {
+                "disposition": "human_attested",
+                "attestor": {"id": "overseer"},
+                "attested_at": "2026-07-10T01:00:00+00:00",
+                "mechanism": {
+                    "type": "settlement_status",
+                    "ref": "https://api.github.com/repos/o/r/statuses/y",
+                },
+            },
+        }
+        pack = build_oversight_pack(
+            [], window_days=30, now=NOW, settlement_attestations=[no_ref, no_head]
+        )
+        assert pack["summary"]["settlement_attestations"] == 0
+        reasons = {e["invalid_reason"] for e in pack["settlement_attestations_invalid"]}
+        assert reasons == {
+            "missing mechanism.ref (settlement evidence must be resolvable)",
+            "missing observed.head_sha (settlement must be head-bound)",
+        }
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert by_clause["14(1)"]["status"] == "partial"
 
     def test_odr_verdict_field_normalized(self) -> None:
         """The ODR exporter/schema use claim.verdict (round-3 finding: reading
@@ -193,7 +236,11 @@ class TestBuildPack:
                 "disposition": "human_attested",
                 "attestor": {"id": "overseer"},
                 "attested_at": "2026-01-01T00:00:00+00:00",
-                "mechanism": {"type": "settlement_status"},
+                "mechanism": {
+                    "type": "settlement_status",
+                    "ref": "https://api.github.com/repos/o/r/statuses/old",
+                },
+                "observed": {"head_sha": "c" * 40},
             },
         }
         pack = build_oversight_pack([], window_days=30, now=NOW, settlement_attestations=[stale])
@@ -209,7 +256,11 @@ class TestBuildPack:
                 "disposition": "human_attested",
                 "attestor": {"id": "overseer"},
                 "attested_at": "yesterday-ish",
-                "mechanism": {"type": "settlement_status"},
+                "mechanism": {
+                    "type": "settlement_status",
+                    "ref": "https://api.github.com/repos/o/r/statuses/x",
+                },
+                "observed": {"head_sha": "d" * 40},
             },
         }
         pack = build_oversight_pack([], window_days=30, now=NOW, settlement_attestations=[bad])
