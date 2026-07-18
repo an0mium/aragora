@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
+
+import pytest
 
 
 RUNBOOK = Path("docs/runbooks/main-green-rearm-evidence.md")
@@ -44,6 +47,7 @@ def test_required_context_reconciliation_consumes_all_check_run_pages() -> None:
     assert 'all(.statuses[]; .found and .latest.state == "success")' in text
 
 
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required for runbook fixture")
 def test_required_context_reconciliation_prefers_newer_queued_run() -> None:
     text = RUNBOOK.read_text(encoding="utf-8")
     policy = {"checks": [{"context": "lint", "app_id": 15368}], "legacy_contexts": []}
