@@ -254,7 +254,13 @@ def _receipt_entry(
     if is_odr:
         timestamp = receipt.get("issued_at")
         claim = receipt.get("claim") or {}
-        verdict = str(claim.get("decision", "") or "") if isinstance(claim, Mapping) else ""
+        # The ODR exporter/schema use claim.verdict; tolerate legacy
+        # claim.decision from third-party producers.
+        verdict = (
+            str(claim.get("verdict") or claim.get("decision") or "")
+            if isinstance(claim, Mapping)
+            else ""
+        )
         confidence_block = receipt.get("confidence") or {}
         confidence = (
             confidence_block.get("value") if isinstance(confidence_block, Mapping) else None
@@ -403,6 +409,7 @@ def build_oversight_pack(
 
     settlements: list[dict[str, Any]] = []
     settlements_invalid: list[dict[str, Any]] = []
+    settlements_out_of_window = 0
     for raw_settlement in settlement_attestations or []:
         settlement = dict(raw_settlement)
         block = settlement.get("attestation") or {}
@@ -410,8 +417,18 @@ def build_oversight_pack(
         # counted only when its attestation names who/when/how and satisfies
         # identity separation; malformed entries are reported, not counted.
         reason = _attestation_invalid_reason(block) if isinstance(block, Mapping) else "no block"
-        if reason:
-            settlements_invalid.append({**settlement, "invalid_reason": reason})
+        attested_at = _parse_timestamp(block.get("attested_at")) if not reason else None
+        if not reason and attested_at is None:
+            reason = "unparseable attested_at"
+        if reason or attested_at is None:
+            settlements_invalid.append(
+                {**settlement, "invalid_reason": reason or "unparseable attested_at"}
+            )
+            continue
+        # Window the settlement on its attestation time: an old externally
+        # supplied settlement must not satisfy a fresh pack's clauses.
+        if attested_at < cutoff or attested_at > anchor:
+            settlements_out_of_window += 1
             continue
         settlements.append(settlement)
         attestor = (block.get("attestor") or {}).get("id")
@@ -455,6 +472,7 @@ def build_oversight_pack(
             "mechanisms": dict(mechanisms),
             "settlement_attestations": len(settlements),
             "settlement_attestations_invalid": len(settlements_invalid),
+            "settlement_attestations_out_of_window": settlements_out_of_window,
             "excluded_no_timestamp": excluded_no_timestamp,
             "excluded_out_of_window": excluded_out_of_window,
         },

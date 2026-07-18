@@ -38,7 +38,7 @@ def _odr(receipt_id: str, ts: str, attested: bool) -> dict:
         "odr_version": "0.1",
         "receipt_id": receipt_id,
         "issued_at": ts,
-        "claim": {"decision": "PASS"},
+        "claim": {"verdict": "PASS"},
         "confidence": {"value": 0.8},
         "attestation": {"disposition": "autonomous"},
     }
@@ -168,6 +168,55 @@ class TestBuildPack:
         )
         by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
         assert by_clause["14(1)"]["status"] == "satisfied"
+
+    def test_odr_verdict_field_normalized(self) -> None:
+        """The ODR exporter/schema use claim.verdict (round-3 finding: reading
+        claim.decision produced blank verdicts for real ODR inputs); legacy
+        claim.decision still tolerated."""
+        pack = build_oversight_pack(
+            [_odr("r-v", "2026-07-10T00:00:00+00:00", attested=False)],
+            window_days=30,
+            now=NOW,
+        )
+        assert pack["receipts"][0]["verdict"] == "PASS"
+        legacy = _odr("r-d", "2026-07-10T00:00:00+00:00", attested=False)
+        legacy["claim"] = {"decision": "FAIL"}
+        pack = build_oversight_pack([legacy], window_days=30, now=NOW)
+        assert pack["receipts"][0]["verdict"] == "FAIL"
+
+    def test_out_of_window_settlement_not_counted(self) -> None:
+        """An old externally supplied settlement must not satisfy a fresh
+        pack's identity clauses (round-3 finding)."""
+        stale = {
+            "pr": 3,
+            "attestation": {
+                "disposition": "human_attested",
+                "attestor": {"id": "overseer"},
+                "attested_at": "2026-01-01T00:00:00+00:00",
+                "mechanism": {"type": "settlement_status"},
+            },
+        }
+        pack = build_oversight_pack([], window_days=30, now=NOW, settlement_attestations=[stale])
+        assert pack["summary"]["settlement_attestations"] == 0
+        assert pack["summary"]["settlement_attestations_out_of_window"] == 1
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert by_clause["14(1)"]["status"] == "partial"
+
+    def test_unparseable_attested_at_settlement_invalid(self) -> None:
+        bad = {
+            "pr": 4,
+            "attestation": {
+                "disposition": "human_attested",
+                "attestor": {"id": "overseer"},
+                "attested_at": "yesterday-ish",
+                "mechanism": {"type": "settlement_status"},
+            },
+        }
+        pack = build_oversight_pack([], window_days=30, now=NOW, settlement_attestations=[bad])
+        assert pack["summary"]["settlement_attestations"] == 0
+        assert pack["settlement_attestations_invalid"][0]["invalid_reason"] == (
+            "unparseable attested_at"
+        )
 
     def test_empty_window_all_partial_or_honest(self) -> None:
         pack = build_oversight_pack([], window_days=30, now=NOW)
