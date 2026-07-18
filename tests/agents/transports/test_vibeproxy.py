@@ -158,21 +158,41 @@ def test_client_times_out_slow_streaming_response(monkeypatch: pytest.MonkeyPatc
     assert read_amounts == [vibeproxy.RESPONSE_READ_CHUNK_BYTES] * 2
 
 
-def test_client_rejects_response_without_bounded_read_support(
+def test_client_accepts_response_with_bounded_read_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class UnboundedResponse:
+    read_amounts: list[int] = []
+
+    class ReadOnlyResponse:
         def __enter__(self):
             return self
 
         def __exit__(self, *_args):
             return False
 
-        def read(self, _amount: int) -> bytes:
-            raise AssertionError("unbounded read must not run")
+        def read(self, amount: int) -> bytes:
+            read_amounts.append(amount)
+            return b'{"data": []}' if len(read_amounts) == 1 else b""
 
     client = vibeproxy.VibeProxyClient()
-    monkeypatch.setattr(client._opener, "open", lambda *_args, **_kwargs: UnboundedResponse())
+    monkeypatch.setattr(client._opener, "open", lambda *_args, **_kwargs: ReadOnlyResponse())
+
+    assert client._request("/models", timeout=1.0) == {"data": []}
+    assert read_amounts == [vibeproxy.RESPONSE_READ_CHUNK_BYTES] * 2
+
+
+def test_client_rejects_response_without_bounded_read_support(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class UnsupportedResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    client = vibeproxy.VibeProxyClient()
+    monkeypatch.setattr(client._opener, "open", lambda *_args, **_kwargs: UnsupportedResponse())
 
     with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="bounded reads"):
         client._request("/models", timeout=1.0)

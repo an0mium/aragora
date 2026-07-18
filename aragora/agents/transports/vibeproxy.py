@@ -104,8 +104,10 @@ def _read_response_with_deadline(response: Any, *, deadline: float) -> bytes:
     chunks: list[bytes] = []
     total = 0
     limit = MAX_RESPONSE_BYTES + 1
-    read1 = getattr(response, "read1", None)
-    if not callable(read1):
+    read_chunk = getattr(response, "read1", None)
+    if not callable(read_chunk):
+        read_chunk = getattr(response, "read", None)
+    if not callable(read_chunk):
         raise VibeProxyUnavailableError("VibeProxy response does not support bounded reads")
     while total < limit:
         remaining = deadline - time.monotonic()
@@ -115,7 +117,7 @@ def _read_response_with_deadline(response: Any, *, deadline: float) -> bytes:
         if sock is not None:
             sock.settimeout(max(0.001, remaining))
         amount = min(RESPONSE_READ_CHUNK_BYTES, limit - total)
-        chunk = read1(amount)
+        chunk = read_chunk(amount)
         if time.monotonic() >= deadline:
             raise TimeoutError("VibeProxy response read exceeded timeout")
         if not chunk:
