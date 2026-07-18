@@ -166,6 +166,13 @@ def cmd_lifecycle(args: argparse.Namespace) -> int:
         if any(r.get("ID") in ours for r in existing):
             print(f"{bucket}: guardrail rules already present, skipping")
             continue
+        if not args.bucket and any(rule_covers_noncurrent(r) for r in existing):
+            # Sweep mode never overrides deliberate retention: a bucket with
+            # its own enabled noncurrent-version expiration (any period or
+            # prefix scope) is not leaking. Target it explicitly with
+            # --bucket to append the guardrail anyway.
+            print(f"{bucket}: existing noncurrent-version expiration, skipping (not leaking)")
+            continue
         merged = existing + guardrail_rules(args.noncurrent_days)
         if args.apply:
             s3.put_bucket_lifecycle_configuration(
@@ -180,6 +187,60 @@ def cmd_lifecycle(args: argparse.Namespace) -> int:
     elif not args.apply:
         print("\nDry-run. Re-run with --apply to write.")
     return 0
+
+
+def _reconcile_notifications(
+    budgets,
+    account_id: str,
+    name: str,
+    desired: list[dict[str, Any]],
+    subscribers: list[dict[str, str]],
+) -> int:
+    """Ensure every desired notification + subscriber exists on the budget.
+
+    update_budget alone never touches notifications, so a preexisting budget
+    with missing or stale alerts would otherwise report "updated" while the
+    promised guardrail alerts still do not fire. Returns the number of
+    notifications/subscribers created.
+    """
+    existing = budgets.describe_notifications_for_budget(AccountId=account_id, BudgetName=name).get(
+        "Notifications", []
+    )
+
+    def key(n: dict[str, Any]) -> tuple:
+        return (
+            n.get("NotificationType"),
+            n.get("ComparisonOperator"),
+            float(n.get("Threshold", 0)),
+            n.get("ThresholdType", "PERCENTAGE"),
+        )
+
+    existing_keys = {key(n) for n in existing}
+    created = 0
+    for notification in desired:
+        if key(notification) not in existing_keys:
+            budgets.create_notification(
+                AccountId=account_id,
+                BudgetName=name,
+                Notification=notification,
+                Subscribers=subscribers,
+            )
+            created += 1
+            continue
+        current = budgets.describe_subscribers_for_notification(
+            AccountId=account_id, BudgetName=name, Notification=notification
+        ).get("Subscribers", [])
+        current_addresses = {s.get("Address") for s in current}
+        for subscriber in subscribers:
+            if subscriber["Address"] not in current_addresses:
+                budgets.create_subscriber(
+                    AccountId=account_id,
+                    BudgetName=name,
+                    Notification=notification,
+                    Subscriber=subscriber,
+                )
+                created += 1
+    return created
 
 
 def cmd_budget(args: argparse.Namespace) -> int:
@@ -227,7 +288,11 @@ def cmd_budget(args: argparse.Namespace) -> int:
     try:
         budgets.describe_budget(AccountId=account_id, BudgetName=name)
         budgets.update_budget(AccountId=account_id, NewBudget=budget)
-        print(f"Budget {name} updated (limit ${args.limit}/mo)")
+        created = _reconcile_notifications(budgets, account_id, name, notifications, subscribers)
+        print(
+            f"Budget {name} updated (limit ${args.limit}/mo; "
+            f"{created} missing notification(s)/subscriber(s) reconciled)"
+        )
     except budgets.exceptions.NotFoundException:
         budgets.create_budget(
             AccountId=account_id,
