@@ -9,6 +9,9 @@ Acceptance (work order on #9046):
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 from aragora.core_types import DebateResult, Message
 from aragora.gauntlet.odr_export import decision_receipt_to_odr
 from aragora.gauntlet.receipt_models import DecisionReceipt
@@ -97,13 +100,40 @@ class TestReceiptCruxesField:
         )
         assert receipt.cruxes is None
 
-    def test_integrity_hash_unaffected(self) -> None:
-        """cruxes is additive: it must not enter the artifact hash, so
-        pre-crux verifiers keep verifying."""
+    def test_integrity_hash_binds_cruxes(self) -> None:
+        """Crux cards are audit content: the artifact hash binds them when
+        present (tampering breaks verify_integrity), while pre-crux receipts
+        hash exactly as before so stored hashes keep verifying."""
+        without = DecisionReceipt.from_debate_result(_debate_result())
+        legacy_material = json.dumps(
+            {
+                "receipt_id": without.receipt_id,
+                "gauntlet_id": without.gauntlet_id,
+                "input_hash": without.input_hash,
+                "risk_summary": without.risk_summary,
+                "verdict": without.verdict,
+                "confidence": without.confidence,
+            },
+            sort_keys=True,
+        )
+        assert without.artifact_hash == hashlib.sha256(legacy_material.encode()).hexdigest()
+
         with_cards = DecisionReceipt.from_debate_result(
             _debate_result(metadata={"crux_cards": _sample_cards()})
         )
         assert with_cards.verify_integrity()
+
+    def test_tampered_cruxes_fail_integrity(self) -> None:
+        receipt = DecisionReceipt.from_debate_result(
+            _debate_result(metadata={"crux_cards": _sample_cards()})
+        )
+        restored = DecisionReceipt.from_dict(receipt.to_dict())
+        assert restored.verify_integrity()
+        restored.cruxes["items"][0]["statement"] = "tampered claim"
+        assert not restored.verify_integrity()
+        restored2 = DecisionReceipt.from_dict(receipt.to_dict())
+        restored2.cruxes["items"][0]["contesting_agents"] = []
+        assert not restored2.verify_integrity()
 
 
 class TestOdrExportCruxes:

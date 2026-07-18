@@ -582,18 +582,25 @@ class DecisionReceipt:
             self.artifact_hash = self._calculate_hash()
 
     def _calculate_hash(self) -> str:
-        """Calculate content-addressable hash."""
-        content = json.dumps(
-            {
-                "receipt_id": self.receipt_id,
-                "gauntlet_id": self.gauntlet_id,
-                "input_hash": self.input_hash,
-                "risk_summary": self.risk_summary,
-                "verdict": self.verdict,
-                "confidence": self.confidence,
-            },
-            sort_keys=True,
-        )
+        """Calculate content-addressable hash.
+
+        Versioned hash path: crux cards are audit-bearing content, so they
+        are bound into the integrity material when present — tampering with
+        a stored ``cruxes`` block breaks ``verify_integrity()``. Pre-crux
+        receipts (``cruxes is None``) hash exactly as before, so existing
+        stored hashes keep verifying.
+        """
+        payload: dict[str, Any] = {
+            "receipt_id": self.receipt_id,
+            "gauntlet_id": self.gauntlet_id,
+            "input_hash": self.input_hash,
+            "risk_summary": self.risk_summary,
+            "verdict": self.verdict,
+            "confidence": self.confidence,
+        }
+        if self.cruxes is not None:
+            payload["cruxes"] = self.cruxes
+        content = json.dumps(payload, sort_keys=True)
         return hashlib.sha256(content.encode()).hexdigest()
 
     def verify_integrity(self) -> bool:
