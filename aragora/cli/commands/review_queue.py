@@ -5039,7 +5039,8 @@ def _first_nonempty_line(text: str) -> str:
 
 
 def _matches_prefix(path: str, prefixes: tuple[str, ...]) -> bool:
-    return any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in prefixes)
+    legacy = TIER_2_PREFIXES.__contains__
+    return any(path == p or ((legacy(p) or p[-1:] == "/") and path.startswith(p)) for p in prefixes)
 
 
 def _is_docs_tests_or_status_path(path: str) -> bool:

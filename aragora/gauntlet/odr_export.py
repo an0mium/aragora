@@ -367,7 +367,18 @@ def _map_confidence(
     )
 
 
-def _map_cruxes(crux_set: list[dict[str, Any]] | None) -> dict[str, Any]:
+def _map_cruxes(
+    crux_set: list[dict[str, Any]] | None,
+    receipt: DecisionReceipt | None = None,
+) -> dict[str, Any]:
+    if not crux_set and receipt is not None:
+        # Crux cards (#8227): receipts from enable_crux_cards debates carry
+        # their own cruxes block; an explicit crux_set= still takes precedence.
+        receipt_cruxes = getattr(receipt, "cruxes", None)
+        if isinstance(receipt_cruxes, dict):
+            items = receipt_cruxes.get("items")
+            if items:
+                crux_set = list(items)
     if crux_set:
         return _present({"items": [dict(item) for item in crux_set]})
     return absent(
@@ -419,7 +430,7 @@ def decision_receipt_to_odr(
         "reasoning": _map_reasoning(receipt),
         "quorum": _map_quorum(receipt),
         "confidence": _map_confidence(receipt, calibration_provenance),
-        "cruxes": _map_cruxes(crux_set),
+        "cruxes": _map_cruxes(crux_set, receipt),
         "attestation": _map_attestation(attestation),
         "routing": {"status": "reserved"},
         "signatures": [],
