@@ -53,14 +53,14 @@ def guardrail_rules(noncurrent_days: int) -> list[dict[str, Any]]:
         {
             "ID": GUARDRAIL_RULE_ID,
             "Status": "Enabled",
-            "Filter": {},
+            "Filter": {"Prefix": ""},
             "NoncurrentVersionExpiration": {"NoncurrentDays": noncurrent_days},
             "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 7},
         },
         {
             "ID": DELETE_MARKER_RULE_ID,
             "Status": "Enabled",
-            "Filter": {},
+            "Filter": {"Prefix": ""},
             "Expiration": {"ExpiredObjectDeleteMarker": True},
         },
     ]
@@ -137,6 +137,27 @@ def rule_covers_noncurrent(rule: dict[str, Any]) -> bool:
     )
 
 
+def rule_has_noncurrent(rule: dict[str, Any]) -> bool:
+    """Any enabled noncurrent-version expiration, whole-bucket or scoped."""
+    return rule.get("Status") == "Enabled" and "NoncurrentVersionExpiration" in rule
+
+
+def noncurrent_coverage(rules: list[dict[str, Any]]) -> str:
+    """'full' | 'partial' | 'none' noncurrent-expiration coverage.
+
+    'partial' (scoped rules only) is deliberately excluded from the sweep:
+    appending a whole-bucket expiration next to intentional scoped retention
+    would shorten retention for those prefixes (S3 applies the earliest
+    expiration among overlapping rules). Partial buckets need a human
+    decision — audit lists them; apply explicitly with --bucket.
+    """
+    if any(rule_covers_noncurrent(r) for r in rules):
+        return "full"
+    if any(rule_has_noncurrent(r) for r in rules):
+        return "partial"
+    return "none"
+
+
 def is_versioned(s3, bucket: str) -> bool:
     return s3.get_bucket_versioning(Bucket=bucket).get("Status") == "Enabled"
 
@@ -150,16 +171,16 @@ def cmd_audit(args: argparse.Namespace) -> int:
             region = bucket_region(s3, bucket)
             versioned = is_versioned(s3, bucket)
             rules = get_lifecycle(s3, bucket)
-            covered = any(rule_covers_noncurrent(r) for r in rules)
+            coverage = noncurrent_coverage(rules)
             size = bucket_size_gb(bucket, region)
-            leaking = versioned and not covered
+            leaking = versioned and coverage == "none"
             findings.append(
                 {
                     "bucket": bucket,
                     "region": region,
                     "size_gb": round(size, 2) if size is not None else None,
                     "versioned": versioned,
-                    "noncurrent_expiration": covered,
+                    "noncurrent_coverage": coverage,
                     "leaking": leaking,
                 }
             )
@@ -168,7 +189,15 @@ def cmd_audit(args: argparse.Namespace) -> int:
     findings.sort(key=lambda f: f.get("size_gb") or 0, reverse=True)
     print(
         json.dumps(
-            {"findings": findings, "leaking": [f["bucket"] for f in findings if f.get("leaking")]},
+            {
+                "findings": findings,
+                "leaking": [f["bucket"] for f in findings if f.get("leaking")],
+                "partial_coverage_review_manually": [
+                    f["bucket"]
+                    for f in findings
+                    if f.get("versioned") and f.get("noncurrent_coverage") == "partial"
+                ],
+            },
             indent=2,
         )
     )
@@ -187,12 +216,17 @@ def cmd_lifecycle(args: argparse.Namespace) -> int:
         if any(r.get("ID") in ours for r in existing):
             print(f"{bucket}: guardrail rules already present, skipping")
             continue
-        if not args.bucket and any(rule_covers_noncurrent(r) for r in existing):
-            # Sweep mode never overrides deliberate retention: a bucket with
-            # its own enabled noncurrent-version expiration (any period or
-            # prefix scope) is not leaking. Target it explicitly with
-            # --bucket to append the guardrail anyway.
-            print(f"{bucket}: existing noncurrent-version expiration, skipping (not leaking)")
+        if not args.bucket and any(rule_has_noncurrent(r) for r in existing):
+            # Sweep mode never overrides deliberate retention: any enabled
+            # noncurrent-version expiration — whole-bucket OR prefix/tag
+            # scoped — takes the bucket out of the sweep, because appending a
+            # whole-bucket rule next to scoped retention would shorten
+            # retention for those prefixes (earliest expiration wins among
+            # overlapping rules). Scoped-only buckets show up in
+            # `audit` as partial coverage; apply explicitly with --bucket
+            # after review.
+            coverage = noncurrent_coverage(existing)
+            print(f"{bucket}: existing noncurrent handling (coverage={coverage}), skipping")
             continue
         merged = existing + guardrail_rules(args.noncurrent_days)
         if args.apply:

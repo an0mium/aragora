@@ -103,9 +103,14 @@ variable "enable_deletion_protection" {
 }
 
 variable "noncurrent_version_retention_days" {
-  description = "Days to retain noncurrent (superseded) S3 object versions before expiration"
+  description = "Days to retain noncurrent (superseded) S3 object versions before expiration (min 30: the lifecycle rule transitions noncurrent versions to STANDARD_IA at 30 days, and expiration must not precede transition)"
   type        = number
   default     = 30
+
+  validation {
+    condition     = var.noncurrent_version_retention_days >= 30
+    error_message = "noncurrent_version_retention_days must be >= 30 so expiration never precedes the 30-day noncurrent STANDARD_IA transition."
+  }
 }
 
 variable "monthly_budget_limit" {
