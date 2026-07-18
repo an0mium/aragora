@@ -301,6 +301,7 @@ class TestPackIntegration:
             "attestation": {
                 "disposition": "human_attested",
                 "attestor": {"id": "overseer2"},
+                "execution_identity": {"id": "agent-bot"},
                 "attested_at": "2026-07-10T00:00:00+00:00",
                 "mechanism": {"type": "preapproval_comment"},
             },

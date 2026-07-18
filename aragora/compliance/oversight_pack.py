@@ -219,7 +219,11 @@ def _attestation_invalid_reason(block: Mapping[str, Any]) -> str | None:
     if raw_execution_id is not None and not isinstance(raw_execution_id, str):
         return "execution_identity.id must be a string"
     execution_id = (raw_execution_id or "").strip()
-    if execution_id and execution_id.lower() == attestor_id.lower():
+    if not execution_id:
+        # Without a named executor the attestor≠execution separation check
+        # cannot run — an unverifiable oversight claim never counts.
+        return "missing execution_identity.id (identity separation unverifiable)"
+    if execution_id.lower() == attestor_id.lower():
         return "attestor equals execution identity"
     return None
 
@@ -246,6 +250,15 @@ def _settlement_attestation_invalid_reason(block: Mapping[str, Any]) -> str | No
     )
     if not head_sha:
         return "missing observed.head_sha (settlement must be head-bound)"
+    digest = (
+        str(observed.get("evidence_digest", "") or "").strip()
+        if isinstance(observed, Mapping)
+        else ""
+    )
+    if not digest:
+        # The pack claims a status→receipt evidence binding; a settlement
+        # status that does not embed the receipt digest cannot provide it.
+        return "missing observed.evidence_digest (status-to-receipt binding absent)"
     return None
 
 

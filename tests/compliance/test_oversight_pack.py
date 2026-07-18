@@ -46,6 +46,7 @@ def _odr(receipt_id: str, ts: str, attested: bool) -> dict:
         doc["attestation"] = {
             "disposition": "human_attested",
             "attestor": {"id": "scarmani", "role": "oversight"},
+            "execution_identity": {"id": "an0mium"},
             "attested_at": ts,
             "observed": {"head_sha": "b" * 40, "evidence_digest": "sha256:" + "a" * 64},
             "mechanism": {"type": "settlement_status", "context": "aragora/human-settlement"},
@@ -75,6 +76,7 @@ class TestBuildPack:
         att = {
             "disposition": "human_attested",
             "attestor": {"id": "scarmani"},
+            "execution_identity": {"id": "an0mium"},
             "attested_at": "2026-07-10T01:00:00+00:00",
             "mechanism": {"type": "preapproval_comment"},
         }
@@ -220,7 +222,8 @@ class TestBuildPack:
                     "type": "settlement_status",
                     "ref": "https://api.github.com/repos/o/r/statuses/abc",
                 },
-                "observed": {"head_sha": "b" * 40},
+                "execution_identity": {"id": "agent-bot"},
+                "observed": {"head_sha": "b" * 40, "evidence_digest": "sha256:" + "1" * 64},
             },
         }
         bad = {"pr": 2, "attestation": {"disposition": "human_attested"}}
@@ -251,7 +254,8 @@ class TestBuildPack:
                 "attestor": {"id": "overseer"},
                 "attested_at": "2026-07-10T01:00:00+00:00",
                 "mechanism": {"type": "settlement_status"},
-                "observed": {"head_sha": "e" * 40},
+                "execution_identity": {"id": "agent-bot"},
+                "observed": {"head_sha": "e" * 40, "evidence_digest": "sha256:" + "4" * 64},
             },
         }
         no_head = {
@@ -264,6 +268,8 @@ class TestBuildPack:
                     "type": "settlement_status",
                     "ref": "https://api.github.com/repos/o/r/statuses/y",
                 },
+                "execution_identity": {"id": "agent-bot"},
+                "observed": {"evidence_digest": "sha256:" + "5" * 64},
             },
         }
         pack = build_oversight_pack(
@@ -334,6 +340,43 @@ class TestBuildPack:
         by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
         assert by_clause["14(1)"]["status"] == "partial"
 
+    def test_missing_execution_identity_not_counted(self) -> None:
+        """Round-13 finding: without a named executor the separation check
+        cannot run, so the block never counts as oversight."""
+        doc = _odr("r-noexec", "2026-07-10T00:00:00+00:00", attested=True)
+        del doc["attestation"]["execution_identity"]
+        pack = build_oversight_pack([doc], window_days=30, now=NOW)
+        entry = pack["receipts"][0]
+        assert entry["disposition"] == "invalid_attestation"
+        assert "identity separation unverifiable" in entry["attestation_invalid_reason"]
+        assert pack["summary"]["human_attested"] == 0
+
+    def test_settlement_without_evidence_digest_not_counted(self) -> None:
+        """Round-13 finding: the pack claims status→receipt binding; a
+        settlement without the embedded receipt digest cannot provide it."""
+        no_digest = {
+            "pr": 7,
+            "attestation": {
+                "disposition": "human_attested",
+                "attestor": {"id": "overseer"},
+                "execution_identity": {"id": "agent-bot"},
+                "attested_at": "2026-07-10T01:00:00+00:00",
+                "mechanism": {
+                    "type": "settlement_status",
+                    "ref": "https://api.github.com/repos/o/r/statuses/z",
+                },
+                "observed": {"head_sha": "f" * 40},
+            },
+        }
+        pack = build_oversight_pack(
+            [], window_days=30, now=NOW, settlement_attestations=[no_digest]
+        )
+        assert pack["summary"]["settlement_attestations"] == 0
+        assert (
+            "status-to-receipt binding absent"
+            in (pack["settlement_attestations_invalid"][0]["invalid_reason"])
+        )
+
     def test_odr_verdict_field_normalized(self) -> None:
         """The ODR exporter/schema use claim.verdict (round-3 finding: reading
         claim.decision produced blank verdicts for real ODR inputs); legacy
@@ -362,7 +405,8 @@ class TestBuildPack:
                     "type": "settlement_status",
                     "ref": "https://api.github.com/repos/o/r/statuses/old",
                 },
-                "observed": {"head_sha": "c" * 40},
+                "execution_identity": {"id": "agent-bot"},
+                "observed": {"head_sha": "c" * 40, "evidence_digest": "sha256:" + "2" * 64},
             },
         }
         pack = build_oversight_pack([], window_days=30, now=NOW, settlement_attestations=[stale])
@@ -382,7 +426,8 @@ class TestBuildPack:
                     "type": "settlement_status",
                     "ref": "https://api.github.com/repos/o/r/statuses/x",
                 },
-                "observed": {"head_sha": "d" * 40},
+                "execution_identity": {"id": "agent-bot"},
+                "observed": {"head_sha": "d" * 40, "evidence_digest": "sha256:" + "3" * 64},
             },
         }
         pack = build_oversight_pack([], window_days=30, now=NOW, settlement_attestations=[bad])
