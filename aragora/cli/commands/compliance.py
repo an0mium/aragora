@@ -205,6 +205,54 @@ def add_compliance_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output format (default: all)",
     )
 
+    # -- aragora compliance oversight-pack --
+    oversight_p = sub.add_parser(
+        "oversight-pack",
+        help="Generate an EU AI Act Article 14 human-oversight evidence pack",
+        description=(
+            "Assemble decision receipts and their human-oversight attestations "
+            "over a time window into an audit-ready EU AI Act Article 14 / "
+            "NIST evidence bundle. Dispositions are recorded, never implied: "
+            "receipts without a human attestation are counted as 'autonomous'. "
+            "Clause mapping documentation: docs/compliance/ART14_OVERSIGHT_PACK.md"
+        ),
+    )
+    oversight_p.add_argument(
+        "--window",
+        default="30d",
+        help="Rolling window, e.g. 30d, 12w, 720h, or a plain day count (default: 30d)",
+    )
+    oversight_p.add_argument(
+        "--receipts-dir",
+        dest="receipts_dirs",
+        action="append",
+        default=None,
+        help=(
+            "Directory scanned recursively for receipt JSON files (native "
+            "DecisionReceipt or ODR). Repeatable. Default: docs/receipts plus "
+            "~/.aragora/receipts when present."
+        ),
+    )
+    oversight_p.add_argument(
+        "--attestations",
+        default=None,
+        help=(
+            "JSON file mapping receipt_id -> attestation block (e.g. built "
+            "from settlement statuses via aragora.gauntlet.attestation)"
+        ),
+    )
+    oversight_p.add_argument(
+        "--output",
+        "-o",
+        default="./oversight-pack.json",
+        help="Output path for the JSON pack (default: ./oversight-pack.json)",
+    )
+    oversight_p.add_argument(
+        "--markdown",
+        default=None,
+        help="Optional output path for the Markdown report",
+    )
+
     # -- aragora compliance eu-ai-act generate --
     eu_p = sub.add_parser(
         "eu-ai-act",
@@ -303,6 +351,8 @@ def cmd_compliance(args: argparse.Namespace) -> None:
         cmd_compliance_export(args)
     elif command == "evidence":
         _cmd_evidence(args)
+    elif command == "oversight-pack":
+        _cmd_oversight_pack(args)
     elif command == "eu-ai-act":
         eu_command = getattr(args, "eu_ai_act_command", None)
         if eu_command == "generate":
@@ -331,6 +381,7 @@ def cmd_compliance(args: argparse.Namespace) -> None:
         print("    export     Export structured compliance bundle for a debate")
         print("    evidence   Generate data classification audit evidence bundle")
         print("    eu-ai-act  Generate compliance artifact bundles (Articles 9/12/13/14/15)")
+        print("    oversight-pack  Generate Article 14 human-oversight evidence pack")
         sys.exit(1)
 
 
@@ -568,6 +619,77 @@ def _cmd_evidence(args: argparse.Namespace) -> None:
     if output_format in ("markdown", "all"):
         print("    evidence_bundle.md     Human-readable report")
     print()
+
+
+def _parse_window_days(window: str) -> int:
+    """Parse a window spec like ``30d``, ``12w``, ``720h``, or ``30``."""
+    text = str(window).strip().lower()
+    try:
+        if text.endswith("d"):
+            return max(1, int(text[:-1]))
+        if text.endswith("w"):
+            return max(1, int(text[:-1]) * 7)
+        if text.endswith("h"):
+            return max(1, (int(text[:-1]) + 23) // 24)
+        return max(1, int(text))
+    except ValueError:
+        raise SystemExit(f"invalid --window value: {window!r} (expected e.g. 30d, 12w, 720h)")
+
+
+def _cmd_oversight_pack(args: argparse.Namespace) -> None:
+    """Generate the EU AI Act Article 14 human-oversight evidence pack."""
+    import json as _json
+    from pathlib import Path
+
+    from aragora.compliance.oversight_pack import (
+        build_oversight_pack,
+        load_receipts_from_dirs,
+        render_oversight_pack_markdown,
+    )
+
+    window_days = _parse_window_days(args.window)
+
+    directories = list(args.receipts_dirs or [])
+    if not directories:
+        directories = ["docs/receipts"]
+        default_store = Path.home() / ".aragora" / "receipts"
+        if default_store.is_dir():
+            directories.append(str(default_store))
+
+    attestations = None
+    if getattr(args, "attestations", None):
+        with open(args.attestations, encoding="utf-8") as fh:
+            attestations = _json.load(fh)
+        if not isinstance(attestations, dict):
+            raise SystemExit("--attestations file must be a JSON object of receipt_id -> block")
+
+    receipts = load_receipts_from_dirs(directories)
+    pack = build_oversight_pack(
+        receipts,
+        window_days=window_days,
+        attestations=attestations,
+    )
+
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(_json.dumps(pack, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    if getattr(args, "markdown", None):
+        md_path = Path(args.markdown)
+        md_path.parent.mkdir(parents=True, exist_ok=True)
+        md_path.write_text(render_oversight_pack_markdown(pack), encoding="utf-8")
+
+    summary = pack["summary"]
+    print(f"Oversight pack written: {output}")
+    if getattr(args, "markdown", None):
+        print(f"Markdown report: {args.markdown}")
+    print(
+        f"  window: {window_days}d | receipts: {summary['receipts_in_window']} "
+        f"(human-attested: {summary['human_attested']}, "
+        f"autonomous: {summary['autonomous']})"
+    )
+    print(f"  sources scanned: {', '.join(str(d) for d in directories)}")
+    print(f"  integrity: sha256/jcs {pack['integrity']['content_digest'][:16]}…")
 
 
 def _cmd_audit(args: argparse.Namespace) -> None:

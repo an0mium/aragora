@@ -1,0 +1,215 @@
+"""Article 14 oversight evidence pack (#8230).
+
+Acceptance: the pack cites real receipts (native or ODR) over a window with
+per-receipt dispositions, honest exclusions, computed clause statuses, and a
+tamper-evidence digest; the CLI command produces JSON + Markdown.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+
+from aragora.compliance.oversight_pack import (
+    ARTICLE_14_CLAUSES,
+    build_oversight_pack,
+    load_receipts_from_dirs,
+    render_oversight_pack_markdown,
+)
+
+NOW = datetime(2026, 7, 17, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def _native(receipt_id: str, ts: str, verdict: str = "PASS") -> dict:
+    return {
+        "receipt_id": receipt_id,
+        "timestamp": ts,
+        "verdict": verdict,
+        "confidence": 0.9,
+    }
+
+
+def _odr(receipt_id: str, ts: str, attested: bool) -> dict:
+    doc = {
+        "odr_version": "0.1",
+        "receipt_id": receipt_id,
+        "issued_at": ts,
+        "claim": {"decision": "PASS"},
+        "confidence": {"value": 0.8},
+        "attestation": {"disposition": "autonomous"},
+    }
+    if attested:
+        doc["attestation"] = {
+            "disposition": "human_attested",
+            "attestor": {"id": "scarmani", "role": "oversight"},
+            "attested_at": ts,
+            "observed": {"head_sha": "b" * 40, "evidence_digest": "sha256:" + "a" * 64},
+            "mechanism": {"type": "settlement_status", "context": "aragora/human-settlement"},
+        }
+    return doc
+
+
+class TestBuildPack:
+    def test_windowing_and_dispositions(self) -> None:
+        receipts = [
+            _native("in-window-auto", "2026-07-10T00:00:00+00:00"),
+            _odr("in-window-attested", "2026-07-12T00:00:00+00:00", attested=True),
+            _native("too-old", "2026-05-01T00:00:00+00:00"),
+            _native("no-timestamp", ""),
+        ]
+        pack = build_oversight_pack(receipts, window_days=30, now=NOW)
+        summary = pack["summary"]
+        assert summary["receipts_in_window"] == 2
+        assert summary["human_attested"] == 1
+        assert summary["autonomous"] == 1
+        assert summary["excluded_out_of_window"] == 1
+        assert summary["excluded_no_timestamp"] == 1
+        assert summary["attestor_identities"] == ["scarmani"]
+        assert summary["mechanisms"] == {"settlement_status": 1}
+
+    def test_attestations_map_upgrades_native_receipt(self) -> None:
+        att = {
+            "disposition": "human_attested",
+            "attestor": {"id": "scarmani"},
+            "attested_at": "2026-07-10T01:00:00+00:00",
+            "mechanism": {"type": "preapproval_comment"},
+        }
+        pack = build_oversight_pack(
+            [_native("r1", "2026-07-10T00:00:00+00:00")],
+            window_days=30,
+            now=NOW,
+            attestations={"r1": att},
+        )
+        entry = pack["receipts"][0]
+        assert entry["disposition"] == "human_attested"
+        assert entry["attestor"] == "scarmani"
+        assert entry["mechanism"] == "preapproval_comment"
+
+    def test_clause_statuses_with_attestation(self) -> None:
+        pack = build_oversight_pack(
+            [_odr("r1", "2026-07-10T00:00:00+00:00", attested=True)],
+            window_days=30,
+            now=NOW,
+        )
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert len(by_clause) == len(ARTICLE_14_CLAUSES)
+        assert by_clause["14(1)"]["status"] == "satisfied"
+        assert by_clause["14(4)(d)"]["status"] == "satisfied"
+        # 14(4)(e) is capped at partial by design: receipts alone cannot
+        # evidence interruption capability.
+        assert by_clause["14(4)(e)"]["status"] == "partial"
+
+    def test_clause_statuses_without_attestation_are_honest(self) -> None:
+        pack = build_oversight_pack(
+            [_native("r1", "2026-07-10T00:00:00+00:00")], window_days=30, now=NOW
+        )
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert by_clause["14(1)"]["status"] == "partial"
+        assert by_clause["14(4)(d)"]["status"] == "partial"
+        assert by_clause["14(2)"]["status"] == "satisfied"
+
+    def test_empty_window_all_partial_or_honest(self) -> None:
+        pack = build_oversight_pack([], window_days=30, now=NOW)
+        assert pack["summary"]["receipts_in_window"] == 0
+        assert all(c["status"] == "partial" for c in pack["article_14_mapping"])
+
+    def test_integrity_digest_stable_and_tamper_evident(self) -> None:
+        receipts = [_odr("r1", "2026-07-10T00:00:00+00:00", attested=True)]
+        pack1 = build_oversight_pack(receipts, window_days=30, now=NOW)
+        pack2 = build_oversight_pack(receipts, window_days=30, now=NOW)
+        assert pack1["integrity"]["content_digest"] == pack2["integrity"]["content_digest"]
+        pack3 = build_oversight_pack(
+            [_odr("r1", "2026-07-10T00:00:00+00:00", attested=False)],
+            window_days=30,
+            now=NOW,
+        )
+        assert pack1["integrity"]["content_digest"] != pack3["integrity"]["content_digest"]
+
+    def test_pack_is_json_serializable(self) -> None:
+        pack = build_oversight_pack(
+            [_odr("r1", "2026-07-10T00:00:00+00:00", attested=True)],
+            window_days=30,
+            now=NOW,
+        )
+        json.dumps(pack)
+
+    def test_source_paths_carried(self) -> None:
+        pack = build_oversight_pack(
+            [(_native("r1", "2026-07-10T00:00:00+00:00"), "docs/receipts/r1.json")],
+            window_days=30,
+            now=NOW,
+        )
+        assert pack["receipts"][0]["source"] == "docs/receipts/r1.json"
+
+
+class TestMarkdown:
+    def test_render_contains_clauses_and_receipts(self) -> None:
+        pack = build_oversight_pack(
+            [_odr("receipt-abc", "2026-07-10T00:00:00+00:00", attested=True)],
+            window_days=30,
+            now=NOW,
+        )
+        md = render_oversight_pack_markdown(pack)
+        assert "Article 14" in md
+        assert "14(4)(e)" in md
+        assert "receipt-abc"[:16] in md
+        assert "scarmani" in md
+        assert pack["integrity"]["content_digest"] in md
+
+
+class TestLoader:
+    def test_loads_receipts_and_skips_junk(self, tmp_path: Path) -> None:
+        (tmp_path / "a.json").write_text(
+            json.dumps(_native("r1", "2026-07-10T00:00:00+00:00")), encoding="utf-8"
+        )
+        (tmp_path / "sub").mkdir()
+        (tmp_path / "sub" / "b.json").write_text(
+            json.dumps(_odr("r2", "2026-07-11T00:00:00+00:00", attested=True)),
+            encoding="utf-8",
+        )
+        (tmp_path / "junk.json").write_text("[1,2,3]", encoding="utf-8")
+        (tmp_path / "broken.json").write_text("{not json", encoding="utf-8")
+        loaded = load_receipts_from_dirs([tmp_path, tmp_path / "missing"])
+        ids = sorted(receipt["receipt_id"] for receipt, _ in loaded)
+        assert ids == ["r1", "r2"]
+        assert all(str(tmp_path) in source for _, source in loaded)
+
+
+class TestCli:
+    def test_cli_writes_json_and_markdown(self, tmp_path: Path) -> None:
+        from aragora.cli.commands.compliance import _cmd_oversight_pack
+
+        receipts_dir = tmp_path / "receipts"
+        receipts_dir.mkdir()
+        recent = datetime.now(timezone.utc).isoformat()
+        (receipts_dir / "r1.json").write_text(
+            json.dumps(_odr("r-cli-1", recent, attested=True)), encoding="utf-8"
+        )
+        out_json = tmp_path / "pack.json"
+        out_md = tmp_path / "pack.md"
+        args = argparse.Namespace(
+            window="30d",
+            receipts_dirs=[str(receipts_dir)],
+            attestations=None,
+            output=str(out_json),
+            markdown=str(out_md),
+        )
+        _cmd_oversight_pack(args)
+        pack = json.loads(out_json.read_text(encoding="utf-8"))
+        assert pack["summary"]["receipts_in_window"] == 1
+        assert pack["summary"]["human_attested"] == 1
+        assert "Article 14" in out_md.read_text(encoding="utf-8")
+
+    def test_cli_invalid_window_exits(self, tmp_path: Path) -> None:
+        from aragora.cli.commands.compliance import _parse_window_days
+
+        assert _parse_window_days("30d") == 30
+        assert _parse_window_days("12w") == 84
+        assert _parse_window_days("720h") == 30
+        assert _parse_window_days("45") == 45
+        with pytest.raises(SystemExit):
+            _parse_window_days("soon")
