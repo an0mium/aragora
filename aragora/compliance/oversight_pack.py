@@ -246,24 +246,36 @@ def _receipt_entry(
     return entry
 
 
-def _clause_status(clause: str, human_attested: int, total: int) -> tuple[str, str]:
-    """Honest per-clause status from windowed evidence."""
+def _clause_status(
+    clause: str, human_attested: int, total: int, settlements: int = 0
+) -> tuple[str, str]:
+    """Honest per-clause status from windowed evidence.
+
+    ``settlements`` counts human-settlement attestations fetched from the
+    repository trail (see :mod:`aragora.compliance.oversight_fetch`) — real
+    oversight events with resolvable refs, counted for the identity-dependent
+    clauses alongside receipt-level attestations.
+    """
+    human_evidence = human_attested + settlements
     if clause == "14(4)(e)":
         return (
             "partial",
             "interruption capability is procedural (kill-switches, halt files); "
             "not evidenced per-receipt by this pack",
         )
-    if total == 0:
-        return "partial", "no receipts in window"
     if clause in ("14(1)", "14(3)", "14(4)(d)"):
         # Identity-dependent clauses need at least one real human attestation.
-        if human_attested > 0:
-            return "satisfied", f"{human_attested}/{total} windowed decisions human-attested"
+        if human_evidence > 0:
+            basis = f"{human_attested}/{total} windowed decisions human-attested"
+            if settlements:
+                basis += f"; {settlements} human-settlement attestation(s) from the trail"
+            return "satisfied", basis
         return (
             "partial",
             "oversight mechanism exists but no windowed decision carries a human attestation",
         )
+    if total == 0:
+        return "partial", "no receipts in window"
     return "satisfied", f"evidence present on all {total} windowed receipts"
 
 
@@ -298,6 +310,7 @@ def build_oversight_pack(
     window_days: int = 30,
     now: datetime | None = None,
     attestations: Mapping[str, Mapping[str, Any]] | None = None,
+    settlement_attestations: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build the Article 14 / NIST oversight evidence pack.
 
@@ -309,6 +322,11 @@ def build_oversight_pack(
         attestations: Optional ``receipt_id -> attestation block`` mapping,
             overriding/supplying attestations for native receipts (e.g. built
             with :mod:`aragora.gauntlet.attestation`).
+        settlement_attestations: Optional human-settlement attestation entries
+            from the repository trail (the ``attestations`` list returned by
+            :func:`aragora.compliance.oversight_fetch.fetch_settlement_attestations`)
+            — real oversight events counted alongside receipt-level
+            attestations for the identity-dependent Article 14 clauses.
 
     Returns:
         JSON-serializable pack dict with an integrity digest.
@@ -342,9 +360,22 @@ def build_oversight_pack(
     attestors = sorted({e["attestor"] for e in entries if e.get("attestor")})
     mechanisms = Counter(e["mechanism"] for e in entries if e.get("mechanism"))
 
+    settlements = [dict(s) for s in (settlement_attestations or [])]
+    for settlement in settlements:
+        block = settlement.get("attestation") or {}
+        attestor = (block.get("attestor") or {}).get("id")
+        if attestor and attestor not in attestors:
+            attestors.append(attestor)
+        mech = (block.get("mechanism") or {}).get("type")
+        if mech:
+            mechanisms[mech] += 1
+    attestors.sort()
+
     article_14 = []
     for clause_def in ARTICLE_14_CLAUSES:
-        status, basis = _clause_status(clause_def["clause"], human_attested, len(entries))
+        status, basis = _clause_status(
+            clause_def["clause"], human_attested, len(entries), settlements=len(settlements)
+        )
         article_14.append({**clause_def, "status": status, "status_basis": basis})
 
     pack: dict[str, Any] = {
@@ -371,10 +402,12 @@ def build_oversight_pack(
             },
             "attestor_identities": attestors,
             "mechanisms": dict(mechanisms),
+            "settlement_attestations": len(settlements),
             "excluded_no_timestamp": excluded_no_timestamp,
             "excluded_out_of_window": excluded_out_of_window,
         },
         "receipts": entries,
+        "settlement_attestations": settlements,
         "article_14_mapping": article_14,
         "nist_cross_references": list(NIST_CROSS_REFERENCES),
     }
@@ -431,6 +464,26 @@ def render_oversight_pack_markdown(pack: Mapping[str, Any]) -> str:
     ]
     for ref in pack.get("nist_cross_references", []):
         lines.append(f"| {ref.get('function', '')} | {ref.get('evidence_basis', '')} |")
+    settlements = pack.get("settlement_attestations", [])
+    if settlements:
+        lines += [
+            "",
+            "## Human-settlement attestations (repository trail)",
+            "",
+            "| PR | Attestor | Attested at | Head SHA | Ref |",
+            "|---|---|---|---|---|",
+        ]
+        for settlement in settlements:
+            block = settlement.get("attestation", {})
+            attestor = (block.get("attestor") or {}).get("id", "")
+            observed = block.get("observed") or {}
+            mech = block.get("mechanism") or {}
+            lines.append(
+                f"| #{settlement.get('pr', '')} | {attestor} | "
+                f"{block.get('attested_at', '')} | "
+                f"`{str(observed.get('head_sha', ''))[:12]}` | "
+                f"{mech.get('ref', '')} |"
+            )
     lines += [
         "",
         "## Receipts",

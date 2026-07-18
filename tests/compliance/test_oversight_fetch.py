@@ -1,0 +1,182 @@
+"""Settlement-attestation fetcher (#8230 follow-up).
+
+Walks merged PRs' ``aragora/human-settlement`` statuses into attestation
+blocks. Honesty: self-settled PRs (creator == executing author) are refused
+and reported in ``skipped``; unattested PRs simply don't appear.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+import pytest
+
+from aragora.compliance.oversight_fetch import fetch_settlement_attestations
+from aragora.compliance.oversight_pack import (
+    build_oversight_pack,
+    render_oversight_pack_markdown,
+)
+
+NOW = datetime(2026, 7, 17, 12, 0, 0, tzinfo=timezone.utc)
+HEAD_A = "a" * 40
+HEAD_B = "b" * 40
+HEAD_C = "c" * 40
+
+
+def _gh_fixture(calls: list[list[str]]):
+    """A fake gh runner over a small merged-PR universe."""
+
+    def run(args: list[str]):
+        calls.append(args)
+        if args[:2] == ["repo", "view"]:
+            return {"nameWithOwner": "acme/widgets"}
+        if args[:2] == ["pr", "list"]:
+            return [
+                {  # human-settled by a distinct oversight identity
+                    "number": 101,
+                    "url": "https://github.com/acme/widgets/pull/101",
+                    "mergedAt": "2026-07-16T10:00:00Z",
+                    "headRefOid": HEAD_A,
+                    "author": {"login": "agent-bot"},
+                },
+                {  # self-settled: creator == author → must be skipped
+                    "number": 102,
+                    "url": "https://github.com/acme/widgets/pull/102",
+                    "mergedAt": "2026-07-15T10:00:00Z",
+                    "headRefOid": HEAD_B,
+                    "author": {"login": "overseer"},
+                },
+                {  # no settlement status → autonomous, not listed
+                    "number": 103,
+                    "url": "https://github.com/acme/widgets/pull/103",
+                    "mergedAt": "2026-07-14T10:00:00Z",
+                    "headRefOid": HEAD_C,
+                    "author": {"login": "agent-bot"},
+                },
+                {  # out of window
+                    "number": 90,
+                    "url": "https://github.com/acme/widgets/pull/90",
+                    "mergedAt": "2026-01-01T10:00:00Z",
+                    "headRefOid": "d" * 40,
+                    "author": {"login": "agent-bot"},
+                },
+            ]
+        if args[0] == "api" and HEAD_A in args[1]:
+            return [
+                {
+                    "context": "aragora/human-settlement",
+                    "state": "success",
+                    "creator": {"login": "overseer"},
+                    "created_at": "2026-07-16T11:00:00Z",
+                    "description": "Settlement receipt " + "e" * 64 + " recorded for PR #101",
+                    "url": f"https://api.github.com/repos/acme/widgets/statuses/{HEAD_A}",
+                },
+                {"context": "ci/other", "state": "success"},
+            ]
+        if args[0] == "api" and HEAD_B in args[1]:
+            return [
+                {
+                    "context": "aragora/human-settlement",
+                    "state": "success",
+                    "creator": {"login": "overseer"},
+                    "created_at": "2026-07-15T11:00:00Z",
+                    "description": "settled",
+                    "url": f"https://api.github.com/repos/acme/widgets/statuses/{HEAD_B}",
+                }
+            ]
+        if args[0] == "api" and HEAD_C in args[1]:
+            return [{"context": "ci/other", "state": "success"}]
+        raise AssertionError(f"unexpected gh call: {args}")
+
+    return run
+
+
+class TestFetcher:
+    def test_fetches_attestations_and_skips_self_settled(self) -> None:
+        calls: list[list[str]] = []
+        result = fetch_settlement_attestations(
+            window_days=30, now=NOW, gh_runner=_gh_fixture(calls)
+        )
+        assert result["repo"] == "acme/widgets"
+        assert result["scanned_prs"] == 3  # out-of-window PR not scanned
+        assert len(result["attestations"]) == 1
+        entry = result["attestations"][0]
+        assert entry["pr"] == 101
+        block = entry["attestation"]
+        assert block["disposition"] == "human_attested"
+        assert block["attestor"]["id"] == "overseer"
+        assert block["execution_identity"]["id"] == "agent-bot"
+        assert block["observed"]["head_sha"] == HEAD_A
+        assert block["observed"]["evidence_digest"] == "sha256:" + "e" * 64
+        assert block["mechanism"]["type"] == "settlement_status"
+        # Self-settled PR reported, not silently dropped.
+        assert len(result["skipped"]) == 1
+        assert result["skipped"][0]["pr"] == 102
+        assert "must differ" in result["skipped"][0]["reason"]
+
+    def test_explicit_repo_skips_resolution(self) -> None:
+        calls: list[list[str]] = []
+        fetch_settlement_attestations(
+            repo="acme/widgets", window_days=30, now=NOW, gh_runner=_gh_fixture(calls)
+        )
+        assert ["repo", "view", "--json", "nameWithOwner"] not in calls
+
+    def test_unresolvable_repo_raises(self) -> None:
+        def run(args):
+            return {} if args[:2] == ["repo", "view"] else []
+
+        with pytest.raises(ValueError, match="could not resolve repo"):
+            fetch_settlement_attestations(window_days=30, now=NOW, gh_runner=run)
+
+
+class TestPackIntegration:
+    def _fetched(self) -> list[dict]:
+        calls: list[list[str]] = []
+        return fetch_settlement_attestations(window_days=30, now=NOW, gh_runner=_gh_fixture(calls))[
+            "attestations"
+        ]
+
+    def test_settlements_flow_into_pack(self) -> None:
+        pack = build_oversight_pack(
+            [], window_days=30, now=NOW, settlement_attestations=self._fetched()
+        )
+        assert pack["summary"]["settlement_attestations"] == 1
+        assert "overseer" in pack["summary"]["attestor_identities"]
+        assert pack["summary"]["mechanisms"]["settlement_status"] == 1
+        assert pack["settlement_attestations"][0]["pr"] == 101
+
+    def test_settlements_satisfy_identity_clauses(self) -> None:
+        """Trail settlements are real oversight events: identity-dependent
+        clauses turn satisfied even when scanned receipts are all autonomous."""
+        pack = build_oversight_pack(
+            [
+                {
+                    "receipt_id": "r1",
+                    "timestamp": "2026-07-10T00:00:00+00:00",
+                    "verdict": "PASS",
+                    "confidence": 0.9,
+                }
+            ],
+            window_days=30,
+            now=NOW,
+            settlement_attestations=self._fetched(),
+        )
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert by_clause["14(1)"]["status"] == "satisfied"
+        assert "human-settlement attestation" in by_clause["14(1)"]["status_basis"]
+        assert by_clause["14(4)(e)"]["status"] == "partial"
+
+    def test_without_settlements_behavior_unchanged(self) -> None:
+        pack = build_oversight_pack([], window_days=30, now=NOW)
+        assert pack["summary"]["settlement_attestations"] == 0
+        assert pack["settlement_attestations"] == []
+        assert all(c["status"] == "partial" for c in pack["article_14_mapping"])
+
+    def test_markdown_lists_settlements(self) -> None:
+        pack = build_oversight_pack(
+            [], window_days=30, now=NOW, settlement_attestations=self._fetched()
+        )
+        md = render_oversight_pack_markdown(pack)
+        assert "Human-settlement attestations" in md
+        assert "#101" in md
+        assert "overseer" in md

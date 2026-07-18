@@ -242,6 +242,20 @@ def add_compliance_parser(subparsers: argparse._SubParsersAction) -> None:
         ),
     )
     oversight_p.add_argument(
+        "--fetch-settlements",
+        action="store_true",
+        help=(
+            "Fetch human-settlement attestations from merged PRs' "
+            "aragora/human-settlement commit statuses via the gh CLI and "
+            "include them in the pack (network access required)"
+        ),
+    )
+    oversight_p.add_argument(
+        "--repo",
+        default=None,
+        help="owner/name for --fetch-settlements (default: resolved via gh from cwd)",
+    )
+    oversight_p.add_argument(
         "--output",
         "-o",
         default="./oversight-pack.json",
@@ -663,11 +677,31 @@ def _cmd_oversight_pack(args: argparse.Namespace) -> None:
         if not isinstance(attestations, dict):
             raise SystemExit("--attestations file must be a JSON object of receipt_id -> block")
 
+    settlement_attestations = None
+    settlements_skipped: list[dict] = []
+    if getattr(args, "fetch_settlements", False):
+        from aragora.compliance.oversight_fetch import fetch_settlement_attestations
+
+        fetched = fetch_settlement_attestations(
+            repo=getattr(args, "repo", None), window_days=window_days
+        )
+        settlement_attestations = fetched["attestations"]
+        settlements_skipped = fetched["skipped"]
+        print(
+            f"Fetched settlements from {fetched['repo']}: "
+            f"{len(settlement_attestations)} attested, "
+            f"{len(settlements_skipped)} skipped, "
+            f"{fetched['scanned_prs']} merged PRs scanned"
+        )
+        for skip in settlements_skipped:
+            print(f"  skipped PR #{skip.get('pr')}: {skip.get('reason')}")
+
     receipts = load_receipts_from_dirs(directories)
     pack = build_oversight_pack(
         receipts,
         window_days=window_days,
         attestations=attestations,
+        settlement_attestations=settlement_attestations,
     )
 
     output = Path(args.output)
@@ -686,7 +720,8 @@ def _cmd_oversight_pack(args: argparse.Namespace) -> None:
     print(
         f"  window: {window_days}d | receipts: {summary['receipts_in_window']} "
         f"(human-attested: {summary['human_attested']}, "
-        f"autonomous: {summary['autonomous']})"
+        f"autonomous: {summary['autonomous']}) | "
+        f"settlement attestations: {summary['settlement_attestations']}"
     )
     print(f"  sources scanned: {', '.join(str(d) for d in directories)}")
     print(f"  integrity: sha256/jcs {pack['integrity']['content_digest'][:16]}…")
