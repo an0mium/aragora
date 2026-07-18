@@ -314,6 +314,26 @@ class TestBuildPack:
             assert entry["attestation_invalid_reason"] == reason
             assert pack["summary"]["human_attested"] == 0
 
+    def test_receipt_attestation_timestamp_windowed(self) -> None:
+        """Round-12 finding: receipt-level attestations get the same
+        parse/window discipline as settlement entries."""
+        unparseable = _odr("r-when", "2026-07-10T00:00:00+00:00", attested=True)
+        unparseable["attestation"]["attested_at"] = "yesterday-ish"
+        pack = build_oversight_pack([unparseable], window_days=30, now=NOW)
+        entry = pack["receipts"][0]
+        assert entry["disposition"] == "invalid_attestation"
+        assert entry["attestation_invalid_reason"] == "unparseable attested_at"
+        assert pack["summary"]["human_attested"] == 0
+
+        stale = _odr("r-old", "2026-07-10T00:00:00+00:00", attested=True)
+        stale["attestation"]["attested_at"] = "2026-01-01T00:00:00+00:00"
+        pack = build_oversight_pack([stale], window_days=30, now=NOW)
+        entry = pack["receipts"][0]
+        assert entry["disposition"] == "invalid_attestation"
+        assert entry["attestation_invalid_reason"] == "attested_at outside pack window"
+        by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
+        assert by_clause["14(1)"]["status"] == "partial"
+
     def test_odr_verdict_field_normalized(self) -> None:
         """The ODR exporter/schema use claim.verdict (round-3 finding: reading
         claim.decision produced blank verdicts for real ODR inputs); legacy

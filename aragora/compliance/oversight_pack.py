@@ -253,6 +253,8 @@ def _receipt_entry(
     receipt: Mapping[str, Any],
     attestations: Mapping[str, Mapping[str, Any]],
     source: str | None,
+    cutoff: datetime | None = None,
+    anchor: datetime | None = None,
 ) -> dict[str, Any]:
     """Normalize a native DecisionReceipt dict or an ODR document."""
     is_odr = "odr_version" in receipt
@@ -287,6 +289,16 @@ def _receipt_entry(
         disposition = str(attestation.get("disposition", HUMAN_ATTESTED_DISPOSITION))
         if disposition == HUMAN_ATTESTED_DISPOSITION:
             invalid_reason = _attestation_invalid_reason(attestation)
+            if not invalid_reason:
+                # Same discipline as settlement entries: an attestation whose
+                # timestamp is unparseable or outside the pack window must not
+                # count as in-window human oversight (round-12 finding).
+                parsed_attested = _parse_timestamp(attestation.get("attested_at"))
+                if parsed_attested is None:
+                    invalid_reason = "unparseable attested_at"
+                elif cutoff is not None and anchor is not None:
+                    if parsed_attested < cutoff or parsed_attested > anchor:
+                        invalid_reason = "attested_at outside pack window"
         if invalid_reason:
             # Malformed oversight claims are recorded visibly, never counted
             # as human oversight and never silently dropped.
@@ -513,7 +525,7 @@ def build_oversight_pack(
             receipt, source = item
         else:
             receipt, source = item, None
-        entry = _receipt_entry(receipt, attestation_map, source)
+        entry = _receipt_entry(receipt, attestation_map, source, cutoff=cutoff, anchor=anchor)
         parsed = _parse_timestamp(entry.get("timestamp"))
         if parsed is None:
             excluded_no_timestamp += 1
