@@ -231,6 +231,23 @@ class TestOdrIntegration:
         assert not result.ok
         assert any("mechanism.type" in str(c.detail) for c in result.checks)
 
+    def test_verifier_rejects_self_attested_odr(self) -> None:
+        """Round-10 finding: a hand-crafted ODR with attestor == execution
+        identity must fail verification, not just builder construction."""
+        from aragora.gauntlet.odr_verify import verify_odr_document
+
+        odr = decision_receipt_to_odr(_receipt())
+        odr["attestation"] = {
+            "disposition": "human_attested",
+            "attestor": {"id": "an0mium"},
+            "execution_identity": {"id": "An0mium"},
+            "attested_at": "2026-07-17T12:00:00+00:00",
+            "mechanism": {"type": "settlement_status"},
+        }
+        result = verify_odr_document(odr)
+        assert not result.ok
+        assert any("must differ" in str(c.detail) for c in result.checks)
+
     def test_odr_schema_validates_attested_receipt(self) -> None:
         import json
         from pathlib import Path

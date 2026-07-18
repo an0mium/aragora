@@ -56,3 +56,10 @@ def test_non_string_observed_fields_rejected() -> None:
     odr["attestation"]["observed"] = {"head_sha": 123}
     errors = validate_structure(odr)
     assert any("observed.head_sha: must be a string" in e for e in errors)
+
+
+def test_self_attested_block_rejected() -> None:
+    odr = _attested(valid_odr())
+    odr["attestation"]["execution_identity"] = {"id": "Scarmani"}
+    errors = validate_structure(odr)
+    assert any("must differ" in e for e in errors)

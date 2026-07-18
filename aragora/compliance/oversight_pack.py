@@ -280,7 +280,10 @@ def _receipt_entry(
             # Malformed oversight claims are recorded visibly, never counted
             # as human oversight and never silently dropped.
             disposition = INVALID_ATTESTATION_DISPOSITION
-        else:
+        elif disposition == HUMAN_ATTESTED_DISPOSITION:
+            # Oversight identity/mechanism fields belong only to validated
+            # human attestations — an autonomous block carrying stray
+            # attestor/mechanism data must not leak into the audit summary.
             attestor = attestation.get("attestor") or {}
             attestor_id = str(attestor.get("id", "") or "") or None
             mech = attestation.get("mechanism") or {}

@@ -278,6 +278,23 @@ class TestBuildPack:
         by_clause = {c["clause"]: c for c in pack["article_14_mapping"]}
         assert by_clause["14(1)"]["status"] == "partial"
 
+    def test_autonomous_block_does_not_leak_oversight_fields(self) -> None:
+        """Round-10 finding: attestor/mechanism on a non-human disposition
+        must not enter the entry or the audit summary."""
+        doc = _odr("r-auto", "2026-07-10T00:00:00+00:00", attested=False)
+        doc["attestation"] = {
+            "disposition": "autonomous",
+            "attestor": {"id": "stray-identity"},
+            "mechanism": {"type": "settlement_status"},
+        }
+        pack = build_oversight_pack([doc], window_days=30, now=NOW)
+        entry = pack["receipts"][0]
+        assert entry["disposition"] == "autonomous"
+        assert "attestor" not in entry
+        assert "mechanism" not in entry
+        assert pack["summary"]["attestor_identities"] == []
+        assert pack["summary"]["mechanisms"] == {}
+
     def test_odr_verdict_field_normalized(self) -> None:
         """The ODR exporter/schema use claim.verdict (round-3 finding: reading
         claim.decision produced blank verdicts for real ODR inputs); legacy

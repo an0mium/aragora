@@ -125,6 +125,20 @@ def _check_attestation(errors: list[str], value: Any) -> None:
         for key in ("id", "name", "role"):
             if key in execution_identity and not isinstance(execution_identity.get(key), str):
                 errors.append(f"attestation.execution_identity.{key}: must be a string")
+        attestor_obj = value.get("attestor")
+        attestor_id = attestor_obj.get("id") if isinstance(attestor_obj, dict) else None
+        execution_id = execution_identity.get("id")
+        if (
+            disposition == "human_attested"
+            and isinstance(attestor_id, str)
+            and isinstance(execution_id, str)
+            and attestor_id.strip()
+            and attestor_id.strip().lower() == execution_id.strip().lower()
+        ):
+            errors.append(
+                "attestation: attestor.id must differ from execution_identity.id "
+                "(self-attestation is not oversight)"
+            )
     observed = value.get("observed")
     if "observed" in value and not isinstance(observed, dict):
         errors.append("attestation.observed: must be an object")

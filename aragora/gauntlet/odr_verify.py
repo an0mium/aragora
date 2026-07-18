@@ -453,6 +453,22 @@ def _validate_attestation(errors: list[str], value: Any) -> None:
     elif isinstance(execution_identity, dict):
         for key in ("id", "name", "role"):
             _optional_string(errors, "attestation.execution_identity", execution_identity, key)
+        # Identity separation (TET H2): a human_attested receipt whose
+        # attestor IS the executing identity is self-attestation, refused at
+        # verify time too (beyond JSON Schema expressiveness).
+        attestor_id = attestor.get("id") if isinstance(attestor, dict) else None
+        execution_id = execution_identity.get("id")
+        if (
+            disposition == "human_attested"
+            and isinstance(attestor_id, str)
+            and isinstance(execution_id, str)
+            and attestor_id.strip()
+            and attestor_id.strip().lower() == execution_id.strip().lower()
+        ):
+            errors.append(
+                "attestation: attestor.id must differ from execution_identity.id "
+                "(self-attestation is not oversight)"
+            )
     observed = value.get("observed")
     if "observed" in value and not isinstance(observed, dict):
         errors.append("attestation.observed: must be an object")
