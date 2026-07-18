@@ -31,6 +31,7 @@ def _gh_fixture(calls: list[list[str]]):
         if args[:2] == ["repo", "view"]:
             return {"nameWithOwner": "acme/widgets"}
         if args[:2] == ["pr", "list"]:
+            assert "--search" in args and any(a.startswith("merged:>=") for a in args)
             return [
                 {  # human-settled by a distinct oversight identity
                     "number": 101,
@@ -120,6 +121,33 @@ class TestFetcher:
             repo="acme/widgets", window_days=30, now=NOW, gh_runner=_gh_fixture(calls)
         )
         assert ["repo", "view", "--json", "nameWithOwner"] not in calls
+
+    def test_truncated_scan_reported(self) -> None:
+        """Round-8 finding: filling the scan limit must be reported as
+        truncation, never a silent undercount."""
+
+        def run(args):
+            if args[:2] == ["pr", "list"]:
+                return [
+                    {
+                        "number": 400 + i,
+                        "url": "u",
+                        "mergedAt": "2026-07-16T10:00:00Z",
+                        "headRefOid": str(i) * 40,
+                        "author": {"login": "agent-bot"},
+                    }
+                    for i in range(2)
+                ]
+            return []
+
+        result = fetch_settlement_attestations(
+            repo="acme/widgets", window_days=30, now=NOW, gh_runner=run, limit=2
+        )
+        assert result["truncated"] is True
+        below_limit = fetch_settlement_attestations(
+            repo="acme/widgets", window_days=30, now=NOW, gh_runner=run, limit=5
+        )
+        assert below_limit["truncated"] is False
 
     def test_paginated_status_pages_flattened(self) -> None:
         """Round-6 finding (openai P2): the settlement status must be found

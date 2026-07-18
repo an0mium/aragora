@@ -63,7 +63,7 @@ def fetch_settlement_attestations(
     *,
     repo: str | None = None,
     window_days: int = 30,
-    limit: int = 200,
+    limit: int = 500,
     now: datetime | None = None,
     gh_runner: GhRunner | None = None,
 ) -> dict[str, Any]:
@@ -72,7 +72,9 @@ def fetch_settlement_attestations(
     Args:
         repo: ``owner/name``; resolved from the current directory when omitted.
         window_days: Only settlements attested within this window are kept.
-        limit: Maximum merged PRs to scan (newest first).
+        limit: Maximum in-window merged PRs to scan. When the scan fills
+            this limit the result is flagged ``truncated`` (and a warning is
+            logged) instead of silently undercounting settlements.
         now: Window anchor (defaults to current UTC; injectable for tests).
         gh_runner: ``gh``-invocation override for tests.
 
@@ -91,6 +93,10 @@ def fetch_settlement_attestations(
     if not repo:
         raise ValueError("could not resolve repo; pass repo='owner/name'")
 
+    # Date-bounded search so `limit` only applies to in-window merges; a
+    # fixed recency limit alone silently omits older in-window PRs in
+    # high-churn repos. If the result still fills `limit`, the scan is
+    # truncated and reported as such — never silently.
     prs = (
         run(
             [
@@ -100,6 +106,8 @@ def fetch_settlement_attestations(
                 repo,
                 "--state",
                 "merged",
+                "--search",
+                f"merged:>={cutoff.date().isoformat()}",
                 "--limit",
                 str(limit),
                 "--json",
@@ -108,6 +116,7 @@ def fetch_settlement_attestations(
         )
         or []
     )
+    truncated = len(prs) >= limit
 
     attestations: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
@@ -197,9 +206,16 @@ def fetch_settlement_attestations(
         len(attestations),
         len(skipped),
     )
+    if truncated:
+        logger.warning(
+            "oversight_fetch: merged-PR scan hit limit=%d and may be truncated; "
+            "raise limit= to cover the full window",
+            limit,
+        )
     return {
         "repo": repo,
         "scanned_prs": scanned,
         "attestations": attestations,
         "skipped": skipped,
+        "truncated": truncated,
     }
