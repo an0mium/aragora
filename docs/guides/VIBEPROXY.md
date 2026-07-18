@@ -1,13 +1,15 @@
 # VibeProxy Local Transport
 
-Aragora can prefer a locally running VibeProxy for developer and operator
-model calls. VibeProxy remains a transport: provider family and requested model
-identity do not change, and it does not create an additional review signal.
+Aragora can use a locally running VibeProxy for developer and operator model
+calls when an operator opts in. VibeProxy remains a transport: provider family
+and requested model identity do not change, and it does not create an
+additional review signal.
 
 ## Current Scope
 
 - Supported now: bounded Fable/Claude advisory consults through the Anthropic
-  Messages protocol. Consults prefer VibeProxy unless set to `direct`.
+  Messages protocol. Consults use the direct CLI path unless VibeProxy is
+  explicitly selected.
 - Direct by default: normal agents, CI, production servers, credential checks,
   public gateways, and merge-quorum evidence collection.
 - Deferred until contract-tested: web search, tools, embeddings, image, audio,
@@ -27,8 +29,8 @@ export ARAGORA_VIBEPROXY_BASE_URL=http://127.0.0.1:8318
 
 Modes:
 
-- `direct`: retain existing behavior. This is the project default and the
-  explicit opt-out for advisory consults.
+- `direct`: retain existing behavior. This is the project and advisory-consult
+  default.
 - `vibeproxy-prefer`: try the exact catalog model through VibeProxy, then use
   the existing backend order if the proxy is unavailable.
 - `vibeproxy-required`: fail closed if VibeProxy cannot serve the exact model.
@@ -43,13 +45,16 @@ HTTPS and an explicit key. Credentials are never included in diagnostics.
 Requests ignore ambient HTTP proxy settings and reject redirects so prompts
 and authorization headers cannot escape the resolved endpoint.
 Loopback prevents network exposure but does not authenticate the local server.
-Use `direct` on a shared or untrusted host; broader rollout requires a separate
-server-authentication or endpoint-pinning design.
+Opting in therefore trusts the process bound to the configured endpoint with
+the full consult prompt. Use `direct` on a shared or untrusted host; broader
+rollout requires a separate server-authentication or endpoint-pinning design.
 
 ## Verify
 
 ```bash
-python3 scripts/consult_claude.py --json "Reply with exactly READY"
+python3 scripts/consult_claude.py --json "Reply with exactly DIRECT"
+ARAGORA_MODEL_TRANSPORT=vibeproxy-prefer \
+  python3 scripts/consult_claude.py --json "Reply with exactly PREFER_PROXY"
 ARAGORA_MODEL_TRANSPORT=vibeproxy-required \
   python3 scripts/consult_claude.py --json "Reply with exactly PROXY_ONLY"
 ```

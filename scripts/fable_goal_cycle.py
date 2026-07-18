@@ -55,6 +55,8 @@ SAFE_CONTEXT_SUBDIRS = (
 )
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
+CONSULT_FALLBACK_MODEL = "claude-opus-4-8"
+MODEL_TRANSPORT_MODES = frozenset({"direct", "vibeproxy-prefer", "vibeproxy-required"})
 MAX_ACTIVE_PROCESS_LINES = 40
 ACTIVE_PROCESS_SCRIPT_NAMES = frozenset(
     {
@@ -547,9 +549,18 @@ def run_consult(
     openrouter_fallback: bool = False,
     openrouter_model: str | None = None,
 ) -> dict:
-    transport_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", "vibeproxy-prefer").strip()
-    vibeproxy_attempts = 0 if transport_mode == "direct" else 2
-    enabled_attempts = 2 + vibeproxy_attempts + int(openrouter_fallback)
+    transport_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", "direct").strip()
+    if transport_mode not in MODEL_TRANSPORT_MODES:
+        return {
+            "ok": False,
+            "error": f"invalid ARAGORA_MODEL_TRANSPORT: {transport_mode}",
+        }
+    models = tuple(
+        dict.fromkeys(candidate for candidate in (model, CONSULT_FALLBACK_MODEL) if candidate)
+    )
+    cli_attempts = len(models)
+    vibeproxy_attempts = 0 if transport_mode == "direct" else len(models)
+    enabled_attempts = cli_attempts + vibeproxy_attempts + int(openrouter_fallback)
     overall_timeout = timeout * enabled_attempts
     command = [
         sys.executable,

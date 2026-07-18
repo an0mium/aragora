@@ -264,7 +264,32 @@ def test_unsupported_web_search_uses_direct_in_prefer_mode() -> None:
     route = policy.resolve("openai", "gpt-5.5", capabilities=("chat", "web_search"))
 
     assert route.transport == "direct"
-    assert route.fallback_reason == "unsupported capabilities: web_search"
+    assert route.fallback_reason == "unsupported capabilities: chat, web_search"
+
+
+@pytest.mark.parametrize("provider", ["openai", "grok", "gemini", "kimi"])
+def test_non_anthropic_provider_is_not_advertised(provider: str) -> None:
+    policy = vibeproxy.ModelTransportPolicy(
+        vibeproxy.TransportMode.PREFER,
+        client=_FakeClient({"model"}),  # type: ignore[arg-type]
+    )
+
+    route = policy.resolve(provider, "model")
+
+    assert route.transport == "direct"
+    assert route.fallback_reason == "unsupported capabilities: chat"
+
+
+def test_anthropic_streaming_is_not_advertised() -> None:
+    policy = vibeproxy.ModelTransportPolicy(
+        vibeproxy.TransportMode.PREFER,
+        client=_FakeClient({"claude-fable-5"}),  # type: ignore[arg-type]
+    )
+
+    route = policy.resolve("anthropic", "claude-fable-5", capabilities=("chat", "stream"))
+
+    assert route.transport == "direct"
+    assert route.fallback_reason == "unsupported capabilities: stream"
 
 
 def test_anthropic_message_extracts_only_text(monkeypatch: pytest.MonkeyPatch) -> None:

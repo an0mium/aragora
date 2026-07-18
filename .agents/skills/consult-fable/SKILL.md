@@ -2,7 +2,7 @@
 name: consult-fable
 description: Bounded advisory consult of Claude Fable 5 from inside the aragora repo. Use when you are stuck on prioritization ("what should I work on next?"), need a second opinion on a design or a reviewer deadlock, want a plan sanity-checked, or were asked to "ask Claude / Fable" something. Runs scripts/consult_claude.py with a per-attempt timeout and a derived total timeout, strict empty MCP config for CLI calls, and fail-closed backend attempts. Advice is input, not authority — it cannot approve merges, settle quorum, or override gates.
 license: MIT
-compatibility: Works with Codex (.agents/skills), Claude Code (.claude/skills), and any Agent Skills platform. Requires python3; prefers a healthy local VibeProxy for exact Claude models, falls back to the local `claude` CLI, and uses paid APIs only when explicitly requested.
+compatibility: Works with Codex (.agents/skills), Claude Code (.claude/skills), and any Agent Skills platform. Requires python3; uses the local `claude` CLI by default, supports an explicitly selected local VibeProxy for exact Claude models, and uses paid APIs only when explicitly requested.
 metadata:
   author: Synaptent (aragora)
   version: "1.1.0"
@@ -13,11 +13,12 @@ metadata:
 
 Ask Claude Fable 5 a question and get an answer back through bounded backend
 attempts. This replaces ad-hoc `timeout 120 claude -p "..."` calls, which hang
-or expire with no output. The default backend order is exact-model VibeProxy
-(`claude-fable-5`, then `claude-opus-4-8`) followed by the same two models
-through the local `claude` CLI. CLI attempts pass the prompt via stdin and use
-an empty MCP configuration. `ARAGORA_MODEL_TRANSPORT=direct` skips VibeProxy;
-`vibeproxy-required` fails closed instead of using CLI or paid API fallbacks.
+or expire with no output. The default backend order is `claude-fable-5` then
+`claude-opus-4-8` through the local `claude` CLI. CLI attempts pass the prompt
+via stdin and use an empty MCP configuration. Explicit
+`ARAGORA_MODEL_TRANSPORT=vibeproxy-prefer` tries those exact models through
+VibeProxy before the CLI; `vibeproxy-required` fails closed instead of using
+CLI or paid API fallbacks.
 
 `--timeout` is the maximum for one backend attempt. By default, the total
 consult budget is derived from every enabled attempt, so a full-timeout
@@ -52,8 +53,8 @@ python3 scripts/consult_claude.py --prompt-file /tmp/question.md --json
 ARAGORA_MODEL_TRANSPORT=vibeproxy-required \
   python3 scripts/consult_claude.py --json "Reply with exactly READY"
 
-# Explicitly retain the pre-VibeProxy CLI-first behavior
-ARAGORA_MODEL_TRANSPORT=direct \
+# Prefer the local proxy, then fall back to the default CLI path
+ARAGORA_MODEL_TRANSPORT=vibeproxy-prefer \
   python3 scripts/consult_claude.py --json "Reply with exactly READY"
 
 # Bigger total budget for a hard question

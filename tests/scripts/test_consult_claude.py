@@ -171,6 +171,7 @@ def test_classify_cli_failure_does_not_treat_generic_limit_as_rate_limit() -> No
 
 def test_consult_default_is_cli_only(monkeypatch) -> None:
     cli_models: list[str] = []
+    monkeypatch.delenv("ARAGORA_MODEL_TRANSPORT", raising=False)
 
     def fake_cli(_prompt: str, model: str, _timeout: float) -> dict:
         cli_models.append(model)
@@ -252,7 +253,7 @@ def test_consult_prefer_falls_back_to_cli(monkeypatch) -> None:
     ]
 
 
-def test_consult_prefer_falls_back_after_proxy_configuration_error(monkeypatch) -> None:
+def test_consult_prefer_fails_closed_after_proxy_configuration_error(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-prefer")
     monkeypatch.setattr(
         consult_claude.ModelTransportPolicy,
@@ -264,18 +265,14 @@ def test_consult_prefer_falls_back_after_proxy_configuration_error(monkeypatch) 
     monkeypatch.setattr(
         consult_claude,
         "_run_cli",
-        lambda *_args, **_kwargs: {
-            "ok": True,
-            "backend": "cli",
-            "text": "cli answer",
-            "elapsed_s": 0.1,
-        },
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("CLI should not run")),
     )
 
     result = consult_claude.consult("question")
 
-    assert result["ok"] is True
-    assert [attempt["backend"] for attempt in result["attempts"]] == ["vibeproxy", "cli"]
+    assert result["ok"] is False
+    assert result["usage_error"] is True
+    assert [attempt["backend"] for attempt in result["attempts"]] == ["vibeproxy"]
     assert result["attempts"][0]["error"] == "invalid proxy configuration"
 
 
@@ -297,8 +294,30 @@ def test_consult_required_fails_closed_on_proxy_configuration_error(monkeypatch)
     result = consult_claude.consult("question")
 
     assert result["ok"] is False
+    assert result["usage_error"] is True
     assert [attempt["backend"] for attempt in result["attempts"]] == ["vibeproxy"]
     assert result["error"] == "invalid proxy configuration"
+
+
+def test_consult_rejects_empty_model_with_clean_failure_envelope(monkeypatch) -> None:
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_cli",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("CLI should not run")),
+    )
+
+    result = consult_claude.consult("question", model="", fallback_model="")
+
+    assert result == {
+        "ok": False,
+        "model": "",
+        "timed_out": False,
+        "budget_exhausted": False,
+        "rate_limited": False,
+        "usage_error": True,
+        "attempts": [],
+        "error": "model must be a non-empty string",
+    }
 
 
 def test_consult_required_does_not_fall_back_to_cli(monkeypatch) -> None:
@@ -738,6 +757,43 @@ def test_consult_reports_timeout_only_when_all_attempts_timeout(monkeypatch) -> 
     assert attempt_timeouts == [600, 600]
 
 
+def test_unavailable_proxy_does_not_mask_cli_timeouts(monkeypatch) -> None:
+    policy = SimpleNamespace(mode=consult_claude.TransportMode.PREFER)
+    monkeypatch.setattr(consult_claude.ModelTransportPolicy, "from_env", lambda **_kwargs: policy)
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_vibeproxy",
+        lambda *_args, **_kwargs: {
+            "ok": False,
+            "backend": "vibeproxy",
+            "timed_out": False,
+            "failure_kind": "transport_unavailable",
+            "error": "proxy unavailable",
+        },
+    )
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_cli",
+        lambda _prompt, model, _timeout: {
+            "ok": False,
+            "backend": "cli",
+            "timed_out": True,
+            "error": f"{model} timed out",
+        },
+    )
+
+    result = consult_claude.consult("question")
+
+    assert result["ok"] is False
+    assert result["timed_out"] is True
+    assert [attempt["backend"] for attempt in result["attempts"]] == [
+        "vibeproxy",
+        "vibeproxy",
+        "cli",
+        "cli",
+    ]
+
+
 def test_consult_explicit_api_fallback_has_budget_for_supported_models(monkeypatch) -> None:
     attempt_timeouts: list[float] = []
     monotonic_values = iter([0.0, 0.0, 10.0, 20.0])
@@ -1037,6 +1093,22 @@ def test_main_rejects_non_positive_overall_timeout(capsys) -> None:
 
     assert rc == consult_claude.EXIT_USAGE
     assert "positive finite" in capsys.readouterr().err
+
+
+def test_main_rejects_invalid_transport_as_usage_error(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "required")
+    monkeypatch.setattr(
+        consult_claude,
+        "_run_cli",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("CLI should not run")),
+    )
+
+    rc = consult_claude.main(["--json", "question"])
+
+    assert rc == consult_claude.EXIT_USAGE
+    result = json.loads(capsys.readouterr().out)
+    assert result["usage_error"] is True
+    assert result["error"] == "invalid ARAGORA_MODEL_TRANSPORT: required"
 
 
 def test_consult_rejects_non_positive_timeout_for_programmatic_callers() -> None:

@@ -332,11 +332,7 @@ class ModelTransportPolicy:
     """Resolve an exact logical model onto VibeProxy or the direct path."""
 
     CAPABILITIES: dict[str, frozenset[str]] = {
-        "anthropic": frozenset({"chat", "stream"}),
-        "openai": frozenset({"chat", "stream", "responses"}),
-        "grok": frozenset({"chat", "stream"}),
-        "gemini": frozenset({"chat", "stream"}),
-        "kimi": frozenset({"chat", "stream"}),
+        "anthropic": frozenset({"chat"}),
     }
 
     def __init__(

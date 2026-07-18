@@ -8,9 +8,10 @@ timeouts. The known failure mode this fixes: ad-hoc ``timeout 120 claude -p
 
 Backends, in order:
 
-1. Local VibeProxy — preferred by this advisory helper when the exact Claude
-   model is present in its loopback catalog. Set ``ARAGORA_MODEL_TRANSPORT`` to
-   ``direct`` to opt out or ``vibeproxy-required`` to prohibit fallback.
+1. Local VibeProxy — used only when ``ARAGORA_MODEL_TRANSPORT`` is explicitly
+   set to ``vibeproxy-prefer`` or ``vibeproxy-required``. Loopback alone does
+   not authenticate the process receiving a prompt, so direct mode is the
+   default.
 2. ``claude`` CLI (subscription auth) — routed through the authenticated
    ``claude_profile.sh`` pool when available, with ``--model`` forwarded and a
    hard subprocess timeout.
@@ -417,6 +418,8 @@ def _run_vibeproxy(
             return {
                 "ok": False,
                 "backend": "vibeproxy",
+                "timed_out": False,
+                "failure_kind": "transport_unavailable",
                 "error": route.fallback_reason or "VibeProxy route unavailable",
             }
         text = policy.client.anthropic_message(
@@ -433,11 +436,20 @@ def _run_vibeproxy(
             "timed_out": True,
             "error": str(exc),
         }
-    except (VibeProxyConfigurationError, VibeProxyUnavailableError) as exc:
+    except VibeProxyConfigurationError as exc:
         return {
             "ok": False,
             "backend": "vibeproxy",
             "timed_out": False,
+            "failure_kind": "configuration_error",
+            "error": str(exc),
+        }
+    except VibeProxyUnavailableError as exc:
+        return {
+            "ok": False,
+            "backend": "vibeproxy",
+            "timed_out": False,
+            "failure_kind": "transport_unavailable",
             "error": str(exc),
         }
     return {
@@ -600,6 +612,28 @@ def _default_overall_timeout(
     )
 
 
+def _configuration_failure(model: str, error: str, attempts: list[dict] | None = None) -> dict:
+    return {
+        "ok": False,
+        "model": model,
+        "timed_out": False,
+        "budget_exhausted": False,
+        "rate_limited": False,
+        "usage_error": True,
+        "attempts": list(attempts or []),
+        "error": error,
+    }
+
+
+def _attempts_timed_out(attempts: list[dict]) -> bool:
+    """Ignore unavailable transport preflights when classifying execution timeout."""
+
+    executed = [
+        attempt for attempt in attempts if attempt.get("failure_kind") != "transport_unavailable"
+    ]
+    return bool(executed) and all(bool(attempt.get("timed_out")) for attempt in executed)
+
+
 def consult(
     prompt: str,
     model: str = DEFAULT_MODEL,
@@ -621,27 +655,30 @@ def consult(
     _validate_timeout(timeout, "timeout")
     if overall_timeout is not None:
         _validate_timeout(overall_timeout, "overall_timeout")
+    if not isinstance(model, str) or not model.strip():
+        return _configuration_failure(str(model or ""), "model must be a non-empty string")
+    model = model.strip()
+    if fallback_model is not None:
+        if not isinstance(fallback_model, str):
+            return _configuration_failure(model, "fallback_model must be a string or null")
+        fallback_model = fallback_model.strip() or None
     cli_prompt = _compose_prompt(prompt, system)
     attempts: list[dict] = []
     started = time.monotonic()
     try:
-        vibeproxy_policy = ModelTransportPolicy.from_env(default_mode=TransportMode.PREFER)
+        vibeproxy_policy = ModelTransportPolicy.from_env(default_mode=TransportMode.DIRECT)
     except VibeProxyConfigurationError as exc:
-        attempts.append({"model": model, "ok": False, "backend": "vibeproxy", "error": str(exc)})
-        requested_mode = os.environ.get(
-            "ARAGORA_MODEL_TRANSPORT", TransportMode.PREFER.value
-        ).strip()
-        if requested_mode == TransportMode.REQUIRED.value:
-            return {
-                "ok": False,
+        attempts.append(
+            {
                 "model": model,
+                "ok": False,
+                "backend": "vibeproxy",
                 "timed_out": False,
-                "budget_exhausted": False,
-                "rate_limited": False,
-                "attempts": attempts,
+                "failure_kind": "configuration_error",
                 "error": str(exc),
             }
-        vibeproxy_policy = ModelTransportPolicy(TransportMode.DIRECT)
+        )
+        return _configuration_failure(model, str(exc), attempts)
     vibeproxy_models = list(
         dict.fromkeys(candidate for candidate in (model, fallback_model) if candidate)
     )
@@ -677,8 +714,8 @@ def consult(
         if vibeproxy_policy.mode is TransportMode.REQUIRED:
             return {
                 "ok": False,
-                "model": str(attempts[-1].get("model", model)),
-                "timed_out": all(a.get("timed_out") for a in attempts),
+                "model": str(attempts[-1].get("model", model)) if attempts else model,
+                "timed_out": _attempts_timed_out(attempts),
                 "budget_exhausted": any(a.get("budget_exhausted") for a in attempts),
                 "rate_limited": False,
                 "attempts": attempts,
@@ -727,7 +764,7 @@ def consult(
             attempts.append({"model": openrouter_model, **result})
             if result.get("ok"):
                 return {**result, "model": openrouter_model, "attempts": attempts}
-    timed_out = all(a.get("timed_out") for a in attempts) and bool(attempts)
+    timed_out = _attempts_timed_out(attempts)
     budget_exhausted = any(a.get("budget_exhausted") for a in attempts)
     rate_limited = any(a.get("rate_limited") for a in attempts)
     return {
@@ -912,6 +949,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"consult failed: {result.get('error')}", file=sys.stderr)
     if result.get("ok"):
         return EXIT_OK
+    if result.get("usage_error"):
+        return EXIT_USAGE
     return EXIT_TIMEOUT if result.get("timed_out") else EXIT_ALL_FAILED
 
 
