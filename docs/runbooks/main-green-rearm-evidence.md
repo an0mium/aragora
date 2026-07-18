@@ -183,6 +183,7 @@ CHECK_RUNS_JSON="$(
         status,
         conclusion,
         details_url,
+        created_at,
         started_at,
         completed_at
       }]'
@@ -220,7 +221,12 @@ jq -n \
           context: $requirement.context,
           app_id: $requirement.app_id,
           found: ($matches | length > 0),
-          latest: ($matches | sort_by(.started_at // "") | reverse | .[0] // null)
+          latest: (
+            if any($matches[]; .created_at == null)
+            then null
+            else ($matches | max_by([.created_at, .id]))
+            end
+          )
         }
     ],
     statuses: [
