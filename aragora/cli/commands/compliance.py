@@ -678,6 +678,7 @@ def _cmd_oversight_pack(args: argparse.Namespace) -> None:
             raise SystemExit("--attestations file must be a JSON object of receipt_id -> block")
 
     settlement_attestations = None
+    settlement_fetch_report = None
     settlements_skipped: list[dict] = []
     if getattr(args, "fetch_settlements", False):
         from aragora.compliance.oversight_fetch import fetch_settlement_attestations
@@ -687,6 +688,11 @@ def _cmd_oversight_pack(args: argparse.Namespace) -> None:
         )
         settlement_attestations = fetched["attestations"]
         settlements_skipped = fetched["skipped"]
+        # Persist fetch completeness in the artifact itself: skipped PRs and
+        # truncation are audit caveats, not console noise.
+        settlement_fetch_report = fetched
+        if fetched.get("truncated"):
+            print("WARNING: merged-PR scan truncated; settlements may be undercounted")
         print(
             f"Fetched settlements from {fetched['repo']}: "
             f"{len(settlement_attestations)} attested, "
@@ -702,6 +708,7 @@ def _cmd_oversight_pack(args: argparse.Namespace) -> None:
         window_days=window_days,
         attestations=attestations,
         settlement_attestations=settlement_attestations,
+        settlement_fetch_report=settlement_fetch_report,
     )
 
     output = Path(args.output)

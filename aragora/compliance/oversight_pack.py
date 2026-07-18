@@ -461,6 +461,7 @@ def build_oversight_pack(
     now: datetime | None = None,
     attestations: Mapping[str, Mapping[str, Any]] | None = None,
     settlement_attestations: Sequence[Mapping[str, Any]] | None = None,
+    settlement_fetch_report: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the Article 14 / NIST oversight evidence pack.
 
@@ -472,6 +473,11 @@ def build_oversight_pack(
         attestations: Optional ``receipt_id -> attestation block`` mapping,
             overriding/supplying attestations for native receipts (e.g. built
             with :mod:`aragora.gauntlet.attestation`).
+        settlement_fetch_report: Optional fetch-completeness metadata from
+            :func:`aragora.compliance.oversight_fetch.fetch_settlement_attestations`
+            (repo, scanned_prs, skipped, truncated) — persisted in the pack so
+            the audit artifact itself carries the caveats, not just the CLI
+            output.
         settlement_attestations: Optional human-settlement attestation entries
             from the repository trail (the ``attestations`` list returned by
             :func:`aragora.compliance.oversight_fetch.fetch_settlement_attestations`)
@@ -595,6 +601,16 @@ def build_oversight_pack(
         "receipts": entries,
         "settlement_attestations": settlements,
         "settlement_attestations_invalid": settlements_invalid,
+        "settlement_fetch": (
+            {
+                "repo": settlement_fetch_report.get("repo"),
+                "scanned_prs": settlement_fetch_report.get("scanned_prs"),
+                "skipped": list(settlement_fetch_report.get("skipped") or []),
+                "truncated": bool(settlement_fetch_report.get("truncated")),
+            }
+            if settlement_fetch_report is not None
+            else None
+        ),
         "article_14_mapping": article_14,
         "nist_cross_references": list(NIST_CROSS_REFERENCES),
     }
@@ -651,6 +667,19 @@ def render_oversight_pack_markdown(pack: Mapping[str, Any]) -> str:
     ]
     for ref in pack.get("nist_cross_references", []):
         lines.append(f"| {ref.get('function', '')} | {ref.get('evidence_basis', '')} |")
+    fetch_report = pack.get("settlement_fetch")
+    if isinstance(fetch_report, dict):
+        lines += [
+            "",
+            "## Settlement fetch completeness",
+            "",
+            f"- Repo scanned: {fetch_report.get('repo', '')} "
+            f"({fetch_report.get('scanned_prs', 0)} merged PRs in window)",
+            f"- Truncated scan: **{'YES — settlements may be undercounted' if fetch_report.get('truncated') else 'no'}**",
+            f"- Skipped (unverifiable oversight): {len(fetch_report.get('skipped') or [])}",
+        ]
+        for skip in fetch_report.get("skipped") or []:
+            lines.append(f"  - PR #{skip.get('pr', '')}: {skip.get('reason', '')}")
     settlements = pack.get("settlement_attestations", [])
     if settlements:
         lines += [

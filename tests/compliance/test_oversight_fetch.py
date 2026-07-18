@@ -227,6 +227,29 @@ class TestFetcher:
             fetch_settlement_attestations(window_days=30, now=NOW, gh_runner=run)
 
 
+class TestFetchReportPersistence:
+    def test_fetch_report_persisted_in_pack_and_markdown(self) -> None:
+        """Round-9 finding: skipped/truncated fetch metadata must live in the
+        persisted artifact, not only the console output."""
+        report = {
+            "repo": "acme/widgets",
+            "scanned_prs": 7,
+            "skipped": [{"pr": 102, "reason": "oversight identity must differ"}],
+            "truncated": True,
+        }
+        pack = build_oversight_pack([], window_days=30, now=NOW, settlement_fetch_report=report)
+        assert pack["settlement_fetch"]["truncated"] is True
+        assert pack["settlement_fetch"]["skipped"][0]["pr"] == 102
+        md = render_oversight_pack_markdown(pack)
+        assert "Settlement fetch completeness" in md
+        assert "undercounted" in md
+        assert "#102" in md
+
+    def test_no_report_stays_none(self) -> None:
+        pack = build_oversight_pack([], window_days=30, now=NOW)
+        assert pack["settlement_fetch"] is None
+
+
 class TestPackIntegration:
     def _fetched(self) -> list[dict]:
         calls: list[list[str]] = []
