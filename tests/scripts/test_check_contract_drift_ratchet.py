@@ -1174,10 +1174,10 @@ def _canonical_artifact_paths() -> tuple[Path, Path]:
     elif runtime_settings:
         library = Path(runtime_settings).resolve().parent / "library"
     else:
-        pytest.skip("Factory mission artifacts are unavailable in this environment")
-    cohort = library / "contract-drift-original-cohort-v1.json"
-    provenance = library / "contract-drift-sdk-provenance-v1.json"
-    if not cohort.exists() or not provenance.exists():
+        library = None
+    cohort = library / "contract-drift-original-cohort-v1.json" if library else None
+    provenance = library / "contract-drift-sdk-provenance-v1.json" if library else None
+    if cohort is None or provenance is None or not cohort.exists() or not provenance.exists():
         pytest.skip("canonical Contract Drift mission artifacts are unavailable")
     return cohort, provenance
 
