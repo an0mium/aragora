@@ -424,7 +424,14 @@ class ConsensusPhase:
             if cards:
                 result.metadata[CRUX_CARDS_METADATA_KEY] = cards
                 logger.info("crux_cards_attached count=%d", len(cards["items"]))
-        except Exception as e:  # noqa: BLE001 - enrichment must never break the phase
+        except (
+            RuntimeError,
+            AttributeError,
+            ImportError,
+            TypeError,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.warning("crux_cards_failed: %s", e)
 
     def _emit_guaranteed_events(self, ctx: "DebateContext") -> None:
