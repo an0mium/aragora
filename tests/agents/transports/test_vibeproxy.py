@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import io
 import json
 from types import SimpleNamespace
@@ -138,6 +139,28 @@ def test_client_classifies_url_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with pytest.raises(vibeproxy.VibeProxyTimeoutError):
+        client.catalog(force=True)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        http.client.BadStatusLine("garbage status"),
+        http.client.IncompleteRead(b"partial", 32),
+    ],
+)
+def test_client_classifies_http_protocol_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    error: http.client.HTTPException,
+) -> None:
+    client = vibeproxy.VibeProxyClient()
+    monkeypatch.setattr(
+        client._opener,
+        "open",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(error),
+    )
+
+    with pytest.raises(vibeproxy.VibeProxyUnavailableError, match=type(error).__name__):
         client.catalog(force=True)
 
 
@@ -331,10 +354,11 @@ def test_anthropic_message_extracts_only_text(monkeypatch: pytest.MonkeyPatch) -
         client,
         "_request",
         lambda *_args, **_kwargs: {
+            "model": "claude-fable-5",
             "content": [
                 {"type": "thinking", "thinking": "private"},
                 {"type": "text", "text": "answer"},
-            ]
+            ],
         },
     )
 
@@ -347,10 +371,30 @@ def test_anthropic_message_rejects_truncated_output(monkeypatch: pytest.MonkeyPa
         client,
         "_request",
         lambda *_args, **_kwargs: {
+            "model": "claude-fable-5",
             "stop_reason": "max_tokens",
             "content": [{"type": "text", "text": "partial"}],
         },
     )
 
     with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="truncated"):
+        client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1)
+
+
+@pytest.mark.parametrize("response_model", [None, "claude-opus-4-8"])
+def test_anthropic_message_rejects_response_model_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+    response_model: str | None,
+) -> None:
+    client = vibeproxy.VibeProxyClient()
+    monkeypatch.setattr(
+        client,
+        "_request",
+        lambda *_args, **_kwargs: {
+            "model": response_model,
+            "content": [{"type": "text", "text": "answer"}],
+        },
+    )
+
+    with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="requested model"):
         client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1)

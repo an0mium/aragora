@@ -106,6 +106,9 @@ anti-treadmill rules that apply, and ask Fable to pick exactly one and say why.
 
 - Exit 2 (timeout) or 4 (all backends failed): report the consult as
   unavailable and proceed with your own judgment. Do not retry more than once.
+- Exit 64 is a usage or configuration error. Correct the invalid argument or
+  `ARAGORA_MODEL_TRANSPORT` value before retrying; do not treat it as backend
+  unavailability.
 - In `vibeproxy-prefer`, proxy unavailability is recorded in `attempts` before
   the CLI fallback runs. In `vibeproxy-required`, it is the final failure.
 - If only the API backend fails with a missing-key error, the local `claude`

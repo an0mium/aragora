@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import hashlib
+import http.client
 import ipaddress
 import json
 import math
@@ -242,6 +243,10 @@ class VibeProxyClient:
             if isinstance(exc.reason, TimeoutError):
                 raise VibeProxyTimeoutError("VibeProxy request timed out") from exc
             raise VibeProxyUnavailableError("VibeProxy request failed: URLError") from exc
+        except http.client.HTTPException as exc:
+            raise VibeProxyUnavailableError(
+                f"VibeProxy request failed: {type(exc).__name__}"
+            ) from exc
         except OSError as exc:
             raise VibeProxyUnavailableError(
                 f"VibeProxy request failed: {type(exc).__name__}"
@@ -295,6 +300,10 @@ class VibeProxyClient:
         if system:
             payload["system"] = system
         body = self._request("/messages", timeout=timeout, payload=payload)
+        if body.get("model") != model:
+            raise VibeProxyUnavailableError(
+                "VibeProxy response model did not match the requested model"
+            )
         if body.get("stop_reason") == "max_tokens":
             raise VibeProxyUnavailableError("VibeProxy Claude response was truncated")
         content = body.get("content")

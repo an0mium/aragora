@@ -8,6 +8,9 @@ from pathlib import Path
 
 import pytest
 
+from aragora.agents.transports.vibeproxy import TransportMode
+from scripts import consult_claude
+
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "fable_goal_cycle.py"
 SPEC = importlib.util.spec_from_file_location("fable_goal_cycle_under_test", SCRIPT)
@@ -19,6 +22,11 @@ SPEC.loader.exec_module(fable_goal_cycle)
 @pytest.fixture(autouse=True)
 def _default_direct_transport(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "direct")
+
+
+def test_consult_budget_constants_follow_canonical_transport_definitions() -> None:
+    assert fable_goal_cycle.CONSULT_FALLBACK_MODEL == consult_claude.FALLBACK_MODEL
+    assert fable_goal_cycle.MODEL_TRANSPORT_MODES == frozenset(mode.value for mode in TransportMode)
 
 
 def test_extract_next_prompt_uses_final_section_heading() -> None:

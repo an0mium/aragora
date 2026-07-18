@@ -41,6 +41,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from aragora.agents.transports.vibeproxy import TransportMode  # noqa: E402
+from scripts.consult_claude import FALLBACK_MODEL as CONSULT_FALLBACK_MODEL  # noqa: E402
+
 DEFAULT_TIMEOUT_SECONDS = 900
 CONTEXT_STEP_TIMEOUT_SECONDS = 30
 DIGEST_TIMEOUT_SECONDS = 120
@@ -55,8 +62,7 @@ SAFE_CONTEXT_SUBDIRS = (
 )
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
-CONSULT_FALLBACK_MODEL = "claude-opus-4-8"
-MODEL_TRANSPORT_MODES = frozenset({"direct", "vibeproxy-prefer", "vibeproxy-required"})
+MODEL_TRANSPORT_MODES = frozenset(mode.value for mode in TransportMode)
 MAX_ACTIVE_PROCESS_LINES = 40
 ACTIVE_PROCESS_SCRIPT_NAMES = frozenset(
     {

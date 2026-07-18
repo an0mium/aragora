@@ -262,6 +262,34 @@ def test_run_vibeproxy_marks_executed_failure_as_backend_failed() -> None:
     assert result["failure_kind"] == "backend_failed"
 
 
+def test_run_vibeproxy_sanitizes_unexpected_client_failure() -> None:
+    class BrokenClient:
+        def anthropic_message(self, **_kwargs):
+            raise RuntimeError("sensitive proxy detail")
+
+    class BrokenPolicy:
+        client = BrokenClient()
+
+        def resolve(self, *_args, **_kwargs):
+            return SimpleNamespace(transport="vibeproxy", resolved_model="claude-fable-5")
+
+    result = consult_claude._run_vibeproxy(
+        "question",
+        consult_claude.DEFAULT_MODEL,
+        10,
+        None,
+        BrokenPolicy(),  # type: ignore[arg-type]
+    )
+
+    assert result == {
+        "ok": False,
+        "backend": "vibeproxy",
+        "timed_out": False,
+        "failure_kind": "backend_failed",
+        "error": "VibeProxy attempt failed: RuntimeError",
+    }
+
+
 def test_consult_prefer_falls_back_to_cli(monkeypatch) -> None:
     policy = SimpleNamespace(mode=consult_claude.TransportMode.PREFER)
     monkeypatch.setattr(consult_claude.ModelTransportPolicy, "from_env", lambda **_kwargs: policy)

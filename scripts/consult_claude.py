@@ -452,6 +452,14 @@ def _run_vibeproxy(
             "failure_kind": "backend_failed",
             "error": str(exc),
         }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "backend": "vibeproxy",
+            "timed_out": False,
+            "failure_kind": "backend_failed",
+            "error": f"VibeProxy attempt failed: {type(exc).__name__}",
+        }
     return {
         "ok": True,
         "backend": "vibeproxy",
