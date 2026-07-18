@@ -420,7 +420,17 @@ def _validate_attestation(errors: list[str], value: Any) -> None:
         errors,
         "attestation",
         value,
-        frozenset({"disposition", "attestor", "attested_at", "method"}),
+        frozenset(
+            {
+                "disposition",
+                "attestor",
+                "attested_at",
+                "method",
+                "execution_identity",
+                "observed",
+                "mechanism",
+            }
+        ),
     )
     disposition = value.get("disposition")
     if disposition not in ("human_attested", "autonomous"):
@@ -436,6 +446,27 @@ def _validate_attestation(errors: list[str], value: Any) -> None:
         errors.append("attestation.attestor: required object when disposition is human_attested")
     _optional_string(errors, "attestation", value, "attested_at")
     _optional_string(errors, "attestation", value, "method")
+    # Oversight extension members (ODR-6 / #8230); shapes mirror the schema.
+    execution_identity = value.get("execution_identity")
+    if "execution_identity" in value and not isinstance(execution_identity, dict):
+        errors.append("attestation.execution_identity: must be an object")
+    elif isinstance(execution_identity, dict):
+        for key in ("id", "name", "role"):
+            _optional_string(errors, "attestation.execution_identity", execution_identity, key)
+    observed = value.get("observed")
+    if "observed" in value and not isinstance(observed, dict):
+        errors.append("attestation.observed: must be an object")
+    elif isinstance(observed, dict):
+        for key in ("head_sha", "evidence_digest"):
+            _optional_string(errors, "attestation.observed", observed, key)
+    mechanism = value.get("mechanism")
+    if "mechanism" in value and not isinstance(mechanism, dict):
+        errors.append("attestation.mechanism: must be an object")
+    elif isinstance(mechanism, dict):
+        if not isinstance(mechanism.get("type"), str) or not mechanism.get("type"):
+            errors.append("attestation.mechanism.type: required non-empty string")
+        for key in ("context", "ref"):
+            _optional_string(errors, "attestation.mechanism", mechanism, key)
 
 
 def _validate_routing(errors: list[str], value: Any) -> None:

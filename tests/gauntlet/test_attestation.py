@@ -183,6 +183,38 @@ class TestOdrIntegration:
         odr = decision_receipt_to_odr(_receipt())
         assert odr["attestation"] == {"disposition": "autonomous"}
 
+    def test_hand_rolled_verifier_accepts_attested_receipt(self) -> None:
+        """The dependency-free verifier must accept the oversight members
+        (openai review round 1 on #9417: schema was extended but the
+        odr_verify allowlist was not)."""
+        from aragora.gauntlet.odr_verify import verify_odr_document
+
+        att = build_oversight_attestation(
+            attestor_id="scarmani",
+            attested_at="2026-07-17T12:34:56+00:00",
+            mechanism_type="settlement_status",
+            mechanism_context=HUMAN_SETTLEMENT_CONTEXT,
+            head_sha=HEAD_SHA,
+            evidence_digest=f"sha256:{RECEIPT_SHA}",
+            execution_identity_id="an0mium",
+        )
+        odr = decision_receipt_to_odr(_receipt(), attestation=att.to_dict())
+        result = verify_odr_document(odr)
+        assert result.ok, [c for c in result.checks if c.status == "fail"]
+
+    def test_hand_rolled_verifier_rejects_malformed_mechanism(self) -> None:
+        from aragora.gauntlet.odr_verify import verify_odr_document
+
+        odr = decision_receipt_to_odr(_receipt())
+        odr["attestation"] = {
+            "disposition": "human_attested",
+            "attestor": {"id": "scarmani"},
+            "mechanism": {"context": "missing-type"},
+        }
+        result = verify_odr_document(odr)
+        assert not result.ok
+        assert any("mechanism.type" in str(c.detail) for c in result.checks)
+
     def test_odr_schema_validates_attested_receipt(self) -> None:
         import json
         from pathlib import Path
