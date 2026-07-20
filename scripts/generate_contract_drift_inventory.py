@@ -56,6 +56,13 @@ PYTHON_FLAGS = ("-I", "-S")
 EXACT_REF_POLICY_TIMEOUT_SECONDS = 30
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 EXECUTABLE_SUFFIXES = (".py", ".sh")
+EXECUTABLE_EDGE_KINDS = frozenset(
+    {
+        "literal_shell_helper",
+        "literal_subprocess_helper",
+        "workflow_run_executable",
+    }
+)
 MEASUREMENT_SUBJECT_PREFIXES = (
     "sdk/",
     "openapi/",
@@ -64,17 +71,19 @@ MEASUREMENT_SUBJECT_PREFIXES = (
     "aragora/server/handlers/",
     "aragora/server/openapi/",
 )
-DYNAMIC_MEASUREMENT_IMPORT_ARGUMENTS = frozenset({("scripts/check_sdk_parity.py", "module_path")})
-FUNCTION_BODY_IMPORT_SOURCES = frozenset(
+# Product modules imported by smoke checks are measurement subjects, not
+# authority implementation dependencies. The smoke runner's own load-time
+# imports and reachable subprocess helpers remain part of the closure.
+MEASUREMENT_RUNNER_FUNCTION_IMPORT_SOURCES = frozenset({"scripts/smoke_test.py"})
+DYNAMIC_MEASUREMENT_IMPORT_ARGUMENTS = frozenset(
     {
-        "scripts/check_contract_drift_ratchet.py",
-        "scripts/check_sdk_parity.py",
-        "scripts/generate_contract_drift_inventory.py",
-        "scripts/sdk_path_normalize.py",
-        "scripts/tier4_merge_train.py",
-        "scripts/validate_openapi_routes.py",
-        "scripts/verify_sdk_contracts.py",
+        ("scripts/check_sdk_parity.py", "module_path"),
+        ("scripts/generate_api_docs.py", "module_name"),
+        ("scripts/generate_openapi.py", "module_name"),
     }
+)
+DYNAMIC_EXTERNAL_IMPORT_ARGUMENTS = frozenset(
+    {("scripts/check_test_dependencies.py", "module_name")}
 )
 PYTHON_OPTIONS_WITHOUT_VALUES = frozenset(
     {
@@ -112,6 +121,7 @@ NON_REPOSITORY_COMMAND_ARGUMENT_BINDINGS = {
 }
 DYNAMIC_EXTERNAL_SUBPROCESS_COMMAND_SOURCES = frozenset(
     {
+        "aragora/config/provider_readiness.py",
         "aragora/swarm/quorum_evidence.py",
         "scripts/generate_sdk_types.py",
         "scripts/run_pip_audit_gate.py",
@@ -567,7 +577,7 @@ def _is_type_checking_guard(node: ast.expr) -> bool:
 
 
 def _iter_authority_import_nodes(
-    nodes: Iterable[ast.stmt], *, include_function_bodies: bool
+    nodes: Iterable[ast.stmt], *, executable_function_ids: frozenset[int]
 ) -> Iterator[ast.AST]:
     for node in nodes:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -589,9 +599,9 @@ def _iter_authority_import_nodes(
                 yield node.args.kwarg.annotation
             if node.returns is not None:
                 yield node.returns
-            if include_function_bodies:
+            if id(node) in executable_function_ids:
                 yield from _iter_authority_import_nodes(
-                    node.body, include_function_bodies=include_function_bodies
+                    node.body, executable_function_ids=executable_function_ids
                 )
             continue
         if isinstance(node, ast.ClassDef):
@@ -599,57 +609,94 @@ def _iter_authority_import_nodes(
             yield from node.bases
             yield from (keyword.value for keyword in node.keywords)
             yield from _iter_authority_import_nodes(
-                node.body, include_function_bodies=include_function_bodies
+                node.body, executable_function_ids=executable_function_ids
             )
             continue
         if isinstance(node, ast.If):
             if _is_type_checking_guard(node.test):
                 yield from _iter_authority_import_nodes(
-                    node.orelse, include_function_bodies=include_function_bodies
+                    node.orelse, executable_function_ids=executable_function_ids
                 )
             else:
                 yield from _iter_authority_import_nodes(
-                    node.body, include_function_bodies=include_function_bodies
+                    node.body, executable_function_ids=executable_function_ids
                 )
                 yield from _iter_authority_import_nodes(
-                    node.orelse, include_function_bodies=include_function_bodies
+                    node.orelse, executable_function_ids=executable_function_ids
                 )
             continue
         if isinstance(node, (ast.Try, ast.TryStar)):
             yield from _iter_authority_import_nodes(
-                node.body, include_function_bodies=include_function_bodies
+                node.body, executable_function_ids=executable_function_ids
             )
             for handler in node.handlers:
                 yield from _iter_authority_import_nodes(
-                    handler.body, include_function_bodies=include_function_bodies
+                    handler.body, executable_function_ids=executable_function_ids
                 )
             yield from _iter_authority_import_nodes(
-                node.orelse, include_function_bodies=include_function_bodies
+                node.orelse, executable_function_ids=executable_function_ids
             )
             yield from _iter_authority_import_nodes(
-                node.finalbody, include_function_bodies=include_function_bodies
+                node.finalbody, executable_function_ids=executable_function_ids
             )
             continue
         if isinstance(node, (ast.With, ast.AsyncWith)):
             yield from _iter_authority_import_nodes(
-                node.body, include_function_bodies=include_function_bodies
+                node.body, executable_function_ids=executable_function_ids
             )
             continue
         if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
             yield from _iter_authority_import_nodes(
-                node.body, include_function_bodies=include_function_bodies
+                node.body, executable_function_ids=executable_function_ids
             )
             yield from _iter_authority_import_nodes(
-                node.orelse, include_function_bodies=include_function_bodies
+                node.orelse, executable_function_ids=executable_function_ids
             )
             continue
         if isinstance(node, ast.Match):
             for case in node.cases:
                 yield from _iter_authority_import_nodes(
-                    case.body, include_function_bodies=include_function_bodies
+                    case.body, executable_function_ids=executable_function_ids
                 )
             continue
         yield node
+
+
+def _executable_function_ids(tree: ast.Module) -> frozenset[int]:
+    """Return statically reachable local functions for an executable module."""
+    functions_by_name: dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]] = defaultdict(list)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            functions_by_name[node.name].append(node)
+
+    def referenced_names(nodes: Iterable[ast.stmt]) -> set[str]:
+        names: set[str] = set()
+        for node in _iter_authority_import_nodes(
+            nodes,
+            executable_function_ids=frozenset(),
+        ):
+            names.update(
+                child.id
+                for child in ast.walk(node)
+                if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load)
+            )
+        return names
+
+    pending = deque(sorted(referenced_names(tree.body) & functions_by_name.keys()))
+    reachable: set[int] = set()
+    while pending:
+        name = pending.popleft()
+        for function in functions_by_name[name]:
+            identity = id(function)
+            if identity in reachable:
+                continue
+            reachable.add(identity)
+            for referenced in sorted(referenced_names(function.body) & functions_by_name.keys()):
+                if any(
+                    id(candidate) not in reachable for candidate in functions_by_name[referenced]
+                ):
+                    pending.append(referenced)
+    return frozenset(reachable)
 
 
 def _resolve_module_path(extraction_root: Path, module: str) -> str | None:
@@ -691,7 +738,12 @@ def _absolute_import_module(source_path: str, node: ast.ImportFrom) -> str:
     return ".".join(prefix)
 
 
-def _python_import_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
+def _python_import_edges(
+    extraction_root: Path,
+    source_path: str,
+    *,
+    include_function_bodies: bool = False,
+) -> list[tuple[str, str]]:
     path = extraction_root / source_path
     if path.suffix != ".py":
         return []
@@ -704,9 +756,14 @@ def _python_import_edges(extraction_root: Path, source_path: str) -> list[tuple[
 
     static_bindings = _static_path_bindings(tree)
     modules: set[str] = set()
+    executable_function_ids = (
+        _executable_function_ids(tree)
+        if include_function_bodies and source_path not in MEASUREMENT_RUNNER_FUNCTION_IMPORT_SOURCES
+        else frozenset()
+    )
     for node in _iter_authority_import_nodes(
         tree.body,
-        include_function_bodies=source_path in FUNCTION_BODY_IMPORT_SOURCES,
+        executable_function_ids=executable_function_ids,
     ):
         if isinstance(node, ast.Import):
             modules.update(alias.name for alias in node.names)
@@ -735,9 +792,9 @@ def _python_import_edges(extraction_root: Path, source_path: str) -> list[tuple[
             argument = child.args[0]
             module = _command_token(argument, static_bindings)
             if module is None:
-                if (
-                    isinstance(argument, ast.Name)
-                    and (source_path, argument.id) in DYNAMIC_MEASUREMENT_IMPORT_ARGUMENTS
+                if isinstance(argument, ast.Name) and (
+                    (source_path, argument.id) in DYNAMIC_MEASUREMENT_IMPORT_ARGUMENTS
+                    or (source_path, argument.id) in DYNAMIC_EXTERNAL_IMPORT_ARGUMENTS
                 ):
                     continue
                 raise AuthorityClosureError(
@@ -991,7 +1048,12 @@ def _local_command_binding(
     return literal_binding
 
 
-def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
+def _subprocess_helper_edges(
+    extraction_root: Path,
+    source_path: str,
+    *,
+    include_function_bodies: bool = False,
+) -> list[tuple[str, str]]:
     path = extraction_root / source_path
     if path.suffix != ".py":
         return []
@@ -1008,7 +1070,26 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
     subprocess_calls = {"run", "Popen", "call", "check_call", "check_output"}
     subprocess_module_aliases = {"subprocess"}
     subprocess_function_aliases: set[str] = set()
-    for node in ast.walk(tree):
+    executable_function_ids = (
+        frozenset(
+            id(node)
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        )
+        if include_function_bodies
+        else frozenset()
+    )
+    scanned_nodes: list[ast.AST] = []
+    seen_node_ids: set[int] = set()
+    for root_node in _iter_authority_import_nodes(
+        tree.body,
+        executable_function_ids=executable_function_ids,
+    ):
+        for node in ast.walk(root_node):
+            if id(node) not in seen_node_ids:
+                scanned_nodes.append(node)
+                seen_node_ids.add(id(node))
+    for node in scanned_nodes:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name == "subprocess":
@@ -1017,7 +1098,7 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
             for alias in node.names:
                 if alias.name in subprocess_calls:
                     subprocess_function_aliases.add(alias.asname or alias.name)
-    for node in ast.walk(tree):
+    for node in scanned_nodes:
         if not isinstance(node, ast.Call):
             continue
         is_subprocess_call = (
@@ -1082,6 +1163,8 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
         if isinstance(command, (ast.List, ast.Tuple)) and elements:
             program_index = _subprocess_program_index(elements, static_bindings)
             if program_index is None:
+                if source_path in DYNAMIC_EXTERNAL_SUBPROCESS_COMMAND_SOURCES:
+                    continue
                 raise AuthorityClosureError(
                     f"dynamic subprocess executable is forbidden: {source_path}"
                 )
@@ -1702,19 +1785,36 @@ def build_authority_manifest(
                 incoming[workflow_path].add((root, kind))
 
         queue = deque(sorted(members))
-        scanned: set[str] = set()
+        executable_members = {
+            path for path in (*authority_roots, MERGE_TRAIN_PATH) if Path(path).suffix == ".py"
+        }
+        scanned_with_function_bodies: dict[str, bool] = {}
 
         def scan_pending_members() -> None:
             while queue:
                 source_path = queue.popleft()
-                if source_path in scanned:
+                include_function_bodies = source_path in executable_members
+                prior_scan = scanned_with_function_bodies.get(source_path)
+                if prior_scan is True or prior_scan is include_function_bodies:
                     continue
-                scanned.add(source_path)
+                scanned_with_function_bodies[source_path] = include_function_bodies
                 path = extraction_root / source_path
                 edges: list[tuple[str, str]] = []
                 if path.suffix == ".py":
-                    edges.extend(_python_import_edges(extraction_root, source_path))
-                    edges.extend(_subprocess_helper_edges(extraction_root, source_path))
+                    edges.extend(
+                        _python_import_edges(
+                            extraction_root,
+                            source_path,
+                            include_function_bodies=include_function_bodies,
+                        )
+                    )
+                    edges.extend(
+                        _subprocess_helper_edges(
+                            extraction_root,
+                            source_path,
+                            include_function_bodies=True,
+                        )
+                    )
                 if path.suffix == ".sh":
                     edges.extend(_shell_helper_edges(extraction_root, source_path))
                 if path.suffix in WORKFLOW_SUFFIXES:
@@ -1723,8 +1823,17 @@ def build_authority_manifest(
                     if target == source_path or _is_measurement_subject(target):
                         continue
                     incoming[target].add((source_path, kind))
+                    became_executable = (
+                        Path(target).suffix == ".py"
+                        and kind in EXECUTABLE_EDGE_KINDS
+                        and target not in executable_members
+                    )
+                    if became_executable:
+                        executable_members.add(target)
                     if target not in members:
                         members.add(target)
+                        queue.append(target)
+                    elif became_executable:
                         queue.append(target)
 
         while True:

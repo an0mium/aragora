@@ -306,6 +306,7 @@ def _authority_fixture(
     dynamic_reference: bool = False,
     dynamic_run_reference: str | None = None,
     helper_source: str = "import aragora.helper\n",
+    runtime_helper_source: str = "# runtime policy helper\n",
     missing_policy: bool = False,
     namespace_package: bool = False,
     policy_prelude: str = "",
@@ -327,7 +328,7 @@ def _authority_fixture(
     if not namespace_package:
         _write_text(repo / "aragora/__init__.py", "")
     _write_text(repo / "aragora/helper.py", "# repository helper\n")
-    _write_text(repo / "aragora/runtime_helper.py", "# runtime policy helper\n")
+    _write_text(repo / "aragora/runtime_helper.py", runtime_helper_source)
     _write_text(repo / "aragora/cli/__init__.py", "")
     _write_text(repo / "aragora/cli/commands/__init__.py", "")
     if not missing_policy:
@@ -661,6 +662,35 @@ def test_literal_shell_subprocess_helper_joins_closure(tmp_path: Path):
     )
 
 
+def test_imported_member_function_subprocess_helper_joins_closure(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source="import aragora.runtime_helper\n",
+        runtime_helper_source=(
+            "import subprocess\n"
+            "def run_helper():\n"
+            "    subprocess.run(['python', '-m', 'scripts.pkg'])\n"
+        ),
+    )
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert {
+        "from": "aragora/runtime_helper.py",
+        "kind": "literal_subprocess_helper",
+    } in files["scripts/pkg/__main__.py"]["incoming_edges"]
+
+
+def test_imported_member_dynamic_function_subprocess_fails_closed(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source="import aragora.runtime_helper\n",
+        runtime_helper_source=(
+            "import subprocess\ndef run_helper(command):\n    subprocess.run(command)\n"
+        ),
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic subprocess command"):
+        _manifest(repo, sha)
+
+
 def test_dynamic_shell_subprocess_fails_closed(tmp_path: Path):
     repo, sha = _authority_fixture(
         tmp_path,
@@ -884,7 +914,7 @@ def test_compound_load_time_imports_join_closure(tmp_path: Path, helper_source: 
 @pytest.mark.parametrize(
     "helper_source",
     [
-        "def discover():\n    import aragora.helper\n",
+        "def discover():\n    import aragora.helper\ndiscover()\n",
         "class Discovery:\n    import aragora.helper\n",
         (
             "@__import__('aragora.helper').decorate\n"
@@ -902,7 +932,11 @@ def test_function_and_class_imports_join_closure(tmp_path: Path, helper_source: 
     assert (
         "aragora/helper.py",
         "python_repository_import",
-    ) in gen._python_import_edges(tmp_path, "scripts/check_contract_drift_ratchet.py")
+    ) in gen._python_import_edges(
+        tmp_path,
+        "scripts/check_contract_drift_ratchet.py",
+        include_function_bodies=True,
+    )
 
 
 def test_non_designated_class_body_import_joins_closure(tmp_path: Path):
@@ -915,6 +949,49 @@ def test_non_designated_class_body_import_joins_closure(tmp_path: Path):
         "from": "scripts/helper.py",
         "kind": "python_repository_import",
     } in files["aragora/helper.py"]["incoming_edges"]
+
+
+def test_transitive_executable_function_import_joins_closure(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "def load_runtime():\n"
+            "    import aragora.helper\n"
+            "def main():\n"
+            "    load_runtime()\n"
+            "if __name__ == '__main__':\n"
+            "    main()\n"
+        ),
+    )
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert {
+        "from": "scripts/helper.py",
+        "kind": "python_repository_import",
+    } in files["aragora/helper.py"]["incoming_edges"]
+
+
+def test_measurement_runner_function_imports_are_not_authority_dependencies(tmp_path: Path):
+    _write_text(
+        tmp_path / "scripts/smoke_test.py",
+        (
+            "def check_product():\n"
+            "    import aragora.helper\n"
+            "def main():\n"
+            "    check_product()\n"
+            "if __name__ == '__main__':\n"
+            "    main()\n"
+        ),
+    )
+    _write_text(tmp_path / "aragora/__init__.py", "")
+    _write_text(tmp_path / "aragora/helper.py", "# measured product subject\n")
+    assert (
+        gen._python_import_edges(
+            tmp_path,
+            "scripts/smoke_test.py",
+            include_function_bodies=True,
+        )
+        == []
+    )
 
 
 @pytest.mark.parametrize(
