@@ -226,6 +226,83 @@ class TestFetcher:
         with pytest.raises(ValueError, match="could not resolve repo"):
             fetch_settlement_attestations(window_days=30, now=NOW, gh_runner=run)
 
+    def test_statuses_fetch_failure_skipped_with_reason(self) -> None:
+        """A malformed statuses payload (json.loads ValueError in the real
+        gh path) must skip that PR with the reason — never abort the scan or
+        silently drop the PR."""
+
+        def run(args):
+            if args[:2] == ["pr", "list"]:
+                return [
+                    {
+                        "number": 500,
+                        "url": "u",
+                        "mergedAt": "2026-07-16T10:00:00Z",
+                        "headRefOid": "a" * 40,
+                        "author": {"login": "agent-bot"},
+                    },
+                    {
+                        "number": 501,
+                        "url": "u",
+                        "mergedAt": "2026-07-15T10:00:00Z",
+                        "headRefOid": "b" * 40,
+                        "author": {"login": "agent-bot"},
+                    },
+                ]
+            if "a" * 40 in args[1]:
+                raise ValueError("Expecting value: line 1 column 1 (char 0)")
+            return [
+                {
+                    "context": "aragora/human-settlement",
+                    "state": "success",
+                    "creator": {"login": "overseer"},
+                    "created_at": "2026-07-15T11:00:00Z",
+                    "description": "settled",
+                    "url": "https://api.github.com/repos/acme/widgets/statuses/b",
+                }
+            ]
+
+        result = fetch_settlement_attestations(
+            repo="acme/widgets", window_days=30, now=NOW, gh_runner=run
+        )
+        # The healthy PR is still attested; the broken one is reported.
+        assert [e["pr"] for e in result["attestations"]] == [501]
+        assert result["skipped"][0]["pr"] == 500
+        assert "statuses fetch failed" in result["skipped"][0]["reason"]
+
+    def test_settlement_attested_outside_window_not_counted(self) -> None:
+        """A settlement status attested before the window cutoff (e.g. an old
+        settlement on a recently re-merged head) must not be counted as
+        in-window oversight."""
+
+        def run(args):
+            if args[:2] == ["pr", "list"]:
+                return [
+                    {
+                        "number": 600,
+                        "url": "u",
+                        "mergedAt": "2026-07-16T10:00:00Z",
+                        "headRefOid": "c" * 40,
+                        "author": {"login": "agent-bot"},
+                    }
+                ]
+            return [
+                {
+                    "context": "aragora/human-settlement",
+                    "state": "success",
+                    "creator": {"login": "overseer"},
+                    "created_at": "2026-01-01T11:00:00Z",  # far before cutoff
+                    "description": "settled",
+                    "url": "https://api.github.com/repos/acme/widgets/statuses/c",
+                }
+            ]
+
+        result = fetch_settlement_attestations(
+            repo="acme/widgets", window_days=30, now=NOW, gh_runner=run
+        )
+        assert result["attestations"] == []
+        assert result["scanned_prs"] == 1
+
 
 class TestFetchReportPersistence:
     def test_fetch_report_persisted_in_pack_and_markdown(self) -> None:
