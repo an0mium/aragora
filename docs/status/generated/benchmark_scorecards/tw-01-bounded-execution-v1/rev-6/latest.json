@@ -32,22 +32,18 @@
     "status": "complete"
   },
   "deltas": {
-    "merged_only_rate": 0.3077,
-    "no_rescue_truth_success_rate": 0.3077,
+    "merged_only_rate": 0.0,
+    "no_rescue_truth_success_rate": 0.0,
     "proxy_no_rescue_success_rate": 0.0,
-    "truth_success_rate": 0.3077,
+    "truth_success_rate": 0.0,
     "unique_issues_attempted": 0.0
   },
-  "failure_class_distribution": {
-    "blocked_auth_failure": 5,
-    "blocked_not_dispatch_bounded": 12,
-    "blocked_sanitation_failed": 1
-  },
-  "generated_at": "2026-06-14T03:52:10Z",
+  "failure_class_distribution": {},
+  "generated_at": "2026-07-17T13:58:53Z",
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "previous_artifact": {
-    "generated_at": "2026-06-06T11:42:57Z",
-    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260606T114257Z.json"
+    "generated_at": "2026-07-16T14:01:52Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260716T140152Z.json"
   },
   "proxy_metrics": {
     "corpus": {
@@ -65,33 +61,28 @@
       "missing_issue_numbers": [],
       "status": "complete"
     },
-    "failure_classes": {
-      "blocked_auth_failure": 5,
-      "blocked_not_dispatch_bounded": 12
+    "failure_classes": {},
+    "mean_elapsed_seconds": 0.0,
+    "median_elapsed_seconds": 0.0,
+    "neutral_classes": {
+      "issue_already_resolved": 13
     },
-    "mean_elapsed_seconds": 395.5,
-    "median_elapsed_seconds": 256.5,
-    "neutral_classes": {},
-    "no_rescue_success_rate": 0.923,
+    "no_rescue_success_rate": 0.0,
     "status": "active",
-    "success_classes": {
-      "deliverable_pr_created": 12
-    },
+    "success_classes": {},
     "terminal_class_distribution": {
-      "blocked_auth_failure": 5,
-      "blocked_not_dispatch_bounded": 12,
-      "deliverable_pr_created": 12
+      "issue_already_resolved": 13
     },
-    "tick_success_rate": 0.4,
-    "total_ticks": 30,
+    "tick_success_rate": 0.0,
+    "total_ticks": 13,
     "unique_issues_attempted": 13,
-    "unique_issues_failed": 1,
-    "unique_issues_neutral": 0,
-    "unique_issues_succeeded": 12
+    "unique_issues_failed": 0,
+    "unique_issues_neutral": 13,
+    "unique_issues_succeeded": 0
   },
   "rescue_counts_by_type": {},
-  "truth_artifact_generated_at": "2026-06-14T03:51:53Z",
-  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-6/truth-20260614T035153Z.json",
+  "truth_artifact_generated_at": "2026-07-17T13:58:37Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-6/truth-20260717T135837Z.json",
   "truth_metrics": {
     "merged_only_rate": 1.0,
     "no_rescue_truth_success_rate": 1.0,
