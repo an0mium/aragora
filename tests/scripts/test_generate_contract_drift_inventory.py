@@ -338,7 +338,9 @@ def _authority_fixture(
     dynamic_runs = {
         "leading": '      - run: python "$HELPER_SCRIPT"\n',
         "mid_token": "      - run: python scripts/$HELPER.py\n",
+        "glob": "      - run: python ./*.py\n",
         "module": "      - run: python -m scripts.helper\n",
+        "module_substitution": '      - run: echo "$(python -m scripts.helper)"\n',
     }
     helper_run = dynamic_runs.get(
         dynamic_run_reference, "      - run: python sdk/python/client.py\n"
@@ -552,15 +554,16 @@ def test_unresolved_or_dynamic_local_workflow_reference_fails_closed(tmp_path: P
         _manifest(repo, sha)
 
 
-@pytest.mark.parametrize("variant", ["leading", "mid_token"])
+@pytest.mark.parametrize("variant", ["leading", "mid_token", "glob"])
 def test_dynamic_local_run_reference_fails_closed(tmp_path: Path, variant: str):
     repo, sha = _authority_fixture(tmp_path, dynamic_run_reference=variant)
     with pytest.raises(gen.AuthorityClosureError, match="dynamic local run target"):
         _manifest(repo, sha)
 
 
-def test_repository_python_module_run_target_joins_closure(tmp_path: Path):
-    repo, sha = _authority_fixture(tmp_path, dynamic_run_reference="module")
+@pytest.mark.parametrize("variant", ["module", "module_substitution"])
+def test_repository_python_module_run_target_joins_closure(tmp_path: Path, variant: str):
+    repo, sha = _authority_fixture(tmp_path, dynamic_run_reference=variant)
     files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
     assert any(
         edge
@@ -598,6 +601,60 @@ def test_dynamic_shell_subprocess_fails_closed(tmp_path: Path):
         ),
     )
     with pytest.raises(gen.AuthorityClosureError, match="dynamic shell subprocess"):
+        _manifest(repo, sha)
+
+
+def test_dynamic_subprocess_keyword_splat_fails_closed(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "import subprocess\n"
+            "options = {'shell': True}\n"
+            "subprocess.run('python scripts/transitive.py', **options)\n"
+        ),
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic subprocess keyword"):
+        _manifest(repo, sha)
+
+
+@pytest.mark.parametrize(
+    "loader",
+    [
+        "from importlib import import_module\nimport_module('aragora.helper')\n",
+        "import runpy\nrunpy.run_module('aragora.helper')\n",
+        "__import__('aragora.helper')\n",
+    ],
+)
+def test_static_dynamic_import_apis_join_closure(tmp_path: Path, loader: str):
+    repo, sha = _authority_fixture(tmp_path, helper_source=loader)
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert any(
+        edge["kind"] == "python_load_time_import"
+        for edge in files["aragora/helper.py"]["incoming_edges"]
+    )
+
+
+def test_dynamic_aliased_import_api_fails_closed(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "from importlib import import_module\n"
+            "module_name = 'aragora.helper'\n"
+            "import_module(module_name)\n"
+        ),
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic load-time import"):
+        _manifest(repo, sha)
+
+
+def test_missing_shell_subprocess_helper_has_closure_error(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "import subprocess\nsubprocess.run('python scripts/missing.py', shell=True)\n"
+        ),
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="literal shell helper is unavailable"):
         _manifest(repo, sha)
 
 
