@@ -5548,9 +5548,9 @@ class TestBuildQueueAndPacket:
         ]
         assert quorum["status"] == "needs_model_review_quorum"
         assert quorum["verdict"] == "collect_model_quorum_before_merge"
-        # Tier 2 under the tiered gate needs one western-frontier signal; with zero
-        # model signals present the incomplete message reads 0/1.
-        assert "model quorum incomplete: 0/1 signal(s)" in quorum["reasons"]
+        # audit_test_skips.py is part of the Tier-4 contract-drift authority closure,
+        # so the incomplete message requires two independent model-family signals.
+        assert "model quorum incomplete: 0/2 signal(s)" in quorum["reasons"]
         assert "checks are failing; repair before settlement" not in quorum["reasons"]
 
     def test_required_pr_checks_gate_keeps_non_self_required_failure_blocking(
