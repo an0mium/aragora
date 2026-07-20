@@ -2,28 +2,28 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-20 17:12 America/Chicago
-- **Current phase:** Staging
+- **Last updated:** 2026-07-20 17:16 America/Chicago
+- **Current phase:** In progress
 - **Active batch:** Batch 1: Inventory and enforcement
 - **Last completed batch:** none
 - **Next exact batch:** Batch 1: Inventory and enforcement
-- **Active PR:** not created yet
+- **Active PR:** #9439
 - **Docs promoted this run:** none
 - **Latest Elves Report:** not generated yet
 
 ## Session Setup: 2026-07-20 17:06 America/Chicago
 
-**Phase:** Staging in progress
+**Phase:** Launch started
 **Plan:** `docs/plans/2026-07-20-vibeproxy-inference-allowlist.md`
 **Survival guide:** `docs/elves/vibeproxy-inference-allowlist-9409/survival-guide.md`
 **Learnings:** `docs/elves/vibeproxy-inference-allowlist-9409/learnings.md`
 **Execution log:** `docs/elves/vibeproxy-inference-allowlist-9409/execution-log.md`
 **Branch:** `codex/vibeproxy-inference-allowlist-9409`
-**PR:** not created yet
+**PR:** #9439
 **Run mode:** finite | **Hard stop:** 2026-07-20 20:15 America/Chicago
 **Checkpoint semantics:** hard stop | **Actual stop conditions:** final readiness, true blocker, or hard deadline
 **Active compute at launch:** none
-**Continuation guard:** stop_allowed=no | remaining_batches=1 | checkpoint_is_stop=yes | next_required_action=Open draft PR and begin Batch 1 after preflight
+**Continuation guard:** stop_allowed=no | remaining_batches=1 | checkpoint_is_stop=yes | next_required_action=Implement Batch 1, validate, and review
 
 **Approved order:**
 
@@ -45,9 +45,10 @@
 - Git remote / `gh` auth: PASS
 - Dedicated worktree / collision tripwire: PASS
 - Mailbox / owner / overlap checks: PASS
-- Validation gate dry run: pending
+- Validation gate dry run: PASS; 97 tests passed across the existing VibeProxy transport, sanitized diagnostic, and AI-audit surfaces.
 - Elves install doctor: WARN, optional v2.10.3 update available; installed v1.12.0 retained for this run.
-- Launch readiness: pending draft PR and validation dry run.
+- Automation preflight: PASS against `origin/main...HEAD`.
+- Launch readiness: READY; the user's latest message is the fresh execution approval.
 
 ## Batch 1 Contract: 2026-07-20 17:12 America/Chicago
 

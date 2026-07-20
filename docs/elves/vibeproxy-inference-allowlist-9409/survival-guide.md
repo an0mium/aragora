@@ -34,7 +34,7 @@ Complete the issue #9409 inference-site inventory/static-allowlist prerequisite 
 - **Planned batches remaining:** 1
 - **Stop allowed right now:** no
 - **Why:** the approved inventory/static-allowlist batch is not implemented or reviewed.
-- **Next required action:** finish staging, open the draft PR, then implement Batch 1.
+- **Next required action:** implement Batch 1 from its contract, then validate and review it.
 
 ## Non-Negotiables
 
@@ -53,21 +53,21 @@ Complete the issue #9409 inference-site inventory/static-allowlist prerequisite 
 - [x] Execution log initialized
 - [x] Dedicated branch and worktree created
 - [x] Branch/worktree ownership and lease claimed
-- [ ] Draft PR opened
-- [ ] Preflight validation dry run completed
+- [x] Draft PR #9439 opened
+- [x] Preflight validation dry run completed
 - [x] Run mode, deadline, and non-negotiables recorded
 - [x] Stop Gate initialized to no
 - [x] Launch instruction approved by the user's latest message
 
 ## Current Phase
 
-**Status:** Staging
+**Status:** In progress
 
 **Active batch:** Batch 1: Inventory and enforcement
 
-**What was just finished:** The merged #9431 diagnostic lane was retired and a collision-free exact-main worktree was claimed.
+**What was just finished:** Staging passed: PR #9439 is open, automation preflight is green, and the 97-test baseline passed.
 
-**Single next action:** Commit/push session setup, open the draft PR, and run preflight before implementation.
+**Single next action:** Complete the pre-implementation survey and implement the deterministic inventory checker, manifest, tests, and docs.
 
 ## Active Compute
 
