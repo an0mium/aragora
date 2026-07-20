@@ -60,8 +60,45 @@ MEASUREMENT_SUBJECT_PREFIXES = (
     "sdk/",
     "openapi/",
     "docs/api/openapi",
+    "aragora/server/handler_registry",
     "aragora/server/handlers/",
+    "aragora/server/openapi/",
 )
+DYNAMIC_MEASUREMENT_IMPORT_ARGUMENTS = frozenset({("scripts/check_sdk_parity.py", "module_path")})
+FUNCTION_BODY_IMPORT_SOURCES = frozenset(
+    {
+        "scripts/check_contract_drift_ratchet.py",
+        "scripts/check_sdk_parity.py",
+        "scripts/generate_contract_drift_inventory.py",
+        "scripts/sdk_path_normalize.py",
+        "scripts/tier4_merge_train.py",
+        "scripts/validate_openapi_routes.py",
+        "scripts/verify_sdk_contracts.py",
+    }
+)
+PYTHON_OPTIONS_WITHOUT_VALUES = frozenset(
+    {
+        "-B",
+        "-E",
+        "-I",
+        "-O",
+        "-OO",
+        "-P",
+        "-R",
+        "-S",
+        "-V",
+        "-b",
+        "-bb",
+        "-d",
+        "-i",
+        "-q",
+        "-s",
+        "-u",
+        "-v",
+        "-x",
+    }
+)
+PYTHON_OPTIONS_WITH_VALUES = frozenset({"-W", "-X"})
 REPOSITORY_MODULE_PREFIXES = ("aragora", "scripts")
 LOCAL_REFERENCE_PREFIXES = (
     "./.github/",
@@ -238,11 +275,39 @@ def audit(event, args):
     if event.startswith(("socket.", "http.client.", "urllib.Request")):
         raise RuntimeError(f"forbidden network action: {event}")
     if event in {
+        "os.chmod",
+        "os.chown",
+        "os.fchmod",
+        "os.fchown",
+        "os.ftruncate",
+        "os.lchmod",
+        "os.lchown",
+        "os.link",
+        "os.lremovexattr",
+        "os.lsetxattr",
+        "os.mkfifo",
+        "os.mkdir",
+        "os.makedirs",
+        "os.mknod",
         "os.remove",
+        "os.removedirs",
+        "os.removexattr",
         "os.rename",
+        "os.renames",
         "os.replace",
         "os.rmdir",
+        "os.symlink",
+        "os.setxattr",
+        "os.truncate",
         "os.unlink",
+        "os.utime",
+        "shutil.chown",
+        "shutil.copy",
+        "shutil.copy2",
+        "shutil.copyfile",
+        "shutil.copymode",
+        "shutil.copystat",
+        "shutil.move",
         "shutil.rmtree",
     }:
         raise RuntimeError(f"forbidden filesystem mutation: {event}")
@@ -446,34 +511,62 @@ def _is_type_checking_guard(node: ast.expr) -> bool:
     )
 
 
-def _iter_load_time_nodes(nodes: Iterable[ast.stmt]) -> Iterator[ast.stmt]:
+def _iter_authority_import_nodes(
+    nodes: Iterable[ast.stmt], *, include_function_bodies: bool
+) -> Iterator[ast.stmt]:
     for node in nodes:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if include_function_bodies:
+                yield from _iter_authority_import_nodes(
+                    node.body, include_function_bodies=include_function_bodies
+                )
             continue
         if isinstance(node, ast.If):
             if _is_type_checking_guard(node.test):
-                yield from _iter_load_time_nodes(node.orelse)
+                yield from _iter_authority_import_nodes(
+                    node.orelse, include_function_bodies=include_function_bodies
+                )
             else:
-                yield from _iter_load_time_nodes(node.body)
-                yield from _iter_load_time_nodes(node.orelse)
+                yield from _iter_authority_import_nodes(
+                    node.body, include_function_bodies=include_function_bodies
+                )
+                yield from _iter_authority_import_nodes(
+                    node.orelse, include_function_bodies=include_function_bodies
+                )
             continue
         if isinstance(node, (ast.Try, ast.TryStar)):
-            yield from _iter_load_time_nodes(node.body)
+            yield from _iter_authority_import_nodes(
+                node.body, include_function_bodies=include_function_bodies
+            )
             for handler in node.handlers:
-                yield from _iter_load_time_nodes(handler.body)
-            yield from _iter_load_time_nodes(node.orelse)
-            yield from _iter_load_time_nodes(node.finalbody)
+                yield from _iter_authority_import_nodes(
+                    handler.body, include_function_bodies=include_function_bodies
+                )
+            yield from _iter_authority_import_nodes(
+                node.orelse, include_function_bodies=include_function_bodies
+            )
+            yield from _iter_authority_import_nodes(
+                node.finalbody, include_function_bodies=include_function_bodies
+            )
             continue
         if isinstance(node, (ast.With, ast.AsyncWith)):
-            yield from _iter_load_time_nodes(node.body)
+            yield from _iter_authority_import_nodes(
+                node.body, include_function_bodies=include_function_bodies
+            )
             continue
         if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
-            yield from _iter_load_time_nodes(node.body)
-            yield from _iter_load_time_nodes(node.orelse)
+            yield from _iter_authority_import_nodes(
+                node.body, include_function_bodies=include_function_bodies
+            )
+            yield from _iter_authority_import_nodes(
+                node.orelse, include_function_bodies=include_function_bodies
+            )
             continue
         if isinstance(node, ast.Match):
             for case in node.cases:
-                yield from _iter_load_time_nodes(case.body)
+                yield from _iter_authority_import_nodes(
+                    case.body, include_function_bodies=include_function_bodies
+                )
             continue
         yield node
 
@@ -484,14 +577,13 @@ def _resolve_module_path(extraction_root: Path, module: str) -> str | None:
     module_path = Path(*module.split("."))
     file_candidate = extraction_root / module_path.with_suffix(".py")
     package_candidate = extraction_root / module_path / "__init__.py"
-    candidates = [
-        candidate.relative_to(extraction_root).as_posix()
-        for candidate in (file_candidate, package_candidate)
-        if candidate.is_file()
-    ]
-    if len(candidates) > 1:
-        raise AuthorityClosureError(f"ambiguous repository module resolution: {module}")
-    return candidates[0] if candidates else None
+    # Python's FileFinder resolves a package directory before a same-name
+    # module file. Mirror that canonical order rather than blending both trees.
+    if package_candidate.is_file():
+        return package_candidate.relative_to(extraction_root).as_posix()
+    if file_candidate.is_file():
+        return file_candidate.relative_to(extraction_root).as_posix()
+    return None
 
 
 def _required_parent_packages(extraction_root: Path, module: str) -> list[str]:
@@ -518,7 +610,7 @@ def _absolute_import_module(source_path: str, node: ast.ImportFrom) -> str:
     return ".".join(prefix)
 
 
-def _load_time_import_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
+def _python_import_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
     path = extraction_root / source_path
     if path.suffix != ".py":
         return []
@@ -529,8 +621,12 @@ def _load_time_import_edges(extraction_root: Path, source_path: str) -> list[tup
             f"cannot parse authority Python member {source_path}: {exc}"
         ) from exc
 
+    static_bindings = _static_path_bindings(tree)
     modules: set[str] = set()
-    for node in _iter_load_time_nodes(tree.body):
+    for node in _iter_authority_import_nodes(
+        tree.body,
+        include_function_bodies=source_path in FUNCTION_BODY_IMPORT_SOURCES,
+    ):
         if isinstance(node, ast.Import):
             modules.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
@@ -556,9 +652,17 @@ def _load_time_import_edges(extraction_root: Path, source_path: str) -> list[tup
             if not (is_import_module or is_run_module) or not child.args:
                 continue
             argument = child.args[0]
-            if not isinstance(argument, ast.Constant) or not isinstance(argument.value, str):
-                raise AuthorityClosureError(f"dynamic load-time import is forbidden: {source_path}")
-            modules.add(argument.value)
+            module = _command_token(argument, static_bindings)
+            if module is None:
+                if (
+                    isinstance(argument, ast.Name)
+                    and (source_path, argument.id) in DYNAMIC_MEASUREMENT_IMPORT_ARGUMENTS
+                ):
+                    continue
+                raise AuthorityClosureError(
+                    f"dynamic repository import is forbidden: {source_path}"
+                )
+            modules.add(module)
 
     edges: set[tuple[str, str]] = set()
     for module in sorted(modules):
@@ -573,31 +677,114 @@ def _load_time_import_edges(extraction_root: Path, source_path: str) -> list[tup
                 continue
         if resolved is None:
             raise AuthorityClosureError(
-                f"repository-local load-time import is unavailable: {source_path} -> {module}"
+                f"repository-local import is unavailable: {source_path} -> {module}"
             )
         if _is_measurement_subject(resolved):
             continue
         for parent in _required_parent_packages(extraction_root, module):
             edges.add((parent, "python_parent_package"))
-        edges.add((resolved, "python_load_time_import"))
+        edges.add((resolved, "python_repository_import"))
     return sorted(edges)
 
 
-def _static_path_parts(node: ast.AST) -> list[str] | None:
+def _static_path_parts(
+    node: ast.AST, bindings: dict[str, list[str]] | None = None
+) -> list[str] | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return [node.value]
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "str":
         if len(node.args) == 1:
-            return _static_path_parts(node.args[0])
+            return _static_path_parts(node.args[0], bindings)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
-        left = _static_path_parts(node.left)
-        right = _static_path_parts(node.right)
+        left = _static_path_parts(node.left, bindings)
+        right = _static_path_parts(node.right, bindings)
         if left is None or right is None:
             return None
         return [*left, *right]
-    if isinstance(node, ast.Name) and node.id in {"REPO_ROOT", "ROOT", "repo_root"}:
-        return []
+    if isinstance(node, ast.Name):
+        if bindings is not None and node.id in bindings:
+            return bindings[node.id]
+        if node.id in {"REPO_ROOT", "ROOT", "repo_root"}:
+            return []
     return None
+
+
+def _static_path_bindings(tree: ast.Module) -> dict[str, list[str]]:
+    bindings: dict[str, list[str]] = {
+        "REPO_ROOT": [],
+        "ROOT": [],
+        "repo_root": [],
+    }
+    assignments: list[tuple[str, ast.AST]] = []
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            assignments.append((node.targets[0].id, node.value))
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.value is not None
+        ):
+            assignments.append((node.target.id, node.value))
+    for _ in range(len(assignments) + 1):
+        changed = False
+        for name, value in assignments:
+            parts = _static_path_parts(value, bindings)
+            if parts is not None and bindings.get(name) != parts:
+                bindings[name] = parts
+                changed = True
+        if not changed:
+            break
+    return bindings
+
+
+def _command_token(node: ast.AST, bindings: dict[str, list[str]] | None = None) -> str | None:
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "sys"
+        and node.attr == "executable"
+    ):
+        return "{sys.executable}"
+    parts = _static_path_parts(node, bindings)
+    if parts is None:
+        return None
+    return "/".join(part.strip("/") for part in parts if part)
+
+
+def _is_python_command(token: str) -> bool:
+    basename = Path(token).name
+    return (
+        token == "{sys.executable}" or re.fullmatch(r"python(?:3(?:\.\d+)?)?", basename) is not None
+    )
+
+
+def _subprocess_program_index(
+    elements: list[ast.AST], bindings: dict[str, list[str]]
+) -> int | None:
+    index = 0
+    token = _command_token(elements[index], bindings)
+    if token is None:
+        return None
+    if Path(token).name == "env":
+        index += 1
+        while index < len(elements):
+            token = _command_token(elements[index], bindings)
+            if token is None:
+                return None
+            if "=" not in token:
+                break
+            index += 1
+    if index < len(elements) and Path(_command_token(elements[index], bindings) or "").name == "uv":
+        index += 1
+        if index < len(elements) and _command_token(elements[index], bindings) == "run":
+            index += 1
+    if index >= len(elements):
+        return None
+    return index
 
 
 def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
@@ -605,6 +792,7 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
     if path.suffix != ".py":
         return []
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=source_path)
+    static_bindings = _static_path_bindings(tree)
     helpers: set[str] = set()
     subprocess_calls = {"run", "Popen", "call", "check_call", "check_output"}
     subprocess_module_aliases = {"subprocess"}
@@ -657,8 +845,80 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
                     helpers.add(helper)
             continue
         elements = command.elts if isinstance(command, (ast.List, ast.Tuple)) else [command]
+        if isinstance(command, (ast.List, ast.Tuple)) and elements:
+            program_index = _subprocess_program_index(elements, static_bindings)
+            if program_index is None:
+                continue
+            program = _command_token(elements[program_index], static_bindings)
+            assert program is not None
+            if _is_python_command(program):
+                argument_index = program_index + 1
+                while argument_index < len(elements):
+                    argument = _command_token(elements[argument_index], static_bindings)
+                    if argument is None:
+                        raise AuthorityClosureError(
+                            f"dynamic Python subprocess target is forbidden: {source_path}"
+                        )
+                    if argument == "-m":
+                        module_index = argument_index + 1
+                        if module_index >= len(elements):
+                            raise AuthorityClosureError(
+                                f"Python subprocess -m target is unavailable: {source_path}"
+                            )
+                        module = _command_token(elements[module_index], static_bindings)
+                        if module is None:
+                            raise AuthorityClosureError(
+                                f"dynamic Python subprocess module is forbidden: {source_path}"
+                            )
+                        if any(
+                            module == prefix or module.startswith(f"{prefix}.")
+                            for prefix in REPOSITORY_MODULE_PREFIXES
+                        ):
+                            helpers.add(_repository_module_runner_path(extraction_root, module))
+                        break
+                    if argument == "-c":
+                        raise AuthorityClosureError(
+                            f"Python subprocess -c is forbidden in authority closure: {source_path}"
+                        )
+                    if (
+                        argument in PYTHON_OPTIONS_WITHOUT_VALUES
+                        or argument.startswith(("-W", "-X"))
+                        and argument not in PYTHON_OPTIONS_WITH_VALUES
+                    ):
+                        argument_index += 1
+                        continue
+                    if argument in PYTHON_OPTIONS_WITH_VALUES:
+                        value_index = argument_index + 1
+                        if (
+                            value_index >= len(elements)
+                            or _command_token(elements[value_index], static_bindings) is None
+                        ):
+                            raise AuthorityClosureError(
+                                f"dynamic Python subprocess option is forbidden: {source_path}"
+                            )
+                        argument_index += 2
+                        continue
+                    if argument.startswith("-"):
+                        raise AuthorityClosureError(
+                            f"unknown Python subprocess option is forbidden: "
+                            f"{source_path} -> {argument}"
+                        )
+                    break
+                if argument_index >= len(elements):
+                    continue
+            elif Path(program).name in {"bash", "sh"}:
+                script_index = program_index + 1
+                while script_index < len(elements):
+                    script = _command_token(elements[script_index], static_bindings)
+                    if script is None:
+                        raise AuthorityClosureError(
+                            f"dynamic shell subprocess target is forbidden: {source_path}"
+                        )
+                    if not script.startswith("-"):
+                        break
+                    script_index += 1
         for element in elements:
-            parts = _static_path_parts(element)
+            parts = _static_path_parts(element, static_bindings)
             if parts is None:
                 continue
             literal = _strip_optional_dot_slash("/".join(part.strip("/") for part in parts if part))
@@ -1164,7 +1424,7 @@ def build_authority_manifest(
                 path = extraction_root / source_path
                 edges: list[tuple[str, str]] = []
                 if path.suffix == ".py":
-                    edges.extend(_load_time_import_edges(extraction_root, source_path))
+                    edges.extend(_python_import_edges(extraction_root, source_path))
                     edges.extend(_subprocess_helper_edges(extraction_root, source_path))
                 if path.suffix == ".sh":
                     edges.extend(_shell_helper_edges(extraction_root, source_path))

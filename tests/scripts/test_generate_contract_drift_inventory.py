@@ -716,12 +716,12 @@ def test_static_dynamic_import_apis_join_closure(tmp_path: Path, loader: str):
     repo, sha = _authority_fixture(tmp_path, helper_source=loader)
     files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
     assert any(
-        edge["kind"] == "python_load_time_import"
+        edge["kind"] == "python_repository_import"
         for edge in files["aragora/helper.py"]["incoming_edges"]
     )
 
 
-def test_dynamic_aliased_import_api_fails_closed(tmp_path: Path):
+def test_dynamic_import_with_bounded_repository_literals_joins_closure(tmp_path: Path):
     repo, sha = _authority_fixture(
         tmp_path,
         helper_source=(
@@ -730,8 +730,65 @@ def test_dynamic_aliased_import_api_fails_closed(tmp_path: Path):
             "import_module(module_name)\n"
         ),
     )
-    with pytest.raises(gen.AuthorityClosureError, match="dynamic load-time import"):
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert {
+        "from": "scripts/helper.py",
+        "kind": "python_repository_import",
+    } in files["aragora/helper.py"]["incoming_edges"]
+
+
+def test_unbounded_dynamic_repository_import_fails_closed(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "from importlib import import_module\n"
+            "module_name = 'aragora.' + input()\n"
+            "import_module(module_name)\n"
+        ),
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic repository import"):
         _manifest(repo, sha)
+
+
+@pytest.mark.parametrize(
+    "source_path",
+    [
+        "scripts/check_sdk_parity.py",
+        "scripts/check_test_dependencies.py",
+        "scripts/generate_api_docs.py",
+        "scripts/generate_openapi.py",
+    ],
+)
+def test_dynamic_non_authority_import_is_excluded_from_closure(tmp_path: Path, source_path: str):
+    source = tmp_path / source_path
+    _write_text(
+        source,
+        "import importlib\n"
+        "def discover(module_path):\n"
+        "    return importlib.import_module(module_path)\n",
+    )
+    assert gen._python_import_edges(tmp_path, source_path) == []
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "aragora/server/handler_registry.py",
+        "aragora/server/handler_registry/core.py",
+        "aragora/server/handlers/example.py",
+        "aragora/server/openapi/schemas/example.py",
+        "docs/api/openapi_generated.json",
+        "sdk/python/client.py",
+    ],
+)
+def test_measurement_subject_implementations_are_excluded(path: str):
+    assert gen._is_measurement_subject(path)
+
+
+def test_repository_import_resolution_matches_package_precedence(tmp_path: Path):
+    _write_text(tmp_path / "aragora/registry.py", "# compatibility module\n")
+    _write_text(tmp_path / "aragora/registry/__init__.py", "# canonical package\n")
+    assert gen._resolve_module_path(tmp_path, "aragora.registry") == "aragora/registry/__init__.py"
 
 
 @pytest.mark.parametrize(
@@ -746,9 +803,75 @@ def test_compound_load_time_imports_join_closure(tmp_path: Path, helper_source: 
     repo, sha = _authority_fixture(tmp_path, helper_source=helper_source)
     files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
     assert any(
-        edge["kind"] == "python_load_time_import"
+        edge["kind"] == "python_repository_import"
         for edge in files["aragora/helper.py"]["incoming_edges"]
     )
+
+
+@pytest.mark.parametrize(
+    "helper_source",
+    [
+        "def discover():\n    import aragora.helper\n",
+        "class Discovery:\n    import aragora.helper\n",
+    ],
+)
+def test_function_and_class_imports_join_closure(tmp_path: Path, helper_source: str):
+    _write_text(tmp_path / "scripts/check_contract_drift_ratchet.py", helper_source)
+    _write_text(tmp_path / "aragora/__init__.py", "")
+    _write_text(tmp_path / "aragora/helper.py", "# helper\n")
+    assert (
+        "aragora/helper.py",
+        "python_repository_import",
+    ) in gen._python_import_edges(tmp_path, "scripts/check_contract_drift_ratchet.py")
+
+
+@pytest.mark.parametrize(
+    "helper_source",
+    [
+        (
+            "import subprocess\n"
+            "name = 'helper'\n"
+            "subprocess.run(['python', f'scripts/{name}.py'], check=False)\n"
+        ),
+        (
+            "import subprocess\n"
+            "module = 'scripts.' + input()\n"
+            "subprocess.run(['python', '-m', module], check=False)\n"
+        ),
+    ],
+)
+def test_dynamic_non_shell_python_subprocess_target_fails_closed(
+    tmp_path: Path, helper_source: str
+):
+    repo, sha = _authority_fixture(tmp_path, helper_source=helper_source)
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic Python subprocess"):
+        _manifest(repo, sha)
+
+
+@pytest.mark.parametrize(
+    "helper_source",
+    [
+        (
+            "import subprocess\n"
+            "module = 'scripts.transitive'\n"
+            "subprocess.run(['python', '-m', module], check=False)\n"
+        ),
+        (
+            "import subprocess\n"
+            "script_path = 'scripts/transitive.py'\n"
+            "subprocess.run(['python', script_path], check=False)\n"
+        ),
+    ],
+)
+def test_statically_bound_python_subprocess_targets_join_closure(
+    tmp_path: Path, helper_source: str
+):
+    repo, sha = _authority_fixture(tmp_path, helper_source=helper_source)
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert {
+        "from": "scripts/helper.py",
+        "kind": "literal_subprocess_helper",
+    } in files["scripts/transitive.py"]["incoming_edges"]
 
 
 def test_missing_shell_subprocess_helper_has_closure_error(tmp_path: Path):
@@ -821,12 +944,10 @@ def test_classifier_runtime_import_joins_and_recursively_closes_authority(tmp_pa
         ),
     )
     files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
-    assert files["aragora/runtime_helper.py"]["incoming_edges"] == [
-        {
-            "from": "aragora/cli/commands/review_queue.py",
-            "kind": "classifier_runtime_import",
-        }
-    ]
+    assert {
+        "from": "aragora/cli/commands/review_queue.py",
+        "kind": "classifier_runtime_import",
+    } in files["aragora/runtime_helper.py"]["incoming_edges"]
 
 
 def test_exact_ref_classifier_timeout_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -971,6 +1092,22 @@ def test_exact_ref_modes_ignore_ambient_python_environment(tmp_path: Path, monke
         (
             "import socket\nsocket.create_connection(('127.0.0.1', 9))\n",
             "forbidden network action",
+        ),
+        (
+            "import os\nos.truncate('/tmp/authority-escape', 0)\n",
+            "forbidden filesystem mutation",
+        ),
+        (
+            "import os\nos.mkdir('/tmp/authority-escape')\n",
+            "forbidden filesystem mutation",
+        ),
+        (
+            "import os\nos.symlink('/tmp', '/tmp/authority-escape')\n",
+            "forbidden filesystem mutation",
+        ),
+        (
+            "import os\nos.chmod('/tmp', 0o700)\n",
+            "forbidden filesystem mutation",
         ),
     ],
 )
