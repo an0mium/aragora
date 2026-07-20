@@ -645,6 +645,49 @@ def test_dynamic_shell_subprocess_fails_closed(tmp_path: Path):
         _manifest(repo, sha)
 
 
+def test_literal_bash_c_subprocess_helper_joins_closure(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "import subprocess\nsubprocess.run(['bash', '-c', 'python scripts/transitive.py'])\n"
+        ),
+    )
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert {
+        "from": "scripts/helper.py",
+        "kind": "literal_subprocess_helper",
+    } in files["scripts/transitive.py"]["incoming_edges"]
+
+
+def test_dynamic_bash_c_subprocess_fails_closed(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "import subprocess\n"
+            "command = f'python scripts/{input()}.py'\n"
+            "subprocess.run(['bash', '-c', command])\n"
+        ),
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic shell subprocess command"):
+        _manifest(repo, sha)
+
+
+@pytest.mark.parametrize(
+    "shell_command",
+    [
+        "scripts/${HELPER}_gate.sh",
+        'scripts/"${HELPER}".sh',
+    ],
+)
+def test_dynamic_direct_bash_c_repository_target_fails_closed(tmp_path: Path, shell_command: str):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(f"import subprocess\nsubprocess.run(['bash', '-c', {shell_command!r}])\n"),
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic local run target"):
+        _manifest(repo, sha)
+
+
 def test_dynamic_subprocess_keyword_splat_fails_closed(tmp_path: Path):
     repo, sha = _authority_fixture(
         tmp_path,
@@ -691,7 +734,7 @@ def test_non_subprocess_run_with_keyword_splat_is_ignored(tmp_path: Path):
     assert _manifest(repo, sha)["ref"] == sha
 
 
-def test_unknown_path_root_does_not_become_repository_root(tmp_path: Path):
+def test_unknown_dynamic_subprocess_executable_fails_closed(tmp_path: Path):
     repo, sha = _authority_fixture(
         tmp_path,
         helper_source=(
@@ -701,7 +744,8 @@ def test_unknown_path_root_does_not_become_repository_root(tmp_path: Path):
             "subprocess.run([some_tmp_dir / 'scripts/missing.py'], check=False)\n"
         ),
     )
-    assert _manifest(repo, sha)["ref"] == sha
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic subprocess executable"):
+        _manifest(repo, sha)
 
 
 @pytest.mark.parametrize(
@@ -813,6 +857,13 @@ def test_compound_load_time_imports_join_closure(tmp_path: Path, helper_source: 
     [
         "def discover():\n    import aragora.helper\n",
         "class Discovery:\n    import aragora.helper\n",
+        (
+            "@__import__('aragora.helper').decorate\n"
+            "def discover(\n"
+            "    value: __import__('aragora.helper').Value = __import__('aragora.helper'),\n"
+            ") -> __import__('aragora.helper').Value:\n"
+            "    return value\n"
+        ),
     ],
 )
 def test_function_and_class_imports_join_closure(tmp_path: Path, helper_source: str):
@@ -823,6 +874,18 @@ def test_function_and_class_imports_join_closure(tmp_path: Path, helper_source: 
         "aragora/helper.py",
         "python_repository_import",
     ) in gen._python_import_edges(tmp_path, "scripts/check_contract_drift_ratchet.py")
+
+
+def test_non_designated_class_body_import_joins_closure(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source="class Discovery:\n    import aragora.helper\n",
+    )
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert {
+        "from": "scripts/helper.py",
+        "kind": "python_repository_import",
+    } in files["aragora/helper.py"]["incoming_edges"]
 
 
 @pytest.mark.parametrize(
@@ -861,6 +924,19 @@ def test_dynamic_non_shell_python_subprocess_target_fails_closed(
             "script_path = 'scripts/transitive.py'\n"
             "subprocess.run(['python', script_path], check=False)\n"
         ),
+        (
+            "import subprocess\n"
+            "import sys\n"
+            "PYTHON = sys.executable\n"
+            "subprocess.run([PYTHON, 'scripts/transitive.py'], check=False)\n"
+        ),
+        (
+            "import subprocess\n"
+            "def run():\n"
+            "    cmd = ['python', 'scripts/transitive.py']\n"
+            "    subprocess.run(cmd, check=False)\n"
+            "run()\n"
+        ),
     ],
 )
 def test_statically_bound_python_subprocess_targets_join_closure(
@@ -872,6 +948,55 @@ def test_statically_bound_python_subprocess_targets_join_closure(
         "from": "scripts/helper.py",
         "kind": "literal_subprocess_helper",
     } in files["scripts/transitive.py"]["incoming_edges"]
+
+
+@pytest.mark.parametrize(
+    "helper_source",
+    [
+        (
+            "import subprocess\n"
+            "cmd = ['python', 'scripts/transitive.py']\n"
+            "cmd = build_command()\n"
+            "subprocess.run(cmd, check=False)\n"
+        ),
+        (
+            "import subprocess\n"
+            "def unrelated():\n"
+            "    cmd = ['python', 'scripts/transitive.py']\n"
+            "cmd = build_command()\n"
+            "subprocess.run(cmd, check=False)\n"
+        ),
+        (
+            "import subprocess\n"
+            "cmd = ['python', 'scripts/transitive.py']\n"
+            "cmd.append('--quiet')\n"
+            "subprocess.run(cmd, check=False)\n"
+        ),
+        (
+            "import subprocess\n"
+            "cmd = ['python', 'scripts/transitive.py']\n"
+            "for cmd in commands:\n"
+            "    pass\n"
+            "subprocess.run(cmd, check=False)\n"
+        ),
+        (
+            "import subprocess\n"
+            "cmd = ['python', 'scripts/transitive.py']\n"
+            "cmd, other = build_commands()\n"
+            "subprocess.run(cmd, check=False)\n"
+        ),
+        (
+            "import subprocess\n"
+            "cmd = ['python', 'scripts/transitive.py']\n"
+            "cmd[0] = 'bash'\n"
+            "subprocess.run(cmd, check=False)\n"
+        ),
+    ],
+)
+def test_mixed_or_mutated_subprocess_bindings_fail_closed(tmp_path: Path, helper_source: str):
+    repo, sha = _authority_fixture(tmp_path, helper_source=helper_source)
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic subprocess command"):
+        _manifest(repo, sha)
 
 
 def test_missing_shell_subprocess_helper_has_closure_error(tmp_path: Path):
@@ -938,16 +1063,22 @@ def test_classifier_runtime_import_joins_and_recursively_closes_authority(tmp_pa
         policy_epilogue=(
             "def _classify_model_review_tier(files, *, pr=None):\n"
             "    import aragora.runtime_helper\n"
+            "    import scripts.transitive\n"
             "    if any(_matches_prefix(path, TIER_4_PREFIXES) for path in files):\n"
             "        return (4, 'tier_4_preapproval_required', 'fixture authority')\n"
             "    return (2, 'tier_2_live_automation', 'fixture non-authority')\n"
         ),
     )
-    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    manifest = _manifest(repo, sha)
+    files = {entry["path"]: entry for entry in manifest["repo_files"]}
     assert {
         "from": "aragora/cli/commands/review_queue.py",
         "kind": "classifier_runtime_import",
     } in files["aragora/runtime_helper.py"]["incoming_edges"]
+    assert any(
+        entry["module"] == "scripts.transitive" and entry["path"] == "scripts/transitive.py"
+        for entry in manifest["policy"]["loaded_repository_modules"]
+    )
 
 
 def test_exact_ref_classifier_timeout_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -1107,6 +1238,10 @@ def test_exact_ref_modes_ignore_ambient_python_environment(tmp_path: Path, monke
         ),
         (
             "import os\nos.chmod('/tmp', 0o700)\n",
+            "forbidden filesystem mutation",
+        ),
+        (
+            "import sqlite3\nsqlite3.connect('/tmp/authority-escape.sqlite')\n",
             "forbidden filesystem mutation",
         ),
     ],

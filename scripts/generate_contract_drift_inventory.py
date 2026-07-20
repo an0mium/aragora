@@ -99,6 +99,36 @@ PYTHON_OPTIONS_WITHOUT_VALUES = frozenset(
     }
 )
 PYTHON_OPTIONS_WITH_VALUES = frozenset({"-W", "-X"})
+PYTHON_EXECUTABLE_ARGUMENT_BINDINGS = frozenset(
+    {
+        ("scripts/generate_contract_drift_inventory.py", "interpreter"),
+        ("scripts/generate_contract_drift_inventory.py", "interpreter_path"),
+    }
+)
+NON_REPOSITORY_COMMAND_ARGUMENT_BINDINGS = {
+    ("scripts/generate_contract_drift_inventory.py", "runner_path"): (
+        "__contract_drift_exact_ref_runner.py"
+    )
+}
+DYNAMIC_EXTERNAL_SUBPROCESS_COMMAND_SOURCES = frozenset(
+    {
+        "aragora/swarm/quorum_evidence.py",
+        "scripts/generate_sdk_types.py",
+        "scripts/run_pip_audit_gate.py",
+    }
+)
+DYNAMIC_INTERNAL_SUBPROCESS_HELPERS = {
+    "aragora/swarm/merge_quorum_io.py": ("aragora/cli/main.py",),
+    "scripts/pre_release_check.py": (
+        "scripts/check_cross_sdk_parity.py",
+        "scripts/check_pentest_findings.py",
+        "scripts/check_sdk_namespace_parity.py",
+        "scripts/check_sdk_parity.py",
+        "scripts/reconcile_status_docs.py",
+        "scripts/run_pip_audit_gate.py",
+        "scripts/smoke_test.py",
+    ),
+}
 REPOSITORY_MODULE_PREFIXES = ("aragora", "scripts")
 LOCAL_REFERENCE_PREFIXES = (
     "./.github/",
@@ -276,11 +306,13 @@ def audit(event, args):
         raise RuntimeError(f"forbidden network action: {event}")
     if event in {
         "os.chmod",
+        "os.chflags",
         "os.chown",
         "os.fchmod",
         "os.fchown",
         "os.ftruncate",
         "os.lchmod",
+        "os.lchflags",
         "os.lchown",
         "os.link",
         "os.lremovexattr",
@@ -309,6 +341,8 @@ def audit(event, args):
         "shutil.copystat",
         "shutil.move",
         "shutil.rmtree",
+        "sqlite3.connect",
+        "sqlite3.connect/handle",
     }:
         raise RuntimeError(f"forbidden filesystem mutation: {event}")
 
@@ -367,9 +401,25 @@ for raw_path in request.get("paths", []):
         }
     )
 
+scripts_package = sys.modules.get("scripts")
+if scripts_package is not None:
+    scripts_root = (root / "scripts").resolve()
+    scripts_init = scripts_root / "__init__.py"
+    raw_package_file = getattr(scripts_package, "__file__", None)
+    package_file = pathlib.Path(raw_package_file).resolve() if raw_package_file else None
+    package_paths = [
+        pathlib.Path(item).resolve()
+        for item in (getattr(scripts_package, "__path__", ()) or ())
+    ]
+    expected_file = scripts_init if scripts_init.is_file() else None
+    if package_file != expected_file or package_paths != [scripts_root]:
+        raise SystemExit(
+            f"namespace-blended or noncanonical package: scripts={package_file},{package_paths}"
+        )
+
 loaded = []
 for name, module in sorted(sys.modules.items()):
-    if not name.startswith(("aragora", "_exact_ref_tier4_merge_train")):
+    if not name.startswith(("aragora", "scripts", "_exact_ref_tier4_merge_train")):
         continue
     locations = []
     module_file = getattr(module, "__file__", None)
@@ -513,13 +563,39 @@ def _is_type_checking_guard(node: ast.expr) -> bool:
 
 def _iter_authority_import_nodes(
     nodes: Iterable[ast.stmt], *, include_function_bodies: bool
-) -> Iterator[ast.stmt]:
+) -> Iterator[ast.AST]:
     for node in nodes:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            yield from node.decorator_list
+            yield from node.args.defaults
+            yield from (default for default in node.args.kw_defaults if default is not None)
+            yield from (
+                argument.annotation
+                for argument in [
+                    *node.args.posonlyargs,
+                    *node.args.args,
+                    *node.args.kwonlyargs,
+                ]
+                if argument.annotation is not None
+            )
+            if node.args.vararg is not None and node.args.vararg.annotation is not None:
+                yield node.args.vararg.annotation
+            if node.args.kwarg is not None and node.args.kwarg.annotation is not None:
+                yield node.args.kwarg.annotation
+            if node.returns is not None:
+                yield node.returns
             if include_function_bodies:
                 yield from _iter_authority_import_nodes(
                     node.body, include_function_bodies=include_function_bodies
                 )
+            continue
+        if isinstance(node, ast.ClassDef):
+            yield from node.decorator_list
+            yield from node.bases
+            yield from (keyword.value for keyword in node.keywords)
+            yield from _iter_authority_import_nodes(
+                node.body, include_function_bodies=include_function_bodies
+            )
             continue
         if isinstance(node, ast.If):
             if _is_type_checking_guard(node.test):
@@ -692,6 +768,13 @@ def _static_path_parts(
 ) -> list[str] | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return [node.value]
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "sys"
+        and node.attr == "executable"
+    ):
+        return ["{sys.executable}"]
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "str":
         if len(node.args) == 1:
             return _static_path_parts(node.args[0], bindings)
@@ -741,6 +824,37 @@ def _static_path_bindings(tree: ast.Module) -> dict[str, list[str]]:
     return bindings
 
 
+def _static_sequence_bindings(tree: ast.Module) -> dict[str, list[ast.AST]]:
+    bindings: dict[str, list[ast.AST]] = {}
+    for node in tree.body:
+        target: ast.Name | None = None
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            target = node.targets[0]
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            target = node.target
+        value = node.value if isinstance(node, (ast.Assign, ast.AnnAssign)) else None
+        if target is not None and isinstance(value, (ast.List, ast.Tuple)):
+            bindings[target.id] = list(value.elts)
+    return bindings
+
+
+def _expanded_command_elements(
+    command: ast.List | ast.Tuple, sequence_bindings: dict[str, list[ast.AST]]
+) -> list[ast.AST]:
+    elements: list[ast.AST] = []
+    for element in command.elts:
+        if isinstance(element, ast.Starred):
+            if isinstance(element.value, ast.Name) and element.value.id in sequence_bindings:
+                elements.extend(sequence_bindings[element.value.id])
+                continue
+        elements.append(element)
+    return elements
+
+
 def _command_token(node: ast.AST, bindings: dict[str, list[str]] | None = None) -> str | None:
     if (
         isinstance(node, ast.Attribute)
@@ -787,12 +901,104 @@ def _subprocess_program_index(
     return index
 
 
+def _local_command_binding(
+    tree: ast.Module, call: ast.Call, name: str
+) -> ast.List | ast.Tuple | None:
+    scopes = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        and node.lineno <= call.lineno <= (node.end_lineno or node.lineno)
+    ]
+    if not scopes:
+        scope: ast.AST = tree
+    else:
+        scope = min(scopes, key=lambda node: (node.end_lineno or node.lineno) - node.lineno)
+
+    def scope_nodes(node: ast.AST) -> Iterator[ast.AST]:
+        for child in ast.iter_child_nodes(node):
+            yield child
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+                continue
+            yield from scope_nodes(child)
+
+    def binds_name(target: ast.AST) -> bool:
+        return any(isinstance(child, ast.Name) and child.id == name for child in ast.walk(target))
+
+    def contains_name(node: ast.AST) -> bool:
+        return any(isinstance(child, ast.Name) and child.id == name for child in ast.walk(node))
+
+    literal_binding: ast.List | ast.Tuple | None = None
+    binding_events = 0
+    mutated = False
+    for node in scope_nodes(scope):
+        if getattr(node, "lineno", call.lineno) >= call.lineno:
+            continue
+        if isinstance(node, ast.Assign) and any(binds_name(target) for target in node.targets):
+            binding_events += 1
+            if (
+                len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, (ast.List, ast.Tuple))
+            ):
+                literal_binding = node.value
+            else:
+                mutated = True
+        elif isinstance(node, ast.AnnAssign) and binds_name(node.target):
+            binding_events += 1
+            if isinstance(node.target, ast.Name) and isinstance(node.value, (ast.List, ast.Tuple)):
+                literal_binding = node.value
+            else:
+                mutated = True
+        elif isinstance(node, (ast.AugAssign, ast.NamedExpr)) and binds_name(node.target):
+            mutated = True
+        elif isinstance(node, (ast.For, ast.AsyncFor)) and binds_name(node.target):
+            mutated = True
+        elif isinstance(node, (ast.With, ast.AsyncWith)) and any(
+            item.optional_vars is not None and binds_name(item.optional_vars) for item in node.items
+        ):
+            mutated = True
+        elif isinstance(node, ast.ExceptHandler) and node.name == name:
+            mutated = True
+        elif isinstance(node, (ast.Import, ast.ImportFrom)) and any(
+            (alias.asname or alias.name.split(".", 1)[0]) == name for alias in node.names
+        ):
+            mutated = True
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == name:
+                mutated = True
+        elif isinstance(node, ast.Delete) and any(binds_name(target) for target in node.targets):
+            mutated = True
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == name
+        ):
+            mutated = True
+        elif isinstance(node, ast.Call) and any(
+            contains_name(argument)
+            for argument in [*node.args, *(keyword.value for keyword in node.keywords)]
+        ):
+            mutated = True
+    if binding_events != 1 or mutated:
+        return None
+    return literal_binding
+
+
 def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
     path = extraction_root / source_path
     if path.suffix != ".py":
         return []
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=source_path)
     static_bindings = _static_path_bindings(tree)
+    sequence_bindings = _static_sequence_bindings(tree)
+    for binding_source, name in PYTHON_EXECUTABLE_ARGUMENT_BINDINGS:
+        if binding_source == source_path:
+            static_bindings[name] = ["{sys.executable}"]
+    for (binding_source, name), value in NON_REPOSITORY_COMMAND_ARGUMENT_BINDINGS.items():
+        if binding_source == source_path:
+            static_bindings[name] = [value]
     helpers: set[str] = set()
     subprocess_calls = {"run", "Popen", "call", "check_call", "check_output"}
     subprocess_module_aliases = {"subprocess"}
@@ -818,6 +1024,8 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
         if not is_subprocess_call or not node.args:
             continue
         command = node.args[0]
+        if isinstance(command, ast.Name):
+            command = _local_command_binding(tree, node, command.id) or command
         if any(keyword.arg is None for keyword in node.keywords):
             raise AuthorityClosureError(
                 f"dynamic subprocess keyword arguments are forbidden: {source_path}"
@@ -844,11 +1052,34 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
                         )
                     helpers.add(helper)
             continue
-        elements = command.elts if isinstance(command, (ast.List, ast.Tuple)) else [command]
+        elements: list[ast.AST]
+        if not isinstance(command, (ast.List, ast.Tuple)):
+            if _command_token(command, static_bindings) is None:
+                if source_path in DYNAMIC_EXTERNAL_SUBPROCESS_COMMAND_SOURCES:
+                    continue
+                bound_helpers = DYNAMIC_INTERNAL_SUBPROCESS_HELPERS.get(source_path)
+                if bound_helpers:
+                    for helper in bound_helpers:
+                        if not (extraction_root / helper).is_file():
+                            raise AuthorityClosureError(
+                                f"bound subprocess wrapper helper is unavailable: "
+                                f"{source_path} -> {helper}"
+                            )
+                        if not _is_measurement_subject(helper):
+                            helpers.add(helper)
+                    continue
+                raise AuthorityClosureError(
+                    f"dynamic subprocess command is forbidden: {source_path}"
+                )
+            elements = [command]
+        else:
+            elements = _expanded_command_elements(command, sequence_bindings)
         if isinstance(command, (ast.List, ast.Tuple)) and elements:
             program_index = _subprocess_program_index(elements, static_bindings)
             if program_index is None:
-                continue
+                raise AuthorityClosureError(
+                    f"dynamic subprocess executable is forbidden: {source_path}"
+                )
             program = _command_token(elements[program_index], static_bindings)
             assert program is not None
             if _is_python_command(program):
@@ -914,9 +1145,46 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
                         raise AuthorityClosureError(
                             f"dynamic shell subprocess target is forbidden: {source_path}"
                         )
-                    if not script.startswith("-"):
+                    if script == "-c":
+                        command_index = script_index + 1
+                        if command_index >= len(elements):
+                            raise AuthorityClosureError(
+                                f"shell subprocess -c command is unavailable: {source_path}"
+                            )
+                        shell_command = _command_token(elements[command_index], static_bindings)
+                        if shell_command is None:
+                            raise AuthorityClosureError(
+                                f"dynamic shell subprocess command is forbidden: {source_path}"
+                            )
+                        for helper in _run_script_references(
+                            extraction_root, source_path, shell_command
+                        ):
+                            if not (extraction_root / helper).is_file():
+                                raise AuthorityClosureError(
+                                    f"literal shell helper is unavailable: "
+                                    f"{source_path} -> {helper}"
+                                )
+                            if not _is_measurement_subject(helper):
+                                helpers.add(helper)
                         break
-                    script_index += 1
+                    if script in {
+                        "--noprofile",
+                        "--norc",
+                        "-e",
+                        "-eu",
+                        "-eux",
+                        "-u",
+                        "-x",
+                    }:
+                        script_index += 1
+                        continue
+                    if script.startswith("-"):
+                        raise AuthorityClosureError(
+                            f"unknown shell subprocess option is forbidden: "
+                            f"{source_path} -> {script}"
+                        )
+                    else:
+                        break
         for element in elements:
             parts = _static_path_parts(element, static_bindings)
             if parts is None:
@@ -1099,6 +1367,15 @@ def _repository_module_runner_path(extraction_root: Path, module: str) -> str:
 
 def _run_script_references(extraction_root: Path, source_path: str, run: str) -> list[str]:
     normalized = run.replace("\\\n", " ")
+    dynamic_local_reference = re.compile(
+        r"(?<![A-Za-z0-9_./-])"
+        r"((?:\./)?(?:scripts|aragora|\.github)/[^\s;&|]*[$`*][^\s;&|]*)"
+    )
+    dynamic_match = dynamic_local_reference.search(normalized)
+    if dynamic_match:
+        raise AuthorityClosureError(
+            f"dynamic local run target is forbidden: {source_path} -> {dynamic_match.group(1)}"
+        )
     command_invocation = re.compile(
         r"(?:^|[;&|]\s*|\$\(\s*)"
         r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
