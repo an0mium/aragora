@@ -234,6 +234,22 @@ policy_file = pathlib.Path(review_queue.__file__).resolve()
 expected_policy = (root / "aragora/cli/commands/review_queue.py").resolve()
 if policy_file != expected_policy:
     raise SystemExit(f"noncanonical policy module: {policy_file}")
+for package_name, relative_init in (
+    ("aragora", "aragora/__init__.py"),
+    ("aragora.cli", "aragora/cli/__init__.py"),
+    ("aragora.cli.commands", "aragora/cli/commands/__init__.py"),
+):
+    package = sys.modules.get(package_name)
+    expected_init = (root / relative_init).resolve()
+    package_file = pathlib.Path(getattr(package, "__file__", "") or "").resolve()
+    package_paths = [
+        pathlib.Path(item).resolve() for item in (getattr(package, "__path__", ()) or ())
+    ]
+    if package_file != expected_init or package_paths != [expected_init.parent]:
+        raise SystemExit(
+            f"namespace-blended or noncanonical package: "
+            f"{package_name}={package_file},{package_paths}"
+        )
 
 spec = importlib.util.spec_from_file_location(
     "_exact_ref_tier4_merge_train",
@@ -327,9 +343,17 @@ def _invoke_exact_ref_policy(
     mirror_path = extraction_root / MERGE_TRAIN_PATH
     if not policy_path.is_file():
         raise AuthorityClosureError(f"canonical exact-ref policy is unavailable: {POLICY_PATH}")
+    if policy_path.is_symlink():
+        raise AuthorityClosureError(
+            f"canonical exact-ref policy cannot be a symlink: {POLICY_PATH}"
+        )
     if not mirror_path.is_file():
         raise AuthorityClosureError(
             f"exact-ref merge-train mirror is unavailable: {MERGE_TRAIN_PATH}"
+        )
+    if mirror_path.is_symlink():
+        raise AuthorityClosureError(
+            f"exact-ref merge-train mirror cannot be a symlink: {MERGE_TRAIN_PATH}"
         )
 
     runner_path = extraction_root / "__contract_drift_exact_ref_runner.py"
@@ -697,13 +721,24 @@ def _resolve_local_uses(
 def _run_script_references(source_path: str, run: str) -> list[str]:
     normalized = run.replace("\\\n", " ")
     dynamic_local = re.search(
-        r"(?:\./)?(?:scripts|aragora|\.github)/[^\s\"']*(?:\$\{\{)"
-        r"[^\s\"']*\.(?:py|sh|ya?ml)",
+        r"(?:\./)?(?:scripts|aragora|\.github)/[^\s\"']*"
+        r"(?:\$\{\{|\$\{|\$\(|`|\*)[^\s\"']*\.(?:py|sh|ya?ml)",
         normalized,
     )
     if dynamic_local:
         raise AuthorityClosureError(
             f"dynamic local run reference is forbidden: {source_path} -> {dynamic_local.group(0)}"
+        )
+    command_target = re.compile(
+        r"(?:^|[;&|]\s*)"
+        r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
+        r"(?:(?:-[A-Za-z]+\s+)*)"
+        r"([\"']?(?:\$|\$\(|`)[^\s;&|]*[\"']?)",
+        re.MULTILINE,
+    ).search(normalized)
+    if command_target:
+        raise AuthorityClosureError(
+            f"dynamic local run target is forbidden: {source_path} -> {command_target.group(1)}"
         )
     pattern = re.compile(
         r"(?<![A-Za-z0-9_./-])"

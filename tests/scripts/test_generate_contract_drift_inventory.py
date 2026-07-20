@@ -301,8 +301,11 @@ def _authority_fixture(
     tmp_path: Path,
     *,
     dynamic_reference: bool = False,
+    dynamic_run_reference: bool = False,
     missing_policy: bool = False,
+    namespace_package: bool = False,
     policy_prelude: str = "",
+    symlink_policy: bool = False,
 ) -> tuple[Path, str]:
     repo = tmp_path / "authority-repo"
     repo.mkdir()
@@ -314,19 +317,27 @@ def _authority_fixture(
     _write_text(repo / "scripts/transitive.py", "# transitive workflow helper\n")
     _write_text(repo / "scripts/measured.py", "# not an authority dependency\n")
     _write_text(repo / "sdk/python/client.py", "# measured SDK subject\n")
-    _write_text(repo / "aragora/__init__.py", "")
+    if not namespace_package:
+        _write_text(repo / "aragora/__init__.py", "")
     _write_text(repo / "aragora/helper.py", "# repository helper\n")
     _write_text(repo / "aragora/cli/__init__.py", "")
     _write_text(repo / "aragora/cli/commands/__init__.py", "")
     if not missing_policy:
-        _write_text(
-            repo / "aragora/cli/commands/review_queue.py",
-            policy_prelude + _fixture_review_queue_source(),
-        )
+        policy_source = policy_prelude + _fixture_review_queue_source()
+        if symlink_policy:
+            _write_text(repo / "aragora/cli/copied_review_queue.py", policy_source)
+            (repo / "aragora/cli/commands/review_queue.py").symlink_to("../copied_review_queue.py")
+        else:
+            _write_text(repo / "aragora/cli/commands/review_queue.py", policy_source)
     dynamic_uses = (
         "      - uses: ./.github/actions/${{ inputs.action }}\n"
         if dynamic_reference
         else "      - uses: ./.github/actions/root\n"
+    )
+    helper_run = (
+        '      - run: python "$HELPER_SCRIPT"\n'
+        if dynamic_run_reference
+        else "      - run: python sdk/python/client.py\n"
     )
     _write_text(
         repo / ".github/workflows/authority.yml",
@@ -339,7 +350,7 @@ def _authority_fixture(
         "    runs-on: ubuntu-latest\n"
         "    steps:\n"
         f"{dynamic_uses}"
-        "      - run: python sdk/python/client.py\n"
+        f"{helper_run}"
         "  nested:\n"
         "    uses: ./.github/workflows/nested.yaml\n",
     )
@@ -437,6 +448,19 @@ def _manifest(repo: Path, sha: str) -> dict:
     return gen.build_authority_manifest(repo, sha)
 
 
+def _filesystem_snapshot(root: Path) -> list[tuple[str, str, str]]:
+    snapshot: list[tuple[str, str, str]] = []
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            snapshot.append((relative, "symlink", os.readlink(path)))
+        elif path.is_file():
+            snapshot.append((relative, "file", gen._sha256(path.read_bytes())))
+        elif path.is_dir():
+            snapshot.append((relative, "directory", ""))
+    return snapshot
+
+
 def test_deterministic_bounded_authority_dependency_closure_has_incoming_edges_and_exact_ref_digests(
     tmp_path: Path,
 ):
@@ -512,6 +536,12 @@ def test_unresolved_or_dynamic_local_workflow_reference_fails_closed(tmp_path: P
         _manifest(repo, sha)
 
 
+def test_dynamic_local_run_reference_fails_closed(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path, dynamic_run_reference=True)
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic local run target"):
+        _manifest(repo, sha)
+
+
 def test_standalone_classifier_extracts_and_calls_exact_ref_canonical_review_queue_policy_under_I_S(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -533,6 +563,21 @@ def test_standalone_classifier_extracts_and_calls_exact_ref_canonical_review_que
 def test_standalone_classifier_rejects_unavailable_or_ambient_policy(tmp_path: Path):
     repo, sha = _authority_fixture(tmp_path, missing_policy=True)
     with pytest.raises(gen.AuthorityClosureError, match="policy is unavailable"):
+        _manifest(repo, sha)
+
+
+@pytest.mark.parametrize(
+    ("fixture_options", "message"),
+    [
+        ({"namespace_package": True}, "namespace-blended or noncanonical package"),
+        ({"symlink_policy": True}, "policy cannot be a symlink"),
+    ],
+)
+def test_standalone_classifier_rejects_namespace_blended_or_copied_policy(
+    tmp_path: Path, fixture_options: dict[str, bool], message: str
+):
+    repo, sha = _authority_fixture(tmp_path, **fixture_options)
+    with pytest.raises(gen.AuthorityClosureError, match=message):
         _manifest(repo, sha)
 
 
@@ -582,6 +627,7 @@ def test_canonical_tier_cli_is_read_only_and_digest_bound(tmp_path: Path):
     before_refs = subprocess.run(
         ["git", "show-ref"], cwd=repo, check=True, capture_output=True
     ).stdout
+    before_filesystem = _filesystem_snapshot(repo)
     first = subprocess.run(command, cwd=tmp_path, check=True, capture_output=True).stdout
     second = subprocess.run(command, cwd=tmp_path, check=True, capture_output=True).stdout
     assert first == second
@@ -601,6 +647,19 @@ def test_canonical_tier_cli_is_read_only_and_digest_bound(tmp_path: Path):
         subprocess.run(["git", "show-ref"], cwd=repo, check=True, capture_output=True).stdout
         == before_refs
     )
+    assert _filesystem_snapshot(repo) == before_filesystem
+
+
+def test_exact_ref_cli_is_read_only_against_bare_remote_repository(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path)
+    bare = tmp_path / "remote.git"
+    subprocess.run(["git", "clone", "--bare", str(repo), str(bare)], check=True)
+    before = _filesystem_snapshot(bare)
+    manifest = gen.build_authority_manifest(bare, sha)
+    after = _filesystem_snapshot(bare)
+    assert manifest["ref"] == sha
+    assert manifest["authority_manifest_sha256"]
+    assert before == after
 
 
 def test_external_authority_manifest_and_evidence_index_bytes_are_canonical_before_semantic_digest(
@@ -640,6 +699,10 @@ def test_exact_ref_modes_ignore_ambient_python_environment(tmp_path: Path, monke
             "from pathlib import Path\nPath('/tmp/authority-escape').write_text('x')\n",
             "forbidden write outside extraction root",
         ),
+        (
+            "import socket\nsocket.create_connection(('127.0.0.1', 9))\n",
+            "forbidden network action",
+        ),
     ],
 )
 def test_exact_ref_policy_rejects_mutating_subprocess_and_filesystem_actions(
@@ -648,3 +711,10 @@ def test_exact_ref_policy_rejects_mutating_subprocess_and_filesystem_actions(
     repo, sha = _authority_fixture(tmp_path, policy_prelude=prelude)
     with pytest.raises(gen.AuthorityClosureError, match=message):
         _manifest(repo, sha)
+
+
+@pytest.mark.parametrize("ref", ["HEAD", "main", "42bc9458", "A" * 40])
+def test_exact_ref_modes_reject_symbolic_abbreviated_or_noncanonical_refs(tmp_path: Path, ref: str):
+    repo, _sha = _authority_fixture(tmp_path)
+    with pytest.raises(gen.AuthorityClosureError, match="full lowercase 40-hex"):
+        gen.build_authority_manifest(repo, ref)
