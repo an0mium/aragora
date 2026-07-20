@@ -159,20 +159,61 @@ git fetch origin +refs/heads/main:refs/remotes/origin/main
 test "$(git rev-parse origin/main)" = "$CANDIDATE_SHA"
 ```
 
-Also capture the branch-protection policy, every page of check runs, and every
-page of legacy commit statuses for the same SHA. Preserve each app-bound
-requirement's `app_id`; a same-named run from another GitHub App is not proof
-for that requirement. Treat a name in `.contexts` as legacy only when no entry
-in `.checks` binds that name to an app. Select matching check runs by their
-numeric creation-ordered ID so a newer queued run with no `started_at` cannot
-be hidden by an older success; a missing or nonnumeric ID fails closed:
+Also capture both applicable ruleset and branch-protection policy, every page
+of check runs, and every page of legacy commit statuses for the same SHA. The
+required set is the union of both policy sources; failure to read either source
+is `evidence_incomplete`, never an empty-policy success. Preserve each
+app-bound requirement's integration or app ID; a same-named run from another
+GitHub App is not proof for that requirement. Treat a branch-protection name in
+`.contexts` as legacy only when neither source binds that name to an app.
+Select matching check runs by their numeric creation-ordered ID so a newer
+queued run with no `started_at` cannot be hidden by an older success; a missing
+or nonnumeric ID fails closed:
 
 ```bash
-REQUIRED_POLICY_JSON="$(
+RULESET_REQUIRED_JSON="$(
+  gh api repos/synaptent/aragora/rules/branches/main \
+    --jq '[
+      .[]
+      | select(.type == "required_status_checks")
+      | .parameters.required_status_checks[]?
+      | {
+          context: (.context // .name),
+          app_id: (.integration_id // .app_id // null)
+        }
+    ]'
+)" || exit 1
+BRANCH_PROTECTION_REQUIRED_JSON="$(
   gh api repos/synaptent/aragora/branches/main/protection/required_status_checks \
     --jq '{
-      checks: [.checks[] | {context, app_id}],
-      legacy_contexts: ([.contexts[]] - [.checks[].context] | unique)
+      checks: [(.checks // [])[] | {context, app_id}],
+      legacy_contexts: (
+        [.contexts[]?] - [(.checks // [])[].context] | unique
+      )
+    }'
+)" || exit 1
+REQUIRED_POLICY_JSON="$(
+  jq -n \
+    --argjson ruleset "$RULESET_REQUIRED_JSON" \
+    --argjson protection "$BRANCH_PROTECTION_REQUIRED_JSON" \
+    '{
+      checks: (
+        ($ruleset + $protection.checks)
+        | map(select(
+            (.context | type) == "string"
+            and (.context | length > 0)
+          ))
+        | unique_by([.context, .app_id])
+      ),
+      legacy_contexts: (
+        $protection.legacy_contexts
+        - [$ruleset[].context]
+        | unique
+      ),
+      sources: {
+        ruleset: true,
+        branch_protection: true
+      }
     }'
 )" || exit 1
 CHECK_RUNS_JSON="$(
@@ -260,15 +301,15 @@ jq -e \
 ```
 
 Inspect every row in both arrays in `required-contexts.json`. A missing
-app-bound check, app-id mismatch, or missing legacy status is
-`evidence_incomplete`. A main-applicable required check whose latest run did
-not complete successfully, or a required legacy status whose latest state is
-not `success`, is `main_red`; a check designed to skip on main (currently
-`aragora-merge-quorum`) must remain visible and be identified as an expected
-main-only skip in the packet rather than silently treated as green. An API
-outage, pagination failure, or rate limit is `evidence_incomplete`, not green.
-Retry in a later bounded cycle; do not substitute old PR checks for
-current-main checks.
+ruleset or branch-protection policy response, missing app-bound check, app-id
+mismatch, or missing legacy status is `evidence_incomplete`. A main-applicable
+required check whose latest run did not complete successfully, or a required
+legacy status whose latest state is not `success`, is `main_red`; a check
+designed to skip on main (currently `aragora-merge-quorum`) must remain visible
+and be identified as an expected main-only skip in the packet rather than
+silently treated as green. An API outage, pagination failure, or rate limit is
+`evidence_incomplete`, not green. Retry in a later bounded cycle; do not
+substitute old PR checks for current-main checks.
 
 ## 5. Build The Human Packet
 
@@ -301,16 +342,23 @@ unless the user explicitly waives that interval. A human must review the
 packet and authorize the exact `CANDIDATE_SHA`; generic continuation text is
 not exact-head re-arm authority.
 
-Immediately before human deletion, run the guards and deletion as one shell
-block. Do not split or continue after a failed command:
+Immediately before human deletion, run the guards and deletion through one
+non-interactive fail-closed shell command. Do not extract or paste individual
+lines from its quoted program:
 
 ```bash
-set -eu
-test "$(shasum -a 256 "$HALT_FILE" | awk '{print $1}')" = "$HALT_SHA256"
-git fetch origin +refs/heads/main:refs/remotes/origin/main
-test "$(git rev-parse origin/main)" = "$CANDIDATE_SHA"
-rm -- "$HALT_FILE"
-test ! -e "$HALT_FILE"
+sh -euc '
+  halt_file=$1
+  halt_sha256=$2
+  repo_root=$3
+  candidate_sha=$4
+  actual_halt_sha256=$(shasum -a 256 "$halt_file")
+  test "${actual_halt_sha256%% *}" = "$halt_sha256"
+  git -C "$repo_root" fetch origin +refs/heads/main:refs/remotes/origin/main
+  test "$(git -C "$repo_root" rev-parse origin/main)" = "$candidate_sha"
+  rm -- "$halt_file"
+  test ! -e "$halt_file"
+' sh "$HALT_FILE" "$HALT_SHA256" "$REPO_ROOT" "$CANDIDATE_SHA"
 ```
 
 If either guard fails, preserve the marker and rebuild the packet. Re-arming
