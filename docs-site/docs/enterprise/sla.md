@@ -5,257 +5,199 @@ description: Aragora Service Level Agreement (SLA)
 
 # Aragora Service Level Agreement (SLA)
 
-**Effective Date:** January 2026
-**Version:** 1.0
+This Service Level Agreement ("SLA") describes the service availability commitments and support terms for Aragora platform services.
 
----
+## 1. Definitions
 
-## 1. Service Commitment
+- **"Monthly Uptime Percentage"**: Total minutes in a month minus minutes of Downtime, divided by total minutes in a month.
+- **"Downtime"**: Period where the Aragora API returns 5xx errors for more than 5 consecutive minutes, excluding scheduled maintenance.
+- **"Scheduled Maintenance"**: Planned maintenance announced at least 72 hours in advance.
+- **"Credits"**: Service credits applied to future invoices as compensation for SLA breaches.
 
-Aragora commits to providing **99.9% monthly uptime** for the Aragora Platform ("Service") to customers on Enterprise plans.
+## 2. Service Tiers
 
-### 1.1 Uptime Calculation
+| Feature | Standard | Professional | Enterprise |
+|---------|----------|--------------|------------|
+| **Uptime SLA** | 99.5% | 99.9% | 99.95% |
+| **Support Hours** | Business hours | Extended (16x5) | 24x7x365 |
+| **Response Time (P1)** | 4 hours | 1 hour | 15 minutes |
+| **Response Time (P2)** | 8 hours | 4 hours | 1 hour |
+| **Response Time (P3)** | 2 business days | 1 business day | 4 hours |
+| **Dedicated Support** | No | Shared | Named CSM |
+| **Custom Integrations** | No | Limited | Full |
+| **SLA Credits** | No | Yes | Yes |
+| **Error Budget Dashboard** | No | Yes | Yes |
 
-```
-Monthly Uptime % = ((Total Minutes - Downtime Minutes) / Total Minutes) × 100
-```
+## 3. Uptime Commitment
 
-- **Total Minutes**: Total minutes in the calendar month
-- **Downtime Minutes**: Minutes where the Service is unavailable (excluding Scheduled Maintenance and Exclusions)
+### 3.1 Monthly Uptime Targets
 
-### 1.2 Service Availability Tiers
+| Tier | Monthly Uptime | Permitted Downtime |
+|------|----------------|-------------------|
+| Standard | 99.5% | 3 hours 36 minutes |
+| Professional | 99.9% | 43 minutes |
+| Enterprise | 99.95% | 21 minutes |
 
-| Tier | Uptime SLA | Max Monthly Downtime | Service Credits |
-|------|------------|---------------------|-----------------|
-| Enterprise | 99.9% | 43.8 minutes | Yes |
-| Business | 99.5% | 3.65 hours | Limited |
-| Standard | 99.0% | 7.3 hours | No |
+### 3.2 Service Credit Schedule
 
----
+If Aragora fails to meet the Monthly Uptime Percentage, eligible customers receive service credits:
 
-## 2. Service Level Objectives (SLOs)
+| Monthly Uptime | Credit (% of Monthly Fee) |
+|----------------|--------------------------|
+| 99.0% - 99.9% | 10% |
+| 95.0% - 99.0% | 25% |
+| 90.0% - 95.0% | 50% |
+| Below 90.0% | 100% |
 
-### 2.1 API Response Time
+**Maximum Credit:** Total service credits cannot exceed 100% of monthly fees.
 
-| Endpoint Category | P50 Latency | P99 Latency | Error Rate |
-|-------------------|-------------|-------------|------------|
-| Health/Status | < 50ms | < 200ms | < 0.01% |
-| Read Operations | < 100ms | < 500ms | < 0.1% |
-| Write Operations | < 200ms | < 1000ms | < 0.1% |
-| Debate Creation | < 500ms | < 2000ms | < 0.5% |
-| Streaming (WS) | < 100ms | < 500ms | < 0.1% |
+## 4. Performance Targets
 
-### 2.2 Throughput Guarantees
+### 4.1 API Latency
 
-| Resource | Guaranteed Capacity |
-|----------|---------------------|
-| API Requests | 10,000 req/min per tenant |
-| Concurrent Debates | 100 per tenant |
-| WebSocket Connections | 1,000 per tenant |
-| Storage | 100 GB per tenant |
+| Endpoint Category | P50 | P95 | P99 |
+|-------------------|-----|-----|-----|
+| Debate Creation | 50ms | 200ms | 500ms |
+| Debate Retrieval | 10ms | 50ms | 100ms |
+| Document Processing | 100ms | 300ms | 1000ms |
+| WebSocket Messages | 5ms | 20ms | 50ms |
 
-### 2.3 Data Durability
+### 4.2 Debate Completion
 
-- **Durability**: 99.999999999% (11 nines) for stored data
-- **Backup Frequency**: Every 6 hours
-- **Point-in-Time Recovery**: Up to 30 days
-- **Cross-Region Replication**: Available for Enterprise+
+| Debate Type | P50 | P95 |
+|-------------|-----|-----|
+| Standard (3 agents) | 8s | 20s |
+| Extended (5+ agents) | 15s | 45s |
+| Complex (10+ rounds) | 30s | 90s |
 
----
+**Note:** Debate completion times depend on LLM provider response times and are best-effort targets.
 
-## 3. Service Credits
+### 4.3 Webhook Delivery
 
-### 3.1 Credit Schedule
+| Metric | Target |
+|--------|--------|
+| Delivery Latency (P99) | < 5 seconds |
+| Delivery Success Rate | 99.9% |
+| Retry Attempts | 3 (with exponential backoff) |
 
-| Monthly Uptime | Service Credit |
-|----------------|----------------|
-| 99.0% - 99.9% | 10% of monthly fee |
-| 95.0% - 99.0% | 25% of monthly fee |
-| 90.0% - 95.0% | 50% of monthly fee |
-| < 90.0% | 100% of monthly fee |
+### 4.4 Error Rates
 
-### 3.2 Credit Request Process
-
-1. Submit credit request within 30 days of incident
-2. Include: Tenant ID, incident timestamps, affected services
-3. Submit via: support@aragora.ai or support portal
-4. Credits applied to next billing cycle (non-transferable)
-
-### 3.3 Credit Limitations
-
-- Maximum credit: 100% of monthly fee for affected service
-- Credits do not apply to: one-time fees, professional services, third-party costs
-- Credits are sole remedy for SLA breaches
-
----
-
-## 4. Exclusions
-
-The following are **not** counted as downtime:
-
-### 4.1 Scheduled Maintenance
-
-- Announced 72 hours in advance
-- Maximum 4 hours per month
-- Performed during low-usage windows (02:00-06:00 UTC)
-
-### 4.2 Emergency Maintenance
-
-- Security patches or critical fixes
-- Announced as soon as reasonably possible
-- Limited to 2 hours per incident
-
-### 4.3 External Factors
-
-- Customer's internet connectivity issues
-- Third-party service failures (LLM providers, payment processors)
-- DNS propagation delays
-- Customer-side firewall/security blocks
-
-### 4.4 Customer-Caused Issues
-
-- Exceeding rate limits or quotas
-- Misuse or abuse of the Service
-- Customer code or integration errors
-- Failure to follow documentation
-
-### 4.5 Force Majeure
-
-- Natural disasters
-- Government actions
-- War, terrorism, civil unrest
-- Pandemic-related disruptions
-
----
+| Service | Target | Maximum |
+|---------|--------|---------|
+| API Error Rate | < 0.5% | < 1.0% |
+| WebSocket Error Rate | < 1.0% | < 2.0% |
+| Background Job Failure | < 0.1% | < 0.5% |
 
 ## 5. Support Response Times
 
-### 5.1 Support Tiers
+### 5.1 Priority Definitions
 
-| Priority | Description | Response Time | Resolution Target |
-|----------|-------------|---------------|-------------------|
-| P1 - Critical | Service unavailable | 15 minutes | 4 hours |
-| P2 - High | Major feature degraded | 1 hour | 8 hours |
-| P3 - Medium | Minor feature issue | 4 hours | 24 hours |
-| P4 - Low | Questions, enhancements | 24 hours | Best effort |
+| Priority | Description | Examples |
+|----------|-------------|----------|
+| **P1 - Critical** | Complete service outage, data loss risk | API unavailable, database corruption |
+| **P2 - High** | Major feature unavailable, severe degradation | Debates failing, auth broken |
+| **P3 - Medium** | Feature impaired, workaround available | Slow performance, UI issues |
+| **P4 - Low** | Minor issue, cosmetic, feature request | Documentation, enhancement |
 
-### 5.2 Support Channels
+### 5.2 Response and Resolution Targets
 
-| Channel | Availability | Best For |
-|---------|--------------|----------|
-| Email | 24/7 | All issues |
-| Portal | 24/7 | Ticket tracking |
-| Phone | Business hours | P1/P2 issues |
-| Slack Connect | Business hours | Enterprise customers |
+| Priority | First Response | Status Update | Target Resolution |
+|----------|---------------|---------------|-------------------|
+| P1 | Per tier SLA | Every 30 min | 4 hours |
+| P2 | Per tier SLA | Every 2 hours | 8 hours |
+| P3 | Per tier SLA | Daily | 5 business days |
+| P4 | 2 business days | Weekly | Best effort |
 
----
+## 6. Maintenance Windows
 
-## 6. Disaster Recovery
+### 6.1 Scheduled Maintenance
 
-### 6.1 Recovery Objectives
+- **Notification**: At least 72 hours advance notice
+- **Preferred Window**: Sundays 02:00-06:00 UTC
+- **Frequency**: No more than once per month for major maintenance
+- **Duration**: Maximum 4 hours per maintenance window
 
-| Metric | Target | Description |
-|--------|--------|-------------|
-| RTO (Recovery Time Objective) | 4 hours | Time to restore service |
-| RPO (Recovery Point Objective) | 1 hour | Maximum data loss window |
-| Failover Time | 15 minutes | Time to switch to backup region |
+### 6.2 Emergency Maintenance
 
-### 6.2 Backup Strategy
+- **Notification**: As soon as reasonably possible
+- **Scope**: Security patches, critical fixes only
+- **Post-Incident**: Root cause analysis within 48 hours
 
-- **Hot Standby**: Active-passive replication to secondary region
-- **Database**: Continuous WAL archiving with point-in-time recovery
-- **Object Storage**: Cross-region replication enabled
-- **Configuration**: Infrastructure-as-code, version controlled
+## 7. Exclusions
 
-### 6.3 DR Testing
+The SLA does not apply to:
 
-- **Frequency**: Quarterly
-- **Scope**: Full failover simulation
-- **Documentation**: Results shared with Enterprise customers upon request
+1. **Force Majeure**: Events beyond reasonable control
+2. **Customer Actions**: Misconfiguration, abuse, or unauthorized access
+3. **Third-Party Services**: LLM provider outages, cloud infrastructure failures
+4. **Beta Features**: Features explicitly marked as beta or preview
+5. **Free Tier**: SLA applies only to paid subscriptions
+6. **API Abuse**: Requests exceeding rate limits or terms of service
 
----
+## 8. Claiming Credits
 
-## 7. Data Residency & Compliance
+### 8.1 Process
 
-### 7.1 Data Locations
+1. Submit claim within 30 days of incident
+2. Include: Account ID, incident date/time, description
+3. Submit to: support@aragora.ai or via support portal
 
-| Region | Primary | Backup | Compliance |
-|--------|---------|--------|------------|
-| US | us-east-1 | us-west-2 | SOC 2, HIPAA |
-| EU | eu-west-1 | eu-central-1 | GDPR, SOC 2 |
-| APAC | ap-southeast-1 | ap-northeast-1 | SOC 2 |
+### 8.2 Verification
 
-### 7.2 Data Handling
+- Aragora will verify claims against monitoring data
+- Response within 10 business days
+- Credits applied to next invoice cycle
 
-- **Encryption at Rest**: AES-256-GCM
-- **Encryption in Transit**: TLS 1.3
-- **Key Management**: AWS KMS with customer-managed keys (Enterprise+)
-- **Data Retention**: Configurable per tenant (default 90 days)
+## 9. Monitoring and Reporting
 
-### 7.3 Compliance Certifications
+### 9.1 Status Page
 
-- SOC 2 Type II (in progress)
-- ISO 27001 (planned Q3 2026)
-- GDPR compliant
-- HIPAA compliant (with BAA)
+Real-time service status available at: status.aragora.ai
 
----
+### 9.2 Monthly Reports (Enterprise)
 
-## 8. Monitoring & Transparency
+- Uptime metrics and trend analysis
+- Incident summaries
+- Performance against SLO targets
+- Error budget consumption
 
-### 8.1 Status Page
+### 9.3 Prometheus SLO Recording Rules
 
-- **URL**: status.aragora.ai
-- **Updates**: Real-time incident notifications
-- **History**: 90-day incident history
-- **Subscriptions**: Email, SMS, webhook notifications
+Enterprise customers receive access to SLO metrics:
 
-### 8.2 Metrics Dashboard
+```yaml
+# API Availability
+- record: slo:api:availability:ratio
+  expr: sum(rate(http_requests_total{status!~"5.."}[5m])) / sum(rate(http_requests_total[5m]))
 
-Enterprise customers have access to:
-- Real-time SLO metrics
-- Historical uptime data
-- Latency percentiles
-- Error rate trends
-- Capacity utilization
+# API Latency P99
+- record: slo:api:latency:p99
+  expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
 
-### 8.3 Incident Communication
+# Webhook Delivery Latency P99
+- record: slo:webhook:delivery:latency:p99
+  expr: histogram_quantile(0.99, sum(rate(webhook_delivery_seconds_bucket[5m])) by (le))
 
-| Severity | Initial Update | Ongoing Updates | Post-Mortem |
-|----------|----------------|-----------------|-------------|
-| P1 | 15 minutes | Every 30 minutes | Within 72 hours |
-| P2 | 1 hour | Every 2 hours | Within 1 week |
-| P3 | 4 hours | Daily | Upon request |
-
----
-
-## 9. Terms & Conditions
-
-### 9.1 Agreement Duration
-
-This SLA is effective for the duration of your Enterprise subscription agreement.
-
-### 9.2 Modifications
-
-Aragora may modify this SLA with 30 days' notice. Changes will not reduce service levels for existing customers during their current term.
-
-### 9.3 Termination
-
-If Aragora fails to meet the 99.9% uptime SLA for 3 consecutive months, customer may terminate with 30 days' notice and receive prorated refund.
-
-### 9.4 Governing Law
-
-This SLA is governed by the laws of the State of Delaware, USA.
-
----
+# Debate Completion P95
+- record: slo:debate:completion:p95
+  expr: histogram_quantile(0.95, sum(rate(debate_completion_seconds_bucket[5m])) by (le))
+```
 
 ## 10. Contact Information
 
-- **Support Portal**: support.aragora.ai
-- **Email**: support@aragora.ai
-- **Emergency Hotline**: +1-XXX-XXX-XXXX (Enterprise only)
-- **Status Page**: status.aragora.ai
+| Channel | Contact | Availability |
+|---------|---------|--------------|
+| Support Portal | support.aragora.ai | 24/7 |
+| Email | support@aragora.ai | Per tier |
+| Phone (Enterprise) | Dedicated line | 24/7 |
+| Slack (Enterprise) | Dedicated channel | 24/7 |
+
+## 11. SLA Revision
+
+This SLA may be updated with 30 days notice. Current version is always available at docs.aragora.ai/sla.
 
 ---
 
-*Last Updated: January 2026*
+**Effective Date:** January 28, 2026
+**Version:** 1.0.0
+**Last Updated:** January 28, 2026

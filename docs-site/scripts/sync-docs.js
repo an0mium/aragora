@@ -269,7 +269,7 @@ const DOC_MAP = {
   'BILLING_UNITS.md': 'enterprise/billing-units.md',
   'SSO_SETUP.md': 'enterprise/sso.md',
   'STRIPE_SETUP.md': 'enterprise/stripe-setup.md',
-  'enterprise/SLA.md': 'enterprise/sla.md',
+  'SLA.md': 'enterprise/sla.md',
 
   // =========================================================================
   // Security & Compliance
@@ -441,7 +441,6 @@ const DOC_MAP = {
   'reference/BINDINGS.md': 'reference/bindings.md',
   'reference/BREAKING_CHANGES.md': 'reference/breaking-changes.md',
   'reference/CANONICAL_STORES.md': 'reference/canonical-stores.md',
-  'reference/CONFIGURATION.md': 'reference/configuration.md',
   'reference/CREDITS.md': 'reference/credits.md',
   'reference/ENVIRONMENT_COMPLETE.md': 'reference/environment-complete.md',
   'reference/ERROR_CODES.md': 'reference/error-codes.md',

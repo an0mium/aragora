@@ -12,7 +12,6 @@ Explore the documentation in this section to learn more.
 
 ## In This Section
 
-- [Aragora Configuration Reference](./configuration)
 - [Breaking Changes](./breaking-changes)
 - [Canonical Stores](./canonical-stores)
 - [Complete Environment Variable Reference](./environment-complete)

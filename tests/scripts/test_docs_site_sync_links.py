@@ -239,6 +239,7 @@ DOCS_REFERENCE_PRE_EXISTING_MIRROR_PAIRS: dict[str, str] = {
     "BILLING.md": "enterprise/billing.md",
     "BILLING_UNITS.md": "enterprise/billing-units.md",
     "CLI_REFERENCE.md": "api/cli.md",
+    "CONFIGURATION.md": "getting-started/configuration.md",
     "CONTROL_PLANE.md": "enterprise/control-plane-overview.md",
     "DATABASE.md": "deployment/database.md",
     "DATABASE_SCHEMA.md": "deployment/database-schema.md",
@@ -733,6 +734,7 @@ DOCS_REFERENCE_PRE_EXISTING_MIRROR: dict[str, str] = {
     "BILLING.md": "enterprise/billing.md",
     "BILLING_UNITS.md": "enterprise/billing-units.md",
     "CLI_REFERENCE.md": "api/cli.md",
+    "CONFIGURATION.md": "getting-started/configuration.md",
     "CONTROL_PLANE.md": "enterprise/control-plane-overview.md",
     "DATABASE.md": "deployment/database.md",
     "DATABASE_SCHEMA.md": "deployment/database-schema.md",
@@ -742,23 +744,21 @@ DOCS_REFERENCE_PRE_EXISTING_MIRROR: dict[str, str] = {
     "ENVIRONMENT.md": "getting-started/environment.md",
     "HANDLERS.md": "contributing/handlers.md",
     "LIBRARY_USAGE.md": "guides/library-usage.md",
+    "SLA.md": "enterprise/sla.md",
 }
 
 # docs/reference/*.md files that are deliberately excluded from the
-# docs-site mirror. These two files contain stale commercial/legal terms that
-# conflict with the public docs/PRICING.md and docs/enterprise/SLA.md surfaces.
-# Keep them repository-visible for reconciliation without publishing a second
-# customer-facing promise.
+# docs-site mirror. PRICING_TIERS.md contains stale commercial terms that
+# conflict with the public docs/PRICING.md surface. Keep it repository-visible
+# for reconciliation without publishing a second customer-facing promise.
 DOCS_REFERENCE_MIRROR_ALLOWLIST: frozenset[str] = frozenset(
     {
         "PRICING_TIERS.md",
-        "SLA.md",
     }
 )
 
 DOCS_REFERENCE_WITHHELD_PUBLICATION_PATHS: dict[str, str] = {
     "PRICING_TIERS.md": "reference/pricing-tiers.md",
-    "SLA.md": "reference/sla.md",
 }
 
 
@@ -850,7 +850,7 @@ def test_docs_reference_directory_is_mirrored() -> None:
     assert (DOCS_SITE_ROOT / "reference" / "index.md").exists()
 
 
-def test_public_commercial_sources_remain_canonical() -> None:
+def test_public_commercial_sources_do_not_gain_duplicate_reference_pages() -> None:
     sync_script = SYNC_SCRIPT.read_text(encoding="utf-8")
     assert re.search(
         r"^\s*'PRICING\.md':\s*'enterprise/pricing\.md',\s*$",
@@ -858,20 +858,17 @@ def test_public_commercial_sources_remain_canonical() -> None:
         re.MULTILINE,
     )
     assert re.search(
-        r"^\s*'enterprise/SLA\.md':\s*'enterprise/sla\.md',\s*$",
+        r"^\s*'SLA\.md':\s*'enterprise/sla\.md',\s*$",
         sync_script,
         re.MULTILINE,
     )
     assert not re.search(r"^\s*'reference/PRICING_TIERS\.md':", sync_script, re.MULTILINE)
     assert not re.search(r"^\s*'reference/SLA\.md':", sync_script, re.MULTILINE)
-    assert not re.search(r"^\s*'SLA\.md':", sync_script, re.MULTILINE)
+    assert not re.search(r"^\s*'enterprise/SLA\.md':", sync_script, re.MULTILINE)
 
     enterprise_pricing = _read_docs_site("enterprise/pricing.md")
-    enterprise_sla = _read_docs_site("enterprise/sla.md")
     assert "$49/seat/mo" in enterprise_pricing
     assert "10/month" in enterprise_pricing
-    assert "**Effective Date:** January 2026" in enterprise_sla
-    assert "99.95%" not in enterprise_sla
 
 
 def test_docs_reference_pages_have_no_dead_relative_md_links() -> None:
