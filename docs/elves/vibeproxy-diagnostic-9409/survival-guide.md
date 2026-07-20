@@ -39,8 +39,8 @@ unit on this branch.
 
 - **Planned batches remaining:** 1
 - **Stop allowed right now:** no
-- **Why:** staging is complete but the diagnostic batch has not started
-- **Next required action:** in a fresh launch call, orient from the run files, verify green, create `elves/pre-batch-1`, write the Batch 1 contract, then implement
+- **Why:** Batch 1 is in progress and product implementation, validation, review, and final readiness remain
+- **Next required action:** implement the recorded Batch 1 contract from the completed architecture survey
 
 ## Effort Standard
 
@@ -101,13 +101,13 @@ hard deadline arrives, or a genuine blocker has no safe workaround.
 
 ## Current Phase
 
-**Status:** Launch-ready
+**Status:** Batch 1 implementation
 
 **Active batch:** Batch 1: Diagnostic Command, Tests, and Documentation
 
-**What was just finished:** Staging completed: live state, ownership, plan, recovery files, focused baseline, hooks, repository preflight, setup push, and draft PR #9431 are recorded.
+**What was just finished:** The branch was integrated with current main at `b97807a1234bd6753cef3654b1b9dab750078c2a`, the exact-tip 85-test baseline passed, the expired lease was safely reclaimed, and the collision-safe rollback tag plus Batch 1 contract were recorded.
 
-**Single next action:** Start Batch 1 only from the fresh launch call: re-orient, verify green, create the rollback tag, complete the written contract, and implement.
+**Single next action:** Implement the diagnostic result model, smallest additive client metadata surface, fake-proxy tests, and guide changes described by the contract.
 
 ## Active Compute
 
@@ -135,7 +135,7 @@ this run. Unrelated Fable/conductor processes are outside this lane.
 
 **Risk:** Medium; diagnostic metadata must not become a credential leak or a second unsafe HTTP implementation.
 
-**Rollback tag:** `elves/pre-batch-1`
+**Rollback tag:** `elves/vibeproxy-diagnostic-9409/pre-batch-1`
 
 ## Post-Checkpoint Control Loop
 
@@ -168,8 +168,9 @@ notification: pr-comment
 
 ## Rollback and Safety Rules
 
-1. Create `elves/pre-batch-1` before implementation and push it only if the
-   repository policy permits tag publication.
+1. The generic `elves/pre-batch-1` name was already occupied by unrelated
+   history, so use the published collision-safe tag
+   `elves/vibeproxy-diagnostic-9409/pre-batch-1` for this run.
 2. Never force-push, rebase a published branch, or discard work destructively.
 3. Stage specific files only.
 4. If the branch/worktree tip moves unexpectedly, stop as a collision.
