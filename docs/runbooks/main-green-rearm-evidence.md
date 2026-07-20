@@ -165,16 +165,19 @@ required set is the union of both policy sources; failure to read either source
 is `evidence_incomplete`, never an empty-policy success. Preserve each
 app-bound requirement's integration or app ID; a same-named run from another
 GitHub App is not proof for that requirement. Treat a branch-protection name in
-`.contexts` as legacy only when neither source binds that name to an app.
+`.contexts` as legacy only when neither source binds that name to an app. An
+unbound ruleset context may be satisfied by either a Check Run or a legacy
+commit status; if both surfaces report the context and disagree, fail closed.
 Select matching check runs by their numeric creation-ordered ID so a newer
 queued run with no `started_at` cannot be hidden by an older success; a missing
 or nonnumeric ID fails closed:
 
 ```bash
 RULESET_REQUIRED_JSON="$(
-  gh api repos/synaptent/aragora/rules/branches/main \
-    --jq '[
-      .[]
+  gh api --paginate --slurp \
+    "repos/synaptent/aragora/rules/branches/main?per_page=100" \
+    | jq '[
+      .[][]
       | select(.type == "required_status_checks")
       | .parameters.required_status_checks[]?
       | {
@@ -198,12 +201,42 @@ REQUIRED_POLICY_JSON="$(
     --argjson protection "$BRANCH_PROTECTION_REQUIRED_JSON" \
     '{
       checks: (
-        ($ruleset + $protection.checks)
+        (
+          [$ruleset[]
+            | select(.app_id != null and .app_id != -1)
+            | {context, app_id, source: "ruleset"}
+          ]
+          + [$protection.checks[]
+            | {context, app_id, source: "branch_protection"}
+          ]
+        )
         | map(select(
             (.context | type) == "string"
             and (.context | length > 0)
           ))
-        | unique_by([.context, .app_id])
+        | sort_by(.context, .app_id, .source)
+        | group_by([.context, .app_id])
+        | map({
+            context: .[0].context,
+            app_id: .[0].app_id,
+            sources: (map(.source) | unique)
+          })
+      ),
+      status_or_checks: (
+        [$ruleset[]
+          | select(.app_id == null or .app_id == -1)
+          | select(
+              (.context | type) == "string"
+              and (.context | length > 0)
+            )
+          | {context, source: "ruleset"}
+        ]
+        | sort_by(.context, .source)
+        | group_by(.context)
+        | map({
+            context: .[0].context,
+            sources: (map(.source) | unique)
+          })
       ),
       legacy_contexts: (
         $protection.legacy_contexts
@@ -248,6 +281,12 @@ jq -n \
   --argjson runs "$CHECK_RUNS_JSON" \
   --argjson statuses "$COMMIT_STATUSES_JSON" \
   '{
+    sources: $policy.sources,
+    policy_requirement_count: (
+      ($policy.checks | length)
+      + ($policy.status_or_checks | length)
+      + ($policy.legacy_contexts | length)
+    ),
     checks: [
       $policy.checks[] as $requirement
       | [$runs[] | select(
@@ -262,12 +301,70 @@ jq -n \
           kind: "check_run",
           context: $requirement.context,
           app_id: $requirement.app_id,
+          sources: $requirement.sources,
           found: ($matches | length > 0),
           latest: (
             if any($matches[]; (.id | type) != "number")
             then null
             else ($matches | max_by(.id))
             end
+          )
+        }
+    ],
+    status_or_checks: [
+      $policy.status_or_checks[] as $requirement
+      | [$runs[] | select(.name == $requirement.context)] as $check_matches
+      | [$statuses[] | select(.context == $requirement.context)] as $status_matches
+      | any($check_matches[]; (.id | type) != "number") as $invalid_check_proof
+      | any($status_matches[];
+          (.updated_at | type) != "string"
+          or (.updated_at | length) == 0
+        ) as $invalid_status_proof
+      | (
+          if $invalid_check_proof
+          then null
+          else ($check_matches | max_by(.id))
+          end
+        ) as $latest_check
+      | (
+          if $invalid_status_proof
+          then null
+          else ($status_matches | max_by(.updated_at))
+          end
+        ) as $latest_status
+      | (
+          $latest_check != null
+          and $latest_check.status == "completed"
+          and (
+            $latest_check.conclusion == "success"
+            or (
+              $requirement.context == "aragora-merge-quorum"
+              and $latest_check.conclusion == "skipped"
+            )
+          )
+        ) as $check_green
+      | (
+          $latest_status != null
+          and $latest_status.state == "success"
+        ) as $status_green
+      | (
+          $latest_check != null
+          and $latest_status != null
+          and $check_green != $status_green
+        ) as $conflict
+      | {
+          kind: "status_or_check",
+          context: $requirement.context,
+          sources: $requirement.sources,
+          found: ($latest_check != null or $latest_status != null),
+          latest_check: $latest_check,
+          latest_status: $latest_status,
+          proof_complete: (($invalid_check_proof or $invalid_status_proof) | not),
+          conflict: $conflict,
+          satisfied: (
+            ($check_green or $status_green)
+            and ($conflict | not)
+            and (($invalid_check_proof or $invalid_status_proof) | not)
           )
         }
     ],
@@ -278,14 +375,25 @@ jq -n \
           kind: "commit_status",
           context: $context,
           found: ($matches | length > 0),
-          latest: ($matches | sort_by(.updated_at // "") | reverse | .[0] // null)
+          latest: (
+            if any($matches[];
+              (.updated_at | type) != "string"
+              or (.updated_at | length) == 0
+            )
+            then null
+            else ($matches | max_by(.updated_at))
+            end
+          )
         }
     ]
   }' \
   | tee "$EVIDENCE_DIR/required-contexts.json"
 
 jq -e \
-  'all(.checks[];
+  '.sources.ruleset == true
+    and .sources.branch_protection == true
+    and .policy_requirement_count > 0
+    and all(.checks[];
       .found
       and .latest.status == "completed"
       and (
@@ -296,13 +404,21 @@ jq -e \
         )
       )
     )
+    and all(.status_or_checks[];
+      .found
+      and .proof_complete
+      and (.conflict | not)
+      and .satisfied
+    )
     and all(.statuses[]; .found and .latest.state == "success")' \
   "$EVIDENCE_DIR/required-contexts.json"
 ```
 
-Inspect every row in both arrays in `required-contexts.json`. A missing
+Inspect every row in all three requirement arrays in `required-contexts.json`.
+A missing
 ruleset or branch-protection policy response, missing app-bound check, app-id
-mismatch, or missing legacy status is `evidence_incomplete`. A main-applicable
+mismatch, missing unbound context proof, conflicting status/check result,
+empty normalized policy, or missing legacy status is `evidence_incomplete`. A main-applicable
 required check whose latest run did not complete successfully, or a required
 legacy status whose latest state is not `success`, is `main_red`; a check
 designed to skip on main (currently `aragora-merge-quorum`) must remain visible

@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 
-RUNBOOK = Path("docs/runbooks/main-green-rearm-evidence.md")
+RUNBOOK = Path(__file__).resolve().parents[2] / "docs/runbooks/main-green-rearm-evidence.md"
 
 
 def _reconciliation_program(text: str) -> str:
@@ -33,7 +33,7 @@ def _policy_program(text: str) -> str:
 
 def _reconciliation_guard(text: str) -> str:
     match = re.search(
-        r"jq -e \\\n  '(all\(.checks\[\];.*?\))' \\\n"
+        r"jq -e \\\n  '(.*?)' \\\n"
         r'  "\$EVIDENCE_DIR/required-contexts\.json"',
         text,
         flags=re.DOTALL,
@@ -95,10 +95,12 @@ def test_required_context_reconciliation_consumes_all_check_run_pages() -> None:
     assert "gh api --paginate --slurp" in text
     assert "check-runs?filter=latest&per_page=100" in text
     assert "statuses?per_page=100" in text
-    assert "repos/synaptent/aragora/rules/branches/main" in text
+    assert '"repos/synaptent/aragora/rules/branches/main?per_page=100"' in text
     assert ".parameters.required_status_checks[]?" in text
     assert "repos/synaptent/aragora/branches/main/protection/required_status_checks" in text
-    assert "($ruleset + $protection.checks)" in text
+    assert 'source: "ruleset"' in text
+    assert 'source: "branch_protection"' in text
+    assert "status_or_checks:" in text
     assert "- [$ruleset[].context]" in text
     assert "sources:" in text
     assert "app_id: (.app.id // null)" in text
@@ -116,10 +118,13 @@ def test_required_context_reconciliation_consumes_all_check_run_pages() -> None:
 class TestJqPrograms:
     def test_required_policy_unions_rulesets_and_branch_protection(self) -> None:
         text = RUNBOOK.read_text(encoding="utf-8")
-        ruleset = [{"context": "ruleset-only", "app_id": 15368}]
+        ruleset = [
+            {"context": "ruleset-only", "app_id": 15368},
+            {"context": "status-or-check", "app_id": None},
+        ]
         protection = {
             "checks": [{"context": "lint", "app_id": 15368}],
-            "legacy_contexts": ["legacy", "ruleset-only"],
+            "legacy_contexts": ["legacy", "ruleset-only", "status-or-check"],
         }
 
         result = subprocess.run(
@@ -141,8 +146,15 @@ class TestJqPrograms:
 
         policy = json.loads(result.stdout)
         assert policy["checks"] == [
-            {"context": "lint", "app_id": 15368},
-            {"context": "ruleset-only", "app_id": 15368},
+            {
+                "context": "lint",
+                "app_id": 15368,
+                "sources": ["branch_protection"],
+            },
+            {"context": "ruleset-only", "app_id": 15368, "sources": ["ruleset"]},
+        ]
+        assert policy["status_or_checks"] == [
+            {"context": "status-or-check", "sources": ["ruleset"]}
         ]
         assert policy["legacy_contexts"] == ["legacy"]
         assert policy["sources"] == {"ruleset": True, "branch_protection": True}
@@ -150,8 +162,16 @@ class TestJqPrograms:
     def test_required_context_reconciliation_prefers_newer_queued_run(self) -> None:
         text = RUNBOOK.read_text(encoding="utf-8")
         policy = {
-            "checks": [{"context": "lint", "app_id": 15368}],
+            "checks": [
+                {
+                    "context": "lint",
+                    "app_id": 15368,
+                    "sources": ["branch_protection"],
+                }
+            ],
+            "status_or_checks": [],
             "legacy_contexts": [],
+            "sources": {"ruleset": True, "branch_protection": True},
         }
         runs = [
             {
@@ -197,8 +217,16 @@ class TestJqPrograms:
     ) -> None:
         text = RUNBOOK.read_text(encoding="utf-8")
         policy = {
-            "checks": [{"context": "ruleset-only", "app_id": 15368}],
+            "checks": [
+                {
+                    "context": "ruleset-only",
+                    "app_id": 15368,
+                    "sources": ["ruleset"],
+                }
+            ],
+            "status_or_checks": [],
             "legacy_contexts": [],
+            "sources": {"ruleset": True, "branch_protection": True},
         }
         evidence = _reconcile(text, policy=policy, runs=runs)
 
@@ -210,6 +238,162 @@ class TestJqPrograms:
         )
 
         assert result.returncode != 0
+
+    def test_unbound_ruleset_context_accepts_green_legacy_status(self) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        policy = {
+            "checks": [],
+            "status_or_checks": [{"context": "ruleset-status", "sources": ["ruleset"]}],
+            "legacy_contexts": [],
+            "sources": {"ruleset": True, "branch_protection": True},
+        }
+        statuses = [
+            {
+                "id": 7,
+                "context": "ruleset-status",
+                "state": "success",
+                "updated_at": "2026-07-20T12:00:00Z",
+            }
+        ]
+
+        evidence = _reconcile(text, policy=policy, runs=[], statuses=statuses)
+        result = subprocess.run(
+            ["jq", "-e", _reconciliation_guard(text)],
+            input=json.dumps(evidence),
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert evidence["status_or_checks"][0]["latest_status"]["id"] == 7
+        assert evidence["status_or_checks"][0]["latest_check"] is None
+
+    def test_unbound_ruleset_context_rejects_conflicting_surfaces(self) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        policy = {
+            "checks": [],
+            "status_or_checks": [{"context": "ruleset-status", "sources": ["ruleset"]}],
+            "legacy_contexts": [],
+            "sources": {"ruleset": True, "branch_protection": True},
+        }
+        runs = [
+            {
+                "id": 8,
+                "name": "ruleset-status",
+                "app_id": 15368,
+                "status": "completed",
+                "conclusion": "success",
+            }
+        ]
+        statuses = [
+            {
+                "id": 9,
+                "context": "ruleset-status",
+                "state": "failure",
+                "updated_at": "2026-07-20T12:01:00Z",
+            }
+        ]
+
+        evidence = _reconcile(text, policy=policy, runs=runs, statuses=statuses)
+        result = subprocess.run(
+            ["jq", "-e", _reconciliation_guard(text)],
+            input=json.dumps(evidence),
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
+        assert evidence["status_or_checks"][0]["conflict"] is True
+
+    def test_unbound_ruleset_context_rejects_malformed_alternate_proof(self) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        policy = {
+            "checks": [],
+            "status_or_checks": [{"context": "ruleset-status", "sources": ["ruleset"]}],
+            "legacy_contexts": [],
+            "sources": {"ruleset": True, "branch_protection": True},
+        }
+        runs = [
+            {
+                "id": "not-numeric",
+                "name": "ruleset-status",
+                "status": "completed",
+                "conclusion": "success",
+            }
+        ]
+        statuses = [
+            {
+                "id": 10,
+                "context": "ruleset-status",
+                "state": "success",
+                "updated_at": "2026-07-20T12:02:00Z",
+            }
+        ]
+
+        evidence = _reconcile(text, policy=policy, runs=runs, statuses=statuses)
+        result = subprocess.run(
+            ["jq", "-e", _reconciliation_guard(text)],
+            input=json.dumps(evidence),
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
+        assert evidence["status_or_checks"][0]["proof_complete"] is False
+
+    def test_app_bound_ruleset_context_rejects_status_only_proof(self) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        policy = {
+            "checks": [
+                {
+                    "context": "app-bound",
+                    "app_id": 15368,
+                    "sources": ["ruleset"],
+                }
+            ],
+            "status_or_checks": [],
+            "legacy_contexts": [],
+            "sources": {"ruleset": True, "branch_protection": True},
+        }
+        statuses = [
+            {
+                "id": 11,
+                "context": "app-bound",
+                "state": "success",
+                "updated_at": "2026-07-20T12:03:00Z",
+            }
+        ]
+
+        evidence = _reconcile(text, policy=policy, runs=[], statuses=statuses)
+        result = subprocess.run(
+            ["jq", "-e", _reconciliation_guard(text)],
+            input=json.dumps(evidence),
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
+        assert evidence["checks"][0]["found"] is False
+
+    def test_empty_normalized_policy_fails_closed(self) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        policy = {
+            "checks": [],
+            "status_or_checks": [],
+            "legacy_contexts": [],
+            "sources": {"ruleset": True, "branch_protection": True},
+        }
+
+        evidence = _reconcile(text, policy=policy, runs=[])
+        result = subprocess.run(
+            ["jq", "-e", _reconciliation_guard(text)],
+            input=json.dumps(evidence),
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
+        assert evidence["policy_requirement_count"] == 0
 
 
 def test_failed_first_rearm_guard_cannot_delete_halt_marker(tmp_path: Path) -> None:
