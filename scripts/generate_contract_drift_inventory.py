@@ -779,12 +779,7 @@ def _run_script_references(source_path: str, run: str) -> list[str]:
             raise AuthorityClosureError(
                 f"dynamic repository python -m target is forbidden: {source_path} -> {module}"
             )
-    pattern = re.compile(
-        r"(?<![A-Za-z0-9_./-])"
-        r"((?:\./)?(?:scripts|aragora|\.github)/[A-Za-z0-9_./-]+\.(?:py|sh))"
-        r"(?![A-Za-z0-9_.-])"
-    )
-    references = {match.group(1).lstrip("./") for match in pattern.finditer(normalized)}
+    references = set(_literal_run_script_references(normalized))
     for match in module_invocation.finditer(normalized):
         module = match.group(1).strip("\"'")
         if any(
@@ -793,6 +788,15 @@ def _run_script_references(source_path: str, run: str) -> list[str]:
         ):
             references.add(f"{module.replace('.', '/')}.py")
     return sorted(references)
+
+
+def _literal_run_script_references(run: str) -> list[str]:
+    pattern = re.compile(
+        r"(?<![A-Za-z0-9_./-])"
+        r"((?:\./)?(?:scripts|aragora|\.github)/[A-Za-z0-9_./-]+\.(?:py|sh))"
+        r"(?![A-Za-z0-9_.-])"
+    )
+    return sorted({match.group(1).lstrip("./") for match in pattern.finditer(run)})
 
 
 def _shell_helper_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
@@ -820,11 +824,12 @@ def _workflow_direct_matches(
 ) -> list[tuple[str, str]]:
     structure = _workflow_structure(extraction_root / workflow_path)
     matches: set[tuple[str, str]] = set()
+    literal_run_references = set(_literal_run_script_references("\n".join(structure["runs"])))
     for root in authority_roots:
         for pattern in structure["path_filters"]:
             if fnmatch.fnmatchcase(root, pattern):
                 matches.add((root, "workflow_path_filter"))
-        if root in _run_script_references(workflow_path, "\n".join(structure["runs"])):
+        if root in literal_run_references:
             matches.add((root, "workflow_run"))
     return sorted(matches)
 
