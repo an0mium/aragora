@@ -419,8 +419,9 @@ if scripts_package is not None:
 
 loaded = []
 for name, module in sorted(sys.modules.items()):
-    if not name.startswith(("aragora", "scripts", "_exact_ref_tier4_merge_train")):
-        continue
+    repository_named = name.startswith(
+        ("aragora", "scripts", "_exact_ref_tier4_merge_train")
+    )
     locations = []
     module_file = getattr(module, "__file__", None)
     if module_file:
@@ -429,11 +430,13 @@ for name, module in sorted(sys.modules.items()):
     if module_path:
         locations.extend(pathlib.Path(item).resolve() for item in module_path)
     for location in locations:
-        try:
+        if location == (root / "__contract_drift_exact_ref_runner.py").resolve():
+            continue
+        if under_root(location):
             relative = location.relative_to(root).as_posix()
-        except ValueError:
+            loaded.append({"module": name, "path": relative})
+        elif repository_named:
             raise SystemExit(f"repository module escaped extraction root: {name}={location}")
-        loaded.append({"module": name, "path": relative})
 
 result = {
     "authority_roots": list(review_queue.CONTRACT_DRIFT_AUTHORITY_PREFIXES),
@@ -493,6 +496,8 @@ def _invoke_exact_ref_policy(
 
     runner_path = extraction_root / "__contract_drift_exact_ref_runner.py"
     request_path = extraction_root / "__contract_drift_exact_ref_request.json"
+    if runner_path.exists() or request_path.exists():
+        raise AuthorityClosureError("exact-ref repository collides with classifier scratch paths")
     runner_path.write_text(_EXACT_REF_RUNNER, encoding="utf-8")
     request_path.write_bytes(_canonical_json_bytes({"paths": sorted(set(paths))}))
     try:
@@ -1377,7 +1382,7 @@ def _run_script_references(extraction_root: Path, source_path: str, run: str) ->
             f"dynamic local run target is forbidden: {source_path} -> {dynamic_match.group(1)}"
         )
     command_invocation = re.compile(
-        r"(?:^|[;&|]\s*|\$\(\s*)"
+        r"(?:^[ \t]*|[;&|]\s*|\$\(\s*)"
         r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
         r"(?:(?:-[A-Za-z]+\s+)*)"
         r"([^\s;&|]+)",
@@ -1398,7 +1403,7 @@ def _run_script_references(extraction_root: Path, source_path: str, run: str) ->
                 f"dynamic local run target is forbidden: {source_path} -> {target}"
             )
     module_invocation = re.compile(
-        r"(?:^|[;&|]\s*|\$\(\s*)"
+        r"(?:^[ \t]*|[;&|]\s*|\$\(\s*)"
         r"python(?:3(?:\.\d+)?)?\s+(?:-[A-Za-z]+\s+)*-m\s+([^\s;&|)]+)",
         re.MULTILINE,
     )

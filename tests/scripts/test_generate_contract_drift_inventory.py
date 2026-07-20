@@ -344,9 +344,11 @@ def _authority_fixture(
     )
     dynamic_runs = {
         "leading": '      - run: python "$HELPER_SCRIPT"\n',
+        "leading_block": '      - run: |\n          python "$HELPER_SCRIPT"\n',
         "mid_token": "      - run: python scripts/$HELPER.py\n",
         "glob": "      - run: python ./*.py\n",
         "module": "      - run: python -m scripts.helper\n",
+        "module_block": "      - run: |\n          python -m scripts.helper\n",
         "module_substitution": '      - run: echo "$(python -m scripts.helper)"\n',
         "package_module": "      - run: python -m scripts.pkg\n",
         "github_literal": "      - run: python .github/scripts/tool.py\n",
@@ -580,14 +582,16 @@ def test_unresolved_or_dynamic_local_workflow_reference_fails_closed(tmp_path: P
         _manifest(repo, sha)
 
 
-@pytest.mark.parametrize("variant", ["leading", "mid_token", "glob", "github_dynamic"])
+@pytest.mark.parametrize(
+    "variant", ["leading", "leading_block", "mid_token", "glob", "github_dynamic"]
+)
 def test_dynamic_local_run_reference_fails_closed(tmp_path: Path, variant: str):
     repo, sha = _authority_fixture(tmp_path, dynamic_run_reference=variant)
     with pytest.raises(gen.AuthorityClosureError, match="dynamic local run target"):
         _manifest(repo, sha)
 
 
-@pytest.mark.parametrize("variant", ["module", "module_substitution"])
+@pytest.mark.parametrize("variant", ["module", "module_block", "module_substitution"])
 def test_repository_python_module_run_target_joins_closure(tmp_path: Path, variant: str):
     repo, sha = _authority_fixture(tmp_path, dynamic_run_reference=variant)
     files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
@@ -1055,6 +1059,29 @@ def test_all_loaded_repository_modules_are_under_exact_ref_extraction_root(tmp_p
     assert any(entry["path"] == gen.POLICY_PATH for entry in loaded)
     assert all(not Path(entry["path"]).is_absolute() for entry in loaded)
     assert all(".." not in Path(entry["path"]).parts for entry in loaded)
+
+
+def test_top_level_module_shadow_loaded_from_exact_ref_fails_closed(tmp_path: Path):
+    repo, _sha = _authority_fixture(tmp_path, policy_prelude="import subprocess\n")
+    _write_text(repo / "subprocess.py", "SHADOWED = True\n")
+    subprocess.run(["git", "add", "subprocess.py"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "shadow"],
+        cwd=repo,
+        check=True,
+    )
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    with pytest.raises(
+        gen.AuthorityClosureError,
+        match=r"authority closure members below Tier 4: subprocess\.py",
+    ):
+        _manifest(repo, sha)
 
 
 def test_classifier_runtime_import_joins_and_recursively_closes_authority(tmp_path: Path):
