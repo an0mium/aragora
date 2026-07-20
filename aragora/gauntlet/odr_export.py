@@ -31,15 +31,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 from importlib import resources
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
 ODR_VERSION = "0.1"
 ODR_PROFILE_URI = "https://aragora.ai/specs/open-decision-receipt/v0.1"
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "ODR_VERSION",
@@ -50,6 +53,7 @@ __all__ = [
     "jcs_canonicalize",
     "load_odr_schema",
     "odr_content_digest",
+    "sign_odr_if_configured",
 ]
 
 
@@ -363,7 +367,18 @@ def _map_confidence(
     )
 
 
-def _map_cruxes(crux_set: list[dict[str, Any]] | None) -> dict[str, Any]:
+def _map_cruxes(
+    crux_set: list[dict[str, Any]] | None,
+    receipt: DecisionReceipt | None = None,
+) -> dict[str, Any]:
+    if not crux_set and receipt is not None:
+        # Crux cards (#8227): receipts from enable_crux_cards debates carry
+        # their own cruxes block; an explicit crux_set= still takes precedence.
+        receipt_cruxes = getattr(receipt, "cruxes", None)
+        if isinstance(receipt_cruxes, dict):
+            items = receipt_cruxes.get("items")
+            if items:
+                crux_set = list(items)
     if crux_set:
         return _present({"items": [dict(item) for item in crux_set]})
     return absent(
@@ -415,7 +430,7 @@ def decision_receipt_to_odr(
         "reasoning": _map_reasoning(receipt),
         "quorum": _map_quorum(receipt),
         "confidence": _map_confidence(receipt, calibration_provenance),
-        "cruxes": _map_cruxes(crux_set),
+        "cruxes": _map_cruxes(crux_set, receipt),
         "attestation": _map_attestation(attestation),
         "routing": {"status": "reserved"},
         "signatures": [],
@@ -427,6 +442,32 @@ def decision_receipt_to_odr(
             "artifact_hash": receipt.artifact_hash,
         },
     }
+
+
+def sign_odr_if_configured(
+    odr: dict[str, Any],
+    *,
+    key_loader: Callable[[], Any] | None = None,
+) -> dict[str, Any]:
+    """Sign an ODR export when the production key is available.
+
+    A genuinely UNCONFIGURED key (Secrets Manager disabled, or the secret was
+    never provisioned) is an expected deployment state, so export stays
+    available and explicitly unsigned. A key that is configured but cannot be
+    loaded (unreadable secret, bad AWS setup, invalid key material) propagates
+    instead — silently publishing an unsigned receipt from a deployment that
+    was expected to sign would fail open. Once a key is loaded, signing errors
+    always propagate.
+    """
+    from aragora.gauntlet import odr_signing
+
+    loader = key_loader or odr_signing.load_signing_key_from_secrets
+    try:
+        private_key = loader()
+    except odr_signing.OdrSigningUnconfiguredError as exc:
+        logger.warning("ODR signing key not configured; exporting unsigned ODR receipt: %s", exc)
+        return odr
+    return odr_signing.sign_odr_receipt(odr, private_key)
 
 
 def load_odr_schema() -> dict[str, Any]:

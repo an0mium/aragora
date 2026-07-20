@@ -2,6 +2,7 @@
 external proof: a heterogeneous-model PR review, bridged to a DecisionReceipt
 and exported to ODR, is verified by aragora-verify with zero Aragora dependency.
 The committed example JSON is the only artifact crossing the package boundary."""
+
 from __future__ import annotations
 
 import json

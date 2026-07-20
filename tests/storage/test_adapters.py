@@ -7,8 +7,8 @@ from datetime import datetime, UTC
 from unittest.mock import MagicMock
 
 from aragora.export.artifact import DebateArtifact
+from aragora.export.storage_adapter import DebateStorageAdapter
 from aragora.server.storage import DebateMetadata
-from aragora.storage.adapters import DebateStorageAdapter
 
 
 def _metadata(*, slug: str = "debate-slug", debate_id: str = "debate-123") -> DebateMetadata:

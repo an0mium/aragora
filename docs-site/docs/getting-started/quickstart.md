@@ -20,8 +20,10 @@ pip install -U 'aragora-verify>=0.1.1' && aragora-verify r.odr.json
 ```
 
 This runs a demo debate, exports the receipt to the portable ODR format, and
-verifies it offline with the standalone verifier -- exit `0` end to end. Run
-`aragora quickstart --help` for the live-provider and spec-first variants.
+verifies it offline with the standalone verifier -- exit `0` end to end.
+`aragora-verify`'s full exit-code contract is `0 verified / 1 failed / 2 usage /
+3 signatures-present-unchecked`. Run `aragora quickstart --help` for the
+live-provider and spec-first variants.
 
 ---
 
@@ -157,6 +159,13 @@ aragora receipt verify aragora-demo-receipt.json
 PyPI `aragora` 2.9.0 supports the explicit offline demo receipt round trip
 shown above. Use the source checkout path when you need to audit this exact
 branch or unreleased local changes.
+
+`aragora receipt verify` above checks the **native** demo receipt (exit 0/1);
+it is a different verb from the standalone `aragora-verify` used on the
+portable `.odr.json` artifact in the fastest path at the top of this page. For
+the contributor dev/test install, use the declared form
+`pip install -e ".[test]"` -- see `docs/reference/INSTALL_MATRIX.md` for the
+full per-audience breakdown.
 
 ## Next Steps
 

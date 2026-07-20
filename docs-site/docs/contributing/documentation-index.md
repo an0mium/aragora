@@ -19,7 +19,7 @@ then wire it into CI.
 
 1. [Quickstart](../getting-started/quickstart) — a working debate in under a minute
 2. [Receipt Lineage Reconciliation](../specs/receipt-lineage-reconciliation) — what a receipt is: the native record vs. the portable ODR
-3. [Independent Verifier Guide](../specs/independent-verifier-guide) — verify a receipt with `aragora-verify`, no Aragora install required
+3. [Independent Verifier Guide](../specs/independent-verifier-guide) — verify a receipt with `aragora-verify` (exit codes: `0 verified / 1 failed / 2 usage / 3 signatures-present-unchecked`), no Aragora install required
 4. [GitHub Action Setup](../guides/github-action-setup) — add multi-model CI review + receipts to your pull requests
 
 ## Getting Started
