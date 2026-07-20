@@ -21,13 +21,22 @@ the committed inventory is out of sync with the baselines.
 from __future__ import annotations
 
 import argparse
+import ast
+import fnmatch
+import hashlib
+import io
 import json
+import os
 import re
+import stat
 import subprocess
 import sys
+import tarfile
+import tempfile
+from collections import defaultdict, deque
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Iterator
 
 COHORT_COMMIT = "5cc7a81b77aeb6680613d441f74d72c435c8443c"
 COHORT_DATE = "2026-04-17"
@@ -36,6 +45,31 @@ DEFAULT_INVENTORY = "scripts/baselines/contract_drift_inventory.json"
 VALID_CLASSES = frozenset({"start_cohort", "discovered"})
 VALID_STATUSES = frozenset({"open", "resolved"})
 PROVENANCE_REF = re.compile(r"#\d+|https?://\S+")
+FULL_SHA_RE = re.compile(r"[0-9a-f]{40}")
+AUTHORITY_MANIFEST_SCHEMA = "contract-drift-authority-manifest-v2"
+AUTHORITY_CLASSIFICATION_SCHEMA = "contract-drift-authority-classification-v2"
+EXACT_REF_INVENTORY_SCHEMA = "contract-drift-exact-ref-inventory-v2"
+POLICY_MODULE = "aragora.cli.commands.review_queue"
+POLICY_PATH = "aragora/cli/commands/review_queue.py"
+MERGE_TRAIN_PATH = "scripts/tier4_merge_train.py"
+PYTHON_FLAGS = ("-I", "-S")
+WORKFLOW_SUFFIXES = (".yml", ".yaml")
+EXECUTABLE_SUFFIXES = (".py", ".sh")
+MEASUREMENT_SUBJECT_PREFIXES = (
+    "sdk/",
+    "openapi/",
+    "docs/api/openapi",
+    "aragora/server/handlers/",
+)
+REPOSITORY_MODULE_PREFIXES = ("aragora", "scripts")
+LOCAL_REFERENCE_PREFIXES = (
+    "./.github/",
+    ".github/",
+    "./scripts/",
+    "scripts/",
+    "./aragora/",
+    "aragora/",
+)
 
 # alias -> (repo-relative baseline path, tracked list keys)
 BASELINE_SPECS: dict[str, tuple[str, tuple[str, ...]]] = {
@@ -52,6 +86,1029 @@ BASELINE_SPECS: dict[str, tuple[str, tuple[str, ...]]] = {
         ("missing_from_both_sdks",),
     ),
 }
+
+
+class AuthorityClosureError(ValueError):
+    """Fail-closed authority closure or exact-ref validation error."""
+
+
+def _canonical_json_bytes(payload: Any) -> bytes:
+    return (
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
+    ).encode("utf-8")
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _run_git(
+    repo_root: Path,
+    args: list[str],
+    *,
+    check: bool = True,
+    text: bool = False,
+) -> subprocess.CompletedProcess[Any]:
+    return subprocess.run(
+        ["git", "-C", str(repo_root), *args],
+        check=check,
+        capture_output=True,
+        text=text,
+    )
+
+
+def _resolve_full_commit(repo_root: Path, ref: str) -> str:
+    if not FULL_SHA_RE.fullmatch(ref):
+        raise AuthorityClosureError("--ref must be a full lowercase 40-hex commit SHA")
+    proc = _run_git(repo_root, ["rev-parse", "--verify", f"{ref}^{{commit}}"], text=True)
+    resolved = proc.stdout.strip()
+    if resolved != ref:
+        raise AuthorityClosureError(
+            f"requested ref did not resolve byte-for-byte to itself: {ref} -> {resolved}"
+        )
+    return resolved
+
+
+def _safe_archive_target(root: Path, name: str) -> Path:
+    candidate = Path(name)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise AuthorityClosureError(f"unsafe git archive member: {name!r}")
+    target = (root / candidate).resolve(strict=False)
+    if target != root and root not in target.parents:
+        raise AuthorityClosureError(f"git archive member escapes extraction root: {name!r}")
+    return target
+
+
+def _extract_exact_ref(repo_root: Path, sha: str, extraction_root: Path) -> None:
+    """Extract the complete exact-ref tree without consulting the worktree."""
+    archive = _run_git(repo_root, ["archive", "--format=tar", sha]).stdout
+    extraction_root.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as tar:
+        for member in tar.getmembers():
+            target = _safe_archive_target(extraction_root, member.name)
+            if member.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if member.isfile():
+                source = tar.extractfile(member)
+                if source is None:
+                    raise AuthorityClosureError(f"could not read git archive member: {member.name}")
+                target.write_bytes(source.read())
+                target.chmod(stat.S_IMODE(member.mode))
+                continue
+            if member.issym():
+                link = Path(member.linkname)
+                if link.is_absolute():
+                    raise AuthorityClosureError(f"absolute symlink in git archive: {member.name!r}")
+                resolved_link = (target.parent / link).resolve(strict=False)
+                if (
+                    resolved_link != extraction_root
+                    and extraction_root not in resolved_link.parents
+                ):
+                    raise AuthorityClosureError(f"symlink escapes extraction root: {member.name!r}")
+                target.symlink_to(member.linkname)
+                continue
+            raise AuthorityClosureError(f"unsupported git archive member type for {member.name!r}")
+
+
+_EXACT_REF_RUNNER = r"""
+import importlib
+import importlib.util
+import json
+import os
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1]).resolve()
+request_path = pathlib.Path(sys.argv[2]).resolve()
+if request_path.parent != root:
+    raise SystemExit("request must be inside extraction root")
+sys.path[:] = [str(root), *[entry for entry in sys.path if pathlib.Path(entry or ".").resolve() != root]]
+
+def under_root(value):
+    try:
+        path = pathlib.Path(value).resolve(strict=False)
+    except (TypeError, ValueError):
+        return False
+    return path == root or root in path.parents
+
+def audit(event, args):
+    if event == "open":
+        path = args[0]
+        if isinstance(path, int):
+            return
+        mode = args[1] if len(args) > 1 else None
+        flags = args[2] if len(args) > 2 else 0
+        writes = (
+            isinstance(mode, str) and any(marker in mode for marker in ("w", "a", "x", "+"))
+        ) or (
+            isinstance(flags, int)
+            and bool(flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND))
+        )
+        if writes and not under_root(path):
+            raise RuntimeError(f"forbidden write outside extraction root: {path}")
+    if event in {
+        "os.system",
+        "os.exec",
+        "os.posix_spawn",
+        "subprocess.Popen",
+    }:
+        raise RuntimeError(f"forbidden subprocess action: {event}")
+    if event.startswith(("socket.", "http.client.", "urllib.Request")):
+        raise RuntimeError(f"forbidden network action: {event}")
+    if event in {
+        "os.remove",
+        "os.rename",
+        "os.replace",
+        "os.rmdir",
+        "os.unlink",
+        "shutil.rmtree",
+    } and args and not under_root(args[0]):
+        raise RuntimeError(f"forbidden filesystem mutation outside extraction root: {args[0]}")
+
+sys.addaudithook(audit)
+request = json.loads(request_path.read_text(encoding="utf-8"))
+review_queue = importlib.import_module("aragora.cli.commands.review_queue")
+policy_file = pathlib.Path(review_queue.__file__).resolve()
+expected_policy = (root / "aragora/cli/commands/review_queue.py").resolve()
+if policy_file != expected_policy:
+    raise SystemExit(f"noncanonical policy module: {policy_file}")
+
+spec = importlib.util.spec_from_file_location(
+    "_exact_ref_tier4_merge_train",
+    root / "scripts/tier4_merge_train.py",
+)
+if spec is None or spec.loader is None:
+    raise SystemExit("exact-ref merge-train mirror is unavailable")
+merge_train = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = merge_train
+spec.loader.exec_module(merge_train)
+
+def matched_rule(path):
+    for rule in review_queue.TIER_4_PREFIXES:
+        if review_queue._matches_prefix(path, (rule,)):
+            return rule
+    return None
+
+classifications = []
+for raw_path in request.get("paths", []):
+    path = str(raw_path)
+    tier, tier_name, tier_reason = review_queue._classify_model_review_tier([path])
+    classifications.append(
+        {
+            "path": path,
+            "tier": tier,
+            "tier_name": tier_name,
+            "tier_reason": tier_reason,
+            "matched_rule": matched_rule(path),
+            "merge_train_matched_rule": merge_train.matches_serialized_path(path),
+        }
+    )
+
+loaded = []
+for name, module in sorted(sys.modules.items()):
+    if not name.startswith(("aragora", "_exact_ref_tier4_merge_train")):
+        continue
+    locations = []
+    module_file = getattr(module, "__file__", None)
+    if module_file:
+        locations.append(pathlib.Path(module_file).resolve())
+    module_path = getattr(module, "__path__", None)
+    if module_path:
+        locations.extend(pathlib.Path(item).resolve() for item in module_path)
+    for location in locations:
+        try:
+            relative = location.relative_to(root).as_posix()
+        except ValueError:
+            raise SystemExit(f"repository module escaped extraction root: {name}={location}")
+        loaded.append({"module": name, "path": relative})
+
+result = {
+    "authority_roots": list(review_queue.CONTRACT_DRIFT_AUTHORITY_PREFIXES),
+    "authority_tier": review_queue.CONTRACT_DRIFT_AUTHORITY_TIER,
+    "classifications": classifications,
+    "loaded_repository_modules": loaded,
+    "policy_module": "aragora.cli.commands.review_queue",
+    "policy_module_path": policy_file.relative_to(root).as_posix(),
+    "policy_version": review_queue.CONTRACT_DRIFT_AUTHORITY_POLICY_VERSION,
+    "tier4_prefixes": list(review_queue.TIER_4_PREFIXES),
+}
+print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+"""
+
+
+def _minimal_subprocess_env(scratch_root: Path) -> dict[str, str]:
+    home = scratch_root / "home"
+    tmp = scratch_root / "tmp"
+    home.mkdir(parents=True, exist_ok=True)
+    tmp.mkdir(parents=True, exist_ok=True)
+    return {
+        "HOME": str(home),
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "PATH": os.defpath,
+        "TMPDIR": str(tmp),
+        "TZ": "UTC",
+    }
+
+
+def _invoke_exact_ref_policy(
+    extraction_root: Path,
+    paths: Iterable[str],
+    *,
+    scratch_root: Path,
+    interpreter: Path | None = None,
+) -> dict[str, Any]:
+    interpreter_path = (interpreter or Path(sys.executable)).resolve()
+    if not interpreter_path.is_file():
+        raise AuthorityClosureError(f"explicit interpreter is unavailable: {interpreter_path}")
+    policy_path = extraction_root / POLICY_PATH
+    mirror_path = extraction_root / MERGE_TRAIN_PATH
+    if not policy_path.is_file():
+        raise AuthorityClosureError(f"canonical exact-ref policy is unavailable: {POLICY_PATH}")
+    if not mirror_path.is_file():
+        raise AuthorityClosureError(
+            f"exact-ref merge-train mirror is unavailable: {MERGE_TRAIN_PATH}"
+        )
+
+    runner_path = extraction_root / "__contract_drift_exact_ref_runner.py"
+    request_path = extraction_root / "__contract_drift_exact_ref_request.json"
+    runner_path.write_text(_EXACT_REF_RUNNER, encoding="utf-8")
+    request_path.write_bytes(_canonical_json_bytes({"paths": sorted(set(paths))}))
+    proc = subprocess.run(
+        [
+            str(interpreter_path),
+            *PYTHON_FLAGS,
+            str(runner_path),
+            str(extraction_root),
+            str(request_path),
+        ],
+        cwd=extraction_root,
+        env=_minimal_subprocess_env(scratch_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    runner_path.unlink(missing_ok=True)
+    request_path.unlink(missing_ok=True)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip()
+        raise AuthorityClosureError(f"exact-ref canonical classifier failed: {detail}")
+    try:
+        result = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise AuthorityClosureError("exact-ref canonical classifier returned invalid JSON") from exc
+
+    if result.get("policy_module") != POLICY_MODULE:
+        raise AuthorityClosureError("exact-ref classifier did not load the canonical policy module")
+    if result.get("policy_module_path") != POLICY_PATH:
+        raise AuthorityClosureError("exact-ref classifier policy path is noncanonical")
+    loaded_paths = {
+        entry.get("path")
+        for entry in result.get("loaded_repository_modules", [])
+        if isinstance(entry, dict)
+    }
+    if POLICY_PATH not in loaded_paths:
+        raise AuthorityClosureError("canonical policy module is absent from loaded-module proof")
+    return result
+
+
+def _module_parts_for_source(source_path: str) -> tuple[str, ...]:
+    path = Path(source_path)
+    if path.suffix != ".py":
+        return ()
+    parts = list(path.with_suffix("").parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return tuple(parts)
+
+
+def _is_type_checking_guard(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Name)
+        and node.id == "TYPE_CHECKING"
+        or isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "typing"
+        and node.attr == "TYPE_CHECKING"
+    )
+
+
+def _iter_load_time_nodes(nodes: Iterable[ast.stmt]) -> Iterator[ast.stmt]:
+    for node in nodes:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if isinstance(node, ast.If):
+            if _is_type_checking_guard(node.test):
+                yield from _iter_load_time_nodes(node.orelse)
+            else:
+                yield from _iter_load_time_nodes(node.body)
+                yield from _iter_load_time_nodes(node.orelse)
+            continue
+        if isinstance(node, (ast.Try, ast.TryStar)):
+            yield from _iter_load_time_nodes(node.body)
+            for handler in node.handlers:
+                yield from _iter_load_time_nodes(handler.body)
+            yield from _iter_load_time_nodes(node.orelse)
+            yield from _iter_load_time_nodes(node.finalbody)
+            continue
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            yield from _iter_load_time_nodes(node.body)
+            continue
+        yield node
+
+
+def _resolve_module_path(extraction_root: Path, module: str) -> str | None:
+    if not module:
+        return None
+    module_path = Path(*module.split("."))
+    file_candidate = extraction_root / module_path.with_suffix(".py")
+    package_candidate = extraction_root / module_path / "__init__.py"
+    candidates = [
+        candidate.relative_to(extraction_root).as_posix()
+        for candidate in (file_candidate, package_candidate)
+        if candidate.is_file()
+    ]
+    if len(candidates) > 1:
+        raise AuthorityClosureError(f"ambiguous repository module resolution: {module}")
+    return candidates[0] if candidates else None
+
+
+def _required_parent_packages(extraction_root: Path, module: str) -> list[str]:
+    parts = module.split(".")
+    parents: list[str] = []
+    for index in range(1, len(parts)):
+        candidate = extraction_root / Path(*parts[:index]) / "__init__.py"
+        if candidate.is_file():
+            parents.append(candidate.relative_to(extraction_root).as_posix())
+    return parents
+
+
+def _absolute_import_module(source_path: str, node: ast.ImportFrom) -> str:
+    if node.level == 0:
+        return node.module or ""
+    source_parts = list(_module_parts_for_source(source_path))
+    package_parts = source_parts if Path(source_path).name == "__init__.py" else source_parts[:-1]
+    remove = node.level - 1
+    if remove > len(package_parts):
+        raise AuthorityClosureError(f"relative import escapes repository package: {source_path}")
+    prefix = package_parts[: len(package_parts) - remove]
+    if node.module:
+        prefix.extend(node.module.split("."))
+    return ".".join(prefix)
+
+
+def _load_time_import_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
+    path = extraction_root / source_path
+    if path.suffix != ".py":
+        return []
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=source_path)
+    except (SyntaxError, UnicodeDecodeError) as exc:
+        raise AuthorityClosureError(
+            f"cannot parse authority Python member {source_path}: {exc}"
+        ) from exc
+
+    modules: set[str] = set()
+    for node in _iter_load_time_nodes(tree.body):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            base = _absolute_import_module(source_path, node)
+            if base:
+                modules.add(base)
+            for alias in node.names:
+                candidate = f"{base}.{alias.name}" if base and alias.name != "*" else ""
+                if candidate and _resolve_module_path(extraction_root, candidate) is not None:
+                    modules.add(candidate)
+
+    edges: set[tuple[str, str]] = set()
+    for module in sorted(modules):
+        top_level = module.split(".", 1)[0]
+        resolved = _resolve_module_path(extraction_root, module)
+        if resolved is None and top_level not in REPOSITORY_MODULE_PREFIXES:
+            if "/" not in module and "." not in module and source_path.startswith("scripts/"):
+                script_candidate = extraction_root / "scripts" / f"{module}.py"
+                if script_candidate.is_file():
+                    resolved = script_candidate.relative_to(extraction_root).as_posix()
+            if resolved is None:
+                continue
+        if resolved is None:
+            raise AuthorityClosureError(
+                f"repository-local load-time import is unavailable: {source_path} -> {module}"
+            )
+        if _is_measurement_subject(resolved):
+            continue
+        for parent in _required_parent_packages(extraction_root, module):
+            edges.add((parent, "python_parent_package"))
+        edges.add((resolved, "python_load_time_import"))
+    return sorted(edges)
+
+
+def _static_path_parts(node: ast.AST) -> list[str] | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return [node.value]
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "str":
+        if len(node.args) == 1:
+            return _static_path_parts(node.args[0])
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        left = _static_path_parts(node.left)
+        right = _static_path_parts(node.right)
+        if left is None:
+            left = []
+        if right is None:
+            return None
+        return [*left, *right]
+    if isinstance(node, ast.Name) and node.id in {"REPO_ROOT", "ROOT", "repo_root"}:
+        return []
+    return None
+
+
+def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
+    path = extraction_root / source_path
+    if path.suffix != ".py":
+        return []
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=source_path)
+    helpers: set[str] = set()
+    subprocess_calls = {"run", "Popen", "call", "check_call", "check_output"}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function_name = (
+            node.func.attr
+            if isinstance(node.func, ast.Attribute)
+            else node.func.id
+            if isinstance(node.func, ast.Name)
+            else ""
+        )
+        if function_name not in subprocess_calls or not node.args:
+            continue
+        command = node.args[0]
+        elements = command.elts if isinstance(command, (ast.List, ast.Tuple)) else [command]
+        for element in elements:
+            parts = _static_path_parts(element)
+            if parts is None:
+                continue
+            literal = "/".join(part.strip("/") for part in parts if part).lstrip("./")
+            if not literal.endswith(EXECUTABLE_SUFFIXES):
+                continue
+            if not literal.startswith(("scripts/", "aragora/", ".github/")):
+                continue
+            target = extraction_root / literal
+            if not target.is_file():
+                raise AuthorityClosureError(
+                    f"literal repository helper is unavailable: {source_path} -> {literal}"
+                )
+            if not _is_measurement_subject(literal):
+                helpers.add(literal)
+    return [(helper, "literal_subprocess_helper") for helper in sorted(helpers)]
+
+
+def _strip_yaml_scalar(raw: str) -> str:
+    value = raw.strip()
+    if not value:
+        return ""
+    quote = value[0] if value[0] in {"'", '"'} else ""
+    if quote:
+        escaped = False
+        for index in range(1, len(value)):
+            character = value[index]
+            if quote == '"' and character == "\\" and not escaped:
+                escaped = True
+                continue
+            if character == quote and not escaped:
+                return value[1:index]
+            escaped = False
+        raise AuthorityClosureError(f"unterminated YAML scalar: {raw!r}")
+    return value.split(" #", 1)[0].strip()
+
+
+def _workflow_structure(path: Path) -> dict[str, list[str]]:
+    """Read only structural workflow/action keys needed by the closure."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    uses: list[str] = []
+    runs: list[str] = []
+    path_filters: list[str] = []
+    index = 0
+    while index < len(lines):
+        raw = lines[index]
+        stripped = raw.lstrip()
+        if not stripped or stripped.startswith("#"):
+            index += 1
+            continue
+        indent = len(raw) - len(stripped)
+        uses_match = re.match(r"(?:-\s*)?uses:\s*(.*)$", stripped)
+        run_match = re.match(r"(?:-\s*)?run:\s*(.*)$", stripped)
+        paths_match = re.match(r"(?:paths|paths-ignore):\s*(.*)$", stripped)
+        if uses_match:
+            uses.append(_strip_yaml_scalar(uses_match.group(1)))
+        elif run_match:
+            marker = run_match.group(1).strip()
+            if marker in {"|", "|-", "|+", ">", ">-", ">+"}:
+                block: list[str] = []
+                index += 1
+                while index < len(lines):
+                    block_raw = lines[index]
+                    block_stripped = block_raw.lstrip()
+                    block_indent = len(block_raw) - len(block_stripped)
+                    if block_stripped and block_indent <= indent:
+                        index -= 1
+                        break
+                    block.append(block_raw[indent + 1 :] if len(block_raw) > indent else "")
+                    index += 1
+                runs.append("\n".join(block))
+            else:
+                runs.append(_strip_yaml_scalar(marker))
+        elif paths_match:
+            inline = paths_match.group(1).strip()
+            if inline.startswith("[") and inline.endswith("]"):
+                for item in inline[1:-1].split(","):
+                    if item.strip():
+                        path_filters.append(_strip_yaml_scalar(item))
+            elif not inline:
+                index += 1
+                while index < len(lines):
+                    item_raw = lines[index]
+                    item_stripped = item_raw.lstrip()
+                    item_indent = len(item_raw) - len(item_stripped)
+                    if item_stripped and item_indent <= indent:
+                        index -= 1
+                        break
+                    item_match = re.match(r"-\s*(.*)$", item_stripped)
+                    if item_match:
+                        path_filters.append(_strip_yaml_scalar(item_match.group(1)))
+                    index += 1
+        index += 1
+    return {
+        "path_filters": [value for value in path_filters if value],
+        "runs": [value for value in runs if value],
+        "uses": [value for value in uses if value],
+    }
+
+
+def _normalize_local_reference(source_path: str, raw_reference: str) -> str | None:
+    reference = raw_reference.strip()
+    if not reference.startswith("."):
+        return None
+    if "${{" in reference or "}}" in reference:
+        raise AuthorityClosureError(
+            f"dynamic local reference is forbidden: {source_path} -> {reference}"
+        )
+    if not reference.startswith("./"):
+        raise AuthorityClosureError(
+            f"path-traversing local reference is forbidden: {source_path} -> {reference}"
+        )
+    candidate = Path(reference[2:])
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise AuthorityClosureError(
+            f"path-traversing local reference is forbidden: {source_path} -> {reference}"
+        )
+    return candidate.as_posix()
+
+
+def _resolve_local_uses(
+    extraction_root: Path, source_path: str, reference: str
+) -> tuple[str, str] | None:
+    relative = _normalize_local_reference(source_path, reference)
+    if relative is None:
+        return None
+    target = extraction_root / relative
+    if target.is_dir():
+        action_files = [
+            candidate
+            for candidate in (target / "action.yml", target / "action.yaml")
+            if candidate.is_file()
+        ]
+        if len(action_files) != 1:
+            raise AuthorityClosureError(
+                f"local composite action must resolve to exactly one action file: "
+                f"{source_path} -> {reference}"
+            )
+        resolved = action_files[0].relative_to(extraction_root).as_posix()
+        return (resolved, "local_composite_action")
+    if target.is_file() and target.suffix in WORKFLOW_SUFFIXES:
+        return (relative, "local_reusable_workflow")
+    raise AuthorityClosureError(
+        f"unresolved local workflow/action reference: {source_path} -> {reference}"
+    )
+
+
+def _run_script_references(source_path: str, run: str) -> list[str]:
+    normalized = run.replace("\\\n", " ")
+    dynamic_local = re.search(
+        r"(?:\./)?(?:scripts|aragora|\.github)/[^\s\"']*(?:\$\{\{)"
+        r"[^\s\"']*\.(?:py|sh|ya?ml)",
+        normalized,
+    )
+    if dynamic_local:
+        raise AuthorityClosureError(
+            f"dynamic local run reference is forbidden: {source_path} -> {dynamic_local.group(0)}"
+        )
+    pattern = re.compile(
+        r"(?<![A-Za-z0-9_./-])"
+        r"((?:\./)?(?:scripts|aragora|\.github)/[A-Za-z0-9_./-]+\.(?:py|sh))"
+        r"(?![A-Za-z0-9_.-])"
+    )
+    return sorted({match.group(1).lstrip("./") for match in pattern.finditer(normalized)})
+
+
+def _shell_helper_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
+    references = _run_script_references(
+        source_path, (extraction_root / source_path).read_text(encoding="utf-8")
+    )
+    edges: list[tuple[str, str]] = []
+    for reference in references:
+        target = extraction_root / reference
+        if not target.is_file():
+            raise AuthorityClosureError(
+                f"unresolved shell helper reference: {source_path} -> {reference}"
+            )
+        if not _is_measurement_subject(reference):
+            edges.append((reference, "literal_shell_helper"))
+    return edges
+
+
+def _is_measurement_subject(path: str) -> bool:
+    return any(path.startswith(prefix) for prefix in MEASUREMENT_SUBJECT_PREFIXES)
+
+
+def _workflow_direct_matches(
+    extraction_root: Path, workflow_path: str, authority_roots: Iterable[str]
+) -> list[tuple[str, str]]:
+    structure = _workflow_structure(extraction_root / workflow_path)
+    matches: set[tuple[str, str]] = set()
+    for root in authority_roots:
+        for pattern in structure["path_filters"]:
+            if fnmatch.fnmatchcase(root, pattern):
+                matches.add((root, "workflow_path_filter"))
+        if root in _run_script_references(workflow_path, "\n".join(structure["runs"])):
+            matches.add((root, "workflow_run"))
+    return sorted(matches)
+
+
+def _workflow_member_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
+    structure = _workflow_structure(extraction_root / source_path)
+    edges: set[tuple[str, str]] = set()
+    for reference in structure["uses"]:
+        resolved = _resolve_local_uses(extraction_root, source_path, reference)
+        if resolved is not None:
+            edges.add(resolved)
+    for run in structure["runs"]:
+        for reference in _run_script_references(source_path, run):
+            target = extraction_root / reference
+            if not target.is_file():
+                raise AuthorityClosureError(
+                    f"unresolved local executable reference: {source_path} -> {reference}"
+                )
+            if not _is_measurement_subject(reference):
+                edges.add((reference, "workflow_run_executable"))
+    return sorted(edges)
+
+
+def _git_blob_binding(
+    repo_root: Path, sha: str, extraction_root: Path, path: str
+) -> dict[str, Any]:
+    oid_proc = _run_git(
+        repo_root,
+        ["rev-parse", "--verify", f"{sha}:{path}"],
+        check=False,
+        text=True,
+    )
+    if oid_proc.returncode != 0:
+        raise AuthorityClosureError(f"authority closure member missing at exact ref: {path}")
+    oid = oid_proc.stdout.strip()
+    type_proc = _run_git(repo_root, ["cat-file", "-t", oid], text=True)
+    if type_proc.stdout.strip() != "blob":
+        raise AuthorityClosureError(f"authority closure member is not a blob: {path}")
+    blob = _run_git(repo_root, ["cat-file", "blob", oid]).stdout
+    extracted_path = extraction_root / path
+    if not extracted_path.is_file():
+        raise AuthorityClosureError(f"authority closure member was not extracted: {path}")
+    extracted = extracted_path.read_bytes()
+    if extracted != blob:
+        raise AuthorityClosureError(
+            f"extracted authority member differs from exact-ref blob: {path}"
+        )
+    return {
+        "byte_length": len(blob),
+        "git_blob_oid": oid,
+        "sha256": _sha256(blob),
+    }
+
+
+def _exact_ref_inventory_facts(
+    repo_root: Path,
+    sha: str,
+    extraction_root: Path,
+    *,
+    external_artifacts: Iterable[Path] = (),
+) -> dict[str, Any]:
+    docs: dict[str, dict[str, Any]] = {}
+    baseline_bindings: list[dict[str, Any]] = []
+    for alias, (path, _keys) in BASELINE_SPECS.items():
+        extracted = extraction_root / path
+        if not extracted.is_file():
+            raise AuthorityClosureError(f"exact-ref inventory baseline is unavailable: {path}")
+        raw = extracted.read_bytes()
+        try:
+            docs[alias] = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise AuthorityClosureError(f"invalid exact-ref inventory baseline: {path}") from exc
+        baseline_bindings.append(
+            {
+                "alias": alias,
+                "path": path,
+                **_git_blob_binding(repo_root, sha, extraction_root, path),
+            }
+        )
+    ids = collect_ids(docs)
+    category_counts: dict[str, int] = defaultdict(int)
+    for category in ids.values():
+        category_counts[category] += 1
+
+    inventory_path = extraction_root / DEFAULT_INVENTORY
+    inventory_binding: dict[str, Any] | None = None
+    inventory_counts: dict[str, int] = {}
+    if inventory_path.is_file():
+        inventory_doc = json.loads(inventory_path.read_bytes())
+        items = inventory_doc.get("items", [])
+        if not isinstance(items, list):
+            raise AuthorityClosureError("exact-ref inventory has no items list")
+        inventory_counts = {
+            "items": len(items),
+            "open": sum(
+                1 for item in items if isinstance(item, dict) and item.get("status") == "open"
+            ),
+            "resolved": sum(
+                1 for item in items if isinstance(item, dict) and item.get("status") == "resolved"
+            ),
+        }
+        inventory_binding = {
+            "path": DEFAULT_INVENTORY,
+            **_git_blob_binding(repo_root, sha, extraction_root, DEFAULT_INVENTORY),
+        }
+
+    artifacts = [_canonical_external_artifact(path) for path in external_artifacts]
+    return {
+        "baseline_bindings": sorted(baseline_bindings, key=lambda item: item["path"]),
+        "baseline_category_counts": dict(sorted(category_counts.items())),
+        "baseline_item_count": len(ids),
+        "external_artifacts": sorted(artifacts, key=lambda item: item["path"]),
+        "inventory_binding": inventory_binding,
+        "inventory_counts": inventory_counts,
+    }
+
+
+def _canonical_external_artifact(path: Path) -> dict[str, Any]:
+    raw = path.read_bytes()
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise AuthorityClosureError(f"external artifact has a UTF-8 BOM: {path}")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise AuthorityClosureError(f"external artifact is not UTF-8: {path}") from exc
+    if not text.endswith("\n") or text.endswith("\n\n") or "\n" in text[:-1]:
+        raise AuthorityClosureError(
+            f"external artifact must contain compact JSON and exactly one terminal LF: {path}"
+        )
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise AuthorityClosureError(f"external artifact is not valid JSON: {path}") from exc
+    if raw != _canonical_json_bytes(parsed):
+        raise AuthorityClosureError(f"external artifact bytes are noncanonical: {path}")
+    return {
+        "byte_length": len(raw),
+        "canonical_bytes": True,
+        "path": str(path),
+        "sha256": _sha256(raw),
+    }
+
+
+def build_authority_manifest(
+    repo_root: Path,
+    ref: str,
+    *,
+    scratch_root: Path | None = None,
+    interpreter: Path | None = None,
+    external_artifacts: Iterable[Path] = (),
+) -> dict[str, Any]:
+    """Build the exact-ref, digest-bound executable authority closure."""
+    repo_root = repo_root.resolve()
+    sha = _resolve_full_commit(repo_root, ref)
+    with tempfile.TemporaryDirectory(
+        prefix="contract-drift-authority-",
+        dir=str(scratch_root.resolve()) if scratch_root else None,
+    ) as temporary:
+        temporary_root = Path(temporary).resolve()
+        extraction_root = temporary_root / "exact-ref"
+        child_scratch = temporary_root / "child-scratch"
+        _extract_exact_ref(repo_root, sha, extraction_root)
+        policy = _invoke_exact_ref_policy(
+            extraction_root,
+            (),
+            scratch_root=child_scratch,
+            interpreter=interpreter,
+        )
+        authority_roots = tuple(policy.get("authority_roots", []))
+        if len(authority_roots) != len(set(authority_roots)):
+            raise AuthorityClosureError("canonical authority policy contains duplicate roots")
+        if not authority_roots:
+            raise AuthorityClosureError("canonical authority policy has no authority roots")
+
+        incoming: dict[str, set[tuple[str, str]]] = defaultdict(set)
+        roots = set(authority_roots)
+        members: set[str] = set(roots)
+        for root in authority_roots:
+            if not (extraction_root / root).is_file():
+                raise AuthorityClosureError(f"authority root is unavailable at exact ref: {root}")
+
+        incoming[POLICY_PATH].add(
+            ("scripts/generate_contract_drift_inventory.py", "exact_ref_canonical_policy")
+        )
+        incoming[MERGE_TRAIN_PATH].add(
+            ("scripts/generate_contract_drift_inventory.py", "merge_train_mirror")
+        )
+        members.update((POLICY_PATH, MERGE_TRAIN_PATH))
+
+        workflow_paths = sorted(
+            path.relative_to(extraction_root).as_posix()
+            for suffix in WORKFLOW_SUFFIXES
+            for path in (extraction_root / ".github" / "workflows").rglob(f"*{suffix}")
+            if path.is_file()
+        )
+        for workflow_path in workflow_paths:
+            for root, kind in _workflow_direct_matches(
+                extraction_root, workflow_path, authority_roots
+            ):
+                members.add(workflow_path)
+                incoming[workflow_path].add((root, kind))
+
+        queue = deque(sorted(members))
+        scanned: set[str] = set()
+        while queue:
+            source_path = queue.popleft()
+            if source_path in scanned:
+                continue
+            scanned.add(source_path)
+            path = extraction_root / source_path
+            edges: list[tuple[str, str]] = []
+            if path.suffix == ".py":
+                edges.extend(_load_time_import_edges(extraction_root, source_path))
+                edges.extend(_subprocess_helper_edges(extraction_root, source_path))
+            if path.suffix == ".sh":
+                edges.extend(_shell_helper_edges(extraction_root, source_path))
+            if path.suffix in WORKFLOW_SUFFIXES:
+                edges.extend(_workflow_member_edges(extraction_root, source_path))
+            for target, kind in edges:
+                if target == source_path or _is_measurement_subject(target):
+                    continue
+                incoming[target].add((source_path, kind))
+                if target not in members:
+                    members.add(target)
+                    queue.append(target)
+
+        for member in sorted(members - roots):
+            if not incoming[member]:
+                raise AuthorityClosureError(f"unreachable authority closure member: {member}")
+
+        exact_policy = _invoke_exact_ref_policy(
+            extraction_root,
+            members,
+            scratch_root=child_scratch,
+            interpreter=interpreter,
+        )
+        classifications = {item["path"]: item for item in exact_policy.get("classifications", [])}
+        if set(classifications) != members:
+            raise AuthorityClosureError("exact-ref classifier omitted authority closure members")
+
+        repo_files: list[dict[str, Any]] = []
+        below_tier4: list[str] = []
+        parity_failures: list[str] = []
+        for member in sorted(members):
+            classification = classifications[member]
+            if classification.get("tier") != 4:
+                below_tier4.append(member)
+            if classification.get("matched_rule") != classification.get("merge_train_matched_rule"):
+                parity_failures.append(member)
+            repo_files.append(
+                {
+                    "authority_root": member in roots,
+                    "incoming_edges": [
+                        {"from": source, "kind": kind}
+                        for source, kind in sorted(incoming.get(member, set()))
+                    ],
+                    "matched_rule": classification.get("matched_rule"),
+                    "merge_train_matched_rule": classification.get("merge_train_matched_rule"),
+                    "path": member,
+                    "tier": classification.get("tier"),
+                    **_git_blob_binding(repo_root, sha, extraction_root, member),
+                }
+            )
+        if below_tier4:
+            raise AuthorityClosureError(
+                "authority closure members below Tier 4: " + ", ".join(below_tier4)
+            )
+        if parity_failures:
+            raise AuthorityClosureError(
+                "canonical classifier and merge-train mirror disagree: "
+                + ", ".join(parity_failures)
+            )
+
+        inventory = _exact_ref_inventory_facts(
+            repo_root,
+            sha,
+            extraction_root,
+            external_artifacts=external_artifacts,
+        )
+        payload = {
+            "authority_roots": list(authority_roots),
+            "authority_tier": exact_policy["authority_tier"],
+            "inventory": inventory,
+            "policy": {
+                "interpreter_flags": list(PYTHON_FLAGS),
+                "loaded_repository_modules": exact_policy["loaded_repository_modules"],
+                "module": POLICY_MODULE,
+                "module_path": POLICY_PATH,
+                "version": exact_policy["policy_version"],
+            },
+            "ref": sha,
+            "repo_files": repo_files,
+            "schema": AUTHORITY_MANIFEST_SCHEMA,
+        }
+        return {
+            **payload,
+            "authority_manifest_sha256": _sha256(_canonical_json_bytes(payload)),
+        }
+
+
+def classify_exact_ref_path(
+    repo_root: Path,
+    ref: str,
+    changed_file: str,
+    *,
+    scratch_root: Path | None = None,
+    interpreter: Path | None = None,
+    external_artifacts: Iterable[Path] = (),
+) -> dict[str, Any]:
+    manifest = build_authority_manifest(
+        repo_root,
+        ref,
+        scratch_root=scratch_root,
+        interpreter=interpreter,
+        external_artifacts=external_artifacts,
+    )
+    sha = manifest["ref"]
+    with tempfile.TemporaryDirectory(
+        prefix="contract-drift-classify-",
+        dir=str(scratch_root.resolve()) if scratch_root else None,
+    ) as temporary:
+        temporary_root = Path(temporary).resolve()
+        extraction_root = temporary_root / "exact-ref"
+        _extract_exact_ref(repo_root.resolve(), sha, extraction_root)
+        policy = _invoke_exact_ref_policy(
+            extraction_root,
+            (changed_file,),
+            scratch_root=temporary_root / "child-scratch",
+            interpreter=interpreter,
+        )
+    result = policy["classifications"][0]
+    return {
+        "authority_manifest_sha256": manifest["authority_manifest_sha256"],
+        "changed_file": changed_file,
+        "inventory": manifest["inventory"],
+        "matched_rule": result["matched_rule"],
+        "merge_train_matched_rule": result["merge_train_matched_rule"],
+        "ref": sha,
+        "schema": AUTHORITY_CLASSIFICATION_SCHEMA,
+        "tier": result["tier"],
+        "tier_name": result["tier_name"],
+        "tier_reason": result["tier_reason"],
+    }
+
+
+def exact_ref_inventory(
+    repo_root: Path,
+    ref: str,
+    *,
+    scratch_root: Path | None = None,
+    interpreter: Path | None = None,
+    external_artifacts: Iterable[Path] = (),
+) -> dict[str, Any]:
+    manifest = build_authority_manifest(
+        repo_root,
+        ref,
+        scratch_root=scratch_root,
+        interpreter=interpreter,
+        external_artifacts=external_artifacts,
+    )
+    return {
+        "authority_manifest_sha256": manifest["authority_manifest_sha256"],
+        "inventory": manifest["inventory"],
+        "ref": manifest["ref"],
+        "schema": EXACT_REF_INVENTORY_SCHEMA,
+    }
 
 
 def normalize_key(entry: Any) -> str:
@@ -270,6 +1327,23 @@ def main() -> int:
     parser.add_argument("--inventory", type=Path, default=None)
     parser.add_argument("--cohort-commit", default=COHORT_COMMIT)
     parser.add_argument("--as-of", default=date.today().isoformat())
+    parser.add_argument("--ref", default=None, help="Exact full commit SHA for read-only modes")
+    parser.add_argument(
+        "--authority-manifest",
+        action="store_true",
+        help="Emit the canonical exact-ref authority manifest",
+    )
+    parser.add_argument(
+        "--classify-tier",
+        action="store_true",
+        help="Classify one --changed-file with the exact-ref canonical policy",
+    )
+    parser.add_argument("--changed-file", default=None)
+    parser.add_argument("--json", action="store_true", help="Emit canonical compact JSON")
+    parser.add_argument("--scratch-root", type=Path, default=None)
+    parser.add_argument("--interpreter", type=Path, default=None)
+    parser.add_argument("--cohort-artifact", type=Path, default=None)
+    parser.add_argument("--sdk-provenance-artifact", type=Path, default=None)
     parser.add_argument(
         "--provenance",
         default=None,
@@ -283,6 +1357,65 @@ def main() -> int:
     args = parser.parse_args()
 
     repo_root = args.repo_root
+    external_artifacts = [
+        path for path in (args.cohort_artifact, args.sdk_provenance_artifact) if path is not None
+    ]
+    read_only_modes = int(args.authority_manifest) + int(args.classify_tier)
+    if read_only_modes > 1:
+        print("ERROR: choose only one of --authority-manifest or --classify-tier")
+        return 1
+    if args.authority_manifest or args.classify_tier or args.ref is not None:
+        if args.ref is None:
+            print("ERROR: exact-ref read-only modes require --ref")
+            return 1
+        if args.classify_tier != (args.changed_file is not None):
+            print("ERROR: --classify-tier requires exactly one --changed-file")
+            return 1
+        try:
+            if args.authority_manifest:
+                output = build_authority_manifest(
+                    repo_root,
+                    args.ref,
+                    scratch_root=args.scratch_root,
+                    interpreter=args.interpreter,
+                    external_artifacts=external_artifacts,
+                )
+            elif args.classify_tier:
+                output = classify_exact_ref_path(
+                    repo_root,
+                    args.ref,
+                    args.changed_file,
+                    scratch_root=args.scratch_root,
+                    interpreter=args.interpreter,
+                    external_artifacts=external_artifacts,
+                )
+            else:
+                output = exact_ref_inventory(
+                    repo_root,
+                    args.ref,
+                    scratch_root=args.scratch_root,
+                    interpreter=args.interpreter,
+                    external_artifacts=external_artifacts,
+                )
+        except (
+            AuthorityClosureError,
+            FileNotFoundError,
+            json.JSONDecodeError,
+            OSError,
+            subprocess.CalledProcessError,
+        ) as exc:
+            print(f"ERROR: {exc}")
+            return 1
+        sys.stdout.buffer.write(_canonical_json_bytes(output))
+        return 0
+
+    if args.changed_file is not None:
+        print("ERROR: --changed-file is valid only with --classify-tier")
+        return 1
+    if args.scratch_root is not None or args.interpreter is not None or external_artifacts:
+        print("ERROR: exact-ref options require --ref")
+        return 1
+
     inventory_path = args.inventory or repo_root / DEFAULT_INVENTORY
     as_of = date.fromisoformat(args.as_of)
 

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 import scripts.generate_contract_drift_inventory as gen
 
@@ -271,3 +274,377 @@ def test_discovered_provenance_requires_reference_in_committed_inventory():
         {"items": [item]}, {"python_sdk_drift:GET /api/y": "python_sdk_drift"}
     )
     assert any("lacks a PR/issue reference" in i for i in issues)
+
+
+FIXTURE_ROOT = "scripts/generate_contract_drift_inventory.py"
+FIXTURE_DEPENDENCIES = (
+    ".github/actions/nested/action.yml",
+    ".github/actions/root/action.yaml",
+    "aragora/__init__.py",
+    "aragora/cli/__init__.py",
+    "aragora/cli/commands/__init__.py",
+    "aragora/cli/commands/review_queue.py",
+    "aragora/helper.py",
+    "scripts/helper.py",
+    "scripts/helper.sh",
+    "scripts/tier4_merge_train.py",
+    "scripts/transitive.py",
+)
+
+
+def _write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def _authority_fixture(
+    tmp_path: Path,
+    *,
+    dynamic_reference: bool = False,
+    missing_policy: bool = False,
+    policy_prelude: str = "",
+) -> tuple[Path, str]:
+    repo = tmp_path / "authority-repo"
+    repo.mkdir()
+    _write_baselines(repo, VERIFY, ROUTES, PARITY)
+    _write_text(repo / FIXTURE_ROOT, "# exact-ref fixture authority root\n")
+    _write_text(repo / "scripts/tier4_merge_train.py", _fixture_merge_train_source())
+    _write_text(repo / "scripts/helper.py", "import aragora.helper\n")
+    _write_text(repo / "scripts/helper.sh", "python scripts/transitive.py\n")
+    _write_text(repo / "scripts/transitive.py", "# transitive workflow helper\n")
+    _write_text(repo / "scripts/measured.py", "# not an authority dependency\n")
+    _write_text(repo / "sdk/python/client.py", "# measured SDK subject\n")
+    _write_text(repo / "aragora/__init__.py", "")
+    _write_text(repo / "aragora/helper.py", "# repository helper\n")
+    _write_text(repo / "aragora/cli/__init__.py", "")
+    _write_text(repo / "aragora/cli/commands/__init__.py", "")
+    if not missing_policy:
+        _write_text(
+            repo / "aragora/cli/commands/review_queue.py",
+            policy_prelude + _fixture_review_queue_source(),
+        )
+    dynamic_uses = (
+        "      - uses: ./.github/actions/${{ inputs.action }}\n"
+        if dynamic_reference
+        else "      - uses: ./.github/actions/root\n"
+    )
+    _write_text(
+        repo / ".github/workflows/authority.yml",
+        "on:\n"
+        "  push:\n"
+        "    paths:\n"
+        f"      - '{FIXTURE_ROOT}'\n"
+        "jobs:\n"
+        "  authority:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        f"{dynamic_uses}"
+        "      - run: python sdk/python/client.py\n"
+        "  nested:\n"
+        "    uses: ./.github/workflows/nested.yaml\n",
+    )
+    _write_text(
+        repo / ".github/workflows/nested.yaml",
+        "on:\n"
+        "  workflow_call:\n"
+        "jobs:\n"
+        "  helper:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: python scripts/helper.py\n"
+        "      - uses: ./.github/actions/root\n"
+        "      - uses: ./.github/actions/root\n"
+        "  cycle:\n"
+        "    uses: ./.github/workflows/authority.yml\n",
+    )
+    _write_text(
+        repo / ".github/actions/root/action.yaml",
+        "name: root\n"
+        "runs:\n"
+        "  using: composite\n"
+        "  steps:\n"
+        "    - run: bash scripts/helper.sh\n"
+        "      shell: bash\n"
+        "    - uses: ./.github/actions/nested\n",
+    )
+    _write_text(
+        repo / ".github/actions/nested/action.yml",
+        "name: nested\n"
+        "runs:\n"
+        "  using: composite\n"
+        "  steps:\n"
+        "    - run: python scripts/transitive.py\n"
+        "      shell: bash\n",
+    )
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "fixture"],
+        cwd=repo,
+        check=True,
+    )
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    return repo, sha
+
+
+def _fixture_review_queue_source() -> str:
+    dependencies = repr(FIXTURE_DEPENDENCIES)
+    return (
+        f"CONTRACT_DRIFT_AUTHORITY_PREFIXES = ({FIXTURE_ROOT!r},)\n"
+        "CONTRACT_DRIFT_AUTHORITY_TIER = 4\n"
+        "CONTRACT_DRIFT_AUTHORITY_POLICY_VERSION = 7\n"
+        f"CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES = {dependencies}\n"
+        "TIER_4_PREFIXES = (\n"
+        "    '.github/workflows/',\n"
+        "    *CONTRACT_DRIFT_AUTHORITY_PREFIXES,\n"
+        "    *CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES,\n"
+        ")\n"
+        "def _matches_prefix(path, prefixes):\n"
+        "    return any(path.startswith(rule) if rule.endswith('/') else path == rule "
+        "for rule in prefixes)\n"
+        "def _classify_model_review_tier(files, *, pr=None):\n"
+        "    if any(_matches_prefix(path, TIER_4_PREFIXES) for path in files):\n"
+        "        return (4, 'tier_4_preapproval_required', 'fixture authority')\n"
+        "    return (2, 'tier_2_live_automation', 'fixture non-authority')\n"
+    )
+
+
+def _fixture_merge_train_source() -> str:
+    dependencies = repr(FIXTURE_DEPENDENCIES)
+    return (
+        f"CONTRACT_DRIFT_AUTHORITY_PREFIXES = ({FIXTURE_ROOT!r},)\n"
+        f"CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES = {dependencies}\n"
+        "SERIALIZED_TIER4_PREFIXES = (\n"
+        "    '.github/workflows/',\n"
+        "    *CONTRACT_DRIFT_AUTHORITY_PREFIXES,\n"
+        "    *CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES,\n"
+        ")\n"
+        "def matches_serialized_path(path):\n"
+        "    for rule in SERIALIZED_TIER4_PREFIXES:\n"
+        "        if path.startswith(rule) if rule.endswith('/') else path == rule:\n"
+        "            return rule\n"
+        "    return None\n"
+    )
+
+
+def _manifest(repo: Path, sha: str) -> dict:
+    return gen.build_authority_manifest(repo, sha)
+
+
+def test_deterministic_bounded_authority_dependency_closure_has_incoming_edges_and_exact_ref_digests(
+    tmp_path: Path,
+):
+    repo, sha = _authority_fixture(tmp_path)
+    first = _manifest(repo, sha)
+    second = _manifest(repo, sha)
+    assert gen._canonical_json_bytes(first) == gen._canonical_json_bytes(second)
+    assert first["ref"] == sha
+    paths = [entry["path"] for entry in first["repo_files"]]
+    assert paths == sorted(set(paths))
+    assert first["authority_roots"] == [FIXTURE_ROOT]
+    for entry in first["repo_files"]:
+        raw = subprocess.run(
+            ["git", "cat-file", "blob", entry["git_blob_oid"]],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        ).stdout
+        assert entry["byte_length"] == len(raw)
+        assert entry["sha256"] == gen._sha256(raw)
+        if not entry["authority_root"]:
+            assert entry["incoming_edges"]
+
+
+def test_measured_sdk_handler_openapi_subjects_are_not_authority_dependencies(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path)
+    paths = {entry["path"] for entry in _manifest(repo, sha)["repo_files"]}
+    assert "sdk/python/client.py" not in paths
+    assert "scripts/measured.py" not in paths
+
+
+def test_merge_train_mirror_is_normal_repo_file_authority_member(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path)
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    mirror = files["scripts/tier4_merge_train.py"]
+    assert mirror["authority_root"] is False
+    assert mirror["tier"] == 4
+    assert mirror["incoming_edges"] == [{"from": FIXTURE_ROOT, "kind": "merge_train_mirror"}]
+
+
+def test_workflows_yml_and_yaml_recurse_through_structural_run_uses_and_path_filters(
+    tmp_path: Path,
+):
+    repo, sha = _authority_fixture(tmp_path)
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert ".github/workflows/authority.yml" in files
+    assert ".github/workflows/nested.yaml" in files
+    assert any(
+        edge["kind"] == "workflow_path_filter"
+        for edge in files[".github/workflows/authority.yml"]["incoming_edges"]
+    )
+    assert "scripts/helper.py" in files
+    assert "scripts/helper.sh" in files
+    assert "scripts/transitive.py" in files
+    assert "aragora/helper.py" in files
+
+
+def test_local_reusable_workflows_and_composite_actions_join_closure(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path)
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert ".github/actions/root/action.yaml" in files
+    assert ".github/actions/nested/action.yml" in files
+    assert any(
+        edge["kind"] == "local_reusable_workflow"
+        for edge in files[".github/workflows/nested.yaml"]["incoming_edges"]
+    )
+    assert len(files[".github/actions/root/action.yaml"]["incoming_edges"]) == 2
+
+
+def test_unresolved_or_dynamic_local_workflow_reference_fails_closed(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path, dynamic_reference=True)
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic local reference"):
+        _manifest(repo, sha)
+
+
+def test_standalone_classifier_extracts_and_calls_exact_ref_canonical_review_queue_policy_under_I_S(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repo, sha = _authority_fixture(tmp_path)
+    hostile = tmp_path / "hostile"
+    _write_text(
+        hostile / "aragora/cli/commands/review_queue.py",
+        "raise RuntimeError('ambient policy loaded')\n",
+    )
+    monkeypatch.setenv("PYTHONPATH", str(hostile))
+    monkeypatch.setenv("PYTHONHOME", str(hostile))
+    result = gen.classify_exact_ref_path(repo, sha, FIXTURE_ROOT)
+    assert result["tier"] == 4
+    assert result["matched_rule"] == FIXTURE_ROOT
+    assert result["merge_train_matched_rule"] == FIXTURE_ROOT
+
+
+def test_standalone_classifier_rejects_unavailable_or_ambient_policy(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path, missing_policy=True)
+    with pytest.raises(gen.AuthorityClosureError, match="policy is unavailable"):
+        _manifest(repo, sha)
+
+
+def test_all_loaded_repository_modules_are_under_exact_ref_extraction_root(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path)
+    loaded = _manifest(repo, sha)["policy"]["loaded_repository_modules"]
+    assert any(entry["path"] == gen.POLICY_PATH for entry in loaded)
+    assert all(not Path(entry["path"]).is_absolute() for entry in loaded)
+    assert all(".." not in Path(entry["path"]).parts for entry in loaded)
+
+
+def test_classifier_and_merge_train_closure_match(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path)
+    manifest = _manifest(repo, sha)
+    assert all(
+        entry["matched_rule"] == entry["merge_train_matched_rule"]
+        for entry in manifest["repo_files"]
+    )
+    hostile = gen.classify_exact_ref_path(repo, sha, f"{FIXTURE_ROOT}.bak")
+    assert hostile["tier"] == 2
+    assert hostile["matched_rule"] is None
+    assert hostile["merge_train_matched_rule"] is None
+
+
+def test_canonical_tier_cli_is_read_only_and_digest_bound(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path)
+    script = Path(gen.__file__).resolve()
+    command = [
+        sys.executable,
+        "-B",
+        str(script),
+        "--repo-root",
+        str(repo),
+        "--classify-tier",
+        "--changed-file",
+        FIXTURE_ROOT,
+        "--ref",
+        sha,
+        "--json",
+    ]
+    before_status = subprocess.run(
+        ["git", "status", "--porcelain=v2", "--untracked-files=all"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    ).stdout
+    before_refs = subprocess.run(
+        ["git", "show-ref"], cwd=repo, check=True, capture_output=True
+    ).stdout
+    first = subprocess.run(command, cwd=tmp_path, check=True, capture_output=True).stdout
+    second = subprocess.run(command, cwd=tmp_path, check=True, capture_output=True).stdout
+    assert first == second
+    payload = json.loads(first)
+    assert payload["authority_manifest_sha256"]
+    assert payload["ref"] == sha
+    assert (
+        subprocess.run(
+            ["git", "status", "--porcelain=v2", "--untracked-files=all"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        ).stdout
+        == before_status
+    )
+    assert (
+        subprocess.run(["git", "show-ref"], cwd=repo, check=True, capture_output=True).stdout
+        == before_refs
+    )
+
+
+def test_external_authority_manifest_and_evidence_index_bytes_are_canonical_before_semantic_digest(
+    tmp_path: Path,
+):
+    repo, sha = _authority_fixture(tmp_path)
+    canonical = tmp_path / "canonical.json"
+    canonical.write_bytes(gen._canonical_json_bytes({"schema": "fixture", "value": 1}))
+    manifest = gen.build_authority_manifest(repo, sha, external_artifacts=(canonical,))
+    assert manifest["inventory"]["external_artifacts"][0]["canonical_bytes"] is True
+
+    noncanonical = tmp_path / "noncanonical.json"
+    noncanonical.write_text(json.dumps({"schema": "fixture"}, indent=2) + "\n")
+    with pytest.raises(gen.AuthorityClosureError, match="compact JSON"):
+        gen.build_authority_manifest(repo, sha, external_artifacts=(noncanonical,))
+
+
+def test_exact_ref_modes_ignore_ambient_python_environment(tmp_path: Path, monkeypatch):
+    repo, sha = _authority_fixture(tmp_path)
+    user_base = tmp_path / "userbase"
+    site = user_base / "lib/python/site-packages"
+    site.mkdir(parents=True)
+    (site / "hostile.pth").write_text(str(tmp_path / "missing") + os.linesep)
+    monkeypatch.setenv("PYTHONUSERBASE", str(user_base))
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path / "missing"))
+    assert _manifest(repo, sha)["policy"]["module_path"] == gen.POLICY_PATH
+
+
+@pytest.mark.parametrize(
+    ("prelude", "message"),
+    [
+        (
+            "import subprocess\nsubprocess.run(['git', 'status'], check=False)\n",
+            "forbidden subprocess action",
+        ),
+        (
+            "from pathlib import Path\nPath('/tmp/authority-escape').write_text('x')\n",
+            "forbidden write outside extraction root",
+        ),
+    ],
+)
+def test_exact_ref_policy_rejects_mutating_subprocess_and_filesystem_actions(
+    tmp_path: Path, prelude: str, message: str
+):
+    repo, sha = _authority_fixture(tmp_path, policy_prelude=prelude)
+    with pytest.raises(gen.AuthorityClosureError, match=message):
+        _manifest(repo, sha)
