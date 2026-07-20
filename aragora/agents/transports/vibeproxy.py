@@ -14,6 +14,7 @@ import ipaddress
 import json
 import math
 import os
+import re
 import threading
 import time
 from typing import Any, Iterable
@@ -42,6 +43,14 @@ class VibeProxyTimeoutError(VibeProxyUnavailableError):
     """Raised when a VibeProxy request times out."""
 
 
+class VibeProxyRedirectError(VibeProxyUnavailableError):
+    """Raised when a VibeProxy endpoint attempts to redirect a request."""
+
+
+class VibeProxyResponseError(VibeProxyUnavailableError):
+    """Raised when VibeProxy returns an unsafe or malformed response."""
+
+
 class TransportMode(str, Enum):
     DIRECT = "direct"
     PREFER = "vibeproxy-prefer"
@@ -52,6 +61,15 @@ class TransportMode(str, Enum):
 class VibeProxyCatalog:
     models: frozenset[str]
     fetched_at: float
+
+
+@dataclass(frozen=True)
+class VibeProxyMetadata:
+    """Sanitized, no-inference metadata reported by the VibeProxy root."""
+
+    advertised_routes: tuple[str, ...]
+    version: str | None
+    version_source: str
 
 
 @dataclass(frozen=True)
@@ -78,6 +96,13 @@ class ResolvedModelRoute:
 
 _CATALOG_CACHE: dict[tuple[str, bytes], VibeProxyCatalog] = {}
 _CATALOG_LOCK = threading.Lock()
+_ADVERTISED_ROUTE = re.compile(r"^(?:GET|POST|PUT|PATCH|DELETE) /[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$")
+_VERSION_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$")
+_VERSION_HEADERS = (
+    "x-cpa-version",
+    "x-cpa-home-version",
+    "x-server-version",
+)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -221,21 +246,34 @@ class VibeProxyClient:
             urllib.request.ProxyHandler({}), _NoRedirectHandler()
         )
 
-    def _request(
-        self, path: str, *, timeout: float | None = None, payload: dict | None = None
-    ) -> dict:
+    def _request_document(
+        self,
+        path: str,
+        *,
+        timeout: float | None = None,
+        payload: dict | None = None,
+        api_root: bool = False,
+    ) -> tuple[dict[str, Any], dict[str, str]]:
         headers = {"authorization": f"Bearer {self.api_key}"}
         data = None
         if payload is not None:
             data = json.dumps(payload).encode("utf-8")
             headers.update({"content-type": "application/json", "anthropic-version": "2023-06-01"})
-        request = urllib.request.Request(self.base_url + path, data=data, headers=headers)
-        request_timeout = timeout or self.connect_timeout_seconds
+        request_base = self.base_url[:-3] if api_root else self.base_url
+        request = urllib.request.Request(request_base + path, data=data, headers=headers)
+        request_timeout = self.connect_timeout_seconds if timeout is None else timeout
         deadline = time.monotonic() + request_timeout
         try:
             with self._opener.open(request, timeout=request_timeout) as response:
+                response_headers = {
+                    name: value.strip()
+                    for name in _VERSION_HEADERS
+                    if (value := getattr(response, "headers", {}).get(name))
+                }
                 raw = _read_response_with_deadline(response, deadline=deadline)
         except urllib.error.HTTPError as exc:
+            if 300 <= exc.code < 400:
+                raise VibeProxyRedirectError("VibeProxy redirect was denied") from exc
             raise VibeProxyUnavailableError(f"VibeProxy HTTP {exc.code}") from exc
         except TimeoutError as exc:
             raise VibeProxyTimeoutError("VibeProxy request timed out") from exc
@@ -252,36 +290,74 @@ class VibeProxyClient:
                 f"VibeProxy request failed: {type(exc).__name__}"
             ) from exc
         if len(raw) > MAX_RESPONSE_BYTES:
-            raise VibeProxyUnavailableError("VibeProxy response exceeded size limit")
+            raise VibeProxyResponseError("VibeProxy response exceeded size limit")
         try:
             body = json.loads(raw.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeError) as exc:
-            raise VibeProxyUnavailableError("VibeProxy returned invalid JSON") from exc
+            raise VibeProxyResponseError("VibeProxy returned invalid JSON") from exc
         if not isinstance(body, dict):
-            raise VibeProxyUnavailableError("VibeProxy returned a non-object response")
+            raise VibeProxyResponseError("VibeProxy returned a non-object response")
+        return body, response_headers
+
+    def _request(
+        self, path: str, *, timeout: float | None = None, payload: dict | None = None
+    ) -> dict:
+        body, _headers = self._request_document(path, timeout=timeout, payload=payload)
         return body
 
-    def catalog(self, *, force: bool = False) -> VibeProxyCatalog:
+    def catalog(self, *, force: bool = False, timeout: float | None = None) -> VibeProxyCatalog:
         now = time.monotonic()
         with _CATALOG_LOCK:
             cached = _CATALOG_CACHE.get(self._catalog_cache_key)
             if cached and not force and now - cached.fetched_at < self.catalog_ttl_seconds:
                 return cached
-        body = self._request("/models")
+        body = self._request("/models", timeout=timeout)
         entries = body.get("data")
         if not isinstance(entries, list):
-            raise VibeProxyUnavailableError("VibeProxy model catalog is malformed")
+            raise VibeProxyResponseError("VibeProxy model catalog is malformed")
         models = frozenset(
             item["id"].strip()
             for item in entries
             if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"].strip()
         )
         if not models:
-            raise VibeProxyUnavailableError("VibeProxy model catalog is empty")
+            raise VibeProxyResponseError("VibeProxy model catalog is empty")
         catalog = VibeProxyCatalog(models=models, fetched_at=now)
         with _CATALOG_LOCK:
             _CATALOG_CACHE[self._catalog_cache_key] = catalog
         return catalog
+
+    def metadata(self, *, timeout: float | None = None) -> VibeProxyMetadata:
+        """Fetch sanitized root metadata without exercising an inference route."""
+
+        body, headers = self._request_document("/", timeout=timeout, api_root=True)
+        advertised = body.get("endpoints")
+        routes = (
+            tuple(
+                sorted(
+                    {
+                        route.strip()
+                        for route in advertised
+                        if isinstance(route, str) and _ADVERTISED_ROUTE.fullmatch(route.strip())
+                    }
+                )
+            )
+            if isinstance(advertised, list)
+            else ()
+        )
+        version = None
+        version_source = "unknown"
+        for header in _VERSION_HEADERS:
+            candidate = headers.get(header, "")
+            if _VERSION_VALUE.fullmatch(candidate):
+                version = candidate
+                version_source = f"http_header:{header}"
+                break
+        return VibeProxyMetadata(
+            advertised_routes=routes,
+            version=version,
+            version_source=version_source,
+        )
 
     def anthropic_message(
         self,
@@ -437,8 +513,12 @@ __all__ = [
     "ModelTransportPolicy",
     "ResolvedModelRoute",
     "TransportMode",
+    "VibeProxyCatalog",
     "VibeProxyClient",
     "VibeProxyConfigurationError",
+    "VibeProxyMetadata",
+    "VibeProxyRedirectError",
+    "VibeProxyResponseError",
     "VibeProxyTimeoutError",
     "VibeProxyUnavailableError",
 ]
