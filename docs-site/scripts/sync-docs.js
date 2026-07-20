@@ -637,12 +637,13 @@ const REPO_MARKDOWN_LINKS = {
   'architecture/INTENDED_ARCHITECTURE.md':
     `${REPO_BLOB_BASE}/docs/architecture/INTENDED_ARCHITECTURE.md`,
   'architecture/charters.yaml': `${REPO_BLOB_BASE}/docs/architecture/charters.yaml`,
-  // reference/INSTALL_MATRIX.md links to these four; none are in DOC_MAP
+  // reference/INSTALL_MATRIX.md links to these files; none are in DOC_MAP
   // (two are outside docs/ entirely), so its links to them would otherwise
   // survive unrewritten and 404.
   'architecture/PACKAGING_AND_DISTRIBUTION.md':
     `${REPO_BLOB_BASE}/docs/architecture/PACKAGING_AND_DISTRIBUTION.md`,
   'PACKAGING.md': `${REPO_BLOB_BASE}/docs/PACKAGING.md`,
+  'SDK_QUICKSTART_PYTHON.md': `${REPO_BLOB_BASE}/docs/SDK_QUICKSTART_PYTHON.md`,
   '../DEVELOPMENT.md': `${REPO_BLOB_BASE}/DEVELOPMENT.md`,
   '../INSTALL.md': `${REPO_BLOB_BASE}/INSTALL.md`,
   // reference/INDEX.md links to these two; neither is in DOC_MAP, so its

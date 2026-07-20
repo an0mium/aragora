@@ -93,7 +93,7 @@ aragora-verify <receipt>.odr.json
 pip install aragora-sdk   # PyPI; currently ships 2.8.0
 ```
 
-Use the [public Python SDK quickstart](../SDK_QUICKSTART_PYTHON.md) for examples
+Use the [public Python SDK quickstart](https://github.com/synaptent/aragora/blob/main/docs/SDK_QUICKSTART_PYTHON.md) for examples
 checked against that released wheel. The release-to-tree relationship is:
 
 | Install source | Version represented here | Compatibility check |

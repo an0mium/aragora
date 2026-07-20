@@ -868,6 +868,16 @@ def test_docs_reference_pages_have_no_dead_relative_md_links() -> None:
         assert not matches, f"Unrewritten relative .md link(s) in {page}: {matches}"
 
 
+def test_reference_install_matrix_quickstart_uses_repo_fallback() -> None:
+    content = _read_docs_site("reference/install-matrix.md")
+
+    assert (
+        "[public Python SDK quickstart]"
+        "(https://github.com/synaptent/aragora/blob/main/docs/SDK_QUICKSTART_PYTHON.md)" in content
+    )
+    assert "](../SDK_QUICKSTART_PYTHON.md)" not in content
+
+
 def test_docs_reference_index_lists_mirrored_children() -> None:
     content = _read_docs_site("reference/index.md")
 
