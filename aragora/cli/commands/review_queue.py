@@ -2529,7 +2529,7 @@ def _build_packet(
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
     check_surfaces: dict[str, Any]
-    unstable_cancellation_receipt: dict[str, Any] = {}
+    unstable_cancellation_contexts: list[dict[str, Any]] = []
     if settlement_state_block:
         checks_unavailable = False
         checks_summary = f"failing PR state ({settlement_state_block})"
@@ -2562,7 +2562,7 @@ def _build_packet(
     if isinstance(rest_fallback_meta, dict):
         check_surfaces["metadata_transport_fallback"] = rest_fallback_meta
     if not settlement_state_block:
-        unstable_cancellation_receipt = unstable.attach_verified_cancellation_receipt(
+        unstable_cancellation_contexts = unstable.attach_verified_cancellation_contexts(
             pr=pr,
             pr_number=number,
             repo_override=repo_override,
@@ -2968,9 +2968,7 @@ def _build_packet(
         ),
         labels=labels,
         merge_state_status=str(pr.get("mergeStateStatus") or "").strip().upper(),
-        unstable_non_required_contexts_ignored=list(
-            unstable_cancellation_receipt.get("ignored_contexts") or []
-        ),
+        unstable_non_required_contexts_ignored=unstable_cancellation_contexts,
     )
     packet.packet_sha = _packet_sha(packet)
     return packet

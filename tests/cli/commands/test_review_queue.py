@@ -50,6 +50,7 @@ from aragora.cli.commands.review_queue import (
     cmd_review_queue,
 )
 from aragora.cli.commands.review_queue_unstable import (
+    attach_verified_cancellation_contexts as _attach_verified_cancellation_contexts,
     verified_unstable_non_required_cancellation_receipt as _verified_unstable_non_required_cancellation_receipt,
 )
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
@@ -778,6 +779,38 @@ class TestUnstableCancellationReceipt:
         assert _verified_unstable_non_required_cancellation_receipt.__module__ == (
             "aragora.cli.commands.review_queue_unstable"
         )
+
+    def test_attach_contexts_records_receipt(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ignored = [{"workflow": "Docs Consistency", "conclusion": "CANCELLED"}]
+        receipt = {"ignored_contexts": ignored}
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue_unstable.verified_unstable_non_required_cancellation_receipt",
+            lambda **_kwargs: receipt,
+        )
+        surfaces: dict[str, Any] = {}
+
+        contexts = _attach_verified_cancellation_contexts(
+            pr={}, pr_number=9411, repo_override="synaptent/aragora", check_surfaces=surfaces
+        )
+
+        assert contexts == ignored
+        assert surfaces["unstable_non_required_cancellation_receipt"] == receipt
+
+    def test_attach_contexts_returns_empty_without_receipt(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue_unstable.verified_unstable_non_required_cancellation_receipt",
+            lambda **_kwargs: {},
+        )
+        surfaces: dict[str, Any] = {}
+
+        contexts = _attach_verified_cancellation_contexts(
+            pr={}, pr_number=9411, repo_override=None, check_surfaces=surfaces
+        )
+
+        assert contexts == []
+        assert surfaces == {}
 
     @staticmethod
     def _cancelled_build_check() -> dict[str, Any]:

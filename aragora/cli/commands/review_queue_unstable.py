@@ -289,6 +289,23 @@ def attach_verified_cancellation_receipt(
     return receipt
 
 
+def attach_verified_cancellation_contexts(
+    *,
+    pr: dict[str, Any],
+    pr_number: int,
+    repo_override: str | None,
+    check_surfaces: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Attach the receipt and return its ignored contexts for the packet."""
+    receipt = attach_verified_cancellation_receipt(
+        pr=pr,
+        pr_number=pr_number,
+        repo_override=repo_override,
+        check_surfaces=check_surfaces,
+    )
+    return list(receipt.get("ignored_contexts") or [])
+
+
 def _verified_unstable_cancellation_override(packet: Any) -> bool:
     receipt = packet.check_surfaces.get("unstable_non_required_cancellation_receipt")
     if not isinstance(receipt, dict):
