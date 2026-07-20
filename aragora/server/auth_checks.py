@@ -231,6 +231,11 @@ class AuthChecksMixin:
             "/api/v1/health/detailed",
             "/api/v1/health/deep",
             "/api/v1/health/stores",
+            # ODR signing-key trust anchor (issue #8804): serves only the
+            # PUBLIC Ed25519 key so external auditors can verify receipts.
+            # Unauthenticated by design, like any /.well-known resource.
+            "/.well-known/aragora-odr-signing-key",
+            "/api/v2/receipts/signing-key",
             # OAuth
             "/api/auth/oauth/providers",  # Login page needs to show available providers
             "/api/v1/auth/oauth/providers",  # v1 route

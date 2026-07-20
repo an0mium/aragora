@@ -260,6 +260,28 @@ class TestCreateBatchJob:
         assert "status_url" in response_body
         assert "results_url" in response_body
 
+    def test_create_batch_snapshots_pending_before_worker_starts(
+        self, handler, mock_post_request, monkeypatch
+    ):
+        body = {"debate_ids": ["debate-1"]}
+        mock_post_request.rfile = Mock()
+        mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
+        mock_post_request.headers["Content-Length"] = len(json.dumps(body))
+        worker_observation = {}
+
+        def fail_immediately(job):
+            worker_observation["initial_status"] = job.status
+            job.status = BatchStatus.FAILED
+
+        monkeypatch.setattr(handler, "_start_batch_processing", fail_immediately)
+
+        result = handler._handle_batch_create(mock_post_request)
+        response_body, status = parse_handler_result(result)
+
+        assert worker_observation["initial_status"] is BatchStatus.PENDING
+        assert status == 202
+        assert response_body["status"] == "pending"
+
     def test_create_batch_empty_debate_ids(self, handler, mock_post_request):
         body = {"debate_ids": []}
         mock_post_request.rfile = Mock()
