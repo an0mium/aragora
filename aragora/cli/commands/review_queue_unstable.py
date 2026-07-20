@@ -18,6 +18,23 @@ from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.cli.commands.review_queue_transport import _GhError
 
 UNSTABLE_CANCELLATION_POLICY_PATH = "docs/runbooks/MERGE_STATE_UNSTABLE_SETTLEMENT.md"
+UNSTABLE_ALLOWLISTED_WORKFLOW_PATHS: dict[str, str] = {
+    "Build Documentation (PR Check)": ".github/workflows/docs-build.yml",
+    "Docs Consistency": ".github/workflows/docs-consistency.yml",
+    "Portability Lint": ".github/workflows/portability-lint.yml",
+    "Self-Hosted Shadow CI": ".github/workflows/self-hosted-shadow.yml",
+}
+# A PR that edits any of these files could smuggle substantive work into an
+# allowlisted job (or weaken this gate) and then present its own cancellation
+# as harmless noise, so such PRs never qualify for the UNSTABLE exception.
+UNSTABLE_RECEIPT_GUARD_PATHS: frozenset[str] = frozenset(
+    {
+        *UNSTABLE_ALLOWLISTED_WORKFLOW_PATHS.values(),
+        ".github/workflows/required-check-priority.yml",
+        "aragora/cli/commands/review_queue_unstable.py",
+        "scripts/check_required_check_priority_policy.py",
+    }
+)
 UNSTABLE_CANCELLED_CONTEXT_VERIFIERS: dict[tuple[str, str], tuple[str, ...]] = {
     ("Build Documentation (PR Check)", "build"): (
         "Update doc stats",
@@ -37,6 +54,44 @@ UNSTABLE_CANCELLED_CONTEXT_VERIFIERS: dict[tuple[str, str], tuple[str, ...]] = {
     ("Portability Lint", "portability"): ("Portability guard (no new private/legacy references)",),
     ("Self-Hosted Shadow CI", "Mac TypeScript SDK Shadow"): ("Run TypeScript SDK typecheck",),
 }
+
+
+def _is_injected_wrapup_step(name: str) -> bool:
+    """GitHub-injected wrap-up steps that may legitimately succeed after a
+    mid-job cancellation (action post-hooks and job teardown). Authored steps
+    may not use these names; the policy check enforces that in CI."""
+    return name == "Complete job" or name.startswith("Post ") or name.startswith("Stop containers")
+
+
+def _pr_modifies_guarded_paths(
+    *,
+    pr_number: int,
+    repo_slug: str,
+    gh_json: Callable[[list[str]], Any],
+) -> bool:
+    """Fail closed unless the PR provably avoids every receipt-guarded path."""
+    args = ["pr", "view", str(pr_number), "--json", "files"]
+    if repo_slug:
+        args.extend(["--repo", repo_slug])
+    try:
+        payload = gh_json(args)
+    except _GhError:
+        return True
+    if not isinstance(payload, dict):
+        return True
+    files = payload.get("files")
+    if not isinstance(files, list):
+        return True
+    # `gh pr view --json files` returns at most 100 entries; a PR that large
+    # gets no UNSTABLE exception rather than a partially-checked one.
+    if len(files) >= 100:
+        return True
+    for entry in files:
+        if not isinstance(entry, dict):
+            return True
+        if str(entry.get("path") or "").strip() in UNSTABLE_RECEIPT_GUARD_PATHS:
+            return True
+    return False
 
 
 def _review_queue_backend() -> Any:
@@ -156,6 +211,23 @@ def _verify_cancelled_context_run(
         str(step.get("conclusion") or "").strip().upper() != "SKIPPED" for step in verifier_steps
     ):
         return None
+    # Enumerated names alone are fail-open under additive drift: a substantive
+    # step added to the job after this allowlist was written would be invisible.
+    # Require every step from the first verifier onward to have been skipped or
+    # cancelled, whatever its name (GitHub-injected wrap-up steps exempt).
+    first_verifier_index = min(
+        index
+        for index, step in enumerate(steps)
+        if str(step.get("name") or "").strip() in verifier_names
+    )
+    for step in steps[first_verifier_index:]:
+        step_name = str(step.get("name") or "").strip()
+        conclusion = str(step.get("conclusion") or "").strip().upper()
+        if conclusion in {"SKIPPED", "CANCELLED"}:
+            continue
+        if _is_injected_wrapup_step(step_name):
+            continue
+        return None
 
     return {
         "workflow": workflow,
@@ -200,17 +272,20 @@ def verified_unstable_non_required_cancellation_receipt(
         if not isinstance(check, dict) or backend._is_current_merge_quorum_self_check(check):
             continue
         conclusion = _normalized_rollup_conclusion(check)
-        status = str(check.get("status") or check.get("state") or "").strip().upper()
         if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}:
             continue
         if conclusion == "CANCELLED":
             cancelled_checks.append(check)
             continue
-        if status in {"IN_PROGRESS", "QUEUED", "PENDING", "EXPECTED"} or not conclusion:
-            return {}
+        # Anything else — in-flight, unknown, or failing — fails closed.
         return {}
     if not cancelled_checks:
         return {}
+    for check in cancelled_checks:
+        workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
+        name = str(check.get("name") or check.get("context") or "").strip()
+        if (workflow, name) not in UNSTABLE_CANCELLED_CONTEXT_VERIFIERS:
+            return {}
 
     required_surface = backend._fetch_required_pr_check_surface(pr_number, repo_override)
     required_checks = [
@@ -232,6 +307,12 @@ def verified_unstable_non_required_cancellation_receipt(
 
     repo_slug = rest_fallback._repo_slug_from_pr_payload(pr, repo_override)
     if not repo_slug:
+        return {}
+    if _pr_modifies_guarded_paths(
+        pr_number=pr_number,
+        repo_slug=repo_slug,
+        gh_json=backend._gh_json,
+    ):
         return {}
     verified_contexts: list[dict[str, Any]] = []
     for check in cancelled_checks:

@@ -119,9 +119,20 @@ settlement-stable only when all of these exact-head predicates are true:
    substantive verifier step for that context is present and `SKIPPED`. A run
    with missing job metadata, unknown verifier steps, or a verifier step that
    started fails closed.
-8. The helper emits an explicit receipt field naming each ignored non-required
-   cancelled context, run URL, and reason so the merge record does not silently
-   hide GitHub rollup noise.
+8. Every step from the first verifier step onward — whatever its name — was
+   `SKIPPED` or `CANCELLED` (GitHub-injected wrap-up steps such as `Post *` and
+   `Complete job` exempt). Enumerated verifier names alone would be fail-open
+   under additive workflow drift; `scripts/check_required_check_priority_policy.py`
+   additionally pins each allowlisted job's pre-verifier `run:` steps in CI so a
+   new substantive step cannot appear without review.
+9. The PR does not modify any receipt-guarded path (the four allowlisted
+   workflow files, `required-check-priority.yml`, `review_queue_unstable.py`,
+   or the policy check script). A PR editing those surfaces could smuggle
+   substantive work behind its own cancellation, so it never qualifies for the
+   exception; its cancelled advisory runs must be rerun instead.
+10. The helper emits an explicit receipt field naming each ignored non-required
+    cancelled context, run URL, and reason so the merge record does not silently
+    hide GitHub rollup noise.
 
 ### July 8, 2026 Observations
 
@@ -166,5 +177,9 @@ succeeds, the packet reports the ignored contexts and the complete receipt:
 }
 ```
 
-The merge/apply path still requires the same exact-head recheck immediately
-before merge and must include this receipt in the conductor report.
+The receipt is recomputed from live GitHub state on every merge-packet build
+and is bound to that packet's exact head; it is never cached across
+invocations. Merge/apply consumers must build a fresh packet at apply time and
+pass `--match-head-commit <head>` on the merge itself, so GitHub rejects the
+merge if the head moves between packet build and merge. The conductor report
+must include this receipt.

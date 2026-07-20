@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -29,6 +30,25 @@ class _MainPushTrigger:
 
 
 WORKFLOW_PATH = Path(".github/workflows/required-check-priority.yml")
+
+UNSTABLE_MODULE_PATH = Path("aragora/cli/commands/review_queue_unstable.py")
+
+# Named `run:` steps allowed to execute BEFORE the first allowlisted verifier
+# step in a job covered by the UNSTABLE cancellation exception. The receipt
+# treats pre-verifier steps as setup that may already have run, so any new
+# substantive pre-verifier step must be reviewed here before it can hide
+# behind a cancelled advisory run.
+UNSTABLE_SETUP_RUN_STEPS = {
+    "Verify checkout integrity",
+    "Install Python dependencies",
+    "Install dependencies",
+    "Runner fingerprint",
+    "Install TypeScript SDK dependencies",
+}
+
+# The receipt exempts GitHub-injected wrap-up steps (post-hooks/teardown) from
+# its skipped-tail rule, so authored steps must never reuse those names.
+_INJECTED_WRAPUP_NAME_RE = re.compile(r"^(Post |Stop containers|Complete job$|Set up job$)")
 
 REQUIRED_KEEP_WORKFLOW_PATHS = {
     ".github/workflows/aragora-merge-quorum.yml",
@@ -502,16 +522,208 @@ def find_required_check_priority_violations(
     return violations
 
 
+@dataclass(frozen=True)
+class _WorkflowStep:
+    name: str | None
+    has_run: bool
+
+
+def _load_unstable_receipt_policy(
+    repo_root: Path,
+) -> tuple[dict[tuple[str, str], tuple[str, ...]], dict[str, str]] | None:
+    """Extract the UNSTABLE-receipt allowlists from the module source via ast,
+    so the policy check shares a single source of truth without importing the
+    aragora package."""
+    module_file = repo_root / UNSTABLE_MODULE_PATH
+    if not module_file.exists():
+        return None
+    tree = ast.parse(module_file.read_text(encoding="utf-8"))
+    verifiers: dict[tuple[str, str], tuple[str, ...]] | None = None
+    workflow_paths: dict[str, str] | None = None
+    for node in tree.body:
+        targets: list[ast.expr] = []
+        value: ast.expr | None = None
+        if isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets = [node.target]
+            value = node.value
+        elif isinstance(node, ast.Assign):
+            targets = list(node.targets)
+            value = node.value
+        if value is None:
+            continue
+        for target in targets:
+            if not isinstance(target, ast.Name):
+                continue
+            if target.id == "UNSTABLE_CANCELLED_CONTEXT_VERIFIERS":
+                verifiers = ast.literal_eval(value)
+            elif target.id == "UNSTABLE_ALLOWLISTED_WORKFLOW_PATHS":
+                workflow_paths = ast.literal_eval(value)
+    if verifiers is None or workflow_paths is None:
+        return None
+    return verifiers, workflow_paths
+
+
+def _workflow_job_blocks(workflow_text: str) -> dict[str, list[str]]:
+    lines = workflow_text.splitlines()
+    blocks: dict[str, list[str]] = {}
+    for index, line in enumerate(lines):
+        parsed = _parse_yaml_mapping_line(line)
+        if parsed is None or parsed.key != "jobs" or parsed.indent != 0:
+            continue
+        jobs_block = _nested_yaml_block(lines, index, parsed.indent)
+        job_indent: int | None = None
+        for job_index, job_line in enumerate(jobs_block):
+            job_parsed = _parse_yaml_mapping_line(job_line)
+            if job_parsed is None:
+                continue
+            if job_indent is None:
+                job_indent = job_parsed.indent
+            if job_parsed.indent != job_indent:
+                continue
+            blocks[job_parsed.key] = _nested_yaml_block(jobs_block, job_index, job_parsed.indent)
+        break
+    return blocks
+
+
+def _job_display_name(job_id: str, job_block: list[str]) -> str:
+    field_indent: int | None = None
+    for line in job_block:
+        parsed = _parse_yaml_mapping_line(line)
+        if parsed is None:
+            continue
+        if field_indent is None:
+            field_indent = parsed.indent
+        if parsed.indent == field_indent and parsed.key == "name" and parsed.value:
+            return parsed.value.strip("\"'")
+    return job_id
+
+
+def _job_steps(job_block: list[str]) -> list[_WorkflowStep]:
+    steps: list[_WorkflowStep] = []
+    steps_indent: int | None = None
+    dash_indent: int | None = None
+    current_name: str | None = None
+    current_has_run = False
+    current_open = False
+
+    def _close() -> None:
+        nonlocal current_open, current_name, current_has_run
+        if current_open:
+            steps.append(_WorkflowStep(name=current_name, has_run=current_has_run))
+        current_open = False
+        current_name = None
+        current_has_run = False
+
+    for line in job_block:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        stripped = line.strip()
+        if steps_indent is None:
+            parsed = _parse_yaml_mapping_line(line)
+            if parsed is not None and parsed.key == "steps" and not parsed.value:
+                steps_indent = parsed.indent
+            continue
+        if indent <= steps_indent:
+            break
+        if stripped.startswith("- ") or stripped == "-":
+            _close()
+            current_open = True
+            dash_indent = indent
+            stripped = stripped[1:].lstrip()
+            if not stripped:
+                continue
+            indent = dash_indent + 2
+        elif dash_indent is None or indent != dash_indent + 2:
+            # Deeper lines belong to multiline values (run: | scripts, with:
+            # blocks); only fields at the step's own indent are step keys.
+            continue
+        match = re.match(r"^(name|run|uses)\s*:\s*(.*)$", stripped)
+        if not match or not current_open:
+            continue
+        key = match.group(1)
+        value = _strip_yaml_comment(match.group(2)).strip()
+        if key == "name" and current_name is None:
+            current_name = value.strip("\"'")
+        elif key == "run":
+            current_has_run = True
+    _close()
+    return steps
+
+
+def _unstable_receipt_violations(repo_root: Path) -> list[str]:
+    policy = _load_unstable_receipt_policy(repo_root)
+    if policy is None:
+        return [
+            f"could not extract UNSTABLE receipt allowlists from {UNSTABLE_MODULE_PATH}",
+        ]
+    verifiers, workflow_paths = policy
+    violations: list[str] = []
+    for (workflow_name, job_name), verifier_names in sorted(verifiers.items()):
+        rel = workflow_paths.get(workflow_name)
+        if not rel:
+            violations.append(
+                f"UNSTABLE allowlist workflow `{workflow_name}` has no path in "
+                "UNSTABLE_ALLOWLISTED_WORKFLOW_PATHS"
+            )
+            continue
+        wf_file = repo_root / rel
+        if not wf_file.exists():
+            violations.append(f"UNSTABLE allowlist workflow path does not exist: {rel}")
+            continue
+        job_blocks = _workflow_job_blocks(wf_file.read_text(encoding="utf-8"))
+        job_block: list[str] | None = None
+        for job_id, block in job_blocks.items():
+            if _job_display_name(job_id, block) == job_name or job_id == job_name:
+                job_block = block
+                break
+        if job_block is None:
+            violations.append(f"UNSTABLE allowlist job `{job_name}` not found in {rel}")
+            continue
+        steps = _job_steps(job_block)
+        step_names = [step.name for step in steps]
+        for verifier in verifier_names:
+            if verifier not in step_names:
+                violations.append(
+                    f"UNSTABLE verifier step `{verifier}` missing from job `{job_name}` in {rel}"
+                )
+        verifier_indexes = [
+            index for index, step in enumerate(steps) if step.name in set(verifier_names)
+        ]
+        if not verifier_indexes:
+            continue
+        first_verifier = min(verifier_indexes)
+        for step in steps[:first_verifier]:
+            if step.has_run and (step.name or "") not in UNSTABLE_SETUP_RUN_STEPS:
+                violations.append(
+                    f"job `{job_name}` in {rel} runs unreviewed pre-verifier step "
+                    f"`{step.name or '(unnamed)'}`; add it to the verifier allowlist or "
+                    "UNSTABLE_SETUP_RUN_STEPS"
+                )
+        for step in steps:
+            if step.name and _INJECTED_WRAPUP_NAME_RE.match(step.name):
+                violations.append(
+                    f"job `{job_name}` in {rel} authors step `{step.name}`, which collides "
+                    "with GitHub-injected wrap-up names exempted by the UNSTABLE receipt"
+                )
+    return violations
+
+
 def check_repo(repo_root: Path) -> list[Violation]:
     workflow_file = repo_root / WORKFLOW_PATH
     if not workflow_file.exists():
         return [Violation(path=str(WORKFLOW_PATH), message="missing workflow file")]
 
     text = workflow_file.read_text(encoding="utf-8")
-    return [
+    violations = [
         Violation(path=str(WORKFLOW_PATH), message=message)
         for message in find_required_check_priority_violations(text, repo_root=repo_root)
     ]
+    violations.extend(
+        Violation(path=str(UNSTABLE_MODULE_PATH), message=message)
+        for message in _unstable_receipt_violations(repo_root)
+    )
+    return violations
 
 
 def main() -> int:

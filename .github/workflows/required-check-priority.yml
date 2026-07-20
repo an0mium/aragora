@@ -133,12 +133,20 @@ jobs:
             let emptySweepCount = 0;
 
             async function getLiveHeadSha() {
-              const { data: livePr } = await github.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: pr.number,
-              });
-              return String(livePr.head?.sha || '').trim();
+              // Every caller treats an empty result as "stop sweeping", so a
+              // transient API error must degrade to '' rather than fail the
+              // whole priority job with another non-green rollup entry.
+              try {
+                const { data: livePr } = await github.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                });
+                return String(livePr.head?.sha || '').trim();
+              } catch (error) {
+                core.info(`Live PR head lookup failed; stopping sweep: ${error.message || error}`);
+                return '';
+              }
             }
 
             async function runHasRequiredContext(run) {

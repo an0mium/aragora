@@ -54,6 +54,7 @@ from aragora.cli.commands.review_queue_unstable import (
     verified_unstable_non_required_cancellation_receipt as _verified_unstable_non_required_cancellation_receipt,
 )
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
+from aragora.cli.commands.review_queue_transport import _GhError as _RQGhError
 from aragora.review import (
     EvidenceKind,
     EvidenceRef,
@@ -882,6 +883,21 @@ class TestUnstableCancellationReceipt:
             ],
         }
 
+    @staticmethod
+    def _gh_json_dispatch(
+        run: dict[str, Any] | None,
+        files: list[dict[str, Any]] | None = None,
+    ) -> Any:
+        """The receipt makes two kinds of gh calls: a `pr view --json files`
+        guard lookup and a `run view` inspection. Route each to its payload."""
+
+        def _dispatch(args: list[str]) -> Any:
+            if list(args[:2]) == ["pr", "view"]:
+                return {"files": files if files is not None else []}
+            return run
+
+        return _dispatch
+
     def test_accepts_exact_head_allowlisted_early_cancellation(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -906,7 +922,7 @@ class TestUnstableCancellationReceipt:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
-            lambda _args: self._cancelled_build_run(head_sha),
+            self._gh_json_dispatch(self._cancelled_build_run(head_sha)),
         )
 
         receipt = _verified_unstable_non_required_cancellation_receipt(
@@ -934,7 +950,7 @@ class TestUnstableCancellationReceipt:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
-            lambda _args: self._cancelled_build_run("stale-head"),
+            self._gh_json_dispatch(self._cancelled_build_run("stale-head")),
         )
 
         receipt = _verified_unstable_non_required_cancellation_receipt(
@@ -959,7 +975,161 @@ class TestUnstableCancellationReceipt:
             "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
             lambda *_args, **_kwargs: self._required_surface(),
         )
-        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", lambda _args: run)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json", self._gh_json_dispatch(run)
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_unallowlisted_step_that_ran_after_first_verifier(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+        steps = run["jobs"][0]["steps"]
+        # A step the allowlist does not know about, positioned inside the
+        # verifier tail, that already ran: additive drift must fail closed.
+        steps.insert(
+            len(steps) - 2,
+            {"name": "Fetch PR base branch for capability summary", "conclusion": "SUCCESS"},
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json", self._gh_json_dispatch(run)
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_accepts_injected_wrapup_steps_after_cancellation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+        run["jobs"][0]["steps"].extend(
+            [
+                {"name": "Post Checkout", "conclusion": "SUCCESS"},
+                {"name": "Complete job", "conclusion": "SUCCESS"},
+            ]
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json", self._gh_json_dispatch(run)
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt["head_sha"] == head_sha
+
+    def test_rejects_pr_modifying_guarded_workflow(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(
+                self._cancelled_build_run(head_sha),
+                files=[{"path": ".github/workflows/docs-build.yml"}],
+            ),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_when_changed_files_lookup_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        run = self._cancelled_build_run(head_sha)
+
+        def _failing_files(args: list[str]) -> Any:
+            if list(args[:2]) == ["pr", "view"]:
+                raise _RQGhError("boom")
+            return run
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _failing_files)
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_truncated_changed_files_listing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(
+                self._cancelled_build_run(head_sha),
+                files=[{"path": f"aragora/file_{index}.py"} for index in range(100)],
+            ),
+        )
 
         receipt = _verified_unstable_non_required_cancellation_receipt(
             pr=pr,
@@ -996,7 +1166,9 @@ class TestUnstableCancellationReceipt:
             "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
             lambda *_args, **_kwargs: self._required_surface(),
         )
-        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", lambda _args: run)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json", self._gh_json_dispatch(run)
+        )
 
         receipt = _verified_unstable_non_required_cancellation_receipt(
             pr=pr,
@@ -1020,7 +1192,7 @@ class TestUnstableCancellationReceipt:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
-            lambda _args: self._cancelled_build_run(head_sha),
+            self._gh_json_dispatch(self._cancelled_build_run(head_sha)),
         )
 
         receipt = _verified_unstable_non_required_cancellation_receipt(
@@ -1045,7 +1217,7 @@ class TestUnstableCancellationReceipt:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
-            lambda _args: self._cancelled_build_run(head_sha),
+            self._gh_json_dispatch(self._cancelled_build_run(head_sha)),
         )
 
         receipt = _verified_unstable_non_required_cancellation_receipt(

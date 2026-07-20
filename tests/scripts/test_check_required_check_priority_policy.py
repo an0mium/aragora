@@ -604,13 +604,24 @@ def test_unstable_allowlisted_workflows_do_not_cancel_same_pr_runs() -> None:
         ".github/workflows/docs-build.yml",
         ".github/workflows/docs-consistency.yml",
         ".github/workflows/portability-lint.yml",
-        ".github/workflows/self-hosted-shadow.yml",
     )
 
     for rel in workflow_paths:
         text = (repo_root / rel).read_text(encoding="utf-8")
         concurrency_block = text.split("concurrency:", maxsplit=1)[1].split("jobs:", maxsplit=1)[0]
         assert "cancel-in-progress: false" in concurrency_block, rel
+
+
+def test_self_hosted_shadow_keeps_superseded_run_reclamation() -> None:
+    # Both shadow jobs occupy the scarce self-hosted fleet, the priority sweep
+    # never cancels in_progress runs, and self-hosted-shadow.yml is on the
+    # sweep's keep-list — so workflow-level concurrency cancellation is the
+    # only path that frees a runner when a new head supersedes a run. Cancelled
+    # current-head runs are absorbed by the UNSTABLE cancellation receipt.
+    repo_root = Path(__file__).resolve().parents[2]
+    text = (repo_root / ".github/workflows/self-hosted-shadow.yml").read_text(encoding="utf-8")
+    concurrency_block = text.split("concurrency:", maxsplit=1)[1].split("jobs:", maxsplit=1)[0]
+    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in concurrency_block
 
 
 def test_repo_required_check_priority_policy_passes_for_current_tree() -> None:
