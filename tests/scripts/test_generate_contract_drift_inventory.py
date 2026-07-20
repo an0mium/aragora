@@ -301,7 +301,8 @@ def _authority_fixture(
     tmp_path: Path,
     *,
     dynamic_reference: bool = False,
-    dynamic_run_reference: bool = False,
+    dynamic_run_reference: str | None = None,
+    helper_source: str = "import aragora.helper\n",
     missing_policy: bool = False,
     namespace_package: bool = False,
     policy_prelude: str = "",
@@ -312,7 +313,7 @@ def _authority_fixture(
     _write_baselines(repo, VERIFY, ROUTES, PARITY)
     _write_text(repo / FIXTURE_ROOT, "# exact-ref fixture authority root\n")
     _write_text(repo / "scripts/tier4_merge_train.py", _fixture_merge_train_source())
-    _write_text(repo / "scripts/helper.py", "import aragora.helper\n")
+    _write_text(repo / "scripts/helper.py", helper_source)
     _write_text(repo / "scripts/helper.sh", "python scripts/transitive.py\n")
     _write_text(repo / "scripts/transitive.py", "# transitive workflow helper\n")
     _write_text(repo / "scripts/measured.py", "# not an authority dependency\n")
@@ -334,10 +335,13 @@ def _authority_fixture(
         if dynamic_reference
         else "      - uses: ./.github/actions/root\n"
     )
-    helper_run = (
-        '      - run: python "$HELPER_SCRIPT"\n'
-        if dynamic_run_reference
-        else "      - run: python sdk/python/client.py\n"
+    dynamic_runs = {
+        "leading": '      - run: python "$HELPER_SCRIPT"\n',
+        "mid_token": "      - run: python scripts/$HELPER.py\n",
+        "module": "      - run: python -m scripts.helper\n",
+    }
+    helper_run = dynamic_runs.get(
+        dynamic_run_reference, "      - run: python sdk/python/client.py\n"
     )
     _write_text(
         repo / ".github/workflows/authority.yml",
@@ -353,6 +357,18 @@ def _authority_fixture(
         f"{helper_run}"
         "  nested:\n"
         "    uses: ./.github/workflows/nested.yaml\n",
+    )
+    _write_text(
+        repo / ".github/workflows/ignore-only.yml",
+        "on:\n"
+        "  push:\n"
+        "    paths-ignore:\n"
+        f"      - '{FIXTURE_ROOT}'\n"
+        "jobs:\n"
+        "  ignored:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - uses: ./.github/actions/does-not-exist\n",
     )
     _write_text(
         repo / ".github/workflows/nested.yaml",
@@ -536,9 +552,45 @@ def test_unresolved_or_dynamic_local_workflow_reference_fails_closed(tmp_path: P
         _manifest(repo, sha)
 
 
-def test_dynamic_local_run_reference_fails_closed(tmp_path: Path):
-    repo, sha = _authority_fixture(tmp_path, dynamic_run_reference=True)
+@pytest.mark.parametrize("variant", ["leading", "mid_token"])
+def test_dynamic_local_run_reference_fails_closed(tmp_path: Path, variant: str):
+    repo, sha = _authority_fixture(tmp_path, dynamic_run_reference=variant)
     with pytest.raises(gen.AuthorityClosureError, match="dynamic local run target"):
+        _manifest(repo, sha)
+
+
+def test_repository_python_module_run_target_fails_closed(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path, dynamic_run_reference="module")
+    with pytest.raises(gen.AuthorityClosureError, match="repository python -m target"):
+        _manifest(repo, sha)
+
+
+def test_literal_shell_subprocess_helper_joins_closure(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "import aragora.helper\n"
+            "import subprocess\n"
+            "subprocess.run('python scripts/transitive.py', shell=True)\n"
+        ),
+    )
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert any(
+        edge["kind"] == "literal_subprocess_helper"
+        for edge in files["scripts/transitive.py"]["incoming_edges"]
+    )
+
+
+def test_dynamic_shell_subprocess_fails_closed(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "import subprocess\n"
+            "name = 'transitive'\n"
+            "subprocess.run(f'python scripts/{name}.py', shell=True)\n"
+        ),
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic shell subprocess"):
         _manifest(repo, sha)
 
 

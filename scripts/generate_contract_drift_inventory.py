@@ -506,6 +506,21 @@ def _load_time_import_edges(extraction_root: Path, source_path: str) -> list[tup
                 candidate = f"{base}.{alias.name}" if base and alias.name != "*" else ""
                 if candidate and _resolve_module_path(extraction_root, candidate) is not None:
                     modules.add(candidate)
+        for child in ast.walk(node):
+            if not isinstance(child, ast.Call):
+                continue
+            is_import_module = (
+                isinstance(child.func, ast.Attribute)
+                and isinstance(child.func.value, ast.Name)
+                and child.func.value.id == "importlib"
+                and child.func.attr == "import_module"
+            )
+            if not is_import_module or not child.args:
+                continue
+            argument = child.args[0]
+            if not isinstance(argument, ast.Constant) or not isinstance(argument.value, str):
+                raise AuthorityClosureError(f"dynamic load-time import is forbidden: {source_path}")
+            modules.add(argument.value)
 
     edges: set[tuple[str, str]] = set()
     for module in sorted(modules):
@@ -569,6 +584,24 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
         if function_name not in subprocess_calls or not node.args:
             continue
         command = node.args[0]
+        shell_keywords = [keyword.value for keyword in node.keywords if keyword.arg == "shell"]
+        if shell_keywords and not all(
+            isinstance(value, ast.Constant) and isinstance(value.value, bool)
+            for value in shell_keywords
+        ):
+            raise AuthorityClosureError(
+                f"dynamic subprocess shell mode is forbidden: {source_path}"
+            )
+        shell_enabled = any(
+            isinstance(value, ast.Constant) and value.value is True for value in shell_keywords
+        )
+        if shell_enabled:
+            if not isinstance(command, ast.Constant) or not isinstance(command.value, str):
+                raise AuthorityClosureError(f"dynamic shell subprocess is forbidden: {source_path}")
+            for helper in _run_script_references(source_path, command.value):
+                if not _is_measurement_subject(helper):
+                    helpers.add(helper)
+            continue
         elements = command.elts if isinstance(command, (ast.List, ast.Tuple)) else [command]
         for element in elements:
             parts = _static_path_parts(element)
@@ -624,7 +657,7 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
         indent = len(raw) - len(stripped)
         uses_match = re.match(r"(?:-\s*)?uses:\s*(.*)$", stripped)
         run_match = re.match(r"(?:-\s*)?run:\s*(.*)$", stripped)
-        paths_match = re.match(r"(?:paths|paths-ignore):\s*(.*)$", stripped)
+        paths_match = re.match(r"paths:\s*(.*)$", stripped)
         if uses_match:
             uses.append(_strip_yaml_scalar(uses_match.group(1)))
         elif run_match:
@@ -731,10 +764,23 @@ def _run_script_references(source_path: str, run: str) -> list[str]:
         target = match.group(1).strip("\"'")
         local_target = target.lstrip("./").startswith(("scripts/", "aragora/", ".github/"))
         if target.startswith(("$", "`")) or (
-            local_target and any(marker in target for marker in ("${{", "${", "$(", "`", "*"))
+            local_target and any(marker in target for marker in ("$", "`", "*"))
         ):
             raise AuthorityClosureError(
                 f"dynamic local run target is forbidden: {source_path} -> {target}"
+            )
+    module_invocation = re.compile(
+        r"(?:^|[;&|]\s*)python(?:3(?:\.\d+)?)?\s+(?:-[A-Za-z]+\s+)*-m\s+([^\s;&|]+)",
+        re.MULTILINE,
+    )
+    for match in module_invocation.finditer(normalized):
+        module = match.group(1).strip("\"'")
+        if any(
+            module == prefix or module.startswith(f"{prefix}.")
+            for prefix in REPOSITORY_MODULE_PREFIXES
+        ):
+            raise AuthorityClosureError(
+                f"repository python -m target is forbidden: {source_path} -> {module}"
             )
     pattern = re.compile(
         r"(?<![A-Za-z0-9_./-])"
