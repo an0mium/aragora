@@ -39,7 +39,7 @@ unit on this branch.
 
 - **Planned batches remaining:** 1
 - **Stop allowed right now:** no
-- **Why:** staging is not implementation; the diagnostic batch has not started
+- **Why:** staging is complete but the diagnostic batch has not started
 - **Next required action:** in a fresh launch call, orient from the run files, verify green, create `elves/pre-batch-1`, write the Batch 1 contract, then implement
 
 ## Effort Standard
@@ -93,21 +93,21 @@ hard deadline arrives, or a genuine blocker has no safe workaround.
 - [x] Execution log initialized with batch breakdown and preflight notes
 - [x] Branch and dedicated checkout created
 - [x] Branch lease and lane ownership recorded
-- [ ] PR opened and recorded
+- [x] PR opened and recorded
 - [x] Preflight run and critical failures cleared; broad baseline warnings are recorded
 - [x] Run mode, return time, non-negotiables, and Stop Gate recorded
 - [x] Stop Gate initialized with `Stop allowed right now: no`
-- [ ] Launch prompt prepared for the next call
+- [x] Launch prompt prepared for the next call
 
 ## Current Phase
 
-**Status:** Staging
+**Status:** Launch-ready
 
 **Active batch:** Batch 1: Diagnostic Command, Tests, and Documentation
 
-**What was just finished:** Live state was re-grounded; #9408 is merged, #9409 has no overlapping PR, and this branch/worktree owns the first bounded unit.
+**What was just finished:** Staging completed: live state, ownership, plan, recovery files, focused baseline, hooks, repository preflight, setup push, and draft PR #9431 are recorded.
 
-**Single next action:** Finish staging preflight, open the draft PR, record the PR number, and hand back the fresh launch prompt.
+**Single next action:** Start Batch 1 only from the fresh launch call: re-orient, verify green, create the rollback tag, complete the written contract, and implement.
 
 ## Active Compute
 
@@ -183,7 +183,7 @@ notification: pr-comment
 - **Execution log:** `docs/elves/vibeproxy-diagnostic-9409/execution-log.md`
 - **Survival guide:** `docs/elves/vibeproxy-diagnostic-9409/survival-guide.md`
 - **Branch:** `codex/vibeproxy-diagnostic-9409`
-- **PR number:** pending staging
+- **PR number:** #9431
 - **Plan hash at session start:** `102d7e11e48c9ae41cdcb6ab06ef5c05a764fe1b0939aa3ceb22b1f47501dea4`
 
 ## After Any Compaction

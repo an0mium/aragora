@@ -2,24 +2,24 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-20 12:10 America/Chicago
-- **Current phase:** Staging
+- **Last updated:** 2026-07-20 12:36 America/Chicago
+- **Current phase:** Launch-ready
 - **Active batch:** Batch 1: Diagnostic Command, Tests, and Documentation
 - **Last completed batch:** none yet
 - **Next exact batch:** Batch 1: Diagnostic Command, Tests, and Documentation
-- **Active PR:** not created yet
+- **Active PR:** #9431
 - **Docs promoted this run:** none
 - **Latest Elves Report:** not generated
 
 ## Session Setup: 2026-07-20 12:10 America/Chicago
 
-**Phase:** Staging in progress
+**Phase:** Staging complete
 **Plan:** `docs/plans/2026-07-20-vibeproxy-diagnostic-cli.md`
 **Survival guide:** `docs/elves/vibeproxy-diagnostic-9409/survival-guide.md`
 **Learnings:** `docs/elves/vibeproxy-diagnostic-9409/learnings.md`
 **Execution log:** `docs/elves/vibeproxy-diagnostic-9409/execution-log.md`
 **Branch:** `codex/vibeproxy-diagnostic-9409`
-**PR:** not created yet
+**PR:** #9431
 **Run mode:** finite | **User returns:** approximately 20:15 America/Chicago
 **Checkpoint semantics:** hard stop | **Actual stop conditions:** plan complete and final review-ready without merge; true blocker; explicit user stop; or 20:15 hard stop
 **Active compute at launch:** no run-owned compute; pre-existing local VibeProxy on 8318 is optional no-inference smoke only
@@ -71,9 +71,23 @@
   are the notification surface.
 - Notes: Elves v2.10.3 is available; this run remains on installed v1.12.0.
 
-**Launch readiness:** NOT READY until preflight, setup push, and draft PR are complete.
+**Launch readiness:** READY. Draft PR #9431 is open at setup head
+`0f5157b9aeaca23dd271153c605b77999561d378`; the final staging metadata update
+will be pushed before handoff.
 
-**Launch prompt:** pending staging completion.
+**Launch prompt:**
+
+> The run is staged. Start now in the dedicated worktree for branch
+> `codex/vibeproxy-diagnostic-9409`. Read
+> `docs/elves/vibeproxy-diagnostic-9409/survival-guide.md` first, then
+> `.elves-session.json`, learnings, the plan, and the execution log in the order
+> recorded there. Work only on Batch 1 and PR #9431. Verify live steering,
+> ownership, lease, branch/remote tip, plan hash, and the 85-test focused
+> baseline; create `elves/pre-batch-1`; complete the Batch 1 contract and
+> pre-implementation survey; then implement, validate, review, document, and
+> push. Do not send an inference request, touch later #9409 units, merge, or stop
+> before the Stop Gate permits it. Hard stop: 2026-07-20 20:15 America/Chicago.
+> After every push, re-read the survival guide and poll PR comments/checks.
 
 ## Batch 1 Contract
 

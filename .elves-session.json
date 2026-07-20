@@ -1,7 +1,7 @@
 {
   "session_id": "elves-vibeproxy-diagnostic-9409-20260720",
   "version": "1.12.0",
-  "status": "staging",
+  "status": "launch_ready",
   "branch": "codex/vibeproxy-diagnostic-9409",
   "start_head": "80fea4be08952286e26ce13481be0d134d2a49d2",
   "collision_tripwire": "80fea4be08952286e26ce13481be0d134d2a49d2",
@@ -10,7 +10,7 @@
   "survival_guide_path": "docs/elves/vibeproxy-diagnostic-9409/survival-guide.md",
   "learnings_path": "docs/elves/vibeproxy-diagnostic-9409/learnings.md",
   "execution_log_path": "docs/elves/vibeproxy-diagnostic-9409/execution-log.md",
-  "pr_number": null,
+  "pr_number": 9431,
   "run_mode": "finite",
   "hard_stop_at": "2026-07-20T20:15:00-05:00",
   "merge_policy": "user-merges",
