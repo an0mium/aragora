@@ -745,14 +745,21 @@ DOCS_REFERENCE_PRE_EXISTING_MIRROR: dict[str, str] = {
 }
 
 # docs/reference/*.md files that are deliberately excluded from the
-# docs-site mirror entirely (e.g. a draft or operator-gated reference doc
-# not meant for public publication). Empty today -- every current
-# docs/reference/*.md file is either mirrored under `reference/` or already
-# covered by DOCS_REFERENCE_PRE_EXISTING_MIRROR above -- but
-# test_docs_reference_directory_is_mirrored consults this set so a future
-# deliberate exclusion has an explicit, reviewable home instead of a silent
-# special case grown into the assertion logic below.
-DOCS_REFERENCE_MIRROR_ALLOWLIST: frozenset[str] = frozenset()
+# docs-site mirror. These two files contain stale commercial/legal terms that
+# conflict with the public docs/PRICING.md and docs/enterprise/SLA.md surfaces.
+# Keep them repository-visible for reconciliation without publishing a second
+# customer-facing promise.
+DOCS_REFERENCE_MIRROR_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        "PRICING_TIERS.md",
+        "SLA.md",
+    }
+)
+
+DOCS_REFERENCE_WITHHELD_PUBLICATION_PATHS: dict[str, str] = {
+    "PRICING_TIERS.md": "reference/pricing-tiers.md",
+    "SLA.md": "reference/sla.md",
+}
 
 
 def _docs_reference_map_entries() -> dict[str, str]:
@@ -790,6 +797,19 @@ def test_docs_reference_directory_is_mirrored() -> None:
         f"but still have DOC_MAP entries: {still_mapped_allowlisted}. Remove the "
         "DOC_MAP entry when a reference doc is deliberately excluded from the "
         "docs-site mirror."
+    )
+
+    assert set(DOCS_REFERENCE_WITHHELD_PUBLICATION_PATHS) == set(DOCS_REFERENCE_MIRROR_ALLOWLIST)
+    allowlisted_publication_artifacts = sorted(
+        dest
+        for dest in DOCS_REFERENCE_WITHHELD_PUBLICATION_PATHS.values()
+        if (DOCS_SITE_ROOT / dest).exists()
+    )
+    assert not allowlisted_publication_artifacts, (
+        "docs/reference/*.md file(s) are deliberately excluded from the docs-site "
+        "mirror but still have publication artifacts: "
+        f"{allowlisted_publication_artifacts}. Remove stale generated pages when "
+        "a reference is withheld."
     )
 
     missing_doc_map_entries = sorted(set(expected_mirrored) - set(mapped_reference))
@@ -830,26 +850,28 @@ def test_docs_reference_directory_is_mirrored() -> None:
     assert (DOCS_SITE_ROOT / "reference" / "index.md").exists()
 
 
-def test_sla_sources_are_mirrored_from_explicit_paths() -> None:
+def test_public_commercial_sources_remain_canonical() -> None:
     sync_script = SYNC_SCRIPT.read_text(encoding="utf-8")
+    assert re.search(
+        r"^\s*'PRICING\.md':\s*'enterprise/pricing\.md',\s*$",
+        sync_script,
+        re.MULTILINE,
+    )
     assert re.search(
         r"^\s*'enterprise/SLA\.md':\s*'enterprise/sla\.md',\s*$",
         sync_script,
         re.MULTILINE,
     )
-    assert re.search(
-        r"^\s*'reference/SLA\.md':\s*'reference/sla\.md',\s*$",
-        sync_script,
-        re.MULTILINE,
-    )
+    assert not re.search(r"^\s*'reference/PRICING_TIERS\.md':", sync_script, re.MULTILINE)
+    assert not re.search(r"^\s*'reference/SLA\.md':", sync_script, re.MULTILINE)
     assert not re.search(r"^\s*'SLA\.md':", sync_script, re.MULTILINE)
 
+    enterprise_pricing = _read_docs_site("enterprise/pricing.md")
     enterprise_sla = _read_docs_site("enterprise/sla.md")
-    reference_sla = _read_docs_site("reference/sla.md")
+    assert "$49/seat/mo" in enterprise_pricing
+    assert "10/month" in enterprise_pricing
     assert "**Effective Date:** January 2026" in enterprise_sla
-    assert "**Effective Date:** January 2026" not in reference_sla
-    assert "support terms for Aragora platform services" in reference_sla
-    assert "support terms for Aragora platform services" not in enterprise_sla
+    assert "99.95%" not in enterprise_sla
 
 
 def test_docs_reference_pages_have_no_dead_relative_md_links() -> None:

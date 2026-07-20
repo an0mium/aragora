@@ -453,9 +453,7 @@ const DOC_MAP = {
   // silently overwrite this file's synced content.
   'reference/INDEX.md': 'reference/reference-index.md',
   'reference/INSTALL_MATRIX.md': 'reference/install-matrix.md',
-  'reference/PRICING_TIERS.md': 'reference/pricing-tiers.md',
   'reference/ROOT_ALLOWLIST.md': 'reference/root-allowlist.md',
-  'reference/SLA.md': 'reference/sla.md',
   'reference/TYPE_CHECKING.md': 'reference/type-checking.md',
 
   // =========================================================================
