@@ -35,7 +35,8 @@ SCAN_ROOTS = ("aragora", "scripts", ".github")
 SELF_PATH = "scripts/check_inference_site_allowlist.py"
 CLASSIFICATIONS = frozenset({"proxy-eligible", "direct-only"})
 FORBIDDEN_PORT_RE = re.compile(r":8317\b")
-FORBIDDEN_PORT_EXEMPTIONS = frozenset({"aragora/agents/transports/vibeproxy.py"})
+PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
+PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 PROVIDER_HOSTS = {
     "api.openai.com": "openai",
     "api.anthropic.com": "anthropic",
@@ -175,6 +176,23 @@ def _provider_for_url(value: str) -> str | None:
     return None
 
 
+def _contains_forbidden_port(value: Any) -> bool:
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return value == 8317
+    if isinstance(value, str):
+        return bool(FORBIDDEN_PORT_RE.search(value))
+    if isinstance(value, list):
+        return any(_contains_forbidden_port(item) for item in value)
+    if isinstance(value, dict):
+        return any(
+            _contains_forbidden_port(key) or _contains_forbidden_port(item)
+            for key, item in value.items()
+        )
+    return False
+
+
 def _docstring_nodes(tree: ast.AST) -> set[int]:
     result: set[int] = set()
     for node in ast.walk(tree):
@@ -296,17 +314,21 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             tree = ast.parse(source, filename=relative)
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        if relative not in FORBIDDEN_PORT_EXEMPTIONS:
-            for line_no, line in enumerate(source.splitlines(), 1):
-                if FORBIDDEN_PORT_RE.search(line):
-                    forbidden_ports.append(f"{relative}:{line_no}")
-            forbidden_ports.extend(
-                f"{relative}:{node.lineno}"
-                for node in ast.walk(tree)
-                if isinstance(node, ast.Constant)
+        source_lines = source.splitlines()
+        for line_no, line in enumerate(source_lines, 1):
+            if FORBIDDEN_PORT_RE.search(line):
+                forbidden_ports.append(f"{relative}:{line_no}")
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Constant)
                 and node.value == 8317
                 and not isinstance(node.value, bool)
-            )
+            ):
+                continue
+            line = source_lines[node.lineno - 1].strip()
+            if relative == PORT_ENFORCEMENT_PATH and line == PORT_ENFORCEMENT_LINE:
+                continue
+            forbidden_ports.append(f"{relative}:{node.lineno}")
         visitor = _InferenceVisitor(relative, tree)
         visitor.visit(tree)
         if visitor.mentions_policy and relative != "aragora/agents/transports/vibeproxy.py":
@@ -393,7 +415,7 @@ def load_manifest(path: Path) -> tuple[dict[SiteKey, tuple[Site, str]], tuple[st
         payload = json.loads(raw_text)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         return {}, (), [f"cannot read manifest: {exc}"]
-    if "8317" in raw_text:
+    if _contains_forbidden_port(payload):
         errors.append("manifest must not contain forbidden port 8317")
     if not isinstance(payload, dict) or payload.get("schema_version") != 1:
         return {}, (), ["manifest schema_version must be 1"]
@@ -470,20 +492,13 @@ def check_allowlist(root: Path = REPO_ROOT, manifest_path: Path = DEFAULT_MANIFE
 def template_manifest(discovery: Discovery) -> dict[str, Any]:
     sites: list[dict[str, Any]] = []
     for site in discovery.sites:
-        proxy_eligible = site.path == "scripts/consult_claude.py" and (
-            "transport-policy-call" in site.detectors
-        )
         reasons = protected_reasons(site.path)
-        if proxy_eligible:
-            classification = "proxy-eligible"
-            rationale = "bounded advisory path already uses ModelTransportPolicy"
-        else:
-            classification = "direct-only"
-            rationale = (
-                f"protected {', '.join(reasons)} surface remains direct by issue #9409"
-                if reasons
-                else "not yet routed through the central exact-match transport policy"
-            )
+        classification = "direct-only"
+        rationale = (
+            f"protected {', '.join(reasons)} surface remains direct by issue #9409"
+            if reasons
+            else "not yet routed through the central exact-match transport policy"
+        )
         sites.append(
             {
                 **asdict(site),

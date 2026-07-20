@@ -27,9 +27,14 @@ checker = _load_module()
 
 def test_repository_manifest_matches_current_tree() -> None:
     result = checker.check_allowlist()
+    payload = json.loads(checker.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
+    eligible = [site for site in payload["sites"] if site["classification"] == "proxy-eligible"]
 
     assert result.ok is True, result.to_dict()
     assert result.policy_consumers == ("scripts/consult_claude.py",)
+    assert [(site["path"], site["anchor"]) for site in eligible] == [
+        ("scripts/consult_claude.py", "_run_vibeproxy")
+    ]
 
 
 def _write_source(root: Path, relative: str, source: str) -> Path:
@@ -89,7 +94,7 @@ def consult(policy: ModelTransportPolicy):
     assert any("transport-policy-call" in site.detectors for site in discovery.sites)
 
 
-def test_exact_manifest_passes_and_template_only_allows_policy_call(tmp_path: Path) -> None:
+def test_exact_manifest_passes_and_template_defaults_to_direct_only(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
         "scripts/consult_claude.py",
@@ -104,7 +109,7 @@ def consult(policy: ModelTransportPolicy):
 
     assert result.ok is True
     entries = json.loads(manifest.read_text())["sites"]
-    assert [entry["classification"] for entry in entries] == ["proxy-eligible"]
+    assert [entry["classification"] for entry in entries] == ["direct-only"]
 
 
 def test_unclassified_stale_and_count_changes_fail(tmp_path: Path) -> None:
@@ -193,7 +198,7 @@ def test_forbidden_port_in_manifest_fails(tmp_path: Path) -> None:
             "schema_version": 1,
             "transport_policy_consumers": [],
             "sites": [],
-            "note": "do not select 8317",
+            "endpoint": "http://localhost:8317",
         },
     )
 
@@ -201,6 +206,23 @@ def test_forbidden_port_in_manifest_fails(tmp_path: Path) -> None:
 
     assert result.ok is False
     assert any("forbidden port" in error for error in result.manifest_errors)
+
+
+def test_central_port_prohibition_is_allowed_but_other_uses_fail(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/agents/transports/vibeproxy.py",
+        "PROHIBITED_PORTS = {8317}\nOTHER_PORT = 8317\n",
+    )
+    manifest = _write_manifest(
+        tmp_path,
+        {"schema_version": 1, "transport_policy_consumers": [], "sites": []},
+    )
+
+    result = checker.check_allowlist(tmp_path, manifest)
+
+    assert result.ok is False
+    assert result.forbidden_ports == ("aragora/agents/transports/vibeproxy.py:2",)
 
 
 def test_transport_policy_consumer_inventory_is_exact(tmp_path: Path) -> None:
