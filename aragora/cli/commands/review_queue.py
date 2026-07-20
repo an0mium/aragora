@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
+from aragora.cli.commands import review_queue_unstable as unstable
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.cli.commands.review_queue_parsers import (
     add_observe_outcomes_parser,
@@ -287,6 +288,7 @@ CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
 OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
 GH_COMMAND_TIMEOUT_SECONDS = 30
 GIT_STATUS_TIMEOUT_SECONDS = 10
+_admin_squash_live_gate_blockers = unstable.admin_squash_live_gate_blockers
 
 
 def resolve_repo_root(path_hint: Path) -> Path:
@@ -399,6 +401,7 @@ class ReviewPacket:
     model_review_quorum: dict[str, Any] = field(default_factory=dict)
     labels: list[str] = field(default_factory=list)
     merge_state_status: str = ""
+    unstable_non_required_contexts_ignored: list[dict[str, Any]] = field(default_factory=list)
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
 
@@ -2526,6 +2529,7 @@ def _build_packet(
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
     check_surfaces: dict[str, Any]
+    unstable_cancellation_contexts: list[dict[str, Any]] = []
     if settlement_state_block:
         checks_unavailable = False
         checks_summary = f"failing PR state ({settlement_state_block})"
@@ -2557,6 +2561,13 @@ def _build_packet(
     rest_fallback_meta = pr.get("_rest_fallback")
     if isinstance(rest_fallback_meta, dict):
         check_surfaces["metadata_transport_fallback"] = rest_fallback_meta
+    if not settlement_state_block:
+        unstable_cancellation_contexts = unstable.attach_verified_cancellation_contexts(
+            pr=pr,
+            pr_number=number,
+            repo_override=repo_override,
+            check_surfaces=check_surfaces,
+        )
     required_pr_check_gate_satisfied = False
     if not settlement_state_block and not checks_unavailable and (has_failures or has_pending):
         required_surface = _fetch_required_pr_check_surface(number, repo_override)
@@ -2957,25 +2968,10 @@ def _build_packet(
         ),
         labels=labels,
         merge_state_status=str(pr.get("mergeStateStatus") or "").strip().upper(),
+        unstable_non_required_contexts_ignored=unstable_cancellation_contexts,
     )
     packet.packet_sha = _packet_sha(packet)
     return packet
-
-
-def _admin_squash_live_gate_blockers(packet: ReviewPacket) -> list[str]:
-    blockers: list[str] = []
-    labels = {str(label).strip().lower() for label in packet.labels if str(label).strip()}
-    if OPERATOR_REVIEW_REQUIRED_LABEL in labels:
-        blockers.append("operator-review-required label present")
-
-    merge_state_status = str(packet.merge_state_status or "").strip().upper()
-    if not merge_state_status:
-        blockers.append("mergeStateStatus unavailable; admin squash requires CLEAN or BLOCKED")
-    elif merge_state_status not in {"CLEAN", "BLOCKED"}:
-        blockers.append(
-            f"mergeStateStatus={merge_state_status}; admin squash requires CLEAN or BLOCKED"
-        )
-    return blockers
 
 
 def _build_merge_authorization_packet(
@@ -3060,6 +3056,9 @@ def _build_merge_authorization_packet(
             "model_quorum_admin_squash_allowed": model_quorum_admin_squash_allowed,
             "admin_squash_gate_blockers": admin_squash_gate_blockers,
             "merge_state_status": packet.merge_state_status,
+            "unstable_non_required_contexts_ignored": (
+                packet.unstable_non_required_contexts_ignored
+            ),
             "operator_review_required": OPERATOR_REVIEW_REQUIRED_LABEL
             in {str(label).strip().lower() for label in packet.labels if str(label).strip()},
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
@@ -5876,6 +5875,7 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
             f"{len(entry.get('dogfood_evidence') or [])} dogfood note(s), "
             f"{len(entry.get('counted_reviewer_ids') or [])} counted reviewer(s)"
         )
+        unstable.render_verified_cancellations(entry)
         gate_blockers = entry.get("admin_squash_gate_blockers") or []
         if gate_blockers:
             print("  admin squash live-gate blockers:")
