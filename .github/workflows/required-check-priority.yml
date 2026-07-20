@@ -238,6 +238,17 @@ jobs:
                 // is limited to superseded heads on the same branch.
                 if (run.head_sha === liveHeadSha) continue;
                 if (run.id === selfRunId) continue;
+                // The branch-name listing can match an unrelated PR that
+                // happens to share the name (forks, common automation branch
+                // names). A run counts as superseded only when it provably
+                // comes from this PR's own source repo and branch — and, when
+                // GitHub attributes it to PRs at all, to this PR's number.
+                const runHeadRepo = String(run.head_repository?.full_name || '').trim();
+                const prHeadRepo = String(pr.head?.repo?.full_name || '').trim();
+                if (!runHeadRepo || !prHeadRepo || runHeadRepo !== prHeadRepo) continue;
+                if (String(run.head_branch || '').trim() !== headBranch) continue;
+                const runPrNumbers = (run.pull_requests || []).map((item) => item.number);
+                if (runPrNumbers.length > 0 && !runPrNumbers.includes(pr.number)) continue;
                 // Only cancel QUEUED runs. An in-progress run already holds a
                 // runner, so cancelling it frees no queue capacity; it only
                 // converts a 1-5 minute advisory check into a red "cancelled"

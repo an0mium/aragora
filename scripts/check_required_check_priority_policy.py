@@ -132,6 +132,17 @@ _PRE_CANCEL_HEAD_REFRESH_RE = re.compile(
     r"confirmedLiveHeadSha\s*!==\s*headSha.*?github\.rest\.actions\.cancelWorkflowRun",
     flags=re.DOTALL,
 )
+# The branch-name run listing can match an unrelated PR sharing the branch
+# name (forks, common automation names); cancellation must be scoped to runs
+# provably from this PR's own source repo, and to this PR when GitHub
+# attributes the run to PRs at all.
+_SAME_SOURCE_REPO_GUARD_RE = re.compile(
+    r"if\s*\(\s*!runHeadRepo\s*\|\|\s*!prHeadRepo\s*\|\|\s*runHeadRepo\s*!==\s*prHeadRepo\s*\)\s*"
+    r"continue;"
+)
+_PR_ATTRIBUTION_GUARD_RE = re.compile(
+    r"runPrNumbers\.length\s*>\s*0\s*&&\s*!runPrNumbers\.includes\(pr\.number\)"
+)
 
 
 def _extract_js_set_items(workflow_text: str, set_name: str) -> list[str] | None:
@@ -491,6 +502,18 @@ def find_required_check_priority_violations(
     if not _PRE_CANCEL_HEAD_REFRESH_RE.search(workflow_text):
         violations.append(
             "cancellation sweep does not refresh the live PR head immediately before cancellation"
+        )
+
+    if not _SAME_SOURCE_REPO_GUARD_RE.search(workflow_text):
+        violations.append(
+            "cancellation sweep does not verify the run's source repo matches this PR's "
+            "head repo (branch names collide across forks/PRs)"
+        )
+
+    if not _PR_ATTRIBUTION_GUARD_RE.search(workflow_text):
+        violations.append(
+            "cancellation sweep does not verify PR attribution: expected "
+            "`runPrNumbers.length > 0 && !runPrNumbers.includes(pr.number)`"
         )
 
     if repo_root is not None:

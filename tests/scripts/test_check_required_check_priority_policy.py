@@ -555,6 +555,18 @@ def test_policy_rejects_missing_current_head_skip() -> None:
     assert any("does not skip the current PR head" in v for v in violations)
 
 
+def test_policy_rejects_missing_source_repo_guard() -> None:
+    lines = [line for line in _valid_workflow_text().splitlines() if "runHeadRepo" not in line]
+    violations = find_required_check_priority_violations("\n".join(lines))
+    assert any("source repo matches this PR's head repo" in v for v in violations)
+
+
+def test_policy_rejects_missing_pr_attribution_guard() -> None:
+    lines = [line for line in _valid_workflow_text().splitlines() if "runPrNumbers" not in line]
+    violations = find_required_check_priority_violations("\n".join(lines))
+    assert any("does not verify PR attribution" in v for v in violations)
+
+
 def test_policy_rejects_missing_live_head_fetch() -> None:
     text = _valid_workflow_text().replace("github.rest.pulls.get", "github.rest.pulls.list")
     violations = find_required_check_priority_violations(text)
