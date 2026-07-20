@@ -758,7 +758,7 @@ kubectl argo rollouts abort aragora -n aragora
 # 1. Identify the previous version
 docker compose -f deploy/docker-compose.production.yml logs aragora 2>&1 | head -5
 
-# 2. Roll back to a specific image tag
+# 2. Roll back to a previous stable image tag
 ARAGORA_IMAGE=ghcr.io/synaptent/aragora:v2.8.0 \
   docker compose -f deploy/docker-compose.production.yml up -d aragora
 

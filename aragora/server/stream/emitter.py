@@ -21,6 +21,10 @@ from aragora.server.stream.events import (
     StreamEvent,
     StreamEventType,
 )
+from aragora.storage.receipt_signing import (
+    SignedReceipt,
+    set_receipt_verification_observer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -477,6 +481,28 @@ def set_global_emitter(emitter: SyncEventEmitter | None) -> None:
     """Set the module-level emitter singleton."""
     global _global_emitter
     _global_emitter = emitter
+
+
+def _emit_receipt_verification(signed_receipt: SignedReceipt, is_valid: bool) -> None:
+    """Broadcast receipt verification through the configured server emitter."""
+    emitter = get_global_emitter()
+    if emitter is None:
+        return
+    event_type = (
+        StreamEventType.RECEIPT_VERIFIED if is_valid else StreamEventType.RECEIPT_INTEGRITY_FAILED
+    )
+    emitter.emit(
+        StreamEvent(
+            type=event_type,
+            data={
+                "receipt_id": signed_receipt.receipt_data.get("receipt_id", "unknown"),
+                "valid": is_valid,
+            },
+        )
+    )
+
+
+set_receipt_verification_observer(_emit_receipt_verification)
 
 
 __all__ = [

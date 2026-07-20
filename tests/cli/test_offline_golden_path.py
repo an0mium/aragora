@@ -15,6 +15,23 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _restore_aragora_offline_env():
+    """cmd_ask demo mode sets ARAGORA_OFFLINE=1 in os.environ as a product side
+    effect. monkeypatch.delenv of an absent var registers nothing to undo, so
+    without this the leaked value poisons later tests on the same xdist worker
+    (run_debate silently goes offline -> learn=False -> CritiqueStore skipped).
+    """
+    import os
+
+    prev = os.environ.get("ARAGORA_OFFLINE")
+    yield
+    if prev is None:
+        os.environ.pop("ARAGORA_OFFLINE", None)
+    else:
+        os.environ["ARAGORA_OFFLINE"] = prev
+
+
+@pytest.fixture(autouse=True)
 def _stub_cmd_ask_global_side_effects(request):
     """Keep cmd_ask tests hermetic unless a test explicitly exercises cleanup semantics."""
     from aragora.cli.commands import debate as debate_cmd

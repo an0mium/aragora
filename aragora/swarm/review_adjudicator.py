@@ -6,8 +6,9 @@ by *adjudicating the findings themselves* instead of hand-refereeing round after
 round. It **composes** existing Aragora primitives (it does NOT reimplement
 them):
 
-* :class:`aragora_debate.evidence.EvidenceQualityAnalyzer` — scores a finding's
-  specificity / concreteness / evidence diversity.
+* :class:`EvidenceQualityAnalyzer` — scores a finding's specificity /
+  concreteness / evidence diversity. Prefer the legacy ``aragora_debate``
+  package when installed, otherwise use Aragora's in-tree analyzer.
 * :func:`aragora.cli.commands.review_queue_comment_verdicts.has_blocking_finding_or_label`
   — the SAME ``[P0]/[P1]`` detector the gate already trusts (the hard bar).
 
@@ -65,6 +66,18 @@ _TRUTHY = {"1", "true", "yes", "on"}
 def review_adjudicator_enabled() -> bool:
     """True when the adjudicator is explicitly enabled (default OFF)."""
     return os.getenv(_ENABLE_FLAG, "").strip().lower() in _TRUTHY
+
+
+def _evidence_quality_analyzer_class() -> Any:
+    """Resolve the evidence analyzer without requiring the legacy package."""
+    try:
+        from aragora_debate.evidence import EvidenceQualityAnalyzer
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"aragora_debate", "aragora_debate.evidence"}:
+            raise
+        from aragora.debate.evidence_quality import EvidenceQualityAnalyzer
+
+    return EvidenceQualityAnalyzer
 
 
 class AdjudicationVerdict(str, Enum):
@@ -202,10 +215,8 @@ def score_groundedness(body: str, *, analyzer: Any | None = None) -> float:
     """
     if analyzer is None:
         # Imported lazily so importing this module never hard-requires the
-        # aragora-debate package (keeps the gate import-light).
-        from aragora_debate.evidence import EvidenceQualityAnalyzer
-
-        analyzer = EvidenceQualityAnalyzer()
+        # legacy aragora-debate package (keeps the gate import-light).
+        analyzer = _evidence_quality_analyzer_class()()
 
     score = analyzer.analyze(body or "", agent="reviewer")
     total_phrases = score.specific_phrase_count + score.vague_phrase_count
@@ -311,9 +322,7 @@ def adjudicate(
     # single analyzer (deferred past both the hard-bar and NOT_APPLICABLE returns
     # — #8749 claude [P3] / openai [P2]).
     if scorer is None:
-        from aragora_debate.evidence import EvidenceQualityAnalyzer
-
-        _analyzer = EvidenceQualityAnalyzer()
+        _analyzer = _evidence_quality_analyzer_class()()
 
         def scorer(body: str) -> float:
             return score_groundedness(body, analyzer=_analyzer)

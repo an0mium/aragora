@@ -139,6 +139,84 @@ def test_founder_status_next_action_uses_not_ready_entry_beyond_top_entries(
     assert "model quorum incomplete" in report["next_action"]["detail"]
 
 
+def test_founder_status_repairs_not_ready_before_human_settlement(tmp_path: Path) -> None:
+    def merge_packet_builder(**_: object) -> dict[str, object]:
+        return {
+            "queue_pressure": {"current_open_prs": 1, "cap": 6, "active": False},
+            "admin_squash_order": [],
+            "human_risk_settlement_required": [8945],
+            "not_ready": [8945],
+            "entries": [
+                {
+                    "pr_number": 8945,
+                    "title": "release workflow post-publish verification",
+                    "url": "https://github.com/synaptent/aragora/pull/8945",
+                    "head_sha": "abc123",
+                    "tier": 4,
+                    "status": "repair_or_wait",
+                    "verdict": "not_ready_for_settlement",
+                    "admin_squash_allowed": False,
+                    "requires_human_risk_settlement": True,
+                    "requires_human_preapproval": True,
+                    "unresolved_dissent": False,
+                    "checks_summary": "3 failing / 32 total",
+                    "counted_model_families": [],
+                    "reasons": [
+                        "workflow/deploy/destructive surface touched",
+                        "checks are failing; repair before settlement",
+                    ],
+                }
+            ],
+        }
+
+    report = gather_founder_status(
+        repo_root=str(tmp_path),
+        health_gatherer=lambda **_: _health(),
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    assert report["next_action"]["kind"] == "queue_blocker"
+    assert "PR #8945" in report["next_action"]["summary"]
+    assert "workflow/deploy/destructive surface touched" in report["next_action"]["detail"]
+
+
+def test_founder_status_keeps_human_settlement_when_ready(tmp_path: Path) -> None:
+    def merge_packet_builder(**_: object) -> dict[str, object]:
+        return {
+            "queue_pressure": {"current_open_prs": 1, "cap": 6, "active": False},
+            "admin_squash_order": [],
+            "human_risk_settlement_required": [8756],
+            "not_ready": [],
+            "entries": [
+                {
+                    "pr_number": 8756,
+                    "title": "operator-approved advisory settlement records",
+                    "url": "https://github.com/synaptent/aragora/pull/8756",
+                    "head_sha": "abc123",
+                    "tier": 4,
+                    "status": "needs_human_settlement",
+                    "verdict": "requires_human_risk_settlement",
+                    "admin_squash_allowed": False,
+                    "requires_human_risk_settlement": True,
+                    "requires_human_preapproval": True,
+                    "unresolved_dissent": False,
+                    "checks_summary": "all non-quorum required checks pass",
+                    "counted_model_families": [],
+                    "reasons": ["human risk settlement required"],
+                }
+            ],
+        }
+
+    report = gather_founder_status(
+        repo_root=str(tmp_path),
+        health_gatherer=lambda **_: _health(),
+        merge_packet_builder=merge_packet_builder,
+    )
+
+    assert report["next_action"]["kind"] == "human_settlement"
+    assert "PR #8756" in report["next_action"]["summary"]
+
+
 def test_founder_status_degrades_on_merge_packet_transport_error(tmp_path: Path) -> None:
     def broken_builder(**_: object) -> dict[str, object]:
         raise RuntimeError("organization access is disabled")

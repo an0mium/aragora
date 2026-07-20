@@ -16,6 +16,8 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+
+from aragora.agents.failure_semantics import all_responses_are_failures
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html import escape
@@ -555,6 +557,12 @@ class DecisionReceipt:
     # Tracks queries, retrievals, and injection counts for cross-debate visibility
     km_operations: dict[str, Any] | None = None
 
+    # Crux cards (#8227): load-bearing disagreements detected in the debate,
+    # populated when the debate ran with enable_crux_cards. Additive-only:
+    # None means "not recorded" and serialization omits the key entirely, so
+    # flag-off receipts remain byte-identical to pre-crux receipts.
+    cruxes: dict[str, Any] | None = None
+
     # Schema version for forward compatibility
     schema_version: str = "1.1"
 
@@ -574,18 +582,25 @@ class DecisionReceipt:
             self.artifact_hash = self._calculate_hash()
 
     def _calculate_hash(self) -> str:
-        """Calculate content-addressable hash."""
-        content = json.dumps(
-            {
-                "receipt_id": self.receipt_id,
-                "gauntlet_id": self.gauntlet_id,
-                "input_hash": self.input_hash,
-                "risk_summary": self.risk_summary,
-                "verdict": self.verdict,
-                "confidence": self.confidence,
-            },
-            sort_keys=True,
-        )
+        """Calculate content-addressable hash.
+
+        Versioned hash path: crux cards are audit-bearing content, so they
+        are bound into the integrity material when present — tampering with
+        a stored ``cruxes`` block breaks ``verify_integrity()``. Pre-crux
+        receipts (``cruxes is None``) hash exactly as before, so existing
+        stored hashes keep verifying.
+        """
+        payload: dict[str, Any] = {
+            "receipt_id": self.receipt_id,
+            "gauntlet_id": self.gauntlet_id,
+            "input_hash": self.input_hash,
+            "risk_summary": self.risk_summary,
+            "verdict": self.verdict,
+            "confidence": self.confidence,
+        }
+        if self.cruxes is not None:
+            payload["cruxes"] = self.cruxes
+        content = json.dumps(payload, sort_keys=True)
         return hashlib.sha256(content.encode()).hexdigest()
 
     def verify_integrity(self) -> bool:
@@ -1420,13 +1435,44 @@ class DecisionReceipt:
                 if agent_name:
                     dissenting_agents.append(agent_name)
 
+        # Zero-evidence gate (issue #9303): if every agent response is an error
+        # placeholder (autonomic/chaos-theater text) — or there are none — no
+        # deliberation happened. A decision-integrity receipt must say so
+        # instead of asserting PASS on top of provider failures.
+        response_texts = [
+            getattr(msg, "content", "") for msg in getattr(result, "messages", []) or []
+        ]
+        # Proposals are evidence too (openai #9306 r5 [P2]): a result with
+        # empty messages but substantive proposals is NOT zero-evidence.
+        proposals = getattr(result, "proposals", None) or {}
+        proposal_texts = list(proposals.values()) if isinstance(proposals, dict) else []
+        # agent_responses is the third evidence source _build_agent_responses
+        # reads (openai #9306 r6 [P2]) — detection now mirrors that method's
+        # sources exactly: messages, proposals, agent_responses, final_answer.
+        agent_response_texts = [
+            (
+                r.get("response") or r.get("content") or ""
+                if isinstance(r, dict)
+                else getattr(r, "response", "") or str(getattr(r, "content", "") or "")
+            )
+            for r in getattr(result, "agent_responses", []) or []
+        ]
+        zero_evidence = (
+            all_responses_are_failures(response_texts)
+            and all_responses_are_failures(proposal_texts)
+            and all_responses_are_failures(agent_response_texts)
+            and all_responses_are_failures([result.final_answer])
+        )
+
         # Supporting agents = participants minus dissenters
         supporting_agents = [p for p in participants if p not in dissenting_agents]
 
+        # A zero-evidence run cannot claim consensus: the 'agreement' is between
+        # error placeholders (openai #9306 r3 [P2]).
         consensus = ConsensusProof(
-            reached=result.consensus_reached,
-            confidence=result.confidence,
-            supporting_agents=supporting_agents,
+            reached=False if zero_evidence else result.consensus_reached,
+            confidence=0.0 if zero_evidence else result.confidence,
+            supporting_agents=[] if zero_evidence else supporting_agents,
             dissenting_agents=dissenting_agents,
             method=getattr(result, "consensus_strength", "majority") or "majority",
             evidence_hash=(
@@ -1460,8 +1506,18 @@ class DecisionReceipt:
         if live_explainability is not None:
             explainability = {"live_explainability": live_explainability}
 
+        # Crux cards (#8227): attached by the consensus phase when the debate
+        # ran with enable_crux_cards. Only carried when items exist — a missing
+        # or empty block keeps the receipt byte-identical to pre-crux output.
+        crux_cards = metadata.get("crux_cards")
+        cruxes: dict[str, Any] | None = None
+        if isinstance(crux_cards, dict) and crux_cards.get("items"):
+            cruxes = crux_cards
+
         # Determine verdict from consensus
-        if result.consensus_reached and result.confidence >= 0.7:
+        if zero_evidence:
+            verdict = "NO_EVIDENCE"
+        elif result.consensus_reached and result.confidence >= 0.7:
             verdict = "PASS"
         elif result.consensus_reached:
             verdict = "CONDITIONAL"
@@ -1472,6 +1528,8 @@ class DecisionReceipt:
         robustness_score = result.confidence * (0.8 if result.consensus_reached else 0.5)
         if hasattr(result, "convergence_similarity"):
             robustness_score = (robustness_score + result.convergence_similarity) / 2
+        if zero_evidence:
+            robustness_score = 0.0
 
         # Build verdict reasoning
         reasoning_parts = []
@@ -1487,6 +1545,11 @@ class DecisionReceipt:
             reasoning_parts.append(f"Winner: {result.winner}")
 
         verdict_reasoning = ". ".join(reasoning_parts)
+        if zero_evidence:
+            verdict_reasoning = (
+                "NO EVIDENCE: every agent response was a provider/error placeholder; "
+                "no substantive deliberation occurred."
+            )
 
         agent_responses = cls._build_agent_responses(result, cost_summary=cost_summary)
 
@@ -1505,7 +1568,7 @@ class DecisionReceipt:
             probes_run=result.rounds_used,  # Map rounds to probes
             vulnerabilities_found=len(dissenting_views),
             verdict=verdict,
-            confidence=result.confidence,
+            confidence=0.0 if zero_evidence else result.confidence,
             robustness_score=robustness_score,
             vulnerability_details=[],  # No vulnerability details for debates
             verdict_reasoning=verdict_reasoning,
@@ -1516,6 +1579,7 @@ class DecisionReceipt:
             explainability=explainability,
             cost_summary=cost_summary,
             settlement_metadata=settlement_metadata,
+            cruxes=cruxes,
             config_used=config_used,
         )
 
@@ -2047,6 +2111,10 @@ class DecisionReceipt:
             "artifact_hash": self.artifact_hash,
             "config_used": self.config_used,
         }
+        # Additive crux-cards block: omit the key when not recorded so
+        # flag-off receipts stay byte-identical (#8227).
+        if self.cruxes is not None:
+            data["cruxes"] = self.cruxes
         # Include signature fields if present
         if self.signature:
             data["signature"] = self.signature
@@ -2097,6 +2165,7 @@ class DecisionReceipt:
             settlement_metadata=data.get("settlement_metadata"),
             settlement_status=data.get("settlement_status"),
             explainability=data.get("explainability"),
+            cruxes=data.get("cruxes"),
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),

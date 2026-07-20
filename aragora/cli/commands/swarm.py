@@ -782,9 +782,26 @@ def _build_runner_probe_payload(
         )
     if routing_after is not None:
         payload["routing_after"] = routing_after
-        payload["summary"]["selected_after"] = len(
-            [item for item in routing_after.get("selected_runners", []) if isinstance(item, dict)]
+        selected_after = [
+            item for item in routing_after.get("selected_runners", []) if isinstance(item, dict)
+        ]
+        execution_verified_after = len(
+            [
+                item
+                for item in selected_after
+                if str(item.get("probe_status", "")).strip() == "passed"
+            ]
         )
+        payload["summary"]["selected_after"] = len(selected_after)
+        payload["summary"]["execution_verified_after"] = execution_verified_after
+        if subaction == "maintain":
+            payload["heartbeat_readiness"] = {
+                "ready": execution_verified_after > 0,
+                "blocked_reason": (
+                    None if execution_verified_after > 0 else "no_execution_verified_runner"
+                ),
+                "execution_verified_count": execution_verified_after,
+            }
     return payload
 
 

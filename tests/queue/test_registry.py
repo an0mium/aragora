@@ -1,4 +1,4 @@
-"""Tests for the domain-free job-handler registry (P4a queue inversion Q1/Q2).
+"""Tests for the domain-free job-handler registry (P4a queue inversion Q1/Q2/Q4).
 
 Covers the enabler surface introduced by the queue/job-handler registry
 inversion (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.1, §5.2, §10 Q1/Q2):
@@ -12,11 +12,17 @@ inversion (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.1, §5.2, §10 Q1
   (no shim, §10 Q2). The factory itself relocated out of ``aragora.queue.worker``
   to its debate-layer home ``aragora.debate.queue_executor``.
 - The registry functions carry ZERO domain imports.
+
+Also covers the Q4 registry-hardening rider: ``register_worker`` warns (but
+still allows) overwriting a name with a different instance, and
+``register_job_handler`` rejects a non-callable or non-async handler at
+registration time.
 """
 
 from __future__ import annotations
 
 import inspect
+import logging
 
 import pytest
 
@@ -74,6 +80,32 @@ def test_get_registered_workers_returns_copy_not_live_reference():
     assert "injected" not in get_registered_workers()
 
 
+def test_register_worker_overwrite_with_different_instance_logs_warning(caplog):
+    """Overwriting with a different instance is still allowed (Q4 rider: warn,
+    not fail-closed - a worker may legitimately restart under the same name)
+    but must be visible instead of silent."""
+    first, second = object(), object()
+    register_worker("dup", first)
+
+    with caplog.at_level(logging.WARNING, logger="aragora.queue.worker"):
+        register_worker("dup", second)
+
+    assert get_registered_workers()["dup"] is second
+    assert "Overwriting registered worker" in caplog.text
+    assert "'dup'" in caplog.text
+
+
+def test_register_worker_reregister_same_instance_no_warning(caplog):
+    instance = object()
+    register_worker("w1", instance)
+
+    with caplog.at_level(logging.WARNING, logger="aragora.queue.worker"):
+        register_worker("w1", instance)
+
+    assert get_registered_workers()["w1"] is instance
+    assert "Overwriting registered worker" not in caplog.text
+
+
 def test_register_job_handler_and_get():
     register_job_handler("demo", _noop_handler)
 
@@ -88,6 +120,57 @@ def test_register_job_handler_is_keyed_idempotent():
 
     assert get_job_handler("dup") is _noop_handler
     assert registered_job_handler_names().count("dup") == 1
+
+
+def test_register_job_handler_rejects_non_callable():
+    with pytest.raises(TypeError, match="must be callable"):
+        register_job_handler("not-callable", "not-a-function")  # type: ignore[arg-type]
+
+    assert get_job_handler("not-callable") is None
+
+
+def test_register_job_handler_rejects_sync_function():
+    def sync_handler(job: object) -> dict[str, object]:
+        return {}
+
+    with pytest.raises(TypeError, match="must be an async callable"):
+        register_job_handler("sync", sync_handler)  # type: ignore[arg-type]
+
+    assert get_job_handler("sync") is None
+
+
+def test_register_job_handler_accepts_bound_async_method():
+    """Regression guard: the async-callable validation must not reject the
+    bound-method registration pattern the conflict-detection tests rely on."""
+
+    class Handler:
+        async def handle(self, job: object) -> dict[str, object]:
+            return {}
+
+    instance = Handler()
+    register_job_handler("bound-ok", instance.handle)
+
+    registered = get_job_handler("bound-ok")
+    assert registered is not None
+    # A fresh `instance.handle` access is a distinct bound-method object each
+    # time (no `is` identity across accesses), so compare __self__/__func__
+    # like `_same_job_handler` does rather than `is instance.handle`.
+    assert registered.__self__ is instance
+    assert registered.__func__ is Handler.handle
+
+
+def test_register_job_handler_type_validation_precedes_conflict_check():
+    """A badly-typed re-registration must raise TypeError (validation), not
+    ValueError (conflict), and must not clobber the existing handler."""
+    register_job_handler("typed", _noop_handler)
+
+    def sync_handler(job: object) -> dict[str, object]:
+        return {}
+
+    with pytest.raises(TypeError, match="must be an async callable"):
+        register_job_handler("typed", sync_handler)  # type: ignore[arg-type]
+
+    assert get_job_handler("typed") is _noop_handler
 
 
 def test_register_job_handler_is_idempotent_for_same_bound_method():
