@@ -286,6 +286,7 @@ FIXTURE_DEPENDENCIES = (
     "aragora/cli/commands/__init__.py",
     "aragora/cli/commands/review_queue.py",
     "aragora/helper.py",
+    "aragora/runtime_helper.py",
     "scripts/helper.py",
     "scripts/helper.sh",
     "scripts/pkg/__main__.py",
@@ -308,6 +309,7 @@ def _authority_fixture(
     missing_policy: bool = False,
     namespace_package: bool = False,
     policy_prelude: str = "",
+    policy_epilogue: str = "",
     symlink_policy: bool = False,
 ) -> tuple[Path, str]:
     repo = tmp_path / "authority-repo"
@@ -325,10 +327,11 @@ def _authority_fixture(
     if not namespace_package:
         _write_text(repo / "aragora/__init__.py", "")
     _write_text(repo / "aragora/helper.py", "# repository helper\n")
+    _write_text(repo / "aragora/runtime_helper.py", "# runtime policy helper\n")
     _write_text(repo / "aragora/cli/__init__.py", "")
     _write_text(repo / "aragora/cli/commands/__init__.py", "")
     if not missing_policy:
-        policy_source = policy_prelude + _fixture_review_queue_source()
+        policy_source = policy_prelude + _fixture_review_queue_source() + policy_epilogue
         if symlink_policy:
             _write_text(repo / "aragora/cli/copied_review_queue.py", policy_source)
             (repo / "aragora/cli/commands/review_queue.py").symlink_to("../copied_review_queue.py")
@@ -804,6 +807,36 @@ def test_all_loaded_repository_modules_are_under_exact_ref_extraction_root(tmp_p
     assert any(entry["path"] == gen.POLICY_PATH for entry in loaded)
     assert all(not Path(entry["path"]).is_absolute() for entry in loaded)
     assert all(".." not in Path(entry["path"]).parts for entry in loaded)
+
+
+def test_classifier_runtime_import_joins_and_recursively_closes_authority(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        policy_epilogue=(
+            "def _classify_model_review_tier(files, *, pr=None):\n"
+            "    import aragora.runtime_helper\n"
+            "    if any(_matches_prefix(path, TIER_4_PREFIXES) for path in files):\n"
+            "        return (4, 'tier_4_preapproval_required', 'fixture authority')\n"
+            "    return (2, 'tier_2_live_automation', 'fixture non-authority')\n"
+        ),
+    )
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert files["aragora/runtime_helper.py"]["incoming_edges"] == [
+        {
+            "from": "aragora/cli/commands/review_queue.py",
+            "kind": "classifier_runtime_import",
+        }
+    ]
+
+
+def test_exact_ref_classifier_timeout_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        policy_prelude="import time\ntime.sleep(1)\n",
+    )
+    monkeypatch.setattr(gen, "EXACT_REF_POLICY_TIMEOUT_SECONDS", 0.05)
+    with pytest.raises(gen.AuthorityClosureError, match="classifier exceeded"):
+        _manifest(repo, sha)
 
 
 def test_classifier_and_merge_train_closure_match(tmp_path: Path):

@@ -53,6 +53,7 @@ POLICY_MODULE = "aragora.cli.commands.review_queue"
 POLICY_PATH = "aragora/cli/commands/review_queue.py"
 MERGE_TRAIN_PATH = "scripts/tier4_merge_train.py"
 PYTHON_FLAGS = ("-I", "-S")
+EXACT_REF_POLICY_TIMEOUT_SECONDS = 30
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 EXECUTABLE_SUFFIXES = (".py", ".sh")
 MEASUREMENT_SUBJECT_PREFIXES = (
@@ -379,22 +380,29 @@ def _invoke_exact_ref_policy(
     request_path = extraction_root / "__contract_drift_exact_ref_request.json"
     runner_path.write_text(_EXACT_REF_RUNNER, encoding="utf-8")
     request_path.write_bytes(_canonical_json_bytes({"paths": sorted(set(paths))}))
-    proc = subprocess.run(
-        [
-            str(interpreter_path),
-            *PYTHON_FLAGS,
-            str(runner_path),
-            str(extraction_root),
-            str(request_path),
-        ],
-        cwd=extraction_root,
-        env=_minimal_subprocess_env(scratch_root),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    runner_path.unlink(missing_ok=True)
-    request_path.unlink(missing_ok=True)
+    try:
+        proc = subprocess.run(
+            [
+                str(interpreter_path),
+                *PYTHON_FLAGS,
+                str(runner_path),
+                str(extraction_root),
+                str(request_path),
+            ],
+            cwd=extraction_root,
+            env=_minimal_subprocess_env(scratch_root),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=EXACT_REF_POLICY_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise AuthorityClosureError(
+            f"exact-ref canonical classifier exceeded {EXACT_REF_POLICY_TIMEOUT_SECONDS}s timeout"
+        ) from exc
+    finally:
+        runner_path.unlink(missing_ok=True)
+        request_path.unlink(missing_ok=True)
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).strip()
         raise AuthorityClosureError(f"exact-ref canonical classifier failed: {detail}")
@@ -1067,6 +1075,24 @@ def _canonical_external_artifact(path: Path) -> dict[str, Any]:
     }
 
 
+def _loaded_repository_module_paths(policy: dict[str, Any]) -> set[str]:
+    loaded: set[str] = set()
+    for entry in policy.get("loaded_repository_modules", []):
+        if not isinstance(entry, dict):
+            raise AuthorityClosureError("exact-ref classifier returned malformed module evidence")
+        relative = entry.get("path")
+        if not isinstance(relative, str) or not relative:
+            raise AuthorityClosureError("exact-ref classifier returned an invalid module path")
+        path = Path(relative)
+        if path.is_absolute() or ".." in path.parts:
+            raise AuthorityClosureError(
+                f"exact-ref classifier returned a non-repository module path: {relative}"
+            )
+        if path.suffix == ".py":
+            loaded.add(path.as_posix())
+    return loaded
+
+
 def build_authority_manifest(
     repo_root: Path,
     ref: str,
@@ -1128,38 +1154,59 @@ def build_authority_manifest(
 
         queue = deque(sorted(members))
         scanned: set[str] = set()
-        while queue:
-            source_path = queue.popleft()
-            if source_path in scanned:
-                continue
-            scanned.add(source_path)
-            path = extraction_root / source_path
-            edges: list[tuple[str, str]] = []
-            if path.suffix == ".py":
-                edges.extend(_load_time_import_edges(extraction_root, source_path))
-                edges.extend(_subprocess_helper_edges(extraction_root, source_path))
-            if path.suffix == ".sh":
-                edges.extend(_shell_helper_edges(extraction_root, source_path))
-            if path.suffix in WORKFLOW_SUFFIXES:
-                edges.extend(_workflow_member_edges(extraction_root, source_path))
-            for target, kind in edges:
-                if target == source_path or _is_measurement_subject(target):
+
+        def scan_pending_members() -> None:
+            while queue:
+                source_path = queue.popleft()
+                if source_path in scanned:
                     continue
-                incoming[target].add((source_path, kind))
-                if target not in members:
-                    members.add(target)
-                    queue.append(target)
+                scanned.add(source_path)
+                path = extraction_root / source_path
+                edges: list[tuple[str, str]] = []
+                if path.suffix == ".py":
+                    edges.extend(_load_time_import_edges(extraction_root, source_path))
+                    edges.extend(_subprocess_helper_edges(extraction_root, source_path))
+                if path.suffix == ".sh":
+                    edges.extend(_shell_helper_edges(extraction_root, source_path))
+                if path.suffix in WORKFLOW_SUFFIXES:
+                    edges.extend(_workflow_member_edges(extraction_root, source_path))
+                for target, kind in edges:
+                    if target == source_path or _is_measurement_subject(target):
+                        continue
+                    incoming[target].add((source_path, kind))
+                    if target not in members:
+                        members.add(target)
+                        queue.append(target)
+
+        while True:
+            scan_pending_members()
+            exact_policy = _invoke_exact_ref_policy(
+                extraction_root,
+                members,
+                scratch_root=child_scratch,
+                interpreter=interpreter,
+            )
+            loaded_paths = _loaded_repository_module_paths(exact_policy)
+            loaded_dependencies = sorted(loaded_paths - members - {POLICY_PATH, MERGE_TRAIN_PATH})
+            if not loaded_dependencies:
+                break
+            for target in loaded_dependencies:
+                if _is_measurement_subject(target):
+                    raise AuthorityClosureError(
+                        f"exact-ref policy loaded a measurement subject: {target}"
+                    )
+                if not (extraction_root / target).is_file():
+                    raise AuthorityClosureError(
+                        f"exact-ref policy loaded an unavailable repository module: {target}"
+                    )
+                members.add(target)
+                incoming[target].add((POLICY_PATH, "classifier_runtime_import"))
+                queue.append(target)
 
         for member in sorted(members - roots):
             if not incoming[member]:
                 raise AuthorityClosureError(f"unreachable authority closure member: {member}")
 
-        exact_policy = _invoke_exact_ref_policy(
-            extraction_root,
-            members,
-            scratch_root=child_scratch,
-            interpreter=interpreter,
-        )
         classifications = {item["path"]: item for item in exact_policy.get("classifications", [])}
         if set(classifications) != members:
             raise AuthorityClosureError("exact-ref classifier omitted authority closure members")
