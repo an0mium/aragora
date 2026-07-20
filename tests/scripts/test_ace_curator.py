@@ -188,6 +188,50 @@ def test_redact_matches_quoted_generic_secret_keys(secret: str) -> None:
     assert "[REDACTED_SECRET]" in redacted
 
 
+@pytest.mark.parametrize(
+    ("text", "secret"),
+    [
+        (
+            "AWS_SECRET_ACCESS_KEY=abcdefghijklmnopqrstuvwxyz1234567890ABCD",
+            "abcdefghijklmnopqrstuvwxyz1234567890ABCD",
+        ),
+        (
+            "github_pat_11AA22bb33CC44dd55EE66ff77GG88hh99II00jj",
+            "github_pat_11AA22bb33CC44dd55EE66ff77GG88hh99II00jj",
+        ),
+        (
+            "Authorization: Bearer opaqueAccessTokenValue1234567890",
+            "opaqueAccessTokenValue1234567890",
+        ),
+        (
+            "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signatureValue123",
+            "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signatureValue123",
+        ),
+        ("openaiApiKey=camelCaseSecretValue", "camelCaseSecretValue"),
+        ("client-secret: hyphenatedSecretValue", "hyphenatedSecretValue"),
+        ("awsSecretAccessKey=camelCaseAwsSecret", "camelCaseAwsSecret"),
+    ],
+)
+def test_redact_covers_model_boundary_credential_forms(text: str, secret: str) -> None:
+    redacted = ace_curator.redact(text)
+
+    assert secret not in redacted
+    assert "[REDACTED_SECRET]" in redacted
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The token budget is 4096 and secret handling is documented.",
+        "Bearer responsibilities remain with the operator.",
+        "Rotate the api-key on the documented schedule.",
+        "monkey=value keyboard=mechanical not-secret-note=public",
+    ],
+)
+def test_redact_preserves_ordinary_prose_and_credential_lookalikes(text: str) -> None:
+    assert ace_curator.redact(text) == text
+
+
 def test_collection_applies_source_limit_after_deduplication(tmp_path: Path) -> None:
     first = tmp_path / "first.jsonl"
     first.write_text(
@@ -326,3 +370,25 @@ def test_cli_refuses_to_overwrite_an_input(tmp_path: Path) -> None:
 
     assert rc == 2
     assert ledger.read_text(encoding="utf-8") == original
+
+
+def test_cli_refuses_to_overwrite_decisions_fixture(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    ledger.write_text(json.dumps({"summary": "preserve decisions"}) + "\n", encoding="utf-8")
+    decisions = tmp_path / "decisions.json"
+    original = '{"decisions": []}\n'
+    decisions.write_text(original, encoding="utf-8")
+
+    rc = ace_curator.main(
+        [
+            "--input",
+            str(ledger),
+            "--output",
+            str(decisions),
+            "--decisions-json",
+            str(decisions),
+        ]
+    )
+
+    assert rc == 2
+    assert decisions.read_text(encoding="utf-8") == original

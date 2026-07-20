@@ -38,10 +38,20 @@ LESSON_BLOCK_RE = re.compile(
 SECRET_PATTERNS = (
     re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b"),
     re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{8,}\b"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(
-        r"(?ix)(?<![A-Z0-9_])[\"']?[A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)"
-        r"[\"']?(?![A-Z0-9_])"
+        r"(?i)\bBearer[ \t]+(?:eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\."
+        r"[A-Za-z0-9_-]{5,}|[A-Za-z0-9][A-Za-z0-9._~+/-]{19,}={0,2})"
+        r"(?![A-Za-z0-9._~+/-])"
+    ),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\b"),
+    re.compile(
+        r"(?ix)(?<![A-Z0-9_-])[\"']?[A-Z0-9_-]*?"
+        r"(?:API[-_]?KEY|SECRET[-_]?ACCESS[-_]?KEY|ACCESS[-_]?KEY|"
+        r"CLIENT[-_]?SECRET|PRIVATE[-_]?KEY|AUTH[-_]?TOKEN|ACCESS[-_]?TOKEN|"
+        r"REFRESH[-_]?TOKEN|ID[-_]?TOKEN|TOKEN|SECRET|PASSWORD)"
+        r"[\"']?(?![A-Z0-9_-])"
         r"\s*[:=]\s*(?:\"[^\"\r\n]*\"|'[^'\r\n]*'|[^\s,}]+)"
     ),
 )
@@ -516,8 +526,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.output.is_symlink():
             raise ValueError(f"output must not be a symlink: {args.output}")
-        if args.output.resolve() in {path.resolve() for path in input_paths}:
-            raise ValueError("output must not alias a curator input")
+        protected_inputs = [*input_paths]
+        if args.decisions_json:
+            protected_inputs.append(args.decisions_json)
+        if args.output.resolve() in {path.resolve() for path in protected_inputs}:
+            raise ValueError("output must not alias a curator input or decisions fixture")
         sources = collect_sources(input_paths, max_sources=args.max_sources)
         if not sources:
             raise ValueError("inputs contained no usable lesson evidence")
