@@ -184,7 +184,13 @@ root = pathlib.Path(sys.argv[1]).resolve()
 request_path = pathlib.Path(sys.argv[2]).resolve()
 if request_path.parent != root:
     raise SystemExit("request must be inside extraction root")
+sys.dont_write_bytecode = True
 sys.path[:] = [str(root), *[entry for entry in sys.path if pathlib.Path(entry or ".").resolve() != root]]
+stdlib_roots = tuple(
+    pathlib.Path(entry).resolve()
+    for entry in sys.path
+    if entry and pathlib.Path(entry).resolve() != root
+)
 
 def under_root(value):
     try:
@@ -192,6 +198,13 @@ def under_root(value):
     except (TypeError, ValueError):
         return False
     return path == root or root in path.parents
+
+def allowed_read(value):
+    try:
+        path = pathlib.Path(value).resolve(strict=False)
+    except (TypeError, ValueError):
+        return False
+    return under_root(path) or any(path == base or base in path.parents for base in stdlib_roots)
 
 def audit(event, args):
     if event == "open":
@@ -206,14 +219,20 @@ def audit(event, args):
             isinstance(flags, int)
             and bool(flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND))
         )
-        if writes and not under_root(path):
-            raise RuntimeError(f"forbidden write outside extraction root: {path}")
+        if writes:
+            raise RuntimeError("forbidden write action in exact-ref classifier")
+        if not allowed_read(path):
+            raise RuntimeError("forbidden read outside extraction and standard-library roots")
+    if event in {"os.listdir", "os.scandir"} and args and not allowed_read(args[0]):
+        raise RuntimeError("forbidden directory read outside allowed roots")
     if event in {
         "os.system",
         "os.exec",
+        "os.fork",
+        "os.forkpty",
         "os.posix_spawn",
         "subprocess.Popen",
-    }:
+    } or event.startswith(("os.spawn", "ctypes.")):
         raise RuntimeError(f"forbidden subprocess action: {event}")
     if event.startswith(("socket.", "http.client.", "urllib.Request")):
         raise RuntimeError(f"forbidden network action: {event}")
@@ -224,8 +243,8 @@ def audit(event, args):
         "os.rmdir",
         "os.unlink",
         "shutil.rmtree",
-    } and args and not under_root(args[0]):
-        raise RuntimeError(f"forbidden filesystem mutation outside extraction root: {args[0]}")
+    }:
+        raise RuntimeError(f"forbidden filesystem mutation: {event}")
 
 sys.addaudithook(audit)
 request = json.loads(request_path.read_text(encoding="utf-8"))
@@ -440,6 +459,14 @@ def _iter_load_time_nodes(nodes: Iterable[ast.stmt]) -> Iterator[ast.stmt]:
         if isinstance(node, (ast.With, ast.AsyncWith)):
             yield from _iter_load_time_nodes(node.body)
             continue
+        if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+            yield from _iter_load_time_nodes(node.body)
+            yield from _iter_load_time_nodes(node.orelse)
+            continue
+        if isinstance(node, ast.Match):
+            for case in node.cases:
+                yield from _iter_load_time_nodes(case.body)
+            continue
         yield node
 
 
@@ -557,9 +584,7 @@ def _static_path_parts(node: ast.AST) -> list[str] | None:
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
         left = _static_path_parts(node.left)
         right = _static_path_parts(node.right)
-        if left is None:
-            left = []
-        if right is None:
+        if left is None or right is None:
             return None
         return [*left, *right]
     if isinstance(node, ast.Name) and node.id in {"REPO_ROOT", "ROOT", "repo_root"}:
@@ -574,17 +599,27 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=source_path)
     helpers: set[str] = set()
     subprocess_calls = {"run", "Popen", "call", "check_call", "check_output"}
+    subprocess_module_aliases = {"subprocess"}
+    subprocess_function_aliases: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "subprocess":
+                    subprocess_module_aliases.add(alias.asname or alias.name)
+        elif isinstance(node, ast.ImportFrom) and node.module == "subprocess":
+            for alias in node.names:
+                if alias.name in subprocess_calls:
+                    subprocess_function_aliases.add(alias.asname or alias.name)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        function_name = (
-            node.func.attr
-            if isinstance(node.func, ast.Attribute)
-            else node.func.id
-            if isinstance(node.func, ast.Name)
-            else ""
-        )
-        if function_name not in subprocess_calls or not node.args:
+        is_subprocess_call = (
+            isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in subprocess_module_aliases
+            and node.func.attr in subprocess_calls
+        ) or (isinstance(node.func, ast.Name) and node.func.id in subprocess_function_aliases)
+        if not is_subprocess_call or not node.args:
             continue
         command = node.args[0]
         if any(keyword.arg is None for keyword in node.keywords):
@@ -605,7 +640,7 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
         if shell_enabled:
             if not isinstance(command, ast.Constant) or not isinstance(command.value, str):
                 raise AuthorityClosureError(f"dynamic shell subprocess is forbidden: {source_path}")
-            for helper in _run_script_references(source_path, command.value):
+            for helper in _run_script_references(extraction_root, source_path, command.value):
                 if not _is_measurement_subject(helper):
                     if not (extraction_root / helper).is_file():
                         raise AuthorityClosureError(
@@ -618,7 +653,7 @@ def _subprocess_helper_edges(extraction_root: Path, source_path: str) -> list[tu
             parts = _static_path_parts(element)
             if parts is None:
                 continue
-            literal = "/".join(part.strip("/") for part in parts if part).lstrip("./")
+            literal = _strip_optional_dot_slash("/".join(part.strip("/") for part in parts if part))
             if not literal.endswith(EXECUTABLE_SUFFIXES):
                 continue
             if not literal.startswith(("scripts/", "aragora/", ".github/")):
@@ -658,6 +693,7 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
     uses: list[str] = []
     runs: list[str] = []
     path_filters: list[str] = []
+    key_stack: list[tuple[int, str]] = []
     index = 0
     while index < len(lines):
         raw = lines[index]
@@ -666,9 +702,17 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
             index += 1
             continue
         indent = len(raw) - len(stripped)
+        while key_stack and key_stack[-1][0] >= indent:
+            key_stack.pop()
+        ancestor_keys = [key for _key_indent, key in key_stack]
         uses_match = re.match(r"(?:-\s*)?uses:\s*(.*)$", stripped)
         run_match = re.match(r"(?:-\s*)?run:\s*(.*)$", stripped)
         paths_match = re.match(r"paths:\s*(.*)$", stripped)
+        paths_is_trigger_filter = (
+            len(ancestor_keys) >= 2
+            and ancestor_keys[0] in {"on", "'on'", '"on"'}
+            and ancestor_keys[1] in {"push", "pull_request", "pull_request_target"}
+        )
         if uses_match:
             uses.append(_strip_yaml_scalar(uses_match.group(1)))
         elif run_match:
@@ -688,7 +732,7 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
                 runs.append("\n".join(block))
             else:
                 runs.append(_strip_yaml_scalar(marker))
-        elif paths_match:
+        elif paths_match and paths_is_trigger_filter:
             inline = paths_match.group(1).strip()
             if inline.startswith("[") and inline.endswith("]"):
                 for item in inline[1:-1].split(","):
@@ -707,6 +751,9 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
                     if item_match:
                         path_filters.append(_strip_yaml_scalar(item_match.group(1)))
                     index += 1
+        key_match = re.match(r"(?:-\s*)?([A-Za-z0-9_\"'-]+):\s*$", stripped)
+        if key_match:
+            key_stack.append((indent, key_match.group(1)))
         index += 1
     return {
         "path_filters": [value for value in path_filters if value],
@@ -762,7 +809,27 @@ def _resolve_local_uses(
     )
 
 
-def _run_script_references(source_path: str, run: str) -> list[str]:
+def _strip_optional_dot_slash(value: str) -> str:
+    return value[2:] if value.startswith("./") else value
+
+
+def _repository_module_runner_path(extraction_root: Path, module: str) -> str:
+    module_path = Path(*module.split("."))
+    file_candidate = extraction_root / module_path.with_suffix(".py")
+    package_candidate = extraction_root / module_path / "__main__.py"
+    candidates = [
+        candidate.relative_to(extraction_root).as_posix()
+        for candidate in (file_candidate, package_candidate)
+        if candidate.is_file()
+    ]
+    if len(candidates) != 1:
+        raise AuthorityClosureError(
+            f"repository python -m target must resolve exactly once: {module}"
+        )
+    return candidates[0]
+
+
+def _run_script_references(extraction_root: Path, source_path: str, run: str) -> list[str]:
     normalized = run.replace("\\\n", " ")
     command_invocation = re.compile(
         r"(?:^|[;&|]\s*|\$\(\s*)"
@@ -773,7 +840,9 @@ def _run_script_references(source_path: str, run: str) -> list[str]:
     )
     for match in command_invocation.finditer(normalized):
         target = match.group(1).strip("\"'")
-        local_target = target.lstrip("./").startswith(("scripts/", "aragora/", ".github/"))
+        local_target = _strip_optional_dot_slash(target).startswith(
+            ("scripts/", "aragora/", ".github/")
+        )
         dynamic_executable_glob = "*" in target and target.endswith(EXECUTABLE_SUFFIXES)
         if (
             target.startswith(("$", "`"))
@@ -801,7 +870,7 @@ def _run_script_references(source_path: str, run: str) -> list[str]:
             module == prefix or module.startswith(f"{prefix}.")
             for prefix in REPOSITORY_MODULE_PREFIXES
         ):
-            references.add(f"{module.replace('.', '/')}.py")
+            references.add(_repository_module_runner_path(extraction_root, module))
     return sorted(references)
 
 
@@ -811,12 +880,14 @@ def _literal_run_script_references(run: str) -> list[str]:
         r"((?:\./)?(?:scripts|aragora|\.github)/[A-Za-z0-9_./-]+\.(?:py|sh))"
         r"(?![A-Za-z0-9_.-])"
     )
-    return sorted({match.group(1).lstrip("./") for match in pattern.finditer(run)})
+    return sorted({_strip_optional_dot_slash(match.group(1)) for match in pattern.finditer(run)})
 
 
 def _shell_helper_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
     references = _run_script_references(
-        source_path, (extraction_root / source_path).read_text(encoding="utf-8")
+        extraction_root,
+        source_path,
+        (extraction_root / source_path).read_text(encoding="utf-8"),
     )
     edges: list[tuple[str, str]] = []
     for reference in references:
@@ -841,9 +912,14 @@ def _workflow_direct_matches(
     matches: set[tuple[str, str]] = set()
     literal_run_references = set(_literal_run_script_references("\n".join(structure["runs"])))
     for root in authority_roots:
+        selected_by_path = False
         for pattern in structure["path_filters"]:
-            if fnmatch.fnmatchcase(root, pattern):
-                matches.add((root, "workflow_path_filter"))
+            negative = pattern.startswith("!")
+            candidate = pattern[1:] if negative else pattern
+            if fnmatch.fnmatchcase(root, candidate):
+                selected_by_path = not negative
+        if selected_by_path:
+            matches.add((root, "workflow_path_filter"))
         if root in literal_run_references:
             matches.add((root, "workflow_run"))
     return sorted(matches)
@@ -857,7 +933,7 @@ def _workflow_member_edges(extraction_root: Path, source_path: str) -> list[tupl
         if resolved is not None:
             edges.add(resolved)
     for run in structure["runs"]:
-        for reference in _run_script_references(source_path, run):
+        for reference in _run_script_references(extraction_root, source_path, run):
             target = extraction_root / reference
             if not target.is_file():
                 raise AuthorityClosureError(
@@ -952,6 +1028,9 @@ def _exact_ref_inventory_facts(
         }
 
     artifacts = [_canonical_external_artifact(path) for path in external_artifacts]
+    artifact_names = [item["path"] for item in artifacts]
+    if len(artifact_names) != len(set(artifact_names)):
+        raise AuthorityClosureError("external artifact basenames must be unique")
     return {
         "baseline_bindings": sorted(baseline_bindings, key=lambda item: item["path"]),
         "baseline_category_counts": dict(sorted(category_counts.items())),
@@ -983,7 +1062,7 @@ def _canonical_external_artifact(path: Path) -> dict[str, Any]:
     return {
         "byte_length": len(raw),
         "canonical_bytes": True,
-        "path": str(path),
+        "path": path.name,
         "sha256": _sha256(raw),
     }
 
@@ -1467,6 +1546,9 @@ def main() -> int:
         print("ERROR: choose only one of --authority-manifest or --classify-tier")
         return 1
     if args.authority_manifest or args.classify_tier or args.ref is not None:
+        if args.check or args.inventory is not None or args.provenance is not None:
+            print("ERROR: inventory mutation/check options cannot be combined with --ref")
+            return 1
         if args.ref is None:
             print("ERROR: exact-ref read-only modes require --ref")
             return 1

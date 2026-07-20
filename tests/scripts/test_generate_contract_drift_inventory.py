@@ -280,6 +280,7 @@ FIXTURE_ROOT = "scripts/generate_contract_drift_inventory.py"
 FIXTURE_DEPENDENCIES = (
     ".github/actions/nested/action.yml",
     ".github/actions/root/action.yaml",
+    ".github/scripts/tool.py",
     "aragora/__init__.py",
     "aragora/cli/__init__.py",
     "aragora/cli/commands/__init__.py",
@@ -287,6 +288,7 @@ FIXTURE_DEPENDENCIES = (
     "aragora/helper.py",
     "scripts/helper.py",
     "scripts/helper.sh",
+    "scripts/pkg/__main__.py",
     "scripts/tier4_merge_train.py",
     "scripts/transitive.py",
 )
@@ -316,6 +318,8 @@ def _authority_fixture(
     _write_text(repo / "scripts/helper.py", helper_source)
     _write_text(repo / "scripts/helper.sh", "python scripts/transitive.py\n")
     _write_text(repo / "scripts/transitive.py", "# transitive workflow helper\n")
+    _write_text(repo / "scripts/pkg/__main__.py", "# package module runner\n")
+    _write_text(repo / ".github/scripts/tool.py", "# github helper\n")
     _write_text(repo / "scripts/measured.py", "# not an authority dependency\n")
     _write_text(repo / "sdk/python/client.py", "# measured SDK subject\n")
     if not namespace_package:
@@ -341,6 +345,9 @@ def _authority_fixture(
         "glob": "      - run: python ./*.py\n",
         "module": "      - run: python -m scripts.helper\n",
         "module_substitution": '      - run: echo "$(python -m scripts.helper)"\n',
+        "package_module": "      - run: python -m scripts.pkg\n",
+        "github_literal": "      - run: python .github/scripts/tool.py\n",
+        "github_dynamic": "      - run: python .github/scripts/$HELPER.py\n",
     }
     helper_run = dynamic_runs.get(
         dynamic_run_reference, "      - run: python sdk/python/client.py\n"
@@ -366,6 +373,22 @@ def _authority_fixture(
         "  push:\n"
         "    paths-ignore:\n"
         f"      - '{FIXTURE_ROOT}'\n"
+        "jobs:\n"
+        "  ignored:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - uses: external/action@v1\n"
+        "        with:\n"
+        f"          paths: ['{FIXTURE_ROOT}']\n"
+        "      - uses: ./.github/actions/does-not-exist\n",
+    )
+    _write_text(
+        repo / ".github/workflows/negated.yml",
+        "on:\n"
+        "  pull_request:\n"
+        "    paths:\n"
+        "      - 'scripts/**'\n"
+        f"      - '!{FIXTURE_ROOT}'\n"
         "jobs:\n"
         "  ignored:\n"
         "    runs-on: ubuntu-latest\n"
@@ -554,7 +577,7 @@ def test_unresolved_or_dynamic_local_workflow_reference_fails_closed(tmp_path: P
         _manifest(repo, sha)
 
 
-@pytest.mark.parametrize("variant", ["leading", "mid_token", "glob"])
+@pytest.mark.parametrize("variant", ["leading", "mid_token", "glob", "github_dynamic"])
 def test_dynamic_local_run_reference_fails_closed(tmp_path: Path, variant: str):
     repo, sha = _authority_fixture(tmp_path, dynamic_run_reference=variant)
     with pytest.raises(gen.AuthorityClosureError, match="dynamic local run target"):
@@ -573,6 +596,21 @@ def test_repository_python_module_run_target_joins_closure(tmp_path: Path, varia
         }
         for edge in files["scripts/helper.py"]["incoming_edges"]
     )
+
+
+def test_repository_python_package_module_uses_dunder_main(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path, dynamic_run_reference="package_module")
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert any(
+        edge["kind"] == "workflow_run_executable"
+        for edge in files["scripts/pkg/__main__.py"]["incoming_edges"]
+    )
+
+
+def test_dot_github_script_reference_preserves_repository_prefix(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path, dynamic_run_reference="github_literal")
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert ".github/scripts/tool.py" in files
 
 
 def test_literal_shell_subprocess_helper_joins_closure(tmp_path: Path):
@@ -618,6 +656,52 @@ def test_dynamic_subprocess_keyword_splat_fails_closed(tmp_path: Path):
 
 
 @pytest.mark.parametrize(
+    "helper_source",
+    [
+        ("import subprocess as sp\nsp.run(['python', 'scripts/transitive.py'], check=True)\n"),
+        (
+            "from subprocess import run as execute\n"
+            "execute(['python', 'scripts/transitive.py'], check=True)\n"
+        ),
+    ],
+)
+def test_aliased_subprocess_helpers_join_closure(tmp_path: Path, helper_source: str):
+    repo, sha = _authority_fixture(tmp_path, helper_source=helper_source)
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert any(
+        edge["kind"] == "literal_subprocess_helper"
+        for edge in files["scripts/transitive.py"]["incoming_edges"]
+    )
+
+
+def test_non_subprocess_run_with_keyword_splat_is_ignored(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "import asyncio\n"
+            "async def main():\n"
+            "    return None\n"
+            "options = {}\n"
+            "asyncio.run(main(), **options)\n"
+        ),
+    )
+    assert _manifest(repo, sha)["ref"] == sha
+
+
+def test_unknown_path_root_does_not_become_repository_root(tmp_path: Path):
+    repo, sha = _authority_fixture(
+        tmp_path,
+        helper_source=(
+            "import subprocess\n"
+            "from pathlib import Path\n"
+            "some_tmp_dir = Path('/tmp')\n"
+            "subprocess.run([some_tmp_dir / 'scripts/missing.py'], check=False)\n"
+        ),
+    )
+    assert _manifest(repo, sha)["ref"] == sha
+
+
+@pytest.mark.parametrize(
     "loader",
     [
         "from importlib import import_module\nimport_module('aragora.helper')\n",
@@ -645,6 +729,23 @@ def test_dynamic_aliased_import_api_fails_closed(tmp_path: Path):
     )
     with pytest.raises(gen.AuthorityClosureError, match="dynamic load-time import"):
         _manifest(repo, sha)
+
+
+@pytest.mark.parametrize(
+    "helper_source",
+    [
+        "for _ in range(1):\n    import aragora.helper\n",
+        "while False:\n    import aragora.helper\n",
+        "match 1:\n    case 1:\n        import aragora.helper\n",
+    ],
+)
+def test_compound_load_time_imports_join_closure(tmp_path: Path, helper_source: str):
+    repo, sha = _authority_fixture(tmp_path, helper_source=helper_source)
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert any(
+        edge["kind"] == "python_load_time_import"
+        for edge in files["aragora/helper.py"]["incoming_edges"]
+    )
 
 
 def test_missing_shell_subprocess_helper_has_closure_error(tmp_path: Path):
@@ -793,6 +894,21 @@ def test_external_authority_manifest_and_evidence_index_bytes_are_canonical_befo
         gen.build_authority_manifest(repo, sha, external_artifacts=(noncanonical,))
 
 
+def test_external_artifact_binding_is_machine_path_independent(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path)
+    left = tmp_path / "left/canonical.json"
+    right = tmp_path / "right/canonical.json"
+    left.parent.mkdir()
+    right.parent.mkdir()
+    canonical = gen._canonical_json_bytes({"schema": "fixture", "value": 1})
+    left.write_bytes(canonical)
+    right.write_bytes(canonical)
+    first = gen.build_authority_manifest(repo, sha, external_artifacts=(left,))
+    second = gen.build_authority_manifest(repo, sha, external_artifacts=(right,))
+    assert first["authority_manifest_sha256"] == second["authority_manifest_sha256"]
+    assert first["inventory"]["external_artifacts"][0]["path"] == "canonical.json"
+
+
 def test_exact_ref_modes_ignore_ambient_python_environment(tmp_path: Path, monkeypatch):
     repo, sha = _authority_fixture(tmp_path)
     user_base = tmp_path / "userbase"
@@ -813,7 +929,11 @@ def test_exact_ref_modes_ignore_ambient_python_environment(tmp_path: Path, monke
         ),
         (
             "from pathlib import Path\nPath('/tmp/authority-escape').write_text('x')\n",
-            "forbidden write outside extraction root",
+            "forbidden write action",
+        ),
+        (
+            "from pathlib import Path\nPath('/etc/passwd').read_text()\n",
+            "forbidden read outside extraction and standard-library roots",
         ),
         (
             "import socket\nsocket.create_connection(('127.0.0.1', 9))\n",
@@ -834,3 +954,25 @@ def test_exact_ref_modes_reject_symbolic_abbreviated_or_noncanonical_refs(tmp_pa
     repo, _sha = _authority_fixture(tmp_path)
     with pytest.raises(gen.AuthorityClosureError, match="full lowercase 40-hex"):
         gen.build_authority_manifest(repo, ref)
+
+
+def test_exact_ref_mode_rejects_inventory_check_flag(tmp_path: Path):
+    repo, sha = _authority_fixture(tmp_path)
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(Path(gen.__file__).resolve()),
+            "--repo-root",
+            str(repo),
+            "--ref",
+            sha,
+            "--check",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 1
+    assert "cannot be combined with --ref" in proc.stdout
