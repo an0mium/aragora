@@ -101,6 +101,26 @@ def test_full_lane_queues_candidate() -> None:
     assert result["contended_surfaces"]["scripts/settle_tier4_pr.py"]["lane_full"] is True
 
 
+def test_cap_one_contention_is_deterministic_for_exact_authority_file() -> None:
+    authority = "scripts/check_contract_drift_ratchet.py"
+    open_prs = [
+        _pr(9412, [authority], created="2026-07-17T20:01:00Z"),
+        _pr(9410, [authority], created="2026-07-17T19:59:00Z"),
+    ]
+
+    first = train.evaluate_merge_train([authority], open_prs=open_prs, cap=1)
+    second = train.evaluate_merge_train([authority], open_prs=list(reversed(open_prs)), cap=1)
+
+    assert first == second
+    assert first["decision"] == train.QUEUE
+    assert first["blocking_prs"] == [9410, 9412]
+    assert first["contended_surfaces"][authority] == {
+        "open_pr_numbers": [9410, 9412],
+        "head_pr": 9410,
+        "lane_full": True,
+    }
+
+
 def test_cap_two_allows_second_pr() -> None:
     open_prs = [_pr(8405, ["scripts/settle_tier4_pr.py"], created="2026-06-14T04:00:00Z")]
     result = train.evaluate_merge_train(
@@ -232,7 +252,7 @@ def test_serialized_prefixes_match_canonical_tier4() -> None:
         "aragora.cli.commands.review_queue",
         reason="review_queue import closure unavailable in this environment",
     )
-    assert set(train.SERIALIZED_TIER4_PREFIXES) == set(review_queue.TIER_4_PREFIXES), (
+    assert train.SERIALIZED_TIER4_PREFIXES == review_queue.TIER_4_PREFIXES, (
         "scripts/tier4_merge_train.py SERIALIZED_TIER4_PREFIXES has drifted from "
         "review_queue.TIER_4_PREFIXES — re-sync the vendored copy."
     )
