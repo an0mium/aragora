@@ -212,12 +212,16 @@ class _InferenceVisitor(ast.NodeVisitor):
         self.generic_visit(node)
         self.scope.pop()
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self.scope.append(("function", node.name))
         self.generic_visit(node)
         self.scope.pop()
 
-    visit_AsyncFunctionDef = visit_FunctionDef
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._visit_function(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._visit_function(node)
 
     def visit_Name(self, node: ast.Name) -> None:
         if node.id == "ModelTransportPolicy":
@@ -370,7 +374,16 @@ def _site_from_manifest(raw: Any, index: int, errors: list[str]) -> tuple[Site, 
     if not all(isinstance(value, str) and value for value in values):
         errors.append(f"sites[{index}] identity fields must be non-empty strings")
         return None
-    return Site(*values, normalized), classification
+    return (
+        Site(
+            path=str(raw["path"]),
+            anchor=str(raw["anchor"]),
+            provider=str(raw["provider"]),
+            protocol=str(raw["protocol"]),
+            detectors=normalized,
+        ),
+        classification,
+    )
 
 
 def load_manifest(path: Path) -> tuple[dict[SiteKey, tuple[Site, str]], tuple[str, ...], list[str]]:
