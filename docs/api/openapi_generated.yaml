@@ -97102,7 +97102,7 @@ paths:
         description: 'Path parameter: param'
       x-aragora-stability: experimental
     post:
-      summary: POST /api/v1/knowledge/mound/contradictions/{contradiction_id}/resolve
+      summary: POST /api/v1/knowledge/mound/contradictions/{param}/resolve
       description: Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES;
         detailed contract pending.
       tags:
@@ -97120,12 +97120,12 @@ paths:
       x-method-inferred: false
       x-aragora-stability: experimental
       parameters:
-      - name: contradiction_id
+      - name: param
         in: path
         required: true
         schema:
           type: string
-        description: 'Path parameter: contradiction_id'
+        description: 'Path parameter: param'
       requestBody:
         content:
           application/json:
@@ -99174,7 +99174,7 @@ paths:
         description: 'Path parameter: param'
       x-aragora-stability: experimental
     delete:
-      summary: DELETE /api/v1/knowledge/mound/nodes/{node_id}/access
+      summary: DELETE /api/v1/knowledge/mound/nodes/{param}/access
       description: Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES;
         detailed contract pending.
       tags:
@@ -99192,14 +99192,14 @@ paths:
       x-method-inferred: false
       x-aragora-stability: experimental
       parameters:
-      - name: node_id
+      - name: param
         in: path
         required: true
         schema:
           type: string
-        description: 'Path parameter: node_id'
+        description: 'Path parameter: param'
     post:
-      summary: POST /api/v1/knowledge/mound/nodes/{node_id}/access
+      summary: POST /api/v1/knowledge/mound/nodes/{param}/access
       description: Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES;
         detailed contract pending.
       tags:
@@ -99217,12 +99217,12 @@ paths:
       x-method-inferred: false
       x-aragora-stability: experimental
       parameters:
-      - name: node_id
+      - name: param
         in: path
         required: true
         schema:
           type: string
-        description: 'Path parameter: node_id'
+        description: 'Path parameter: param'
       requestBody:
         content:
           application/json:
@@ -99285,7 +99285,7 @@ paths:
         description: 'Path parameter: param'
       x-aragora-stability: experimental
     put:
-      summary: PUT /api/v1/knowledge/mound/nodes/{node_id}/visibility
+      summary: PUT /api/v1/knowledge/mound/nodes/{param}/visibility
       description: Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES;
         detailed contract pending.
       tags:
@@ -99303,12 +99303,12 @@ paths:
       x-method-inferred: false
       x-aragora-stability: experimental
       parameters:
-      - name: node_id
+      - name: param
         in: path
         required: true
         schema:
           type: string
-        description: 'Path parameter: node_id'
+        description: 'Path parameter: param'
       requestBody:
         content:
           application/json:
