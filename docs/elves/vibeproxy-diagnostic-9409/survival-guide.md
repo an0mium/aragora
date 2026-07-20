@@ -39,8 +39,8 @@ unit on this branch.
 
 - **Planned batches remaining:** 1
 - **Stop allowed right now:** no
-- **Why:** Batch 1 implementation and focused validation are green, but independent review and final readiness remain
-- **Next required action:** run the independent Batch 1 review on product commit `397aa2d651`, then fix or disposition every finding
+- **Why:** Independent review cycle 1 was remediated and exact-head validation is green, but the fresh cumulative review and final readiness gate remain
+- **Next required action:** commit and push the current review packet, wait for exact-head checks, then run a fresh independent review
 
 ## Effort Standard
 
@@ -101,13 +101,13 @@ hard deadline arrives, or a genuine blocker has no safe workaround.
 
 ## Current Phase
 
-**Status:** Batch 1 independent review
+**Status:** Batch 1 final independent review
 
 **Active batch:** Batch 1: Diagnostic Command, Tests, and Documentation
 
-**What was just finished:** Product commit `397aa2d651` added the bounded diagnostic, fake loopback failure matrix, and guide. Exact-tip focused pytest passed 100 tests with no skips; ruff, mypy, changed-file hooks, repository preflight, and the live no-inference 8318 smoke all passed.
+**What was just finished:** Review cycle 1's credential-echo blocker and malformed-IPv6 warning were fixed in `09016e0694`; current main was merged as `840b972366`; focused pytest now passes 102 tests with no skips, and mypy, hooks, preflight, and the live no-inference smoke are green.
 
-**Single next action:** Give the cumulative product diff, contract, tests, commit history, and current PR feedback to a fresh independent reviewer.
+**Single next action:** Commit and push the review packet, wait for exact-head checks, then give the cumulative diff, contract, remediation, tests, history, and PR feedback to a fresh independent reviewer.
 
 ## Active Compute
 
@@ -128,9 +128,9 @@ this run. Unrelated Fable/conductor processes are outside this lane.
 
 **Acceptance criteria:**
 
-- [ ] Stable credential-free JSON and meaningful exit codes
-- [ ] No-inference fake proxy proves success and all safety failures
-- [ ] Existing transport/direct regressions, mypy, hooks, and automation preflight pass
+- [x] Stable credential-free JSON and meaningful exit codes
+- [x] No-inference fake proxy proves success and all safety failures
+- [x] Existing transport/direct regressions, mypy, hooks, and automation preflight pass
 - [ ] Exact-tip cumulative review is clean and PR feedback is dispositioned
 
 **Risk:** Medium; diagnostic metadata must not become a credential leak or a second unsafe HTTP implementation.

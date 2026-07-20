@@ -22,6 +22,10 @@
   fallback, credential-cache isolation, redirect/proxy escape, and bounded-read
   defects in this transport family. Treat those as regression categories, not
   one-off examples.
+- 2026-07-20: Successful response fields are still attacker-controlled. A
+  diagnostic over a credential-bearing transport must reject credential echoes
+  and terminal-unsafe text at the final output boundary, even after structural
+  parsing and route allowlisting.
 
 ## Product and Domain Invariants
 

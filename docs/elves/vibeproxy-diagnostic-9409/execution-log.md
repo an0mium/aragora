@@ -2,8 +2,8 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-20 13:05 America/Chicago
-- **Current phase:** Batch 1 independent review
+- **Last updated:** 2026-07-20 13:33 America/Chicago
+- **Current phase:** Batch 1 final independent review
 - **Active batch:** Batch 1: Diagnostic Command, Tests, and Documentation
 - **Last completed batch:** none yet
 - **Next exact batch:** Batch 1: Diagnostic Command, Tests, and Documentation
@@ -243,3 +243,48 @@ inspection) | **Validation so far:** 4 minutes | **Review:** pending
 
 **Next:** fresh independent review of the cumulative product diff and every PR
 feedback surface; apply the bug-fix protocol to any blocking finding.
+
+### Independent review cycle 1 and remediation
+
+**Review verdict:** changes required on exact head `9e56c0034126`.
+
+The independent reviewer found one blocking output-safety defect: parsed model
+IDs, advertised routes, and allowlisted version headers remained controlled by
+the server and could echo the configured API credential into successful JSON or
+human output. It also warned that malformed bracketed IPv6 URLs were classified
+as internal failures rather than configuration failures. Scope, deadline,
+no-inference behavior, direct compatibility, freshness semantics, and protocol
+claims were otherwise accepted.
+
+**Bug-fix protocol evidence:**
+
+- Added the credential/control-character and malformed-IPv6 tests first and
+  ran them against the unfixed code. Both failed for the reported reasons.
+- Product commit `09016e0694ec6c836fb5acd651d3a04a1a46d4e5`
+  filters server-controlled fields at the diagnostic output boundary, reports
+  only omission counts, and converts URL parser failures into sanitized
+  configuration errors.
+- The regression invokes both JSON and human rendering against a real fake
+  loopback server, preserves an ordinary model ID and safe route, and proves
+  neither the credential sentinel nor injected terminal text is emitted.
+
+**Exact-head validation after remediation and current-main merge:**
+
+- Merged five non-overlapping main commits as `840b9723667c`; no product file
+  conflicted, and the branch now contains `origin/main` at `5f7b1b7927`.
+- Focused pytest: 102 passed, 0 skipped, 12 warnings in 7.65 seconds. Baseline
+  comparison: +17 passing tests, skipped count unchanged.
+- Changed-file pre-commit, ruff, mypy, gitleaks, portability, and push hooks:
+  PASS.
+- `bash scripts/automation_pr_preflight.sh origin/main HEAD`: PASS.
+- Live no-inference smoke on `127.0.0.1:8318`: PASS in 24.067 ms total with 54
+  models, three sanitized advertised routes, and version explicitly unknown.
+  The CLI has only metadata GET paths and received no prompt.
+- Product delta against current main: 772 additions and 13 deletions across
+  four files (785 changed lines), below the Tier-2 cap.
+- PR body now describes implemented behavior, the review remediation, exact
+  validation, risks, and later-unit exclusions. PR comments and reviews remain
+  empty; the current-head check run is in progress with no failures observed.
+
+**Next:** commit this exact review packet, wait for current-head checks, then
+ask a fresh independent reviewer for the final cumulative readiness verdict.
