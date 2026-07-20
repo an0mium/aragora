@@ -388,6 +388,18 @@ def _authority_fixture(
         "      - uses: ./.github/actions/does-not-exist\n",
     )
     _write_text(
+        repo / ".github/workflows/ignore-unrelated.yaml",
+        "on:\n"
+        "  pull_request:\n"
+        "    paths-ignore:\n"
+        "      - 'docs/**'\n"
+        "jobs:\n"
+        "  authority:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: python .github/scripts/tool.py\n",
+    )
+    _write_text(
         repo / ".github/workflows/negated.yml",
         "on:\n"
         "  pull_request:\n"
@@ -553,6 +565,7 @@ def test_workflows_yml_and_yaml_recurse_through_structural_run_uses_and_path_fil
     repo, sha = _authority_fixture(tmp_path)
     files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
     assert ".github/workflows/authority.yml" in files
+    assert ".github/workflows/ignore-unrelated.yaml" in files
     assert ".github/workflows/nested.yaml" in files
     assert any(
         edge["kind"] == "workflow_path_filter"
@@ -562,6 +575,18 @@ def test_workflows_yml_and_yaml_recurse_through_structural_run_uses_and_path_fil
     assert "scripts/helper.sh" in files
     assert "scripts/transitive.py" in files
     assert "aragora/helper.py" in files
+    assert any(
+        edge["kind"] == "workflow_path_ignore"
+        for edge in files[".github/workflows/ignore-unrelated.yaml"]["incoming_edges"]
+    )
+    assert any(
+        edge
+        == {
+            "from": ".github/workflows/ignore-unrelated.yaml",
+            "kind": "workflow_run_executable",
+        }
+        for edge in files[".github/scripts/tool.py"]["incoming_edges"]
+    )
 
 
 def test_local_reusable_workflows_and_composite_actions_join_closure(tmp_path: Path):

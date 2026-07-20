@@ -1234,6 +1234,7 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
     uses: list[str] = []
     runs: list[str] = []
     path_filters: list[str] = []
+    path_ignores: list[str] = []
     key_stack: list[tuple[int, str]] = []
     index = 0
     while index < len(lines):
@@ -1248,7 +1249,7 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
         ancestor_keys = [key for _key_indent, key in key_stack]
         uses_match = re.match(r"(?:-\s*)?uses:\s*(.*)$", stripped)
         run_match = re.match(r"(?:-\s*)?run:\s*(.*)$", stripped)
-        paths_match = re.match(r"paths:\s*(.*)$", stripped)
+        paths_match = re.match(r"(paths|paths-ignore):\s*(.*)$", stripped)
         paths_is_trigger_filter = (
             len(ancestor_keys) >= 2
             and ancestor_keys[0] in {"on", "'on'", '"on"'}
@@ -1274,11 +1275,12 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
             else:
                 runs.append(_strip_yaml_scalar(marker))
         elif paths_match and paths_is_trigger_filter:
-            inline = paths_match.group(1).strip()
+            destination = path_filters if paths_match.group(1) == "paths" else path_ignores
+            inline = paths_match.group(2).strip()
             if inline.startswith("[") and inline.endswith("]"):
                 for item in inline[1:-1].split(","):
                     if item.strip():
-                        path_filters.append(_strip_yaml_scalar(item))
+                        destination.append(_strip_yaml_scalar(item))
             elif not inline:
                 index += 1
                 while index < len(lines):
@@ -1290,7 +1292,7 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
                         break
                     item_match = re.match(r"-\s*(.*)$", item_stripped)
                     if item_match:
-                        path_filters.append(_strip_yaml_scalar(item_match.group(1)))
+                        destination.append(_strip_yaml_scalar(item_match.group(1)))
                     index += 1
         key_match = re.match(r"(?:-\s*)?([A-Za-z0-9_\"'-]+):\s*$", stripped)
         if key_match:
@@ -1298,6 +1300,7 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
         index += 1
     return {
         "path_filters": [value for value in path_filters if value],
+        "path_ignores": [value for value in path_ignores if value],
         "runs": [value for value in runs if value],
         "uses": [value for value in uses if value],
     }
@@ -1470,6 +1473,10 @@ def _workflow_direct_matches(
                 selected_by_path = not negative
         if selected_by_path:
             matches.add((root, "workflow_path_filter"))
+        if structure["path_ignores"] and not any(
+            fnmatch.fnmatchcase(root, pattern) for pattern in structure["path_ignores"]
+        ):
+            matches.add((root, "workflow_path_ignore"))
         if root in literal_run_references:
             matches.add((root, "workflow_run"))
     return sorted(matches)
