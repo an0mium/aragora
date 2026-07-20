@@ -2,14 +2,14 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-20 18:19 America/Chicago
-- **Current phase:** Final validation and exact-head rereview
+- **Last updated:** 2026-07-20 18:23 America/Chicago
+- **Current phase:** Complete; report and cleanup in progress
 - **Active batch:** Batch 1: Inventory and enforcement
-- **Last completed batch:** none
+- **Last completed batch:** Batch 1: Inventory and enforcement
 - **Next exact batch:** none; final review/cleanup only
 - **Active PR:** #9439
 - **Docs promoted this run:** none
-- **Latest Elves Report:** pending final exact-head review
+- **Latest Elves Report:** `/tmp/elves-report-aragora-vibeproxy-allowlist-2026-07-20.html`
 
 ## Session Setup: 2026-07-20 17:06 America/Chicago
 
@@ -124,3 +124,14 @@
 - Ruff, mypy, exact inventory (139/143/4,762), charter compliance, and automation preflight: PASS.
 
 **Next action:** commit and push the round-2 fixes, then obtain a fresh exact-head independent review before cleanup/readiness.
+
+## Session Summary: 2026-07-20 18:23 America/Chicago
+
+- Exact independently reviewed implementation head: `5b062704515d78dbddc5a0d98bd79ee0093cd999`.
+- Final independent verdict: no P0-P2 blockers; all prior findings reproduced, repaired, and rechecked.
+- GitHub state at reviewed head: draft, mergeable, no comments/reviews/inline comments, all six required checks green.
+- Delivered bounded unit: deterministic inference-site inventory, reviewed proxy/direct policy manifest, provenance-aware scanner, fail-closed port/source handling, and 18 focused tests.
+- Validation: 115 combined tests, ruff, mypy, exact 139-site/143-detection inventory across 4,762 files, charter compliance, automation preflight, pre-commit/push hooks, and required CI all passed.
+- Scope stayed legal: no runtime routing, inference calls, evidence, settlement, governance, workflow, authentication/pinning, merge, or later #9409 unit.
+- Residual dependency: the next recommended exact-match OpenAI Chat/Responses routing unit must start from main after the user reviews and merges PR #9439; no stacked follow-on PR was opened.
+- Human next step: review the generated manifest and provenance rules, then merge PR #9439 if satisfied. The user remains the merger.

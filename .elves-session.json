@@ -1,7 +1,7 @@
 {
   "session_id": "elves-vibeproxy-inference-allowlist-9409-20260720",
   "version": "1.12.0",
-  "status": "in_progress",
+  "status": "complete",
   "branch": "codex/vibeproxy-inference-allowlist-9409",
   "plan_path": "docs/plans/2026-07-20-vibeproxy-inference-allowlist.md",
   "survival_guide_path": "docs/elves/vibeproxy-inference-allowlist-9409/survival-guide.md",
@@ -9,13 +9,13 @@
   "execution_log_path": "docs/elves/vibeproxy-inference-allowlist-9409/execution-log.md",
   "pr_number": 9439,
   "hard_stop": "2026-07-20T20:15:00-05:00",
-  "collision_tripwire": "d3ca833cd373a109c36c0b8eabffde0a0869e207",
+  "collision_tripwire": "5b062704515d78dbddc5a0d98bd79ee0093cd999",
   "lease_id": "225e738e-cea",
   "continuation_guard": {
     "remaining_batches": 0,
-    "stop_allowed": false,
+    "stop_allowed": true,
     "checkpoint_is_stop": true,
-    "next_required_action": "Push repaired head, obtain exact-head independent review, and clean ephemeral artifacts"
+    "next_required_action": "Generate report, clean ephemeral artifacts, push, and poll final PR state"
   },
   "test_baseline": {
     "passed": 97,
@@ -27,17 +27,17 @@
   "current_batch": {
     "id": 1,
     "name": "Inventory and enforcement",
-    "status": "in_progress"
+    "status": "complete"
   },
   "batches": [
     {
       "id": 1,
       "name": "Inventory and enforcement",
-      "status": "in_progress",
-      "commit": null,
+      "status": "complete",
+      "commit": "5b062704515d78dbddc5a0d98bd79ee0093cd999",
       "rollback_tag": "elves/vibeproxy-inference-allowlist-9409/pre-batch-1",
       "started_at": "2026-07-20T17:16:00-05:00",
-      "completed_at": null
+      "completed_at": "2026-07-20T18:23:00-05:00"
     }
   ],
   "review_comments": [

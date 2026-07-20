@@ -32,9 +32,9 @@ Complete the issue #9409 inference-site inventory/static-allowlist prerequisite 
 ## Stop Gate
 
 - **Planned batches remaining:** 0
-- **Stop allowed right now:** no
-- **Why:** implementation and validation are complete, but a fresh independent review of the exact repaired head and final cleanup remain.
-- **Next required action:** commit/push review fixes, obtain exact-head independent review, then clean ephemeral run artifacts and verify readiness.
+- **Stop allowed right now:** yes, after required report generation and operational-artifact cleanup
+- **Why:** Batch 1 is implemented, fully validated, independently reviewed clean at `5b06270451`, and all six required checks pass.
+- **Next required action:** generate the Elves Report, remove operational artifacts, push cleanup, and poll the clean PR one final time.
 
 ## Non-Negotiables
 
@@ -61,13 +61,13 @@ Complete the issue #9409 inference-site inventory/static-allowlist prerequisite 
 
 ## Current Phase
 
-**Status:** Final validation and review
+**Status:** Complete; report and cleanup in progress
 
 **Active batch:** Batch 1: Inventory and enforcement
 
-**What was just finished:** Second-review provenance, bare-port, and regeneration-safety repairs pass 115 combined tests plus lint/type/inventory/charter/preflight gates.
+**What was just finished:** Exact-head independent review found no P0-P2 blocker; all six required GitHub checks pass at `5b06270451`.
 
-**Single next action:** Commit/push the round-2 repaired head and request a fresh exact-head independent review.
+**Single next action:** Generate the Elves Report, clean all ephemeral run artifacts, push, and perform the final live poll.
 
 ## Active Compute
 
@@ -88,7 +88,7 @@ No active paid or long-running compute. The completed Fable consult is advisory 
 - [x] Exact current inventory passes; unclassified and stale entries fail.
 - [x] Port 8317, including zero-padded textual forms, fails closed.
 - [x] Protected direct-only categories are asserted.
-- [ ] Focused and broad gates are clean; exact repaired-head independent review remains.
+- [x] Focused and broad gates plus exact repaired-head independent review are clean.
 
 **Risk:** Avoid noisy broad string matching and fragile line-number anchors.
 
