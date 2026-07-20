@@ -610,6 +610,18 @@ class TestUpdateMemoryOutcomes:
         mock_memory_manager.track_retrieved_ids.assert_not_called()
         mock_memory_manager.update_memory_outcomes.assert_not_called()
 
+    def test_updates_pending_outcomes_when_no_ids_tracked(
+        self, mock_memory_manager: Mock, mock_debate_result: Mock
+    ) -> None:
+        """Pending retry queues drain even when this debate retrieved no new memories."""
+        mock_memory_manager.has_pending_outcome_updates = True
+        hooks = DebateHooks(memory_manager=mock_memory_manager)
+
+        hooks._update_memory_outcomes(mock_debate_result)
+
+        mock_memory_manager.track_retrieved_ids.assert_not_called()
+        mock_memory_manager.update_memory_outcomes.assert_called_once_with(mock_debate_result)
+
 
 class TestUpdateCalibration:
     """Test _update_calibration helper method."""

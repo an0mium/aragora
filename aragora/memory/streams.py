@@ -36,17 +36,15 @@ _provider_registered = False
 def _register_embedding_provider(provider: "EmbeddingProvider") -> None:
     """Register embedding provider with ServiceRegistry for observability."""
     global _provider_registered, _embedding_provider_ref
+    if _embedding_provider_ref is not provider:
+        _get_cached_embedding.cache_clear()
     _embedding_provider_ref = provider
-
-    if _provider_registered:
-        return
 
     try:
         from aragora.services import EmbeddingProviderService, ServiceRegistry
 
         registry = ServiceRegistry.get()
-        if not registry.has(EmbeddingProviderService):
-            registry.register(EmbeddingProviderService, provider)
+        registry.register(EmbeddingProviderService, provider)
         _provider_registered = True
     except ImportError:
         pass  # Services module not available

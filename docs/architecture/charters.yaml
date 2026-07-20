@@ -1,0 +1,841 @@
+# charters.yaml — machine-readable encoding of docs/architecture/INTENDED_ARCHITECTURE.md
+# Normative for gate/reviewer grounding (charter §3, R8b). Regenerate/update in the SAME PR
+# as any change to charter §2/§3. IDs are permanent: never reused, never renumbered.
+meta:
+  charter: docs/architecture/INTENDED_ARCHITECTURE.md
+  version: "0.5"
+  status: DRAFT
+  # Ratified iff the charter file exists on main with 'Status: RATIFIED vN.N' via an
+  # operator-approved PR. While DRAFT, only entries with binding_in_draft: true bind.
+  # Entries carrying 'ruled: 2026-07-06' encode operator adopt-or-retire rulings (#8851,
+  # decision packet + four adversarial salvage audits); they remain PROPOSED pending
+  # ratification — the ruling fixes the disposition, not the binding status.
+  generated: "2026-07-06"
+
+authorities:
+  - id: ARCH-001
+    concern: deliberation-orchestration
+    authority: aragora/debate
+    layer: L1
+    disposition: adopt
+    registry_refs: []
+  - id: ARCH-002
+    concern: receipt-emission
+    authority: aragora/gauntlet
+    layer: L1
+    disposition: adopt
+    registry_refs: [CHR-X-037]
+    notes: aragora/receipts is a sanctioned facade over gauntlet; no independent receipt classes
+  - id: ARCH-003
+    concern: external-receipt-verification
+    authority: aragora-verify (PyPI package, ODR schema)
+    layer: L1
+    disposition: adopt
+    registry_refs: [CHR-X-001]
+  - id: ARCH-004
+    concern: quality-scoring-eval-metrics
+    authority: aragora/evaluation
+    layer: L1
+    disposition: adopt
+    registry_refs: [CHR-X-007]
+  - id: ARCH-005
+    concern: claims-evidence-base
+    authority: aragora/reasoning
+    layer: L1
+    disposition: adopt
+    registry_refs: []
+  - id: ARCH-006
+    concern: agent-calibration
+    authority: aragora/ranking
+    layer: L1
+    disposition: absorb
+    registry_refs: [CHR-X-026]
+  - id: ARCH-007
+    concern: durable-knowledge-store
+    authority: aragora/knowledge/mound
+    layer: L2
+    disposition: adopt
+    registry_refs: [CHR-X-002, CHR-X-038]
+  - id: ARCH-008
+    concern: debate-session-memory
+    authority: aragora/memory
+    layer: L2
+    disposition: adopt
+    registry_refs: [CHR-X-003, CHR-X-020]
+  - id: ARCH-009
+    concern: outcome-confidence-feedback
+    authority: aragora/debate/km_outcome_bridge.py
+    layer: L1
+    disposition: adopt
+    registry_refs: [CHR-X-003]
+  - id: ARCH-010
+    concern: embeddings
+    authority: aragora/core
+    layer: L1
+    disposition: absorb
+    registry_refs: [CHR-X-027]
+  - id: ARCH-011
+    concern: context-navigation
+    authority: aragora/rlm
+    layer: L2
+    disposition: adopt
+    registry_refs: []
+  - id: ARCH-012
+    concern: work-ownership-leases
+    authority: aragora/nomic/dev_coordination
+    layer: L5
+    disposition: adopt
+    registry_refs: [CHR-X-012]
+    ruled: "2026-07-06"
+    notes: >-
+      worktree/fleet.py is a mirror, never a second truth. coordination/claims.py
+      (never-block advisory claims) absorbs into aragora/swarm per CHR-X-012
+      (operator ruling 2026-07-06 (#8851), salvage-audited)
+  - id: ARCH-013
+    concern: bead-convoy-stores
+    authority: aragora/nomic/stores
+    layer: L5
+    disposition: adopt
+    registry_refs: [CHR-X-028, CHR-X-043]
+    ruled: "2026-07-06"
+    notes: >-
+      aragora/workspace (delegating wrapper, 11 live importers) absorbs into
+      aragora/nomic/stores per CHR-X-043, sequenced AFTER CHR-X-028 gastown
+      retirement (operator ruling 2026-07-06 (#8851), salvage-audited)
+  - id: ARCH-014
+    concern: fleet-task-scheduling
+    authority: aragora/swarm (boss loop) + aragora/nomic/dev_coordination dispatch
+    layer: L5
+    disposition: adopt
+    registry_refs: [CHR-X-012, CHR-X-013, CHR-X-014, CHR-X-015, CHR-X-040, CHR-X-041, CHR-X-042]
+    ruled: "2026-07-06"
+    notes: >-
+      CHR-X-015 split per-component by operator ruling 2026-07-06 (#8851), salvage-audited:
+      retire auto_scaling/agent_federation/regional_sync (CHR-X-015), PARK
+      scheduler.py + registry.py remainder (CHR-X-040), RELOCATE blockchain_identity
+      (CHR-X-041); workflow/scheduler.py retire is CHR-X-042
+  - id: ARCH-015
+    concern: durable-server-jobs
+    authority: aragora/queue
+    layer: L3
+    disposition: adopt
+    registry_refs: [CHR-P4A-004]
+    ruled: "2026-07-06"
+    notes: >-
+      ADOPT as authority confirmed — operator ruling 2026-07-06 (#8851), salvage-audited.
+      LIVE, not dormant: GauntletWorker default-on in aragora/server/startup/workers.py;
+      scripts/queue_worker.py entrypoint
+  - id: ARCH-016
+    concern: product-dag-workflows
+    authority: aragora/workflow
+    layer: L3
+    disposition: adopt
+    registry_refs: [CHR-X-042]
+    ruled: "2026-07-06"
+    notes: >-
+      ADOPT as authority confirmed (DAG library; 36 external importers, engine live in
+      pipeline/CLI/canvas/MCP/handlers) — operator ruling 2026-07-06 (#8851),
+      salvage-audited. Library consumed by pipeline; must not grow a rival scheduler
+      or debate loop; workflow/scheduler.py retires per CHR-X-042
+  - id: ARCH-017
+    concern: idea-to-execution-pipeline
+    authority: aragora/pipeline
+    layer: L3
+    disposition: absorb
+    registry_refs: [CHR-X-029]
+    ruled: "2026-07-06"
+    notes: >-
+      goals/ ABSORB confirmed — extractor.py becomes the pipeline stage-2 module,
+      repoint the 8 live importers (operator ruling 2026-07-06 (#8851), salvage-audited)
+  - id: ARCH-018
+    concern: agent-process-spawning
+    authority: aragora/harnesses
+    layer: L5
+    disposition: absorb
+    registry_refs: [CHR-X-030]
+  - id: ARCH-019
+    concern: pr-settlement
+    authority: scripts/settle_tier4_pr.py + aragora/cli review-queue transports
+    layer: L5
+    disposition: absorb
+    registry_refs: [CHR-X-008]
+  - id: ARCH-020
+    concern: conductor-goal-loop
+    authority: scripts/fable_goal_cycle.py + scripts/consult_claude.py
+    layer: L5
+    disposition: adopt
+    # retirement of the superseded conductor duplicates is chartered in CHR-X-009,
+    # not against this authority
+    registry_refs: [CHR-X-009]
+  - id: ARCH-021
+    concern: worktree-lifecycle
+    authority: aragora/worktree
+    layer: L5
+    disposition: adopt
+    registry_refs: [CHR-X-012]
+  - id: ARCH-022
+    concern: scheduled-ops-jobs
+    authority: aragora/scheduler
+    layer: L0
+    disposition: adopt
+    registry_refs: [CHR-X-031]
+    notes: ops-cron is distinct from fleet work-dispatch (ARCH-014); not covered by CHR-E-003
+  - id: ARCH-023
+    concern: http-ws-ingress
+    authority: aragora/server/unified_server.py + handler_registry + stream servers
+    layer: L3
+    disposition: adopt
+    registry_refs: [CHR-X-011, CHR-X-016]
+    notes: unregistered handler modules are dormant per R6
+  - id: ARCH-024
+    concern: python-client
+    authority: sdk/python/aragora_sdk
+    layer: L3
+    disposition: absorb
+    registry_refs: [CHR-X-033]
+  - id: ARCH-025
+    concern: inbound-connectors
+    authority: aragora/connectors
+    layer: L4
+    disposition: absorb
+    registry_refs: [CHR-X-032, CHR-X-023]
+  - id: ARCH-026
+    concern: outbound-delivery
+    authority: aragora/channels + aragora/notifications/service.py
+    layer: L4
+    disposition: absorb
+    registry_refs: [CHR-X-004, CHR-X-015]
+  - id: ARCH-027
+    concern: retry-dead-letter
+    authority: aragora/webhooks/retry_queue.py
+    layer: L4
+    disposition: absorb
+    registry_refs: [CHR-X-034]
+  - id: ARCH-028
+    concern: agent-facing-tools
+    authority: aragora/mcp
+    layer: L4
+    disposition: adopt
+    registry_refs: []
+  - id: ARCH-029
+    concern: observability
+    authority: aragora/observability
+    layer: L0
+    disposition: adopt
+    registry_refs: [CHR-X-005, CHR-P4A-001, CHR-P4A-002, CHR-P4A-003]
+    notes: RATIFIED by P4a
+  - id: ARCH-030
+    concern: persistence-api
+    authority: aragora/storage
+    layer: L0
+    disposition: absorb
+    registry_refs: [CHR-X-019, CHR-X-022]
+  - id: ARCH-031
+    concern: schema-migrations
+    authority: aragora/persistence/migrations
+    layer: L0
+    disposition: interim-adopt
+    registry_refs: [CHR-X-021]
+    notes: interim authority (what auto_migrations runs); consolidation parked
+  - id: ARCH-032
+    concern: circuit-breaking-retry
+    authority: aragora/resilience
+    layer: L0
+    disposition: adopt
+    registry_refs: [CHR-X-006]
+  - id: ARCH-033
+    concern: authn-authz
+    authority: aragora/rbac + aragora/auth
+    layer: L0
+    disposition: adopt
+    registry_refs: [CHR-X-035]
+    notes: Tier 3-4 blast radius; no autonomous refactor
+  - id: ARCH-034
+    concern: key-rotation
+    authority: aragora/security per-provider rotators wired by aragora/server/startup/security.py
+    layer: L0
+    disposition: interim-adopt
+    registry_refs: [CHR-X-036]
+    notes: end-state is one table-driven registry in aragora/security; no new rotator files
+  - id: ARCH-035
+    concern: numeric-truth
+    authority: docs/METRICS.md
+    layer: L6
+    disposition: adopt
+    registry_refs: []
+  - id: ARCH-036
+    concern: removal-intent
+    authority: docs/architecture/INTENDED_ARCHITECTURE.md#3 + docs/architecture/charters.yaml
+    layer: L6
+    disposition: adopt
+    registry_refs: []
+
+registry:
+  # --- 3a. Executed (RATIFIED) ---
+  - id: CHR-P4A-001
+    state: REMOVED
+    binding_in_draft: true
+    paths: [aragora/server/metrics.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "PR #8712; P4A_LAYERING_DISPOSITION.md; home is aragora.observability.server_metrics"
+    superseded_by: null
+  - id: CHR-P4A-002
+    state: REMOVED
+    binding_in_draft: true
+    paths: [aragora/server/middleware/tracing.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "PR #8717; home is aragora.observability.middleware.tracing"
+    superseded_by: null
+  - id: CHR-P4A-003
+    state: REMOVED
+    binding_in_draft: true
+    paths: [aragora/server/http_client_pool.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "PR #8719; home is aragora.observability.http_client_pool"
+    superseded_by: null
+  - id: CHR-P4A-004
+    state: REMOVED
+    binding_in_draft: true
+    paths: [aragora/queue/__init__.py]
+    symbols: ["aragora.queue:create_default_executor"]
+    deadline: null
+    owner: null
+    evidence: "removed #8890; re-added charter-blind #8893 (specimen, #8905); re-removed #8909 (2026-07-05). Home: aragora/debate/queue_executor.py"
+    superseded_by: null
+
+  # --- 3b. PENDING (no new importers/callers; execute after ratification/#8851) ---
+  - id: CHR-X-001
+    state: PENDING
+    paths: [aragora/gauntlet/odr_verify.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "odr_verify.py docstring 'no shipped CLI/route calls it'; docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md"
+    superseded_by: null
+  - id: CHR-X-002
+    state: PENDING
+    paths:
+      - aragora/knowledge/fact_extractor.py
+      - aragora/knowledge/migration.py
+      - aragora/knowledge/mound_store.py
+      - aragora/knowledge/unified/unified_store.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "0 external importers each (re-verified 2026-07-06); vector_store/search are CHR-X-038, NOT here"
+    superseded_by: null
+  - id: CHR-X-003
+    state: PENDING
+    paths:
+      - aragora/memory/outcome_bridge.py
+      - aragora/memory/openclaw_bridge.py
+      - aragora/memory/claude_mem_km_sync.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "test-only importers; live edge is aragora/debate/km_outcome_bridge.py"
+    superseded_by: null
+  - id: CHR-X-004
+    state: PENDING
+    paths: [aragora/bots/slack_bot.py, aragora/bots/teams_bot.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "0 importers; Slack served by connectors/chat + handlers + channels dock"
+    superseded_by: null
+  - id: CHR-X-005
+    state: PENDING
+    paths: [aragora/telemetry/, aragora/monitoring/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "re-export shims; observability is P4a single authority"
+    superseded_by: null
+  - id: CHR-X-006
+    state: PENDING
+    paths:
+      - aragora/resilience/circuit_breaker_v2.py
+      - aragora/resilience_patterns.py
+      - aragora/resilience_config.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "0 external importers / package-internal only"
+    superseded_by: null
+  - id: CHR-X-007
+    state: PENDING
+    binding_in_draft: true
+    paths: [aragora/metrics/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "shim's own DeprecationWarning contract ('for one release'); new imports of aragora.metrics forbidden now"
+    superseded_by: null
+  - id: CHR-X-008
+    state: PENDING
+    paths:
+      - scripts/settle_one_pr.py
+      - scripts/tier4_merge_train.py
+      - scripts/auto_merge_quorum_green.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "wrapper sprawl around settle_tier4_pr; absorb then retire"
+    superseded_by: null
+  - id: CHR-X-009
+    state: PENDING
+    paths:
+      - scripts/goal_conductor.py
+      - scripts/lane_conductor.py
+      - scripts/overnight_conductor.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "superseded by fable_goal_cycle + consult_claude (#8835); scripts/goal_conductor.py:310 hardcodes the scripts/nomic_loop.py path"
+    superseded_by: null
+  - id: CHR-X-010
+    state: PENDING
+    paths:
+      - aragora/agents/email_agents.py
+      - aragora/agents/feature_agent.py
+      - aragora/agents/power_sampling_mixin.py
+      - aragora/ranking/muse_calibration.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "zero-importer (lazy __init__ re-exports only). NOT chartered: ranking/snapshot.py, ranking/redteam.py, verification/sandbox.py (real callers: elo.py:90,96; elo_leaderboard.py:18; elo_matchmaking.py:25; formal.py:559; verification/__init__.py:49)"
+    superseded_by: null
+  - id: CHR-X-012
+    state: PENDING
+    ruled: "2026-07-06"
+    paths:
+      - aragora/coordination/claims.py
+      - aragora/coordination/task_dispatcher.py
+      - aragora/coordination/registry.py
+      - aragora/coordination/health_watchdog.py
+      - aragora/coordination/worktree_manager.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: >-
+      operator ruling 2026-07-06 (#8851), salvage-audited. ABSORB into aragora/swarm:
+      claims.py (ClaimManager: never-block advisory claims with contested_by reporting)
+      and registry.py (SessionRegistry: PID-liveness tri-state discovery with auto-reap)
+      — live consumer aragora/swarm/session_coordinator.py:20 and the `aragora swarm`
+      CLI. Existing salvage stands: GitReconciler->aragora/worktree, bus->aragora/events
+      (session_coordinator also imports CoordinationBus), directives->aragora/swarm.
+      RETIRE task_dispatcher.py, health_watchdog.py, worktree_manager.py — sole consumer
+      is nomic/self_improve.py's untested optional path (built-in BranchCoordinator
+      fallback); trim that import block as part of retirement.
+      GUARD: cross_workspace.py and resolver.py are NOT covered by this ruling and are
+      the package's most-imported modules — package/__init__ deletion is BLOCKED until
+      they receive their own disposition.
+    superseded_by: null
+  - id: CHR-X-013
+    state: PENDING
+    paths: [aragora/fabric/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "per #8851 ruling; flip ARAGORA_ENABLE_AGENT_FABRIC default->false first (extensions.py:39)"
+    superseded_by: null
+  - id: CHR-X-014
+    state: PENDING
+    ruled: "2026-07-06"
+    paths: [aragora/tasks/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: >-
+      RETIRE now — operator ruling 2026-07-06 (#8851), salvage-audited. Inline
+      router.py (incl. VALID_TASK_TYPES) into aragora/server/handlers/tasks/execution.py;
+      REQUIRED: port the 18 passing tests from tests/tasks/test_router.py to the inlined
+      location. SDK /api/v2/tasks unaffected (handler-backed)
+    superseded_by: null
+  - id: CHR-X-015
+    state: PENDING
+    ruled: "2026-07-06"
+    paths:
+      - aragora/control_plane/auto_scaling.py
+      - aragora/control_plane/agent_federation.py
+      - aragora/control_plane/regional_sync.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: >-
+      operator ruling 2026-07-06 (#8851), salvage-audited — split per-component.
+      RETIRE auto_scaling.py (recommendation engine with scale callbacks defaulting to
+      None — never provisions anything; no exports, no callers), agent_federation.py
+      (discovery/health scaffold; remote_endpoint field never read, no RPC layer exists;
+      path corrected from stale 'federation.py'), regional_sync.py (zero active
+      instantiation; region_router works without it).
+      scheduler.py + registry.py remainder PARKED -> CHR-X-040; registry.py
+      health/liveness surface consumed by aragora/debate/team_selector.py (optional
+      health filtering, graceful fallback) is KEPT. blockchain_identity.py RELOCATE ->
+      CHR-X-041. KEEP unchanged authority: policy store/sync/cache, notifications.py
+      (until ARCH-026 absorb), deliberation worker.
+      warn-then-None in prod (startup/control_plane.py:55-58); public-API deprecation
+      path required
+    superseded_by: null
+  - id: CHR-X-016
+    state: PENDING
+    paths: [aragora/server/extensions.py]
+    symbols: ["aragora.server.extensions:init_extensions"]
+    deadline: null
+    owner: null
+    evidence: "zero callers; delete the init path or wire it at startup - no limbo"
+    superseded_by: null
+  - id: CHR-X-017
+    state: PENDING
+    paths: [aragora/gateway/]
+    symbols: ["aragora.gateway.server:LocalGateway"]
+    deadline: null
+    owner: null
+    evidence: "no non-test code starts LocalGateway; registered gateway HTTP handlers stay"
+    superseded_by: null
+  - id: CHR-X-018
+    state: PENDING
+    paths: [docs/STATUS.md, docs/COORDINATION.md]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "COORDINATION.md frozen 2026-04-28, folds into AGENT_OPERATING_CONTRACT; archive stale positioning snapshots"
+    superseded_by: null
+  - id: CHR-X-019
+    state: PENDING
+    paths: [aragora/db/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "duplicate get_database abstraction; 1 importer (control_plane/health handler); fold into aragora/storage"
+    superseded_by: null
+  - id: CHR-X-025
+    state: PENDING
+    paths:
+      - docs/architecture/ARCHITECTURE.md
+      - docs/architecture/ARCHITECTURE_THREE_LAYER.md
+      - docs/architecture/SYSTEM_DIAGRAM.md
+      - docs/architecture/system-overview.md
+      - docs/architecture/GATEWAY_ARCHITECTURE.md
+      - docs/architecture/CODEBASE_ANALYSIS.md
+      - docs/architecture/ANALYSIS.md
+      - docs/architecture/ground-up-assessment-2026-01-29.md
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "stamp SUPERSEDED-BY header or archive as part of the ratification PR (charter s0 precedence)"
+    superseded_by: null
+  - id: CHR-X-026
+    state: PENDING
+    paths: [aragora/agents/calibration.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "absorb into aragora/ranking (ARCH-006); dual calibration paths risk schema drift"
+    superseded_by: null
+  - id: CHR-X-027
+    state: PENDING
+    paths:
+      - aragora/knowledge/embeddings.py
+      - aragora/memory/embeddings.py
+      - aragora/ml/embeddings.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "demote to provider plugins behind aragora/core (ARCH-010); coordinate with CHR-X-038 (knowledge/embeddings imports search/bm25)"
+    superseded_by: null
+  - id: CHR-X-028
+    state: PENDING
+    paths: [aragora/extensions/gastown/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "Gastown bead/convoy dialect (refinery/rig); aragora/nomic/stores is the single truth (ARCH-013)"
+    superseded_by: null
+  - id: CHR-X-029
+    state: PENDING
+    ruled: "2026-07-06"
+    paths: [aragora/goals/, aragora/autonomous/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: >-
+      goals/ ABSORB into aragora/pipeline confirmed — extractor.py becomes the pipeline
+      stage-2 module; repoint the 8 live importers (operator ruling 2026-07-06 (#8851),
+      salvage-audited). autonomous/ self-describes 'Nomic Loop Enhancement' (ARCH-017)
+    superseded_by: null
+  - id: CHR-X-030
+    state: PENDING
+    paths: [aragora/swarm/worker_launcher.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "direct spawn at worker_launcher.py:613,685; becomes a harnesses consumer (ARCH-018)"
+    superseded_by: null
+  - id: CHR-X-031
+    state: PENDING
+    paths: [aragora/schedulers/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "deprecated shim package; home is aragora/scheduler (ARCH-022); shim family with CHR-X-005/006/007"
+    superseded_by: null
+  - id: CHR-X-032
+    state: PENDING
+    paths:
+      - aragora/integrations/slack.py
+      - aragora/integrations/telegram.py
+      - aragora/integrations/teams.py
+      - aragora/integrations/whatsapp.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "platform clients absorb into connectors/chat via staged migration (ARCH-025); both Telegram stacks live today"
+    superseded_by: null
+  - id: CHR-X-033
+    state: PENDING
+    paths: [aragora/client/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "ungated 37-resource client kept alive by CLI; CLI migrates to sdk/python/aragora_sdk or client joins parity gate (ARCH-024, check_sdk_parity.py:280)"
+    superseded_by: null
+  - id: CHR-X-034
+    state: PENDING
+    paths:
+      - aragora/notifications/retry_queue.py
+      - aragora/events/dead_letter_queue.py
+      - aragora/integrations/webhooks.py
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "4 retry/dead-letter implementations, all reachable; consolidate onto aragora/webhooks/retry_queue.py (ARCH-027)"
+    superseded_by: null
+  - id: CHR-X-035
+    state: PENDING
+    paths: [aragora/security/token_rotation.py, aragora/auth/token_rotation.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "duplicated token rotation; absorb into one (ARCH-033 rules which at execution)"
+    superseded_by: null
+  - id: CHR-X-036
+    state: PENDING
+    paths: ["aragora/security/*_rotator.py"]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "8 per-provider rotator files, each with 1 importer (startup/security.py); absorb into one table-driven registry; no NEW rotator files meanwhile (ARCH-034)"
+    superseded_by: null
+  - id: CHR-X-037
+    state: PENDING
+    paths: [aragora/export/decision_receipt.py]
+    symbols: ["aragora.receipts:LegacyDecisionReceipt"]
+    deadline: null
+    owner: null
+    evidence: "third receipt lineage (receipts/__init__.py:9); absorb-or-retire per RECEIPT_LINEAGE_RECONCILIATION; receipts/ chartered facade-only over gauntlet (ARCH-002)"
+    superseded_by: null
+  - id: CHR-X-038
+    state: PENDING
+    paths: [aragora/knowledge/vector_store.py, aragora/knowledge/search/]
+    symbols:
+      - "aragora.knowledge.vector_store:KnowledgeVectorStore"
+      - "aragora.knowledge.vector_store:KnowledgeVectorConfig"
+    deadline: null
+    owner: null
+    evidence: "ABSORB into knowledge/mound, do NOT delete in place - live internal importers: mound/core.py:306 (Weaviate connect path), knowledge/embeddings.py:14 (bm25), mound/vector_abstraction/memory.py:27 (bm25). Corrects v0.1's wrong '0 external importers' claim"
+    superseded_by: null
+  - id: CHR-X-041
+    state: PENDING
+    ruled: "2026-07-06"
+    paths: [aragora/control_plane/blockchain_identity.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: >-
+      RELOCATE to aragora/blockchain/agent_registry.py — operator ruling 2026-07-06
+      (#8851), salvage-audited. Live consumer aragora/blockchain/receipt_settlement.py
+      must be refactored in the same move. Split out of CHR-X-015
+    superseded_by: null
+  - id: CHR-X-042
+    state: PENDING
+    ruled: "2026-07-06"
+    paths: [aragora/workflow/scheduler.py]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: >-
+      RETIRE — duplicate of the scheduling concern (ARCH-014/ARCH-022 inventory);
+      minted alongside the ARCH-016 workflow ADOPT confirmation (operator ruling
+      2026-07-06 (#8851), salvage-audited)
+    superseded_by: null
+  - id: CHR-X-043
+    state: PENDING
+    ruled: "2026-07-06"
+    paths: [aragora/workspace/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: >-
+      ABSORB aragora/workspace (delegating wrapper over NomicBeadStore, 11 live
+      importers) into aragora/nomic/stores (ARCH-013); sequenced AFTER CHR-X-028
+      (gastown retirement) — operator ruling 2026-07-06 (#8851), salvage-audited
+    superseded_by: null
+
+  # --- 3c. PARKED (named owner + calendar date; frozen both ways) ---
+  - id: CHR-X-011
+    state: PARKED
+    paths: [aragora/server/fastapi/]
+    symbols: []
+    deadline: "2026-09-01"
+    owner: operator
+    evidence: "second HTTP stack, default-off, no deploy/CI reference (unified_server.py:1313); make it THE stack or delete"
+    superseded_by: null
+  - id: CHR-X-020
+    state: PARKED
+    paths: [aragora/memory/gateway/]
+    symbols: []
+    deadline: "2026-08-15"
+    owner: operator
+    evidence: "Unified Memory Gateway flag-off (orchestrator_config.py:421); adopt or remove with #8851; backstop date auto-escalates"
+    superseded_by: null
+  - id: CHR-X-021
+    state: PARKED
+    paths: [aragora/migrations/, aragora/storage/migrations/, aragora/db/migrate.py]
+    symbols: []
+    deadline: "2026-09-01"
+    owner: operator
+    evidence: "3 migration systems; interim authority = aragora/persistence/migrations (ARCH-031, what auto_migrations runs)"
+    superseded_by: null
+  - id: CHR-X-022
+    state: PARKED
+    paths: [aragora/persistence/]
+    symbols: []
+    deadline: "2026-09-01"
+    owner: operator
+    evidence: "vs storage adjudication; serves the nomic loop; rule after CHR-X-019 executes; backstop date"
+    superseded_by: null
+  - id: CHR-X-023
+    state: PARKED
+    paths: [aragora/connectors/verticals/]
+    symbols: []
+    deadline: "2026-10-01"
+    owner: operator
+    evidence: "~132 dynamically-loaded catalog files; grep-based dead-code claims invalid (runtime_registry.py:424 importlib)"
+    superseded_by: null
+  - id: CHR-X-024
+    state: PARKED
+    paths:
+      - aragora/debate/chaos_theater.py
+      - aragora/debate/blackbox.py
+      - aragora/debate/witness.py
+      - aragora/debate/immune_system.py
+    symbols: []
+    deadline: "2026-09-15"
+    owner: operator
+    evidence: "flag-only exotica; live caller by review date or move to an experiments namespace"
+    superseded_by: null
+  - id: CHR-X-039
+    state: PARKED
+    paths: [aragora/nomic/, aragora/swarm/, aragora/worktree/, aragora/harnesses/]
+    symbols: []
+    deadline: "2026-09-01"
+    owner: operator
+    evidence: "L5 packaging ruling: fleet machinery ships in customer wheel today vs exclusion via packaging manifest (P3 packaging proven, #8517)"
+    superseded_by: null
+  - id: CHR-X-040
+    state: PARKED
+    ruled: "2026-07-06"
+    paths:
+      - aragora/control_plane/scheduler.py
+      - aragora/control_plane/registry.py
+    symbols: []
+    kept_symbols:
+      - aragora.control_plane.registry:AgentRegistry
+      - aragora.control_plane.registry:AgentStatus
+      - aragora.control_plane.registry:AgentInfo.is_alive
+    deadline: "2026-07-29"
+    owner: operator
+    evidence: >-
+      PARK — operator ruling 2026-07-06 (#8851), salvage-audited; split out of
+      CHR-X-015. Re-review condition: adopt as distributed-dispatch authority when a
+      deployment with a real multi-worker agent pool exists; retire if none exists at
+      next charter review (deadline = #8762 checkpoint cadence). scheduler.py: 82
+      behavioral tests; priority-tier streams, capability matching, retry+dead-letter,
+      policy/cost gates — capabilities absent from nomic dev_coordination.
+      registry.py: PARK covers the remainder only (region routing, load strategies);
+      the health/liveness surface consumed by aragora/debate/team_selector.py (optional
+      health filtering, graceful fallback) is KEPT and excluded from this park
+    superseded_by: null
+
+  # --- 3d. EXCLUSIONS (never build / never wire; operational tests in charter s3d) ---
+  - id: CHR-E-001
+    state: EXCLUSION
+    paths: []
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "no deliberation loops outside aragora/debate: any module that prompts >1 agent/model and aggregates outputs into a verdict/vote/consensus/ranking"
+    superseded_by: null
+  - id: CHR-E-002
+    state: EXCLUSION
+    paths: []
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "no receipt emitters outside aragora/gauntlet; no external verifiers besides aragora-verify; exceptions closed-set: receipts/ facade re-exports + dev_coordination fleet receipts (ARCH-002)"
+    superseded_by: null
+  - id: CHR-E-003
+    state: EXCLUSION
+    paths: []
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "no new schedulers/lease-stores/agent-registries; allowed dispatch surfaces closed list: aragora/nomic/dev_coordination, aragora/queue, aragora/swarm boss-loop (supervisor/reconciler); ops-cron ARCH-022 is distinct"
+    superseded_by: null
+  - id: CHR-E-004
+    state: EXCLUSION
+    paths: [aragora/server/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "no server-local metrics/tracing/http-pool homes (P4a; CHR-P4A-001..003)"
+    superseded_by: null
+  - id: CHR-E-005
+    state: EXCLUSION
+    paths: [aragora/knowledge/mound/adapters/]
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "no new KM adapters wrapping registry entries CHR-X-001..CHR-X-043 while state=PENDING (machine check: adapter target path in pending paths)"
+    superseded_by: null
+  - id: CHR-E-006
+    state: EXCLUSION
+    paths: []
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "no platform delivery clients outside connectors/chat + channels dock; closed platform list: Slack, Teams, Telegram, WhatsApp, Discord, Zoom, Email; new platform = R5 amendment"
+    superseded_by: null
+  - id: CHR-E-007
+    state: EXCLUSION
+    paths: []
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "no second Python client surfaces beyond sdk/python/aragora_sdk (pending CHR-X-033)"
+    superseded_by: null
+  - id: CHR-E-008
+    state: EXCLUSION
+    paths: []
+    symbols: []
+    deadline: null
+    owner: null
+    evidence: "no standing admin credentials/API keys in local env, launchd plists, or shell profiles; AWS Secrets Manager only"
+    superseded_by: null

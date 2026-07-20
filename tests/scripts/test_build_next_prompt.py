@@ -792,9 +792,26 @@ def _merge_ready_packet() -> dict[str, Any]:
     }
 
 
+def _merge_ready_live_pr(**overrides: Any) -> dict[str, Any]:
+    payload = {
+        "number": 7828,
+        "state": "OPEN",
+        "isDraft": False,
+        "headRefOid": "9b80ed8dc28d132ce2b2712db4d8ad2492025649",
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "CLEAN",
+        "url": "https://github.com/synaptent/aragora/pull/7828",
+    }
+    payload.update(overrides)
+    return payload
+
+
 def test_merge_ready_prompt_selects_first_admin_squash_order(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr()
+
     prompt = prompt_builder.build_merge_ready_prompt(
-        _merge_ready_packet(),
+        packet,
         repo_root=tmp_path,
     )
 
@@ -810,8 +827,14 @@ def test_merge_ready_prompt_selects_first_admin_squash_order(tmp_path: Path) -> 
 
 
 def test_merge_ready_prompt_respects_explicit_pr(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(
+        number=7827,
+        headRefOid="d5d91763c26bbe31e5938bd30fa837ec586e0f94",
+    )
+
     prompt = prompt_builder.build_merge_ready_prompt(
-        _merge_ready_packet(),
+        packet,
         repo_root=tmp_path,
         pr=7827,
     )
@@ -822,6 +845,7 @@ def test_merge_ready_prompt_respects_explicit_pr(tmp_path: Path) -> None:
 
 def test_merge_ready_prompt_fails_closed_for_human_settlement(tmp_path: Path) -> None:
     packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr()
     packet["entries"][0]["requires_human_risk_settlement"] = True
 
     prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
@@ -831,8 +855,141 @@ def test_merge_ready_prompt_fails_closed_for_human_settlement(tmp_path: Path) ->
     assert "Do not merge, mark-ready, set statuses, rerun checks, or broaden queue scope" in prompt
 
 
+def test_merge_ready_prompt_fails_closed_without_live_metadata(tmp_path: Path) -> None:
+    prompt = prompt_builder.build_merge_ready_prompt(
+        _merge_ready_packet(),
+        repo_root=tmp_path,
+    )
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert "live PR metadata for PR #7828 is missing" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_unstable_live_metadata(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(mergeStateStatus="UNSTABLE")
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert (
+        "PR #7828 is not settlement-stable in live metadata: "
+        "mergeable=MERGEABLE, mergeStateStatus=UNSTABLE"
+    ) in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_blocked_live_metadata(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(mergeStateStatus="BLOCKED")
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert (
+        "PR #7828 is not settlement-stable in live metadata: "
+        "mergeable=MERGEABLE, mergeStateStatus=BLOCKED"
+    ) in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_stale_live_metadata_head(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(headRefOid="new-live-head")
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert (
+        "live PR head new-live-head does not match merge-packet head "
+        "9b80ed8dc28d132ce2b2712db4d8ad2492025649"
+    ) in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_missing_live_head(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(headRefOid="")
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert "live PR metadata for PR #7828 is missing an exact head" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_malformed_live_metadata(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = {}
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert "live PR metadata for PR #7828 is missing or malformed" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_live_metadata_error(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = {"error": "gh pr view failed"}
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert "live PR metadata for PR #7828 is unavailable: gh pr view failed" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_wrong_live_pr_number(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(number=7827)
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert "live PR metadata number 7827 does not match requested PR #7828" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_closed_live_pr(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(state="CLOSED")
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert "PR #7828 is not open in live metadata: state=CLOSED" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_draft_live_pr(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(isDraft=True)
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert "PR #7828 is draft in live metadata" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_non_mergeable_live_pr(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(mergeable="CONFLICTING")
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert (
+        "PR #7828 is not settlement-stable in live metadata: "
+        "mergeable=CONFLICTING, mergeStateStatus=CLEAN"
+    ) in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
 def test_merge_ready_prompt_fails_closed_for_string_not_ready_entry(tmp_path: Path) -> None:
     packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr()
     packet["not_ready"] = ["7828"]
 
     prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
@@ -857,6 +1014,10 @@ def test_packet_authorizes_blocks_string_not_ready_pr() -> None:
 
 def test_merge_ready_cli_json_emits_prompt_and_packet(monkeypatch: Any, capsys: Any) -> None:
     packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr(
+        number=7827,
+        headRefOid="d5d91763c26bbe31e5938bd30fa837ec586e0f94",
+    )
     calls: list[dict[str, Any]] = []
 
     def fake_build_merge_ready_packet(**kwargs: Any) -> dict[str, Any]:
@@ -883,6 +1044,39 @@ def test_merge_ready_cli_json_emits_prompt_and_packet(monkeypatch: Any, capsys: 
     assert calls[0]["pr"] == 7827
     assert payload["merge_packet"]["admin_squash_order"] == [7828, 7827]
     assert "PR #7827 at exact head d5d91763c26bbe31e5938bd30fa837ec586e0f94" in payload["prompt"]
+
+
+def test_merge_ready_packet_adds_live_metadata_for_selected_pr(tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        if "merge-packet" in command:
+            return subprocess.CompletedProcess(command, 0, json.dumps(_merge_ready_packet()), "")
+        if command[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps(_merge_ready_live_pr(number=7827, headRefOid="live-7827")),
+                "",
+            )
+        return subprocess.CompletedProcess(command, 1, "", "unexpected")
+
+    packet = prompt_builder.build_merge_ready_packet(
+        repo_root=tmp_path,
+        pr=7827,
+        command_runner=fake_runner,
+    )
+
+    assert packet["live_pr"]["number"] == 7827
+    assert [
+        "gh",
+        "pr",
+        "view",
+        "7827",
+        "--json",
+        "number,state,isDraft,headRefOid,mergeable,mergeStateStatus,url",
+    ] in calls
 
 
 def test_decision_packet_detects_merged_pr_with_active_tmux_evidence_lane(

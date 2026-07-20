@@ -284,7 +284,7 @@ class TestWorkerHealthStatus:
                     "aragora.control_plane.notifications": MagicMock(
                         get_default_notification_dispatcher=MagicMock(return_value=notification)
                     ),
-                    "aragora.queue.workers": MagicMock(
+                    "aragora.memory.consensus_healing_worker": MagicMock(
                         get_consensus_healing_worker=MagicMock(return_value=healing)
                     ),
                 },
@@ -355,7 +355,7 @@ class TestWorkerGauntletBranch:
                 "aragora.control_plane.notifications": MagicMock(
                     get_default_notification_dispatcher=MagicMock(return_value=None)
                 ),
-                "aragora.queue.workers": MagicMock(
+                "aragora.memory.consensus_healing_worker": MagicMock(
                     get_consensus_healing_worker=MagicMock(return_value=None)
                 ),
             },
@@ -379,7 +379,7 @@ class TestWorkerGauntletBranch:
                 "aragora.control_plane.notifications": MagicMock(
                     get_default_notification_dispatcher=MagicMock(return_value=None)
                 ),
-                "aragora.queue.workers": MagicMock(
+                "aragora.memory.consensus_healing_worker": MagicMock(
                     get_consensus_healing_worker=MagicMock(return_value=None)
                 ),
             },
@@ -418,7 +418,7 @@ class TestWorkerGauntletBranch:
                         "aragora.control_plane.notifications": MagicMock(
                             get_default_notification_dispatcher=MagicMock(return_value=None)
                         ),
-                        "aragora.queue.workers": MagicMock(
+                        "aragora.memory.consensus_healing_worker": MagicMock(
                             get_consensus_healing_worker=MagicMock(return_value=None)
                         ),
                     },
@@ -451,7 +451,7 @@ class TestWorkerGauntletBranch:
                 "aragora.control_plane.notifications": MagicMock(
                     get_default_notification_dispatcher=MagicMock(return_value=None)
                 ),
-                "aragora.queue.workers": MagicMock(
+                "aragora.memory.consensus_healing_worker": MagicMock(
                     get_consensus_healing_worker=MagicMock(return_value=None)
                 ),
             },
@@ -476,7 +476,7 @@ class TestWorkerGauntletBranch:
                 "aragora.control_plane.notifications": MagicMock(
                     get_default_notification_dispatcher=MagicMock(return_value=None)
                 ),
-                "aragora.queue.workers": MagicMock(
+                "aragora.memory.consensus_healing_worker": MagicMock(
                     get_consensus_healing_worker=MagicMock(return_value=None)
                 ),
             },
@@ -498,7 +498,7 @@ class TestWorkerGauntletBranch:
                 "aragora.control_plane.notifications": MagicMock(
                     get_default_notification_dispatcher=MagicMock(return_value=None)
                 ),
-                "aragora.queue.workers": MagicMock(
+                "aragora.memory.consensus_healing_worker": MagicMock(
                     get_consensus_healing_worker=MagicMock(return_value=None)
                 ),
             },
@@ -523,7 +523,7 @@ class TestWorkerNotificationBranch:
             "aragora.server.startup.workers": MagicMock(
                 get_gauntlet_worker=MagicMock(return_value=None)
             ),
-            "aragora.queue.workers": MagicMock(
+            "aragora.memory.consensus_healing_worker": MagicMock(
                 get_consensus_healing_worker=MagicMock(return_value=None)
             ),
         }
@@ -681,7 +681,7 @@ class TestWorkerConsensusHealingBranch:
         """Running healing worker reported correctly."""
         worker = _make_healing_worker(running=True, candidates_processed=42, healed_count=7)
         modules = self._patch_others()
-        modules["aragora.queue.workers"] = MagicMock(
+        modules["aragora.memory.consensus_healing_worker"] = MagicMock(
             get_consensus_healing_worker=MagicMock(return_value=worker)
         )
         with patch.dict("sys.modules", modules):
@@ -695,7 +695,7 @@ class TestWorkerConsensusHealingBranch:
     def test_healing_not_initialized(self, mock_handler):
         """None healing worker gives not-initialized note."""
         modules = self._patch_others()
-        modules["aragora.queue.workers"] = MagicMock(
+        modules["aragora.memory.consensus_healing_worker"] = MagicMock(
             get_consensus_healing_worker=MagicMock(return_value=None)
         )
         with patch.dict("sys.modules", modules):
@@ -706,12 +706,12 @@ class TestWorkerConsensusHealingBranch:
         assert "not initialized" in healing.get("note", "").lower()
 
     def test_healing_import_error(self, mock_handler):
-        """ImportError on queue.workers gives module-not-available note."""
+        """ImportError on the consensus-healing worker module gives module-not-available note."""
         import sys as _sys
 
         saved = {}
         for k in list(_sys.modules.keys()):
-            if k.startswith("aragora.queue.workers"):
+            if k.startswith("aragora.memory.consensus_healing_worker"):
                 saved[k] = _sys.modules.pop(k)
         try:
             import builtins
@@ -719,7 +719,7 @@ class TestWorkerConsensusHealingBranch:
             original_import = builtins.__import__
 
             def fail_healing(name, *args, **kwargs):
-                if name == "aragora.queue.workers":
+                if name == "aragora.memory.consensus_healing_worker":
                     raise ImportError("no module")
                 return original_import(name, *args, **kwargs)
 
@@ -738,7 +738,7 @@ class TestWorkerConsensusHealingBranch:
     def test_healing_attribute_error(self, mock_handler):
         """AttributeError on healing worker adds to errors."""
         modules = self._patch_others()
-        modules["aragora.queue.workers"] = MagicMock(
+        modules["aragora.memory.consensus_healing_worker"] = MagicMock(
             get_consensus_healing_worker=MagicMock(side_effect=AttributeError("bad"))
         )
         with patch.dict("sys.modules", modules):
@@ -750,7 +750,7 @@ class TestWorkerConsensusHealingBranch:
     def test_healing_runtime_error(self, mock_handler):
         """RuntimeError on healing worker adds to errors."""
         modules = self._patch_others()
-        modules["aragora.queue.workers"] = MagicMock(
+        modules["aragora.memory.consensus_healing_worker"] = MagicMock(
             get_consensus_healing_worker=MagicMock(side_effect=RuntimeError("crashed"))
         )
         with patch.dict("sys.modules", modules):
@@ -767,7 +767,7 @@ class TestWorkerConsensusHealingBranch:
         del worker._candidates_processed
         del worker._healed_count
         modules = self._patch_others()
-        modules["aragora.queue.workers"] = MagicMock(
+        modules["aragora.memory.consensus_healing_worker"] = MagicMock(
             get_consensus_healing_worker=MagicMock(return_value=worker)
         )
         with patch.dict("sys.modules", modules):
@@ -795,7 +795,7 @@ class TestWorkerOverallStatus:
             "aragora.control_plane.notifications": MagicMock(
                 get_default_notification_dispatcher=MagicMock(return_value=notification)
             ),
-            "aragora.queue.workers": MagicMock(
+            "aragora.memory.consensus_healing_worker": MagicMock(
                 get_consensus_healing_worker=MagicMock(return_value=healing)
             ),
         }
@@ -1363,7 +1363,7 @@ class TestCombinedWorkerQueueHealth:
             "aragora.control_plane.notifications": MagicMock(
                 get_default_notification_dispatcher=MagicMock(return_value=notification)
             ),
-            "aragora.queue.workers": MagicMock(
+            "aragora.memory.consensus_healing_worker": MagicMock(
                 get_consensus_healing_worker=MagicMock(return_value=healing)
             ),
         }
@@ -1676,7 +1676,7 @@ class TestEdgeCases:
             "aragora.control_plane.notifications": MagicMock(
                 get_default_notification_dispatcher=MagicMock(return_value=notification)
             ),
-            "aragora.queue.workers": MagicMock(
+            "aragora.memory.consensus_healing_worker": MagicMock(
                 get_consensus_healing_worker=MagicMock(return_value=healing)
             ),
         }
@@ -1882,7 +1882,7 @@ class TestEdgeCases:
             "aragora.control_plane.notifications": MagicMock(
                 get_default_notification_dispatcher=MagicMock(return_value=None)
             ),
-            "aragora.queue.workers": MagicMock(
+            "aragora.memory.consensus_healing_worker": MagicMock(
                 get_consensus_healing_worker=MagicMock(return_value=None)
             ),
             "aragora.storage.job_queue_store": MagicMock(
@@ -1905,7 +1905,7 @@ class TestEdgeCases:
                 "aragora.control_plane.notifications": MagicMock(
                     get_default_notification_dispatcher=MagicMock(return_value=None)
                 ),
-                "aragora.queue.workers": MagicMock(
+                "aragora.memory.consensus_healing_worker": MagicMock(
                     get_consensus_healing_worker=MagicMock(return_value=None)
                 ),
             },
@@ -1939,7 +1939,7 @@ class TestSecurity:
                 "aragora.control_plane.notifications": MagicMock(
                     get_default_notification_dispatcher=MagicMock(return_value=None)
                 ),
-                "aragora.queue.workers": MagicMock(
+                "aragora.memory.consensus_healing_worker": MagicMock(
                     get_consensus_healing_worker=MagicMock(return_value=None)
                 ),
             },
@@ -2002,7 +2002,7 @@ class TestSecurity:
                         "aragora.control_plane.notifications": MagicMock(
                             get_default_notification_dispatcher=MagicMock(return_value=None)
                         ),
-                        "aragora.queue.workers": MagicMock(
+                        "aragora.memory.consensus_healing_worker": MagicMock(
                             get_consensus_healing_worker=MagicMock(return_value=None)
                         ),
                     },
@@ -2032,7 +2032,7 @@ class TestSecurity:
                 "aragora.control_plane.notifications": MagicMock(
                     get_default_notification_dispatcher=MagicMock(return_value=None)
                 ),
-                "aragora.queue.workers": MagicMock(
+                "aragora.memory.consensus_healing_worker": MagicMock(
                     get_consensus_healing_worker=MagicMock(return_value=None)
                 ),
             },
@@ -2098,7 +2098,7 @@ class TestWorkerNamesConsistency:
             "aragora.control_plane.notifications": MagicMock(
                 get_default_notification_dispatcher=MagicMock(return_value=notification)
             ),
-            "aragora.queue.workers": MagicMock(
+            "aragora.memory.consensus_healing_worker": MagicMock(
                 get_consensus_healing_worker=MagicMock(return_value=healing)
             ),
         }
@@ -2203,7 +2203,7 @@ class TestJobQueueTimestamp:
                 "aragora.control_plane.notifications": MagicMock(
                     get_default_notification_dispatcher=MagicMock(return_value=None)
                 ),
-                "aragora.queue.workers": MagicMock(
+                "aragora.memory.consensus_healing_worker": MagicMock(
                     get_consensus_healing_worker=MagicMock(return_value=None)
                 ),
             },
