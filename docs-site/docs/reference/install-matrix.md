@@ -93,6 +93,18 @@ aragora-verify <receipt>.odr.json
 pip install aragora-sdk   # PyPI; currently ships 2.8.0
 ```
 
+Use the [public Python SDK quickstart](../SDK_QUICKSTART_PYTHON.md) for examples
+checked against that released wheel. The release-to-tree relationship is:
+
+| Install source | Version represented here | Compatibility check |
+|---|---|---|
+| PyPI (`pip install aragora-sdk`) | 2.8.0 | `python scripts/check_quickstart_surface.py --installed` in a fresh PyPI-only virtual environment |
+| This checkout (`pip install ./sdk/python`) | 2.9.0 | `python scripts/verify_sdk_contracts.py --strict` against the committed OpenAPI specs |
+
+The public 2.8.0 quickstart intentionally uses only methods present in that
+wheel. Repository-tip references can move ahead under the decoupled release
+cadence and belong on the source-install path below.
+
 Or, to exercise this checkout's in-tree version (2.9.0, not yet released to
 PyPI):
 
@@ -136,7 +148,19 @@ python -m venv /tmp/av-verify && /tmp/av-verify/bin/pip install ./aragora-verify
 echo "exit: $?"   # 0
 ```
 
-**3. SDK — local install, package imports:**
+**3. SDK — public 2.8.0 quickstart surface matches the installed wheel:**
+
+```bash
+python -m venv /tmp/av-sdk-pypi
+/tmp/av-sdk-pypi/bin/pip install aragora-sdk==2.8.0
+/tmp/av-sdk-pypi/bin/python scripts/check_quickstart_surface.py --installed
+echo "exit: $?"   # 0
+```
+
+The checker reads the self-contained `aragora_sdk` Python blocks in the public
+quickstart docs and resolves their client calls against the importable package.
+
+**4. SDK — local install, package imports:**
 
 ```bash
 python -m venv /tmp/av-sdk && /tmp/av-sdk/bin/pip install ./sdk/python
