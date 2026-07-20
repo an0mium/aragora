@@ -888,12 +888,13 @@ class TestUnstableCancellationReceipt:
         run: dict[str, Any] | None,
         files: list[dict[str, Any]] | None = None,
     ) -> Any:
-        """The receipt makes two kinds of gh calls: a `pr view --json files`
-        guard lookup and a `run view` inspection. Route each to its payload."""
+        """The receipt makes two kinds of gh calls: a REST changed-files guard
+        lookup and a `run view` inspection. Route each to its payload. The
+        files payload is slurped-pages shape: a list of pages of file dicts."""
 
         def _dispatch(args: list[str]) -> Any:
-            if list(args[:2]) == ["pr", "view"]:
-                return {"files": files if files is not None else []}
+            if list(args[:1]) == ["api"]:
+                return [files if files is not None else [{"filename": "aragora/some_file.py"}]]
             return run
 
         return _dispatch
@@ -1070,7 +1071,7 @@ class TestUnstableCancellationReceipt:
             "aragora.cli.commands.review_queue._gh_json",
             self._gh_json_dispatch(
                 self._cancelled_build_run(head_sha),
-                files=[{"path": ".github/workflows/docs-build.yml"}],
+                files=[{"filename": ".github/workflows/docs-build.yml"}],
             ),
         )
 
@@ -1093,7 +1094,7 @@ class TestUnstableCancellationReceipt:
         run = self._cancelled_build_run(head_sha)
 
         def _failing_files(args: list[str]) -> Any:
-            if list(args[:2]) == ["pr", "view"]:
+            if list(args[:1]) == ["api"]:
                 raise _RQGhError("boom")
             return run
 
@@ -1111,7 +1112,45 @@ class TestUnstableCancellationReceipt:
 
         assert receipt == {}
 
-    def test_rejects_truncated_changed_files_listing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_rejects_pr_renaming_guarded_workflow_away(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head_sha = "exact-head"
+        pr = _make_pr(
+            number=9034,
+            checks=[self._cancelled_build_check()],
+            merge_state_status="UNSTABLE",
+        )
+        pr["headRefOid"] = head_sha
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._fetch_required_pr_check_surface",
+            lambda *_args, **_kwargs: self._required_surface(),
+        )
+        # A rename surfaces the guarded file only as `previous_filename`;
+        # it must disqualify the PR exactly like an in-place edit.
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            self._gh_json_dispatch(
+                self._cancelled_build_run(head_sha),
+                files=[
+                    {
+                        "filename": ".github/workflows/docs-build-v2.yml",
+                        "previous_filename": ".github/workflows/docs-build.yml",
+                        "status": "renamed",
+                    }
+                ],
+            ),
+        )
+
+        receipt = _verified_unstable_non_required_cancellation_receipt(
+            pr=pr,
+            pr_number=9034,
+            repo_override="synaptent/aragora",
+        )
+
+        assert receipt == {}
+
+    def test_rejects_empty_changed_files_listing(self, monkeypatch: pytest.MonkeyPatch) -> None:
         head_sha = "exact-head"
         pr = _make_pr(
             number=9034,
@@ -1125,10 +1164,7 @@ class TestUnstableCancellationReceipt:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
-            self._gh_json_dispatch(
-                self._cancelled_build_run(head_sha),
-                files=[{"path": f"aragora/file_{index}.py"} for index in range(100)],
-            ),
+            self._gh_json_dispatch(self._cancelled_build_run(head_sha), files=[]),
         )
 
         receipt = _verified_unstable_non_required_cancellation_receipt(

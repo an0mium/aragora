@@ -69,28 +69,40 @@ def _pr_modifies_guarded_paths(
     repo_slug: str,
     gh_json: Callable[[list[str]], Any],
 ) -> bool:
-    """Fail closed unless the PR provably avoids every receipt-guarded path."""
-    args = ["pr", "view", str(pr_number), "--json", "files"]
-    if repo_slug:
-        args.extend(["--repo", repo_slug])
+    """Fail closed unless the PR provably avoids every receipt-guarded path.
+
+    Uses the REST files listing because it reports `previous_filename` for
+    renames — a rename away from a guarded file must disqualify the PR just
+    like an in-place edit, and the GraphQL `files` surface only shows the
+    new path."""
+    args = [
+        "api",
+        f"repos/{repo_slug}/pulls/{pr_number}/files",
+        "--paginate",
+        "--slurp",
+    ]
     try:
         payload = gh_json(args)
     except _GhError:
         return True
-    if not isinstance(payload, dict):
+    if not isinstance(payload, list):
         return True
-    files = payload.get("files")
-    if not isinstance(files, list):
+    entries: list[Any] = []
+    for page in payload:
+        if not isinstance(page, list):
+            return True
+        entries.extend(page)
+    # A pull request always changes at least one file; an empty listing means
+    # the lookup cannot be trusted.
+    if not entries:
         return True
-    # `gh pr view --json files` returns at most 100 entries; a PR that large
-    # gets no UNSTABLE exception rather than a partially-checked one.
-    if len(files) >= 100:
-        return True
-    for entry in files:
+    for entry in entries:
         if not isinstance(entry, dict):
             return True
-        if str(entry.get("path") or "").strip() in UNSTABLE_RECEIPT_GUARD_PATHS:
-            return True
+        for key in ("filename", "previous_filename"):
+            value = entry.get(key)
+            if value and str(value).strip() in UNSTABLE_RECEIPT_GUARD_PATHS:
+                return True
     return False
 
 
