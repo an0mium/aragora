@@ -611,6 +611,20 @@ def _validate_authority_manifest(
     ):
         raise ValueError("authority manifest canonical policy binding mismatch")
     authority_roots = policy.get("authority_roots")
+    # The live module supplies the expected policy values below, so it must
+    # byte-match the module blob at the governed ref; otherwise the validation
+    # would certify a closure against a policy that was never in force there.
+    module_blob = inventory_mod._git_blob_at_ref(
+        repo_root, end_sha, "aragora/cli/commands/review_queue.py"
+    )
+    if module_blob is None:
+        raise ValueError("canonical policy module missing at ref for authority validation")
+    live_module = repo_root / "aragora" / "cli" / "commands" / "review_queue.py"
+    if not live_module.exists() or live_module.read_bytes() != module_blob:
+        raise ValueError(
+            "working-tree policy module differs from the governed ref; "
+            "authority validation must run from a checkout of that ref"
+        )
     review_queue = inventory_mod._review_queue_module()
     expected_roots = sorted(str(root) for root in review_queue.CONTRACT_DRIFT_AUTHORITY_PREFIXES)
     if (

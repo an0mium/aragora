@@ -1096,9 +1096,35 @@ def _file_binding(
     }
 
 
+def _require_policy_module_matches_ref(repo_root: Path, ref: str) -> None:
+    """The manifest binds file blobs at --ref but classifies them with the
+    imported live policy module; certifying across a mismatch would let the
+    digest attest a closure that was never the policy at the governed ref."""
+    blob = _git_blob_at_ref(repo_root, ref, CANONICAL_CLASSIFIER_PATH)
+    _require(
+        blob is not None,
+        "policy_module_missing_at_ref",
+        f"canonical policy module missing at --ref: {CANONICAL_CLASSIFIER_PATH}",
+    )
+    assert blob is not None
+    live_path = repo_root / CANONICAL_CLASSIFIER_PATH
+    _require(
+        live_path.exists(),
+        "policy_module_missing_live",
+        f"canonical policy module missing from working tree: {CANONICAL_CLASSIFIER_PATH}",
+    )
+    _require(
+        _sha256_hex(live_path.read_bytes()) == _sha256_hex(blob),
+        "policy_module_ref_mismatch",
+        "working-tree policy module differs from the --ref blob: "
+        f"{CANONICAL_CLASSIFIER_PATH}; run from a checkout of the governed ref",
+    )
+
+
 def _build_authority_manifest(
     repo_root: Path, ref: str, cohort_path: Path, provenance_path: Path
 ) -> dict[str, Any]:
+    _require_policy_module_matches_ref(repo_root, ref)
     review_queue = _review_queue_module()
     inventory_document = _build_inventory_document(repo_root, ref, cohort_path, provenance_path)
     reasons = _authority_closure(review_queue, repo_root, ref)
@@ -1153,6 +1179,7 @@ def _build_tier_classification(
     cohort_path: Path,
     provenance_path: Path,
 ) -> dict[str, Any]:
+    _require_policy_module_matches_ref(repo_root, ref)
     review_queue = _review_queue_module()
     manifest = _build_authority_manifest(repo_root, ref, cohort_path, provenance_path)
     tier, tier_name, tier_reason = review_queue._classify_model_review_tier(list(changed_files))

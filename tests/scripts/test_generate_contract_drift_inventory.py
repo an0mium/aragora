@@ -923,6 +923,35 @@ def test_authority_manifest_auto_discovers_mission_artifacts_and_fails_closed(
     assert doc["error"]["code"] == "artifact_missing"
 
 
+def test_authority_manifest_fails_closed_on_policy_module_ref_mismatch(monkeypatch, capsys):
+    # Blobs are bound at --ref while classification uses the imported live
+    # module; any byte difference between the two must refuse certification.
+    artifacts = _require_artifacts()
+    sha = _head_sha()
+    monkeypatch.setenv("FACTORY_MISSION_DIR", str(artifacts[0].parent.parent))
+    real_blob_at_ref = gen._git_blob_at_ref
+
+    def _tampered(repo_root: Path, ref: str, path: str):
+        blob = real_blob_at_ref(repo_root, ref, path)
+        if path == gen.CANONICAL_CLASSIFIER_PATH and blob is not None:
+            return blob + b"\n# drifted policy\n"
+        return blob
+
+    monkeypatch.setattr(gen, "_git_blob_at_ref", _tampered)
+    rc, doc = _run_standalone(
+        monkeypatch,
+        capsys,
+        "--authority-manifest",
+        "--ref",
+        sha,
+        "--json",
+        "--repo-root",
+        str(REPO_ROOT),
+    )
+    assert rc == 1
+    assert doc["error"]["code"] == "policy_module_ref_mismatch"
+
+
 def _git_text(*argv: str) -> str:
     return subprocess.run(
         ["git", "-C", str(REPO_ROOT), *argv],
