@@ -41404,7 +41404,7 @@ export interface paths {
         get: operations["listKnowledgeMoundContradictionsByparamResolve"];
         put?: never;
         /**
-         * POST /api/v1/knowledge/mound/contradictions/{contradiction_id}/resolve
+         * POST /api/v1/knowledge/mound/contradictions/{param}/resolve
          * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
          */
         post: operations["createKnowledgeMoundContradictionsByparamResolve"];
@@ -42544,12 +42544,12 @@ export interface paths {
         get: operations["listKnowledgeMoundNodesByparamAccess"];
         put?: never;
         /**
-         * POST /api/v1/knowledge/mound/nodes/{node_id}/access
+         * POST /api/v1/knowledge/mound/nodes/{param}/access
          * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
          */
         post: operations["createKnowledgeMoundNodesByparamAccess"];
         /**
-         * DELETE /api/v1/knowledge/mound/nodes/{node_id}/access
+         * DELETE /api/v1/knowledge/mound/nodes/{param}/access
          * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
          */
         delete: operations["deleteKnowledgeMoundNodesByparamAccess"];
@@ -42591,7 +42591,7 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundNodesByparamVisibility"];
         /**
-         * PUT /api/v1/knowledge/mound/nodes/{node_id}/visibility
+         * PUT /api/v1/knowledge/mound/nodes/{param}/visibility
          * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
          */
         put: operations["updateKnowledgeMoundNodesByparamVisibility"];
@@ -145960,8 +145960,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Path parameter: contradiction_id */
-                contradiction_id: string;
+                /** @description Path parameter: param */
+                param: string;
             };
             cookie?: never;
         };
@@ -147988,8 +147988,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Path parameter: node_id */
-                node_id: string;
+                /** @description Path parameter: param */
+                param: string;
             };
             cookie?: never;
         };
@@ -148015,8 +148015,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Path parameter: node_id */
-                node_id: string;
+                /** @description Path parameter: param */
+                param: string;
             };
             cookie?: never;
         };
@@ -148092,8 +148092,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Path parameter: node_id */
-                node_id: string;
+                /** @description Path parameter: param */
+                param: string;
             };
             cookie?: never;
         };
